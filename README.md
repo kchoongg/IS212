@@ -1,1 +1,47 @@
 # IS212
+
+## Stack
+
+- Next.js 14 (App Router, TypeScript)
+- Tailwind CSS
+- PostgreSQL via Prisma
+- Hand-rolled auth: bcryptjs (password hashing) + jsonwebtoken (sessions)
+- Zod (validation)
+- Vitest (testing)
+
+## Getting started
+
+1. Install dependencies:
+   ```
+   npm install
+   ```
+2. Copy `.env.example` to `.env` and fill in `DATABASE_URL` (local Postgres, Neon, or Supabase) and `JWT_SECRET`.
+3. Apply the schema to your database:
+   ```
+   npm run prisma:migrate
+   ```
+4. Run the dev server:
+   ```
+   npm run dev
+   ```
+
+## Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Start the dev server |
+| `npm run build` | Production build |
+| `npm run lint` | Lint |
+| `npm test` | Run tests once |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run prisma:generate` | Regenerate the Prisma client |
+| `npm run prisma:migrate` | Create/apply a migration |
+| `npm run prisma:studio` | Open Prisma Studio |
+
+## Project layout
+
+- `src/app` — App Router routes
+- `src/lib/prisma.ts` — Prisma client singleton
+- `src/lib/auth.ts` — password hashing and JWT session helpers
+- `src/lib/validation.ts` — Zod schemas
+- `prisma/schema.prisma` — data model
