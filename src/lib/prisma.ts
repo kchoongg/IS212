@@ -1,8 +1,9 @@
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaClient } from "@prisma/client";
 
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
+// A single shared Prisma client. In dev, Next.js hot-reloads modules, which
+// would otherwise create a new PrismaClient on every edit and exhaust your
+// database's connection limit - stashing it on `global` avoids that.
+const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient();
 
