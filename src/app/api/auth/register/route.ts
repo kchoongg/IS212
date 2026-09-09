@@ -16,11 +16,13 @@ export async function POST(req: NextRequest) {
 
     const passwordHash = await hashPassword(data.password);
     const user = await prisma.user.create({
-      data: { name: data.name, email: data.email, passwordHash, role: data.role },
+      // CHANGED: schema field is `fullName` (column full_name), not `name`.
+      data: { fullName: data.name, email: data.email, passwordHash, role: data.role },
     });
 
+    // Response shape unchanged - the frontend expects `name`.
     return NextResponse.json(
-      { id: user.id, name: user.name, email: user.email, role: user.role },
+      { id: user.id, name: user.fullName, email: user.email, role: user.role },
       { status: 201 }
     );
   } catch (err) {

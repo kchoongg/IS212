@@ -22,7 +22,8 @@ export async function POST(req: NextRequest) {
     const token = signSession({ id: user.id, role: user.role });
     return NextResponse.json({
       token,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      // CHANGED: user.fullName, exposed as `name` so the response shape is unchanged.
+      user: { id: user.id, name: user.fullName, email: user.email, role: user.role },
     });
   } catch (err) {
     if (err instanceof ZodError) {

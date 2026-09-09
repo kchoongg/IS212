@@ -4,7 +4,9 @@ import { createEquipmentSchema } from "@/lib/validation";
 import { ZodError } from "zod";
 
 export async function GET() {
-  const items = await prisma.equipmentItem.findMany();
+  // CHANGED: prisma.equipmentItem -> prisma.equipment (the model is Equipment;
+  // it tracks pooled quantities, not individual physical units).
+  const items = await prisma.equipment.findMany();
   return NextResponse.json(items);
 }
 
@@ -12,7 +14,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = createEquipmentSchema.parse(body);
-    const item = await prisma.equipmentItem.create({ data });
+
+    if ((data.quantityInMaintenance ?? 0) > data.totalQuantity) {
+      return NextResponse.json(
+        { error: "quantityInMaintenance cannot exceed totalQuantity" },
+        { status: 400 }
+      );
+    }
+
+    const item = await prisma.equipment.create({ data });
     return NextResponse.json(item, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {

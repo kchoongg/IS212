@@ -36,13 +36,50 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }
 
+    // ADDED: a draft may be incomplete, but anything past draft may not.
+    // The SQL design enforced this with a CHECK constraint; Prisma has no
+    // equivalent, so the rule moves here - the one place status leaves draft.
+    if (event.status === "draft" && data.status !== "draft") {
+      const missing: string[] = [];
+      if (!event.title) missing.push("title");
+      if (!event.category) missing.push("category");
+      if (!event.startsAt) missing.push("startsAt");
+      if (!event.endsAt) missing.push("endsAt");
+      if (event.expectedAttendance == null) missing.push("expectedAttendance");
+      if (missing.length > 0) {
+        return NextResponse.json(
+          { error: `Cannot submit an incomplete event. Missing: ${missing.join(", ")}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ADDED: the brief requires a rejected request to retain the decision reason.
+    if (data.status === "rejected" && !data.reason?.trim()) {
+      return NextResponse.json(
+        { error: "A reason is required when rejecting an event" },
+        { status: 400 }
+      );
+    }
+
     const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-      const e = await tx.event.update({ where: { id }, data: { status: data.status } });
+      const e = await tx.event.update({
+        where: { id },
+        data: {
+          status: data.status,
+          // Keep the decision record on the event itself as well as in history.
+          ...(data.status === "rejected" ? { rejectionReason: data.reason } : {}),
+          ...(data.status === "cancelled" ? { cancellationReason: data.reason } : {}),
+          ...(data.status === "submitted" ? { submittedAt: new Date() } : {}),
+          ...(data.status === "confirmed" ? { confirmedAt: new Date() } : {}),
+        },
+      });
       await tx.eventStatusHistory.create({
         data: {
           eventId: id,
-          oldStatus: event.status,
-          newStatus: data.status,
+          // CHANGED: oldStatus -> fromStatus, newStatus -> toStatus.
+          fromStatus: event.status,
+          toStatus: data.status,
           changedBy: session.id,
           reason: data.reason,
         },

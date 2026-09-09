@@ -25,14 +25,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Registration is not enabled for this event" }, { status: 400 });
     }
 
-    const registration = await prisma.registration.create({
-      data: {
-        eventId: data.eventId,
-        attendeeId: session.id,
-        dietaryNeeds: data.dietaryNeeds,
-        accessibilityNeeds: data.accessibilityNeeds,
-        status: "registered",
-      },
+    // ADDED: registration window, if one is set.
+    const now = new Date();
+    if (event.registrationOpensAt && now < event.registrationOpensAt) {
+      return NextResponse.json({ error: "Registration has not opened yet" }, { status: 400 });
+    }
+    if (event.registrationClosesAt && now > event.registrationClosesAt) {
+      return NextResponse.json({ error: "Registration has closed" }, { status: 400 });
+    }
+
+    // The @@unique([eventId, attendeeId]) constraint means a withdrawn attendee
+    // cannot simply INSERT again. Reactivate their existing row instead, so
+    // withdrawing and re-registering both work (user stories 19 and 20).
+    const existing = await prisma.registration.findUnique({
+      where: { eventId_attendeeId: { eventId: data.eventId, attendeeId: session.id } },
+    });
+    if (existing && existing.status !== "withdrawn") {
+      return NextResponse.json({ error: "Already registered for this event" }, { status: 400 });
+    }
+
+    // ADDED: capacity check. Counted inside the transaction below so two
+    // attendees claiming the last seat at the same time cannot both succeed.
+    const registration = await prisma.$transaction(async (tx) => {
+      if (event.registrationCapacity != null) {
+        const taken = await tx.registration.count({
+          where: { eventId: data.eventId, status: { in: ["registered", "attended"] } },
+        });
+        if (taken >= event.registrationCapacity) {
+          throw new Error("EVENT_FULL");
+        }
+      }
+
+      if (existing) {
+        return tx.registration.update({
+          where: { id: existing.id },
+          data: {
+            status: "registered",
+            registeredAt: new Date(),
+            withdrawnAt: null,
+            // CHANGED: dietaryNeeds -> dietaryRequirements,
+            //          accessibilityNeeds -> accessibilityRequirements.
+            dietaryRequirements: data.dietaryRequirements,
+            accessibilityRequirements: data.accessibilityRequirements,
+          },
+        });
+      }
+
+      return tx.registration.create({
+        data: {
+          eventId: data.eventId,
+          attendeeId: session.id,
+          dietaryRequirements: data.dietaryRequirements,
+          accessibilityRequirements: data.accessibilityRequirements,
+          status: "registered",
+        },
+      });
     });
 
     return NextResponse.json(registration, { status: 201 });
@@ -40,7 +87,11 @@ export async function POST(req: NextRequest) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
-    // Unique constraint = already registered for this event
+    if (err instanceof Error && err.message === "EVENT_FULL") {
+      return NextResponse.json({ error: "This event is full" }, { status: 400 });
+    }
+    // Unique constraint = already registered for this event. Kept as a backstop
+    // for the race where two requests pass the check above simultaneously.
     if (err instanceof Error && err.message.includes("Unique constraint")) {
       return NextResponse.json({ error: "Already registered for this event" }, { status: 400 });
     }
