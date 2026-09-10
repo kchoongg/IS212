@@ -1,3 +1,13 @@
+// ConnectSphere — database schema
+// Conventions (see DOCUMENTATION.md § Building the Database From Scratch):
+//   - UUID primary keys
+//   - camelCase fields, snake_case columns via @map
+//   - plural snake_case table names via @@map
+//
+// Business rules (booking conflicts, equipment availability, registration
+// capacity, draft completeness) are enforced in route/service code, NOT here.
+// See data_dictionary.md § "Rules that live in application code".
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -5,4 +15,460 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// IDENTITY
+// ---------------------------------------------------------------------------
+
+/// Client companies. The access boundary for external users: an Organiser
+/// should not see events belonging to an unrelated client.
+model Organisation {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  users  User[]
+  events Event[]
+
+  @@map("organisations")
+}
+
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String  @map("password_hash")
+  /// Display name. Routes send this as `name`; it is stored as full_name.
+  fullName     String  @map("full_name")
+  phone        String?
+  /// organiser | coordinator | venue_staff | tech_support | attendee | ops_manager
+  role         String
+
+  /// NULL for internal ConnectSphere staff, set for external users.
+  organisationId String? @map("organisation_id")
+  /// Internal staff only.
+  department     String?
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  organisation Organisation? @relation(fields: [organisationId], references: [id])
+
+  organisedEvents        Event[]                @relation("EventOrganiser")
+  coordinatedEvents      Event[]                @relation("EventCoordinator")
+  statusChanges          EventStatusHistory[]
+  clarificationsRaised   ClarificationRequest[] @relation("ClarificationRequester")
+  changeRequestsRaised   EventChangeRequest[]   @relation("ChangeRequester")
+  changeRequestsReviewed EventChangeRequest[]   @relation("ChangeReviewer")
+  bookingsRequested      VenueBooking[]         @relation("BookingRequester")
+  bookingsDecided        VenueBooking[]         @relation("BookingDecider")
+  unavailabilityCreated  VenueUnavailability[]
+  equipmentRequested     EquipmentRequest[]     @relation("EquipmentRequester")
+  equipmentReviewed      EquipmentRequest[]     @relation("EquipmentReviewer")
+  registrations          Registration[]
+  notifications          Notification[]
+
+  @@index([role])
+  @@index([organisationId])
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------------
+// VENUES
+// ---------------------------------------------------------------------------
+
+model Venue {
+  id          String  @id @default(uuid())
+  /// Short human key staff say aloud, e.g. "MAR-GH".
+  code        String  @unique
+  name        String
+  description String?
+
+  /// Filterable location. Do not put these in `address`.
+  building String
+  floor    String?
+  address  String?
+
+  /// Absolute ceiling. Per-layout capacity (usually lower) is in VenueLayout.
+  maxCapacity Int @map("max_capacity")
+
+  /// "HH:MM", 24-hour. Stored as text so it is trivial to handle in JS and Zod;
+  /// zero-padded values compare correctly with < and >.
+  opensAt  String @default("08:00") @map("opens_at")
+  closesAt String @default("22:00") @map("closes_at")
+
+  /// Optional room occupancy either side of the published times.
+  setupMinutes    Int @default(0) @map("setup_minutes")
+  teardownMinutes Int @default(0) @map("teardown_minutes")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  layouts        VenueLayout[]
+  facilities     VenueFacility[]
+  bookings       VenueBooking[]
+  unavailability VenueUnavailability[]
+
+  @@index([isActive, building, maxCapacity])
+  @@map("venues")
+}
+
+/// Which layouts a room supports and how many fit in each. The same room seats
+/// 500 theatre-style but 250 as a classroom, so capacity belongs here, not on
+/// Venue — this is what makes suitability checking correct.
+model VenueLayout {
+  id         String @id @default(uuid())
+  venueId    String @map("venue_id")
+  /// theatre | classroom | boardroom | banquet | exhibition | u_shape | cabaret
+  layoutName String @map("layout_name")
+  capacity   Int
+
+  venue Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+
+  @@unique([venueId, layoutName])
+  @@index([layoutName, capacity])
+  @@map("venue_layouts")
+}
+
+/// A named capability a room can have. One table for both search filters;
+/// `category` keeps them separate in the UI.
+model Facility {
+  id       String @id @default(uuid())
+  name     String @unique
+  /// facility | accessibility
+  category String
+
+  venues            VenueFacility[]
+  eventRequirements EventFacilityRequirement[]
+
+  @@index([category])
+  @@map("facilities")
+}
+
+model VenueFacility {
+  venueId    String @map("venue_id")
+  facilityId String @map("facility_id")
+
+  venue    Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@id([venueId, facilityId])
+  @@map("venue_facilities")
+}
+
+// ---------------------------------------------------------------------------
+// EVENTS
+// ---------------------------------------------------------------------------
+
+model Event {
+  id          String  @id @default(uuid())
+  title       String?
+  description String?
+  purpose     String?
+  category    String?
+
+  organiserId    String  @map("organiser_id")
+  /// The client this event belongs to. Nullable for now: the register route
+  /// does not yet assign users to an organisation. See the mismatch report.
+  organisationId String? @map("organisation_id")
+  /// NULL until an Ops Manager assigns one — this is what separates
+  /// `submitted` from `under_review`.
+  coordinatorId  String? @map("coordinator_id")
+
+  /// draft | submitted | under_review | approved | planning | confirmed |
+  /// completed | cancelled | rejected | postponed
+  status String @default("draft")
+
+  /// Current agreed schedule. Proposed changes live in EventChangeRequest.
+  startsAt DateTime? @map("starts_at")
+  endsAt   DateTime? @map("ends_at")
+
+  expectedAttendance  Int?    @map("expected_attendance")
+  /// Matched against VenueLayout.layoutName.
+  preferredLayout     String? @map("preferred_layout")
+  accessibilityNotes  String? @map("accessibility_notes")
+  specialRequirements String? @map("special_requirements")
+
+  registrationEnabled  Boolean   @default(false) @map("registration_enabled")
+  /// Seats open to the public. Not the same as expectedAttendance.
+  registrationCapacity Int?      @map("registration_capacity")
+  registrationOpensAt  DateTime? @map("registration_opens_at")
+  registrationClosesAt DateTime? @map("registration_closes_at")
+
+  rejectionReason    String? @map("rejection_reason")
+  cancellationReason String? @map("cancellation_reason")
+
+  submittedAt DateTime? @map("submitted_at")
+  confirmedAt DateTime? @map("confirmed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  organiser    User          @relation("EventOrganiser", fields: [organiserId], references: [id])
+  organisation Organisation? @relation(fields: [organisationId], references: [id])
+  coordinator  User?         @relation("EventCoordinator", fields: [coordinatorId], references: [id])
+
+  facilityRequirements EventFacilityRequirement[]
+  statusHistory        EventStatusHistory[]
+  clarifications       ClarificationRequest[]
+  changeRequests       EventChangeRequest[]
+  venueBookings        VenueBooking[]
+  equipmentRequests    EquipmentRequest[]
+  registrations        Registration[]
+  notifications        Notification[]
+
+  @@index([organiserId, status])
+  @@index([organisationId, status])
+  @@index([coordinatorId, status])
+  @@index([status, startsAt])
+  @@map("events")
+}
+
+model EventFacilityRequirement {
+  eventId     String  @map("event_id")
+  facilityId  String  @map("facility_id")
+  /// false = nice-to-have; must NOT disqualify a venue.
+  isMandatory Boolean @default(true) @map("is_mandatory")
+
+  event    Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  facility Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+
+  @@id([eventId, facilityId])
+  @@map("event_facility_requirements")
+}
+
+/// Audit trail of status changes. Event.status holds only the current value.
+model EventStatusHistory {
+  id         String   @id @default(uuid())
+  eventId    String   @map("event_id")
+  /// NULL on creation.
+  fromStatus String?  @map("from_status")
+  toStatus   String   @map("to_status")
+  changedBy  String?  @map("changed_by")
+  changedAt  DateTime @default(now()) @map("changed_at")
+  reason     String?
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [changedBy], references: [id])
+
+  @@index([eventId, changedAt])
+  @@map("event_status_history")
+}
+
+/// The coordinator ↔ organiser review loop. Repeats, so each round is a row.
+model ClarificationRequest {
+  id              String    @id @default(uuid())
+  eventId         String    @map("event_id")
+  requestedBy     String    @map("requested_by")
+  requestedAt     DateTime  @default(now()) @map("requested_at")
+  message         String
+  /// open | answered | closed
+  status          String    @default("open")
+  responseMessage String?   @map("response_message")
+  respondedAt     DateTime? @map("responded_at")
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  requester User  @relation("ClarificationRequester", fields: [requestedBy], references: [id])
+
+  @@index([eventId, status])
+  @@map("clarification_requests")
+}
+
+/// Proposed changes. NOT applied to the event until approved.
+model EventChangeRequest {
+  id          String   @id @default(uuid())
+  eventId     String   @map("event_id")
+  requestedBy String   @map("requested_by")
+  requestedAt DateTime @default(now()) @map("requested_at")
+  reason      String
+
+  /// NULL means "not changing this field".
+  proposedStartsAt   DateTime? @map("proposed_starts_at")
+  proposedEndsAt     DateTime? @map("proposed_ends_at")
+  proposedAttendance Int?      @map("proposed_attendance")
+  otherChanges       String?   @map("other_changes")
+
+  /// true = date/time/attendance changed → re-check venue and equipment.
+  isSignificant Boolean @default(false) @map("is_significant")
+
+  /// pending | approved | rejected | withdrawn
+  status      String    @default("pending")
+  reviewedBy  String?   @map("reviewed_by")
+  reviewedAt  DateTime? @map("reviewed_at")
+  reviewNotes String?   @map("review_notes")
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  requester User  @relation("ChangeRequester", fields: [requestedBy], references: [id])
+  reviewer  User? @relation("ChangeReviewer", fields: [reviewedBy], references: [id])
+
+  @@index([eventId, status])
+  @@map("event_change_requests")
+}
+
+// ---------------------------------------------------------------------------
+// BOOKINGS
+// ---------------------------------------------------------------------------
+
+model VenueBooking {
+  id         String  @id @default(uuid())
+  eventId    String  @map("event_id")
+  venueId    String  @map("venue_id")
+  /// What Venue Staff physically set up.
+  layoutName String? @map("layout_name")
+
+  /// Copied from the event at request time — NOT read live. Changing an event
+  /// must not silently move an approved booking.
+  startsAt DateTime @map("starts_at")
+  endsAt   DateTime @map("ends_at")
+
+  /// pending | approved | rejected | cancelled. Only `approved` blocks a venue.
+  status           String    @default("pending")
+  requestedBy      String    @map("requested_by")
+  requestedAt      DateTime  @default(now()) @map("requested_at")
+  requirementsNote String?   @map("requirements_note")
+  decidedBy        String?   @map("decided_by")
+  decidedAt        DateTime? @map("decided_at")
+  /// Required when rejecting — enforced in route code.
+  decisionReason   String?   @map("decision_reason")
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  venue     Venue @relation(fields: [venueId], references: [id])
+  requester User  @relation("BookingRequester", fields: [requestedBy], references: [id])
+  decider   User? @relation("BookingDecider", fields: [decidedBy], references: [id])
+
+  @@index([venueId, status, startsAt, endsAt])
+  @@index([eventId, status])
+  @@map("venue_bookings")
+}
+
+/// Maintenance blocks. No event, no requester, no approval step — which is why
+/// this is separate from VenueBooking.
+model VenueUnavailability {
+  id        String   @id @default(uuid())
+  venueId   String   @map("venue_id")
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  /// maintenance | renovation | safety | internal_activity | other
+  reason    String
+  notes     String?
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  venue   Venue @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  creator User  @relation(fields: [createdBy], references: [id])
+
+  @@index([venueId, startsAt, endsAt])
+  @@map("venue_unavailability")
+}
+
+// ---------------------------------------------------------------------------
+// EQUIPMENT
+// ---------------------------------------------------------------------------
+
+/// Tracked by quantity, not by serial number: a coordinator requests
+/// "3 projectors", never three specific units.
+model Equipment {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  /// AV | IT | Staging | Networking | Accessibility
+  category    String?
+  description String?
+
+  totalQuantity         Int @map("total_quantity")
+  /// Out of service. Availability = total − maintenance − reserved.
+  quantityInMaintenance Int @default(0) @map("quantity_in_maintenance")
+
+  isActive Boolean @default(true) @map("is_active")
+
+  requests EquipmentRequest[]
+
+  @@map("equipment")
+}
+
+/// Request and reservation in one table: a reservation only ever comes from a
+/// request, so splitting them made two rows describe one thing.
+model EquipmentRequest {
+  id          String @id @default(uuid())
+  eventId     String @map("event_id")
+  equipmentId String @map("equipment_id")
+
+  quantityRequested Int  @map("quantity_requested")
+  /// What Tech Support could commit. NULL until reviewed.
+  quantityReserved  Int? @map("quantity_reserved")
+
+  technicalRequirements String? @map("technical_requirements")
+
+  /// Usually wider than the event — kit leaves early and returns late.
+  startsAt DateTime @map("starts_at")
+  endsAt   DateTime @map("ends_at")
+
+  /// requested | under_review | reserved | partially_fulfilled | unavailable | cancelled
+  status      String    @default("requested")
+  requestedBy String    @map("requested_by")
+  requestedAt DateTime  @default(now()) @map("requested_at")
+  reviewedBy  String?   @map("reviewed_by")
+  reviewedAt  DateTime? @map("reviewed_at")
+  staffNotes  String?   @map("staff_notes")
+
+  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+  requester User      @relation("EquipmentRequester", fields: [requestedBy], references: [id])
+  reviewer  User?     @relation("EquipmentReviewer", fields: [reviewedBy], references: [id])
+
+  @@unique([eventId, equipmentId])
+  @@index([equipmentId, status, startsAt, endsAt])
+  @@map("equipment_requests")
+}
+
+// ---------------------------------------------------------------------------
+// REGISTRATION
+// ---------------------------------------------------------------------------
+
+model Registration {
+  id         String @id @default(uuid())
+  eventId    String @map("event_id")
+  attendeeId String @map("attendee_id")
+  /// registered | waitlisted | withdrawn | attended
+  status     String @default("registered")
+
+  registeredAt DateTime  @default(now()) @map("registered_at")
+  withdrawnAt  DateTime? @map("withdrawn_at")
+
+  /// The attendee's own needs, not the event's.
+  dietaryRequirements       String? @map("dietary_requirements")
+  accessibilityRequirements String? @map("accessibility_requirements")
+
+  event    Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  attendee User  @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+
+  /// Required by src/app/api/registrations/route.ts, which detects duplicate
+  /// sign-ups by catching the Postgres unique-constraint error rather than
+  /// checking first. See the mismatch report for how withdrawal + re-register
+  /// is handled given this constraint.
+  @@unique([eventId, attendeeId])
+  @@index([eventId, status])
+  @@index([attendeeId, status])
+  @@map("registrations")
+}
+
+// ---------------------------------------------------------------------------
+// NOTIFICATIONS
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String   @map("recipient_id")
+  type        String
+  title       String
+  body        String
+  eventId     String?  @map("event_id")
+  isRead      Boolean  @default(false) @map("is_read")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  recipient User   @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+  event     Event? @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, isRead, createdAt])
+  @@map("notifications")
 }

@@ -27,18 +27,32 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = createEventSchema.parse(body);
 
+    // CHANGED: an event belongs to a client organisation, which is how access
+    // is scoped ("an Organiser should not see events of unrelated clients").
+    // Read it off the organiser rather than trusting the request body.
+    const organiser = await prisma.user.findUnique({
+      where: { id: session.id },
+      select: { organisationId: true },
+    });
+
     const event = await prisma.event.create({
       data: {
         organiserId: session.id,
+        organisationId: organiser?.organisationId ?? null,
         title: data.title,
         category: data.category,
         purpose: data.purpose,
         description: data.description,
-        proposedDate: data.proposedDate ? new Date(data.proposedDate) : undefined,
-        timeSlot: data.timeSlot,
+        // CHANGED: proposedDate + timeSlot -> real startsAt / endsAt timestamps.
+        startsAt: data.startsAt ? new Date(data.startsAt) : undefined,
+        endsAt: data.endsAt ? new Date(data.endsAt) : undefined,
         expectedAttendance: data.expectedAttendance,
-        accessibilityNeeds: data.accessibilityNeeds,
+        preferredLayout: data.preferredLayout,
+        // CHANGED: accessibilityNeeds -> accessibilityNotes.
+        accessibilityNotes: data.accessibilityNotes,
+        specialRequirements: data.specialRequirements,
         registrationEnabled: data.registrationEnabled ?? false,
+        registrationCapacity: data.registrationCapacity,
         status: "draft",
       },
     });
