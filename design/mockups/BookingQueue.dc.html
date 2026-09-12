@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .app{width:1180px;height:740px;display:flex;flex-direction:column;background:#f8fafc;overflow:hidden}
+    .top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+    .brand{font-size:16px;font-weight:600}
+    .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+    .who{text-align:right;line-height:1.3}
+    .who-name{font-size:14px;font-weight:500}
+    .who-role{font-size:12px;color:#64748b}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .btn-danger{background:#dc2626;color:#fff}
+    .body{display:flex;flex:1;min-height:0}
+    .side{width:240px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;padding:12px;display:flex;flex-direction:column;gap:2px}
+    .nav{padding:8px 12px;border-radius:6px;font-size:14px;color:#475569}
+    .nav.on{background:#f1f5f9;color:#0f172a;font-weight:500}
+    .main{flex:1;min-width:0;padding:24px;overflow:hidden}
+    .h1{font-size:20px;font-weight:600;margin:0}
+    .sub{font-size:14px;color:#64748b;margin:4px 0 0}
+    .badge{display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500}
+    .b-warning{background:#fffbeb;color:#92400e;box-shadow:inset 0 0 0 1px #fde68a}
+    .b-danger{background:#fef2f2;color:#b91c1c;box-shadow:inset 0 0 0 1px #fecaca}
+    .req{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:16px}
+    .dt{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+    .dd{font-size:14px;margin-top:3px}
+    .alert{border-radius:6px;border:1px solid;padding:12px 16px;font-size:14px}
+    .a-error{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+    .a-warn{background:#fffbeb;border-color:#fde68a;color:#78350f}
+    .lnk{color:#7f1d1d;text-decoration:underline;font-weight:500}
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">ConnectSphere</div>
+    <div class="top-right">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <div class="who">
+        <div class="who-name">Arun Kumar</div>
+        <div class="who-role">Venue Staff</div>
+      </div>
+      <div class="btn btn-secondary btn-sm">Log out</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="side">
+      <div class="nav">Dashboard</div>
+      <div class="nav">Venues</div>
+      <div class="nav on">Booking Requests</div>
+      <div class="nav">Notifications</div>
+    </div>
+
+    <div class="main">
+      <div style="margin-bottom:20px">
+        <h1 class="h1">Booking requests</h1>
+        <p class="sub">3 pending decisions.</p>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:14px;max-width:860px">
+
+        <!-- Conflict: blocking, names the other event, links to the calendar -->
+        <div class="req">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
+            <div>
+              <div style="font-size:15px;font-weight:600">Marina Grand Hall <span style="font-weight:400;color:#64748b">(MAR-GH)</span></div>
+              <div style="font-size:14px;color:#64748b;margin-top:3px">for Regional Nursing Symposium &middot; Meridian Health Asia</div>
+            </div>
+            <span class="badge b-danger">Conflict</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:14px">
+            <div><div class="dt">Requested</div><div class="dd">3 Oct 2026, 09:00&ndash;17:00</div></div>
+            <div><div class="dt">Layout</div><div class="dd">Theatre</div></div>
+            <div><div class="dt">Attendance</div><div class="dd">250</div></div>
+            <div><div class="dt">By</div><div class="dd">Wei Lin Tan</div></div>
+          </div>
+
+          <div class="alert a-error" style="margin-bottom:14px">
+            <strong>This overlaps an approved booking.</strong>
+            <div style="margin-top:4px">Annual Clinical Conference 2026 holds this room 3 Oct 2026, 09:00&ndash;17:00.
+              <a href="#" class="lnk">Open the calendar</a> to see the full day.</div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <div class="btn btn-primary" style="opacity:.5">Approve</div>
+            <div class="btn btn-danger">Reject with a reason</div>
+            <div class="btn btn-secondary">Suggest another room</div>
+          </div>
+        </div>
+
+        <!-- Turnaround overlap: a warning, not a block -->
+        <div class="req">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px">
+            <div>
+              <div style="font-size:15px;font-weight:600">Orchard Boardroom <span style="font-weight:400;color:#64748b">(ORC-BR)</span></div>
+              <div style="font-size:14px;color:#64748b;margin-top:3px">for Vendor Networking Evening &middot; Meridian Health Asia</div>
+            </div>
+            <span class="badge b-warning">Pending</span>
+          </div>
+
+          <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-bottom:14px">
+            <div><div class="dt">Requested</div><div class="dd">5 Dec 2026, 18:00&ndash;21:00</div></div>
+            <div><div class="dt">Layout</div><div class="dd">Banquet</div></div>
+            <div><div class="dt">Attendance</div><div class="dd">120</div></div>
+            <div><div class="dt">By</div><div class="dd">Wei Lin Tan</div></div>
+          </div>
+
+          <div class="alert a-warn" style="margin-bottom:14px">
+            <strong>Tight turnaround.</strong>
+            <div style="margin-top:4px">This starts 20 minutes after Investor Briefing ends, and this room needs 30 minutes to reset.</div>
+          </div>
+
+          <div style="display:flex;gap:8px">
+            <div class="btn btn-primary">Approve anyway</div>
+            <div class="btn btn-danger">Reject with a reason</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

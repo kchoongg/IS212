@@ -1,9 +1,10 @@
 # CONNECTSPHERE
 ## Developer Documentation — Living Document
 
-**Version:** 3.0
+**Version:** 3.1
 **Architecture:** Single Next.js app — one codebase, one database, one deploy
 **Status:** 🟢 Schema built — 17 tables live, all routes reconnected, demo data available
+**Frontend:** 🟢 Design system + app shell built; 6 of 28 screens implemented
 **Database:** Neon (hosted PostgreSQL, free tier)
 **Team:** 5 members, one domain each, same codebase
 
@@ -19,6 +20,9 @@
 >   query.** It's the answer to "what's that field called again?"
 > - [`ENDPOINT_ADAPTATION_GUIDE.md`](./ENDPOINT_ADAPTATION_GUIDE.md) — the route
 >   code as it was before the schema rebuild. Historical now; kept for reference.
+> - [`UI_DESIGN.md`](./UI_DESIGN.md) — every screen, how users move between
+>   them, what each form asks for, and how errors are shown. **Read this before
+>   building a screen.** It's the answer to "what goes on this page?"
 
 ---
 
@@ -29,13 +33,14 @@
 3. [The 5 Domains ("Services")](#-the-5-domains-services)
 4. [How a Request Flows](#-how-a-request-flows)
 5. [The Pattern to Copy for a New Endpoint](#-the-pattern-to-copy-for-a-new-endpoint)
-6. [Working With the Database](#-working-with-the-database)
-7. [Business Rules Live in Code, Not the Database](#-business-rules-live-in-code-not-the-database)
-8. [Changing the Schema](#-changing-the-schema)
-9. [Everyday Commands](#-everyday-commands)
-10. [Avoiding Merge Conflicts](#-avoiding-merge-conflicts)
-11. [Troubleshooting](#-troubleshooting)
-12. [Changelog](#-changelog)
+6. [The Frontend and the Design System](#-the-frontend-and-the-design-system)
+7. [Working With the Database](#-working-with-the-database)
+8. [Business Rules Live in Code, Not the Database](#-business-rules-live-in-code-not-the-database)
+9. [Changing the Schema](#-changing-the-schema)
+10. [Everyday Commands](#-everyday-commands)
+11. [Avoiding Merge Conflicts](#-avoiding-merge-conflicts)
+12. [Troubleshooting](#-troubleshooting)
+13. [Changelog](#-changelog)
 
 ---
 
@@ -113,26 +118,44 @@ IS212/
 │   ├── seed.ts                 # Demo data — run with `npx prisma db seed`
 │   └── migrations/             # Auto-generated. Commit these, never edit them.
 │
+├── UI_DESIGN.md                # THE screen spec — read before building any screen
+├── design/mockups/             # Visual mockups (.dc.html), one file per screen
+│
 └── src/
     ├── app/
-    │   ├── page.tsx              # Homepage
-    │   ├── login/page.tsx         # Login page
-    │   ├── register/page.tsx       # Register page
-    │   ├── events/page.tsx          # Events list page
+    │   ├── layout.tsx            # Fonts + the app shell that wraps every page
+    │   ├── globals.css            # Base layer only. Colours live in tailwind.config.ts
+    │   ├── page.tsx                # Homepage
+    │   ├── login/page.tsx           # S-01
+    │   ├── register/page.tsx         # S-02
+    │   ├── dashboard/page.tsx         # S-03, role-aware
+    │   ├── events/page.tsx             # S-07
+    │   ├── events/new/page.tsx          # S-08, the event request form
     │   │
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
     │       ├── events/                  (Kristen)
     │       ├── venues/                   (Kayal)
-    │       ├── equipment/                 (Janelle)
-    │       └── registrations/              (Sammi)
+    │       ├── facilities/                (Kayal — reference data for forms + venue search)
+    │       ├── equipment/                  (Janelle)
+    │       └── registrations/               (Sammi)
+    │
+    ├── components/
+    │   ├── AppShell.tsx        # Top bar + role-aware sidebar. Wraps every route.
+    │   └── ui/                  # THE component library — see §6. Import from "@/components/ui"
     │
     └── lib/
         ├── prisma.ts           # Database client — import this, don't create your own
         ├── auth.ts              # Password hashing + JWT helpers (server-side)
         ├── session.ts            # Browser-side: storing/reading the login token
-        ├── validation.ts          # ALL Zod schemas live in this ONE file
-        └── __tests__/             # Tests go HERE, not next to the file they test
+        ├── useCurrentUser.ts      # Who is signed in (for rendering only, never for access)
+        ├── roles.ts                # Role labels + which nav/tabs each role sees
+        ├── statuses.ts              # Status label + colour for EVERY status in the system
+        ├── format.ts                 # Dates, capacities, venue names — one format each
+        ├── formErrors.ts              # Client validation + mapping server errors to fields
+        ├── cn.ts                       # Tiny class-name joiner
+        ├── validation.ts                # ALL Zod schemas live in this ONE file
+        └── __tests__/                    # Tests go HERE, not next to the file they test
 ```
 
 > Tests belong in `src/lib/__tests__/`. A test file sitting outside that folder
@@ -154,7 +177,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 |---|---|---|---|---|
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
 | **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working |
-| **Kayal** | `src/app/api/venues/` | Venues, bookings | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 list + create; booking routes to build |
+| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create, facilities list; booking routes to build |
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
@@ -215,6 +238,75 @@ export async function POST(req: NextRequest) {
 **Status codes we use consistently** — the frontend depends on these:
 400 validation failure or broken business rule · 401 not logged in ·
 404 not found · 201 created · 200 everything else.
+
+---
+
+## 🎨 THE FRONTEND AND THE DESIGN SYSTEM
+
+**Read `UI_DESIGN.md` before you build a screen.** It names all 28 screens with
+stable IDs (S-01 … S-28), the route each one lives at, what its form fields
+are, and which error states it has to handle. Your user story cites a screen
+ID; the spec tells you the rest. If you build something that contradicts the
+spec, **change the spec in the same PR** — a document nobody updates becomes a
+document that lies to the next person.
+
+### Never write a raw colour or a bare `<input>`
+
+Three files hold the vocabulary. Using them is what keeps six people's screens
+looking like one product:
+
+| File | Holds | Use it for |
+|---|---|---|
+| `tailwind.config.ts` | Every colour, the two fonts, radii, shadows | `bg-surface`, `text-ink-2`, `border-line` — never `bg-white` or `text-gray-500` |
+| `src/components/ui/` | Button, Field, Input, Select, Checkbox, CheckboxGroup, Card, StatusBadge, Alert, EmptyState, PageHeader, Breadcrumb, Table, Tabs, DataState, ConfirmDialog | Assembling a screen. Import from `@/components/ui` |
+| `src/lib/statuses.ts` | Label + colour for every status string | Always via `<StatusBadge status={...} />`, never a hand-rolled span |
+
+If a screen needs something the library does not have, add it to the library
+and to `UI_DESIGN.md` §5.4 — not a one-off `<div>` in your page.
+
+### The four states every data screen must handle
+
+Loading, empty, error, loaded. `DataState` gives you all four:
+
+```tsx
+<DataState
+  data={events}                       // null = still loading
+  error={error}
+  onRetry={load}
+  empty={{ title: "No events yet", description: "…", action: <ButtonLink …/> }}
+>
+  {(rows) => <Table columns={columns} rows={rows} rowKey={(r) => r.id} />}
+</DataState>
+```
+
+A screen that shows a blank page when the request fails is not finished.
+
+### Forms
+
+Copy the nearest existing one rather than starting fresh:
+
+| You are building | Copy |
+|---|---|
+| A form with validation | `src/app/register/page.tsx` — blur, submit, server errors mapped back onto fields |
+| A list with filters | `src/app/events/page.tsx` |
+| A long, sectioned form | `src/app/events/new/page.tsx` |
+
+Client validation mirrors `src/lib/validation.ts`; it is a convenience, never
+the authority. **The server validates every request regardless**, and the two
+must agree — a form that lets the user press Submit and then shows a server
+error is the exact failure the spec exists to prevent.
+
+### Roles change what you can reach, never how it looks
+
+`src/lib/roles.ts` holds the sidebar items and event-detail tabs for each role.
+Add a screen for a role by adding one line there — do not put `if (role === …)`
+in a component. A tab a role may not see is **not rendered at all**, not
+rendered-and-disabled: a greyed-out "Readiness" tells an external user that
+internal planning information exists, which the briefing forbids.
+
+> ⚠️ `useCurrentUser()` is for **rendering only**. Hiding a nav item is not
+> access control — every API route must re-check the session and the user's
+> relationship to the record.
 
 ---
 
@@ -343,12 +435,16 @@ traceability the module asks for.
 |---|---|
 | `npm run dev` | Start the app (auto-reloads as you edit) |
 | `npm run build` | Production build |
-| `npm run lint` | Check code style/common mistakes |
+| `npx eslint src --ext .ts,.tsx` | Check code style/common mistakes |
 | `npm test` | Run tests once |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
 | `npx prisma migrate dev` | Create/apply a migration after YOU change `schema.prisma` |
 | `npx prisma studio` | Browser UI to view/edit the database directly |
+
+> ⚠️ `npm run lint` is **broken** on Next 16 — `next lint` was removed and the
+> argument is read as a directory (`no such directory: C:\IS212\lint`). Use the
+> `npx eslint` command above until someone updates the script in `package.json`.
 | `npx prisma db seed` | ⚠️ Wipes all tables, then loads the demo data |
 | `npx prisma migrate reset` | ⚠️ Wipes the database and replays all migrations |
 
@@ -444,6 +540,49 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-09-13 — Jordan
+- **SPM-7 (design the user interface).** Added `UI_DESIGN.md`: 28 screens with
+  stable IDs, the navigation map, the role/tab permission matrix, form field
+  specs, and 17 domain error states. Visual mockups for all five roles are in
+  `design/mockups/` (one `.dc.html` per screen). **Read the spec before
+  building a screen** — see the new [Frontend and Design System](#-the-frontend-and-the-design-system)
+  section.
+- Added the shared component library (`src/components/ui/`) and the role-aware
+  app shell (`src/components/AppShell.tsx`), plus `roles.ts`, `statuses.ts`,
+  `format.ts`, `formErrors.ts` and `cn.ts` in `src/lib/`. Rebuilt the homepage,
+  login, register, dashboard and events screens on top of them; added S-08, the
+  event request form.
+- Applied the ConnectSphere theme: deep teal on a warm ivory ground, Geist for
+  body text (vendored, no network) and Source Serif 4 for titles. **All colours
+  now live in `tailwind.config.ts` as semantic tokens** — `bg-surface`,
+  `text-ink-2`, `border-line`. No screen should contain a raw Tailwind grey
+  again.
+- **Facility and equipment requirements are now rows, not prose.** Added
+  `GET /api/facilities` and extended `createEventSchema` with `facilityIds`
+  and `equipment`; `POST /api/events` writes `event_facility_requirements` and
+  `equipment_requests` in the same create. This is what makes venue suitability
+  (story 11) buildable — free text cannot be matched against what a venue has.
+  No migration: the tables already existed.
+  - ⚠️ **Janelle:** the events route now writes `EquipmentRequest`, which is
+    your table. It only ever inserts rows for the event being created, with
+    `status: "requested"` for you to review. Shout if you would rather this
+    moved behind an equipment endpoint.
+  - Equipment needs event dates (`EquipmentRequest.starts_at/ends_at` are NOT
+    NULL), so that section of the form stays hidden until the event has a start
+    and an end. The reservation window is the event times ±2 hours for load-in
+    and load-out.
+- Tests: 64 passing (was 48). New suites for `roles`, `statuses`, `format` and
+  `formErrors`, plus schema tests for the new requirement rules.
+- ⚠️ `npm run lint` is broken on Next 16 — use `npx eslint src --ext .ts,.tsx`.
+  Noted in [Everyday Commands](#-everyday-commands).
+- ⚠️ **Known gap, not fixed here:** there is still no `.env.example`, so a fresh
+  clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them
+  `src/lib/auth.ts` throws at import and **every API route returns 500**.
+- ⚠️ **Known gap:** role-based *authorisation* is largely unimplemented.
+  `PATCH /api/events/[id]` has no role check, `GET /api/events/[id]` has no
+  session check, and `POST /api/venues` and `POST /api/equipment` have no auth
+  at all. Non-organiser roles currently see every event. Needs its own story.
 
 ### 2026-09-10 — Kristen
 - Added `prisma/seed.ts` and a `prisma.seed` entry in `package.json`; run with

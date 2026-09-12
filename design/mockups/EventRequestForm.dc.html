@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .app{width:1180px;height:900px;display:flex;flex-direction:column;background:#f8fafc;overflow:hidden}
+    .top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+    .brand{font-size:16px;font-weight:600}
+    .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+    .who{text-align:right;line-height:1.3}
+    .who-name{font-size:14px;font-weight:500}
+    .who-role{font-size:12px;color:#64748b}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .btn-ghost{background:transparent;color:#334155}
+    .body{display:flex;flex:1;min-height:0}
+    .side{width:240px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;padding:12px;display:flex;flex-direction:column;gap:2px}
+    .nav{padding:8px 12px;border-radius:6px;font-size:14px;color:#475569}
+    .nav.on{background:#f1f5f9;color:#0f172a;font-weight:500}
+    .main{flex:1;min-width:0;padding:24px;overflow:hidden}
+    .h1{font-size:20px;font-weight:600;margin:0}
+    .sub{font-size:14px;color:#64748b;margin:4px 0 0}
+    .crumb{font-size:12px;color:#64748b;margin-bottom:8px}
+    .leg{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#64748b;border-top:1px solid #e2e8f0;padding-top:16px;margin:20px 0 14px}
+    .lbl{font-size:14px;font-weight:500;display:block;margin-bottom:6px}
+    .req{color:#dc2626}
+    .inp{width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;font-size:14px;background:#fff;color:#0f172a;font-family:inherit}
+    .inp.err{border-color:#f87171}
+    .ph{color:#94a3b8}
+    .hint{font-size:12px;color:#64748b;margin:6px 0 0}
+    .errtxt{font-size:12px;font-weight:500;color:#dc2626;margin:6px 0 0}
+    .fld{margin-bottom:16px}
+    .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+    .sel{display:flex;align-items:center;justify-content:space-between}
+    .alert{border-radius:6px;border:1px solid;padding:12px 16px;font-size:14px}
+    .a-error{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">ConnectSphere</div>
+    <div class="top-right">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <div class="who">
+        <div class="who-name">Priya Raman</div>
+        <div class="who-role">Event Organiser</div>
+      </div>
+      <div class="btn btn-secondary btn-sm">Log out</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="side">
+      <div class="nav">Dashboard</div>
+      <div class="nav on">My Events</div>
+      <div class="nav">Notifications</div>
+    </div>
+
+    <div class="main">
+      <div style="max-width:660px">
+        <div class="crumb">My Events / New request</div>
+        <h1 class="h1">New event request</h1>
+        <p class="sub" style="margin-bottom:20px">Tell us what you need. You can save a draft and finish it later.</p>
+
+        <div class="leg" style="margin-top:0;border-top:none;padding-top:0">Basics</div>
+
+        <div class="fld">
+          <span class="lbl">Event name <span class="req">*</span></span>
+          <div class="inp">Regional Nursing Symposium</div>
+        </div>
+
+        <div class="fld">
+          <span class="lbl">Type of event <span class="req">*</span></span>
+          <div class="inp sel err"><span class="ph">Select a type</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+          </div>
+          <p class="errtxt">Choose the type of event.</p>
+        </div>
+
+        <div class="fld">
+          <span class="lbl">Purpose</span>
+          <div class="inp" style="height:58px">Bring regional nursing leads together for accreditation updates.</div>
+          <p class="hint">What the event is for, in a line or two.</p>
+        </div>
+
+        <div class="leg">Schedule</div>
+        <div class="row">
+          <div class="fld">
+            <span class="lbl">Starts at <span class="req">*</span></span>
+            <div class="inp">03/10/2026, 09:00</div>
+          </div>
+          <div class="fld">
+            <span class="lbl">Ends at <span class="req">*</span></span>
+            <div class="inp err">03/10/2026, 08:00</div>
+            <p class="errtxt">Ends at must be after starts at.</p>
+          </div>
+        </div>
+
+        <div class="leg">Attendance</div>
+        <div class="row">
+          <div class="fld">
+            <span class="lbl">Expected attendance <span class="req">*</span></span>
+            <div class="inp">250</div>
+            <p class="hint">Used to check a venue is large enough. An estimate is fine.</p>
+          </div>
+          <div class="fld">
+            <span class="lbl">Preferred room layout</span>
+            <div class="inp sel"><span>Theatre</span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="leg">Registration</div>
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:16px">
+          <div style="width:16px;height:16px;border-radius:4px;background:#0f172a;margin-top:2px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+          </div>
+          <div>
+            <div style="font-size:14px">Attendees need to register for this event</div>
+            <p class="hint" style="margin-top:2px">Turn this on if you want ConnectSphere to collect registrations.</p>
+          </div>
+        </div>
+
+        <!-- Revealed by the checkbox above, never shown disabled (§6.2) -->
+        <div class="fld">
+          <span class="lbl">Registration capacity <span class="req">*</span></span>
+          <div class="inp" style="max-width:320px">220</div>
+          <p class="hint">How many attendees can register. This can differ from expected attendance.</p>
+        </div>
+
+        <div style="display:flex;gap:8px;border-top:1px solid #e2e8f0;background:#f8fafc;padding:14px 0 0;margin-top:20px">
+          <div class="btn btn-primary">Submit request</div>
+          <div class="btn btn-secondary">Save draft</div>
+          <div class="btn btn-ghost">Cancel</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

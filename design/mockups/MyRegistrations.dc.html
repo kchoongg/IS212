@@ -1,0 +1,137 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .app{width:1180px;height:740px;display:flex;flex-direction:column;background:#f8fafc;overflow:hidden;position:relative}
+    .top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+    .brand{font-size:16px;font-weight:600}
+    .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+    .who{text-align:right;line-height:1.3}
+    .who-name{font-size:14px;font-weight:500}
+    .who-role{font-size:12px;color:#64748b}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .btn-danger{background:#dc2626;color:#fff}
+    .body{display:flex;flex:1;min-height:0}
+    .side{width:240px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;padding:12px;display:flex;flex-direction:column;gap:2px}
+    .nav{padding:8px 12px;border-radius:6px;font-size:14px;color:#475569}
+    .nav.on{background:#f1f5f9;color:#0f172a;font-weight:500}
+    .main{flex:1;min-width:0;padding:24px;overflow:hidden}
+    .h1{font-size:20px;font-weight:600;margin:0}
+    .sub{font-size:14px;color:#64748b;margin:4px 0 0}
+    .badge{display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500}
+    .b-success{background:#f0fdf4;color:#15803d;box-shadow:inset 0 0 0 1px #bbf7d0}
+    .b-warning{background:#fffbeb;color:#92400e;box-shadow:inset 0 0 0 1px #fde68a}
+    .b-neutral{background:#f1f5f9;color:#334155;box-shadow:inset 0 0 0 1px #e2e8f0}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+    .tbl{width:100%;border-collapse:collapse;font-size:14px}
+    .tbl th{text-align:left;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:#64748b;padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0}
+    .tbl td{padding:12px 16px;border-bottom:1px solid #f1f5f9;vertical-align:middle}
+    .tbl tr:last-child td{border-bottom:none}
+    .scrim{position:absolute;inset:0;background:rgba(15,23,42,.4);display:flex;align-items:center;justify-content:center}
+    .dlg{width:448px;background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden;box-shadow:0 20px 40px rgba(15,23,42,.18)}
+    .dlg-b{padding:16px 20px}
+    .dlg-f{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid #e2e8f0;background:#f8fafc;padding:12px 20px}
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">ConnectSphere</div>
+    <div class="top-right">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <div class="who">
+        <div class="who-name">Daniel Ong</div>
+        <div class="who-role">Attendee</div>
+      </div>
+      <div class="btn btn-secondary btn-sm">Log out</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="side">
+      <div class="nav">Dashboard</div>
+      <div class="nav">Browse Events</div>
+      <div class="nav on">My Registrations</div>
+      <div class="nav">Notifications</div>
+    </div>
+
+    <div class="main">
+      <div style="margin-bottom:20px">
+        <h1 class="h1">My registrations</h1>
+        <p class="sub">Events you have registered for, and where you are on any waiting list.</p>
+      </div>
+
+      <div class="card">
+        <table class="tbl">
+          <thead>
+            <tr><th style="width:34%">Event</th><th style="width:26%">When</th><th style="width:18%">Where</th><th style="width:12%">Status</th><th style="width:10%"></th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:500">Digital Health Workshop</td>
+              <td>14 Nov 2026, 09:30&ndash;12:30</td>
+              <td>Raffles Seminar Room 2</td>
+              <td><span class="badge b-success">Registered</span></td>
+              <td style="text-align:right"><span class="btn btn-secondary btn-sm">Withdraw</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:500">Annual Clinical Conference 2026</td>
+              <td>3 Oct 2026, 09:00&ndash;17:00</td>
+              <td>Marina Grand Hall</td>
+              <td><span class="badge b-warning">Waiting list</span></td>
+              <td style="text-align:right"><span class="btn btn-secondary btn-sm">Leave</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:500">Vendor Networking Evening</td>
+              <td>5 Dec 2026, 18:00&ndash;21:00</td>
+              <td>Orchard Boardroom</td>
+              <td><span class="badge b-success">Registered</span></td>
+              <td style="text-align:right"><span class="btn btn-secondary btn-sm">Withdraw</span></td>
+            </tr>
+            <tr>
+              <td style="font-weight:500;color:#64748b">Staff Training Day</td>
+              <td style="color:#64748b">8 Sep 2026, 09:00&ndash;17:00</td>
+              <td style="color:#64748b">Clarke Quay Studio</td>
+              <td><span class="badge b-neutral">Attended</span></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Destructive actions name the real consequence, never "Are you sure?"
+       (§7.5) -->
+  <div class="scrim">
+    <div class="dlg">
+      <div class="dlg-b">
+        <div style="font-size:16px;font-weight:600">Withdraw from Digital Health Workshop?</div>
+        <div style="font-size:14px;color:#475569;margin-top:8px;line-height:1.55">
+          Your place on 14 Nov 2026 is released immediately and offered to the first person on the
+          waiting list. If you change your mind you would have to register again, and the event may
+          be full by then.
+        </div>
+      </div>
+      <div class="dlg-f">
+        <div class="btn btn-secondary">Keep my place</div>
+        <div class="btn btn-danger">Withdraw</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

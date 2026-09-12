@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .app{width:1180px;height:740px;display:flex;flex-direction:column;background:#f8fafc;overflow:hidden}
+    .top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+    .brand{font-size:16px;font-weight:600}
+    .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+    .who{text-align:right;line-height:1.3}
+    .who-name{font-size:14px;font-weight:500}
+    .who-role{font-size:12px;color:#64748b}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .body{display:flex;flex:1;min-height:0}
+    .side{width:240px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;padding:12px;display:flex;flex-direction:column;gap:2px}
+    .nav{padding:8px 12px;border-radius:6px;font-size:14px;color:#475569}
+    .nav.on{background:#f1f5f9;color:#0f172a;font-weight:500}
+    .main{flex:1;min-width:0;padding:24px;overflow:hidden}
+    .h1{font-size:20px;font-weight:600;margin:0}
+    .crumb{font-size:12px;color:#64748b;margin-bottom:8px}
+    .badge{display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500}
+    .b-progress{background:#eef2ff;color:#4338ca;box-shadow:inset 0 0 0 1px #c7d2fe}
+    .tabs{display:flex;gap:4px;border-bottom:1px solid #e2e8f0;margin:20px 0}
+    .tab{padding:8px 12px;font-size:14px;font-weight:500;color:#64748b;border-bottom:2px solid transparent}
+    .tab.on{color:#0f172a;border-bottom-color:#0f172a}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;overflow:hidden}
+    .chk-row{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;border-bottom:1px solid #f1f5f9}
+    .chk-row:last-child{border-bottom:none}
+    .ic{width:20px;height:20px;border-radius:9999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px}
+    .ic-done{background:#f0fdf4;box-shadow:inset 0 0 0 1px #bbf7d0}
+    .ic-wait{background:#fffbeb;box-shadow:inset 0 0 0 1px #fde68a}
+    .ic-none{background:#f1f5f9;box-shadow:inset 0 0 0 1px #e2e8f0}
+    .ct{font-size:14px;font-weight:500}
+    .cd{font-size:13px;color:#64748b;margin-top:2px}
+    .alert{border-radius:6px;border:1px solid;padding:12px 16px;font-size:14px}
+    .a-warn{background:#fffbeb;border-color:#fde68a;color:#78350f}
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">ConnectSphere</div>
+    <div class="top-right">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <div class="who">
+        <div class="who-name">Wei Lin Tan</div>
+        <div class="who-role">Event Coordinator</div>
+      </div>
+      <div class="btn btn-secondary btn-sm">Log out</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="side">
+      <div class="nav">Dashboard</div>
+      <div class="nav">Review Queue</div>
+      <div class="nav on">All Events</div>
+      <div class="nav">Venues</div>
+      <div class="nav">Equipment</div>
+      <div class="nav">Notifications</div>
+    </div>
+
+    <div class="main">
+      <div class="crumb">All Events / Vendor Networking Evening</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <h1 class="h1">Vendor Networking Evening</h1>
+          <span class="badge b-progress">Planning</span>
+        </div>
+        <div style="display:flex;gap:8px">
+          <div class="btn btn-secondary">Cancel event</div>
+          <!-- Disabled until every blocking item is done, and the alert below
+               says exactly which ones are outstanding. -->
+          <div class="btn btn-primary" style="opacity:.5">Confirm event</div>
+        </div>
+      </div>
+
+      <div class="tabs">
+        <div class="tab">Overview</div>
+        <div class="tab">Discussion</div>
+        <div class="tab">Venue</div>
+        <div class="tab">Equipment</div>
+        <div class="tab">Attendees</div>
+        <div class="tab on">Readiness</div>
+        <div class="tab">History</div>
+      </div>
+
+      <div style="max-width:800px">
+        <div class="alert a-warn" style="margin-bottom:16px">
+          <strong>2 things still block confirmation.</strong>
+          <div style="margin-top:4px">The venue booking and the equipment reservation are both still pending.</div>
+        </div>
+
+        <div class="card">
+          <div class="chk-row">
+            <span class="ic ic-done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="flex:1">
+              <div class="ct">Request reviewed and approved</div>
+              <div class="cd">Approved by Wei Lin Tan on 2 Sep 2026.</div>
+            </div>
+          </div>
+
+          <div class="chk-row">
+            <span class="ic ic-wait"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"><path d="M12 6v6l4 2"></path><circle cx="12" cy="12" r="9"></circle></svg></span>
+            <div style="flex:1">
+              <div class="ct">Venue booked</div>
+              <div class="cd">Orchard Boardroom (ORC-BR) requested 8 Sep &mdash; waiting on Venue Staff.</div>
+            </div>
+            <div class="btn btn-secondary btn-sm">Chase</div>
+          </div>
+
+          <div class="chk-row">
+            <span class="ic ic-wait"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#92400e" stroke-width="2.5" stroke-linecap="round"><path d="M12 6v6l4 2"></path><circle cx="12" cy="12" r="9"></circle></svg></span>
+            <div style="flex:1">
+              <div class="ct">Equipment reserved</div>
+              <div class="cd">2 of 3 items reserved. 4 wireless microphones requested, 2 available.</div>
+            </div>
+            <div class="btn btn-secondary btn-sm">View</div>
+          </div>
+
+          <div class="chk-row">
+            <span class="ic ic-done"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#15803d" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span>
+            <div style="flex:1">
+              <div class="ct">Technical support assigned</div>
+              <div class="cd">Siti Rahman is on site from 17:00.</div>
+            </div>
+          </div>
+
+          <div class="chk-row">
+            <span class="ic ic-none"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"></path></svg></span>
+            <div style="flex:1">
+              <div class="ct">Registration set up</div>
+              <div class="cd">Not required &mdash; this event does not collect registrations.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

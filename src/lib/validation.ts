@@ -36,6 +36,26 @@ export const createEventSchema = z
     specialRequirements: z.string().optional(),
     registrationEnabled: z.boolean().optional(),
     registrationCapacity: z.number().int().positive().optional(),
+
+    // ADDED: facility and accessibility requirements as rows rather than
+    // prose. Venue suitability (story 11) has to match an event's needs
+    // against what each venue has, and free text cannot be matched. These are
+    // Facility ids from GET /api/facilities; the category split (facility vs
+    // accessibility) is presentation, so both arrive in one list.
+    facilityIds: z.array(z.string().uuid()).optional(),
+
+    // ADDED: equipment the organiser is asking for, as quantities against
+    // catalogue items. Each entry becomes an EquipmentRequest for Technical
+    // Support to review.
+    equipment: z
+      .array(
+        z.object({
+          equipmentId: z.string().uuid(),
+          quantityRequested: z.number().int().positive(),
+          technicalRequirements: z.string().optional(),
+        })
+      )
+      .optional(),
   })
   .refine((d) => !d.startsAt || !d.endsAt || new Date(d.endsAt) > new Date(d.startsAt), {
     message: "endsAt must be after startsAt",
@@ -44,6 +64,27 @@ export const createEventSchema = z
   .refine((d) => !d.registrationEnabled || d.registrationCapacity != null, {
     message: "registrationCapacity is required when registrationEnabled is true",
     path: ["registrationCapacity"],
+  })
+  // EquipmentRequest is unique on (eventId, equipmentId): the same item twice
+  // in one request would fail at the database with an opaque error, so reject
+  // it here where the message can name the problem.
+  .refine(
+    (d) => {
+      if (!d.equipment) return true;
+      const ids = d.equipment.map((e) => e.equipmentId);
+      return new Set(ids).size === ids.length;
+    },
+    {
+      message: "Each piece of equipment can only be requested once — change the quantity instead",
+      path: ["equipment"],
+    }
+  )
+  // EquipmentRequest.startsAt / endsAt are NOT NULL, and the reservation
+  // window is derived from the event's own times. Equipment without dates has
+  // nowhere to hang.
+  .refine((d) => !d.equipment?.length || (d.startsAt != null && d.endsAt != null), {
+    message: "Set the event date and time before requesting equipment",
+    path: ["equipment"],
   });
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
