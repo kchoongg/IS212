@@ -189,6 +189,10 @@ model Event {
   /// Matched against VenueLayout.layoutName.
   preferredLayout     String? @map("preferred_layout")
   accessibilityNotes  String? @map("accessibility_notes")
+  /// Free-text equipment needs at request time (e.g. "projector, 2 mics").
+  /// Distinct from EquipmentRequest, which is the formal catalogue
+  /// reservation Tech Support fulfils once a coordinator is assigned.
+  equipmentNotes      String? @map("equipment_notes")
   specialRequirements String? @map("special_requirements")
 
   registrationEnabled  Boolean   @default(false) @map("registration_enabled")

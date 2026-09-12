@@ -22,6 +22,15 @@ export type LoginInput = z.infer<typeof loginSchema>;
 // The schema stores a real start/end timestamp rather than a date plus an
 // AM/PM/Night bucket, because venue conflict detection compares actual
 // intervals - "PM" cannot be checked against another booking.
+// Venue and accessibility requirements are structured links to the shared
+// Facility catalogue (category `facility` or `accessibility`) rather than
+// free text, so a coordinator can later check them against VenueFacility.
+// `isMandatory: false` is a nice-to-have that must not disqualify a venue.
+const facilityRequirementSchema = z.object({
+  facilityId: z.string().uuid(),
+  isMandatory: z.boolean().optional(),
+});
+
 export const createEventSchema = z
   .object({
     title: z.string().min(1),
@@ -31,11 +40,23 @@ export const createEventSchema = z
     startsAt: z.string().datetime().optional(),
     endsAt: z.string().datetime().optional(),
     expectedAttendance: z.number().int().positive().optional(),
+    // Venue requirement: which layout the organiser expects (matched against
+    // VenueLayout.layoutName later). Facility-level venue/accessibility
+    // requirements travel in facilityRequirements below.
     preferredLayout: z.string().optional(),
     accessibilityNotes: z.string().optional(),
+    // Structured venue + accessibility facility requirements, e.g. a hearing
+    // loop or a loading dock. category is looked up server-side, not sent
+    // by the client - either kind can appear here.
+    facilityRequirements: z.array(facilityRequirementSchema).optional(),
+    // Free-text equipment requirement at request time - the formal catalogue
+    // reservation (EquipmentRequest) is created later by a coordinator.
+    equipmentNotes: z.string().optional(),
     specialRequirements: z.string().optional(),
     registrationEnabled: z.boolean().optional(),
     registrationCapacity: z.number().int().positive().optional(),
+    registrationOpensAt: z.string().datetime().optional(),
+    registrationClosesAt: z.string().datetime().optional(),
   })
   .refine((d) => !d.startsAt || !d.endsAt || new Date(d.endsAt) > new Date(d.startsAt), {
     message: "endsAt must be after startsAt",
@@ -44,7 +65,17 @@ export const createEventSchema = z
   .refine((d) => !d.registrationEnabled || d.registrationCapacity != null, {
     message: "registrationCapacity is required when registrationEnabled is true",
     path: ["registrationCapacity"],
-  });
+  })
+  .refine(
+    (d) =>
+      !d.registrationOpensAt ||
+      !d.registrationClosesAt ||
+      new Date(d.registrationClosesAt) > new Date(d.registrationOpensAt),
+    {
+      message: "registrationClosesAt must be after registrationOpensAt",
+      path: ["registrationClosesAt"],
+    }
+  );
 export type CreateEventInput = z.infer<typeof createEventSchema>;
 
 export const updateEventStatusSchema = z.object({

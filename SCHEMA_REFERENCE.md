@@ -225,6 +225,7 @@ Postgres table `events` &middot; `prisma.event`
 | `expectedAttendance` | Int |  | Nullable for drafts. |
 | `preferredLayout` | String |  | Matched against VenueLayout.layoutName. |
 | `accessibilityNotes` | String |  |  |
+| `equipmentNotes` | String |  | Free-text equipment needs at request time. Distinct from `EquipmentRequest`, the formal catalogue reservation created later. |
 | `specialRequirements` | String |  |  |
 | `registrationEnabled` | Boolean |  | Defaults to `false`. |
 | `registrationCapacity` | Int |  | Seats open to the public. NOT the same as expectedAttendance. |

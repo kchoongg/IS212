@@ -445,6 +445,23 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-09-12 — Kristen
+- Implemented the "Create Event Request" backend (SPM-23): `POST /api/events`
+  now accepts `facilityRequirements` (structured venue/accessibility links to
+  the `Facility` catalogue), `equipmentNotes` (free text), and
+  `registrationOpensAt`/`registrationClosesAt`, alongside the existing name,
+  purpose, description, date/time, attendance and registration fields.
+  Unknown `facilityId`s are rejected with a 400 instead of a raw FK error.
+  `GET /api/events` and `GET /api/events/[id]` now include
+  `facilityRequirements`. A new event is still created with `status: "draft"`
+  (identifiable as a draft) and only `title` is required at creation —
+  completeness is enforced at submission time, unchanged, in
+  `api/events/[id]` PATCH.
+- Added `Event.equipmentNotes` (nullable String). Migration:
+  `add_event_equipment_notes`.
+- Added Zod tests for the new `createEventSchema` fields in
+  `src/lib/__tests__/validation.test.ts`.
+
 ### 2026-09-10 — Kristen
 - Added `prisma/seed.ts` and a `prisma.seed` entry in `package.json`; run with
   `npx prisma db seed`. 12 organisations, 71 users, 16 venues, 26 equipment
