@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .app{width:1180px;height:740px;display:flex;flex-direction:column;background:#f8fafc;overflow:hidden}
+    .top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+    .brand{font-size:16px;font-weight:600}
+    .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+    .who{text-align:right;line-height:1.3}
+    .who-name{font-size:14px;font-weight:500}
+    .who-role{font-size:12px;color:#64748b}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .btn-block{width:100%}
+    .body{display:flex;flex:1;min-height:0}
+    .side{width:240px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;padding:12px;display:flex;flex-direction:column;gap:2px}
+    .nav{padding:8px 12px;border-radius:6px;font-size:14px;color:#475569}
+    .nav.on{background:#f1f5f9;color:#0f172a;font-weight:500}
+    .main{flex:1;min-width:0;padding:24px;overflow:hidden}
+    .h1{font-size:20px;font-weight:600;margin:0}
+    .crumb{font-size:12px;color:#64748b;margin-bottom:8px}
+    .badge{display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500}
+    .b-success{background:#f0fdf4;color:#15803d;box-shadow:inset 0 0 0 1px #bbf7d0}
+    .tabs{display:flex;gap:4px;border-bottom:1px solid #e2e8f0;margin:20px 0}
+    .tab{padding:8px 12px;font-size:14px;font-weight:500;color:#0f172a;border-bottom:2px solid #0f172a}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:8px}
+    .card-h{padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:600}
+    .dt{font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:#64748b}
+    .dd{font-size:14px;margin-top:4px}
+    .alert{border-radius:6px;border:1px solid;padding:12px 16px;font-size:14px}
+    .a-warn{background:#fffbeb;border-color:#fde68a;color:#78350f}
+    .bar{height:8px;border-radius:9999px;background:#e2e8f0;overflow:hidden}
+    .bar span{display:block;height:100%;background:#0f172a}
+    .lbl{font-size:14px;font-weight:500;display:block;margin-bottom:6px}
+    .inp{width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;font-size:14px;background:#fff;font-family:inherit}
+    .ph{color:#94a3b8}
+    .hint{font-size:12px;color:#64748b;margin:6px 0 0}
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">ConnectSphere</div>
+    <div class="top-right">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <div class="who">
+        <div class="who-name">Daniel Ong</div>
+        <div class="who-role">Attendee</div>
+      </div>
+      <div class="btn btn-secondary btn-sm">Log out</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="side">
+      <div class="nav">Dashboard</div>
+      <div class="nav on">Browse Events</div>
+      <div class="nav">My Registrations</div>
+      <div class="nav">Notifications</div>
+    </div>
+
+    <div class="main">
+      <div class="crumb">Browse Events / Annual Clinical Conference 2026</div>
+      <div style="display:flex;align-items:center;gap:12px">
+        <h1 class="h1">Annual Clinical Conference 2026</h1>
+        <span class="badge b-success">Confirmed</span>
+      </div>
+
+      <!-- Attendees get one tab. The internal tabs are not rendered at all,
+           not rendered-and-disabled (§4.3). -->
+      <div class="tabs">
+        <div class="tab">Overview</div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:20px">
+        <div>
+          <p style="font-size:14px;line-height:1.6;margin:0 0 20px;max-width:64ch">
+            A full-day conference for clinical leads across the region, covering accreditation
+            changes, patient-safety practice, and the year&rsquo;s research programme. Lunch and
+            refreshments are provided.
+          </p>
+
+          <div class="card">
+            <div class="card-h">Event details</div>
+            <div style="padding:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+              <div><div class="dt">When</div><div class="dd">3 Oct 2026, 09:00&ndash;17:00</div></div>
+              <div><div class="dt">Where</div><div class="dd">Marina Grand Hall</div></div>
+              <div><div class="dt">Organised by</div><div class="dd">Meridian Health Asia</div></div>
+              <div><div class="dt">Accessibility</div><div class="dd">Step-free access, hearing loop</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" style="align-self:start">
+          <div class="card-h">Registration</div>
+          <div style="padding:16px">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:6px">
+              <span style="font-size:14px;font-weight:500">220 / 220 places taken</span>
+              <span style="font-size:12px;color:#64748b">Full</span>
+            </div>
+            <div class="bar" style="margin-bottom:14px"><span style="width:100%"></span></div>
+
+            <!-- Full: the action becomes the waiting list rather than a dead
+                 disabled button (§7.4) -->
+            <div class="alert a-warn" style="margin-bottom:14px">
+              <strong>This event is full.</strong>
+              <div style="margin-top:4px">You can join the waiting list &mdash; you would be 7th. We will email you if a place is released.</div>
+            </div>
+
+            <div style="margin-bottom:14px">
+              <span class="lbl">Dietary requirements</span>
+              <div class="inp"><span class="ph">Optional</span></div>
+            </div>
+            <div style="margin-bottom:16px">
+              <span class="lbl">Accessibility requirements</span>
+              <div class="inp"><span class="ph">Optional</span></div>
+              <p class="hint">Anything you need on the day. Only the event team sees this.</p>
+            </div>
+
+            <div class="btn btn-primary btn-block">Join waiting list</div>
+            <p class="hint" style="text-align:center;margin-top:10px">Registration closes 26 Sep 2026.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

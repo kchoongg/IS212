@@ -1,0 +1,123 @@
+import { describe, it, expect } from "vitest";
+import {
+  EMPTY,
+  formatCapacity,
+  formatDate,
+  formatDateTime,
+  formatDateTimeRange,
+  formatDuration,
+  formatTime,
+  formatVenue,
+  orEmpty,
+} from "../format";
+
+// Traces to SPM-7: "the interface is consistent across user roles". A date has
+// to read identically on every screen, which is what these lock down.
+//
+// Fixtures are UTC instants; the formatters render Singapore time (UTC+8), so
+// 2026-10-03T06:00:00Z is 14:00 locally.
+
+const START = "2026-10-03T01:00:00.000Z"; // 09:00 SGT
+const END = "2026-10-03T09:00:00.000Z"; // 17:00 SGT
+
+describe("formatDate", () => {
+  it("renders the agreed format", () => {
+    expect(formatDate(START)).toBe("3 Oct 2026");
+  });
+
+  it("accepts a Date as well as a string", () => {
+    expect(formatDate(new Date(START))).toBe("3 Oct 2026");
+  });
+
+  it("renders missing and invalid values as an em dash, never blank", () => {
+    expect(formatDate(null)).toBe(EMPTY);
+    expect(formatDate(undefined)).toBe(EMPTY);
+    expect(formatDate("not a date")).toBe(EMPTY);
+  });
+});
+
+describe("formatTime", () => {
+  it("renders 24-hour Singapore time", () => {
+    expect(formatTime(START)).toBe("09:00");
+    expect(formatTime(END)).toBe("17:00");
+  });
+});
+
+describe("formatDateTime", () => {
+  it("joins the date and time", () => {
+    expect(formatDateTime(START)).toBe("3 Oct 2026, 09:00");
+  });
+});
+
+describe("formatDateTimeRange", () => {
+  it("collapses a same-day range to one date", () => {
+    expect(formatDateTimeRange(START, END)).toBe("3 Oct 2026, 09:00–17:00");
+  });
+
+  it("keeps both timestamps for a multi-day event", () => {
+    // Multi-day events are common (briefing §4, Multi-Session Events) and
+    // collapsing them would hide the end date.
+    expect(formatDateTimeRange(START, "2026-10-05T09:00:00.000Z")).toBe(
+      "3 Oct 2026, 09:00 – 5 Oct 2026, 17:00"
+    );
+  });
+
+  it("renders whichever end it has when one is missing", () => {
+    expect(formatDateTimeRange(START, null)).toBe("3 Oct 2026, 09:00");
+    expect(formatDateTimeRange(null, END)).toBe("3 Oct 2026, 17:00");
+  });
+
+  it("renders an em dash when it has neither", () => {
+    expect(formatDateTimeRange(null, null)).toBe(EMPTY);
+  });
+});
+
+describe("formatDuration", () => {
+  it("renders hours and minutes", () => {
+    expect(formatDuration(START, END)).toBe("8h");
+    expect(formatDuration(START, "2026-10-03T04:30:00.000Z")).toBe("3h 30m");
+    expect(formatDuration(START, "2026-10-03T01:45:00.000Z")).toBe("45m");
+  });
+
+  it("refuses to render a negative duration", () => {
+    // Validation catches an end before its start; a screen must not show
+    // "-2h" while it does.
+    expect(formatDuration(END, START)).toBe(EMPTY);
+    expect(formatDuration(START, START)).toBe(EMPTY);
+  });
+});
+
+describe("formatCapacity", () => {
+  it("renders used over total", () => {
+    expect(formatCapacity(120, 250)).toBe("120 / 250");
+    expect(formatCapacity(0, 250)).toBe("0 / 250");
+  });
+
+  it("needs both numbers", () => {
+    expect(formatCapacity(null, 250)).toBe(EMPTY);
+    expect(formatCapacity(120, null)).toBe(EMPTY);
+  });
+});
+
+describe("formatVenue", () => {
+  it("appends the code staff say aloud", () => {
+    expect(formatVenue("Marina Grand Hall", "MAR-GH")).toBe("Marina Grand Hall (MAR-GH)");
+  });
+
+  it("omits an absent code", () => {
+    expect(formatVenue("Marina Grand Hall")).toBe("Marina Grand Hall");
+  });
+});
+
+describe("orEmpty", () => {
+  it("passes through real values, including zero", () => {
+    expect(orEmpty("Conference")).toBe("Conference");
+    expect(orEmpty(0)).toBe("0");
+  });
+
+  it("replaces null, undefined and empty strings", () => {
+    expect(orEmpty(null)).toBe(EMPTY);
+    expect(orEmpty(undefined)).toBe(EMPTY);
+    expect(orEmpty("")).toBe(EMPTY);
+  });
+});

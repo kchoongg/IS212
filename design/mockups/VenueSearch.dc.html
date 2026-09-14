@@ -1,0 +1,183 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .app{width:1180px;height:820px;display:flex;flex-direction:column;background:#f8fafc;overflow:hidden}
+    .top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+    .brand{font-size:16px;font-weight:600}
+    .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+    .who{text-align:right;line-height:1.3}
+    .who-name{font-size:14px;font-weight:500}
+    .who-role{font-size:12px;color:#64748b}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .body{display:flex;flex:1;min-height:0}
+    .side{width:240px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;padding:12px;display:flex;flex-direction:column;gap:2px}
+    .nav{padding:8px 12px;border-radius:6px;font-size:14px;color:#475569}
+    .nav.on{background:#f1f5f9;color:#0f172a;font-weight:500}
+    .main{flex:1;min-width:0;padding:24px;overflow:hidden}
+    .h1{font-size:20px;font-weight:600;margin:0}
+    .sub{font-size:14px;color:#64748b;margin:4px 0 0}
+    .crumb{font-size:12px;color:#64748b;margin-bottom:8px}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:8px}
+    .card-h{padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:600}
+    .lbl{font-size:13px;font-weight:500;display:block;margin-bottom:5px}
+    .inp{width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:7px 10px;font-size:13px;background:#fff;font-family:inherit}
+    .chk{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0}
+    .box{width:15px;height:15px;border-radius:4px;border:1px solid #cbd5e1;background:#fff;flex-shrink:0}
+    .box.on{background:#0f172a;border-color:#0f172a;display:flex;align-items:center;justify-content:center}
+    .badge{display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500}
+    .b-success{background:#f0fdf4;color:#15803d;box-shadow:inset 0 0 0 1px #bbf7d0}
+    .b-warning{background:#fffbeb;color:#92400e;box-shadow:inset 0 0 0 1px #fde68a}
+    .b-neutral{background:#f1f5f9;color:#334155;box-shadow:inset 0 0 0 1px #e2e8f0}
+    .venue{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:14px 16px}
+    .venue.down{background:#f8fafc;border-style:dashed}
+    .vname{font-size:14px;font-weight:600}
+    .vcode{font-weight:400;color:#64748b}
+    .meta{font-size:13px;color:#64748b;margin-top:4px}
+    .why{font-size:13px;margin-top:8px}
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">ConnectSphere</div>
+    <div class="top-right">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <div class="who">
+        <div class="who-name">Wei Lin Tan</div>
+        <div class="who-role">Event Coordinator</div>
+      </div>
+      <div class="btn btn-secondary btn-sm">Log out</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="side">
+      <div class="nav">Dashboard</div>
+      <div class="nav">Review Queue</div>
+      <div class="nav">All Events</div>
+      <div class="nav on">Venues</div>
+      <div class="nav">Equipment</div>
+      <div class="nav">Notifications</div>
+    </div>
+
+    <div class="main">
+      <div class="crumb">Venues / Find a venue for ASEAN Logistics Forum</div>
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:20px">
+        <div>
+          <h1 class="h1">Find a venue</h1>
+          <p class="sub">22 Jan 2027, 09:00&ndash;18:00 &middot; 450 people &middot; theatre &middot; step-free access, hearing loop</p>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:260px minmax(0,1fr);gap:20px">
+        <div class="card" style="align-self:start">
+          <div class="card-h">Requirements</div>
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:14px">
+            <div>
+              <span class="lbl">Minimum capacity</span>
+              <div class="inp">450</div>
+            </div>
+            <div>
+              <span class="lbl">Layout</span>
+              <div class="inp" style="display:flex;justify-content:space-between;align-items:center"><span>Theatre</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+              </div>
+            </div>
+            <div>
+              <span class="lbl">Building</span>
+              <div class="inp" style="display:flex;justify-content:space-between;align-items:center"><span>Any</span>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+              </div>
+            </div>
+            <div>
+              <span class="lbl">Required facilities</span>
+              <div class="chk"><span class="box on"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span> Step-free access</div>
+              <div class="chk"><span class="box on"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></span> Hearing loop</div>
+              <div class="chk"><span class="box"></span> Video conferencing</div>
+              <div class="chk"><span class="box"></span> Loading bay</div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div style="font-size:13px;color:#64748b;margin-bottom:10px">4 venues checked &middot; 1 fully suitable</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+
+            <div class="venue">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div>
+                  <div class="vname">Bugis Exhibition Floor <span class="vcode">(BUG-EX)</span></div>
+                  <div class="meta">Bugis Centre, Level 1 &middot; theatre 600 &middot; free 09:00&ndash;18:00</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="badge b-success">Suitable</span>
+                  <div class="btn btn-primary btn-sm">Request</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Over capacity: greyed but NOT hidden. The coordinator may still
+                 want to ask about it (§7.4). -->
+            <div class="venue down">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div>
+                  <div class="vname" style="color:#475569">Marina Grand Hall <span class="vcode">(MAR-GH)</span></div>
+                  <div class="meta">Marina Tower, Level 3 &middot; theatre 300 &middot; free 09:00&ndash;18:00</div>
+                  <div class="why" style="color:#92400e">Capacity 300 &mdash; your event expects 450.</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="badge b-warning">Too small</span>
+                  <div class="btn btn-secondary btn-sm">Request anyway</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Missing a required facility: ranked below full matches -->
+            <div class="venue down">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div>
+                  <div class="vname" style="color:#475569">Clarke Quay Studio <span class="vcode">(CLQ-ST)</span></div>
+                  <div class="meta">Quayside Block, Level 2 &middot; theatre 500 &middot; free 09:00&ndash;18:00</div>
+                  <div class="why" style="color:#92400e">Missing: hearing loop.</div>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span class="badge b-warning">Partial match</span>
+                  <div class="btn btn-secondary btn-sm">Request anyway</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Blocked for maintenance: excluded, with the reason on show -->
+            <div class="venue down">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <div>
+                  <div class="vname" style="color:#475569">Raffles Seminar Room 2 <span class="vcode">(RAF-S2)</span></div>
+                  <div class="meta">Raffles Wing, Level 4 &middot; theatre 480</div>
+                  <div class="why" style="color:#64748b">Unavailable 20&ndash;24 Jan 2027 &mdash; renovation.</div>
+                </div>
+                <span class="badge b-neutral">Unavailable</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

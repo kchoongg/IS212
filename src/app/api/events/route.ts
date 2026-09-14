@@ -13,11 +13,7 @@ export async function GET(req: NextRequest) {
   // Organisers see their own events; everyone else sees everything for now -
   // tighten this per role as the access model gets built out further.
   const where = session.role === "organiser" ? { organiserId: session.id } : {};
-  const events = await prisma.event.findMany({
-    where,
-    orderBy: { createdAt: "desc" },
-    include: { facilityRequirements: { include: { facility: true } } },
-  });
+  const events = await prisma.event.findMany({ where, orderBy: { createdAt: "desc" } });
   return NextResponse.json(events);
 }
 
@@ -39,25 +35,21 @@ export async function POST(req: NextRequest) {
       select: { organisationId: true },
     });
 
-    // ADDED: facility-based venue/accessibility requirements reference the
-    // shared Facility catalogue by id - check they actually exist so a typo
-    // fails with a 400 here rather than a raw FK error from Prisma.
-    if (data.facilityRequirements && data.facilityRequirements.length > 0) {
-      const ids = data.facilityRequirements.map((f) => f.facilityId);
-      const found = await prisma.facility.findMany({
-        where: { id: { in: ids } },
-        select: { id: true },
-      });
-      const foundIds = new Set(found.map((f) => f.id));
-      const unknown = ids.filter((id) => !foundIds.has(id));
-      if (unknown.length > 0) {
-        return NextResponse.json(
-          { error: `Unknown facility id(s): ${unknown.join(", ")}` },
-          { status: 400 }
-        );
-      }
-    }
+    // ADDED: equipment is held wider than the event itself — kit leaves the
+    // store before the doors open and comes back after they close. Two hours
+    // either side is the default load-in / load-out window; Technical Support
+    // adjusts it when they review the request.
+    const LOAD_WINDOW_MS = 2 * 60 * 60 * 1000;
+    const equipmentStartsAt = data.startsAt
+      ? new Date(new Date(data.startsAt).getTime() - LOAD_WINDOW_MS)
+      : null;
+    const equipmentEndsAt = data.endsAt
+      ? new Date(new Date(data.endsAt).getTime() + LOAD_WINDOW_MS)
+      : null;
 
+    // The event and its requirements are one thing to the organiser, so they
+    // are one transaction here: a half-written request with facilities but no
+    // equipment would be worse than a failure they can retry.
     const event = await prisma.event.create({
       data: {
         organiserId: session.id,
@@ -73,25 +65,47 @@ export async function POST(req: NextRequest) {
         preferredLayout: data.preferredLayout,
         // CHANGED: accessibilityNeeds -> accessibilityNotes.
         accessibilityNotes: data.accessibilityNotes,
-        equipmentNotes: data.equipmentNotes,
         specialRequirements: data.specialRequirements,
         registrationEnabled: data.registrationEnabled ?? false,
         registrationCapacity: data.registrationCapacity,
-        registrationOpensAt: data.registrationOpensAt ? new Date(data.registrationOpensAt) : undefined,
-        registrationClosesAt: data.registrationClosesAt ? new Date(data.registrationClosesAt) : undefined,
         status: "draft",
-        ...(data.facilityRequirements && data.facilityRequirements.length > 0
+
+        // Stored as rows, not prose, so venue suitability can match them.
+        // Everything an organiser ticks is mandatory; the nice-to-have case
+        // (isMandatory: false) is a coordinator refinement, not an organiser
+        // one, so it is not exposed on this form.
+        facilityRequirements: data.facilityIds?.length
           ? {
-              facilityRequirements: {
-                create: data.facilityRequirements.map((f) => ({
-                  facilityId: f.facilityId,
-                  isMandatory: f.isMandatory ?? true,
-                })),
-              },
+              create: data.facilityIds.map((facilityId) => ({
+                facilityId,
+                isMandatory: true,
+              })),
             }
-          : {}),
+          : undefined,
+
+        // Guarded by createEventSchema: equipment cannot be requested without
+        // event dates, so these two are non-null whenever the array is set.
+        equipmentRequests:
+          data.equipment?.length && equipmentStartsAt && equipmentEndsAt
+            ? {
+                create: data.equipment.map((item) => ({
+                  equipmentId: item.equipmentId,
+                  quantityRequested: item.quantityRequested,
+                  technicalRequirements: item.technicalRequirements,
+                  startsAt: equipmentStartsAt,
+                  endsAt: equipmentEndsAt,
+                  requestedBy: session.id,
+                  status: "requested",
+                })),
+              }
+            : undefined,
       },
-      include: { facilityRequirements: { include: { facility: true } } },
+      include: {
+        facilityRequirements: { select: { facilityId: true, isMandatory: true } },
+        equipmentRequests: {
+          select: { id: true, equipmentId: true, quantityRequested: true, status: true },
+        },
+      },
     });
 
     return NextResponse.json(event, { status: 201 });

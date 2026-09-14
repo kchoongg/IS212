@@ -1,20 +1,18 @@
-import Link from "next/link";
+import { ButtonLink } from "@/components/ui";
 
 export default function HomePage() {
   return (
     <div>
-      <h2 className="mb-3 text-2xl font-bold">Welcome to ConnectSphere</h2>
-      <p className="mb-6 text-gray-600">
-        Event management for ConnectSphere. Log in to see your events, or
-        register if you&apos;re new.
+      <h1 className="font-display text-3xl font-semibold tracking-tight text-ink">ConnectSphere</h1>
+      <p className="mt-3 text-[15px] leading-relaxed text-ink-2">
+        Plan events, book venues, and arrange equipment in one place. Log in to see the events you
+        are working on.
       </p>
-      <div className="flex gap-3">
-        <Link href="/login" className="rounded bg-gray-900 px-4 py-2 text-white">
-          Log in
-        </Link>
-        <Link href="/register" className="rounded border border-gray-300 px-4 py-2">
+      <div className="mt-6 flex gap-3">
+        <ButtonLink href="/login">Log in</ButtonLink>
+        <ButtonLink href="/register" variant="secondary">
           Register
-        </Link>
+        </ButtonLink>
       </div>
     </div>
   );

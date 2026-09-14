@@ -1,0 +1,75 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Map & patterns" },
+    { "id": "page-2", "name": "Organiser" },
+    { "id": "page-3", "name": "Coordinator" },
+    { "id": "page-4", "name": "Venue & Technical" },
+    { "id": "page-5", "name": "Attendee & Operations" }
+  ],
+  "artboards": [
+    { "file": "NavigationMap.dc.html", "page": "page-1", "x": 0, "y": 0, "w": 1440, "h": 880, "title": "Screen map & navigation" },
+    { "file": "AuthAndStates.dc.html", "page": "page-1", "x": 1560, "y": 0, "w": 1180, "h": 1000, "title": "Shared patterns, auth & states" },
+
+    { "file": "Main.dc.html", "page": "page-2", "x": 0, "y": 0, "w": 1180, "h": 740, "title": "S-07 My events" },
+    { "file": "EventRequestForm.dc.html", "page": "page-2", "x": 1300, "y": 0, "w": 1180, "h": 900, "title": "S-08 Event request form" },
+    { "file": "OrganiserEventDetail.dc.html", "page": "page-2", "x": 0, "y": 1060, "w": 1180, "h": 740, "title": "S-06 Event detail — organiser" },
+    { "file": "ChangeRequest.dc.html", "page": "page-2", "x": 1300, "y": 1060, "w": 1180, "h": 740, "title": "S-10 Change request" },
+
+    { "file": "CoordinatorDashboard.dc.html", "page": "page-3", "x": 0, "y": 0, "w": 1180, "h": 740, "title": "S-03 Dashboard — coordinator" },
+    { "file": "EventReview.dc.html", "page": "page-3", "x": 1300, "y": 0, "w": 1180, "h": 740, "title": "S-13 Event review" },
+    { "file": "VenueSearch.dc.html", "page": "page-3", "x": 0, "y": 900, "w": 1180, "h": 820, "title": "S-14 Venue search & suitability" },
+    { "file": "Readiness.dc.html", "page": "page-3", "x": 1300, "y": 900, "w": 1180, "h": 740, "title": "S-18 Readiness & confirm" },
+
+    { "file": "BookingQueue.dc.html", "page": "page-4", "x": 0, "y": 0, "w": 1180, "h": 740, "title": "S-22 Booking approval" },
+    { "file": "VenueCalendar.dc.html", "page": "page-4", "x": 1300, "y": 0, "w": 1180, "h": 800, "title": "S-21 Availability calendar" },
+    { "file": "EquipmentRequests.dc.html", "page": "page-4", "x": 0, "y": 960, "w": 1180, "h": 740, "title": "S-25 Equipment requests" },
+    { "file": "MobileBooking.dc.html", "page": "page-4", "x": 1300, "y": 960, "w": 390, "h": 844, "title": "S-22 on a phone" },
+
+    { "file": "AttendeeEvent.dc.html", "page": "page-5", "x": 0, "y": 0, "w": 1180, "h": 740, "title": "S-06 Event detail — attendee" },
+    { "file": "MyRegistrations.dc.html", "page": "page-5", "x": 1300, "y": 0, "w": 1180, "h": 740, "title": "S-27 My registrations" },
+    { "file": "AssignmentQueue.dc.html", "page": "page-5", "x": 0, "y": 900, "w": 1180, "h": 740, "title": "S-28 Coordinator assignment" }
+  ],
+  "annotations": [
+    {
+      "id": "start-here",
+      "page": "page-1",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "Start here. The map shows every screen in the first release and how the five roles hand work to each other.\nThe other pages hold the screens themselves, one page per role group."
+    },
+    {
+      "id": "note-drafts",
+      "page": "page-2",
+      "x": 0,
+      "y": -150,
+      "w": 560,
+      "text": "Organiser. Drafts stay under their own heading so an unsent request is never mistaken for a submitted one.\nThe request form validates the same five fields the server requires before an event may leave draft."
+    },
+    {
+      "id": "note-suitability",
+      "page": "page-3",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "Coordinator. Venue search shows unsuitable rooms greyed with the reason rather than hiding them — the coordinator may still want to ask.\nRejecting anything always requires a reason, in the client and again on the server."
+    },
+    {
+      "id": "note-conflict",
+      "page": "page-4",
+      "x": 0,
+      "y": -150,
+      "w": 620,
+      "text": "Venue Staff and Technical Support. A real double-booking blocks and names the conflicting event; a tight turnaround only warns.\nThe phone artboard is the same screen below 768px: stacked pairs, sticky actions, 48px targets."
+    },
+    {
+      "id": "note-capacity",
+      "page": "page-5",
+      "x": 0,
+      "y": -150,
+      "w": 600,
+      "text": "Attendee and Operations. A full event turns Register into Join waiting list with a position, rather than a dead disabled button.\nWithdrawing names what actually happens to the place."
+    }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}
