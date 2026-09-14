@@ -7,7 +7,10 @@ import type { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const event = await prisma.event.findUnique({ where: { id } });
+  const event = await prisma.event.findUnique({
+    where: { id },
+    include: { facilityRequirements: { include: { facility: true } } },
+  });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }

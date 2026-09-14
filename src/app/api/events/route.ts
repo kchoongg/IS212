@@ -13,7 +13,11 @@ export async function GET(req: NextRequest) {
   // Organisers see their own events; everyone else sees everything for now -
   // tighten this per role as the access model gets built out further.
   const where = session.role === "organiser" ? { organiserId: session.id } : {};
-  const events = await prisma.event.findMany({ where, orderBy: { createdAt: "desc" } });
+  const events = await prisma.event.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    include: { facilityRequirements: { include: { facility: true } } },
+  });
   return NextResponse.json(events);
 }
 
@@ -68,6 +72,8 @@ export async function POST(req: NextRequest) {
         specialRequirements: data.specialRequirements,
         registrationEnabled: data.registrationEnabled ?? false,
         registrationCapacity: data.registrationCapacity,
+        registrationOpensAt: data.registrationOpensAt ? new Date(data.registrationOpensAt) : undefined,
+        registrationClosesAt: data.registrationClosesAt ? new Date(data.registrationClosesAt) : undefined,
         status: "draft",
 
         // Stored as rows, not prose, so venue suitability can match them.

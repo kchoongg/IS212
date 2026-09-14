@@ -541,6 +541,54 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-09-14 — Kristen
+- Reconciled SPM-23 with Jordan's SPM-7 merge, which independently rebuilt the
+  same "create event request" backend around structured `facilityIds` +
+  `equipment` (see his 2026-09-13 entry) — that design is a deliberate,
+  documented improvement over my original `facilityRequirements`/
+  `equipmentNotes` free-text approach and is kept as-is.
+- **Restored** `registrationOpensAt`/`registrationClosesAt` in
+  `createEventSchema` and the `POST /api/events` handler — these were dropped
+  as incidental merge fallout (unrelated to Jordan's facility/equipment
+  redesign) rather than a decision anyone made. Also restored the missing
+  `facilityRequirements` include on `GET /api/events` (list), matching
+  `GET /api/events/[id]`.
+- **Removed** `Event.equipmentNotes` (nullable String) — fully superseded by
+  Jordan's structured `EquipmentRequest` creation, so the column was dead.
+  Migrations: `20260914022334_drop_event_equipment_notes`.
+- Fixed two tests in `src/lib/__tests__/validation.test.ts` that were silently
+  passing/failing against removed fields (Zod ignores unknown keys by
+  default, so a "rejects" assertion against a dead field just returns
+  `success: true` instead of failing loudly) — the suite was red before this
+  fix. Added coverage for the restored registration-window fields.
+- Wired the restored registration window into S-08 (`src/app/events/new/page.tsx`)
+  per `UI_DESIGN.md` §6.2: "Registration opens" / "Registration closes"
+  datetime fields, hidden until "Attendees need to register" is ticked (same
+  pattern as capacity), with client-side validation mirroring the server
+  (closes after opens, both before the event start). Added the "both before
+  event start" rule to `createEventSchema` itself too — it was in the design
+  spec but missing from the Zod schema.
+- Verified in a real browser (Playwright against `next dev` + the seeded
+  Neon branch): full form renders, the two fields correctly show/hide with
+  the checkbox, and an end-to-end submit persists `registrationOpensAt`/
+  `registrationClosesAt` on the created draft.
+
+### 2026-09-12 — Kristen
+- Implemented the "Create Event Request" backend (SPM-23): `POST /api/events`
+  now accepts `facilityRequirements` (structured venue/accessibility links to
+  the `Facility` catalogue), `equipmentNotes` (free text), and
+  `registrationOpensAt`/`registrationClosesAt`, alongside the existing name,
+  purpose, description, date/time, attendance and registration fields.
+  Unknown `facilityId`s are rejected with a 400 instead of a raw FK error.
+  `GET /api/events` and `GET /api/events/[id]` now include
+  `facilityRequirements`. A new event is still created with `status: "draft"`
+  (identifiable as a draft) and only `title` is required at creation —
+  completeness is enforced at submission time, unchanged, in
+  `api/events/[id]` PATCH.
+- Added `Event.equipmentNotes` (nullable String). Migration:
+  `add_event_equipment_notes`.
+- Added Zod tests for the new `createEventSchema` fields in
+  `src/lib/__tests__/validation.test.ts`.
 ### 2026-09-13 — Jordan
 - **SPM-7 (design the user interface).** Added `UI_DESIGN.md`: 28 screens with
   stable IDs, the navigation map, the role/tab permission matrix, form field
