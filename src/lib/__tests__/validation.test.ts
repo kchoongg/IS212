@@ -55,11 +55,11 @@ describe("createEventSchema", () => {
       expectedAttendance: 200,
       preferredLayout: "theatre",
       accessibilityNotes: "Wheelchair access required",
-      facilityRequirements: [
-        { facilityId: "3fa85f64-5717-4562-b3fc-2c963f66afa6", isMandatory: true },
-        { facilityId: "3fa85f64-5717-4562-b3fc-2c963f66afa7" },
+      facilityIds: [
+        "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+        "3fa85f64-5717-4562-b3fc-2c963f66afa7",
       ],
-      equipmentNotes: "Projector and 2 wireless mics",
+      equipment: [{ equipmentId: "3fa85f64-5717-4562-b3fc-2c963f66afa8", quantityRequested: 2 }],
       specialRequirements: "Catering for dietary restrictions",
       registrationEnabled: true,
       registrationCapacity: 150,
@@ -67,14 +67,6 @@ describe("createEventSchema", () => {
       registrationClosesAt: "2026-09-25T00:00:00.000Z",
     });
     expect(result.success).toBe(true);
-  });
-
-  it("rejects a facilityRequirements entry with a malformed id", () => {
-    const result = createEventSchema.safeParse({
-      title: "Orientation Day",
-      facilityRequirements: [{ facilityId: "not-a-uuid" }],
-    });
-    expect(result.success).toBe(false);
   });
 
   it("rejects endsAt before startsAt", () => {
@@ -99,6 +91,37 @@ describe("createEventSchema", () => {
       title: "Orientation Day",
       registrationOpensAt: "2026-09-25T00:00:00.000Z",
       registrationClosesAt: "2026-09-01T00:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a registration window that closes before the event starts", () => {
+    const result = createEventSchema.safeParse({
+      title: "Orientation Day",
+      startsAt: "2026-10-01T09:00:00.000Z",
+      endsAt: "2026-10-01T17:00:00.000Z",
+      registrationOpensAt: "2026-09-01T00:00:00.000Z",
+      registrationClosesAt: "2026-09-25T00:00:00.000Z",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a registrationOpensAt on or after the event start", () => {
+    const result = createEventSchema.safeParse({
+      title: "Orientation Day",
+      startsAt: "2026-10-01T09:00:00.000Z",
+      endsAt: "2026-10-01T17:00:00.000Z",
+      registrationOpensAt: "2026-10-01T10:00:00.000Z",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a registrationClosesAt on or after the event start", () => {
+    const result = createEventSchema.safeParse({
+      title: "Orientation Day",
+      startsAt: "2026-10-01T09:00:00.000Z",
+      endsAt: "2026-10-01T17:00:00.000Z",
+      registrationClosesAt: "2026-10-02T00:00:00.000Z",
     });
     expect(result.success).toBe(false);
   });

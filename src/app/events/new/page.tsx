@@ -58,6 +58,8 @@ interface FormValues {
   specialRequirements: string;
   registrationEnabled: boolean;
   registrationCapacity: string;
+  registrationOpensAt: string;
+  registrationClosesAt: string;
   /// Facility ids from GET /api/facilities — both categories in one list,
   /// because that is how the API takes them.
   facilityIds: string[];
@@ -97,6 +99,8 @@ const INITIAL: FormValues = {
   specialRequirements: "",
   registrationEnabled: false,
   registrationCapacity: "",
+  registrationOpensAt: "",
+  registrationClosesAt: "",
   facilityIds: [],
   equipment: [],
 };
@@ -135,6 +139,31 @@ function validateForm(values: FormValues, intent: "draft" | "submit"): FieldErro
       errors.registrationCapacity = "Enter how many attendees can register.";
     } else if (!Number.isInteger(capacity) || capacity < 1) {
       errors.registrationCapacity = "Enter a whole number, at least 1.";
+    }
+
+    // Both optional, but if given they must make sense against each other
+    // and against the event's own start (mirrors createEventSchema).
+    if (
+      values.registrationOpensAt &&
+      values.registrationClosesAt &&
+      new Date(values.registrationClosesAt) <= new Date(values.registrationOpensAt)
+    ) {
+      errors.registrationClosesAt = "Registration closes at must be after it opens.";
+    }
+    if (
+      values.registrationOpensAt &&
+      values.startsAt &&
+      new Date(values.registrationOpensAt) >= new Date(values.startsAt)
+    ) {
+      errors.registrationOpensAt = "Registration must open before the event starts.";
+    }
+    if (
+      values.registrationClosesAt &&
+      values.startsAt &&
+      new Date(values.registrationClosesAt) >= new Date(values.startsAt) &&
+      !errors.registrationClosesAt
+    ) {
+      errors.registrationClosesAt = "Registration must close before the event starts.";
     }
   }
 
@@ -297,6 +326,10 @@ export default function NewEventPage() {
           registrationEnabled: values.registrationEnabled,
           registrationCapacity: values.registrationEnabled
             ? Number(values.registrationCapacity)
+            : undefined,
+          registrationOpensAt: values.registrationEnabled ? toIso(values.registrationOpensAt) : undefined,
+          registrationClosesAt: values.registrationEnabled
+            ? toIso(values.registrationClosesAt)
             : undefined,
           facilityIds: values.facilityIds.length ? values.facilityIds : undefined,
           equipment: values.equipment.length
@@ -613,22 +646,50 @@ export default function NewEventPage() {
           {/* Hidden until it applies, rather than shown disabled: a disabled
               field the user cannot explain is worse than no field (§6.2). */}
           {values.registrationEnabled && (
-            <Field
-              label="Registration capacity"
-              required
-              hint="How many attendees can register. This can differ from expected attendance."
-              error={errors.registrationCapacity}
-            >
-              <Input
-                name="registrationCapacity"
-                type="number"
-                min={1}
-                step={1}
-                inputMode="numeric"
-                value={values.registrationCapacity}
-                onChange={(e) => setValue("registrationCapacity", e.target.value)}
-              />
-            </Field>
+            <>
+              <Field
+                label="Registration capacity"
+                required
+                hint="How many attendees can register. This can differ from expected attendance."
+                error={errors.registrationCapacity}
+              >
+                <Input
+                  name="registrationCapacity"
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  value={values.registrationCapacity}
+                  onChange={(e) => setValue("registrationCapacity", e.target.value)}
+                />
+              </Field>
+
+              <Field
+                label="Registration opens"
+                hint="When attendees can start registering. Leave blank to open immediately."
+                error={errors.registrationOpensAt}
+              >
+                <Input
+                  name="registrationOpensAt"
+                  type="datetime-local"
+                  value={values.registrationOpensAt}
+                  onChange={(e) => setValue("registrationOpensAt", e.target.value)}
+                />
+              </Field>
+
+              <Field
+                label="Registration closes"
+                hint="Must be before the event starts."
+                error={errors.registrationClosesAt}
+              >
+                <Input
+                  name="registrationClosesAt"
+                  type="datetime-local"
+                  value={values.registrationClosesAt}
+                  onChange={(e) => setValue("registrationClosesAt", e.target.value)}
+                />
+              </Field>
+            </>
           )}
         </Fieldset>
 

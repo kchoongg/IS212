@@ -36,6 +36,8 @@ export const createEventSchema = z
     specialRequirements: z.string().optional(),
     registrationEnabled: z.boolean().optional(),
     registrationCapacity: z.number().int().positive().optional(),
+    registrationOpensAt: z.string().datetime().optional(),
+    registrationClosesAt: z.string().datetime().optional(),
 
     // ADDED: facility and accessibility requirements as rows rather than
     // prose. Venue suitability (story 11) has to match an event's needs
@@ -64,6 +66,27 @@ export const createEventSchema = z
   .refine((d) => !d.registrationEnabled || d.registrationCapacity != null, {
     message: "registrationCapacity is required when registrationEnabled is true",
     path: ["registrationCapacity"],
+  })
+  .refine(
+    (d) =>
+      !d.registrationOpensAt ||
+      !d.registrationClosesAt ||
+      new Date(d.registrationClosesAt) > new Date(d.registrationOpensAt),
+    {
+      message: "registrationClosesAt must be after registrationOpensAt",
+      path: ["registrationClosesAt"],
+    }
+  )
+  // Per UI_DESIGN.md §6.2: registration has to close before the event
+  // actually starts - registering people into an event already underway
+  // isn't a real window.
+  .refine((d) => !d.registrationOpensAt || !d.startsAt || new Date(d.registrationOpensAt) < new Date(d.startsAt), {
+    message: "registrationOpensAt must be before the event starts",
+    path: ["registrationOpensAt"],
+  })
+  .refine((d) => !d.registrationClosesAt || !d.startsAt || new Date(d.registrationClosesAt) < new Date(d.startsAt), {
+    message: "registrationClosesAt must be before the event starts",
+    path: ["registrationClosesAt"],
   })
   // EquipmentRequest is unique on (eventId, equipmentId): the same item twice
   // in one request would fail at the database with an opaque error, so reject
