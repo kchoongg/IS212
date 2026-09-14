@@ -1,0 +1,236 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .sheet{width:1180px;height:1000px;background:#f8fafc;padding:28px;overflow:hidden}
+    .title{font-size:20px;font-weight:600;margin:0}
+    .lede{font-size:14px;color:#64748b;margin:4px 0 24px}
+    .grp{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:0 0 12px}
+    .panel{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:20px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-block{width:100%}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .btn-danger{background:#dc2626;color:#fff}
+    .btn-ghost{background:transparent;color:#334155}
+    .lbl{font-size:14px;font-weight:500;display:block;margin-bottom:6px}
+    .req{color:#dc2626}
+    .inp{width:100%;border:1px solid #cbd5e1;border-radius:6px;padding:8px 12px;font-size:14px;background:#fff;font-family:inherit}
+    .inp.err{border-color:#f87171}
+    .inp.focus{border-color:#0f172a;box-shadow:0 0 0 2px #0f172a}
+    .ph{color:#94a3b8}
+    .hint{font-size:12px;color:#64748b;margin:6px 0 0}
+    .errtxt{font-size:12px;font-weight:500;color:#dc2626;margin:6px 0 0}
+    .fld{margin-bottom:14px}
+    .alert{border-radius:6px;border:1px solid;padding:12px 14px;font-size:14px}
+    .a-info{background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a}
+    .a-error{background:#fef2f2;border-color:#fecaca;color:#7f1d1d}
+    .badge{display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500}
+    .b-neutral{background:#f1f5f9;color:#334155;box-shadow:inset 0 0 0 1px #e2e8f0}
+    .b-info{background:#eff6ff;color:#1d4ed8;box-shadow:inset 0 0 0 1px #bfdbfe}
+    .b-progress{background:#eef2ff;color:#4338ca;box-shadow:inset 0 0 0 1px #c7d2fe}
+    .b-success{background:#f0fdf4;color:#15803d;box-shadow:inset 0 0 0 1px #bbf7d0}
+    .b-warning{background:#fffbeb;color:#92400e;box-shadow:inset 0 0 0 1px #fde68a}
+    .b-danger{background:#fef2f2;color:#b91c1c;box-shadow:inset 0 0 0 1px #fecaca}
+    .skel{background:#e2e8f0;border-radius:4px}
+    .state{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:16px;height:168px}
+    .state.dash{border-style:dashed;border-color:#cbd5e1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+    .cap{font-size:12px;font-weight:600;color:#475569;margin:0 0 8px}
+    .row{display:grid;gap:20px}
+  </style>
+</helmet>
+
+<div class="sheet">
+  <h1 class="title">Shared patterns</h1>
+  <p class="lede">The pieces every screen is built from, and the states every screen has to handle.</p>
+
+  <div class="row" style="grid-template-columns:320px 320px minmax(0,1fr);margin-bottom:26px">
+
+    <div>
+      <p class="grp">S-01 &middot; Log in</p>
+      <div class="panel">
+        <div style="font-size:18px;font-weight:600">Log in</div>
+        <p class="hint" style="margin:4px 0 14px">Sign in to plan and manage your events.</p>
+
+        <!-- Session expiry keeps the destination in ?next= and says so -->
+        <div class="alert a-info" style="margin-bottom:14px">Your session expired. Log in to continue where you left off.</div>
+
+        <div class="fld">
+          <span class="lbl">Email <span class="req">*</span></span>
+          <div class="inp">priya.raman@meridianhealth.sg</div>
+        </div>
+        <div class="fld">
+          <span class="lbl">Password <span class="req">*</span></span>
+          <div class="inp">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</div>
+        </div>
+        <div class="btn btn-primary btn-block">Log in</div>
+      </div>
+    </div>
+
+    <div>
+      <p class="grp">S-02 &middot; Register</p>
+      <div class="panel">
+        <div style="font-size:18px;font-weight:600">Create an account</div>
+        <p class="hint" style="margin:4px 0 14px">Your role decides what you can see and do.</p>
+
+        <div class="alert a-error" style="margin-bottom:14px">A user with this email already exists.</div>
+
+        <div class="fld">
+          <span class="lbl">Email <span class="req">*</span></span>
+          <div class="inp err">priya.raman@meridianhealth.sg</div>
+        </div>
+        <div class="fld">
+          <span class="lbl">Password <span class="req">*</span></span>
+          <div class="inp err">&bull;&bull;&bull;&bull;&bull;</div>
+          <!-- The message says what to do, never just "Invalid" (§7.2) -->
+          <p class="errtxt">Use at least 8 characters.</p>
+        </div>
+        <div class="fld">
+          <span class="lbl">Role <span class="req">*</span></span>
+          <div class="inp" style="display:flex;justify-content:space-between;align-items:center"><span>Event Organiser</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"></path></svg>
+          </div>
+          <p class="hint">Labels are shown; the database keys are never displayed.</p>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="grp">Field states</p>
+      <div class="panel" style="display:flex;flex-direction:column;gap:16px">
+        <div>
+          <span class="lbl">Default</span>
+          <div class="inp"><span class="ph">Placeholder text</span></div>
+        </div>
+        <div>
+          <span class="lbl">Focused</span>
+          <div class="inp focus">Typing&hellip;</div>
+        </div>
+        <div>
+          <span class="lbl">With a hint</span>
+          <div class="inp">250</div>
+          <p class="hint">Used to check a venue is large enough.</p>
+        </div>
+        <div>
+          <span class="lbl">Error <span class="req">*</span></span>
+          <div class="inp err">03/10/2026, 08:00</div>
+          <p class="errtxt">Ends at must be after starts at.</p>
+        </div>
+        <div>
+          <span class="lbl" style="color:#94a3b8">Disabled</span>
+          <div class="inp" style="background:#f8fafc;color:#94a3b8">Not editable</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="grp">The four states of every data screen</p>
+  <div class="row" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:26px">
+    <div>
+      <p class="cap">1 &middot; Loading</p>
+      <div class="state">
+        <!-- Skeletons match the shape of what replaces them, so nothing jumps -->
+        <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px;margin-bottom:10px">
+          <div class="skel" style="height:14px;width:38%"></div>
+          <div class="skel" style="height:11px;width:56%;margin-top:10px"></div>
+        </div>
+        <div style="border:1px solid #e2e8f0;border-radius:8px;padding:14px">
+          <div class="skel" style="height:14px;width:46%"></div>
+          <div class="skel" style="height:11px;width:40%;margin-top:10px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="cap">2 &middot; Empty</p>
+      <div class="state dash">
+        <div style="font-size:14px;font-weight:500">No submitted requests yet</div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px;max-width:30ch">Requests you submit appear here with their current status.</div>
+        <div class="btn btn-primary btn-sm" style="margin-top:14px">Create your first request</div>
+      </div>
+    </div>
+
+    <div>
+      <p class="cap">3 &middot; Error</p>
+      <div class="state" style="padding:0;border:none">
+        <div class="alert a-error" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <div>
+            <strong>Could not load this</strong>
+            <div style="margin-top:4px">We could not reach the server. Your work is not lost.</div>
+          </div>
+          <div class="btn btn-secondary btn-sm" style="flex-shrink:0">Retry</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <p class="cap">4 &middot; Loaded</p>
+      <div class="state" style="padding:0;overflow:hidden">
+        <div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:#64748b">Event</div>
+        <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;display:flex;justify-content:space-between;gap:8px"><span>Digital Health Workshop</span><span class="badge b-info">Under review</span></div>
+        <div style="padding:12px 14px;border-bottom:1px solid #f1f5f9;font-size:13px;display:flex;justify-content:space-between;gap:8px"><span>Vendor Networking</span><span class="badge b-progress">Planning</span></div>
+        <div style="padding:12px 14px;font-size:13px;display:flex;justify-content:space-between;gap:8px"><span>Clinical Conference</span><span class="badge b-success">Confirmed</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row" style="grid-template-columns:minmax(0,1fr) 320px">
+    <div>
+      <p class="grp">Status vocabulary &mdash; one component, every status in the system</p>
+      <div class="panel">
+        <div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:8px">Event</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+          <span class="badge b-neutral">Draft</span>
+          <span class="badge b-info">Submitted</span>
+          <span class="badge b-info">Under review</span>
+          <span class="badge b-progress">Approved</span>
+          <span class="badge b-progress">Planning</span>
+          <span class="badge b-success">Confirmed</span>
+          <span class="badge b-neutral">Completed</span>
+          <span class="badge b-warning">Postponed</span>
+          <span class="badge b-danger">Rejected</span>
+          <span class="badge b-danger">Cancelled</span>
+        </div>
+
+        <div style="font-size:12px;font-weight:600;color:#475569;margin-bottom:8px">Venue booking &middot; Equipment &middot; Registration</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span class="badge b-warning">Pending</span>
+          <span class="badge b-info">Requested</span>
+          <span class="badge b-success">Reserved</span>
+          <span class="badge b-warning">Partially fulfilled</span>
+          <span class="badge b-danger">Unavailable</span>
+          <span class="badge b-success">Registered</span>
+          <span class="badge b-warning">Waiting list</span>
+          <span class="badge b-neutral">Withdrawn</span>
+          <span class="badge b-success">Attended</span>
+        </div>
+        <p class="hint" style="margin-top:14px">The label always carries the meaning, so the badge still reads correctly in greyscale.</p>
+      </div>
+    </div>
+
+    <div>
+      <p class="grp">Buttons</p>
+      <div class="panel" style="display:flex;flex-direction:column;gap:10px;align-items:flex-start">
+        <div class="btn btn-primary">Primary &mdash; one per screen</div>
+        <div class="btn btn-secondary">Secondary</div>
+        <div class="btn btn-danger">Danger</div>
+        <div class="btn btn-ghost">Ghost</div>
+        <div class="btn btn-primary" style="opacity:.5">Disabled</div>
+        <div class="btn btn-primary" style="opacity:.5">Submitting&hellip;</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .sheet{width:1440px;height:880px;background:#f8fafc;padding:28px 32px;overflow:hidden}
+    .title{font-size:20px;font-weight:600;margin:0}
+    .lede{font-size:14px;color:#64748b;margin:4px 0 20px;max-width:90ch}
+    .chip{border:1px solid #cbd5e1;background:#fff;border-radius:8px;padding:8px 10px;width:148px;flex-shrink:0}
+    .chip .id{font-size:10px;font-weight:600;letter-spacing:.06em;color:#94a3b8}
+    .chip .nm{font-size:12.5px;font-weight:500;line-height:1.3;margin-top:2px}
+    .chip.entry{border-color:#0f172a;background:#0f172a}
+    .chip.entry .id{color:#94a3b8}
+    .chip.entry .nm{color:#fff}
+    .chip.hub{border-color:#4338ca;background:#eef2ff}
+    .chip.hub .id{color:#6366f1}
+    .arr{flex-shrink:0;display:flex;align-items:center;padding:0 4px}
+    .lane{display:flex;align-items:center;gap:0;padding:11px 0;border-top:1px solid #e2e8f0}
+    .lane-l{width:150px;flex-shrink:0;padding-right:14px}
+    .lane-role{font-size:13px;font-weight:600}
+    .lane-tag{font-size:11px;color:#64748b;margin-top:1px}
+    .ext{display:inline-block;font-size:9.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:4px;padding:0 4px;margin-top:4px}
+    .int{color:#1d4ed8;background:#eff6ff;border-color:#bfdbfe}
+    .grp{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:0 0 10px}
+    .hand{border:1px dashed #cbd5e1;background:#fff;border-radius:8px;padding:10px 12px}
+    .hand b{font-size:12px}
+    .hand p{font-size:12px;color:#475569;margin:3px 0 0;line-height:1.45}
+    .note{font-size:12px;color:#475569;line-height:1.5}
+  </style>
+</helmet>
+
+<div class="sheet">
+  <h1 class="title">Screen map and navigation</h1>
+  <p class="lede">
+    Every role shares the same chrome &mdash; top bar, sidebar, breadcrumbs. Only the sidebar&rsquo;s
+    destinations change. Event detail (S-06) is the hub where all five roles meet; it renders the
+    tabs a role is entitled to and omits the rest entirely.
+  </p>
+
+  <p class="grp">Entry &mdash; the same for everyone</p>
+  <div style="display:flex;align-items:center;margin-bottom:16px">
+    <div class="chip entry"><div class="id">S-01</div><div class="nm">Log in</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip entry"><div class="id">S-03</div><div class="nm">Dashboard</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="note" style="max-width:52ch">Role-specific content, identical layout. Every sidebar starts here, and the notification bell and profile menu sit in the top bar on every screen.</div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:10px">
+      <div class="chip"><div class="id">S-02</div><div class="nm">Register</div></div>
+      <div class="chip"><div class="id">S-04</div><div class="nm">Notifications</div></div>
+      <div class="chip"><div class="id">S-05</div><div class="nm">Profile</div></div>
+    </div>
+  </div>
+
+  <p class="grp">Per-role navigation</p>
+
+  <div class="lane">
+    <div class="lane-l">
+      <div class="lane-role">Event Organiser</div>
+      <div class="lane-tag">Dashboard &middot; My Events</div>
+      <span class="ext">External</span>
+    </div>
+    <div class="chip"><div class="id">S-07</div><div class="nm">My events</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-08</div><div class="nm">Event request form</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip hub"><div class="id">S-06</div><div class="nm">Event detail &mdash; hub</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-09</div><div class="nm">Answer clarification</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-10</div><div class="nm">Change request</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-11</div><div class="nm">Registrations</div></div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-l">
+      <div class="lane-role">Operations Manager</div>
+      <div class="lane-tag">Dashboard &middot; Assignments</div>
+      <span class="ext int">Internal</span>
+    </div>
+    <div class="chip"><div class="id">S-28</div><div class="nm">Assignment queue</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="note">Assigns a coordinator, which is what moves an event from <strong>Submitted</strong> to <strong>Under review</strong>.</div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-l">
+      <div class="lane-role">Event Coordinator</div>
+      <div class="lane-tag">Queue &middot; Events &middot; Venues &middot; Equipment</div>
+      <span class="ext int">Internal</span>
+    </div>
+    <div class="chip"><div class="id">S-12</div><div class="nm">Review queue</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-13</div><div class="nm">Event review</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-14</div><div class="nm">Venue search</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-15</div><div class="nm">Booking request</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-16</div><div class="nm">Equipment request</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-18</div><div class="nm">Readiness &amp; confirm</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-17</div><div class="nm">Change review</div></div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-l">
+      <div class="lane-role">Venue Staff</div>
+      <div class="lane-tag">Venues &middot; Booking Requests</div>
+      <span class="ext int">Internal</span>
+    </div>
+    <div class="chip"><div class="id">S-22</div><div class="nm">Booking approval</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-21</div><div class="nm">Availability calendar</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-19</div><div class="nm">Venue catalogue</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-20</div><div class="nm">Venue detail / edit</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-23</div><div class="nm">Block venue</div></div>
+  </div>
+
+  <div class="lane">
+    <div class="lane-l">
+      <div class="lane-role">Technical Support</div>
+      <div class="lane-tag">Equipment &middot; Equipment Requests</div>
+      <span class="ext int">Internal</span>
+    </div>
+    <div class="chip"><div class="id">S-25</div><div class="nm">Request queue</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-24</div><div class="nm">Equipment catalogue</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="note">Reserving reduces the quantity available to every other overlapping event.</div>
+  </div>
+
+  <div class="lane" style="border-bottom:1px solid #e2e8f0">
+    <div class="lane-l">
+      <div class="lane-role">Attendee</div>
+      <div class="lane-tag">Browse &middot; My Registrations</div>
+      <span class="ext">External</span>
+    </div>
+    <div class="chip"><div class="id">S-26</div><div class="nm">Browse events</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip hub"><div class="id">S-06</div><div class="nm">Event detail &mdash; public</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="chip"><div class="id">S-27</div><div class="nm">My registrations</div></div>
+    <span class="arr"><svg width="22" height="10" viewBox="0 0 22 10" fill="none" stroke="#94a3b8" stroke-width="1.5"><path d="M0 5h18"></path><path d="m14 1 4 4-4 4" stroke-linecap="round" stroke-linejoin="round"></path></svg></span>
+    <div class="note">Overview tab only. The Venue tab shows a name once confirmed; no internal tab is rendered.</div>
+  </div>
+
+  <p class="grp" style="margin-top:20px">Where the roles hand over &mdash; every hand-off raises a notification</p>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+    <div class="hand">
+      <b>Organiser &rarr; Ops &rarr; Coordinator</b>
+      <p>Submitting a request puts it in the assignment queue. Assigning a coordinator makes it theirs.</p>
+    </div>
+    <div class="hand">
+      <b>Coordinator &harr; Organiser</b>
+      <p>Clarifications and change requests loop through the Discussion tab until the coordinator approves or rejects.</p>
+    </div>
+    <div class="hand">
+      <b>Coordinator &rarr; Venue Staff &amp; Technical Support</b>
+      <p>A booking request and an equipment request run in parallel. Both decisions land back on the Readiness tab.</p>
+    </div>
+    <div class="hand">
+      <b>Coordinator &rarr; Attendee</b>
+      <p>Confirming the event opens registration. A later significant change re-notifies everyone already registered.</p>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

@@ -31,7 +31,7 @@
 | --- | --- |
 | `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
-| `npm run lint` | Lint |
+| `npx eslint src --ext .ts,.tsx` | Lint (`npm run lint` is broken on Next 16) |
 | `npm test` | Run tests once |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run prisma:generate` | Regenerate the Prisma client |
@@ -40,8 +40,18 @@
 
 ## Project layout
 
-- `src/app` — App Router routes
+- `src/app` — App Router routes (pages and `api/`)
+- `src/components/ui` — the shared component library; import from `@/components/ui`
+- `src/components/AppShell.tsx` — top bar and role-aware sidebar
 - `src/lib/prisma.ts` — Prisma client singleton
 - `src/lib/auth.ts` — password hashing and JWT session helpers
 - `src/lib/validation.ts` — Zod schemas
+- `src/lib/roles.ts`, `statuses.ts`, `format.ts` — role, status and display rules
 - `prisma/schema.prisma` — data model
+
+## Documentation
+
+- `DOCUMENTATION.md` — how the app is built, conventions, changelog
+- `UI_DESIGN.md` — every screen, navigation, forms, error states
+- `SCHEMA_REFERENCE.md` — per-table field reference
+- `design/mockups/` — visual mockups, one file per screen

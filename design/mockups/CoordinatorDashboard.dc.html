@@ -1,0 +1,144 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    *{box-sizing:border-box}
+    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:#f8fafc;color:#0f172a;-webkit-font-smoothing:antialiased}
+    a{color:#0f172a;text-decoration:none}a:hover{color:#334155}
+    .app{width:1180px;height:740px;display:flex;flex-direction:column;background:#f8fafc;overflow:hidden}
+    .top{display:flex;align-items:center;gap:12px;padding:12px 20px;background:#fff;border-bottom:1px solid #e2e8f0}
+    .brand{font-size:16px;font-weight:600}
+    .top-right{margin-left:auto;display:flex;align-items:center;gap:14px}
+    .who{text-align:right;line-height:1.3}
+    .who-name{font-size:14px;font-weight:500}
+    .who-role{font-size:12px;color:#64748b}
+    .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:6px;font-size:14px;font-weight:500;padding:8px 16px;border:1px solid transparent;font-family:inherit}
+    .btn-sm{padding:6px 12px}
+    .btn-primary{background:#0f172a;color:#fff}
+    .btn-secondary{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .body{display:flex;flex:1;min-height:0}
+    .side{width:240px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;padding:12px;display:flex;flex-direction:column;gap:2px}
+    .nav{padding:8px 12px;border-radius:6px;font-size:14px;color:#475569}
+    .nav.on{background:#f1f5f9;color:#0f172a;font-weight:500}
+    .main{flex:1;min-width:0;padding:24px;overflow:hidden}
+    .h1{font-size:20px;font-weight:600;margin:0}
+    .sub{font-size:14px;color:#64748b;margin:4px 0 0}
+    .sec{font-size:14px;font-weight:600;margin:0}
+    .badge{display:inline-flex;align-items:center;border-radius:9999px;padding:2px 10px;font-size:12px;font-weight:500;white-space:nowrap}
+    .b-neutral{background:#f1f5f9;color:#334155;box-shadow:inset 0 0 0 1px #e2e8f0}
+    .b-info{background:#eff6ff;color:#1d4ed8;box-shadow:inset 0 0 0 1px #bfdbfe}
+    .b-progress{background:#eef2ff;color:#4338ca;box-shadow:inset 0 0 0 1px #c7d2fe}
+    .b-warning{background:#fffbeb;color:#92400e;box-shadow:inset 0 0 0 1px #fde68a}
+    .card{background:#fff;border:1px solid #e2e8f0;border-radius:8px}
+    .card-h{padding:12px 16px;border-bottom:1px solid #e2e8f0;font-size:14px;font-weight:600}
+    .item{border:1px solid #e2e8f0;border-radius:8px;background:#fff;padding:14px 16px}
+    .alert{border-radius:6px;border:1px solid;padding:12px 16px;font-size:14px}
+    .a-info{background:#eff6ff;border-color:#bfdbfe;color:#1e3a8a}
+    .link{font-size:14px;color:#334155;padding:8px 0;display:block}
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="top">
+    <div class="brand">ConnectSphere</div>
+    <div class="top-right">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.7 21a2 2 0 0 1-3.4 0"></path></svg>
+      <div class="who">
+        <div class="who-name">Wei Lin Tan</div>
+        <div class="who-role">Event Coordinator</div>
+      </div>
+      <div class="btn btn-secondary btn-sm">Log out</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- Same chrome, different destinations: the only thing a role changes -->
+    <div class="side">
+      <div class="nav on">Dashboard</div>
+      <div class="nav">Review Queue</div>
+      <div class="nav">All Events</div>
+      <div class="nav">Venues</div>
+      <div class="nav">Equipment</div>
+      <div class="nav">Notifications</div>
+    </div>
+
+    <div class="main">
+      <div style="margin-bottom:20px">
+        <h1 class="h1">Welcome, Wei Lin</h1>
+        <p class="sub">Event Coordinator</p>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:20px">
+        <div>
+          <h2 class="sec">Awaiting your review</h2>
+          <p class="sub" style="margin:2px 0 12px">Events assigned to you that are not yet confirmed.</p>
+
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div class="item">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <span style="font-weight:500">Digital Health Workshop</span>
+                <span class="badge b-info">Under review</span>
+              </div>
+              <div style="font-size:14px;color:#64748b;margin-top:4px">14 Nov 2026, 09:30&ndash;12:30 &middot; Meridian Health Asia</div>
+              <div style="font-size:13px;color:#92400e;margin-top:8px">Waiting on the organiser&rsquo;s answer since 14 Sep</div>
+            </div>
+
+            <div class="item">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <span style="font-weight:500">Vendor Networking Evening</span>
+                <span class="badge b-progress">Planning</span>
+              </div>
+              <div style="font-size:14px;color:#64748b;margin-top:4px">5 Dec 2026, 18:00&ndash;21:00 &middot; Meridian Health Asia</div>
+              <div style="font-size:13px;color:#92400e;margin-top:8px">Venue booking still pending with Venue Staff</div>
+            </div>
+
+            <div class="item">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <span style="font-weight:500">ASEAN Logistics Forum</span>
+                <span class="badge b-info">Submitted</span>
+              </div>
+              <div style="font-size:14px;color:#64748b;margin-top:4px">22 Jan 2027, 09:00&ndash;18:00 &middot; Harbourline Group</div>
+              <div style="font-size:13px;color:#92400e;margin-top:8px">Not reviewed yet</div>
+            </div>
+
+            <div class="item">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+                <span style="font-weight:500">Annual Clinical Conference 2026</span>
+                <span class="badge b-warning">Change requested</span>
+              </div>
+              <div style="font-size:14px;color:#64748b;margin-top:4px">3 Oct 2026, 09:00&ndash;17:00 &middot; Meridian Health Asia</div>
+              <div style="font-size:13px;color:#92400e;margin-top:8px">Significant change &mdash; venue, equipment and 186 registrations affected</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:16px">
+          <div class="card">
+            <div class="card-h">Go to</div>
+            <div style="padding:6px 16px 10px">
+              <div class="link">Review Queue</div>
+              <div class="link">All Events</div>
+              <div class="link">Venues</div>
+              <div class="link">Equipment</div>
+              <div class="link">Notifications</div>
+            </div>
+          </div>
+
+          <div class="alert a-info">
+            <strong>Internal view</strong>
+            <div style="margin-top:4px">You can see events across client organisations. External users only ever see their own.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

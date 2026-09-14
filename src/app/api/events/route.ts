@@ -35,6 +35,21 @@ export async function POST(req: NextRequest) {
       select: { organisationId: true },
     });
 
+    // ADDED: equipment is held wider than the event itself — kit leaves the
+    // store before the doors open and comes back after they close. Two hours
+    // either side is the default load-in / load-out window; Technical Support
+    // adjusts it when they review the request.
+    const LOAD_WINDOW_MS = 2 * 60 * 60 * 1000;
+    const equipmentStartsAt = data.startsAt
+      ? new Date(new Date(data.startsAt).getTime() - LOAD_WINDOW_MS)
+      : null;
+    const equipmentEndsAt = data.endsAt
+      ? new Date(new Date(data.endsAt).getTime() + LOAD_WINDOW_MS)
+      : null;
+
+    // The event and its requirements are one thing to the organiser, so they
+    // are one transaction here: a half-written request with facilities but no
+    // equipment would be worse than a failure they can retry.
     const event = await prisma.event.create({
       data: {
         organiserId: session.id,
@@ -54,6 +69,42 @@ export async function POST(req: NextRequest) {
         registrationEnabled: data.registrationEnabled ?? false,
         registrationCapacity: data.registrationCapacity,
         status: "draft",
+
+        // Stored as rows, not prose, so venue suitability can match them.
+        // Everything an organiser ticks is mandatory; the nice-to-have case
+        // (isMandatory: false) is a coordinator refinement, not an organiser
+        // one, so it is not exposed on this form.
+        facilityRequirements: data.facilityIds?.length
+          ? {
+              create: data.facilityIds.map((facilityId) => ({
+                facilityId,
+                isMandatory: true,
+              })),
+            }
+          : undefined,
+
+        // Guarded by createEventSchema: equipment cannot be requested without
+        // event dates, so these two are non-null whenever the array is set.
+        equipmentRequests:
+          data.equipment?.length && equipmentStartsAt && equipmentEndsAt
+            ? {
+                create: data.equipment.map((item) => ({
+                  equipmentId: item.equipmentId,
+                  quantityRequested: item.quantityRequested,
+                  technicalRequirements: item.technicalRequirements,
+                  startsAt: equipmentStartsAt,
+                  endsAt: equipmentEndsAt,
+                  requestedBy: session.id,
+                  status: "requested",
+                })),
+              }
+            : undefined,
+      },
+      include: {
+        facilityRequirements: { select: { facilityId: true, isMandatory: true } },
+        equipmentRequests: {
+          select: { id: true, equipmentId: true, quantityRequested: true, status: true },
+        },
       },
     });
 

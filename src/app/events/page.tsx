@@ -1,100 +1,191 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  ButtonLink,
+  DataState,
+  PageHeader,
+  Select,
+  StatusBadge,
+  Table,
+  type Column,
+} from "@/components/ui";
+import { formatDateTimeRange, orEmpty } from "@/lib/format";
+import { statusLabel } from "@/lib/statuses";
 import { authedFetch } from "@/lib/session";
+import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 
-interface EventItem {
+// S-07. Drafts stay visibly separate from submitted requests: the customer's
+// complaint is not knowing whether something has actually been sent
+// (briefing §2, "unsure whether an event has been approved or confirmed").
+
+interface EventRow {
   id: string;
-  title: string;
+  title: string | null;
   status: string;
-  proposedDate: string | null;
-  createdAt: string;
+  category: string | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  expectedAttendance: number | null;
 }
 
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  ...["draft", "submitted", "under_review", "approved", "planning", "confirmed", "completed", "rejected", "cancelled"].map(
+    (status) => ({ value: status, label: statusLabel(status) })
+  ),
+];
+
 export default function EventsPage() {
-  const [events, setEvents] = useState<EventItem[] | null>(null);
+  const router = useRouter();
+  const { user, state } = useCurrentUser();
+  const [events, setEvents] = useState<EventRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [title, setTitle] = useState("");
-  const [creating, setCreating] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  async function loadEvents() {
-    const res = await authedFetch("/api/events");
-    if (!res.ok) {
-      setError("Could not load events - are you logged in?");
-      return;
-    }
-    setError(null);
-    setEvents(await res.json());
-  }
-
-  useEffect(() => {
-    // This is the standard "fetch on mount" pattern - loadEvents only sets
-    // state after its internal `await`, never synchronously. The
-    // react-hooks/set-state-in-effect rule flags any function call here that
-    // *contains* a setState anywhere in its body, without checking whether
-    // it happens before or after an await, so it can't tell the difference.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    void loadEvents();
-  }, []);
-
-  async function handleCreate(e: React.FormEvent) {
-    e.preventDefault();
-    setCreating(true);
+  const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await authedFetch("/api/events", {
-        method: "POST",
-        body: JSON.stringify({ title }),
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Could not create event");
-      setTitle("");
-      await loadEvents();
+      const res = await authedFetch("/api/events");
+      if (res.status === 401) {
+        router.push(loginUrlFor("/events"));
+        return;
+      }
+      if (!res.ok) throw new Error("Could not load events.");
+      setEvents(await res.json());
     } catch (err) {
+      setEvents(null);
       setError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setCreating(false);
     }
-  }
+  }, [router]);
+
+  useEffect(() => {
+    if (state === "anonymous") {
+      router.push(loginUrlFor("/events"));
+      return;
+    }
+    if (state === "authenticated") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      void load();
+    }
+  }, [state, load, router]);
+
+  const isOrganiser = user?.role === "organiser";
+
+  const { drafts, submitted } = useMemo(() => {
+    const filtered =
+      events?.filter((event) => statusFilter === "all" || event.status === statusFilter) ?? null;
+    return {
+      drafts: filtered?.filter((event) => event.status === "draft") ?? null,
+      submitted: filtered?.filter((event) => event.status !== "draft") ?? null,
+    };
+  }, [events, statusFilter]);
+
+  const columns: Column<EventRow>[] = [
+    {
+      key: "title",
+      header: "Event",
+      hideLabelOnMobile: true,
+      render: (row) => (
+        <span className="font-medium">{row.title || "Untitled event"}</span>
+      ),
+    },
+    {
+      key: "when",
+      header: "When",
+      render: (row) => formatDateTimeRange(row.startsAt, row.endsAt),
+    },
+    {
+      key: "attendance",
+      header: "Attendance",
+      render: (row) => orEmpty(row.expectedAttendance),
+    },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => <StatusBadge status={row.status} />,
+    },
+  ];
 
   return (
     <div>
-      <h2 className="mb-4 text-xl font-bold">Your events</h2>
+      <PageHeader
+        title={isOrganiser ? "My events" : "All events"}
+        subtitle={
+          isOrganiser
+            ? "Drafts are only visible to you until you submit them."
+            : "Every event across client organisations."
+        }
+        actions={
+          isOrganiser ? (
+            <ButtonLink href="/events/new" variant="accent">
+              New event request
+            </ButtonLink>
+          ) : undefined
+        }
+      />
 
-      <form onSubmit={handleCreate} className="mb-6 flex gap-2">
-        <input
-          className="flex-1 rounded border border-gray-300 px-3 py-2"
-          placeholder="New event title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required
+      <div className="mb-5 max-w-xs">
+        <label htmlFor="status-filter" className="mb-1.5 block text-sm font-medium text-ink">
+          Filter by status
+        </label>
+        <Select
+          id="status-filter"
+          options={STATUS_FILTER_OPTIONS}
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
         />
-        <button
-          type="submit"
-          disabled={creating}
-          className="rounded bg-gray-900 px-4 py-2 text-white disabled:opacity-50"
+      </div>
+
+      {/* Drafts first and under their own heading — an unsent request is the
+          thing most likely to be forgotten. */}
+      {isOrganiser && drafts && drafts.length > 0 && (
+        <section className="mb-8">
+          <h2 className="mb-3 font-display text-lg font-semibold text-ink">
+            Drafts — not yet submitted ({drafts.length})
+          </h2>
+          <Table
+            columns={columns}
+            rows={drafts}
+            rowKey={(row) => row.id}
+            onRowClick={(row) => router.push(`/events/${row.id}/edit`)}
+            caption="Draft event requests"
+          />
+        </section>
+      )}
+
+      <section>
+        {isOrganiser && (
+          <h2 className="mb-3 font-display text-lg font-semibold text-ink">Submitted</h2>
+        )}
+        <DataState
+          data={isOrganiser ? submitted : events}
+          error={error}
+          onRetry={load}
+          empty={{
+            title: isOrganiser ? "No submitted requests yet" : "No events yet",
+            description: isOrganiser
+              ? "Requests you submit to ConnectSphere appear here with their current status."
+              : "Events appear here once organisers submit them.",
+            action: isOrganiser ? (
+              <ButtonLink href="/events/new" variant="accent">
+                Create your first request
+              </ButtonLink>
+            ) : undefined,
+          }}
         >
-          {creating ? "Creating..." : "Create draft"}
-        </button>
-      </form>
-
-      {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
-
-      {events === null && !error && <p className="text-gray-500">Loading...</p>}
-      {events?.length === 0 && <p className="text-gray-500">No events yet - create one above.</p>}
-
-      <ul className="flex flex-col gap-2">
-        {events?.map((event) => (
-          <li key={event.id} className="rounded border border-gray-200 bg-white p-3">
-            <div className="flex items-center justify-between">
-              <span className="font-medium">{event.title}</span>
-              <span className="rounded bg-gray-100 px-2 py-0.5 text-xs uppercase text-gray-600">
-                {event.status}
-              </span>
-            </div>
-          </li>
-        ))}
-      </ul>
+          {(rows) => (
+            <Table
+              columns={columns}
+              rows={rows}
+              rowKey={(row) => row.id}
+              onRowClick={(row) => router.push(`/events/${row.id}`)}
+              caption="Events"
+            />
+          )}
+        </DataState>
+      </section>
     </div>
   );
 }
