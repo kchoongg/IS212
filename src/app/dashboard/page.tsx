@@ -136,7 +136,9 @@ export default function DashboardPage() {
                 {rows.map((event) => (
                   <li key={event.id}>
                     <Link
-                      href={`/events/${event.id}`}
+                      href={
+                        event.status === "draft" ? `/events/${event.id}/edit` : `/events/${event.id}`
+                      }
                       className="block rounded-lg border border-line bg-surface p-4 shadow-card transition-colors hover:border-brand-200 hover:bg-brand-50/40"
                     >
                       <div className="flex flex-wrap items-start justify-between gap-2">

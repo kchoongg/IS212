@@ -10,9 +10,12 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Organisers see their own events; everyone else sees everything for now -
-  // tighten this per role as the access model gets built out further.
-  const where = session.role === "organiser" ? { organiserId: session.id } : {};
+  // Organisers see their own events, drafts included; everyone else sees
+  // everything except drafts - a draft is private to the organiser who owns
+  // it until they submit it (SPM-24), not something a coordinator, venue
+  // staff, tech support, ops manager, or attendee should ever see.
+  const where =
+    session.role === "organiser" ? { organiserId: session.id } : { status: { not: "draft" } };
   const events = await prisma.event.findMany({
     where,
     orderBy: { createdAt: "desc" },

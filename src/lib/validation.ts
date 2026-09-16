@@ -18,13 +18,24 @@ export type LoginInput = z.infer<typeof loginSchema>;
 
 // ---- Events ----
 
+// Shared by createEventSchema and updateEventDraftSchema: one equipment
+// request line, quantity against a catalogue item.
+const equipmentItemSchema = z.object({
+  equipmentId: z.string().uuid(),
+  quantityRequested: z.number().int().positive(),
+  technicalRequirements: z.string().optional(),
+});
+
 // CHANGED: proposedDate + timeSlot replaced by startsAt + endsAt.
 // The schema stores a real start/end timestamp rather than a date plus an
 // AM/PM/Night bucket, because venue conflict detection compares actual
 // intervals - "PM" cannot be checked against another booking.
 export const createEventSchema = z
   .object({
-    title: z.string().min(1),
+    // .trim() runs before .min(1): a title of only whitespace (e.g. " ")
+    // must not pass as a name, and the stored value should never carry
+    // leading/trailing whitespace a user didn't mean to type.
+    title: z.string().trim().min(1, "Title cannot be blank"),
     category: z.string().optional(),
     purpose: z.string().optional(),
     description: z.string().optional(),
@@ -49,15 +60,7 @@ export const createEventSchema = z
     // ADDED: equipment the organiser is asking for, as quantities against
     // catalogue items. Each entry becomes an EquipmentRequest for Technical
     // Support to review.
-    equipment: z
-      .array(
-        z.object({
-          equipmentId: z.string().uuid(),
-          quantityRequested: z.number().int().positive(),
-          technicalRequirements: z.string().optional(),
-        })
-      )
-      .optional(),
+    equipment: z.array(equipmentItemSchema).optional(),
   })
   .refine((d) => !d.startsAt || !d.endsAt || new Date(d.endsAt) > new Date(d.startsAt), {
     message: "endsAt must be after startsAt",
@@ -119,6 +122,46 @@ export const updateEventStatusSchema = z.object({
   reason: z.string().optional(),
 });
 export type UpdateEventStatusInput = z.infer<typeof updateEventStatusSchema>;
+
+// SPM-24: editing a saved draft. Every field is optional — the organiser may
+// only be changing one thing — so this cannot reuse createEventSchema, which
+// requires a title. Cross-field rules that depend on values already stored on
+// the event (e.g. endsAt vs. a startsAt from an earlier save) are checked in
+// the route against the merged record, not here against the payload alone.
+export const updateEventDraftSchema = z
+  .object({
+    // Same rule as createEventSchema: whitespace-only is not a title.
+    title: z.string().trim().min(1, "Title cannot be blank").optional(),
+    category: z.string().optional(),
+    purpose: z.string().optional(),
+    description: z.string().optional(),
+    startsAt: z.string().datetime().optional(),
+    endsAt: z.string().datetime().optional(),
+    expectedAttendance: z.number().int().positive().optional(),
+    preferredLayout: z.string().optional(),
+    accessibilityNotes: z.string().optional(),
+    specialRequirements: z.string().optional(),
+    registrationEnabled: z.boolean().optional(),
+    registrationCapacity: z.number().int().positive().optional(),
+    registrationOpensAt: z.string().datetime().optional(),
+    registrationClosesAt: z.string().datetime().optional(),
+    facilityIds: z.array(z.string().uuid()).optional(),
+    equipment: z.array(equipmentItemSchema).optional(),
+  })
+  // Payload-only check — replacing the equipment list with the same item
+  // twice is never valid, regardless of what's already stored.
+  .refine(
+    (d) => {
+      if (!d.equipment) return true;
+      const ids = d.equipment.map((e) => e.equipmentId);
+      return new Set(ids).size === ids.length;
+    },
+    {
+      message: "Each piece of equipment can only be requested once — change the quantity instead",
+      path: ["equipment"],
+    }
+  );
+export type UpdateEventDraftInput = z.infer<typeof updateEventDraftSchema>;
 
 // ---- Venues ----
 

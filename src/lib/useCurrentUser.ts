@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { authedFetch, clearToken } from "./session";
+import { authedFetch, clearToken, onTokenChange } from "./session";
 
 // Who is signed in, for the chrome and for role-gating screens.
 //
@@ -44,6 +44,10 @@ export function useCurrentUser() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
+    // ADDED: re-check whenever saveToken/clearToken runs anywhere — e.g. the
+    // login page, which doesn't call this hook itself — so an
+    // already-mounted shell picks up the new session without a page reload.
+    return onTokenChange(() => void load());
   }, [load]);
 
   const logout = useCallback(() => {

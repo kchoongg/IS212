@@ -1,0 +1,283 @@
+{
+  "story_key": "SPM-24",
+  "story_title": "As an Event Organiser, I want to save an incomplete event request as a draft so that I can complete or review it before submitting it.",
+  "created_by": "kchoongg",
+  "creation_date": "2026-09-16",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "Given I have entered some event information, when I select \"Save Draft\", then the request is saved." },
+    { "id": "AC2", "text": "A saved draft is clearly identified as a draft." },
+    { "id": "AC3", "text": "I can leave the system and return to the draft later." },
+    { "id": "AC4", "text": "I can edit the information in the draft." },
+    { "id": "AC5", "text": "A draft is not treated as a submitted event request." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-24-TC01",
+      "title": "Save Draft creates a saved draft with only a title",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), a seeded Organiser. On the \"New event request\" page.",
+      "steps": [
+        "Enter \"Annual Partner Appreciation Dinner\" into Event name",
+        "Leave every other field blank",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Event name: Annual Partner Appreciation Dinner",
+      "expected_result": "The browser returns to the \"My events\" page.\nThe event appears under \"Drafts — not yet submitted\" with the title \"Annual Partner Appreciation Dinner\" and a \"Draft\" status badge."
+    },
+    {
+      "id": "SPM-24-TC02",
+      "title": "Save Draft is blocked when the event name is empty",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, all fields blank.",
+      "steps": [
+        "Leave \"Event name\" empty",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Event name: \"\" (empty)",
+      "expected_result": "The page does not move on. A message \"Give the event a name so you can find it again.\" appears under Event name, and the cursor moves there."
+    },
+    {
+      "id": "SPM-24-TC03",
+      "title": "Save Draft treats a whitespace-only title the same as empty",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "steps": [
+        "Enter \"   \" (three spaces) into Event name",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Event name: \"   \" (3 spaces)",
+      "expected_result": "The page does not move on. The same message, \"Give the event a name so you can find it again.\", appears under Event name — typing only spaces counts as leaving it blank."
+    },
+    {
+      "id": "SPM-24-TC04",
+      "title": "A saved draft is shown under its own 'Drafts' section with a Draft badge",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Seeded account rachel.ng@meridianfina.com owns the seeded draft \"Q1 Investor Update (rough idea)\" and the seeded, already-completed event \"Meridian Compliance Training\".",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Open the \"My events\" page"
+      ],
+      "test_data": "N/A — uses seeded data",
+      "expected_result": "The page shows a \"Drafts — not yet submitted (1)\" section listing \"Q1 Investor Update (rough idea)\" with a grey \"Draft\" badge, sitting above and separate from the \"Submitted\" section, which lists \"Meridian Compliance Training\"."
+    },
+    {
+      "id": "SPM-24-TC05",
+      "title": "Opening a draft also shows the Draft badge on its own page",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Seeded draft \"Q1 Investor Update (rough idea)\" owned by rachel.ng@meridianfina.com.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Open the \"My events\" page",
+        "Click the \"Q1 Investor Update (rough idea)\" row"
+      ],
+      "test_data": "N/A — uses seeded data",
+      "expected_result": "The \"Edit draft\" page opens, showing the subtitle \"Pick up where you left off. Nothing here is sent until you submit it.\" together with a \"Draft\" badge next to the title."
+    },
+    {
+      "id": "SPM-24-TC06",
+      "title": "Organiser can leave and return to a saved draft",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Seeded draft \"Q1 Investor Update (rough idea)\" owned by rachel.ng@meridianfina.com. Its saved description reads \"Still checking dates with the exec team.\"",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Log out",
+        "Log back in as rachel.ng@meridianfina.com / password123",
+        "Open the \"My events\" page",
+        "Click the \"Q1 Investor Update (rough idea)\" row"
+      ],
+      "test_data": "Login: rachel.ng@meridianfina.com / password123",
+      "expected_result": "The \"Edit draft\" page opens with every previously saved value already filled in, including the Description field reading \"Still checking dates with the exec team.\"\nThe Draft badge is still shown."
+    },
+    {
+      "id": "SPM-24-TC07",
+      "title": "A draft is not visible to an unrelated organiser",
+      "linked_ac": ["AC3"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Seeded draft \"Q1 Investor Update (rough idea)\" is owned by rachel.ng@meridianfina.com (Meridian Financial Group). budi.santoso@nusantaratec.com is an Organiser at an unrelated organisation, Nusantara Tech Labs. Rachel's draft's edit-page web address has been copied (e.g. from the address bar while logged in as her).",
+      "steps": [
+        "Log in as budi.santoso@nusantaratec.com / password123",
+        "Paste Rachel's draft's edit-page address into the browser and go to it"
+      ],
+      "test_data": "Requester: budi.santoso@nusantaratec.com",
+      "expected_result": "The page shows \"This draft could not be found. It may have been removed, or it isn't yours.\" instead of the form — Budi never sees any of Rachel's draft content."
+    },
+    {
+      "id": "SPM-24-TC08",
+      "title": "Visiting a draft's edit link while logged out redirects to login",
+      "linked_ac": ["AC3"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Seeded draft \"Q1 Investor Update (rough idea)\" exists. No one is logged in.",
+      "steps": [
+        "Make sure you are logged out",
+        "Paste the draft's edit-page address into the browser and go to it"
+      ],
+      "test_data": "N/A",
+      "expected_result": "The browser is redirected to the login page instead of showing the draft. After logging in, it takes you straight back to the draft's edit page."
+    },
+    {
+      "id": "SPM-24-TC09",
+      "title": "Editing a draft's fields saves the changes",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Draft \"Annual Partner Appreciation Dinner\" from TC01, owned by rachel.ng@meridianfina.com, has no other fields set yet.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Open the draft's \"Edit draft\" page",
+        "Change Event name to \"Annual Partner Appreciation Dinner - Updated\"",
+        "Set Type of event to \"Conference\"",
+        "Set Starts at to 10 Nov 2026, 9:00 AM and Ends at to 10 Nov 2026, 5:00 PM",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Event name: Annual Partner Appreciation Dinner - Updated; Type of event: Conference; Starts at: 10 Nov 2026, 9:00 AM; Ends at: 10 Nov 2026, 5:00 PM",
+      "expected_result": "The browser returns to \"My events\". Status remains \"Draft\". Reopening the draft shows all the updated values."
+    },
+    {
+      "id": "SPM-24-TC10",
+      "title": "Changing only the end time is checked against the already-saved start time",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "The draft from TC09 already has Starts at saved as 10 Nov 2026, 9:00 AM.",
+      "steps": [
+        "Open the draft's \"Edit draft\" page (Starts at already shows 10 Nov 2026, 9:00 AM)",
+        "Change Ends at to 10 Nov 2026, 6:00 PM, without touching Starts at",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Ends at: 10 Nov 2026, 6:00 PM (Starts at left as already loaded, 9:00 AM)",
+      "expected_result": "The change is saved without error, because 6:00 PM is after the already-saved 9:00 AM start.\nReopening the draft shows Ends at as 10 Nov 2026, 6:00 PM and Starts at unchanged at 9:00 AM."
+    },
+    {
+      "id": "SPM-24-TC11",
+      "title": "Changing the end time to before the already-saved start time is rejected",
+      "linked_ac": ["AC4"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "The draft from TC09/TC10 has Starts at saved as 10 Nov 2026, 9:00 AM.",
+      "steps": [
+        "Open the draft's \"Edit draft\" page",
+        "Change Ends at to 10 Nov 2026, 8:00 AM, without touching Starts at",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Ends at: 10 Nov 2026, 8:00 AM (before the loaded Starts at of 9:00 AM)",
+      "expected_result": "The page does not move on. A message \"Ends at must be after starts at.\" appears under Ends at, and the previously saved Ends at value is not overwritten."
+    },
+    {
+      "id": "SPM-24-TC12",
+      "title": "A draft that gets submitted in another tab can no longer be saved from a stale edit tab",
+      "linked_ac": ["AC4", "AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "A draft owned by rachel.ng@meridianfina.com is complete enough to submit (Event name, Type, Starts at, Ends at and Expected attendance all filled in) and is currently open on its \"Edit draft\" page in Tab A.",
+      "steps": [
+        "In a second browser tab (Tab B), log in as the same organiser and open the same draft",
+        "In Tab B, click \"Submit request\" so the event's status becomes \"Submitted\"",
+        "Switch back to Tab A, change the Description field, and click \"Save draft\""
+      ],
+      "test_data": "Description entered in Tab A: \"trying to sneak an edit in\"",
+      "expected_result": "Tab A shows an error such as \"Could not save this draft — Only draft requests can be edited.\"\nThe event's Description is not changed, and its status remains \"Submitted\"."
+    },
+    {
+      "id": "SPM-24-TC13",
+      "title": "Replacing equipment with the same item twice in a draft edit is rejected",
+      "linked_ac": ["AC4"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "The draft from TC09 already has Starts at and Ends at saved.",
+      "steps": [
+        "Open the draft's \"Edit draft\" page",
+        "Add an equipment row, choose \"4K Portable Projector\", quantity 1",
+        "Add a second equipment row, choose \"4K Portable Projector\" again, quantity 2",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Equipment: \"4K Portable Projector\" chosen in two separate rows",
+      "expected_result": "The page does not move on. A message \"Each item can only be requested once — change the quantity instead of adding a second row.\" appears above the equipment rows, and the draft's saved equipment is unchanged."
+    },
+    {
+      "id": "SPM-24-TC14",
+      "title": "A complete draft can be submitted and leaves draft status",
+      "linked_ac": ["AC1", "AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "The draft from TC09 has Event name, Type, Starts at and Ends at set. Expected attendance is still missing.",
+      "steps": [
+        "Open the draft's \"Edit draft\" page",
+        "Enter 120 into Expected attendance",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Expected attendance: 120 (everything else already saved from TC09)",
+      "expected_result": "The browser moves to the event's own page. Its status badge now reads \"Submitted\" instead of \"Draft\", and it no longer appears under \"Drafts — not yet submitted\" on \"My events\"."
+    },
+    {
+      "id": "SPM-24-TC15",
+      "title": "An incomplete draft cannot be submitted from its edit page",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "The seeded draft \"Q1 Investor Update (rough idea)\", owned by rachel.ng@meridianfina.com, has only a title and description — Type of event, Starts at, Ends at and Expected attendance are all still empty.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Open the draft's \"Edit draft\" page",
+        "Without filling anything else in, click \"Submit request\""
+      ],
+      "test_data": "N/A — submitting the draft exactly as saved",
+      "expected_result": "The page does not move on. Messages appear at once under Type of event, Starts at, Ends at and Expected attendance, listing what's still needed; the draft is left exactly as it was, still showing the \"Draft\" badge."
+    },
+    {
+      "id": "SPM-24-TC16",
+      "title": "A draft never appears in the Submitted section of the owner's own events page",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Seeded account rachel.ng@meridianfina.com owns the seeded draft \"Q1 Investor Update (rough idea)\" and the seeded, already-completed event \"Meridian Compliance Training\".",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Open the \"My events\" page"
+      ],
+      "test_data": "N/A — uses seeded data",
+      "expected_result": "The draft appears only under \"Drafts — not yet submitted\". The \"Submitted\" section lists \"Meridian Compliance Training\" but not \"Q1 Investor Update (rough idea)\"."
+    },
+    {
+      "id": "SPM-24-TC17",
+      "title": "A non-organiser role never sees another user's draft in the events list",
+      "linked_ac": ["AC3", "AC5"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "daniel.tan@connectsphere.com is a seeded Coordinator who owns no events of his own. rachel.ng@meridianfina.com owns the seeded draft \"Q1 Investor Update (rough idea)\". budi.santoso@nusantaratec.com owns the seeded, already-submitted event \"Nusantara Developer Summit\".",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Open the \"All events\" page"
+      ],
+      "test_data": "N/A — uses seeded data",
+      "expected_result": "\"Nusantara Developer Summit\" appears in the list. \"Q1 Investor Update (rough idea)\", or any other draft, does not appear anywhere on the page."
+    }
+  ],
+  "open_questions": [],
+  "code_references": [
+    "src/lib/validation.ts",
+    "src/lib/eventForm.ts",
+    "src/app/events/new/page.tsx",
+    "src/app/events/[id]/edit/page.tsx",
+    "src/app/api/events/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/page.tsx",
+    "src/components/ui/StatusBadge.tsx",
+    "src/lib/statuses.ts",
+    "src/lib/__tests__/validation.test.ts",
+    "prisma/seed.ts"
+  ]
+}
