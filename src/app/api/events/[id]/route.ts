@@ -9,7 +9,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const { id } = await context.params;
   const event = await prisma.event.findUnique({
     where: { id },
-    include: { facilityRequirements: { include: { facility: true } } },
+    include: {
+      facilityRequirements: { include: { facility: true } },
+      // ADDED: the hub's "Event at a glance" sidebar (S-06, design/mockups/
+      // OrganiserEventDetail.dc.html) names the coordinator.
+      coordinator: { select: { fullName: true } },
+    },
   });
   if (!event) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });

@@ -120,6 +120,31 @@ export const updateEventStatusSchema = z.object({
 });
 export type UpdateEventStatusInput = z.infer<typeof updateEventStatusSchema>;
 
+// ---- Equipment requests (per event, S-16) ----
+
+// ADDED (SPM-47): the Coordinator's own add/update screen, separate from the
+// `equipment` array embedded in createEventSchema (S-08). That one creates
+// rows alongside a new event; this one manages rows on an event that already
+// exists, so it never touches event fields, and update only ever touches
+// quantity and technical requirements — never the equipment item itself
+// (changing the item is "remove this row, add another", not an edit).
+export const addEquipmentRequestSchema = z.object({
+  equipmentId: z.string().uuid(),
+  quantityRequested: z.number().int().positive(),
+  technicalRequirements: z.string().optional(),
+});
+export type AddEquipmentRequestInput = z.infer<typeof addEquipmentRequestSchema>;
+
+export const updateEquipmentRequestSchema = z
+  .object({
+    quantityRequested: z.number().int().positive().optional(),
+    technicalRequirements: z.string().optional(),
+  })
+  .refine((d) => d.quantityRequested !== undefined || d.technicalRequirements !== undefined, {
+    message: "Nothing to update",
+  });
+export type UpdateEquipmentRequestInput = z.infer<typeof updateEquipmentRequestSchema>;
+
 // ---- Venues ----
 
 // CHANGED: `location` split into building/floor/address (story 9 filters by
