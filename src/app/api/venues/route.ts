@@ -1,9 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
+import { can } from "@/lib/permissions";
 import { createVenueSchema } from "@/lib/validation";
 import { ZodError } from "zod";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // ADDED: this route had no authentication at all. The venue catalogue is
+  // internal operational information - "characteristics needed by Event
+  // Coordinators and Venue Staff" (Week 4 core features) - so it is not
+  // served to an anonymous caller, an organiser, or an attendee.
+  const actor = await getActor(req);
+  if (!actor) {
+    return unauthenticated();
+  }
+  if (!can(actor.role, "venue:view")) {
+    return forbidden("The venue catalogue is for ConnectSphere staff");
+  }
+
   // CHANGED: include layouts and facilities. A venue without its per-layout
   // capacities cannot answer "does this fit 100 people?", which is the whole
   // point of the venue list for suitability checking.
@@ -18,6 +32,17 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    // ADDED: this route accepted unauthenticated requests - anyone at all
+    // could add a venue to the catalogue. Venue Staff "are responsible for
+    // venue information" (briefing §3), so it is theirs.
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
+    }
+    if (!can(actor.role, "venue:manage")) {
+      return forbidden("Only Venue Staff can add a venue");
+    }
+
     const body = await req.json();
     const data = createVenueSchema.parse(body);
 

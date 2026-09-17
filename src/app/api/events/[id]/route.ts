@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
+import {
+  canEditEventContent,
+  canSetEventStatus,
+  canViewEvent,
+  visibleEventFor,
+  type Actor,
+} from "@/lib/permissions";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -12,9 +19,9 @@ const LOAD_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const session = getSession(req);
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const actor = await getActor(req);
+  if (!actor) {
+    return unauthenticated();
   }
 
   const event = await prisma.event.findUnique({
@@ -25,25 +32,32 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     },
   });
   if (!event) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+    return hidden();
   }
 
-  // ADDED: a draft is private to the organiser who owns it (SPM-24 AC "I can
-  // leave the system and return to the draft later" implies nobody else can
-  // return to it). Mirrors the scoping GET /api/events already applies to the
-  // list. Non-draft events keep the existing broad visibility.
-  if (event.status === "draft" && event.organiserId !== session.id) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  // CHANGED: was a draft-ownership check only. canViewEvent() now applies the
+  // whole of briefing §8b - a draft stays private to its organiser, an
+  // organiser sees only their own client's events, and an attendee sees an
+  // event only once it is confirmed and open for registration. An event the
+  // user may not see is 404, not 403: a 403 would confirm it exists.
+  if (!canViewEvent(actor, event)) {
+    return hidden();
   }
 
-  return NextResponse.json(event);
+  // ADDED: and even a visible event is not visible in full. An attendee gets
+  // the public subset; the rejection reason, the assigned coordinator, the
+  // client's special requirements and the venue and equipment arrangements
+  // are internal planning information (briefing §8b).
+  return NextResponse.json(visibleEventFor(actor, event));
 }
 
 /**
  * Two different edits share this endpoint, told apart by the body shape:
  *   - `{ status, reason? }` moves the event through the BPMN status
  *     lifecycle (see docs/ConnectSphere_Status_Lifecycle.drawio) - open to
- *     whichever role the transition belongs to, not just the organiser.
+ *     whichever role owns that transition in the briefing's §5 process, and
+ *     only to a user related to the event. See STATUS_TRANSITION_ROLES in
+ *     src/lib/permissions.ts and docs/PERMISSIONS.md.
  *   - anything else (SPM-24) edits a draft's own content - title, schedule,
  *     requirements, etc. - and is restricted to the organiser who owns it,
  *     while the event is still a draft. Once submitted, changes go through
@@ -52,16 +66,23 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const session = getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
     }
 
     const body = await req.json();
 
     const event = await prisma.event.findUnique({ where: { id } });
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      return hidden();
+    }
+
+    // ADDED: an event the user cannot see cannot be reached through PATCH
+    // either. Without this, an id guessed from a 404 could still be written
+    // to - the read and the write have to answer the same question.
+    if (!canViewEvent(actor, event)) {
+      return hidden();
     }
 
     // `await` here matters: `return handleDraftEdit(...)` without it lets a
@@ -69,9 +90,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // promise rejection instead of landing in the catch below, since the
     // `return` completes this try block before the inner promise settles.
     if (body && typeof body === "object" && "status" in body) {
-      return await handleStatusChange(id, session, event, body);
+      return await handleStatusChange(id, actor, event, body);
     }
-    return await handleDraftEdit(id, session, event, body);
+    return await handleDraftEdit(id, actor, event, body);
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
@@ -83,22 +104,22 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
 async function handleStatusChange(
   id: string,
-  session: { id: string },
+  actor: Actor,
   event: NonNullable<Awaited<ReturnType<typeof prisma.event.findUnique>>>,
   body: unknown
 ) {
-  // ADDED: a draft is private to the organiser who owns it. Without this,
-  // someone who cannot even GET the draft (blocked with 404) could still
-  // reach into it through this endpoint - e.g. PATCH { status: "submitted" }
-  // on an id they merely guessed - and change it despite never being able to
-  // see it. Once an event has left draft, its status transitions belong to
-  // whichever role the workflow assigns (coordinator approving, etc.), so no
-  // ownership check applies past this point.
-  if (event.status === "draft" && event.organiserId !== session.id) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  }
-
   const data = updateEventStatusSchema.parse(body);
+
+  // CHANGED: was an ownership check on drafts only, which left every
+  // transition past draft open to anyone signed in - an attendee could
+  // confirm or reject an event. canSetEventStatus() applies the briefing's
+  // §5 process instead: the organiser submits their own request, the Ops
+  // Manager assigns it, and the coordinator responsible for it approves,
+  // rejects, confirms and completes it. Visibility was already checked by the
+  // caller, so a refusal here is an honest 403.
+  if (!canSetEventStatus(actor, event, data.status)) {
+    return forbidden(`Your role cannot move an event to "${data.status}"`);
+  }
 
   // ADDED: a draft may be incomplete, but anything past draft may not.
   // The SQL design enforced this with a CHECK constraint; Prisma has no
@@ -144,7 +165,7 @@ async function handleStatusChange(
         // CHANGED: oldStatus -> fromStatus, newStatus -> toStatus.
         fromStatus: event.status,
         toStatus: data.status,
-        changedBy: session.id,
+        changedBy: actor.id,
         reason: data.reason,
       },
     });
@@ -162,17 +183,18 @@ async function handleStatusChange(
  */
 async function handleDraftEdit(
   id: string,
-  session: { id: string },
+  actor: Actor,
   event: NonNullable<Awaited<ReturnType<typeof prisma.event.findUnique>>>,
   body: unknown
 ) {
-  // Hide drafts that belong to someone else rather than confirming they
-  // exist, the same way GET does.
-  if (event.status === "draft" && event.organiserId !== session.id) {
-    return NextResponse.json({ error: "Event not found" }, { status: 404 });
-  }
+  // Only the owning organiser edits a draft's content. A draft belonging to
+  // someone else was already hidden as a 404 by the caller, so the remaining
+  // refusals are honest: the wrong role, or an event that has left draft.
   if (event.status !== "draft") {
     return NextResponse.json({ error: "Only draft requests can be edited" }, { status: 400 });
+  }
+  if (!canEditEventContent(actor, event)) {
+    return forbidden("Only the organiser who owns this draft can edit it");
   }
 
   const data = updateEventDraftSchema.parse(body);
@@ -257,7 +279,7 @@ async function handleDraftEdit(
                   technicalRequirements: item.technicalRequirements,
                   startsAt: equipmentStartsAt,
                   endsAt: equipmentEndsAt,
-                  requestedBy: session.id,
+                  requestedBy: actor.id,
                   status: "requested",
                 })),
               }
