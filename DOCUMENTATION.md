@@ -1,7 +1,7 @@
 # CONNECTSPHERE
 ## Developer Documentation — Living Document
 
-**Version:** 3.1
+**Version:** 3.2
 **Architecture:** Single Next.js app — one codebase, one database, one deploy
 **Status:** 🟢 Schema built — 17 tables live, all routes reconnected, demo data available
 **Frontend:** 🟢 Design system + app shell built; 6 of 28 screens implemented
@@ -130,7 +130,12 @@ IS212/
     │   ├── register/page.tsx         # S-02
     │   ├── dashboard/page.tsx         # S-03, role-aware
     │   ├── events/page.tsx             # S-07
-    │   ├── events/new/page.tsx          # S-08, the event request form
+    │   ├── events/new/page.tsx          # S-08, the event request form (create)
+    │   ├── events/[id]/edit/page.tsx  # S-08, the same form (edit a saved draft)
+    │   ├── events/[id]/page.tsx         # ❌ NOT BUILT YET — general event detail.
+    │   │                                    Dashboard and the events list both link
+    │   │                                    here for non-draft events; until this
+    │   │                                    exists those links 404.
     │   │
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
@@ -153,6 +158,7 @@ IS212/
         ├── statuses.ts              # Status label + colour for EVERY status in the system
         ├── format.ts                 # Dates, capacities, venue names — one format each
         ├── formErrors.ts              # Client validation + mapping server errors to fields
+        ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues
         ├── cn.ts                       # Tiny class-name joiner
         ├── validation.ts                # ALL Zod schemas live in this ONE file
         └── __tests__/                    # Tests go HERE, not next to the file they test
@@ -373,6 +379,8 @@ defend under questioning.
 | Rule | Where | Status |
 |---|---|---|
 | Draft completeness before submitting | `api/events/[id]` PATCH | ✅ done |
+| Draft privacy — only the owning organiser may view, edit, or change the status of their own draft; every other role gets a 404, never a glimpse that it exists | `api/events` GET, `api/events/[id]` GET + PATCH | ✅ done |
+| A draft's content is only editable while it's still a draft — once submitted, further edits go through `EventChangeRequest`, not `PATCH /api/events/[id]` | `api/events/[id]` PATCH | ✅ done |
 | Reason required when rejecting | `api/events/[id]` PATCH | ✅ done |
 | Registration: confirmed, in window, no duplicate, seats left | `api/registrations` POST | ✅ done |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
@@ -540,6 +548,93 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-09-16 — Kristen
+- **Implemented SPM-24 (Save Draft Event Request) end to end.**
+  - Backend: added `updateEventDraftSchema` (`src/lib/validation.ts`, every
+    field optional — an edit may only be touching one thing) and a
+    content-edit path on `PATCH /api/events/[id]` (`handleDraftEdit`),
+    dispatched by body shape alongside the existing status-transition path
+    (`handleStatusChange`): a body with `status` transitions the lifecycle,
+    anything else edits the draft's own fields. Content edits are restricted
+    to the owning organiser and to events still in `draft` status — once
+    submitted, changes belong to `EventChangeRequest`, not this endpoint.
+    Cross-field rules (e.g. `endsAt` after `startsAt`) are checked against the
+    *merged* record, not just the payload, since a partial edit might only
+    touch one side of a two-field rule.
+  - `GET /api/events/[id]` now requires auth (previously had no session check
+    at all) and 404s a draft for anyone but its organiser, matching the
+    scoping `GET /api/events` already applied to the list.
+  - Frontend: extracted the create form's fields, options, `validateForm` and
+    `toIso` into `src/lib/eventForm.ts`, plus a new `toFormValues()` that maps
+    a fetched draft back into form state. Both `events/new/page.tsx` and the
+    new `events/[id]/edit/page.tsx` (S-08's edit route, per `UI_DESIGN.md`)
+    import from there, so create and edit can't drift apart. The edit screen
+    loads the draft, shows a Draft badge, and offers the same Save draft /
+    Submit request / Cancel actions as create — its payload builder
+    deliberately differs from create's, though: it always sends text fields,
+    `facilityIds` and `equipment` as their literal current value (even
+    empty), because on this endpoint `undefined` means "don't touch this
+    field" — collapsing an intentionally-cleared field to `undefined` the way
+    the create form does would silently fail to clear it.
+- **Closed a draft-privacy gap that predates this story.** `GET /api/events`
+  (list) only scoped results by `organiserId` for the `organiser` role —
+  every other role (coordinator, venue_staff, tech_support, ops_manager,
+  attendee) got `where: {}` and could see every organiser's drafts. Non-
+  organiser roles now get `status: { not: "draft" }`. This is the
+  events-specific slice of the "role-based authorisation... largely
+  unimplemented" gap Jordan flagged 2026-09-13 — narrowed here, not closed
+  project-wide (venues/equipment routes are still open).
+- **Closed a second, more serious hole in the same area:** the
+  status-transition path (`handleStatusChange`) had no ownership check at
+  all, so someone who got a 404 from `GET` on a draft could still
+  `PATCH {"status":"submitted"}` on that same id and force a change on a
+  draft they could never see or edit. Added an ownership check there too —
+  verified exploitable before the fix, closed after, with the legitimate
+  owner's submit flow re-verified unaffected.
+- **Fixed a real bug found while testing the above, not caused by it:**
+  `PATCH /api/events/[id]` did `return handleStatusChange(...)` /
+  `return handleDraftEdit(...)` **without `await`**. Returning a promise from
+  inside a `try` block doesn't let that block's `catch` see a later
+  rejection, so *any* `ZodError` on this endpoint — bad status enum, invalid
+  uuid, blank title, anything — was escaping as an unhandled rejection and
+  crashing with a 500 instead of the intended 400. This affected every
+  validation path on the endpoint, not just the new draft-edit code. Fixed by
+  awaiting both calls.
+- **Event titles can no longer be just whitespace.** `title` in both
+  `createEventSchema` and `updateEventDraftSchema` is now
+  `z.string().trim().min(1, "Title cannot be blank")` — previously `" "`
+  passed `min(1)`'s length check and could be saved as a name. `.trim()` also
+  strips incidental leading/trailing whitespace from a valid title before
+  it's stored.
+- **Fixed a session bug:** after logging in, the sidebar stayed empty until a
+  manual refresh. `useCurrentUser()` fetches `/api/auth/me` once on mount,
+  and `AppShell` (which renders the sidebar) stays mounted across
+  client-side navigations — the App Router doesn't remount a layout just
+  because `router.push` fires. `LoginPage` doesn't call `useCurrentUser()`
+  itself, so `AppShell`'s already-mounted instance never learned a token now
+  existed. `saveToken`/`clearToken` (`src/lib/session.ts`) now notify
+  subscribers, and `useCurrentUser` re-fetches on that notification instead
+  of only on mount.
+- `.gitignore`: added `AGENTS.md`/`CLAUDE.md` — Next.js 16 (`next dev`)
+  regenerates these itself on every run as AI-assistant guidance for
+  breaking API changes in this Next version; they're build output, not
+  project source.
+- **Fixed a dashboard routing bug found while writing SPM-24 test cases:**
+  every event card on `/dashboard` (`src/app/dashboard/page.tsx`) linked to
+  `/events/{id}`, but no route matches that — `src/app/events/` only has
+  `new/page.tsx`, `page.tsx` (the list) and `[id]/edit/page.tsx`. `draft` is
+  one of the two statuses an organiser's dashboard surfaces ("Needs your
+  attention"), so clicking any draft card there landed on Next's default 404.
+  Draft cards now link to `/events/{id}/edit` instead. Non-draft cards still
+  point at `/events/{id}`, which stays 404 until a general event-detail
+  screen is built — noted in the directory tree above as a known gap, not
+  fixed here.
+- Everything above was verified against the running app (`next dev` + the
+  seeded Neon branch, real HTTP requests with seeded users across roles), not
+  just unit tests. Added coverage for the new schema behaviour in
+  `src/lib/__tests__/validation.test.ts`. 80/80 tests passing (was 77);
+  `tsc --noEmit` and `eslint` both clean.
 
 ### 2026-09-14 — Kristen
 - Reconciled SPM-23 with Jordan's SPM-7 merge, which independently rebuilt the
