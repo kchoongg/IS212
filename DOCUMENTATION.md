@@ -1,10 +1,10 @@
 # CONNECTSPHERE
 ## Developer Documentation — Living Document
 
-**Version:** 3.2
+**Version:** 3.3
 **Architecture:** Single Next.js app — one codebase, one database, one deploy
 **Status:** 🟢 Schema built — 17 tables live, all routes reconnected, demo data available
-**Frontend:** 🟢 Design system + app shell built; 6 of 28 screens implemented
+**Frontend:** 🟢 Design system + app shell built; 7 of 28 screens implemented
 **Database:** Neon (hosted PostgreSQL, free tier)
 **Team:** 5 members, one domain each, same codebase
 
@@ -23,6 +23,9 @@
 > - [`UI_DESIGN.md`](./UI_DESIGN.md) — every screen, how users move between
 >   them, what each form asks for, and how errors are shown. **Read this before
 >   building a screen.** It's the answer to "what goes on this page?"
+> - [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md) — who may do what, and to
+>   which events. **Read this before writing any route**, and check the
+>   permission it needs before you write the handler.
 
 ---
 
@@ -40,7 +43,8 @@
 10. [Everyday Commands](#-everyday-commands)
 11. [Avoiding Merge Conflicts](#-avoiding-merge-conflicts)
 12. [Troubleshooting](#-troubleshooting)
-13. [Changelog](#-changelog)
+13. [Known Gaps](#-known-gaps)
+14. [Changelog](#-changelog)
 
 ---
 
@@ -120,6 +124,9 @@ IS212/
 │
 ├── UI_DESIGN.md                # THE screen spec — read before building any screen
 ├── design/mockups/             # Visual mockups (.dc.html), one file per screen
+├── docs/
+│   ├── PERMISSIONS.md           # THE permission model — read before writing a route
+│   └── test-cases/              # Per-story test case exports (Excel + JSON)
 │
 └── src/
     ├── app/
@@ -152,6 +159,8 @@ IS212/
     └── lib/
         ├── prisma.ts           # Database client — import this, don't create your own
         ├── auth.ts              # Password hashing + JWT helpers (server-side)
+        ├── permissions.ts        # WHO MAY DO WHAT — pure, testable, no Prisma
+        ├── apiAuth.ts             # getActor() + 401/403/404 helpers for routes
         ├── session.ts            # Browser-side: storing/reading the login token
         ├── useCurrentUser.ts      # Who is signed in (for rendering only, never for access)
         ├── roles.ts                # Role labels + which nav/tabs each role sees
@@ -232,17 +241,34 @@ The business-rules step is the one that's easy to forget. See
 
 ## 🧱 THE PATTERN TO COPY FOR A NEW ENDPOINT
 
-1. **Add a Zod schema** to your domain's file in `src/lib/validation/` (e.g.
-   `equipment.ts`) — what does a valid request body look like? It's
-   re-exported automatically via `validation/index.ts`, so `@/lib/validation`
-   still finds it.
-2. **Write the route handler** in your domain's `route.ts` — validate, check rules, call Prisma, return JSON.
-3. **Check `SCHEMA_REFERENCE.md`** for the exact field names before you write the Prisma call.
+1. **Decide the permission** — look up (or add) the action in
+   [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md). Who is allowed to do this,
+   and do they need a relationship to the record?
+2. **Add a Zod schema** to `src/lib/validation.ts` — what does a valid request body look like?
+3. **Write the route handler** in your domain's `route.ts` — **authenticate,
+   authorise**, validate, check rules, call Prisma, return JSON.
+4. **Check `SCHEMA_REFERENCE.md`** for the exact field names before you write the Prisma call.
 
 ```ts
 export async function POST(req: NextRequest) {
   try {
+    // 1. WHO is asking? getActor() verifies the JWT and loads their current
+    //    role + organisation. Never trust a role from the request body.
+    const actor = await getActor(req);
+    if (!actor) return unauthenticated();
+
+    // 2. MAY THEY? The role half of the model.
+    if (!can(actor.role, "myDomain:manage")) return forbidden();
+
     const data = mySchema.parse(await req.json());
+
+    // 3. MAY THEY, TO THIS RECORD? The relationship half — skip only if the
+    //    record has no owner (reference data). Use 404 instead of 403 when a
+    //    403 would confirm the record exists.
+    const record = await prisma.myModel.findUnique({ where: { id: data.id } });
+    if (!record) return hidden();
+    if (!canTouch(actor, record)) return forbidden();
+
     const result = await prisma.myModel.create({ data });
     return NextResponse.json(result, { status: 201 });
   } catch (err) {
@@ -254,9 +280,16 @@ export async function POST(req: NextRequest) {
 }
 ```
 
+> ⚠️ **Steps 1-3 are not optional and not someone else's job.** "Users should
+> only be able to view or modify information appropriate to their role and
+> relationship to an event" is core feature #1 of the release, not a
+> nice-to-have. Four routes shipped without them and had to be closed
+> retroactively — see the 2026-09-18 changelog entry.
+
 **Status codes we use consistently** — the frontend depends on these:
-400 validation failure or broken business rule · 401 not logged in ·
-404 not found · 201 created · 200 everything else.
+400 validation failure or broken business rule · **401 not signed in** ·
+**403 signed in, but not allowed** · **404 not found, or not allowed and must
+not learn it exists** · 201 created · 200 everything else.
 
 ---
 
@@ -325,7 +358,10 @@ internal planning information exists, which the briefing forbids.
 
 > ⚠️ `useCurrentUser()` is for **rendering only**. Hiding a nav item is not
 > access control — every API route must re-check the session and the user's
-> relationship to the record.
+> relationship to the record. The server-side rules live in
+> [`src/lib/permissions.ts`](./src/lib/permissions.ts), documented in
+> [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md). `roles.ts` decides what a
+> screen *offers*; `permissions.ts` decides what the server *permits*.
 
 ---
 
@@ -392,13 +428,29 @@ defend under questioning.
 | Rule | Where | Status |
 |---|---|---|
 | Draft completeness before submitting | `api/events/[id]` PATCH | ✅ done |
-| Draft privacy — only the owning organiser may view, edit, or change the status of their own draft; every other role gets a 404, never a glimpse that it exists | `api/events` GET, `api/events/[id]` GET + PATCH | ✅ done |
-| A draft's content is only editable while it's still a draft — once submitted, further edits go through `EventChangeRequest`, not `PATCH /api/events/[id]` | `api/events/[id]` PATCH | ✅ done |
 | Reason required when rejecting | `api/events/[id]` PATCH | ✅ done |
 | Registration: confirmed, in window, no duplicate, seats left | `api/registrations` POST | ✅ done |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
 | Booking conflict detection | venues domain | ❌ to write |
 | Equipment availability | equipment domain | ❌ to write |
+| Event status lifecycle — which `from → to` moves are legal at all (who may make them is done; see below) | events domain | ❌ to write |
+
+### Access rules are business rules too
+
+Same table, same discipline — these are the ones the customer asked for in §8b
+("access should depend on the user's role **and relationship to an event**").
+All of them are enforced by [`src/lib/permissions.ts`](./src/lib/permissions.ts)
+and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
+
+| Rule | Where | Status |
+|---|---|---|
+| Draft privacy — only the owning organiser may view, edit, or change the status of their own draft; every other role gets a 404, never a glimpse that it exists | `api/events` GET, `api/events/[id]` GET + PATCH | ✅ done |
+| A draft's content is only editable while it's still a draft — once submitted, further edits go through `EventChangeRequest` | `api/events/[id]` PATCH | ✅ done |
+| An organiser sees their own events plus their client organisation's, never another client's | `eventListWhere()`, `canViewEvent()` | ✅ done |
+| An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
+| Only the role the briefing gives a step may perform it: organiser submits, Ops Manager assigns, assigned coordinator approves/confirms, Venue Staff decide bookings, Technical Support decides equipment | `canSetEventStatus()`, `can()` | ✅ done |
+| Catalogue writes belong to their owner — venues to Venue Staff, equipment to Technical Support | `api/venues` POST, `api/equipment` POST | ✅ done |
+| A venue booking decision is Venue Staff's; an equipment request decision is Technical Support's | venues / equipment domains | ⏳ actions defined, routes not built |
 
 **Wrap check-and-write in a transaction**, or two people clicking at the same
 moment both pass the check:
@@ -458,16 +510,20 @@ traceability the module asks for.
 | `npm run build` | Production build |
 | `npx eslint src --ext .ts,.tsx` | Check code style/common mistakes |
 | `npm test` | Run tests once |
+| `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
 | `npx prisma migrate dev` | Create/apply a migration after YOU change `schema.prisma` |
 | `npx prisma studio` | Browser UI to view/edit the database directly |
+| `npx prisma db seed` | ⚠️ Wipes all tables, then loads the demo data |
+| `npx prisma migrate reset` | ⚠️ Wipes the database and replays all migrations |
 
 > ⚠️ `npm run lint` is **broken** on Next 16 — `next lint` was removed and the
 > argument is read as a directory (`no such directory: C:\IS212\lint`). Use the
 > `npx eslint` command above until someone updates the script in `package.json`.
-| `npx prisma db seed` | ⚠️ Wipes all tables, then loads the demo data |
-| `npx prisma migrate reset` | ⚠️ Wipes the database and replays all migrations |
+>
+> (The two `prisma` rows above used to sit *below* this note, outside the
+> table, so they rendered as plain text instead of rows.)
 
 ### Neon branches
 
@@ -552,6 +608,24 @@ deliberately.
 
 ---
 
+## 🕳️ KNOWN GAPS
+
+Open items that affect everyone. **This list, not a changelog entry, is where a
+gap lives** — a changelog is history and scrolls away; a gap is a thing still
+waiting. Delete a row when you close it, and say so in your changelog entry.
+
+| Gap | Impact | Owner |
+|---|---|---|
+| **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
+| **No general event detail screen** (`src/app/events/[id]/page.tsx`) | The dashboard and events list link here for non-draft events; those links 404. | unclaimed |
+| **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. | events |
+| **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
+| **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
+| **`npm run lint` is broken on Next 16** | Use `npx eslint src --ext .ts,.tsx`. | unclaimed |
+| **No route-level tests outside permissions** | `npm run verify:permissions` covers authorisation end to end (36 checks). Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
+
+---
+
 ## 📝 CHANGELOG
 
 Add a new entry at the TOP each time you make a real change. Keep it short —
@@ -567,6 +641,77 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-09-18 — Jordan
+- **SPM-4 (role and permission model) implemented end to end.** Closes the
+  "role-based authorisation is largely unimplemented" gap I flagged on
+  2026-09-13.
+- **New: [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md)** — the model in prose:
+  the six roles, a role × action matrix, the three relationship rules, which
+  fields an attendee may see, who may set each status, where each rule is
+  enforced, and what is still open. Every row traces to the customer briefing
+  (§8b, §5 Steps 1-14) rather than to our own guesswork.
+- **New: `src/lib/permissions.ts`** — the same model as code. Pure functions
+  over plain data (no Prisma, no `NextRequest`), so the whole thing unit tests
+  without a database: `can(role, action)` for the role half,
+  `canViewEvent` / `canEditEventContent` / `canSetEventStatus` for the
+  relationship half, `eventListWhere()` for list queries, and
+  `visibleEventFor()` for field-level narrowing.
+- **New: `src/lib/apiAuth.ts`** — `getActor(req)` plus `unauthenticated()`,
+  `forbidden()` and `hidden()`. `getActor` loads the user's *current* role,
+  `organisationId` and `isActive` per request rather than trusting the
+  eight-hour-old JWT, so a role change or a deactivated account takes effect
+  immediately. `organisationId` is not in the token at all, and is what makes
+  client scoping possible.
+- **Holes closed** (each one read out of the route code, then covered by a unit
+  test against the permission model — see the verification note at the end of
+  this entry):
+  - `PATCH /api/events/[id]` had **no role check on status transitions**. Once
+    an event left `draft`, any signed-in user — an attendee — could drive it to
+    `confirmed`, `rejected` or `completed`, writing `rejectionReason` and an
+    `EventStatusHistory` row under their own id. Now gated by
+    `canSetEventStatus()`: the organiser submits their own request, the Ops
+    Manager assigns, the assigned coordinator decides.
+  - `POST /api/venues` and `POST /api/equipment` accepted **unauthenticated**
+    requests — anyone on the internet could add a venue or equipment. Both GETs
+    were open too. Now `venue:manage` / `equipment:manage` and their view
+    permissions.
+  - `GET /api/events/[id]` returned the **whole** record — `coordinatorId`,
+    `rejectionReason`, `specialRequirements`, equipment and facility
+    requirements — to any signed-in user, including an attendee. Briefing §8b
+    names that exact case. `visibleEventFor()` now narrows it to the public
+    subset; hiding the tab in the UI never did anything to the API.
+  - An organiser could read **another client's** events, the other case §8b
+    names. `Event.organisationId` was being written on create and never read
+    by any query; `eventListWhere()` / `canViewEvent()` now use it.
+  - `POST /api/registrations` accepted a registration from any role.
+- **Tests: 114 passing (was 80).** 34 new in
+  `src/lib/__tests__/permissions.test.ts`, including one named for each of the
+  two examples the briefing spells out in §8b, so the acceptance criteria trace
+  to a test by name. `tsc --noEmit` and `eslint` both clean.
+- **Docs:** the "pattern to copy for a new endpoint" now starts with
+  authenticate + authorise and lists 403 — it previously showed a handler with
+  no session check at all, which is a fair part of why four routes shipped
+  without one. Access rules are now tracked in the business-rules table
+  alongside the others, and open items have moved out of dated changelog
+  entries into a new [Known Gaps](#-known-gaps) section.
+- **New: `scripts/verify-permissions.ts`** (`npm run verify:permissions`) — the
+  acceptance check for this story against a **running** server. Unit tests
+  prove the rules are right; they cannot prove a route remembered to call them,
+  which is exactly how the original gap happened. 36 checks sign in as all six
+  seeded roles and assert the real HTTP status of each refusal and each
+  permitted action, labelled by acceptance criterion so the output can go
+  straight into the test evidence. It creates its own event through the API and
+  deletes everything it made, so it is safe to re-run and never touches seeded
+  data.
+- **Verified:** `vitest` 114/114, `verify:permissions` 36/36 against
+  `next dev` + the seeded Neon branch, `tsc --noEmit` and `eslint` clean.
+  Two of those 36 refusals come back 404 rather than 403 — an attendee cannot
+  *see* a submitted event, so visibility refuses before the role check is
+  reached. That is the stronger answer and it is the documented rule; the role
+  check is asserted separately on an event the attendee *can* see.
+- ⚠️ **Not done here:** lifecycle validation (which `from → to` moves are
+  legal, as opposed to who may make them), the Coordinator Assignment
+  endpoint, and route-level integration tests. All three are in Known Gaps.
 ### 2026-09-17 — Janelle
 - **Split `src/lib/validation.ts` into `src/lib/validation/<domain>.ts`**
   (`auth.ts`, `events.ts`, `venues.ts`, `equipment.ts`, `registrations.ts`),
@@ -703,22 +848,6 @@ what changed, why, and the migration name if there is one.
   the checkbox, and an end-to-end submit persists `registrationOpensAt`/
   `registrationClosesAt` on the created draft.
 
-### 2026-09-12 — Kristen
-- Implemented the "Create Event Request" backend (SPM-23): `POST /api/events`
-  now accepts `facilityRequirements` (structured venue/accessibility links to
-  the `Facility` catalogue), `equipmentNotes` (free text), and
-  `registrationOpensAt`/`registrationClosesAt`, alongside the existing name,
-  purpose, description, date/time, attendance and registration fields.
-  Unknown `facilityId`s are rejected with a 400 instead of a raw FK error.
-  `GET /api/events` and `GET /api/events/[id]` now include
-  `facilityRequirements`. A new event is still created with `status: "draft"`
-  (identifiable as a draft) and only `title` is required at creation —
-  completeness is enforced at submission time, unchanged, in
-  `api/events/[id]` PATCH.
-- Added `Event.equipmentNotes` (nullable String). Migration:
-  `add_event_equipment_notes`.
-- Added Zod tests for the new `createEventSchema` fields in
-  `src/lib/__tests__/validation.test.ts`.
 ### 2026-09-13 — Jordan
 - **SPM-7 (design the user interface).** Added `UI_DESIGN.md`: 28 screens with
   stable IDs, the navigation map, the role/tab permission matrix, form field
@@ -762,6 +891,22 @@ what changed, why, and the migration name if there is one.
   session check, and `POST /api/venues` and `POST /api/equipment` have no auth
   at all. Non-organiser roles currently see every event. Needs its own story.
 
+### 2026-09-12 — Kristen
+- Implemented the "Create Event Request" backend (SPM-23): `POST /api/events`
+  now accepts `facilityRequirements` (structured venue/accessibility links to
+  the `Facility` catalogue), `equipmentNotes` (free text), and
+  `registrationOpensAt`/`registrationClosesAt`, alongside the existing name,
+  purpose, description, date/time, attendance and registration fields.
+  Unknown `facilityId`s are rejected with a 400 instead of a raw FK error.
+  `GET /api/events` and `GET /api/events/[id]` now include
+  `facilityRequirements`. A new event is still created with `status: "draft"`
+  (identifiable as a draft) and only `title` is required at creation —
+  completeness is enforced at submission time, unchanged, in
+  `api/events/[id]` PATCH.
+- Added `Event.equipmentNotes` (nullable String). Migration:
+  `add_event_equipment_notes`.
+- Added Zod tests for the new `createEventSchema` fields in
+  `src/lib/__tests__/validation.test.ts`.
 ### 2026-09-10 — Kristen
 - Added `prisma/seed.ts` and a `prisma.seed` entry in `package.json`; run with
   `npx prisma db seed`. 12 organisations, 71 users, 16 venues, 26 equipment

@@ -1,14 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
+import { can, canViewEvent } from "@/lib/permissions";
 import { createRegistrationSchema } from "@/lib/validation";
 import { ZodError } from "zod";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
+    }
+    // ADDED: registering is the Attendee's action (briefing §5 Step 11). A
+    // coordinator or venue staff member signing themselves up as an attendee
+    // would put a planning account into the attendee list.
+    if (!can(actor.role, "registration:create")) {
+      return forbidden("Only an Attendee can register for an event");
     }
 
     const body = await req.json();
@@ -16,7 +23,14 @@ export async function POST(req: NextRequest) {
 
     const event = await prisma.event.findUnique({ where: { id: data.eventId } });
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      return hidden();
+    }
+    // ADDED: an event the attendee cannot see cannot be registered for
+    // either - registering would otherwise confirm that a hidden event
+    // exists. The business rules below (confirmed, in window, seats left)
+    // still apply on top of this.
+    if (!canViewEvent(actor, event)) {
+      return hidden();
     }
     if (event.status !== "confirmed") {
       return NextResponse.json({ error: "Event is not open for registration yet" }, { status: 400 });
@@ -38,7 +52,7 @@ export async function POST(req: NextRequest) {
     // cannot simply INSERT again. Reactivate their existing row instead, so
     // withdrawing and re-registering both work (user stories 19 and 20).
     const existing = await prisma.registration.findUnique({
-      where: { eventId_attendeeId: { eventId: data.eventId, attendeeId: session.id } },
+      where: { eventId_attendeeId: { eventId: data.eventId, attendeeId: actor.id } },
     });
     if (existing && existing.status !== "withdrawn") {
       return NextResponse.json({ error: "Already registered for this event" }, { status: 400 });
@@ -74,7 +88,7 @@ export async function POST(req: NextRequest) {
       return tx.registration.create({
         data: {
           eventId: data.eventId,
-          attendeeId: session.id,
+          attendeeId: actor.id,
           dietaryRequirements: data.dietaryRequirements,
           accessibilityRequirements: data.accessibilityRequirements,
           status: "registered",

@@ -1,46 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
+import { can, eventListWhere, visibleEventsFor } from "@/lib/permissions";
 import { createEventSchema } from "@/lib/validation";
 import { ZodError } from "zod";
 
 export async function GET(req: NextRequest) {
-  const session = getSession(req);
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const actor = await getActor(req);
+  if (!actor) {
+    return unauthenticated();
   }
 
-  // Organisers see their own events, drafts included; everyone else sees
-  // everything except drafts - a draft is private to the organiser who owns
-  // it until they submit it (SPM-24), not something a coordinator, venue
-  // staff, tech support, ops manager, or attendee should ever see.
-  const where =
-    session.role === "organiser" ? { organiserId: session.id } : { status: { not: "draft" } };
+  // CHANGED: the scoping rule moved to src/lib/permissions.ts, where it is
+  // unit tested and stated once. It now covers the whole of briefing §8b, not
+  // just drafts: an organiser sees their own events plus their client
+  // organisation's submitted ones (never a colleague's private draft), an
+  // attendee sees only confirmed events open for registration, and internal
+  // staff see everything except drafts.
   const events = await prisma.event.findMany({
-    where,
+    where: eventListWhere(actor),
     orderBy: { createdAt: "desc" },
     include: { facilityRequirements: { include: { facility: true } } },
   });
-  return NextResponse.json(events);
+
+  // An attendee gets the public subset of each event, not the whole record.
+  return NextResponse.json(visibleEventsFor(actor, events));
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const session = getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
+    }
+    // ADDED: raising an event request is the Event Organiser's job (briefing
+    // §5 Step 1). Nobody else may create one on their own behalf.
+    if (!can(actor.role, "event:create")) {
+      return forbidden("Only an Event Organiser can raise an event request");
     }
 
     const body = await req.json();
     const data = createEventSchema.parse(body);
-
-    // CHANGED: an event belongs to a client organisation, which is how access
-    // is scoped ("an Organiser should not see events of unrelated clients").
-    // Read it off the organiser rather than trusting the request body.
-    const organiser = await prisma.user.findUnique({
-      where: { id: session.id },
-      select: { organisationId: true },
-    });
 
     // ADDED: equipment is held wider than the event itself — kit leaves the
     // store before the doors open and comes back after they close. Two hours
@@ -59,8 +59,11 @@ export async function POST(req: NextRequest) {
     // equipment would be worse than a failure they can retry.
     const event = await prisma.event.create({
       data: {
-        organiserId: session.id,
-        organisationId: organiser?.organisationId ?? null,
+        organiserId: actor.id,
+        // An event belongs to a client organisation, which is how access is
+        // scoped ("an Organiser should not see events of unrelated clients").
+        // It comes from the signed-in user, never from the request body.
+        organisationId: actor.organisationId,
         title: data.title,
         category: data.category,
         purpose: data.purpose,
@@ -103,7 +106,7 @@ export async function POST(req: NextRequest) {
                   technicalRequirements: item.technicalRequirements,
                   startsAt: equipmentStartsAt,
                   endsAt: equipmentEndsAt,
-                  requestedBy: session.id,
+                  requestedBy: actor.id,
                   status: "requested",
                 })),
               }
