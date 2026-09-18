@@ -65,6 +65,28 @@ export interface EquipmentItem {
   category: string | null;
 }
 
+/// Which catalogue items a given equipment row's picker should offer: every
+/// active item except what another row already has selected. Requesting the
+/// same item twice is never valid (the server rejects it, and duplicate rows
+/// don't mean anything a higher quantity on one row doesn't already say), so
+/// this prevents it at the point of choice rather than catching it after
+/// Save/Submit - the picker itself is the validation.
+export function availableEquipmentOptions(
+  catalogue: EquipmentItem[],
+  equipment: EquipmentRow[],
+  rowIndex: number
+): { value: string; label: string }[] {
+  const selectedElsewhere = new Set(
+    equipment.filter((_, i) => i !== rowIndex).map((row) => row.equipmentId).filter(Boolean)
+  );
+  return catalogue
+    .filter((item) => !selectedElsewhere.has(item.id))
+    .map((item) => ({
+      value: item.id,
+      label: item.category ? `${item.name} — ${item.category}` : item.name,
+    }));
+}
+
 export const INITIAL: FormValues = {
   title: "",
   category: "",

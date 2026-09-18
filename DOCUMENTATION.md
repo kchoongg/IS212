@@ -197,7 +197,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 | Person | Folder | Domain | Tables | Status |
 |---|---|---|---|---|
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
-| **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working |
+| **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
 | **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create, facilities list; booking routes to build |
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
@@ -621,6 +621,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. | events |
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
+| **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **`npm run lint` is broken on Next 16** | Use `npx eslint src --ext .ts,.tsx`. | unclaimed |
 | **No route-level tests outside permissions** | `npm run verify:permissions` covers authorisation end to end (36 checks). Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 
@@ -640,6 +641,165 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-09-18 — Kristen
+- **Fixed the "Filter by status" control on `/events` (S-07) for every
+  non-organiser role** (coordinator, ops manager) — reported as "the filter
+  does not work and still contains a draft option." Two separate bugs in
+  `src/app/events/page.tsx`:
+  - The filtered/unfiltered split only ever applied to the organiser's own
+    view: `<DataState data={isOrganiser ? submitted : events} .../>` passed
+    the *raw, unfiltered* `events` array for every other role, so changing
+    the dropdown never changed what a coordinator or ops manager saw. Now
+    uses the same `filtered` list (derived from `statusFilter`) the
+    organiser's view already used.
+  - `STATUS_FILTER_OPTIONS` was one flat, role-blind list including "Draft"
+    for everyone, even though a non-organiser role never receives draft
+    events from the API (`docs/PERMISSIONS.md` — drafts stay private to
+    their owning organiser) — so selecting it always produced zero results.
+    `statusFilterOptions` is now derived per role and drops "Draft" for
+    anyone but the organiser.
+  - Updated SPM-25-TC07, which explicitly selected the "Draft" filter as the
+    coordinator — that option no longer exists, so the test now checks it
+    isn't offered at all, then confirms the draft is absent from the
+    unfiltered ("All statuses") view instead. Also strengthened TC06 to
+    assert every row still visible after filtering to "Submitted" actually
+    shows that status, since the original wording would not have caught
+    this bug (the event was always present regardless of the filter, just
+    for the wrong reason).
+  - Verified in a real browser (Playwright, logged in as
+    daniel.tan@connectsphere.com): the filter dropdown no longer lists
+    "Draft," and selecting "Confirmed" narrowed the table from 28 rows to
+    7, all showing a "Confirmed" badge. `tsc --noEmit`, `eslint` and
+    `vitest` (114/114) all clean.
+- **The equipment picker no longer lets an organiser select the same
+  catalogue item twice**, instead of letting them and then rejecting it.
+  Found while checking SPM-24-TC13 against the code: that test expects the
+  message *"Each item can only be requested once — change the quantity
+  instead of adding a second row."* (from `validateForm` in
+  `src/lib/eventForm.ts`), but TC13's steps click "Save draft" — and
+  `validateForm` skips every check past the title for `intent === "draft"`
+  (by design, UI_DESIGN.md §6.2), so that client message can never actually
+  appear there. What TC13's exact steps produce is the *other* copy of this
+  rule, the Zod `.refine()` in `src/lib/validation/events.ts` ("Each piece of
+  equipment can only be requested once — change the quantity instead") —
+  two hand-written copies of one rule had quietly drifted into different
+  wording depending on which button was clicked.
+  - Rather than reconciling the wording, removed the error case entirely:
+    new `availableEquipmentOptions()` in `src/lib/eventForm.ts` filters each
+    row's dropdown to exclude items already chosen in another row, so a
+    duplicate can no longer be picked through the picker on either page
+    (`events/new`, `events/[id]/edit`). Once every catalogue item is already
+    in the request, "Add equipment" disables itself with a line saying so,
+    rather than adding a row whose dropdown would have nothing left to
+    offer.
+  - The two rejection messages above still exist in the code (the Zod rule
+    is an unchanged safety net for anything that reaches the API directly)
+    but are no longer reachable by clicking through the app, so
+    SPM-24-TC13 was rewritten to test the prevention instead of the
+    rejection, and a TC13b added for the "every item already used" edge
+    case — see `docs/test-cases/SPM-24_test_cases.json`.
+  - Verified in a real browser (Playwright against `next dev`): picked an
+    item in row one, added a second row, and confirmed that item was absent
+    from the second row's option list. `tsc --noEmit`, `eslint` and
+    `vitest` (114/114) all clean.
+- **`focusFirstError()` (`src/lib/formErrors.ts`) now scrolls to a form-level
+  error too, not just a field-level one.** It already scrolled a specific
+  field into view when a server rejection was attributable to one; when it
+  wasn't (a network failure, or a rejection with no field to blame), the
+  function silently did nothing, leaving the top-of-form `Alert` off-screen
+  and invisible on any form long enough to scroll — exactly UI_DESIGN.md
+  §7.3's "never a blank page" failure, just for a banner instead of a whole
+  screen. Since that `Alert` always renders as the form's first child, the
+  fix is to scroll the `<form>` itself to `block: "start"` when there's no
+  field key, which brings the banner into view the same way scrolling to a
+  field already did.
+  - Wired the same call into the network-failure `catch` blocks on
+    `register`, `events/new` and `events/[id]/edit`, which set `formError`
+    but never called `focusFirstError` at all before this — so "Could not
+    reach the server" had the identical invisible-banner problem on every
+    form that can show it, independent of the field-attribution fix above.
+  - `login` intentionally left unchanged: its form is two fields and always
+    fits above the fold, so there's nothing to scroll past.
+  - Verified in a real browser (Playwright against `next dev`): filled the
+    long S-08 form, scrolled to the bottom, forced the create request to
+    fail, and confirmed the page auto-scrolled back up to reveal the "Could
+    not reach the server" alert.
+- **Fixed a field-attribution bug in `handleDraftEdit`** (`api/events/[id]/route.ts`,
+  found via SPM-24-TC11 failing manual QA): saving a draft with, say, `endsAt`
+  before the already-saved `startsAt` returned a bare `{ error: "..." }`, which
+  `readServerError()` (`src/lib/formErrors.ts`) can only render as a top-of-form
+  Alert — it has no field to attach the message to. UI_DESIGN.md §7.2 expects
+  this specific rule inline under "Ends at", not as a banner, since it's
+  attributable to one field. All six of this handler's hand-rolled cross-field
+  checks (`endsAt`/`startsAt`, registration capacity/open/close, equipment
+  needing dates) had the same bug, not just the one TC11 caught — all six now
+  return `details.fieldErrors` in the same shape Zod's `flatten()` already
+  produces elsewhere in this file, so the existing client mapping picks them up
+  with no frontend change. Message wording also brought in line with the
+  equivalent client-side messages in `src/lib/eventForm.ts` (e.g. "Ends at must
+  be after starts at.") rather than the raw camelCase field names the old
+  messages used. Verified against the running app: reproduced TC11's exact
+  steps (PATCH `endsAt` alone to before the saved `startsAt`) and confirmed the
+  response now carries `details.fieldErrors.endsAt`. `vitest` 114/114,
+  `tsc --noEmit` and `eslint` both clean.
+- **Restricted Cancel Event to the assigned Coordinator only.** Audited the
+  Jira backlog against the class clarification Q&A and found
+  `STATUS_TRANSITION_ROLES.cancelled` in `src/lib/permissions.ts` granted
+  cancellation to the Organiser and Ops Manager too, contradicting the actual
+  answer (#68: "only the event coordinator in-charge can set it"). Narrowed
+  the role list, updated the matching unit test and `docs/PERMISSIONS.md`'s
+  table. All 34 permission tests still pass.
+- **New: `EventSession` model** (multi-session events — briefing #74:
+  "sessions may have different timings and operational requirements,
+  including different venues, equipment requirements and attendance limits").
+  Additive only: `VenueBooking.sessionId` and `EquipmentRequest.sessionId` are
+  nullable, so every existing single-session event keeps working unchanged
+  (`sessionId` NULL = "applies to the whole event"). No route reads or writes
+  `EventSession` yet — see Known Gaps. `EquipmentRequest`'s unique constraint
+  stays `(eventId, equipmentId)` rather than including `sessionId`, since
+  Postgres treats NULL as distinct in a unique index and a three-column
+  version would silently stop deduplicating requests on the common
+  (single-session) case — noted as a limitation in `SCHEMA_REFERENCE.md`.
+  - Migration: `20260918061723_add_event_sessions`
+- **Implemented SPM-25 (Submit Event Request).** All four of its acceptance
+  criteria were already true of the existing code once SPM-4's role checks
+  landed — verified, not rebuilt: a complete draft submits and moves
+  `draft → submitted` (`canSetEventStatus` + the draft-completeness check in
+  `handleStatusChange`), a submitted request 400s out of `handleDraftEdit`
+  (draft-only), and the assigned/coordinator role can `GET` it once it has
+  left `draft` (`canViewEvent`).
+- **Moved the "relevant users receive a notification" AC off this story and
+  onto SPM-53** (*Receive Event Notifications*, epic SPM-20 *Notification
+  System*), whose first AC already names the exact same behaviour and which
+  also owns the still-unbuilt S-04 screen needed to actually see one. Keeping
+  it on SPM-25 made "done" here depend on unscheduled infrastructure outside
+  the submission workflow's own scope — removed from the Jira description,
+  with the two stories cross-linked and the reasoning left as comments on
+  both.
+- **New: `src/lib/notifications.ts`** (`notifyRole`) anyway, as a head start
+  on SPM-53 rather than as this story's own deliverable. `Notification` has
+  existed in the schema since the original build but nothing in the codebase
+  ever wrote a row to it. Kept as a transaction helper (takes the `tx` from
+  the caller's `prisma.$transaction`) rather than a standalone write, so a
+  notification can never be created for a status change that then fails to
+  commit.
+- Wired into `handleStatusChange` in `api/events/[id]/route.ts`: submitting
+  an event (`draft → submitted`) notifies every active Ops Manager, not the
+  organiser's own coordinator — no coordinator is assigned yet at this point
+  in the briefing's §5 process (assignment is Step 3, the Ops Manager's job),
+  so the Ops Manager queue (S-28) is who actually needs to act next. SPM-53
+  reuses this helper for its other eight triggers rather than rewriting it.
+- Verified against the running app (`next dev` + the seeded Neon branch, real
+  HTTP requests): created a draft as an organiser, submitted it, confirmed
+  the 400 on a further draft-edit, confirmed a coordinator can `GET` it, and
+  confirmed one `Notification` row per active Ops Manager was written with
+  `type: "event_submitted"` and `eventId` set. `vitest` 114/114 (unchanged —
+  no existing rule was touched), `tsc --noEmit` and `eslint` both clean.
+- Not done here, and not this story's scope: an S-04 notifications
+  screen/endpoint to read them back. The top-bar bell already links to
+  `/notifications`, but the route and a `GET /api/notifications` endpoint
+  don't exist — tracked on SPM-53.
 
 ### 2026-09-18 — Jordan
 - **SPM-4 (role and permission model) implemented end to end.** Closes the
