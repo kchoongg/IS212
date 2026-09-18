@@ -169,7 +169,13 @@ IS212/
         ├── formErrors.ts              # Client validation + mapping server errors to fields
         ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues
         ├── cn.ts                       # Tiny class-name joiner
-        ├── validation.ts                # ALL Zod schemas live in this ONE file
+        ├── validation/                  # Zod schemas, one file per domain
+        │   ├── auth.ts
+        │   ├── events.ts
+        │   ├── venues.ts
+        │   ├── equipment.ts
+        │   ├── registrations.ts
+        │   └── index.ts                 # Barrel — import from "@/lib/validation" as before
         └── __tests__/                    # Tests go HERE, not next to the file they test
 ```
 
@@ -196,8 +202,12 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
-Stick to your own folder for new *route* files. `prisma/schema.prisma` and
-`src/lib/validation.ts` are shared — see [Avoiding Merge Conflicts](#-avoiding-merge-conflicts).
+Stick to your own folder for new *route* files. `prisma/schema.prisma` is
+shared — see [Avoiding Merge Conflicts](#-avoiding-merge-conflicts).
+`src/lib/validation/` used to be one shared file too; it's now split one file
+per domain (`events.ts`, `equipment.ts`, ...), so add your schema to your own
+domain's file rather than a shared one. Import path is unchanged —
+`@/lib/validation` still works, via `validation/index.ts`.
 
 **Reading another domain's tables is fine.** Writing to them isn't — if the
 venues route needs to change an `Event`, talk to Kristen first.
@@ -216,7 +226,7 @@ Browser (src/app/events/page.tsx)
 src/app/api/events/route.ts   ← runs on the SERVER, never in the browser
    │
    ├─ getSession(req)          reads + verifies the JWT (src/lib/auth.ts)
-   ├─ createEventSchema.parse() validates the request body (src/lib/validation.ts)
+   ├─ createEventSchema.parse() validates the request body (src/lib/validation/events.ts)
    ├─ [business rules]          e.g. is this event complete enough to submit?
    └─ prisma.event.create()     saves it (src/lib/prisma.ts) → Neon
    │
@@ -333,7 +343,7 @@ Copy the nearest existing one rather than starting fresh:
 | A list with filters | `src/app/events/page.tsx` |
 | A long, sectioned form | `src/app/events/new/page.tsx` |
 
-Client validation mirrors `src/lib/validation.ts`; it is a convenience, never
+Client validation mirrors `src/lib/validation/`; it is a convenience, never
 the authority. **The server validates every request regardless**, and the two
 must agree — a form that lets the user press Submit and then shows a server
 error is the exact failure the spec exists to prevent.
@@ -533,9 +543,14 @@ Branch off a seeded branch and the data comes with it — no re-seeding.
 
 - **Pull before you start work each session:** `git pull`
 - **Commit and push often** — small commits, not one giant one at the end of the day
-- **`prisma/schema.prisma` and `src/lib/validation.ts` are shared files** — add
-  your section at the bottom rather than in the middle of someone else's, and
-  pull/push more frequently on days you're editing them
+- **`prisma/schema.prisma` is a shared file** — add your section at the bottom
+  rather than in the middle of someone else's, and pull/push more frequently
+  on days you're editing it
+- **`src/lib/validation.ts` used to be a shared file too** — as of 2026-09-17
+  it's split into `src/lib/validation/<domain>.ts`, one per domain, plus an
+  `index.ts` barrel so `@/lib/validation` still resolves the same as before.
+  Add your schema to your own domain's file; you should no longer need to
+  touch a file someone else is also editing for this
 - **Stay inside your own `api/<domain>/` folder** for route files — conflicts
   almost never happen there
 - **Only one person creates a migration at a time.** Two migrations with the
@@ -697,6 +712,22 @@ what changed, why, and the migration name if there is one.
 - ⚠️ **Not done here:** lifecycle validation (which `from → to` moves are
   legal, as opposed to who may make them), the Coordinator Assignment
   endpoint, and route-level integration tests. All three are in Known Gaps.
+### 2026-09-17 — Janelle
+- **Split `src/lib/validation.ts` into `src/lib/validation/<domain>.ts`**
+  (`auth.ts`, `events.ts`, `venues.ts`, `equipment.ts`, `registrations.ts`),
+  plus an `index.ts` barrel re-exporting all five.
+- Why: this file was called out in
+  [Avoiding Merge Conflicts](#-avoiding-merge-conflicts) as one of only two
+  shared files everyone eventually edits, and it was the more avoidable of the
+  two — unlike `schema.prisma`, nothing about Zod schemas actually requires
+  one file. Splitting it by domain means adding a schema for your own
+  endpoint no longer touches a file someone else is also mid-edit on.
+- Every existing `@/lib/validation` and `../validation` import — all 10 of
+  them, across routes, pages, and tests — resolves unchanged via the barrel;
+  none needed editing. No schema, type, or validation rule was added, removed,
+  or changed. Verified with `tsc --noEmit`, `eslint`, the full test suite, and
+  `next build`, all passing identically to before the split.
+- Migration: none — no schema/database change.
 
 ### 2026-09-16 — Kristen
 - **Implemented SPM-24 (Save Draft Event Request) end to end.**
