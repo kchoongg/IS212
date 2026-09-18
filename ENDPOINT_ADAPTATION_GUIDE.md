@@ -18,7 +18,7 @@ procedure — without needing any other context from elsewhere.
 
 Every API route in this app does the same 3 things, in order:
 
-1. **Validate the request body** with a Zod schema from `src/lib/validation.ts`
+1. **Validate the request body** with a Zod schema from `src/lib/validation/` (one file per domain, e.g. `events.ts`)
 2. **Call Prisma** using the validated data
 3. **Return JSON** — success data, or a clear error with the right HTTP status
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
 ```
 
 Updating a route to match a new schema almost always means editing ONE of:
-- the Zod schema in `validation.ts` (if a field was renamed/added/removed)
+- the Zod schema in the matching `src/lib/validation/<domain>.ts` file (if a field was renamed/added/removed)
 - the `prisma.<model>.<method>({ ... })` call itself (if the model or field name changed)
 
 It essentially never means restructuring the route's logic or its response shape.
@@ -119,10 +119,16 @@ by several routes below to check who's logged in.
 
 ---
 
-## 3. Current validation schemas — `src/lib/validation.ts`
+## 3. Current validation schemas — `src/lib/validation/`
 
-**This is usually the first file to update** — if a field is renamed, added,
-or removed in the new schema, the matching Zod schema below needs the same change.
+**This is usually the first place to update** — if a field is renamed, added,
+or removed in the new schema, the matching Zod schema needs the same change.
+As of 2026-09-17 this used to be one file (`src/lib/validation.ts`); it's now
+split by domain into `src/lib/validation/<domain>.ts`, re-exported from
+`index.ts` so `@/lib/validation` still resolves the same way. The snapshot
+below is frozen from before that split — it's still accurate content-wise,
+just no longer the actual file layout; find the same schemas in their
+domain's file now (e.g. `registerSchema`/`loginSchema` → `auth.ts`).
 
 ```ts
 import { z } from "zod";
@@ -563,9 +569,10 @@ export async function POST(req: NextRequest) {
    `equipment` → `registrations`.
 3. **For each file:** find every `prisma.<model>.<field>` reference, check it
    against the actual schema, fix mismatches.
-4. **Check `validation.ts` alongside each route** — if the route expects a
-   field the new schema doesn't have (or vice versa), fix the Zod schema to
-   match what the route/schema should actually accept.
+4. **Check the matching `src/lib/validation/<domain>.ts` file alongside each
+   route** — if the route expects a field the new schema doesn't have (or
+   vice versa), fix the Zod schema to match what the route/schema should
+   actually accept.
 5. **After all files are updated, verify:**
    ```bash
    npx prisma generate

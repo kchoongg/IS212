@@ -45,7 +45,7 @@
 - `src/components/AppShell.tsx` — top bar and role-aware sidebar
 - `src/lib/prisma.ts` — Prisma client singleton
 - `src/lib/auth.ts` — password hashing and JWT session helpers
-- `src/lib/validation.ts` — Zod schemas
+- `src/lib/validation/` — Zod schemas, one file per domain (`events.ts`, `equipment.ts`, ...)
 - `src/lib/roles.ts`, `statuses.ts`, `format.ts` — role, status and display rules
 - `prisma/schema.prisma` — data model
 
