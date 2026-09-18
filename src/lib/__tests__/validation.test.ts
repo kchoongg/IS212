@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { registerSchema, createEventSchema, updateEventStatusSchema, updateEventDraftSchema } from "../validation";
+import { registerSchema, loginSchema, createEventSchema, updateEventStatusSchema, updateEventDraftSchema } from "../validation";
+import { SELF_REGISTERABLE_ROLES } from "../roles";
 
 describe("registerSchema", () => {
   it("accepts a valid registration", () => {
@@ -30,6 +31,67 @@ describe("registerSchema", () => {
       role: "superadmin",
     });
     expect(result.success).toBe(false);
+  });
+
+  // SPM-21 AC4. POST /api/auth/register takes no session, so this schema is
+  // the only thing standing between an anonymous caller and an internal
+  // account. A self-assigned `ops_manager` would read every client's events.
+  it("refuses to let a stranger claim an internal staff role", () => {
+    for (const role of ["ops_manager", "coordinator", "venue_staff", "tech_support"]) {
+      const result = registerSchema.safeParse({
+        name: "Mallory",
+        email: "mallory@test.com",
+        password: "password123",
+        role,
+      });
+      expect(result.success, `${role} must not be self-registerable`).toBe(false);
+    }
+  });
+
+  it("still accepts the two external roles", () => {
+    for (const role of SELF_REGISTERABLE_ROLES) {
+      const result = registerSchema.safeParse({
+        name: "Kristen",
+        email: "kristen@test.com",
+        password: "password123",
+        role,
+      });
+      expect(result.success, `${role} should be self-registerable`).toBe(true);
+    }
+  });
+});
+
+// SPM-21 AC1/AC2: what the login endpoint will and will not accept before it
+// ever reaches the database.
+describe("loginSchema", () => {
+  it("accepts a well-formed email and password", () => {
+    const result = loginSchema.safeParse({
+      email: "daniel.tan@connectsphere.com",
+      password: "password123",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a malformed email", () => {
+    const result = loginSchema.safeParse({ email: "notanemail", password: "password123" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an empty password", () => {
+    const result = loginSchema.safeParse({ email: "a@b.com", password: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a missing field rather than treating it as blank", () => {
+    expect(loginSchema.safeParse({ email: "a@b.com" }).success).toBe(false);
+    expect(loginSchema.safeParse({ password: "password123" }).success).toBe(false);
+  });
+
+  // Deliberately NOT the 8-character minimum registerSchema uses: an existing
+  // account may predate that rule, and rejecting a short password at login
+  // would tell an attacker their guess was too short to be real.
+  it("does not impose the registration password length on login", () => {
+    expect(loginSchema.safeParse({ email: "a@b.com", password: "short" }).success).toBe(true);
   });
 });
 

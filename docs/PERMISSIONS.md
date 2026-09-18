@@ -40,10 +40,26 @@ chrome, one extra screen (`/assignments`). This is a design decision, not a
 requirement; it is worth confirming at a customer Q&A.
 
 Roles are stored as a plain string on `users.role`. The allowed values are
-enforced by the Zod enum in `src/lib/validation.ts` at registration and listed
-in `ROLES` in `src/lib/roles.ts`. There is no database CHECK constraint, which
-is consistent with the project-wide decision that business rules live in route
-code (DOCUMENTATION.md §"Business rules live in code, not the database").
+listed in `ROLES` in `src/lib/roles.ts`. There is no database CHECK constraint,
+which is consistent with the project-wide decision that business rules live in
+route code (DOCUMENTATION.md §"Business rules live in code, not the database").
+
+### Which roles a user may give themselves
+
+**Only `organiser` and `attendee`** — `SELF_REGISTERABLE_ROLES` in
+`src/lib/roles.ts`, enforced by `registerSchema` and mirrored in the S-02
+dropdown.
+
+This matters more than it looks. `POST /api/auth/register` takes no session, so
+whatever that schema accepts is what any anonymous caller on the internet can
+become. Until 2026-09-18 it accepted the full six-role enum, and registering as
+`ops_manager` was enough to read every client's events — every rule in this
+document enforced faithfully against a role the caller had picked for
+themselves. A permission model is only as good as the weakest way of acquiring
+a role.
+
+The four internal roles are created by `npx prisma db seed` today; an admin
+screen for them is an open item (§8).
 
 ---
 
@@ -60,7 +76,7 @@ the model, deliberately blind to which event is involved.
 | `event:review` (clarify / approve / reject) | — | ✅ | — | — | — | — |
 | `event:assign_coordinator` | — | — | ✅ | — | — | — |
 | `event:confirm` | — | ✅ | — | — | — | — |
-| `event:cancel` | ✅ | ✅ | ✅ | — | — | — |
+| `event:cancel` | — | ✅ | — | — | — | — |
 | `venue:view` | — | ✅ | ✅ | ✅ | — | — |
 | `venue:manage` | — | — | — | ✅ | — | — |
 | `venue_booking:request` | — | ✅ | — | — | — | — |
@@ -164,10 +180,19 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 | `confirmed` | Coordinator (assigned) | Step 10 |
 | `completed` | Coordinator (assigned) | Step 14 |
 | `postponed` | Coordinator (assigned), Organiser (owner) | §4 Rescheduling |
-| `cancelled` | Coordinator (assigned), Organiser (owner), Ops Manager | §4 Cancellation |
+| `cancelled` | Coordinator (assigned) — **and nobody else** | §4 Cancellation |
 
 Venue Staff and Technical Support appear nowhere: they decide their own bookings
 and equipment requests, not the event's status.
+
+**Cancellation is the Event Coordinator's alone** (customer clarification,
+2026-09-18). It is deliberately narrower than every other rule in this table,
+including postponement, which the owning Organiser may still do. Cancelling an
+event releases its venue booking, frees its equipment reservations and drops the
+attendee list (briefing §4, "Cancellation Management"), so it is a ConnectSphere
+operational decision rather than a client-side one. An Organiser who wants their
+event called off raises an Event Change Request and the assigned coordinator
+acts on it; the Ops Manager assigns coordinators and does not cancel either.
 
 This table says **who**, not **which from → to moves are legal**. The lifecycle
 graph (you cannot jump `draft` → `confirmed`) belongs to Event Status
@@ -243,5 +268,18 @@ allowed to see.
   whoever builds them.
 - **`registration:view_list`** is defined but unused — the attendee list screen
   is not built.
-- **`users.role` has no database constraint.** Zod guards the register route;
-  a direct database write is not guarded.
+- **`users.role` has no database constraint.** `registerSchema` guards the
+  register route; a direct database write is not guarded.
+  - Corrected 2026-09-18: this entry previously read "Zod guards the register
+    route" and left it there. Zod guarded that the role was one of six valid
+    *strings* — it said nothing about whether an anonymous caller was entitled
+    to claim it, and `POST /api/auth/register` takes no session. Anyone could
+    register as `ops_manager`. Self-registration is now limited to
+    `SELF_REGISTERABLE_ROLES` (organiser, attendee); see §2.
+- **No admin screen for staff accounts.** The four internal roles can no longer
+  be self-registered, which is right, but nothing in the app creates them
+  either — `npx prisma db seed` is the only path today.
+- **Event Change Requests has no endpoint**, which is how an Organiser would ask
+  for a cancellation now that they cannot perform one themselves. Until it
+  exists, an organiser who wants their event called off has to contact their
+  coordinator outside the system.

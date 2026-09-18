@@ -450,6 +450,9 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
 | Only the role the briefing gives a step may perform it: organiser submits, Ops Manager assigns, assigned coordinator approves/confirms, Venue Staff decide bookings, Technical Support decides equipment | `canSetEventStatus()`, `can()` | ✅ done |
 | Catalogue writes belong to their owner — venues to Venue Staff, equipment to Technical Support | `api/venues` POST, `api/equipment` POST | ✅ done |
+| **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
+| **A role cannot be self-assigned** — public registration offers the two external roles only; staff accounts are created internally | `registerSchema`, `SELF_REGISTERABLE_ROLES` | ✅ done |
+| A deactivated account cannot authenticate at all, and is refused at login rather than at the first API call | `api/auth/login`, `getActor()` | ✅ done |
 | A venue booking decision is Venue Staff's; an equipment request decision is Technical Support's | venues / equipment domains | ⏳ actions defined, routes not built |
 
 **Wrap check-and-write in a transaction**, or two people clicking at the same
@@ -511,6 +514,7 @@ traceability the module asks for.
 | `npx eslint src --ext .ts,.tsx` | Check code style/common mistakes |
 | `npm test` | Run tests once |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
+| `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
 | `npx prisma migrate dev` | Create/apply a migration after YOU change `schema.prisma` |
@@ -622,7 +626,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
 | **`npm run lint` is broken on Next 16** | Use `npx eslint src --ext .ts,.tsx`. | unclaimed |
-| **No route-level tests outside permissions** | `npm run verify:permissions` covers authorisation end to end (36 checks). Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
+| **No route-level tests outside auth/permissions** | `npm run verify:permissions` (36 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
+| **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
+| **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 
 ---
 
@@ -640,6 +646,55 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-09-18 — Jordan (SPM-21, later the same day)
+Audited the four acceptance criteria of **SPM-21 (User Login)** against the
+running app. AC1 (valid credentials authenticate) and AC2 (invalid credentials
+are refused with a message) already held. AC3 and AC4 held at the route layer —
+`verify:permissions` was 36/36 — but both were reachable around the side:
+
+- **Anyone could self-assign an internal role.** `POST /api/auth/register` takes
+  no session and passed `role` from the request body straight to
+  `prisma.user.create`, accepting all six roles. An anonymous request created an
+  `ops_manager`, which then read every client's events with `organiserId`,
+  `organisationId` and `coordinatorId` attached — the exact case briefing §8b
+  names. The permission model was being enforced perfectly against a role the
+  caller had chosen for themselves. Registration is now limited to the two
+  external roles via `SELF_REGISTERABLE_ROLES` (`src/lib/roles.ts`), enforced in
+  `registerSchema` and mirrored in the S-02 dropdown, which had been offering
+  "Operations Manager" to the public.
+  - Note for whoever reads `docs/PERMISSIONS.md` §8: the open item there said
+    "Zod guards the register route". Zod guarded that the role was one of six
+    valid *strings*, not that the caller was entitled to it. Corrected.
+- **A deactivated account could log in.** `POST /api/auth/login` never checked
+  `isActive`, and `/api/auth/me` was the one route not going through
+  `getActor()`, so it skipped the check too. The result was a user who logged in
+  "successfully", saw the signed-in chrome, and then had every data route 401 and
+  bounce them back to `/login` — a loop, not a refusal. Login now refuses with a
+  403 that says why, and `me` uses `getActor()` like everything else.
+- **Cancellation narrowed to the Event Coordinator** (customer clarification,
+  2026-09-18). `STATUS_TRANSITION_ROLES.cancelled` was
+  `["coordinator", "organiser", "ops_manager"]` and is now `["coordinator"]`;
+  `event:cancel` dropped off the organiser and Ops Manager role lists to match.
+  Cancelling releases the venue, frees the equipment and drops the attendee
+  list, so it is ConnectSphere's call rather than the client's. **Postponement
+  was deliberately left alone** — an organiser may still postpone their own
+  event. A new test asserts `can()` and `STATUS_TRANSITION_ROLES` agree about
+  `event:cancel`, so the two halves cannot drift apart again.
+- **New: `scripts/verify-login.ts`** (`npm run verify:login`) — SPM-21's
+  acceptance check against a running server, 29 checks labelled AC1-AC4 so the
+  output goes straight into the test evidence. Includes the cancellation rule
+  end to end and an assertion that a wrong password and an unknown email are
+  refused *identically* (no account enumeration). Creates its own throwaway
+  account and event and deletes both; safe to re-run.
+- **Tests: 123 passing (was 114).** `loginSchema` had no unit test at all —
+  AC1 and AC2 were the two criteria with nothing traceable to them. Added those
+  plus the self-registration guard and the cancellation rule.
+- **Verified:** `vitest` 123/123, `verify:login` 29/29, `verify:permissions`
+  36/36 (unchanged), `tsc --noEmit` and `eslint src scripts` clean.
+- ⚠️ **Knock-on effects, both now in Known Gaps:** there is no in-app way to
+  create a staff account any more (seed only), and an organiser has no way to
+  request cancellation until Event Change Requests has an endpoint.
 
 ### 2026-09-18 — Jordan
 - **SPM-4 (role and permission model) implemented end to end.** Closes the

@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Field, Input, Select } from "@/components/ui";
-import { ROLES, roleLabel } from "@/lib/roles";
+import { SELF_REGISTERABLE_ROLES, roleLabel } from "@/lib/roles";
 import { registerSchema } from "@/lib/validation";
 import {
   focusFirstError,
@@ -18,7 +18,14 @@ import {
 // UI_DESIGN.md §7.1: nothing while typing, the touched field on blur,
 // everything on submit, and server errors mapped back onto their fields.
 
-const ROLE_OPTIONS = ROLES.map((role) => ({ value: role, label: roleLabel(role) }));
+// CHANGED: was every role in ROLES, which offered a stranger "Operations
+// Manager" and "Event Coordinator" in a public dropdown. Staff accounts are
+// not self-service. The server enforces the same list (registerSchema) — this
+// only keeps the form from advertising something it will refuse.
+const ROLE_OPTIONS = SELF_REGISTERABLE_ROLES.map((role) => ({
+  value: role,
+  label: roleLabel(role),
+}));
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -143,7 +150,12 @@ export default function RegisterPage() {
 
         {/* The select shows labels and submits the database keys — a user
             should never meet the string "venue_staff" (UI_DESIGN.md §2). */}
-        <Field label="Role" required error={errorFor("role")}>
+        <Field
+          label="Role"
+          required
+          hint="ConnectSphere staff accounts are created internally, not here."
+          error={errorFor("role")}
+        >
           <Select
             name="role"
             options={ROLE_OPTIONS}
