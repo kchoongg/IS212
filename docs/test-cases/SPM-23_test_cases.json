@@ -1,0 +1,341 @@
+{
+  "story_key": "SPM-23",
+  "story_title": "As an Event Organiser, I want to create an event request containing my event requirements so that ConnectSphere has the information needed to begin planning my event.",
+  "created_by": "kchoongg",
+  "creation_date": "2026-09-16",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "The Event Organiser can enter an event name and purpose." },
+    { "id": "AC2", "text": "The Event Organiser can enter an event description." },
+    { "id": "AC3", "text": "The Event Organiser can specify the proposed date and time." },
+    { "id": "AC4", "text": "The Event Organiser can specify expected attendance." },
+    { "id": "AC5", "text": "The Event Organiser can specify venue, accessibility, equipment and registration requirements." },
+    { "id": "AC6", "text": "The system validates required information before allowing submission." },
+    { "id": "AC7", "text": "A newly created incomplete request is identifiable as a draft." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-23-TC01",
+      "title": "Organiser can enter an event name and purpose",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), a seeded Organiser. On the \"New event request\" page.",
+      "steps": [
+        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Enter \"Regional product launch and press event\" into Purpose",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Event name: Nusantara Product Launch 2026; Purpose: Regional product launch and press event",
+      "expected_result": "The browser returns to \"My events\".\nThe new draft appears with the title \"Nusantara Product Launch 2026\". Reopening it shows Purpose still filled in as \"Regional product launch and press event\"."
+    },
+    {
+      "id": "SPM-23-TC02",
+      "title": "Event name is required even when a purpose is entered",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "steps": [
+        "Leave Event name empty",
+        "Enter \"Regional product launch and press event\" into Purpose",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Event name: \"\" (empty); Purpose: Regional product launch and press event",
+      "expected_result": "The page does not move on. A message \"Give the event a name so you can find it again.\" appears under Event name."
+    },
+    {
+      "id": "SPM-23-TC03",
+      "title": "Organiser can enter and save an event description",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "steps": [
+        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Enter \"Press event with livestream and product demonstration area.\" into Description",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft again"
+      ],
+      "test_data": "Description: Press event with livestream and product demonstration area.",
+      "expected_result": "The draft is saved. Reopening it shows the Description field still reading \"Press event with livestream and product demonstration area.\""
+    },
+    {
+      "id": "SPM-23-TC04",
+      "title": "Organiser can specify the proposed date and time",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name \"Nusantara Product Launch 2026\", Type of event \"Exhibition\", and Expected attendance 200 already filled in.",
+      "steps": [
+        "Set Starts at to 5 Dec 2026, 9:00 AM",
+        "Set Ends at to 5 Dec 2026, 5:00 PM",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Starts at: 5 Dec 2026, 9:00 AM; Ends at: 5 Dec 2026, 5:00 PM",
+      "expected_result": "The request is created and immediately submitted. Its own page shows Starts at 5 Dec 2026, 9:00 AM, Ends at 5 Dec 2026, 5:00 PM, and status \"Submitted\"."
+    },
+    {
+      "id": "SPM-23-TC05",
+      "title": "An end time before the start time is rejected",
+      "linked_ac": ["AC3"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type of event and Expected attendance already filled in with valid values.",
+      "steps": [
+        "Set Starts at to 5 Dec 2026, 5:00 PM",
+        "Set Ends at to 5 Dec 2026, 9:00 AM (earlier than Starts at)",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Starts at: 5 Dec 2026, 5:00 PM; Ends at: 5 Dec 2026, 9:00 AM",
+      "expected_result": "The page does not move on. A message \"Ends at must be after starts at.\" appears under Ends at."
+    },
+    {
+      "id": "SPM-23-TC06",
+      "title": "A start date in the past is rejected when submitting",
+      "linked_ac": ["AC3"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type of event and Expected attendance already filled in with valid values.",
+      "steps": [
+        "Set Starts at to 1 Jan 2020, 9:00 AM (a past date)",
+        "Set Ends at to 1 Jan 2020, 5:00 PM",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Starts at: 1 Jan 2020, 9:00 AM (in the past)",
+      "expected_result": "The page does not move on. A message \"The start date is in the past.\" appears under Starts at."
+    },
+    {
+      "id": "SPM-23-TC07",
+      "title": "Organiser can specify expected attendance",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type of event, Starts at and Ends at already filled in with valid values.",
+      "steps": [
+        "Enter 250 into Expected attendance",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Expected attendance: 250",
+      "expected_result": "The request is created and submitted. Its own page shows Expected attendance as 250."
+    },
+    {
+      "id": "SPM-23-TC08",
+      "title": "Expected attendance of 0 is rejected",
+      "linked_ac": ["AC4"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Same form state as TC07.",
+      "steps": [
+        "Enter 0 into Expected attendance",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Expected attendance: 0",
+      "expected_result": "The page does not move on. A message \"Enter a whole number of people, at least 1.\" appears under Expected attendance."
+    },
+    {
+      "id": "SPM-23-TC09",
+      "title": "Expected attendance of 1 (the minimum) is accepted",
+      "linked_ac": ["AC4"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Same form state as TC07.",
+      "steps": [
+        "Enter 1 into Expected attendance",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Expected attendance: 1",
+      "expected_result": "The request is created and submitted. Its own page shows Expected attendance as 1."
+    },
+    {
+      "id": "SPM-23-TC10",
+      "title": "Organiser can specify venue and accessibility requirements",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type, dates and attendance already filled in with valid values.",
+      "steps": [
+        "Tick \"High-density WiFi\" under \"The venue must have\"",
+        "Tick \"Wheelchair spaces\" under \"Accessibility needs\"",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Venue requirement: High-density WiFi; Accessibility need: Wheelchair spaces",
+      "expected_result": "The request is created. Its own page lists both \"High-density WiFi\" and \"Wheelchair spaces\" among its requirements."
+    },
+    {
+      "id": "SPM-23-TC11",
+      "title": "Organiser can request equipment once the event has dates",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "On the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM and Ends at = 5 Dec 2026, 5:00 PM already set.",
+      "steps": [
+        "Click \"Add equipment\"",
+        "Choose \"4K Portable Projector\" in the Equipment list",
+        "Enter 2 into Quantity",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Equipment: 4K Portable Projector, quantity 2",
+      "expected_result": "The request is created with \"4K Portable Projector\" (quantity 2) listed under its equipment."
+    },
+    {
+      "id": "SPM-23-TC12",
+      "title": "Equipment cannot be requested before the event has dates",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Starts at and Ends at left blank.",
+      "steps": [
+        "Scroll to the Equipment section"
+      ],
+      "test_data": "N/A — no dates entered",
+      "expected_result": "An info message \"Add the event date and time above, then you can request equipment here.\" is shown in place of the equipment picker; there is no way to add an equipment row yet."
+    },
+    {
+      "id": "SPM-23-TC13",
+      "title": "Requesting the same equipment item twice is rejected",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "On the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM and Ends at = 5 Dec 2026, 5:00 PM already set.",
+      "steps": [
+        "Add an equipment row, choose \"4K Portable Projector\", quantity 2",
+        "Add a second equipment row, choose \"4K Portable Projector\" again, quantity 1",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Equipment: \"4K Portable Projector\" selected in two separate rows",
+      "expected_result": "The page does not move on. A message \"Each item can only be requested once — change the quantity instead of adding a second row.\" is shown above the equipment rows."
+    },
+    {
+      "id": "SPM-23-TC14",
+      "title": "Organiser can enable registration with a capacity and window",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "On the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM already set.",
+      "steps": [
+        "Turn on \"Attendees need to register for this event\"",
+        "Enter 300 into Registration capacity",
+        "Set Registration opens to 1 Nov 2026, 12:00 AM",
+        "Set Registration closes to 1 Dec 2026, 12:00 AM",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Registration capacity: 300; Registration opens: 1 Nov 2026, 12:00 AM; Registration closes: 1 Dec 2026, 12:00 AM",
+      "expected_result": "The request is created with registration turned on, capacity 300, and the opens/closes dates shown exactly as entered."
+    },
+    {
+      "id": "SPM-23-TC15",
+      "title": "Registration capacity is required once registration is enabled",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "On the \"New event request\" page with registration toggled on and Registration capacity left empty.",
+      "steps": [
+        "Turn on \"Attendees need to register for this event\"",
+        "Leave Registration capacity empty",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Registration capacity: \"\" (empty)",
+      "expected_result": "The page does not move on. A message \"Enter how many attendees can register.\" appears under Registration capacity."
+    },
+    {
+      "id": "SPM-23-TC16",
+      "title": "Registration closing before it opens is rejected",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "On the \"New event request\" page with registration enabled and Registration capacity set to 300.",
+      "steps": [
+        "Set Registration opens to 1 Dec 2026, 12:00 AM",
+        "Set Registration closes to 1 Nov 2026, 12:00 AM (before it opens)",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Registration opens: 1 Dec 2026, 12:00 AM; Registration closes: 1 Nov 2026, 12:00 AM",
+      "expected_result": "The page does not move on. A message \"Registration closes at must be after it opens.\" appears under Registration closes."
+    },
+    {
+      "id": "SPM-23-TC17",
+      "title": "Registration cannot open on or after the event starts",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "On the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM, registration enabled, Registration capacity set to 300.",
+      "steps": [
+        "Set Registration opens to 5 Dec 2026, 9:00 AM (the same moment as the event start)",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Registration opens: 5 Dec 2026, 9:00 AM (equal to Starts at)",
+      "expected_result": "The page does not move on. A message \"Registration must open before the event starts.\" appears under Registration opens."
+    },
+    {
+      "id": "SPM-23-TC18",
+      "title": "A fully completed request can be submitted",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "steps": [
+        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Select \"Exhibition\" as Type of event",
+        "Set Starts at to 5 Dec 2026, 9:00 AM and Ends at to 5 Dec 2026, 5:00 PM",
+        "Enter 200 into Expected attendance",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Event name, Type, Starts at, Ends at and Expected attendance all valid, as above",
+      "expected_result": "The browser moves to the request's own page, showing status \"Submitted\"."
+    },
+    {
+      "id": "SPM-23-TC19",
+      "title": "Submit request is blocked when required fields are missing",
+      "linked_ac": ["AC6"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with only Event name filled in.",
+      "steps": [
+        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Leave Type of event, Starts at, Ends at, and Expected attendance empty",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Event name only; Type, Starts at, Ends at, Expected attendance all blank",
+      "expected_result": "The page does not move on. Messages appear at once on Type of event (\"Choose the type of event.\"), Starts at (\"Enter when the event starts.\"), Ends at (\"Enter when the event ends.\"), and Expected attendance (\"Enter how many people you expect.\"); the cursor moves to the first field with a message."
+    },
+    {
+      "id": "SPM-23-TC20",
+      "title": "A newly created incomplete request is identifiable as a draft",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "steps": [
+        "Enter \"Nusantara Product Launch 2026\" into Event name only",
+        "Click \"Save draft\"",
+        "Open the \"My events\" page"
+      ],
+      "test_data": "Event name: Nusantara Product Launch 2026 (no other fields)",
+      "expected_result": "The event appears under a \"Drafts — not yet submitted\" section with a \"Draft\" status badge, visually distinct from any submitted request."
+    },
+    {
+      "id": "SPM-23-TC21",
+      "title": "A freshly created event always starts life as a draft, even when every field is filled in",
+      "linked_ac": ["AC7"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "steps": [
+        "Fill in every field on the form: Event name, Type, Purpose, Description, dates, attendance, layout, facilities, equipment, registration",
+        "Click \"Save draft\" (not \"Submit request\")"
+      ],
+      "test_data": "A fully completed form, saved via \"Save draft\"",
+      "expected_result": "The event is created with a \"Draft\" badge, not \"Submitted\", regardless of how complete the form was — only clicking \"Submit request\" moves it out of Draft."
+    }
+  ],
+  "open_questions": [],
+  "code_references": [
+    "src/lib/validation.ts",
+    "src/lib/eventForm.ts",
+    "src/app/events/new/page.tsx",
+    "src/app/api/events/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/lib/__tests__/validation.test.ts",
+    "prisma/seed.ts"
+  ]
+}

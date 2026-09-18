@@ -1,18 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
+import { canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
 import { isTerminalEventStatus } from "@/lib/statuses";
 import { ZodError } from "zod";
 
 // PATCH/DELETE one EquipmentRequest row within S-16 — SPM-47 AC6:
 // "Equipment requirements can be updated during planning where authorised."
-// Same authorisation as POST on the parent route: Coordinator only.
+// Same authorisation as POST on the parent route: the Coordinator assigned to
+// the event (src/lib/permissions.ts canManageEquipmentRequests).
 
 async function loadRequest(eventId: string, requestId: string) {
   const request = await prisma.equipmentRequest.findUnique({
     where: { id: requestId },
-    include: { event: { select: { id: true, status: true } } },
+    include: {
+      event: {
+        select: {
+          id: true,
+          organiserId: true,
+          organisationId: true,
+          coordinatorId: true,
+          status: true,
+          registrationEnabled: true,
+        },
+      },
+    },
   });
   if (!request || request.eventId !== eventId) return null;
   return request;
@@ -24,24 +37,22 @@ export async function PATCH(
 ) {
   try {
     const { id, requestId } = await context.params;
-    const session = getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
     }
-    if (session.role !== "coordinator") {
-      return NextResponse.json(
-        { error: "Only a Coordinator can update equipment requirements" },
-        { status: 403 }
-      );
+
+    const existing = await loadRequest(id, requestId);
+    if (!existing || !canViewEvent(actor, existing.event)) {
+      return hidden();
+    }
+    if (!canManageEquipmentRequests(actor, existing.event)) {
+      return forbidden("Only the assigned Coordinator can update equipment requirements");
     }
 
     const body = await req.json();
     const data = updateEquipmentRequestSchema.parse(body);
 
-    const existing = await loadRequest(id, requestId);
-    if (!existing) {
-      return NextResponse.json({ error: "Equipment request not found" }, { status: 404 });
-    }
     if (isTerminalEventStatus(existing.event.status)) {
       return NextResponse.json(
         { error: "Cannot update equipment for a completed, cancelled, or rejected event" },
@@ -72,20 +83,17 @@ export async function DELETE(
   context: { params: Promise<{ id: string; requestId: string }> }
 ) {
   const { id, requestId } = await context.params;
-  const session = getSession(req);
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-  if (session.role !== "coordinator") {
-    return NextResponse.json(
-      { error: "Only a Coordinator can remove an equipment requirement" },
-      { status: 403 }
-    );
+  const actor = await getActor(req);
+  if (!actor) {
+    return unauthenticated();
   }
 
   const existing = await loadRequest(id, requestId);
-  if (!existing) {
-    return NextResponse.json({ error: "Equipment request not found" }, { status: 404 });
+  if (!existing || !canViewEvent(actor, existing.event)) {
+    return hidden();
+  }
+  if (!canManageEquipmentRequests(actor, existing.event)) {
+    return forbidden("Only the assigned Coordinator can remove an equipment requirement");
   }
   if (isTerminalEventStatus(existing.event.status)) {
     return NextResponse.json(

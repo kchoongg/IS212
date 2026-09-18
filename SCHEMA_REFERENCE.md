@@ -41,8 +41,8 @@ Copy from here rather than typing from memory.
 | `VenueUnavailability.reason` | `maintenance` `renovation` `safety` `internal_activity` `other` |
 | layout names | `theatre` `classroom` `boardroom` `banquet` `exhibition` `u_shape` `cabaret` |
 
-The Zod schemas in `src/lib/validation.ts` enforce most of these at the API
-boundary. If you add a value, add it in both places.
+The Zod schemas in `src/lib/validation/` (one file per domain) enforce most of
+these at the API boundary. If you add a value, add it in both places.
 
 ---
 

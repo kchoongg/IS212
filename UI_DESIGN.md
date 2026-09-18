@@ -13,9 +13,9 @@ Companion documents:
 
 - `DOCUMENTATION.md` — how the app is built and how a request flows.
 - `SCHEMA_REFERENCE.md` — the data behind every field named here.
-- `src/lib/validation.ts` — the Zod schemas that are the single source of truth
-  for field-level validation. **This document never invents a rule that
-  contradicts that file.**
+- `src/lib/validation/` — the Zod schemas that are the single source of truth
+  for field-level validation, one file per domain. **This document never
+  invents a rule that contradicts those files.**
 
 ---
 
@@ -399,7 +399,7 @@ prevent.
 | On submit | Validate everything. Focus and scroll to the **first** error. |
 | Server response | Map `details` from the Zod `flatten()` payload back onto the offending fields. |
 
-Client validation mirrors `src/lib/validation.ts` — it is a convenience, never
+Client validation mirrors `src/lib/validation/` — it is a convenience, never
 the authority. The server validates every request regardless.
 
 ### 7.2 How errors appear

@@ -3,6 +3,7 @@ import {
   registerSchema,
   createEventSchema,
   updateEventStatusSchema,
+  updateEventDraftSchema,
   addEquipmentRequestSchema,
   updateEquipmentRequestSchema,
 } from "../validation";
@@ -48,6 +49,22 @@ describe("createEventSchema", () => {
   it("accepts a minimal valid event", () => {
     const result = createEventSchema.safeParse({ title: "Orientation Day" });
     expect(result.success).toBe(true);
+  });
+
+  it("rejects a title that is only whitespace", () => {
+    const result = createEventSchema.safeParse({ title: "   " });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toMatch(/cannot be blank/i);
+    }
+  });
+
+  it("trims leading and trailing whitespace from a valid title", () => {
+    const result = createEventSchema.safeParse({ title: "  Orientation Day  " });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.title).toBe("Orientation Day");
+    }
   });
 
   it("accepts a fully specified event request", () => {
@@ -137,6 +154,61 @@ describe("updateEventStatusSchema", () => {
   it("only accepts known statuses", () => {
     expect(updateEventStatusSchema.safeParse({ status: "confirmed" }).success).toBe(true);
     expect(updateEventStatusSchema.safeParse({ status: "made_up_status" }).success).toBe(false);
+  });
+});
+
+// ---- SPM-24: editing a saved draft. Every field is optional here, unlike
+// createEventSchema — an edit may only be touching one thing — and cross-field
+// rules that depend on the record already stored are the route's job, not
+// this schema's (see handleDraftEdit in src/app/api/events/[id]/route.ts). ----
+
+describe("updateEventDraftSchema", () => {
+  it("accepts an empty patch", () => {
+    expect(updateEventDraftSchema.safeParse({}).success).toBe(true);
+  });
+
+  it("does not require a title", () => {
+    const result = updateEventDraftSchema.safeParse({ description: "Updated description" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an empty title", () => {
+    const result = updateEventDraftSchema.safeParse({ title: "" });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a title that is only whitespace", () => {
+    const result = updateEventDraftSchema.safeParse({ title: "   " });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts a partial schedule update", () => {
+    const result = updateEventDraftSchema.safeParse({ startsAt: "2026-10-01T09:00:00.000Z" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects the same equipment item twice", () => {
+    const item = "8f14e45f-ceea-4e7c-9c2f-1f6a8e4f1f10";
+    const result = updateEventDraftSchema.safeParse({
+      equipment: [
+        { equipmentId: item, quantityRequested: 1 },
+        { equipmentId: item, quantityRequested: 2 },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toMatch(/only be requested once/i);
+    }
+  });
+
+  it("does not require startsAt/endsAt in the same payload as equipment", () => {
+    // Unlike createEventSchema: dates may already be saved from an earlier
+    // edit, so the payload-only check would wrongly reject this. The route
+    // checks the merged record instead.
+    const result = updateEventDraftSchema.safeParse({
+      equipment: [{ equipmentId: "8f14e45f-ceea-4e7c-9c2f-1f6a8e4f1f10", quantityRequested: 1 }],
+    });
+    expect(result.success).toBe(true);
   });
 });
 

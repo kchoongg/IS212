@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getSession } from "@/lib/auth";
+import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
+import { can, canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
 import { isTerminalEventStatus } from "@/lib/statuses";
@@ -10,17 +11,27 @@ import { ZodError } from "zod";
 // GET is also how Technical Support and the Organiser see the same list
 // (UI_DESIGN.md §4.3: the Equipment tab is read-only for them, "—" for Venue
 // Staff and Attendee — they don't get the tab at all); only the Coordinator
-// may add a row here.
-const CAN_VIEW_EQUIPMENT = ["organiser", "coordinator", "tech_support"];
+// assigned to the event may add a row here (src/lib/permissions.ts
+// canManageEquipmentRequests, SPM-4's role-and-relationship model).
+//
+// Visibility is checked the same two-step way as GET /api/events/[id]: first
+// canViewEvent() (can this user see the event at all — an event they cannot
+// see is 404, never 403, so its existence is never confirmed), then the
+// equipment-specific role check on top.
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
-  const session = getSession(req);
-  if (!session) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  const actor = await getActor(req);
+  if (!actor) {
+    return unauthenticated();
   }
-  if (!CAN_VIEW_EQUIPMENT.includes(session.role)) {
-    return NextResponse.json({ error: "Not authorised to view this event's equipment" }, { status: 403 });
+
+  const event = await prisma.event.findUnique({ where: { id } });
+  if (!event || !canViewEvent(actor, event)) {
+    return hidden();
+  }
+  if (!can(actor.role, "equipment:view")) {
+    return forbidden("Not authorised to view this event's equipment");
   }
 
   const requests = await prisma.equipmentRequest.findMany({
@@ -34,26 +45,25 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const session = getSession(req);
-    if (!session) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
     }
-    // Only the Coordinator records equipment requirements once an event
-    // exists — the Organiser's own chance to do this is at creation (S-08).
-    if (session.role !== "coordinator") {
-      return NextResponse.json(
-        { error: "Only a Coordinator can record equipment requirements" },
-        { status: 403 }
-      );
+
+    const event = await prisma.event.findUnique({ where: { id } });
+    if (!event || !canViewEvent(actor, event)) {
+      return hidden();
+    }
+    // Only the Coordinator assigned to this event records equipment
+    // requirements once it exists — the Organiser's own chance to do this is
+    // at creation (S-08).
+    if (!canManageEquipmentRequests(actor, event)) {
+      return forbidden("Only the assigned Coordinator can record equipment requirements");
     }
 
     const body = await req.json();
     const data = addEquipmentRequestSchema.parse(body);
 
-    const event = await prisma.event.findUnique({ where: { id } });
-    if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
-    }
     if (isTerminalEventStatus(event.status)) {
       return NextResponse.json(
         { error: "Cannot record equipment for a completed, cancelled, or rejected event" },
@@ -79,7 +89,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         technicalRequirements: data.technicalRequirements,
         startsAt: window.startsAt,
         endsAt: window.endsAt,
-        requestedBy: session.id,
+        requestedBy: actor.id,
         status: "requested",
       },
       include: { equipment: { select: { id: true, name: true, category: true } } },
