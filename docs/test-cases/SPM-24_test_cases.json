@@ -193,19 +193,33 @@
     },
     {
       "id": "SPM-24-TC13",
-      "title": "Replacing equipment with the same item twice in a draft edit is rejected",
+      "title": "An equipment item already chosen in one row is not offered again in another row",
       "linked_ac": ["AC4"],
-      "type": "Negative",
+      "type": "Positive",
       "source": "Code",
-      "preconditions": "The draft from TC09 already has Starts at and Ends at saved.",
+      "preconditions": "The draft from TC09 already has Starts at and Ends at saved. The equipment catalogue has at least two active items.",
       "steps": [
         "Open the draft's \"Edit draft\" page",
-        "Add an equipment row, choose \"4K Portable Projector\", quantity 1",
-        "Add a second equipment row, choose \"4K Portable Projector\" again, quantity 2",
-        "Click \"Save draft\""
+        "Click \"Add equipment\" and choose \"4K Portable Projector\" in the first row",
+        "Click \"Add equipment\" again to add a second row",
+        "Open the second row's equipment dropdown"
       ],
-      "test_data": "Equipment: \"4K Portable Projector\" chosen in two separate rows",
-      "expected_result": "The page does not move on. A message \"Each item can only be requested once — change the quantity instead of adding a second row.\" appears above the equipment rows, and the draft's saved equipment is unchanged."
+      "test_data": "First row: 4K Portable Projector",
+      "expected_result": "\"4K Portable Projector\" is not listed as an option in the second row's dropdown — only items not already chosen elsewhere are offered. Choosing a different item in the second row and clicking \"Save draft\" saves both rows successfully."
+    },
+    {
+      "id": "SPM-24-TC13b",
+      "title": "\"Add equipment\" is disabled once every catalogue item is already in the request",
+      "linked_ac": ["AC4"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "The draft from TC09 already has Starts at and Ends at saved. Note the total number of active items shown across the equipment dropdown (N).",
+      "steps": [
+        "Open the draft's \"Edit draft\" page",
+        "Click \"Add equipment\" and pick a different, not-yet-chosen item in each row, N times in total, until every catalogue item has been used"
+      ],
+      "test_data": "One row per catalogue item, no repeats",
+      "expected_result": "Once the last item is chosen, the \"Add equipment\" button becomes disabled and the text \"Every catalogue item is already in your request.\" appears beneath it."
     },
     {
       "id": "SPM-24-TC14",
@@ -266,7 +280,9 @@
       "expected_result": "\"Nusantara Developer Summit\" appears in the list. \"Q1 Investor Update (rough idea)\", or any other draft, does not appear anywhere on the page."
     }
   ],
-  "open_questions": [],
+  "open_questions": [
+    "SPM-24-TC13 originally tested that selecting the same equipment item twice was rejected after the fact, with an error message. The picker was changed so a duplicate can no longer be selected in the first place (the already-chosen item is removed from the other rows' dropdowns), which is why TC13 now tests prevention instead of rejection, and TC13b was added for the 'every item already used' edge case. The server-side Zod rule that used to produce the rejection message is still in place as a safety net (src/lib/validation/events.ts) but is no longer reachable by clicking through the app, so it isn't covered by a manual test case here — only by the existing unit test in src/lib/__tests__/validation.test.ts."
+  ],
   "code_references": [
     "src/lib/validation.ts",
     "src/lib/eventForm.ts",

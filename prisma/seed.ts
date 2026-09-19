@@ -992,7 +992,7 @@ async function main() {
   console.log(`  notifications : ${notifs.length}`);
   console.log(`\nEvery account's password is: ${DEMO_PASSWORD}`);
   console.log("Log in as  daniel.tan@connectsphere.com  (coordinator)");
-  console.log("       or  rachel.ng@meridianfinanc.com  (organiser)");
+  console.log("       or  rachel.ng@meridianfina.com  (organiser)");
 }
 
 main()

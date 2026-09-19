@@ -283,11 +283,11 @@ describe("canSetEventStatus", () => {
     }
   });
 
-  it("lets either side cancel, but only for their own event", () => {
+  it("lets only the assigned coordinator cancel (customer clarification #68)", () => {
     const confirmed = event({ status: "confirmed", coordinatorId: "coordinator-1" });
-    expect(canSetEventStatus(organiserA, confirmed, "cancelled")).toBe(true);
     expect(canSetEventStatus(coordinator, confirmed, "cancelled")).toBe(true);
-    expect(canSetEventStatus(organiserB, confirmed, "cancelled")).toBe(false);
+    expect(canSetEventStatus(organiserA, confirmed, "cancelled")).toBe(false);
+    expect(canSetEventStatus(opsManager, confirmed, "cancelled")).toBe(false);
     expect(canSetEventStatus(otherCoordinator, confirmed, "cancelled")).toBe(false);
   });
 
