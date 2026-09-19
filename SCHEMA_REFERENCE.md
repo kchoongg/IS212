@@ -33,6 +33,7 @@ Copy from here rather than typing from memory.
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
 | `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
+| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
 | `ClarificationRequest.status` | `open` `answered` `closed` |
@@ -161,6 +162,8 @@ Postgres table `venues` &middot; `prisma.venue`
 
 - `opensAt`/`closesAt` are strings, not DateTime. Compare them as strings.
 - A booking outside opening hours is not a *clash*, but it is still not allowed - that is a separate check.
+- `isActive: false` is how a venue is retired. There is no delete: `VenueBooking.venueId` has no cascade, so deleting a booked venue fails at the database, and past bookings must keep pointing at the room they were held in.
+- `GET /api/venues` returns active venues only unless you pass `?includeRetired=true`. A suitability or availability query should not offer a retired room.
 
 ### `VenueLayout`
 
@@ -246,13 +249,13 @@ Postgres table `events` &middot; `prisma.event`
 
 - `title`, `startsAt` and `expectedAttendance` are nullable ONLY because drafts may be incomplete. The PATCH route blocks leaving draft until they are filled.
 - Never write proposed changes here. That is what EventChangeRequest is for.
-- `startsAt`/`endsAt`/`expectedAttendance`/`preferredLayout` describe the event as a whole. A multi-session event's individual sessions live in `EventSession` instead - no route builds or reads those yet (schema only, see below).
+- `startsAt`/`endsAt`/`expectedAttendance`/`preferredLayout` describe the event as a whole. A multi-session event's individual sessions live in `EventSession` instead. No route creates or edits sessions yet, but they are now read: see `EventSession` below.
 
 ### `EventSession`
 
 Postgres table `event_sessions` &middot; `prisma.eventSession`
 
-A multi-session event's individual sessions (e.g. a two-day conference where day 1 is in one room and day 2 in another). Optional: a single-session event has zero rows here, and its `VenueBooking`/`EquipmentRequest` rows link to the `Event` directly (`sessionId` NULL) exactly as before this table existed. **No route creates, lists or edits these yet** - the table exists so venue/equipment requests can be scoped to a session once event creation supports adding them.
+A multi-session event's individual sessions (e.g. a two-day conference where day 1 is in one room and day 2 in another). Optional: a single-session event has zero rows here, and its `VenueBooking`/`EquipmentRequest` rows link to the `Event` directly (`sessionId` NULL) exactly as before this table existed. **No route creates, lists or edits these yet** - the table exists so venue/equipment requests can be scoped to a session once event creation supports adding them. One route already *reads* them: `api/venues/[id]` PATCH resolves `session.expectedAttendance ?? event.expectedAttendance` when deciding whether a venue change breaks a booking, because a session-scoped booking must be judged against that session's headcount. Any other code comparing a booking against an attendance figure needs the same fallback - session data wins when present, event data is the fallback.
 
 | Field | Type | | Notes |
 |---|---|---|---|
@@ -361,6 +364,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `decidedBy` | String |  |  |
 | `decidedAt` | DateTime |  |  |
 | `decisionReason` | String |  | Required when rejecting. |
+| `needsReview` | Boolean |  | A venue change may have invalidated this booking. The booking is NOT changed - a human decides. Defaults to `false`. |
+| `reviewReason` | String |  | Why it was flagged: comma-separated codes, see Status values. NULL when `needsReview` is false. |
+| `flaggedAt` | DateTime |  | When it was last flagged. NULL when never flagged. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
 
@@ -368,6 +374,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 
 - Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`. The same test appears in three places - write it once and reuse it.
 - Only compare against `status: 'approved'`. Pending requests may legitimately compete for the same slot.
+- `needsReview` is a flag, never an action. When a venue is edited or retired, `PATCH /api/venues/[id]` sets it on affected bookings and notifies the coordinator; it does not change the booking's venue, layout, times or status, and it does not touch the Event. Only `approved` bookings that have not yet finished are candidates - a pending booking is not a commitment, so there is nothing to protect by flagging it.
+- **Nothing clears the flag yet.** There is no route for a coordinator to acknowledge or resolve one - that is a separate story. Do not assume a flagged booking is unresolved in real life.
+- `reviewReason` accumulates. A second venue edit merges its codes into the existing list rather than replacing them, so parse it as a set.
 
 ### `VenueUnavailability`
 
@@ -494,6 +503,7 @@ double-booked venue. These rules live in route code:
 | Rejection reason | `api/events/[id]` PATCH | a reason is given when status becomes `rejected` |
 | Venue suitability | venues domain (to write) | layout capacity >= attendance, all mandatory facilities present |
 | Booking conflict | venues domain (to write) | no overlapping `approved` booking or unavailability |
+| Venue change impact | `src/lib/venueImpact.ts`, applied by `api/venues/[id]` PATCH | which future `approved` bookings a venue edit or retirement newly breaks, so they can be flagged. Pure functions, unit tested without a database. Does NOT yet cover narrowed `opensAt`/`closesAt` - that needs a timezone convention the codebase has not settled |
 | Equipment availability | equipment domain (to write) | requested <= total - maintenance - overlapping reservations |
 | Registration | `api/registrations` POST | event confirmed, within window, not already registered, seats left |
 

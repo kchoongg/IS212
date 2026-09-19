@@ -5,6 +5,43 @@
 
 import type { Prisma } from "@prisma/client";
 
+/// What a notification says. Shared by both helpers below so the two cannot
+/// drift apart in the fields they support.
+export interface NotificationContent {
+  type: string;
+  title: string;
+  body: string;
+  eventId?: string;
+}
+
+/**
+ * Notify one named person. The counterpart to notifyRole() below, for a story
+ * whose acceptance criteria name an individual rather than a queue - e.g.
+ * Manage Venue Catalogue (discussion board #120, #122): "the assigned
+ * Coordinator is notified" is one specific person per affected booking, and
+ * fanning that out to every coordinator would notify four people about a room
+ * three of them are not responsible for.
+ *
+ * The caller resolves who that is. Event.coordinatorId is nullable, so
+ * "assigned Coordinator" may not exist and only the caller knows what the
+ * sensible fallback is for its own story.
+ */
+export async function notifyUser(
+  tx: Prisma.TransactionClient,
+  recipientId: string,
+  notification: NotificationContent
+) {
+  await tx.notification.create({
+    data: {
+      recipientId,
+      type: notification.type,
+      title: notification.title,
+      body: notification.body,
+      eventId: notification.eventId,
+    },
+  });
+}
+
 /**
  * Notify every active user of a role about an event. Used where "the
  * relevant users" (briefing / story acceptance criteria) means "whoever
@@ -15,7 +52,7 @@ import type { Prisma } from "@prisma/client";
 export async function notifyRole(
   tx: Prisma.TransactionClient,
   role: string,
-  notification: { type: string; title: string; body: string; eventId?: string }
+  notification: NotificationContent
 ) {
   const recipients = await tx.user.findMany({
     where: { role, isActive: true },
