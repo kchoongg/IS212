@@ -91,6 +91,15 @@ Three entries are worth explaining:
   whether it can actually be provided (SPM-48/49/50) is Technical Support's.
   Same split as `venue_booking:request` / `venue_booking:decide` above, one
   action per side of the same conversation.
+- **Viewing one event's recorded equipment is not the same permission as
+  `equipment:view`.** `equipment:view` (above) is the catalogue — what the
+  organiser browses to make a request. Seeing what's actually been recorded
+  *for a specific event* is `canViewEquipmentRequests()` (§3, below the role
+  table — it's a relationship check, not a flat role permission): Technical
+  Support always, the assigned Coordinator because managing it requires
+  seeing it, and the owning Organiser read-only (confirmed 2026-09-19 —
+  broader than AC6's literal wording, but an Organiser reasonably wants to
+  see what's recorded against their own event; see `UI_DESIGN.md` §4.3).
 
 An unknown role — anything not in `ROLES` — is granted nothing.
 
@@ -196,7 +205,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `POST /api/venues` | `venue:manage` — Venue Staff |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
-| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `equipment:view` → 403 |
+| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |
 | `PATCH`/`DELETE /api/events/[id]/equipment/[requestId]` | Same as `POST` above, resolved from the request's own event |
 | `GET /api/facilities` | `facility:view` — any signed-in user |
@@ -214,10 +223,11 @@ permits. Every route re-checks.
 ## 7. How it is tested
 
 `permissions.ts` is pure — no Prisma, no `NextRequest` — so the whole model is
-unit tested against object literals, with no database or running server. 39
+unit tested against object literals, with no database or running server. 45
 tests cover the role matrix, each relationship rule, the list filter (including
 that it agrees with `canViewEvent`), every status transition, field
-visibility, and `canManageEquipmentRequests` (SPM-47).
+visibility, and `canManageEquipmentRequests` / `canViewEquipmentRequests`
+(SPM-47).
 
 The two examples the briefing names have tests of their own:
 

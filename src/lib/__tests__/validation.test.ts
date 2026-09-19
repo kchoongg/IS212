@@ -336,6 +336,35 @@ describe("addEquipmentRequestSchema", () => {
       addEquipmentRequestSchema.safeParse({ equipmentId: "projector", quantityRequested: 1 }).success
     ).toBe(false);
   });
+
+  // SPM-47 multi-session events (class clarification #74): sessionId scopes
+  // a requirement to one EventSession instead of the whole event.
+  it("sessionId is optional — most events have no sessions", () => {
+    expect(
+      addEquipmentRequestSchema.safeParse({ equipmentId: projector, quantityRequested: 1 }).success
+    ).toBe(true);
+  });
+
+  it("accepts a sessionId alongside the usual fields", () => {
+    const session = "8f14e45f-ceea-4e7c-9c2f-1f6a8e4f1f11";
+    expect(
+      addEquipmentRequestSchema.safeParse({
+        equipmentId: projector,
+        quantityRequested: 1,
+        sessionId: session,
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects a non-uuid sessionId", () => {
+    expect(
+      addEquipmentRequestSchema.safeParse({
+        equipmentId: projector,
+        quantityRequested: 1,
+        sessionId: "not-a-uuid",
+      }).success
+    ).toBe(false);
+  });
 });
 
 describe("updateEquipmentRequestSchema", () => {

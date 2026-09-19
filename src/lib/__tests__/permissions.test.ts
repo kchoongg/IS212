@@ -8,6 +8,7 @@ import {
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
+  canViewEquipmentRequests,
   canViewEvent,
   eventListWhere,
   isAssignedCoordinator,
@@ -275,6 +276,42 @@ describe("canManageEquipmentRequests", () => {
     const draft = event({ status: "draft" });
     for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
       expect(canManageEquipmentRequests(other, draft)).toBe(false);
+    }
+  });
+});
+
+describe("canViewEquipmentRequests", () => {
+  it("lets Technical Support view any event's equipment, assigned or not", () => {
+    expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1" }))).toBe(
+      true
+    );
+  });
+
+  it("lets the assigned coordinator view it — because managing it requires seeing it", () => {
+    const mine = event({ coordinatorId: "coordinator-1" });
+    expect(canViewEquipmentRequests(coordinator, mine)).toBe(true);
+  });
+
+  it("stops a coordinator viewing equipment on a colleague's event", () => {
+    const theirs = event({ coordinatorId: "coordinator-1" });
+    expect(canViewEquipmentRequests(otherCoordinator, theirs)).toBe(false);
+  });
+
+  it("lets the owning organiser view their own event's equipment read-only", () => {
+    // Broader than AC6's literal wording (Technical Support only), confirmed
+    // 2026-09-19 as intended — an Organiser should be able to see what's
+    // been recorded against the event they raised.
+    expect(canViewEquipmentRequests(organiserA, event())).toBe(true);
+  });
+
+  it("stops an organiser viewing equipment on an event they don't own", () => {
+    expect(canViewEquipmentRequests(organiserB, event())).toBe(false);
+    expect(canViewEquipmentRequests(colleagueA, event())).toBe(false);
+  });
+
+  it("stops every other role", () => {
+    for (const other of [opsManager, venueStaff, attendee]) {
+      expect(canViewEquipmentRequests(other, event())).toBe(false);
     }
   });
 });

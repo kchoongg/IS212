@@ -237,6 +237,21 @@ export function canManageEquipmentRequests(actor: Actor, event: EventAccessField
   return isAssignedCoordinator(actor, event);
 }
 
+/// SPM-47 AC6 names Technical Support Staff. The Organiser also gets a
+/// read-only view of their own event's equipment — confirmed 2026-09-19 this
+/// is intended (an Organiser reasonably wants to see what's been recorded
+/// against the event they raised), even though it's broader than AC6's own
+/// wording. Restricted to the event they own: an Organiser has no reason to
+/// see another client's equipment planning (briefing §8b). The Coordinator
+/// can see it too, but only because canManageEquipmentRequests already
+/// requires that (you cannot manage what you cannot see) — not a second,
+/// independent viewing right.
+export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
+  if (actor.role === "tech_support") return true;
+  if (actor.role === "organiser") return ownsEvent(actor, event);
+  return canManageEquipmentRequests(actor, event);
+}
+
 // ---------------------------------------------------------------------------
 // STATUS TRANSITIONS
 // ---------------------------------------------------------------------------

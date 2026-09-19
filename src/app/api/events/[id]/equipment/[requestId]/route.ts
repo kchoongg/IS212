@@ -60,13 +60,19 @@ export async function PATCH(
       );
     }
 
+    // sessionId is deliberately not editable here, same reasoning as
+    // equipmentId: moving a requirement to a different session is "remove
+    // this row, add another", not an edit.
     const updated = await prisma.equipmentRequest.update({
       where: { id: requestId },
       data: {
         quantityRequested: data.quantityRequested,
         technicalRequirements: data.technicalRequirements,
       },
-      include: { equipment: { select: { id: true, name: true, category: true } } },
+      include: {
+        equipment: { select: { id: true, name: true, category: true } },
+        session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      },
     });
     return NextResponse.json(updated);
   } catch (err) {

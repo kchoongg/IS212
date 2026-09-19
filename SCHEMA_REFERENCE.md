@@ -392,6 +392,7 @@ Request and reservation in one table: a reservation only ever comes from a reque
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `eventId` | String | req |  |
+| `sessionId` | String |  | SPM-47/multi-session events: set only when this requirement is scoped to one `EventSession` rather than the whole event. NULL is the common case and means "applies to the whole event". |
 | `equipmentId` | String | req |  |
 | `quantityRequested` | Int | req | What the coordinator asked for. |
 | `quantityReserved` | Int |  | What Tech Support could commit. NULL until reviewed - use COALESCE when summing. |
@@ -405,13 +406,35 @@ Request and reservation in one table: a reservation only ever comes from a reque
 | `reviewedAt` | DateTime |  |  |
 | `staffNotes` | String |  |  |
 
-**Relations:** `event` &rarr; Event, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User
+**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User
 
-**Unique:** `@@unique([eventId, equipmentId])`
+**Unique:** two Postgres *partial* indexes, not a single `@@unique` (Prisma's schema DSL has no `WHERE` clause for indexes, so these exist only in migration `20260919100000_add_partial_unique_equipment_request_session` - not in `schema.prisma`):
+- `(eventId, equipmentId)` **WHERE** `sessionId IS NULL` - the original rule, for whole-event requests.
+- `(eventId, sessionId, equipmentId)` **WHERE** `sessionId IS NOT NULL` - lets two different sessions of the same event each request the same equipment type.
 
 **Watch out:**
 
 - `quantityReserved` is NULL before review - use `COALESCE(SUM(...), 0)` or your total comes back null.
+- Because the uniqueness rule isn't a plain `@@unique` in `schema.prisma`, `prisma migrate dev` won't know about it - don't add `@@unique([eventId, equipmentId])` back, it would fight the partial indexes on the next migration.
+
+### `EventSession`
+
+Postgres table `event_sessions` &middot; `prisma.eventSession`
+
+A multi-session event's individual sessions (class clarification #74: different sessions may need different equipment). Schema added by SPM-25 (migration `20260918061723_add_event_sessions`); **no screen creates, lists, or edits one yet** - every event in the system has zero rows here today, so `EquipmentRequest.sessionId` is always NULL in practice until something builds that.
+
+| Field | Type | | Notes |
+|---|---|---|---|
+| `id` | String |  | Defaults to `uuid()`. |
+| `eventId` | String | req |  |
+| `label` | String |  | e.g. "Day 1 Morning" - display only. |
+| `startsAt` | DateTime | req |  |
+| `endsAt` | DateTime | req |  |
+| `expectedAttendance` | Int |  |  |
+| `preferredLayout` | String |  |  |
+| `createdAt` | DateTime |  | Defaults to `now()`. |
+
+**Relations:** `event` &rarr; Event, `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[]
 - One row per equipment type per event (`@@unique`). Asking for more means editing the quantity, not adding a row.
 
 ### `Registration`

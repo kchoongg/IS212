@@ -262,8 +262,13 @@ async function main() {
       await asVenueStaff(`/api/events/${createdEventId}/equipment`));
     await expectStatus("SPM-47", "technical support CAN view the recorded equipment", 200,
       await asTechSupport(`/api/events/${createdEventId}/equipment`));
-    await expectStatus("SPM-47", "the owning organiser CAN view it too, read-only", 200,
+    // Broader than AC6's literal wording (Technical Support only), confirmed
+    // 2026-09-19 as intended: the owning Organiser gets a read-only view of
+    // their own event's equipment.
+    await expectStatus("SPM-47", "the owning organiser CAN view (read-only) equipment requirements on their own event", 200,
       await asA(`/api/events/${createdEventId}/equipment`));
+    await expectStatus("SPM-47", "an organiser at another client cannot view this event's equipment", 404,
+      await asB(`/api/events/${createdEventId}/equipment`));
 
     // -----------------------------------------------------------------------
     console.log("\nAC3 — an Attendee must not see internal planning information (§8b)");

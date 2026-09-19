@@ -32,6 +32,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       // OrganiserEventDetail.dc.html) names the coordinator.
       coordinator: { select: { fullName: true } },
       equipmentRequests: true,
+      // ADDED (SPM-47): lets the Equipment tab offer a per-session picker
+      // when a multi-session event actually has sessions (SPM-25 schema;
+      // always empty today, since nothing creates one yet).
+      sessions: {
+        select: { id: true, label: true, startsAt: true, endsAt: true },
+        orderBy: { startsAt: "asc" },
+      },
     },
   });
   if (!event) {

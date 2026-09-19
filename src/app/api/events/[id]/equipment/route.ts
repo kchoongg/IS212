@@ -1,18 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { can, canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
+import { canManageEquipmentRequests, canViewEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
 import { isTerminalEventStatus } from "@/lib/statuses";
 import { ZodError } from "zod";
 
 // S-16 — the Event Coordinator's equipment requirements screen (SPM-47).
-// GET is also how Technical Support and the Organiser see the same list
-// (UI_DESIGN.md §4.3: the Equipment tab is read-only for them, "—" for Venue
-// Staff and Attendee — they don't get the tab at all); only the Coordinator
-// assigned to the event may add a row here (src/lib/permissions.ts
-// canManageEquipmentRequests, SPM-4's role-and-relationship model).
+// GET is Technical Support viewing what's been recorded (AC6, taken
+// literally — confirmed 2026-09-19 not to extend to the Organiser); the
+// assigned Coordinator sees it too, but only because canManageEquipmentRequests
+// already requires that, not as a separate viewing right. Only the assigned
+// Coordinator may add a row (src/lib/permissions.ts canManageEquipmentRequests,
+// SPM-4's role-and-relationship model).
 //
 // Visibility is checked the same two-step way as GET /api/events/[id]: first
 // canViewEvent() (can this user see the event at all — an event they cannot
@@ -30,13 +31,20 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   if (!event || !canViewEvent(actor, event)) {
     return hidden();
   }
-  if (!can(actor.role, "equipment:view")) {
+  if (!canViewEquipmentRequests(actor, event)) {
     return forbidden("Not authorised to view this event's equipment");
   }
 
   const requests = await prisma.equipmentRequest.findMany({
     where: { eventId: id },
-    include: { equipment: { select: { id: true, name: true, category: true } } },
+    include: {
+      equipment: { select: { id: true, name: true, category: true } },
+      // ADDED: which session this requirement is scoped to, if any (SPM-47,
+      // multi-session events — class clarification #74). Null on every row
+      // until something actually creates an EventSession (SPM-25, schema
+      // only so far).
+      session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+    },
     orderBy: { requestedAt: "asc" },
   });
   return NextResponse.json(requests);
@@ -71,6 +79,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
+    // ADDED (SPM-47, multi-session events): a session, if given, has to
+    // actually belong to this event — otherwise a coordinator on one event
+    // could scope a requirement to a session of a completely different one.
+    if (data.sessionId) {
+      const session = await prisma.eventSession.findUnique({ where: { id: data.sessionId } });
+      if (!session || session.eventId !== id) {
+        return NextResponse.json({ error: "Session not found for this event" }, { status: 400 });
+      }
+    }
+
     // Mirrors createEventSchema: EquipmentRequest.startsAt / endsAt are NOT
     // NULL and are derived from the event's own times.
     const window = equipmentWindowFor(event.startsAt, event.endsAt);
@@ -84,6 +102,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const created = await prisma.equipmentRequest.create({
       data: {
         eventId: id,
+        sessionId: data.sessionId,
         equipmentId: data.equipmentId,
         quantityRequested: data.quantityRequested,
         technicalRequirements: data.technicalRequirements,
@@ -92,7 +111,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         requestedBy: actor.id,
         status: "requested",
       },
-      include: { equipment: { select: { id: true, name: true, category: true } } },
+      include: {
+        equipment: { select: { id: true, name: true, category: true } },
+        session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      },
     });
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
@@ -100,6 +122,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
     // @@unique([eventId, equipmentId]) — the same item requested twice.
+    // NOTE: this constraint does not include sessionId (Postgres treats NULL
+    // as distinct in a unique index, and a 3-column version would stop
+    // deduplicating single-session events — the common case, where sessionId
+    // is always null). So two different sessions of the same event cannot yet
+    // each independently request the same equipment type — a documented,
+    // known limitation of the schema (prisma/schema.prisma, EquipmentRequest),
+    // not something this route can fix on its own.
     if (err instanceof Error && err.message.includes("Unique constraint")) {
       return NextResponse.json(
         { error: "This item is already requested for this event — update the existing row instead" },

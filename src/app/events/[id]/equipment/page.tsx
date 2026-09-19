@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Alert,
   Button,
+  Card,
+  CardHeader,
   ConfirmDialog,
   DataState,
   Field,
@@ -29,10 +31,21 @@ import { EventGlance } from "../EventGlance";
 // The Organiser's create-event form (S-08) already lets equipment be
 // requested at the same time as the event. This screen is the second half:
 // recording and revising equipment requirements once the event already
-// exists, which is the Coordinator's own job during planning (AC6). Everyone
-// with the Equipment tab (UI_DESIGN.md §4.3 — Organiser, Coordinator, Tech
-// Support) can reach the same list; only the Coordinator gets the editing
-// controls.
+// exists, which is the Coordinator's own job during planning (AC6).
+//
+// The Organiser gets a read-only view of their own event's equipment here
+// too — broader than AC6's literal wording ("Technical Support Staff can
+// view the requirements"), confirmed 2026-09-19 as intended: they reasonably
+// want to see what's been recorded against the event they raised. Only the
+// owning Organiser, the assigned Coordinator (who manages it), and Technical
+// Support (AC6) can reach this screen.
+
+interface EventSessionInfo {
+  id: string;
+  label: string | null;
+  startsAt: string;
+  endsAt: string;
+}
 
 interface EventInfo {
   id: string;
@@ -43,6 +56,12 @@ interface EventInfo {
   expectedAttendance: number | null;
   submittedAt: string | null;
   coordinator: { fullName: string } | null;
+  // ADDED (SPM-47): a multi-session event's own sessions (class clarification
+  // #74). Always [] today — EventSession is schema-only groundwork from
+  // SPM-25, nothing creates one yet — so the session picker below stays
+  // hidden for every event that currently exists, and activates on its own
+  // once event creation actually supports adding sessions.
+  sessions: EventSessionInfo[];
 }
 
 interface EquipmentRequestRow {
@@ -53,6 +72,7 @@ interface EquipmentRequestRow {
   technicalRequirements: string | null;
   status: string;
   equipment: { id: string; name: string; category: string | null };
+  session: EventSessionInfo | null;
 }
 
 interface EquipmentItem {
@@ -65,9 +85,22 @@ interface NewRow {
   equipmentId: string;
   quantityRequested: string;
   technicalRequirements: string;
+  /// "" means the requirement applies to the whole event, not one session.
+  sessionId: string;
 }
 
-const EMPTY_NEW_ROW: NewRow = { equipmentId: "", quantityRequested: "1", technicalRequirements: "" };
+const EMPTY_NEW_ROW: NewRow = {
+  equipmentId: "",
+  quantityRequested: "1",
+  technicalRequirements: "",
+  sessionId: "",
+};
+
+/// "Day 1 Morning" if labelled, else just the time range.
+function sessionLabel(session: EventSessionInfo): string {
+  const when = formatDateTimeRange(session.startsAt, session.endsAt);
+  return session.label ? `${session.label} — ${when}` : when;
+}
 
 export default function EventEquipmentPage() {
   const router = useRouter();
@@ -139,26 +172,38 @@ export default function EventEquipmentPage() {
   }, [state, load, router, eventId]);
 
   const isCoordinator = user?.role === "coordinator";
-  const isOrganiser = user?.role === "organiser";
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isCoordinator) void loadCatalogue();
   }, [isCoordinator, loadCatalogue]);
 
+  // Technical Support views it (AC6); the Coordinator sees it because they
+  // manage it; the Organiser gets a read-only view of their own event's
+  // equipment, confirmed 2026-09-19 as intended even though it's broader
+  // than AC6's literal wording. Ownership for the Organiser case is enforced
+  // server-side (canViewEquipmentRequests) — a role check is enough here.
   const canView = user && ["organiser", "coordinator", "tech_support"].includes(user.role);
   const locked = event ? isTerminalEventStatus(event.status) : false;
   const canEdit = isCoordinator && !locked;
 
   const equipmentOptions = useMemo(() => {
-    const requestedIds = new Set((requests ?? []).map((r) => r.equipmentId));
+    // Scoped to the session currently chosen in "Add equipment" - uniqueness
+    // is per (event, session), not per event (see the partial unique indexes
+    // on EquipmentRequest), so an item already requested for a DIFFERENT
+    // session must still be offered here, not hidden across the whole event.
+    const requestedIds = new Set(
+      (requests ?? [])
+        .filter((r) => (r.session?.id ?? "") === newRow.sessionId)
+        .map((r) => r.equipmentId)
+    );
     return (catalogue ?? [])
       .filter((item) => !requestedIds.has(item.id))
       .map((item) => ({
         value: item.id,
         label: item.category ? `${item.name} — ${item.category}` : item.name,
       }));
-  }, [catalogue, requests]);
+  }, [catalogue, requests, newRow.sessionId]);
 
   function draftFor(row: EquipmentRequestRow) {
     return (
@@ -261,6 +306,7 @@ export default function EventEquipmentPage() {
           equipmentId: newRow.equipmentId,
           quantityRequested: quantity,
           technicalRequirements: newRow.technicalRequirements || undefined,
+          sessionId: newRow.sessionId || undefined,
         }),
       });
       const body = await res.json();
@@ -302,7 +348,7 @@ export default function EventEquipmentPage() {
         }
         meta={event && <StatusBadge status={event.status} />}
         breadcrumbs={[
-          { label: isOrganiser ? "My Events" : "Events", href: "/events" },
+          { label: "Events", href: "/events" },
           { label: event?.title || "Event" },
           { label: "Equipment" },
         ]}
@@ -333,88 +379,124 @@ export default function EventEquipmentPage() {
             }}
           >
             {(rows) => (
-              <div className="flex flex-col gap-3">
-                {rows.map((row) => {
-                  const draft = draftFor(row);
-                  const dirty = isDirty(row);
-                  return (
-                    <div key={row.id} className="rounded-lg border border-line bg-surface-2 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-ink">{row.equipment.name}</p>
-                          <p className="text-xs text-ink-3">{orEmpty(row.equipment.category)}</p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={row.status} />
-                          {row.quantityReserved != null && (
-                            <span className="text-xs text-ink-3">{row.quantityReserved} reserved</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {rowError[row.id] && (
-                        <Alert variant="error" className="mt-3">
-                          {rowError[row.id]}
-                        </Alert>
-                      )}
-
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          void saveRow(row);
-                        }}
-                        className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start"
-                        noValidate
-                      >
-                        <Field label="Quantity" className="sm:w-28">
-                          <Input
-                            type="number"
-                            min={1}
-                            step={1}
-                            inputMode="numeric"
-                            value={draft.quantityRequested}
-                            disabled={!canEdit}
-                            onChange={(e) => setDraft(row, { quantityRequested: e.target.value })}
-                          />
-                        </Field>
-                        <Field
-                          label="Technical requirements"
-                          hint="Anything our technical team should know — connections, positioning, timing."
-                          className="flex-1"
-                        >
-                          <Input
-                            value={draft.technicalRequirements}
-                            disabled={!canEdit}
-                            onChange={(e) => setDraft(row, { technicalRequirements: e.target.value })}
-                          />
-                        </Field>
-                        {canEdit && (
-                          <div className="flex gap-2 sm:pt-7">
-                            {dirty && (
-                              <Button
-                                type="submit"
-                                size="sm"
-                                loading={savingId === row.id}
-                                loadingText="Saving…"
-                              >
-                                Save
-                              </Button>
+              // One card holding every row, divided by a border rather than
+              // separate floating boxes — matches design/mockups/
+              // EquipmentRequests.dc.html's ".card" + ".row" layout, and is
+              // the same pattern Table.tsx already uses elsewhere in this app
+              // (divide-y inside one bordered container).
+              <Card>
+                <CardHeader
+                  title="Requested items"
+                  aside={
+                    <span className="text-xs text-ink-3">
+                      {rows.length} item{rows.length === 1 ? "" : "s"}
+                    </span>
+                  }
+                />
+                <div className="divide-y divide-line">
+                  {rows.map((row) => {
+                    const draft = draftFor(row);
+                    const dirty = isDirty(row);
+                    return (
+                      <div key={row.id} className="p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <p className="font-medium text-ink">{row.equipment.name}</p>
+                            <p className="text-xs text-ink-3">{orEmpty(row.equipment.category)}</p>
+                            {/* Null for every row until sessions can actually be
+                                created (SPM-25) — see EventInfo.sessions above. */}
+                            {row.session && (
+                              <p className="mt-1 text-xs text-ink-3">
+                                <span className="rounded-full bg-surface-2 px-2 py-0.5 ring-1 ring-inset ring-line">
+                                  {sessionLabel(row.session)}
+                                </span>
+                              </p>
                             )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setConfirmRemoveId(row.id)}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={row.status} />
+                            {row.quantityReserved != null && (
+                              <span className="text-xs text-ink-3">{row.quantityReserved} reserved</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {rowError[row.id] && (
+                          <Alert variant="error" className="mt-3">
+                            {rowError[row.id]}
+                          </Alert>
+                        )}
+
+                        {canEdit ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault();
+                              void saveRow(row);
+                            }}
+                            className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start"
+                            noValidate
+                          >
+                            <Field label="Quantity" className="sm:w-28">
+                              <Input
+                                type="number"
+                                min={1}
+                                step={1}
+                                inputMode="numeric"
+                                value={draft.quantityRequested}
+                                onChange={(e) => setDraft(row, { quantityRequested: e.target.value })}
+                              />
+                            </Field>
+                            <Field
+                              label="Technical requirements"
+                              hint="Anything our technical team should know — connections, positioning, timing."
+                              className="flex-1"
                             >
-                              Remove
-                            </Button>
+                              <Input
+                                value={draft.technicalRequirements}
+                                onChange={(e) => setDraft(row, { technicalRequirements: e.target.value })}
+                              />
+                            </Field>
+                            <div className="flex gap-2 sm:pt-7">
+                              {dirty && (
+                                <Button
+                                  type="submit"
+                                  size="sm"
+                                  loading={savingId === row.id}
+                                  loadingText="Saving…"
+                                >
+                                  Save
+                                </Button>
+                              )}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConfirmRemoveId(row.id)}
+                              >
+                                Remove
+                              </Button>
+                            </div>
+                          </form>
+                        ) : (
+                          // Read-only viewer (Organiser, Technical Support): plain
+                          // text, not a disabled input — there's nothing here to
+                          // interact with, so it shouldn't look like a form.
+                          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start">
+                            <div className="sm:w-28">
+                              <p className="text-sm font-medium text-ink">Quantity</p>
+                              <p className="mt-1.5 text-ink">{row.quantityRequested}</p>
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-ink">Technical requirements</p>
+                              <p className="mt-1.5 text-ink">{orEmpty(row.technicalRequirements)}</p>
+                            </div>
                           </div>
                         )}
-                      </form>
-                    </div>
-                  );
-                })}
-              </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
             )}
           </DataState>
 
@@ -438,6 +520,41 @@ export default function EventEquipmentPage() {
                     onChange={(e) => setNewRow((current) => ({ ...current, equipmentId: e.target.value }))}
                   />
                 </Field>
+                {/* Only shown for a multi-session event — hidden entirely
+                    otherwise, the same "don't offer a choice that never
+                    applies" rule the rest of this form already follows. */}
+                {event && event.sessions.length > 0 && (
+                  <Field label="Session" className="sm:w-56">
+                    <Select
+                      options={[
+                        { value: "", label: "Whole event" },
+                        ...event.sessions.map((s) => ({ value: s.id, label: sessionLabel(s) })),
+                      ]}
+                      value={newRow.sessionId}
+                      onChange={(e) => {
+                        const sessionId = e.target.value;
+                        setNewRow((current) => {
+                          // If the currently chosen equipment is already
+                          // requested for the session just picked, it would
+                          // silently drop out of equipmentOptions above -
+                          // leaving the <select> showing some other item
+                          // while state still held the old one. Clear it back
+                          // to "Choose an item" instead of letting that happen.
+                          const stillValid = !(requests ?? []).some(
+                            (r) =>
+                              (r.session?.id ?? "") === sessionId &&
+                              r.equipmentId === current.equipmentId
+                          );
+                          return {
+                            ...current,
+                            sessionId,
+                            equipmentId: stillValid ? current.equipmentId : "",
+                          };
+                        });
+                      }}
+                    />
+                  </Field>
+                )}
                 <Field label="Quantity" className="sm:w-28">
                   <Input
                     type="number"
