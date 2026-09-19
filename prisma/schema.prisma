@@ -332,6 +332,19 @@ model VenueBooking {
   /// Required when rejecting — enforced in route code.
   decisionReason   String?   @map("decision_reason")
 
+  /// Manage Venue Catalogue (discussion board #120, #122): set when a venue
+  /// edit or retirement may have invalidated this booking. The booking itself
+  /// is deliberately NOT changed — a room that no longer fits is a judgement
+  /// call for the assigned Coordinator, who is notified. Rules and reason
+  /// codes live in src/lib/venueImpact.ts.
+  needsReview  Boolean   @default(false) @map("needs_review")
+  /// Which impact rules fired, as comma-separated codes: venue_retired |
+  /// layout_removed | layout_capacity_below_attendance |
+  /// max_capacity_below_attendance | mandatory_facility_removed. A later edit
+  /// merges its reasons into this list rather than overwriting it.
+  reviewReason String?   @map("review_reason")
+  flaggedAt    DateTime? @map("flagged_at")
+
   event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   venue     Venue @relation(fields: [venueId], references: [id])
   requester User  @relation("BookingRequester", fields: [requestedBy], references: [id])
@@ -339,6 +352,8 @@ model VenueBooking {
 
   @@index([venueId, status, startsAt, endsAt])
   @@index([eventId, status])
+  /// The Coordinator's review queue: flagged bookings, most recent first.
+  @@index([needsReview, flaggedAt])
   @@map("venue_bookings")
 }
 
