@@ -23,6 +23,7 @@ import {
   INITIAL,
   validateForm,
   toIso,
+  availableEquipmentOptions,
   type FormValues,
   type EquipmentRow,
   type Facility,
@@ -81,10 +82,10 @@ export default function NewEventPage() {
   }, [loadReference]);
 
   const facilities = reference?.facilities ?? [];
-  const equipmentOptions = (reference?.equipment ?? []).map((item) => ({
-    value: item.id,
-    label: item.category ? `${item.name} — ${item.category}` : item.name,
-  }));
+  const equipmentCatalogue = reference?.equipment ?? [];
+  const selectedEquipmentIds = new Set(values.equipment.map((row) => row.equipmentId).filter(Boolean));
+  const allEquipmentSelected =
+    equipmentCatalogue.length > 0 && selectedEquipmentIds.size >= equipmentCatalogue.length;
   const hasDates = Boolean(values.startsAt && values.endsAt);
 
   function toggleFacility(id: string) {
@@ -222,6 +223,7 @@ export default function NewEventPage() {
       router.push(`/events/${body.id}`);
     } catch {
       setFormError("Could not reach the server. Check your connection and try again.");
+      focusFirstError(formRef.current, {});
     } finally {
       setPending(null);
     }
@@ -417,7 +419,7 @@ export default function NewEventPage() {
                       <Select
                         name={`equipment.${index}.equipmentId`}
                         placeholder="Choose an item"
-                        options={equipmentOptions}
+                        options={availableEquipmentOptions(equipmentCatalogue, values.equipment, index)}
                         value={row.equipmentId}
                         onChange={(e) => setEquipmentRow(index, { equipmentId: e.target.value })}
                       />
@@ -471,10 +473,15 @@ export default function NewEventPage() {
                   variant="secondary"
                   size="sm"
                   onClick={addEquipmentRow}
-                  disabled={reference === null}
+                  disabled={reference === null || allEquipmentSelected}
                 >
                   Add equipment
                 </Button>
+                {allEquipmentSelected && (
+                  <p className="mt-1.5 text-sm text-ink-3">
+                    Every catalogue item is already in your request.
+                  </p>
+                )}
               </div>
             </>
           )}
