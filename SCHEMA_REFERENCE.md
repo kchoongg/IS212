@@ -162,6 +162,7 @@ Postgres table `venues` &middot; `prisma.venue`
 
 - `opensAt`/`closesAt` are strings, not DateTime. Compare them as strings.
 - A booking outside opening hours is not a *clash*, but it is still not allowed - that is a separate check.
+- **Narrowing the hours does not yet flag anything.** These are wall-clock text and `VenueBooking.startsAt` is a DateTime, so comparing them needs a timezone convention this codebase has not settled - the hours check itself is still unwritten. Moving `opensAt` from 08:00 to 10:00 therefore leaves an approved 09:00 booking unflagged. Deferred rather than guessed; see "Rules the database does NOT enforce" below.
 - `isActive: false` is how a venue is retired. There is no delete: `VenueBooking.venueId` has no cascade, so deleting a booked venue fails at the database, and past bookings must keep pointing at the room they were held in.
 - `GET /api/venues` returns active venues only unless you pass `?includeRetired=true`. A suitability or availability query should not offer a retired room.
 
@@ -481,7 +482,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req |  |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`. |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |
@@ -489,6 +490,13 @@ Postgres table `notifications` &middot; `prisma.notification`
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
 **Relations:** `recipient` &rarr; User, `event` &rarr; Event
+
+**Watch out:**
+
+- This table is now actually written to. Use the helpers in `src/lib/notifications.ts` rather than `tx.notification.create` directly: `notifyUser(tx, recipientId, {...})` for one named person, `notifyRole(tx, role, {...})` for a queue. Both take a transaction, so a notification is only ever created alongside the state change that caused it.
+- `recipientId` for a venue review flag is `event.coordinatorId` **falling back to `booking.requestedBy`**. `coordinatorId` is nullable, so an unassigned event has no assigned Coordinator to notify; the requester is the person who asked for the room and in practice the coordinator who has to find another one.
+- There is no `venueId` or `bookingId` column, only `eventId`. A notification about a venue or a booking has to name the room and the dates in `body`, or the recipient cannot tell which booking it means.
+- **Nothing reads these yet.** The top-bar bell and every sidebar "Notifications" link point at a screen that does not exist, so a written notification is currently invisible in the app.
 
 ---
 
@@ -556,6 +564,25 @@ const agg = await prisma.equipmentRequest.aggregate({
 const available = eq.totalQuantity - eq.quantityInMaintenance - (agg._sum.quantityReserved ?? 0);
 ```
 
+**Bookings flagged for review, newest first** (uses the `[needsReview, flaggedAt]` index):
+
+```ts
+const forReview = await prisma.venueBooking.findMany({
+  where: {
+    needsReview: true,
+    // Scope to one coordinator's own work by going through the event.
+    event: { coordinatorId },
+  },
+  orderBy: { flaggedAt: 'desc' },
+  include: {
+    venue: { select: { code: true, name: true } },
+    event: { select: { title: true, expectedAttendance: true } },
+  },
+});
+// reviewReason holds comma-separated codes - parse it as a set, it accumulates.
+const reasons = forReview[0]?.reviewReason?.split(',') ?? [];
+```
+
 ---
 
 ## Demo data
@@ -585,6 +612,13 @@ Useful logins:
 
 The data deliberately contains things to find: venues that lack a hearing loop so
 suitability checks can rule them out, equipment in maintenance so availability is
-not just the total, an event rejected with a reason on record, and a change request
-refused because the room caps at 40.
+not just the total, an event rejected with a reason on record, a change request
+refused because the room caps at 40, and one approved future booking that starts
+out flagged for review because its room was made too small for it.
+
+**Watch out:**
+
+- **Every id is a fresh UUID on every reseed.** `prisma/seed.ts` hardcodes no ids at all - each `create()` omits `id` and lets `@default(uuid())` fire, then keeps the generated values in in-memory maps (`venues[code]`, `users[email]`, `events[key]`) only long enough to wire up that one run's relations. So reseeding does not merely reset the data, it renumbers it: the "same" logical venue comes back with a different id. Any saved URL (`/venues/<uuid>/edit`), any id pasted into a ticket or a screenshot, and any id hardcoded in a fixture is dead after a reseed.
+- **The only things stable across a reseed are each model's natural unique key**: `Venue.code`, `User.email`, and `name` on `Organisation`, `Facility` and `Equipment`. Look records up by those, never by id, if the code has to survive a reseed - the seed script's own labels (`"JUR-TRN"`, `"confirmed_claims"`) are not in the database.
+- **`Event` has no unique identifier at all.** Not `title`, which is nullable *and* non-unique, and the seed's `key` (`"confirmed_claims"`) is never persisted. So there is currently **no reliable way to refer to "the same event" across a reseed or between environments** - an event can only be re-found by matching on title by convention. That is a schema gap, not just a seed-script quirk: anything that needs a durable external reference to an event (a test fixture, a ticket, a report, an integration) has nothing to hold on to.
 
