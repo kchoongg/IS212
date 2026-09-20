@@ -246,13 +246,13 @@ Postgres table `events` &middot; `prisma.event`
 
 - `title`, `startsAt` and `expectedAttendance` are nullable ONLY because drafts may be incomplete. The PATCH route blocks leaving draft until they are filled.
 - Never write proposed changes here. That is what EventChangeRequest is for.
-- `startsAt`/`endsAt`/`expectedAttendance`/`preferredLayout` describe the event as a whole. A multi-session event's individual sessions live in `EventSession` instead - no route builds or reads those yet (schema only, see below).
+- `startsAt`/`endsAt`/`expectedAttendance`/`preferredLayout` describe the event as a whole. For a multi-session event these are **derived** from its `EventSession` rows on every save (earliest start, latest end, largest session's attendance), so anything that lists events keeps working; the sessions themselves hold the real per-session values (see below).
 
 ### `EventSession`
 
 Postgres table `event_sessions` &middot; `prisma.eventSession`
 
-A multi-session event's individual sessions (e.g. a two-day conference where day 1 is in one room and day 2 in another). Optional: a single-session event has zero rows here, and its `VenueBooking`/`EquipmentRequest` rows link to the `Event` directly (`sessionId` NULL) exactly as before this table existed. **No route creates, lists or edits these yet** - the table exists so venue/equipment requests can be scoped to a session once event creation supports adding them.
+A multi-session event's individual sessions (e.g. a two-day conference where day 1 is in one room and day 2 in another). Optional: a single-session event has zero rows here, and its `VenueBooking`/`EquipmentRequest` rows link to the `Event` directly (`sessionId` NULL) exactly as before this table existed. `POST /api/events` and `PATCH /api/events/[id]` (draft edit) create and replace them, along with each session's own `EquipmentRequest` rows (`sessionId` set, reservation window = the session's times ±2h); `GET /api/events/[id]` returns them. There are no standalone session routes. A draft's sessions are replaced wholesale on each save, and a multi-session event has at least two. Venue bookings are not yet session-scoped in practice (`VenueBooking.sessionId` is still NULL until SPM-42).
 
 | Field | Type | | Notes |
 |---|---|---|---|

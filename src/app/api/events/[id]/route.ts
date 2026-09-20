@@ -10,13 +10,10 @@ import {
 } from "@/lib/permissions";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
+import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
+import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
-import type { Prisma } from "@prisma/client";
-
-// ADDED: equipment is held wider than the event itself - kept in sync with
-// the same window POST /api/events uses, so editing a draft's dates moves
-// its equipment reservation window the same way creating it does.
-const LOAD_WINDOW_MS = 2 * 60 * 60 * 1000;
+import { Prisma } from "@prisma/client";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -29,7 +26,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     where: { id },
     include: {
       facilityRequirements: { include: { facility: true } },
+      // Each row carries its sessionId (null = the whole event), which is how
+      // the edit form tells event-wide equipment from a session's own.
       equipmentRequests: true,
+      // ADDED (SPM-23, multi-session events): empty for an ordinary
+      // single-session event.
+      sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
     },
   });
   if (!event) {
@@ -98,6 +100,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
+    // (eventId, equipmentId) is unique across the whole event. Zod catches a
+    // duplicate inside one payload; this catches one against rows already
+    // stored - e.g. sessions saved alone while an event-wide request for the
+    // same item still exists.
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+      return NextResponse.json(
+        { error: "Each item can only be requested once per event, across all sessions." },
+        { status: 400 }
+      );
+    }
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
@@ -132,6 +144,20 @@ async function handleStatusChange(
     if (!event.startsAt) missing.push("startsAt");
     if (!event.endsAt) missing.push("endsAt");
     if (event.expectedAttendance == null) missing.push("expectedAttendance");
+
+    // A multi-session event's own attendance is derived from its sessions (the
+    // largest one), so it is non-null as soon as ANY session has a figure -
+    // which would let a session with none through. Each session has to be
+    // complete in its own right ("each with its own ... expected attendance").
+    const sessions = await prisma.eventSession.findMany({
+      where: { eventId: id },
+      orderBy: { startsAt: "asc" },
+      select: { expectedAttendance: true },
+    });
+    sessions.forEach((session, i) => {
+      if (session.expectedAttendance == null) missing.push(`session ${i + 1} expectedAttendance`);
+    });
+
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `Cannot submit an incomplete event. Missing: ${missing.join(", ")}` },
@@ -218,8 +244,20 @@ async function handleDraftEdit(
   // Cross-field rules have to run against the merged record, not just this
   // payload - editing only `endsAt` still has to make sense against whatever
   // `startsAt` was saved earlier.
-  const startsAt = data.startsAt !== undefined ? new Date(data.startsAt) : event.startsAt;
-  const endsAt = data.endsAt !== undefined ? new Date(data.endsAt) : event.endsAt;
+  //
+  // An event edited into sessions takes its own start / end / headcount from
+  // them (see deriveEventFromSessions), overriding anything sent alongside.
+  const derived = deriveEventFromSessions(data.sessions);
+  const startsAt = derived
+    ? derived.startsAt
+    : data.startsAt !== undefined
+      ? new Date(data.startsAt)
+      : event.startsAt;
+  const endsAt = derived
+    ? derived.endsAt
+    : data.endsAt !== undefined
+      ? new Date(data.endsAt)
+      : event.endsAt;
   const registrationEnabled =
     data.registrationEnabled !== undefined ? data.registrationEnabled : event.registrationEnabled;
   const registrationCapacity =
@@ -271,8 +309,7 @@ async function handleDraftEdit(
   }
 
   // Equipment is held wider than the event, same as on create.
-  const equipmentStartsAt = startsAt ? new Date(startsAt.getTime() - LOAD_WINDOW_MS) : null;
-  const equipmentEndsAt = endsAt ? new Date(endsAt.getTime() + LOAD_WINDOW_MS) : null;
+  const equipmentTimes = startsAt && endsAt ? equipmentWindow(startsAt, endsAt) : null;
 
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     // A field that's being replaced is cleared first and rebuilt from the
@@ -280,8 +317,20 @@ async function handleDraftEdit(
     if (data.facilityIds !== undefined) {
       await tx.eventFacilityRequirement.deleteMany({ where: { eventId: id } });
     }
+    // Event-wide equipment only (sessionId null): a session's own requests are
+    // replaced with the session, below, and must survive an edit that only
+    // touches the event-level list.
     if (data.equipment !== undefined) {
-      await tx.equipmentRequest.deleteMany({ where: { eventId: id } });
+      await tx.equipmentRequest.deleteMany({ where: { eventId: id, sessionId: null } });
+    }
+    // The onDelete: Cascade on EquipmentRequest.session takes each session's
+    // equipment with it. `[]` lands here too, which is how multi-session is
+    // turned off.
+    if (data.sessions !== undefined) {
+      await tx.eventSession.deleteMany({ where: { eventId: id } });
+      if (data.sessions.length > 0) {
+        await writeSessions(tx, id, actor.id, data.sessions);
+      }
     }
 
     return tx.event.update({
@@ -291,9 +340,13 @@ async function handleDraftEdit(
         ...(data.category !== undefined ? { category: data.category } : {}),
         ...(data.purpose !== undefined ? { purpose: data.purpose } : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.startsAt !== undefined ? { startsAt } : {}),
-        ...(data.endsAt !== undefined ? { endsAt } : {}),
-        ...(data.expectedAttendance !== undefined ? { expectedAttendance: data.expectedAttendance } : {}),
+        ...(derived || data.startsAt !== undefined ? { startsAt } : {}),
+        ...(derived || data.endsAt !== undefined ? { endsAt } : {}),
+        ...(derived?.expectedAttendance !== undefined
+          ? { expectedAttendance: derived.expectedAttendance }
+          : derived === null && data.expectedAttendance !== undefined
+            ? { expectedAttendance: data.expectedAttendance }
+            : {}),
         ...(data.preferredLayout !== undefined ? { preferredLayout: data.preferredLayout } : {}),
         ...(data.accessibilityNotes !== undefined ? { accessibilityNotes: data.accessibilityNotes } : {}),
         ...(data.specialRequirements !== undefined ? { specialRequirements: data.specialRequirements } : {}),
@@ -305,14 +358,14 @@ async function handleDraftEdit(
           ? { create: data.facilityIds.map((facilityId) => ({ facilityId, isMandatory: true })) }
           : undefined,
         equipmentRequests:
-          data.equipment?.length && equipmentStartsAt && equipmentEndsAt
+          data.equipment?.length && equipmentTimes
             ? {
                 create: data.equipment.map((item) => ({
                   equipmentId: item.equipmentId,
                   quantityRequested: item.quantityRequested,
                   technicalRequirements: item.technicalRequirements,
-                  startsAt: equipmentStartsAt,
-                  endsAt: equipmentEndsAt,
+                  startsAt: equipmentTimes.startsAt,
+                  endsAt: equipmentTimes.endsAt,
                   requestedBy: actor.id,
                   status: "requested",
                 })),
@@ -328,8 +381,10 @@ async function handleDraftEdit(
             quantityRequested: true,
             technicalRequirements: true,
             status: true,
+            sessionId: true,
           },
         },
+        sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
       },
     });
   });
