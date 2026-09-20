@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { saveToken } from "@/lib/session";
+import { readServerError, type FieldErrors } from "@/lib/formErrors";
 import { Alert, Button, Field, Input } from "@/components/ui";
 
 // S-01. See UI_DESIGN.md §6.3.
@@ -26,11 +27,17 @@ function LoginForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // CHANGED: the server says which field it rejected; this page used to render
+  // only body.error, so a malformed email or a missing password both showed a
+  // bare "Validation failed" with nothing marking the field at fault
+  // (SPM-21 TC07, TC08). Same mapping the Register page already used.
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setFieldErrors({});
     setLoading(true);
     try {
       const res = await fetch("/api/auth/login", {
@@ -39,7 +46,12 @@ function LoginForm() {
         body: JSON.stringify({ email, password }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Login failed");
+      if (!res.ok) {
+        const { formError, fieldErrors: fields } = readServerError(body, "Could not log in");
+        setFieldErrors(fields);
+        setError(formError);
+        return;
+      }
       saveToken(body.token);
       // Back to where they were, or to the role dashboard.
       router.push(next || "/dashboard");
@@ -66,8 +78,9 @@ function LoginForm() {
             which of email or password was wrong. */}
         {error && <Alert variant="error">{error}</Alert>}
 
-        <Field label="Email" required>
+        <Field label="Email" required error={fieldErrors.email}>
           <Input
+            name="email"
             type="email"
             autoComplete="email"
             value={email}
@@ -76,8 +89,9 @@ function LoginForm() {
           />
         </Field>
 
-        <Field label="Password" required>
+        <Field label="Password" required error={fieldErrors.password}>
           <Input
+            name="password"
             type="password"
             autoComplete="current-password"
             value={password}

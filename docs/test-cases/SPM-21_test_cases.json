@@ -4,16 +4,30 @@
   "created_by": "TAN JORDAN",
   "creation_date": "2026-09-20",
   "acceptance_criteria": [
-    { "id": "AC1", "text": "Given I have valid credentials, when I log in, then I am authenticated successfully." },
-    { "id": "AC2", "text": "Given I enter invalid credentials, when I attempt to log in, then access is denied and an appropriate error message is displayed." },
-    { "id": "AC3", "text": "Given I am logged in, when I access the system, then my role is identified." },
-    { "id": "AC4", "text": "Given I am logged in, when I access a function that my role is not authorised for, then access is denied." }
+    {
+      "id": "AC1",
+      "text": "Given I have valid credentials, when I log in, then I am authenticated successfully."
+    },
+    {
+      "id": "AC2",
+      "text": "Given I enter invalid credentials, when I attempt to log in, then access is denied and an appropriate error message is displayed."
+    },
+    {
+      "id": "AC3",
+      "text": "Given I am logged in, when I access the system, then my role is identified."
+    },
+    {
+      "id": "AC4",
+      "text": "Given I am logged in, when I access a function that my role is not authorised for, then access is denied."
+    }
   ],
   "test_cases": [
     {
       "id": "SPM-21-TC01",
       "title": "Valid credentials sign the user in and open the dashboard",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Demo data is seeded. No one is signed in. On the \"Log in\" page.",
@@ -23,12 +37,14 @@
         "Click \"Log in\""
       ],
       "test_data": "Email: daniel.tan@connectsphere.com; Password: password123",
-      "expected_result": "The button shows \"Logging in…\" while the request is in flight.\nThe browser moves to the Dashboard, headed \"Dashboard\" with \"Event Coordinator\" beneath it.\nNo error message is shown."
+      "expected_result": "The button shows \"Logging in…\" while the request is in flight.\nThe browser moves to the Dashboard, headed \"Welcome, Daniel Tan\" with \"Event Coordinator\" beneath it, and the top bar shows the same role under the name.\nNo error message is shown."
     },
     {
       "id": "SPM-21-TC02",
       "title": "The signed-in chrome appears immediately, without a manual refresh",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "No one is signed in. On the \"Log in\" page, where no sidebar is shown.",
@@ -44,7 +60,9 @@
     {
       "id": "SPM-21-TC03",
       "title": "After signing in, the user is returned to the page they first asked for",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "No one is signed in.",
@@ -61,7 +79,10 @@
     {
       "id": "SPM-21-TC04",
       "title": "The session survives a browser refresh",
-      "linked_ac": ["AC1", "AC3"],
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Signed in as Daniel Tan (daniel.tan@connectsphere.com / password123), on the Dashboard.",
@@ -75,7 +96,9 @@
     {
       "id": "SPM-21-TC05",
       "title": "A wrong password is refused with an error message",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Demo data is seeded. No one is signed in. On the \"Log in\" page.",
@@ -90,7 +113,9 @@
     {
       "id": "SPM-21-TC06",
       "title": "An unknown email is refused with the same message as a wrong password",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "No account exists for nobody@connectsphere.com. No one is signed in. On the \"Log in\" page.",
@@ -106,7 +131,9 @@
     {
       "id": "SPM-21-TC07",
       "title": "An email that is not a valid address is refused with a message naming the problem",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "No one is signed in. On the \"Log in\" page.",
@@ -116,12 +143,14 @@
         "Click \"Log in\""
       ],
       "test_data": "Email: daniel.tan; Password: password123",
-      "expected_result": "An error message telling the user the email address is not valid is shown, so they can see which field to correct.\nThe browser stays on the \"Log in\" page.\n(Known gap — the page currently shows only \"Validation failed\", which does not name the field. See open question 1.)"
+      "expected_result": "The message \"Enter a valid email address\" is shown against the Email field, which is outlined in red, so the user can see exactly which field to correct.\nThe browser stays on the \"Log in\" page."
     },
     {
       "id": "SPM-21-TC08",
       "title": "An empty password is refused with a message naming the problem",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
       "preconditions": "No one is signed in. On the \"Log in\" page.",
@@ -131,12 +160,14 @@
         "Click \"Log in\""
       ],
       "test_data": "Email: daniel.tan@connectsphere.com; Password: (empty)",
-      "expected_result": "An error message telling the user a password is required is shown.\nThe browser stays on the \"Log in\" page.\n(Known gap — the page currently shows only \"Validation failed\", which does not name the field. See open question 1.)"
+      "expected_result": "The message \"Enter your password\" is shown against the Password field, which is outlined in red.\nThe browser stays on the \"Log in\" page."
     },
     {
       "id": "SPM-21-TC09",
       "title": "A one-character password is treated as a wrong password, not a malformed one",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Code",
       "preconditions": "No one is signed in. On the \"Log in\" page.",
@@ -151,7 +182,9 @@
     {
       "id": "SPM-21-TC10",
       "title": "A deactivated account cannot log in, even with the correct password",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Marcus Wong (marcus.wong@connectsphere.com) has been deactivated: open Prisma Studio (npx prisma studio), find the row in Users and set Is Active to false. No one is signed in. On the \"Log in\" page.",
@@ -167,7 +200,10 @@
     {
       "id": "SPM-21-TC11",
       "title": "An email typed with different capitalisation",
-      "linked_ac": ["AC1", "AC2"],
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Code",
       "preconditions": "Demo data is seeded. No one is signed in. On the \"Log in\" page.",
@@ -177,28 +213,32 @@
         "Click \"Log in\""
       ],
       "test_data": "Email: Daniel.Tan@connectsphere.com (same address as TC01, different capitalisation); Password: password123",
-      "expected_result": "The user is signed in and the Dashboard opens, because an email address is not case sensitive.\n(Known gap — the login currently shows \"Invalid email or password\" for this input. See open question 2.)"
+      "expected_result": "The user is signed in and the Dashboard opens, headed \"Welcome, Daniel Tan\" — an email address is not case sensitive, so this is the same account as TC01."
     },
     {
       "id": "SPM-21-TC12",
       "title": "The signed-in user's role is named on the dashboard",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Demo data is seeded. No one is signed in.",
       "steps": [
         "Log in as daniel.tan@connectsphere.com with password123",
-        "Read the subtitle under the \"Dashboard\" heading",
+        "Read the subtitle under the welcome heading",
         "Log out, then log in as marcus.wong@connectsphere.com with password123",
-        "Read the subtitle under the \"Dashboard\" heading again"
+        "Read the subtitle under the welcome heading again"
       ],
       "test_data": "Accounts: daniel.tan@connectsphere.com (Coordinator), marcus.wong@connectsphere.com (Venue Staff); Password: password123",
-      "expected_result": "Daniel Tan's dashboard is subtitled \"Event Coordinator\" and the section heading reads \"Awaiting your review\".\nMarcus Wong's dashboard is subtitled \"Venue Staff\" and the section heading reads \"Upcoming events\"."
+      "expected_result": "Daniel Tan's dashboard is headed \"Welcome, Daniel Tan\", subtitled \"Event Coordinator\" and the section heading reads \"Awaiting your review\".\nMarcus Wong's dashboard is headed \"Welcome, Marcus Wong\", subtitled \"Venue Staff\" and the section heading reads \"Upcoming events\"."
     },
     {
       "id": "SPM-21-TC13",
       "title": "The navigation offered matches the role that is signed in",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Demo data is seeded. No one is signed in.",
@@ -214,7 +254,10 @@
     {
       "id": "SPM-21-TC14",
       "title": "Logging out ends the session",
-      "linked_ac": ["AC3", "AC4"],
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Signed in as Daniel Tan (daniel.tan@connectsphere.com / password123), on the Dashboard.",
@@ -229,7 +272,9 @@
     {
       "id": "SPM-21-TC15",
       "title": "A signed-out visitor cannot reach a signed-in page",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "No one is signed in.",
@@ -243,7 +288,9 @@
     {
       "id": "SPM-21-TC16",
       "title": "A Coordinator cannot raise an event request",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Signed in as Daniel Tan (daniel.tan@connectsphere.com / password123), a Coordinator. The sidebar offers no \"New request\" action.",
@@ -262,7 +309,9 @@
     {
       "id": "SPM-21-TC17",
       "title": "A stranger cannot give themselves a staff role when registering",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "No one is signed in. On the \"Register\" page.",
@@ -276,7 +325,9 @@
     {
       "id": "SPM-21-TC18",
       "title": "An Organiser sees only their own client's events",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Signed in as Rachel Ng (rachel.ng@meridianfina.com / password123), an Organiser at Meridian Financial Group. Budi Santoso (budi.santoso@nusantaratec.com) is an Organiser at Nusantara Tech Labs and has events of his own.",
@@ -292,7 +343,9 @@
     {
       "id": "SPM-21-TC19",
       "title": "A tampered session token is not accepted",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Signed in as Daniel Tan (daniel.tan@connectsphere.com / password123), on the Dashboard.",
@@ -306,11 +359,11 @@
     }
   ],
   "open_questions": [
-    "AC2 asks for an appropriate error message, but a malformed email or an empty password produces only \"Validation failed\" on the login page (TC07, TC08). The server does return which field is at fault, and the Register page already maps that onto the field using readServerError() in src/lib/formErrors.ts — the login page ignores it and shows body.error instead. Should the login page use the same mapping, or is one generic message deliberate here?",
-    "Email matching is case sensitive at login (TC11): Daniel.Tan@connectsphere.com is refused with \"Invalid email or password\" even though daniel.tan@connectsphere.com with the same password succeeds. Email addresses are conventionally case insensitive, and a user who capitalises the first letter on a phone keyboard will read this as a broken password. Should the email be lower-cased before the lookup, both at login and at registration?",
-    "The session token lasts eight hours (signSession in src/lib/auth.ts), which no acceptance criterion states and which a manual tester cannot sit out. Is eight hours the intended lifetime, and does it need a test of its own — for instance by shortening the expiry in a test build?",
-    "The sidebar links every role to screens that do not exist yet: /queue, /venues, /equipment, /bookings, /browse, /registrations, /assignments and /notifications all return the Next.js 404 page. A tester following TC13 will click them. This is not a login defect, but it means an unauthorised-access test cannot be written against those screens yet, and Venue Staff and Technical Support currently have a sidebar where only Dashboard works.",
-    "AC4 is about role, but the strongest denial the UI can currently show is a relationship one (TC18, one client's events hidden from another). Once the review queue and venue screens are built, AC4 should gain a case where a role opens a screen it is not authorised for and is told so, rather than reaching a 404."
+    "RESOLVED 2026-09-20. AC2 asks for an appropriate error message, but a malformed email or an empty password produced only \"Validation failed\" (TC07, TC08). src/app/login/page.tsx now maps the server's fieldErrors onto the fields using readServerError(), the same helper the Register page already used, and loginSchema carries written messages (\"Enter a valid email address\", \"Enter your password\") instead of Zod's defaults. Both cases were re-run and pass.",
+    "RESOLVED 2026-09-20. Email matching was case sensitive at login (TC11): Daniel.Tan@connectsphere.com was refused although daniel.tan@connectsphere.com with the same password succeeded. Both loginSchema and registerSchema now trim and lower-case the address before it is checked or stored, so capitalisation and a stray trailing space no longer change who you are. Covered by three new unit tests in src/lib/__tests__/validation.test.ts.",
+    "OPEN. The session token lasts eight hours (signSession in src/lib/auth.ts), which no acceptance criterion states and which a manual tester cannot sit out. Is eight hours the intended lifetime, and does it need a test of its own - for instance by shortening the expiry in a test build?",
+    "OPEN. The sidebar links every role to screens that do not exist yet: /queue, /venues, /equipment, /bookings, /browse, /registrations, /assignments and /notifications all return the Next.js 404 page. A tester following TC13 will click them. This is not a login defect, but it means an unauthorised-access test cannot be written against those screens yet, and Venue Staff and Technical Support currently have a sidebar where only Dashboard works.",
+    "OPEN. AC4 is about role, but the strongest denial the UI can currently show is a relationship one (TC18, one client's events hidden from another). Once the review queue and venue screens are built, AC4 should gain a case where a role opens a screen it is not authorised for and is told so, rather than reaching a 404."
   ],
   "code_references": [
     "src/app/api/auth/login/route.ts",
