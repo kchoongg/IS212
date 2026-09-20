@@ -2,15 +2,16 @@
   "story_key": "SPM-23",
   "story_title": "As an Event Organiser, I want to create an event request containing my event requirements so that ConnectSphere has the information needed to begin planning my event.",
   "created_by": "kchoongg",
-  "creation_date": "2026-09-16",
+  "creation_date": "2026-09-20",
   "acceptance_criteria": [
     { "id": "AC1", "text": "The Event Organiser can enter an event name and purpose." },
     { "id": "AC2", "text": "The Event Organiser can enter an event description." },
     { "id": "AC3", "text": "The Event Organiser can specify the proposed date and time." },
     { "id": "AC4", "text": "The Event Organiser can specify expected attendance." },
     { "id": "AC5", "text": "The Event Organiser can specify venue, accessibility, equipment and registration requirements." },
-    { "id": "AC6", "text": "The system validates required information before allowing submission." },
-    { "id": "AC7", "text": "A newly created incomplete request is identifiable as a draft." }
+    { "id": "AC6", "text": "An event can be organised into multiple sessions, each with its own timing, expected attendance, venue and equipment requirements (e.g. a multi-day conference with different rooms per day)." },
+    { "id": "AC7", "text": "The system validates required information before allowing submission." },
+    { "id": "AC8", "text": "A newly created incomplete request is identifiable as a draft." }
   ],
   "test_cases": [
     {
@@ -19,14 +20,14 @@
       "linked_ac": ["AC1"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), a seeded Organiser. On the \"New event request\" page.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's. On the \"New event request\" page.",
       "steps": [
-        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Enter \"Nusantara Product Launch 2026 - KC\" into Event name",
         "Enter \"Regional product launch and press event\" into Purpose",
         "Click \"Save draft\""
       ],
-      "test_data": "Event name: Nusantara Product Launch 2026; Purpose: Regional product launch and press event",
-      "expected_result": "The browser returns to \"My events\".\nThe new draft appears with the title \"Nusantara Product Launch 2026\". Reopening it shows Purpose still filled in as \"Regional product launch and press event\"."
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC; Purpose: Regional product launch and press event",
+      "expected_result": "The browser returns to \"My events\".\nThe new draft appears with the title \"Nusantara Product Launch 2026 - KC\". Reopening it shows Purpose still filled in as \"Regional product launch and press event\"."
     },
     {
       "id": "SPM-23-TC02",
@@ -34,7 +35,7 @@
       "linked_ac": ["AC1"],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page.",
       "steps": [
         "Leave Event name empty",
         "Enter \"Regional product launch and press event\" into Purpose",
@@ -49,9 +50,9 @@
       "linked_ac": ["AC2"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page.",
       "steps": [
-        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Enter \"Nusantara Product Launch 2026 - KC\" into Event name",
         "Enter \"Press event with livestream and product demonstration area.\" into Description",
         "Click \"Save draft\"",
         "From \"My events\", open the draft again"
@@ -65,14 +66,15 @@
       "linked_ac": ["AC3"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name \"Nusantara Product Launch 2026\", Type of event \"Exhibition\", and Expected attendance 200 already filled in.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Product Launch 2026 - KC\", Type of event \"Exhibition\", and Expected attendance 200 already filled in.",
       "steps": [
         "Set Starts at to 5 Dec 2026, 9:00 AM",
         "Set Ends at to 5 Dec 2026, 5:00 PM",
-        "Click \"Submit request\""
+        "Click \"Submit request\"",
+        "Open the \"My events\" page"
       ],
-      "test_data": "Starts at: 5 Dec 2026, 9:00 AM; Ends at: 5 Dec 2026, 5:00 PM",
-      "expected_result": "The request is created and immediately submitted. Its own page shows Starts at 5 Dec 2026, 9:00 AM, Ends at 5 Dec 2026, 5:00 PM, and status \"Submitted\"."
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC; Starts at: 5 Dec 2026, 9:00 AM; Ends at: 5 Dec 2026, 5:00 PM",
+      "expected_result": "No message appears and the request is submitted. \"My events\" lists it under \"Submitted\" (not under Drafts) with status \"Submitted\" and When \"5 Dec 2026, 09:00–17:00\". (After submitting, the browser is sent to the request's own page, which is not built yet and shows a 404 - ignore it and check \"My events\".)"
     },
     {
       "id": "SPM-23-TC05",
@@ -80,7 +82,7 @@
       "linked_ac": ["AC3"],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type of event and Expected attendance already filled in with valid values.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name, Type of event and Expected attendance already filled in with valid values.",
       "steps": [
         "Set Starts at to 5 Dec 2026, 5:00 PM",
         "Set Ends at to 5 Dec 2026, 9:00 AM (earlier than Starts at)",
@@ -95,7 +97,7 @@
       "linked_ac": ["AC3"],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type of event and Expected attendance already filled in with valid values.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name, Type of event and Expected attendance already filled in with valid values.",
       "steps": [
         "Set Starts at to 1 Jan 2020, 9:00 AM (a past date)",
         "Set Ends at to 1 Jan 2020, 5:00 PM",
@@ -110,13 +112,14 @@
       "linked_ac": ["AC4"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type of event, Starts at and Ends at already filled in with valid values.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name, Type of event, Starts at and Ends at already filled in with valid values.",
       "steps": [
         "Enter 250 into Expected attendance",
-        "Click \"Submit request\""
+        "Click \"Submit request\"",
+        "Open the \"My events\" page"
       ],
       "test_data": "Expected attendance: 250",
-      "expected_result": "The request is created and submitted. Its own page shows Expected attendance as 250."
+      "expected_result": "No message appears and the request is submitted. \"My events\" lists it under \"Submitted\" with status \"Submitted\" and Attendance 250. (After submitting, the browser is sent to the request's own page, which is not built yet and shows a 404 - ignore it and check \"My events\".)"
     },
     {
       "id": "SPM-23-TC08",
@@ -141,10 +144,11 @@
       "preconditions": "Same form state as TC07.",
       "steps": [
         "Enter 1 into Expected attendance",
-        "Click \"Submit request\""
+        "Click \"Submit request\"",
+        "Open the \"My events\" page"
       ],
       "test_data": "Expected attendance: 1",
-      "expected_result": "The request is created and submitted. Its own page shows Expected attendance as 1."
+      "expected_result": "No message appears under Expected attendance and the request is submitted. \"My events\" lists it under \"Submitted\" with status \"Submitted\" and Attendance 1. (After submitting, the browser is sent to the request's own page, which is not built yet and shows a 404 - ignore it and check \"My events\".)"
     },
     {
       "id": "SPM-23-TC10",
@@ -152,14 +156,15 @@
       "linked_ac": ["AC5"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Event name, Type, dates and attendance already filled in with valid values.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Product Launch 2026 - KC\" filled in.",
       "steps": [
         "Tick \"High-density WiFi\" under \"The venue must have\"",
         "Tick \"Wheelchair spaces\" under \"Accessibility needs\"",
-        "Click \"Submit request\""
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
       ],
-      "test_data": "Venue requirement: High-density WiFi; Accessibility need: Wheelchair spaces",
-      "expected_result": "The request is created. Its own page lists both \"High-density WiFi\" and \"Wheelchair spaces\" among its requirements."
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC; Venue requirement: High-density WiFi; Accessibility need: Wheelchair spaces",
+      "expected_result": "The browser returns to \"My events\" and the draft is listed. Reopening it shows both \"High-density WiFi\" (under \"The venue must have\") and \"Wheelchair spaces\" (under \"Accessibility needs\") still ticked."
     },
     {
       "id": "SPM-23-TC11",
@@ -167,15 +172,16 @@
       "linked_ac": ["AC5"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "On the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM and Ends at = 5 Dec 2026, 5:00 PM already set.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Product Launch 2026 - KC\" filled in, and Starts at = 5 Dec 2026, 9:00 AM and Ends at = 5 Dec 2026, 5:00 PM already set. The equipment catalogue has at least two active items.",
       "steps": [
         "Click \"Add equipment\"",
         "Choose \"4K Portable Projector\" in the Equipment list",
         "Enter 2 into Quantity",
-        "Click \"Submit request\""
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
       ],
-      "test_data": "Equipment: 4K Portable Projector, quantity 2",
-      "expected_result": "The request is created with \"4K Portable Projector\" (quantity 2) listed under its equipment."
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC; Equipment: 4K Portable Projector, quantity 2",
+      "expected_result": "The browser returns to \"My events\" and the draft is listed. Reopening it shows one equipment row with \"4K Portable Projector\" chosen and Quantity 2."
     },
     {
       "id": "SPM-23-TC12",
@@ -183,7 +189,7 @@
       "linked_ac": ["AC5"],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with Starts at and Ends at left blank.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Starts at and Ends at left blank.",
       "steps": [
         "Scroll to the Equipment section"
       ],
@@ -192,18 +198,18 @@
     },
     {
       "id": "SPM-23-TC13",
-      "title": "Requesting the same equipment item twice is rejected",
+      "title": "An equipment item already chosen in one row is not offered again in another row",
       "linked_ac": ["AC5"],
-      "type": "Negative",
+      "type": "Positive",
       "source": "Code",
-      "preconditions": "On the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM and Ends at = 5 Dec 2026, 5:00 PM already set.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM and Ends at = 5 Dec 2026, 5:00 PM already set. The equipment catalogue has at least two active items.",
       "steps": [
-        "Add an equipment row, choose \"4K Portable Projector\", quantity 2",
-        "Add a second equipment row, choose \"4K Portable Projector\" again, quantity 1",
-        "Click \"Submit request\""
+        "Click \"Add equipment\" and choose \"4K Portable Projector\" in the first row",
+        "Click \"Add equipment\" again to add a second row",
+        "Open the second row's Equipment dropdown"
       ],
-      "test_data": "Equipment: \"4K Portable Projector\" selected in two separate rows",
-      "expected_result": "The page does not move on. A message \"Each item can only be requested once — change the quantity instead of adding a second row.\" is shown above the equipment rows."
+      "test_data": "First row: 4K Portable Projector",
+      "expected_result": "\"4K Portable Projector\" is not listed in the second row's dropdown - only items not already chosen elsewhere are offered, so the same item cannot be requested twice. Choosing a different item (for example \"Lavalier Wireless Mic\") in the second row and clicking \"Save draft\" saves both rows."
     },
     {
       "id": "SPM-23-TC14",
@@ -211,16 +217,17 @@
       "linked_ac": ["AC5"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "On the \"New event request\" page with Starts at = 5 Dec 2026, 9:00 AM already set.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Product Launch 2026 - KC\" filled in and Starts at = 5 Dec 2026, 9:00 AM already set.",
       "steps": [
         "Turn on \"Attendees need to register for this event\"",
         "Enter 300 into Registration capacity",
         "Set Registration opens to 1 Nov 2026, 12:00 AM",
         "Set Registration closes to 1 Dec 2026, 12:00 AM",
-        "Click \"Submit request\""
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
       ],
-      "test_data": "Registration capacity: 300; Registration opens: 1 Nov 2026, 12:00 AM; Registration closes: 1 Dec 2026, 12:00 AM",
-      "expected_result": "The request is created with registration turned on, capacity 300, and the opens/closes dates shown exactly as entered."
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC; Registration capacity: 300; Registration opens: 1 Nov 2026, 12:00 AM; Registration closes: 1 Dec 2026, 12:00 AM",
+      "expected_result": "The browser returns to \"My events\" and the draft is listed. Reopening it shows \"Attendees need to register for this event\" turned on, Registration capacity 300, Registration opens 1 Nov 2026, 12:00 AM and Registration closes 1 Dec 2026, 12:00 AM, exactly as entered."
     },
     {
       "id": "SPM-23-TC15",
@@ -269,29 +276,30 @@
     {
       "id": "SPM-23-TC18",
       "title": "A fully completed request can be submitted",
-      "linked_ac": ["AC6"],
+      "linked_ac": ["AC7"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page.",
       "steps": [
-        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Enter \"Nusantara Product Launch 2026 - KC\" into Event name",
         "Select \"Exhibition\" as Type of event",
         "Set Starts at to 5 Dec 2026, 9:00 AM and Ends at to 5 Dec 2026, 5:00 PM",
         "Enter 200 into Expected attendance",
-        "Click \"Submit request\""
+        "Click \"Submit request\"",
+        "Open the \"My events\" page"
       ],
-      "test_data": "Event name, Type, Starts at, Ends at and Expected attendance all valid, as above",
-      "expected_result": "The browser moves to the request's own page, showing status \"Submitted\"."
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC; Type: Exhibition; Starts at: 5 Dec 2026, 9:00 AM; Ends at: 5 Dec 2026, 5:00 PM; Expected attendance: 200",
+      "expected_result": "No message appears and the request is submitted. \"My events\" lists it under \"Submitted\" (not under Drafts) with status \"Submitted\", When \"5 Dec 2026, 09:00–17:00\" and Attendance 200. (After submitting, the browser is sent to the request's own page, which is not built yet and shows a 404 - ignore it and check \"My events\".)"
     },
     {
       "id": "SPM-23-TC19",
       "title": "Submit request is blocked when required fields are missing",
-      "linked_ac": ["AC6"],
+      "linked_ac": ["AC7"],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page, with only Event name filled in.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with only Event name filled in.",
       "steps": [
-        "Enter \"Nusantara Product Launch 2026\" into Event name",
+        "Enter \"Nusantara Product Launch 2026 - KC\" into Event name",
         "Leave Type of event, Starts at, Ends at, and Expected attendance empty",
         "Click \"Submit request\""
       ],
@@ -301,41 +309,284 @@
     {
       "id": "SPM-23-TC20",
       "title": "A newly created incomplete request is identifiable as a draft",
-      "linked_ac": ["AC7"],
+      "linked_ac": ["AC8"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page.",
       "steps": [
-        "Enter \"Nusantara Product Launch 2026\" into Event name only",
+        "Enter \"Nusantara Product Launch 2026 - KC\" into Event name only",
         "Click \"Save draft\"",
         "Open the \"My events\" page"
       ],
-      "test_data": "Event name: Nusantara Product Launch 2026 (no other fields)",
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC (no other fields)",
       "expected_result": "The event appears under a \"Drafts — not yet submitted\" section with a \"Draft\" status badge, visually distinct from any submitted request."
     },
     {
       "id": "SPM-23-TC21",
       "title": "A freshly created event always starts life as a draft, even when every field is filled in",
-      "linked_ac": ["AC7"],
+      "linked_ac": ["AC8"],
       "type": "Boundary",
       "source": "Code",
-      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123, on the \"New event request\" page.",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page.",
       "steps": [
         "Fill in every field on the form: Event name, Type, Purpose, Description, dates, attendance, layout, facilities, equipment, registration",
         "Click \"Save draft\" (not \"Submit request\")"
       ],
       "test_data": "A fully completed form, saved via \"Save draft\"",
       "expected_result": "The event is created with a \"Draft\" badge, not \"Submitted\", regardless of how complete the form was — only clicking \"Submit request\" moves it out of Draft."
+    },
+    {
+      "id": "SPM-23-TC22",
+      "title": "Organiser can split an event into two sessions, each with its own start and end",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in.",
+      "steps": [
+        "Tick \"This event has multiple sessions\"",
+        "In Session 1, enter \"Day 1 - Keynotes\" into Session name, set Starts at to 5 Dec 2026, 9:00 AM and Ends at to 5 Dec 2026, 5:00 PM",
+        "In Session 2, enter \"Day 2 - Workshops\" into Session name, set Starts at to 6 Dec 2026, 10:00 AM and Ends at to 6 Dec 2026, 4:00 PM",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; Session 1: Day 1 - Keynotes, 5 Dec 2026 9:00 AM - 5:00 PM; Session 2: Day 2 - Workshops, 6 Dec 2026 10:00 AM - 4:00 PM",
+      "expected_result": "The browser returns to \"My events\" and the draft is listed. Reopening it shows \"This event has multiple sessions\" ticked, with Session 1 and Session 2 showing exactly the names and start/end times entered."
+    },
+    {
+      "id": "SPM-23-TC23",
+      "title": "Each session has its own expected attendance and preferred room layout",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in, \"This event has multiple sessions\" ticked and both sessions' start and end times filled in (Session 1: 5 Dec 2026 9:00 AM - 5:00 PM, Session 2: 6 Dec 2026 9:00 AM - 5:00 PM).",
+      "steps": [
+        "In Session 1, enter 300 into Expected attendance and choose \"Theatre\" as Preferred room layout",
+        "In Session 2, enter 80 into Expected attendance and choose \"Classroom\" as Preferred room layout",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; Session 1: 300 attendees, Theatre; Session 2: 80 attendees, Classroom",
+      "expected_result": "Reopening the draft shows Session 1 with Expected attendance 300 and layout \"Theatre\", and Session 2 with Expected attendance 80 and layout \"Classroom\" - the two sessions keep separate values."
+    },
+    {
+      "id": "SPM-23-TC24",
+      "title": "Each session can request its own equipment",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in, \"This event has multiple sessions\" ticked and both sessions' start and end times filled in. The equipment catalogue has at least two active items.",
+      "steps": [
+        "In Session 1, click \"Add equipment\", choose \"4K Portable Projector\" and enter 2 into Quantity",
+        "In Session 2, click \"Add equipment\", choose \"Lavalier Wireless Mic\", enter 4 into Quantity and enter \"Lapel only, no handheld\" into Technical requirements",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; Session 1: 4K Portable Projector x2; Session 2: Lavalier Wireless Mic x4, \"Lapel only, no handheld\"",
+      "expected_result": "Reopening the draft shows the projector (quantity 2) under Session 1 only, and the microphone (quantity 4, with the technical requirement text) under Session 2 only. Neither session shows the other's item."
+    },
+    {
+      "id": "SPM-23-TC25",
+      "title": "Ticking \"This event has multiple sessions\" swaps the event-level sections for two sessions",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" filled in, and Starts at = 5 Dec 2026, 9:00 AM, Ends at = 5 Dec 2026, 5:00 PM, Expected attendance = 300 already entered in the normal Schedule and Attendance sections.",
+      "steps": [
+        "Tick \"This event has multiple sessions\"",
+        "Scroll down the form",
+        "Look at the \"Remove session\" buttons on Session 1 and Session 2",
+        "Click \"Add session\"",
+        "Click \"Remove session\" on Session 3"
+      ],
+      "test_data": "Starts at 5 Dec 2026 9:00 AM; Ends at 5 Dec 2026 5:00 PM; Expected attendance 300",
+      "expected_result": "Two session cards, \"Session 1\" and \"Session 2\", appear. The Schedule, Attendance and event-level Equipment sections are no longer shown. Session 1 is already filled with Starts at 5 Dec 2026 9:00 AM, Ends at 5 Dec 2026 5:00 PM and Expected attendance 300 (nothing typed earlier is lost); Session 2 is blank. With two sessions both \"Remove session\" buttons are disabled; \"Add session\" adds a Session 3 and enables them; removing Session 3 returns to two sessions with the buttons disabled again."
+    },
+    {
+      "id": "SPM-23-TC26",
+      "title": "Sessions can be changed on a saved draft, and switched off again",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in.",
+      "steps": [
+        "Tick \"This event has multiple sessions\"",
+        "Set Session 1 to 5 Dec 2026, 9:00 AM - 5:00 PM with Expected attendance 300, and Session 2 to 6 Dec 2026, 9:00 AM - 5:00 PM with Expected attendance 80",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)",
+        "In Session 2, change Expected attendance from 80 to 120",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)",
+        "Untick \"This event has multiple sessions\"",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; Session 2 Expected attendance: 80 -> 120",
+      "expected_result": "First reopen: both sessions as entered. Second reopen: Session 2 shows Expected attendance 120 and everything else is unchanged. After unticking, the normal Schedule section returns showing Starts at 5 Dec 2026, 9:00 AM and Ends at 6 Dec 2026, 5:00 PM (the whole span); on the final reopen \"This event has multiple sessions\" is unticked and no session cards are shown."
+    },
+    {
+      "id": "SPM-23-TC27",
+      "title": "A multi-session draft is identifiable as a draft and shows the span and largest attendance",
+      "linked_ac": ["AC6", "AC8"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in, \"This event has multiple sessions\" ticked, Session 1 = 5 Dec 2026 9:00 AM - 5:00 PM (300 attendees) and Session 2 = 6 Dec 2026 9:00 AM - 5:00 PM (80 attendees).",
+      "steps": [
+        "Click \"Save draft\"",
+        "Look at the new draft's row in \"My events\""
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; Session 1: 300 attendees; Session 2: 80 attendees",
+      "expected_result": "The event appears under \"Drafts - not yet submitted\" with a \"Draft\" status badge, visually distinct from submitted requests. Its When column shows \"5 Dec 2026, 09:00 – 6 Dec 2026, 17:00\" (first session start to last session end) and Attendance shows 300 (the largest single session, not 380)."
+    },
+    {
+      "id": "SPM-23-TC28",
+      "title": "Venue and accessibility requirements apply to every session",
+      "linked_ac": ["AC5", "AC6"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in and \"This event has multiple sessions\" ticked and both sessions' start and end times filled in.",
+      "steps": [
+        "Look under the \"Venue requirements\" heading",
+        "Tick \"High-density WiFi\" under \"The venue must have\" and \"Wheelchair spaces\" under \"Accessibility needs\"",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; Venue requirement: High-density WiFi; Accessibility need: Wheelchair spaces",
+      "expected_result": "The text \"These apply to every session.\" is shown under the Venue requirements heading (there is no per-session facility list). After reopening, both boxes are still ticked."
+    },
+    {
+      "id": "SPM-23-TC29",
+      "title": "An equipment item chosen in one session is not offered in another session",
+      "linked_ac": ["AC6"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in, \"This event has multiple sessions\" ticked and both sessions' start and end times filled in. The equipment catalogue has at least two active items.",
+      "steps": [
+        "In Session 1, click \"Add equipment\" and choose \"4K Portable Projector\"",
+        "In Session 2, click \"Add equipment\"",
+        "Open Session 2's Equipment dropdown"
+      ],
+      "test_data": "Session 1: 4K Portable Projector",
+      "expected_result": "\"4K Portable Projector\" is not listed in Session 2's dropdown, although other items (for example \"Lavalier Wireless Mic\") are. An item can be requested once for the whole event; the note under \"Equipment for this session\" says so."
+    },
+    {
+      "id": "SPM-23-TC30",
+      "title": "Submit is blocked when a session is missing its required information",
+      "linked_ac": ["AC6", "AC7"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in, \"This event has multiple sessions\" ticked, Session 1 fully filled in (5 Dec 2026 9:00 AM - 5:00 PM, 300 attendees) and Session 2 left completely blank.",
+      "steps": [
+        "Click \"Submit request\""
+      ],
+      "test_data": "Session 1 complete; Session 2 blank",
+      "expected_result": "The page does not move on. Under Session 2 only, messages appear: \"Enter when this session starts.\" under Starts at, \"Enter when this session ends.\" under Ends at, and \"Enter how many people you expect.\" under Expected attendance. Session 1 shows no messages, and the cursor moves to Session 2's Starts at."
+    },
+    {
+      "id": "SPM-23-TC31",
+      "title": "Invalid session values are each flagged on the session they belong to",
+      "linked_ac": ["AC6", "AC7"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in and \"This event has multiple sessions\" ticked.",
+      "steps": [
+        "In Session 1, set Starts at to 1 Jan 2020, 9:00 AM, Ends at to 1 Jan 2020, 5:00 PM and enter 0 into Expected attendance",
+        "In Session 2, set Starts at to 6 Dec 2026, 5:00 PM, Ends at to 6 Dec 2026, 9:00 AM (earlier than Starts at) and enter 80 into Expected attendance",
+        "Click \"Submit request\"",
+        "In Session 2, change Ends at to 6 Dec 2026, 6:00 PM"
+      ],
+      "test_data": "Session 1: 1 Jan 2020 9:00 AM - 5:00 PM, attendance 0; Session 2: 6 Dec 2026 5:00 PM - 9:00 AM, attendance 80",
+      "expected_result": "The page does not move on. Session 1 shows \"The start date is in the past.\" under Starts at and \"Enter a whole number of people, at least 1.\" under Expected attendance. Session 2 shows \"Ends at must be after starts at.\" under Ends at. Changing Session 2's Ends at to 6:00 PM removes that message straight away."
+    },
+    {
+      "id": "SPM-23-TC32",
+      "title": "Registration must open before the FIRST session starts",
+      "linked_ac": ["AC5", "AC6", "AC7"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in, \"This event has multiple sessions\" ticked, Session 1 = 5 Dec 2026 9:00 AM - 5:00 PM (300 attendees) and Session 2 = 6 Dec 2026 9:00 AM - 5:00 PM (80 attendees).",
+      "steps": [
+        "Turn on \"Attendees need to register for this event\"",
+        "Enter 300 into Registration capacity",
+        "Set Registration opens to 5 Dec 2026, 12:00 PM (after Session 1 has started but before Session 2)",
+        "Click \"Submit request\""
+      ],
+      "test_data": "Registration opens: 5 Dec 2026 12:00 PM; first session starts 5 Dec 2026 9:00 AM",
+      "expected_result": "The page does not move on. \"Registration must open before the event starts.\" appears under Registration opens. Changing Registration opens to 1 Nov 2026, 12:00 AM removes the message on the next submit."
+    },
+    {
+      "id": "SPM-23-TC33",
+      "title": "A fully completed multi-session request can be submitted",
+      "linked_ac": ["AC6", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" and Type of event \"Conference\" already filled in.",
+      "steps": [
+        "Tick \"This event has multiple sessions\"",
+        "Fill Session 1 with Starts at 5 Dec 2026, 9:00 AM, Ends at 5 Dec 2026, 5:00 PM, Expected attendance 300",
+        "Fill Session 2 with Starts at 6 Dec 2026, 9:00 AM, Ends at 6 Dec 2026, 5:00 PM, Expected attendance 1 (the minimum)",
+        "Click \"Submit request\"",
+        "Open the \"My events\" page"
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; Session 1: 5 Dec 2026 9:00 AM - 5:00 PM, 300; Session 2: 6 Dec 2026 9:00 AM - 5:00 PM, 1",
+      "expected_result": "No messages appear and the request is submitted: \"My events\" lists it under \"Submitted\" (not under Drafts) with status \"Submitted\", When \"5 Dec 2026, 09:00 – 6 Dec 2026, 17:00\" and Attendance 300. (The browser is then sent to the request's own page, which is not built yet and shows a 404 - see open questions - so check the result from \"My events\".)"
+    },
+    {
+      "id": "SPM-23-TC34",
+      "title": "Saving a draft needs each session's times, but not attendance or type",
+      "linked_ac": ["AC6", "AC8"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page, with Event name \"Nusantara Summit 2026 - KC\" filled in and Type of event left unselected.",
+      "steps": [
+        "Tick \"This event has multiple sessions\"",
+        "Set Session 1 to 5 Dec 2026, 9:00 AM - 5:00 PM and leave Session 2 completely blank; leave both Expected attendance fields empty",
+        "Click \"Save draft\"",
+        "Set Session 2 to 6 Dec 2026, 9:00 AM - 5:00 PM",
+        "Click \"Save draft\""
+      ],
+      "test_data": "Event name: Nusantara Summit 2026 - KC; attendance and type left empty",
+      "expected_result": "First \"Save draft\": the page does not move on and \"Enter when this session starts.\" / \"Enter when this session ends.\" appear under Session 2 only (a session cannot be saved without its times). Second \"Save draft\": the browser returns to \"My events\" and the draft is listed with a \"Draft\" badge, even though attendance and type are empty."
+    },
+    {
+      "id": "SPM-23-TC35",
+      "title": "A normal single-session request is unchanged by the sessions option",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as rachel.ng@meridianfina.com / password123 (a seeded Event Organiser). Use your own initials in place of \"KC\" in every event name below so your drafts never clash with another tester's, on the \"New event request\" page.",
+      "steps": [
+        "Look at the \"Sessions\" section and leave \"This event has multiple sessions\" unticked",
+        "Enter \"Nusantara Product Launch 2026 - KC\" into Event name",
+        "Set Starts at to 5 Dec 2026, 9:00 AM, Ends at to 5 Dec 2026, 5:00 PM and Expected attendance to 200",
+        "Click \"Save draft\"",
+        "From \"My events\", open the draft you just saved (find it by its name)"
+      ],
+      "test_data": "Event name: Nusantara Product Launch 2026 - KC; one session: 5 Dec 2026 9:00 AM - 5:00 PM, 200 attendees",
+      "expected_result": "\"This event has multiple sessions\" is unticked by default and no session cards are shown; the normal Schedule and Attendance sections are used. Reopening the draft shows the same values and \"This event has multiple sessions\" still unticked."
     }
   ],
-  "open_questions": [],
+  "open_questions": [
+    "Every case logs in as the seeded organiser rachel.ng@meridianfina.com, so all testers share one \"My events\" list (drafts are private per account, not per tester) alongside her seeded events. Each tester puts their initials in every event name so their own drafts can be told apart, and no case relies on any seeded event or draft. Two testers who use the same initials can still open each other's draft by mistake, and drafts cannot be deleted from the app, so repeat runs add duplicate rows.",
+    "Cases that request equipment or tick facilities (TC10, TC11, TC13, TC24, TC28, TC29) need the seeded catalogue items (\"4K Portable Projector\", \"Lavalier Wireless Mic\", \"High-density WiFi\", \"Wheelchair spaces\") to exist. There is no screen to create equipment or facilities, so testers cannot set these up themselves. Accepted for now.",
+    "Cases that submit a request (TC04, TC07, TC09, TC18, TC33) end on the request's own page, which is not built yet and shows a 404 (Known Gaps, DOCUMENTATION.md; SPM-27/SPM-31). They check the result from \"My events\" instead. Once the detail page exists, these could also check what it shows.",
+    "Not written as manual cases because the UI cannot reach them: the server refusing a single-session list, refusing the same item in two sessions, and the submit-time check \"Missing: session N expectedAttendance\" (the form's own validation always stops these first). They are covered by unit tests in validation.test.ts, and were checked over HTTP during development.",
+    "SPM-23-TC13 was rewritten in this update: it still described a rejection message that can no longer appear (the equipment picker now hides already-chosen items, per the 2026-09-18 change). SPM-24-TC13 was fixed then; the SPM-23 copy was missed. TC10, TC11 and TC14 were also reworked to \"Save draft, then reopen\", because the details they checked were only visible on the unbuilt request page; TC11 and TC14 previously had no login or event name, so they could not have been run as written."
+  ],
   "code_references": [
-    "src/lib/validation.ts",
+    "src/lib/validation/events.ts",
     "src/lib/eventForm.ts",
+    "src/lib/eventSessions.ts",
+    "src/lib/sessionWrites.ts",
+    "src/components/SessionFields.tsx",
     "src/app/events/new/page.tsx",
+    "src/app/events/[id]/edit/page.tsx",
+    "src/app/events/page.tsx",
     "src/app/api/events/route.ts",
     "src/app/api/events/[id]/route.ts",
     "src/lib/__tests__/validation.test.ts",
+    "src/lib/__tests__/eventForm.test.ts",
+    "src/lib/__tests__/eventSessions.test.ts",
+    "prisma/schema.prisma",
     "prisma/seed.ts"
   ]
 }

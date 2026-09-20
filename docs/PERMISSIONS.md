@@ -141,7 +141,10 @@ registrationClosesAt`
 Everything else is internal planning information and is withheld: the assigned
 coordinator, the organiser and client identity, expected attendance, special
 requirements, accessibility notes, rejection and cancellation reasons, facility
-requirements, equipment requests, and status history.
+requirements, equipment requests, sessions (a multi-session event's per-session
+times, attendance, layout and equipment), and status history. The event's own
+`startsAt` / `endsAt` are still shown, and for a multi-session event they span
+all its sessions.
 
 Every other role receives the full record. An organiser's own request is not
 internal information to them.
