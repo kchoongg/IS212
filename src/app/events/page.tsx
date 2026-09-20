@@ -159,10 +159,7 @@ export default function EventsPage() {
             columns={columns}
             rows={drafts}
             rowKey={(row) => row.id}
-            // CHANGED: was `/events/${row.id}/edit`, which 404s — draft
-            // editing (S-08's own edit route) isn't built yet. The hub at
-            // least loads and says so, rather than dead-ending.
-            onRowClick={(row) => router.push(`/events/${row.id}`)}
+            onRowClick={(row) => router.push(`/events/${row.id}/edit`)}
             caption="Draft event requests"
           />
         </section>

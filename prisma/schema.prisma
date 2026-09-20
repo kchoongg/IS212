@@ -455,22 +455,14 @@ model EquipmentRequest {
   requester User          @relation("EquipmentRequester", fields: [requestedBy], references: [id])
   reviewer  User?         @relation("EquipmentReviewer", fields: [reviewedBy], references: [id])
 
-  // Uniqueness is enforced by two Postgres PARTIAL unique indexes, created
-  // directly in migration 20260919100000_add_partial_unique_equipment_request_session
-  // — not expressible as a single `@@unique` here, since Prisma's schema DSL
-  // has no WHERE clause for indexes. A single (eventId, equipmentId) index
-  // can't do both "dedupe whole-event requests" AND "allow two different
-  // sessions of one event to request the same item", because Postgres treats
-  // NULL as distinct in a unique index, so a naive 3-column
-  // (eventId, sessionId, equipmentId) version would stop deduplicating
-  // whole-event requests (sessionId NULL, the common case) entirely. The two
-  // partial indexes split the rule instead of trying to force one index to
-  // do it:
-  //   - unique (eventId, equipmentId)             WHERE sessionId IS NULL
-  //   - unique (eventId, sessionId, equipmentId)   WHERE sessionId IS NOT NULL
-  // Do not add `@@unique([eventId, equipmentId])` back here — `prisma
-  // migrate dev` would try to reconcile schema.prisma against the database
-  // and could drop these partial indexes, since it doesn't know about them.
+  /// Kept as (eventId, equipmentId) rather than including sessionId: Postgres
+  /// treats NULL as distinct in a unique index, so a three-column version
+  /// would silently stop deduplicating requests on single-session events
+  /// (sessionId null) — the common case. The tradeoff is that two sessions of
+  /// the SAME multi-session event cannot each independently request the same
+  /// equipment type yet; that needs a partial/expression index to fix
+  /// properly and is left as a known limitation.
+  @@unique([eventId, equipmentId])
   @@index([equipmentId, status, startsAt, endsAt])
   @@index([sessionId])
   @@map("equipment_requests")

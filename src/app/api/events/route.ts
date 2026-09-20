@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can, eventListWhere, visibleEventsFor } from "@/lib/permissions";
 import { createEventSchema } from "@/lib/validation";
-import { equipmentWindowFor } from "@/lib/equipment";
 import { ZodError } from "zod";
 
 export async function GET(req: NextRequest) {
@@ -47,10 +46,13 @@ export async function POST(req: NextRequest) {
     // store before the doors open and comes back after they close. Two hours
     // either side is the default load-in / load-out window; Technical Support
     // adjusts it when they review the request.
-    const window = equipmentWindowFor(
-      data.startsAt ? new Date(data.startsAt) : null,
-      data.endsAt ? new Date(data.endsAt) : null
-    );
+    const LOAD_WINDOW_MS = 2 * 60 * 60 * 1000;
+    const equipmentStartsAt = data.startsAt
+      ? new Date(new Date(data.startsAt).getTime() - LOAD_WINDOW_MS)
+      : null;
+    const equipmentEndsAt = data.endsAt
+      ? new Date(new Date(data.endsAt).getTime() + LOAD_WINDOW_MS)
+      : null;
 
     // The event and its requirements are one thing to the organiser, so they
     // are one transaction here: a half-written request with facilities but no
@@ -94,16 +96,16 @@ export async function POST(req: NextRequest) {
           : undefined,
 
         // Guarded by createEventSchema: equipment cannot be requested without
-        // event dates, so `window` is non-null whenever the array is set.
+        // event dates, so these two are non-null whenever the array is set.
         equipmentRequests:
-          data.equipment?.length && window
+          data.equipment?.length && equipmentStartsAt && equipmentEndsAt
             ? {
                 create: data.equipment.map((item) => ({
                   equipmentId: item.equipmentId,
                   quantityRequested: item.quantityRequested,
                   technicalRequirements: item.technicalRequirements,
-                  startsAt: window.startsAt,
-                  endsAt: window.endsAt,
+                  startsAt: equipmentStartsAt,
+                  endsAt: equipmentEndsAt,
                   requestedBy: actor.id,
                   status: "requested",
                 })),
