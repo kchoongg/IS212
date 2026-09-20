@@ -154,6 +154,7 @@ IS212/
     │
     ├── components/
     │   ├── AppShell.tsx        # Top bar + role-aware sidebar. Wraps every route.
+    │   ├── SessionFields.tsx    # S-08's "Sessions" section, shared by events/new and events/[id]/edit
     │   └── ui/                  # THE component library — see §6. Import from "@/components/ui"
     │
     └── lib/
@@ -167,7 +168,9 @@ IS212/
         ├── statuses.ts              # Status label + colour for EVERY status in the system
         ├── format.ts                 # Dates, capacities, venue names — one format each
         ├── formErrors.ts              # Client validation + mapping server errors to fields
-        ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues
+        ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues, sessionsPayload
+        ├── eventSessions.ts             # Multi-session events (pure): deriveEventFromSessions, equipmentWindow
+        ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
         ├── cn.ts                       # Tiny class-name joiner
         ├── validation/                  # Zod schemas, one file per domain
         │   ├── auth.ts
@@ -197,7 +200,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 | Person | Folder | Domain | Tables | Status |
 |---|---|---|---|---|
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
-| **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
+| **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (sessions are created and edited through `POST` / `PATCH /api/events`; no standalone session routes) |
 | **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create, facilities list; booking routes to build |
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
@@ -621,7 +624,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. | events |
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
-| **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
+| **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles (the event detail screen doesn't exist yet). | events / venues / equipment |
+| **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
+| **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
 | **`npm run lint` is broken on Next 16** | Use `npx eslint src --ext .ts,.tsx`. | unclaimed |
 | **No route-level tests outside permissions** | `npm run verify:permissions` covers authorisation end to end (36 checks). Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 
@@ -641,6 +646,114 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-09-20 — Kristen
+- **Implemented SPM-23's new acceptance criterion: multi-session events**
+  ("an event can be organised into multiple sessions, each with its own
+  timing, expected attendance, venue and equipment requirements" — class
+  clarification #74). The `EventSession` table has existed since 2026-09-18
+  but nothing wrote to it; this is the application code on top. **No
+  migration** — the schema already had everything the form needs.
+  - **S-08 (both `events/new` and `events/[id]/edit`)** gets a *Sessions*
+    section: a "This event has multiple sessions" checkbox that reveals a card
+    per session — name (optional), starts/ends, expected attendance, preferred
+    room layout, and that session's own equipment. Starts at two sessions;
+    "Add session" / "Remove session" (disabled at two — one session is just an
+    event). Ticking the box while event-level Schedule/Attendance are filled
+    in moves those values into Session 1 rather than dropping them. While
+    ticked, the event-level Schedule, Attendance and Equipment sections are
+    hidden outright rather than shown and ignored. The section lives in one
+    shared component, `src/components/SessionFields.tsx`, so create and edit
+    can't drift.
+  - **The event's own `startsAt` / `endsAt` / `expectedAttendance` are derived
+    from its sessions** by `deriveEventFromSessions()` (`src/lib/eventSessions.ts`):
+    earliest start, latest end, and the *largest* session's attendance (a venue
+    holds one session at a time; summing would overstate it). They are never
+    taken from the body alongside sessions. This keeps My events, the dashboard
+    and the coordinator queue working untouched, and matches Kayal's SPM-39
+    rule that session data wins and event data is the fallback
+    (`api/venues/[id]`). "Registration must open/close before the event
+    starts" is measured against the *first* session.
+  - **Backend.** `sessions` added to `createEventSchema` and
+    `updateEventDraftSchema` (≥2, or `[]` on an edit to switch it off; each
+    session needs its own start and end even in a draft, because
+    `event_sessions.starts_at`/`ends_at` are NOT NULL). `POST /api/events` now
+    runs in one real transaction (the old comment said so; it wasn't) and
+    writes sessions + their equipment via `writeSessions()` in two `createMany`
+    statements regardless of session count. `PATCH` replaces sessions
+    wholesale. Each session's equipment reservation window is *its own* times
+    ±2h, not the event's. `GET /api/events/[id]` returns `sessions`, and each
+    `equipmentRequests` row carries its `sessionId`. Submitting checks every
+    session has an attendance ("Missing: session 2 expectedAttendance") — the
+    event-level figure is non-null as soon as any one session has one, which
+    would otherwise let an incomplete session through.
+  - **Fixed a latent bug this made reachable:** replacing an event's
+    event-wide equipment (`PATCH { equipment: [...] }`) ran
+    `deleteMany({ eventId })`, which would have deleted every *session's*
+    equipment along with it. Now scoped to `sessionId: null`. Verified: a
+    `PATCH { equipment: [] }` leaves both session equipment rows in place.
+  - **Known limits, both from the current schema and both deliberate — see
+    Known Gaps:** the same equipment item can be requested once per *event*,
+    not per session (`equipment_requests` is unique on event + item); and
+    facility/accessibility ticks stay event-wide (`event_facility_requirements`
+    has no session column). Fixing either is a migration on a table another
+    domain owns, so it needs the team chat first. The form says so beside the
+    equipment picker, and its picker hides items another session already
+    chose (the same prevent-don't-reject approach as 2026-09-18).
+  - **Also changed:** `LOAD_WINDOW_MS` was duplicated in both events routes;
+    now `EQUIPMENT_LOAD_WINDOW_MS` / `equipmentWindow()` in one place.
+    A `P2002` (unique-constraint) backstop on both routes turns a stray
+    duplicate-equipment collision into a 400 instead of a 500.
+  - **Reconciled with the team's updates:** Janelle's SPM-47 (equipment tab,
+    session-aware `GET`) was merged then reverted on 2026-09-20, so it isn't
+    on this branch — nothing here depends on it, but if it comes back its
+    `GET /api/events/[id]` `sessions` include will collide with this one
+    (trivially: same shape, `SESSION_SELECT` here also carries attendance and
+    layout). Kayal's unmerged SPM-39 already reads `EventSession` for its
+    attendance fallback; this is the first code that writes it.
+  - **Fixed a raw "Invalid uuid" shown to users.** Adding an equipment row,
+    leaving "Choose an item" unselected and clicking **Save draft** displayed
+    Zod's default message, because `validateForm` skips everything but the
+    title for a draft while the server still refuses a row with no item. Two
+    changes: `equipmentItemSchema` (`src/lib/validation/events.ts`) now words
+    both the item and quantity rules for the person at the form, and a shared
+    `equipmentRowError()` (`src/lib/eventForm.ts`) runs the empty-row and
+    quantity checks on a draft as well as a submit, for event-level rows and
+    each session's. Verified in a browser: Save draft with an empty row stays
+    on the form with "Choose an item for every equipment row, or remove the
+    empty ones.", saves once an item is chosen, and a request that bypasses
+    the form gets the same words back from the API.
+  - Tests: `vitest` 175/175 (was 114) — new `eventSessions.test.ts` and
+    `eventForm.test.ts`, plus session cases in `validation.test.ts`. `tsc
+    --noEmit` and `eslint` clean. Verified against `next dev` + the seeded
+    Neon branch: 38 HTTP checks (create, read-back, validation refusals,
+    edit-replace, submit completeness, switching sessions off, a plain
+    single-session event unchanged) and a 38-step Chromium walkthrough of the
+    form (toggle, carry-over into Session 1, per-session errors and focus,
+    cross-session equipment exclusion, add/remove, save and reopen, back to
+    single-session, phone width). Both scripts cleaned up after themselves and
+    were not kept.
+  - Test cases: `docs/test-cases/SPM-23_*` regenerated. The Jira AC list now
+    numbers the multi-session AC as **AC6**, which pushes "validates required
+    information" to AC7 and "identifiable as a draft" to AC8; existing cases
+    keep their IDs and were relinked, new ones are TC22–TC35. Cases log in as
+    the seeded organiser (`rachel.ng@…`) but no case relies on any seeded
+    *event* or draft: every event name carries the tester's initials so testers
+    sharing that one account can tell their drafts apart. The few cases that
+    request equipment or tick facilities use the seeded catalogue — there is no
+    screen to create catalogue items. SPM-23-TC13 was also rewritten; it still
+    described a rejection message the picker made unreachable on 2026-09-18.
+    TC04/07/09/18 now check the result from My events, and TC10/11/14 save a
+    draft and reopen it, because the request's own page (`/events/[id]`)
+    still 404s; TC11 and TC14 also had no login or event name and couldn't
+    have been run as written.
+  - **Decisions confirmed for SPM-23 (2026-09-20):** a multi-session event's
+    own attendance is the *largest* session, not the sum; a session's own venue
+    requirements are its layout and attendance, with facility/accessibility
+    ticks staying event-wide; one equipment item per *event* is accepted for
+    now (see Known Gaps); "Save draft" needing each session's times is
+    acceptable; a multi-session event has a minimum of two sessions; the
+    seeded equipment/facility catalogue is acceptable for the cases that use it.
 
 ### 2026-09-18 — Kristen
 - **Fixed the "Filter by status" control on `/events` (S-07) for every
