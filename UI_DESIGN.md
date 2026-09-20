@@ -193,14 +193,6 @@ A tab the role cannot see is **not rendered** — not rendered-and-disabled.
 Disabled tabs leak the existence of internal planning information, which §8b of
 the briefing forbids.
 
-**Equipment is Organiser: read-only, own event only** (SPM-47). SPM-47's own
-AC6 — "Technical Support Staff can view the requirements" — names one role,
-but confirmed 2026-09-19 that the Organiser should also see what's been
-recorded against the event they raised, even though this is broader than
-AC6's literal wording. Scoped to the event they own — an Organiser never sees
-another client's equipment planning (§8b). The Coordinator sees it too, but
-only because managing it requires seeing it, not as a separate viewing right.
-
 ### 4.4 Primary flows
 
 **Organiser — request to confirmation**

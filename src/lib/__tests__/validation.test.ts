@@ -1,12 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  registerSchema,
-  createEventSchema,
-  updateEventStatusSchema,
-  updateEventDraftSchema,
-  addEquipmentRequestSchema,
-  updateEquipmentRequestSchema,
-} from "../validation";
+import { registerSchema, createEventSchema, updateEventStatusSchema, updateEventDraftSchema } from "../validation";
 
 describe("registerSchema", () => {
   it("accepts a valid registration", () => {
@@ -302,87 +295,5 @@ describe("createEventSchema — equipment requests", () => {
 
   it("still accepts an event with dates and no equipment", () => {
     expect(createEventSchema.safeParse(base).success).toBe(true);
-  });
-});
-
-// ---- Equipment requirements recorded after the event exists (SPM-47, S-16) ----
-
-describe("addEquipmentRequestSchema", () => {
-  const projector = "8f14e45f-ceea-4e7c-9c2f-1f6a8e4f1f10";
-
-  it("accepts an item with a quantity", () => {
-    const result = addEquipmentRequestSchema.safeParse({
-      equipmentId: projector,
-      quantityRequested: 2,
-      technicalRequirements: "Ceiling-mounted",
-    });
-    expect(result.success).toBe(true);
-  });
-
-  it("technical requirements are optional", () => {
-    expect(
-      addEquipmentRequestSchema.safeParse({ equipmentId: projector, quantityRequested: 1 }).success
-    ).toBe(true);
-  });
-
-  it("rejects a quantity below one", () => {
-    expect(
-      addEquipmentRequestSchema.safeParse({ equipmentId: projector, quantityRequested: 0 }).success
-    ).toBe(false);
-  });
-
-  it("rejects a non-uuid equipment id", () => {
-    expect(
-      addEquipmentRequestSchema.safeParse({ equipmentId: "projector", quantityRequested: 1 }).success
-    ).toBe(false);
-  });
-
-  // SPM-47 multi-session events (class clarification #74): sessionId scopes
-  // a requirement to one EventSession instead of the whole event.
-  it("sessionId is optional — most events have no sessions", () => {
-    expect(
-      addEquipmentRequestSchema.safeParse({ equipmentId: projector, quantityRequested: 1 }).success
-    ).toBe(true);
-  });
-
-  it("accepts a sessionId alongside the usual fields", () => {
-    const session = "8f14e45f-ceea-4e7c-9c2f-1f6a8e4f1f11";
-    expect(
-      addEquipmentRequestSchema.safeParse({
-        equipmentId: projector,
-        quantityRequested: 1,
-        sessionId: session,
-      }).success
-    ).toBe(true);
-  });
-
-  it("rejects a non-uuid sessionId", () => {
-    expect(
-      addEquipmentRequestSchema.safeParse({
-        equipmentId: projector,
-        quantityRequested: 1,
-        sessionId: "not-a-uuid",
-      }).success
-    ).toBe(false);
-  });
-});
-
-describe("updateEquipmentRequestSchema", () => {
-  it("accepts a quantity change alone", () => {
-    expect(updateEquipmentRequestSchema.safeParse({ quantityRequested: 5 }).success).toBe(true);
-  });
-
-  it("accepts a technical requirements change alone", () => {
-    expect(
-      updateEquipmentRequestSchema.safeParse({ technicalRequirements: "Needs two power outlets" }).success
-    ).toBe(true);
-  });
-
-  it("rejects an empty update — nothing to change", () => {
-    expect(updateEquipmentRequestSchema.safeParse({}).success).toBe(false);
-  });
-
-  it("rejects a quantity below one", () => {
-    expect(updateEquipmentRequestSchema.safeParse({ quantityRequested: 0 }).success).toBe(false);
   });
 });
