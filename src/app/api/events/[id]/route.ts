@@ -26,11 +26,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     where: { id },
     include: {
       facilityRequirements: { include: { facility: true } },
+      // ADDED (SPM-47): the hub's "Event at a glance" sidebar (S-06,
+      // design/mockups/OrganiserEventDetail.dc.html) names the coordinator.
+      coordinator: { select: { fullName: true } },
       // Each row carries its sessionId (null = the whole event), which is how
       // the edit form tells event-wide equipment from a session's own.
       equipmentRequests: true,
       // ADDED (SPM-23, multi-session events): empty for an ordinary
-      // single-session event.
+      // single-session event. SESSION_SELECT (src/lib/sessionWrites.ts) is a
+      // superset of what SPM-47's per-session equipment picker needs
+      // (id/label/startsAt/endsAt), so it's reused here rather than
+      // duplicating a second, narrower select shape.
       sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
     },
   });

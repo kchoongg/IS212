@@ -842,6 +842,84 @@ what changed, why, and the migration name if there is one.
     acceptable; a multi-session event has a minimum of two sessions; the
     seeded equipment/facility catalogue is acceptable for the cases that use it.
 
+---
+### 2026-09-19 — Janelle
+- **AC6 visibility clarified: the Organiser keeps read-only access.** AC6
+  ("Technical Support Staff can view the requirements") names one role, and
+  an initial pass this same day removed the Organiser's existing read-only
+  view on the reading that AC6 didn't ask for it. Reconsidered and confirmed
+  the opposite: an Organiser reasonably wants to see what's been recorded
+  against the event they raised, even though it's broader than AC6's literal
+  wording — so the Organiser keeps read-only access, scoped to the event they
+  own (never another client's). New `canViewEquipmentRequests()`
+  (`src/lib/permissions.ts`) is the single source of truth for this: Technical
+  Support always, the assigned Coordinator (because managing it already
+  requires seeing it — not a second, independent viewing right), and the
+  owning Organiser read-only. `UI_DESIGN.md` §4.3 and `docs/PERMISSIONS.md`
+  updated to match.
+- **Fixed the `EquipmentRequest` uniqueness gap flagged in the previous
+  entry.** Two sessions of the same event can now each independently request
+  the same equipment type. The single `@@unique([eventId, equipmentId])`
+  couldn't express "dedupe whole-event requests, but not across sessions" in
+  one index — Postgres treats NULL as distinct in a unique index, so a naive
+  3-column version would have stopped deduplicating whole-event requests
+  entirely (`sessionId` NULL, the common case). Replaced it with two Postgres
+  **partial** indexes instead, one per case — see `SCHEMA_REFERENCE.md`. Not
+  expressible via `schema.prisma`'s `@@unique` (no `WHERE` clause support), so
+  they exist only in the raw migration SQL; `schema.prisma` has a comment
+  warning not to add `@@unique([eventId, equipmentId])` back.
+  - Verified live against the real database, not just reasoning about it:
+    same equipment type on two different sessions of one event → now
+    succeeds (was 400); same session twice → still correctly rejected; no
+    session (whole event) twice → still correctly rejected, unchanged from
+    before this fix.
+  - Migration: `20260919100000_add_partial_unique_equipment_request_session`
+- Regenerated `docs/PERMISSIONS.md`'s and `scripts/verify-permissions.ts`'s
+  affected sections to match (`GET /api/events/[id]/equipment` enforcement
+  row, the SPM-47 live-check group). All 45 live checks and 136 unit tests
+  pass.
+
+### 2026-09-18 — Janelle
+- **SPM-47 (Record Equipment Requirements) gained a new AC mid-implementation**
+  ("for a multi-session event, equipment requirements can be recorded per
+  session"), added by Kristen per class clarification #74, alongside her
+  schema-only multi-session groundwork on the separate SPM-25 branch
+  (`EventSession` model, `EquipmentRequest.sessionId` /
+  `VenueBooking.sessionId`, migration `20260918061723_add_event_sessions`).
+  Cherry-picked just that schema + migration onto this branch (not the rest
+  of SPM-25's unrelated, unreviewed application code) and built the session
+  side of SPM-47 on top of it:
+  - `POST /api/events/[id]/equipment` accepts an optional `sessionId`,
+    validated to actually belong to the event it's posted against.
+  - The Equipment tab shows a "Session" picker in Add equipment, but only
+    for an event that actually has sessions - which is none of them today,
+    since nothing creates an `EventSession` yet (SPM-25's own job). Every
+    existing event behaves exactly as before.
+  - Existing rows show their session as a small label when one is set.
+- **Integrated with SPM-4's permission model properly rather than leaving my
+  own bespoke role check.** `docs/PERMISSIONS.md` had anticipated Technical
+  Support's future review action (`equipment_request:review`, still unused -
+  SPM-48/49/50) but nothing for the Coordinator's own recording action, so I
+  added `equipment_request:manage` + `canManageEquipmentRequests()`
+  (assigned-coordinator relationship, same shape as `canEditEventContent`).
+  This closed a real gap my routes had: previously *any* coordinator could
+  edit *any* event's equipment, not just the one they're assigned to.
+- **Known limitation surfaced, not hidden:** `EquipmentRequest`'s unique
+  constraint is `(eventId, equipmentId)`, not `(eventId, sessionId,
+  equipmentId)` - documented on the model itself and in
+  `SCHEMA_REFERENCE.md`. Two sessions of the same event can't yet each
+  independently request the same equipment type. Confirmed this live: adding
+  the same item to two different sessions of one event correctly gets
+  rejected today (see `docs/test-cases/SPM-47_test_cases.json`,
+  `SPM-47-TC19`).
+- Verified end to end against a real running server, not just reasoning
+  about it: created real `EventSession` rows directly (no route does this
+  yet), exercised session-scoped add / cross-event session rejection /
+  the known-limitation rejection, all via the actual API, then cleaned up.
+  `tsc --noEmit`, `eslint`, all 130 unit tests, and `next build` all pass.
+- Migration: `20260918061723_add_event_sessions` (brought in from
+  `origin/SPM-25-Submit-Event-Request`, not authored here).
+
 ### 2026-09-18 — Kristen
 - **Fixed the "Filter by status" control on `/events` (S-07) for every
   non-organiser role** (coordinator, ops manager) — reported as "the filter
