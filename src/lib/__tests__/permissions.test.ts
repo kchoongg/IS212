@@ -359,12 +359,40 @@ describe("canSetEventStatus", () => {
     }
   });
 
-  it("lets only the assigned coordinator cancel (customer clarification #68)", () => {
+  // Customer clarification, 2026-09-18: cancelling is the Event Coordinator's
+  // decision and nobody else's. It releases the venue and the equipment and
+  // drops the attendee list, so the organiser who owns the event cannot do it
+  // themselves and neither can the Ops Manager.
+  it("lets ONLY the assigned coordinator cancel an event", () => {
     const confirmed = event({ status: "confirmed", coordinatorId: "coordinator-1" });
     expect(canSetEventStatus(coordinator, confirmed, "cancelled")).toBe(true);
+
     expect(canSetEventStatus(organiserA, confirmed, "cancelled")).toBe(false);
+    expect(canSetEventStatus(organiserB, confirmed, "cancelled")).toBe(false);
     expect(canSetEventStatus(opsManager, confirmed, "cancelled")).toBe(false);
     expect(canSetEventStatus(otherCoordinator, confirmed, "cancelled")).toBe(false);
+    expect(canSetEventStatus(attendee, confirmed, "cancelled")).toBe(false);
+  });
+
+  // Postponement was NOT narrowed by that clarification - the organiser may
+  // still postpone their own event. Kept as its own test so a future change to
+  // one rule cannot silently take the other with it.
+  it("still lets the owning organiser postpone, unlike cancelling", () => {
+    const confirmed = event({ status: "confirmed", coordinatorId: "coordinator-1" });
+    expect(canSetEventStatus(organiserA, confirmed, "postponed")).toBe(true);
+    expect(canSetEventStatus(coordinator, confirmed, "postponed")).toBe(true);
+    expect(canSetEventStatus(organiserB, confirmed, "postponed")).toBe(false);
+    expect(canSetEventStatus(opsManager, confirmed, "postponed")).toBe(false);
+  });
+
+  it("keeps event:cancel and the cancelled transition in step", () => {
+    // The two halves of the model must agree: a role that may not make the
+    // transition must not be advertised as holding the permission either.
+    for (const role of ROLES) {
+      expect(can(role, "event:cancel")).toBe(
+        STATUS_TRANSITION_ROLES.cancelled.includes(role)
+      );
+    }
   });
 
   it("refuses a status nobody owns rather than defaulting to allow", () => {

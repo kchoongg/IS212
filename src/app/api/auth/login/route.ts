@@ -19,6 +19,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 400 });
     }
 
+    // ADDED: a deactivated account used to log in perfectly happily. getActor()
+    // checks isActive on every API call, so the token that came back was
+    // already worthless — the user landed on a dashboard where every request
+    // 401'd and bounced them back to /login, which signed them in again. Refuse
+    // at the door instead.
+    //
+    // This says "deactivated" rather than reusing the generic "invalid email or
+    // password" above, which does confirm the account exists. That is the right
+    // trade here: these are ConnectSphere staff and clients who need to know to
+    // contact an administrator, not an anonymous public signup worth protecting
+    // from enumeration.
+    if (!user.isActive) {
+      return NextResponse.json(
+        { error: "This account has been deactivated. Contact your ConnectSphere administrator." },
+        { status: 403 }
+      );
+    }
+
     const token = signSession({ id: user.id, role: user.role });
     return NextResponse.json({
       token,

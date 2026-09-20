@@ -34,6 +34,23 @@ export function isExternalRole(role: string): boolean {
   return EXTERNAL_ROLES.includes(role as Role);
 }
 
+/// The roles a stranger is allowed to give themselves at the public
+/// registration form (S-02). The four internal roles are NOT on this list:
+/// POST /api/auth/register takes no session, so whatever it accepts here is
+/// what any anonymous caller can become. Letting it accept `ops_manager` or
+/// `coordinator` would make the whole of permissions.ts decorative - the rules
+/// would still be enforced perfectly against a role the attacker picked.
+///
+/// This happens to be the same set as EXTERNAL_ROLES today, and is kept
+/// separate on purpose: "is not a ConnectSphere employee" and "may be claimed
+/// without proof" are different questions that could stop agreeing. Internal
+/// accounts are created by the seed or, eventually, by an admin screen.
+export const SELF_REGISTERABLE_ROLES: readonly Role[] = ["organiser", "attendee"];
+
+export function isSelfRegisterableRole(role: string): boolean {
+  return SELF_REGISTERABLE_ROLES.includes(role as Role);
+}
+
 export function roleLabel(role: string): string {
   return ROLE_LABELS[role as Role] ?? role;
 }

@@ -400,7 +400,7 @@ every session has one.
 | Screen | Fields | Notes |
 | --- | --- | --- |
 | S-01 Login | Email, Password | |
-| S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. |
+| S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
 | S-13 Event review | Decision (approve / reject / request clarification), Message or Reason | Reason **required** when rejecting — enforced server-side in `events/[id]/route.ts`. |
 | S-15 Venue booking request | Venue (prefilled from search), Layout, Start, End, Requirements note | Start/End default to the event's times and are editable to cover setup. |
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |

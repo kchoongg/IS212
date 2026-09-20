@@ -63,7 +63,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "event:create",
     "event:view",
     "event:edit_draft",
-    "event:cancel",
     "equipment:view",
     "registration:view_list",
     "facility:view",
@@ -87,7 +86,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
   ops_manager: [
     "event:view",
     "event:assign_coordinator",
-    "event:cancel",
     "venue:view",
     "equipment:view",
     "facility:view",
@@ -267,6 +265,15 @@ export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields)
 ///                                          (customer clarification #68)
 ///   §4      postpone                     - the coordinator, or the organiser
 ///                                          for their own event
+///   §4      cancel                       - the assigned coordinator ONLY
+///
+/// Cancellation is deliberately narrower than postponement. Cancelling
+/// releases the venue booking and the equipment reservations and drops the
+/// attendee list (briefing §4 "Cancellation Management"), so it is the
+/// coordinator's call as the event's owner inside ConnectSphere - not the
+/// organiser's, and not the Ops Manager's. An organiser who wants to call an
+/// event off asks their coordinator; the request route for that is Event
+/// Change Requests, not this endpoint. Customer clarification, 2026-09-18.
 ///
 /// Venue Staff and Technical Support appear nowhere here on purpose: they
 /// decide their own bookings and equipment requests, not the event's status.
