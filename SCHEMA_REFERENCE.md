@@ -3,7 +3,7 @@
 What every table holds, what the values mean, and what will trip you up.
 Generated from `prisma/schema.prisma` - if the two disagree, the schema wins.
 
-**17 tables. UUID primary keys. camelCase in code, snake_case in Postgres.**
+**18 tables. UUID primary keys. camelCase in code, snake_case in Postgres.**
 
 ---
 
@@ -31,7 +31,7 @@ Copy from here rather than typing from memory.
 | Field | Allowed values |
 |---|---|
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
-| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `confirmed` `completed` `cancelled` `rejected` |
+| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
@@ -59,9 +59,12 @@ erDiagram
   events ||--o{ clarification_requests : has
   events ||--o{ event_change_requests : has
   events ||--o{ event_facility_requirements : requires
+  events ||--o{ event_sessions : "may split into"
   events ||--o{ venue_bookings : books
   events ||--o{ equipment_requests : requests
   events ||--o{ registrations : accepts
+  event_sessions ||--o{ venue_bookings : "scopes (optional)"
+  event_sessions ||--o{ equipment_requests : "scopes (optional)"
   venues ||--o{ venue_layouts : supports
   venues ||--o{ venue_facilities : provides
   venues ||--o{ venue_bookings : "booked as"
@@ -78,7 +81,7 @@ erDiagram
 | Person | Domain | Tables they mostly touch |
 |---|---|---|
 | Jordan | auth | `User`, `Organisation` |
-| Kristen | events | `Event`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` |
+| Kristen | events | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` |
 | Kayal | venues | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` |
 | Janelle | equipment | `Equipment`, `EquipmentRequest` |
 | Sammi | registrations | `Registration` |
@@ -219,7 +222,7 @@ Postgres table `events` &middot; `prisma.event`
 | `organiserId` | String | req | The external user who owns the request. |
 | `organisationId` | String |  | Their client company. Set from the organiser at creation, not sent by the client. |
 | `coordinatorId` | String |  | NULL until assigned. This is what separates submitted from under_review. |
-| `status` | String |  | Nine values - see Status values. Defaults to `"draft"`. |
+| `status` | String |  | Ten values - see Status values. Defaults to `"draft"`. |
 | `startsAt` | DateTime |  | The agreed schedule. Proposed changes live in EventChangeRequest, never here. |
 | `endsAt` | DateTime |  |  |
 | `expectedAttendance` | Int |  | Nullable for drafts. |
@@ -237,12 +240,32 @@ Postgres table `events` &middot; `prisma.event`
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 | `updatedAt` | DateTime | req |  |
 
-**Relations:** `organiser` &rarr; User, `organisation` &rarr; Organisation, `coordinator` &rarr; User, `facilityRequirements` &rarr; EventFacilityRequirement[], `statusHistory` &rarr; EventStatusHistory[], `clarifications` &rarr; ClarificationRequest[], `changeRequests` &rarr; EventChangeRequest[], `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[]
+**Relations:** `organiser` &rarr; User, `organisation` &rarr; Organisation, `coordinator` &rarr; User, `facilityRequirements` &rarr; EventFacilityRequirement[], `statusHistory` &rarr; EventStatusHistory[], `clarifications` &rarr; ClarificationRequest[], `changeRequests` &rarr; EventChangeRequest[], `sessions` &rarr; EventSession[], `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[]
 
 **Watch out:**
 
 - `title`, `startsAt` and `expectedAttendance` are nullable ONLY because drafts may be incomplete. The PATCH route blocks leaving draft until they are filled.
 - Never write proposed changes here. That is what EventChangeRequest is for.
+- `startsAt`/`endsAt`/`expectedAttendance`/`preferredLayout` describe the event as a whole. A multi-session event's individual sessions live in `EventSession` instead - no route builds or reads those yet (schema only, see below).
+
+### `EventSession`
+
+Postgres table `event_sessions` &middot; `prisma.eventSession`
+
+A multi-session event's individual sessions (e.g. a two-day conference where day 1 is in one room and day 2 in another). Optional: a single-session event has zero rows here, and its `VenueBooking`/`EquipmentRequest` rows link to the `Event` directly (`sessionId` NULL) exactly as before this table existed. **No route creates, lists or edits these yet** - the table exists so venue/equipment requests can be scoped to a session once event creation supports adding them.
+
+| Field | Type | | Notes |
+|---|---|---|---|
+| `id` | String |  | Defaults to `uuid()`. |
+| `eventId` | String | req |  |
+| `label` | String |  | Display only, e.g. "Day 1 Morning". |
+| `startsAt` | DateTime | req |  |
+| `endsAt` | DateTime | req |  |
+| `expectedAttendance` | Int |  |  |
+| `preferredLayout` | String |  | Matched against VenueLayout.layoutName. |
+| `createdAt` | DateTime |  | Defaults to `now()`. |
+
+**Relations:** `event` &rarr; Event, `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[]
 
 ### `EventFacilityRequirement`
 
@@ -326,9 +349,10 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `eventId` | String | req |  |
+| `sessionId` | String |  | Set only for a multi-session event's session-specific booking. NULL means the booking applies to the whole event, as before EventSession existed. |
 | `venueId` | String | req |  |
 | `layoutName` | String |  | What Venue Staff physically set up. |
-| `startsAt` | DateTime | req | COPIED from the event at request time. Do not read it live - changing an event must not silently move an approved booking. |
+| `startsAt` | DateTime | req | COPIED from the event (or session) at request time. Do not read it live - changing an event must not silently move an approved booking. |
 | `endsAt` | DateTime | req |  |
 | `status` | String |  | pending \| approved \| rejected \| cancelled. Only `approved` blocks a venue. Defaults to `"pending"`. |
 | `requestedBy` | String | req |  |
@@ -338,7 +362,7 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `decidedAt` | DateTime |  |  |
 | `decisionReason` | String |  | Required when rejecting. |
 
-**Relations:** `event` &rarr; Event, `venue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
+**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
 
 **Watch out:**
 
@@ -436,6 +460,7 @@ A multi-session event's individual sessions (class clarification #74: different 
 
 **Relations:** `event` &rarr; Event, `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[]
 - One row per equipment type per event (`@@unique`). Asking for more means editing the quantity, not adding a row.
+- The unique constraint is `(eventId, equipmentId)`, NOT `(eventId, sessionId, equipmentId)` - deliberately, because Postgres treats NULL as distinct in a unique index and a three-column version would stop deduplicating on single-session events (`sessionId` NULL), which is the common case. The tradeoff: two sessions of the SAME multi-session event can't yet each independently request the same equipment type. Needs a partial/expression index to fix properly - known limitation, not yet hit by any route since none write `sessionId` yet.
 
 ### `Registration`
 

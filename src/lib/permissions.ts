@@ -263,7 +263,9 @@ export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields)
 ///   Step 5  approve / reject             - the assigned coordinator
 ///   Step 10 confirm                      - the assigned coordinator
 ///   Step 14 complete                     - the assigned coordinator
-///   §4      cancel / postpone            - the coordinator, or the organiser
+///   §4      cancel                       - the assigned coordinator only
+///                                          (customer clarification #68)
+///   §4      postpone                     - the coordinator, or the organiser
 ///                                          for their own event
 ///
 /// Venue Staff and Technical Support appear nowhere here on purpose: they
@@ -281,7 +283,7 @@ export const STATUS_TRANSITION_ROLES: Record<string, readonly Role[]> = {
   confirmed: ["coordinator"],
   completed: ["coordinator"],
   postponed: ["coordinator", "organiser"],
-  cancelled: ["coordinator", "organiser", "ops_manager"],
+  cancelled: ["coordinator"],
 };
 
 /// May this user move this event into `toStatus`? Both halves are checked:

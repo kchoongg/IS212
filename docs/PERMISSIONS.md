@@ -179,7 +179,7 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 | `confirmed` | Coordinator (assigned) | Step 10 |
 | `completed` | Coordinator (assigned) | Step 14 |
 | `postponed` | Coordinator (assigned), Organiser (owner) | §4 Rescheduling |
-| `cancelled` | Coordinator (assigned), Organiser (owner), Ops Manager | §4 Cancellation |
+| `cancelled` | Coordinator (assigned) only | §4 Cancellation, customer clarification #68 |
 
 Venue Staff and Technical Support appear nowhere: they decide their own bookings
 and equipment requests, not the event's status.

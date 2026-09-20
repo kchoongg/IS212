@@ -9,6 +9,7 @@ import {
   type Actor,
 } from "@/lib/permissions";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
+import { notifyRole } from "@/lib/notifications";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
 
@@ -179,6 +180,21 @@ async function handleStatusChange(
         reason: data.reason,
       },
     });
+
+    // SPM-25 AC: "the relevant users receive a notification that the request
+    // has been submitted". No coordinator is assigned yet at this point in
+    // the process (that's Step 3, the Ops Manager's job - see
+    // STATUS_TRANSITION_ROLES.under_review), so the Ops Manager queue (S-28)
+    // is who needs to act next and who is notified.
+    if (data.status === "submitted") {
+      await notifyRole(tx, "ops_manager", {
+        type: "event_submitted",
+        title: "New event request submitted",
+        body: `"${e.title}" has been submitted and needs a coordinator assigned.`,
+        eventId: id,
+      });
+    }
+
     return e;
   });
 
@@ -223,27 +239,45 @@ async function handleDraftEdit(
   const registrationClosesAt =
     data.registrationClosesAt !== undefined ? new Date(data.registrationClosesAt) : event.registrationClosesAt;
 
-  const errors: string[] = [];
+  // Keyed by field, not a flat list: readServerError() (src/lib/formErrors.ts)
+  // only renders a message inline under the field it names, via the same
+  // `details.fieldErrors` shape Zod's flatten() produces. A bare `{ error }`
+  // string is never attributed to a field, so it always falls back to a
+  // top-of-form Alert - wrong for a rule like "ends at must be after starts
+  // at" that a tester expects to see under Ends at (UI_DESIGN.md §7.2: "Field
+  // error" vs "Form error" is a matter of attributability, not which layer
+  // caught the rule).
+  const fieldErrors: Record<string, string> = {};
   if (startsAt && endsAt && endsAt <= startsAt) {
-    errors.push("endsAt must be after startsAt");
+    fieldErrors.endsAt = "Ends at must be after starts at.";
   }
   if (registrationEnabled && registrationCapacity == null) {
-    errors.push("registrationCapacity is required when registrationEnabled is true");
+    fieldErrors.registrationCapacity = "Registration capacity is required when registration is enabled.";
   }
   if (registrationOpensAt && registrationClosesAt && registrationClosesAt <= registrationOpensAt) {
-    errors.push("registrationClosesAt must be after registrationOpensAt");
+    fieldErrors.registrationClosesAt = "Registration closes at must be after it opens.";
   }
   if (registrationOpensAt && startsAt && registrationOpensAt >= startsAt) {
-    errors.push("registrationOpensAt must be before the event starts");
+    fieldErrors.registrationOpensAt = "Registration must open before the event starts.";
   }
-  if (registrationClosesAt && startsAt && registrationClosesAt >= startsAt) {
-    errors.push("registrationClosesAt must be before the event starts");
+  // Mirrors the `!errors.registrationClosesAt` guard in validateForm()
+  // (src/lib/eventForm.ts): don't let this second rule stomp on a message
+  // the "must be after it opens" check already set for the same field.
+  if (registrationClosesAt && startsAt && registrationClosesAt >= startsAt && !fieldErrors.registrationClosesAt) {
+    fieldErrors.registrationClosesAt = "Registration must close before the event starts.";
   }
   if (data.equipment?.length && (!startsAt || !endsAt)) {
-    errors.push("Set the event date and time before requesting equipment");
+    fieldErrors.equipment = "Set the event date and time before requesting equipment.";
   }
-  if (errors.length > 0) {
-    return NextResponse.json({ error: errors[0] }, { status: 400 });
+  const firstField = Object.keys(fieldErrors)[0];
+  if (firstField) {
+    return NextResponse.json(
+      {
+        error: fieldErrors[firstField],
+        details: { fieldErrors: Object.fromEntries(Object.entries(fieldErrors).map(([f, m]) => [f, [m]])) },
+      },
+      { status: 400 }
+    );
   }
 
   // Equipment is held wider than the event, same as on create.
