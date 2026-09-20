@@ -18,10 +18,19 @@ export async function GET(req: NextRequest) {
     return forbidden("The venue catalogue is for ConnectSphere staff");
   }
 
+  // ADDED: retired venues are out of the catalogue by default. Now that a
+  // venue can be retired (PATCH /api/venues/[id] with isActive: false), an
+  // unfiltered list would keep offering a closed room to suitability checks
+  // and booking requests - which would make retiring it mean nothing.
+  // `?includeRetired=true` is for the venue management screen, which has to
+  // show a retired room in order to bring it back.
+  const includeRetired = req.nextUrl.searchParams.get("includeRetired") === "true";
+
   // CHANGED: include layouts and facilities. A venue without its per-layout
   // capacities cannot answer "does this fit 100 people?", which is the whole
   // point of the venue list for suitability checking.
   const venues = await prisma.venue.findMany({
+    where: includeRetired ? undefined : { isActive: true },
     include: {
       layouts: true,
       facilities: { include: { facility: true } },

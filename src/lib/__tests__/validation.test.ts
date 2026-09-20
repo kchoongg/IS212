@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { registerSchema, createEventSchema, updateEventStatusSchema, updateEventDraftSchema } from "../validation";
+import {
+  registerSchema,
+  createEventSchema,
+  updateEventStatusSchema,
+  updateEventDraftSchema,
+  updateVenueSchema,
+} from "../validation";
 
 describe("registerSchema", () => {
   it("accepts a valid registration", () => {
@@ -512,5 +518,58 @@ describe("updateEventDraftSchema — sessions", () => {
       ],
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe("updateVenueSchema", () => {
+  it("accepts a single field on its own", () => {
+    expect(updateVenueSchema.safeParse({ maxCapacity: 40 }).success).toBe(true);
+  });
+
+  it("accepts retiring a venue", () => {
+    const result = updateVenueSchema.safeParse({ isActive: false, reason: "Renovation" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an empty body", () => {
+    // Nothing to change is a mistake worth reporting, not a silent no-op that
+    // still writes an audit trail and notifies people.
+    const result = updateVenueSchema.safeParse({});
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toMatch(/at least one field/i);
+    }
+  });
+
+  it("rejects a body of nothing but unknown fields", () => {
+    expect(updateVenueSchema.safeParse({ capacity: 40 }).success).toBe(false);
+  });
+
+  it("rejects a duplicate layout name", () => {
+    // VenueLayout is unique on (venueId, layoutName), and a replacement list
+    // is written as delete-then-create - so a duplicate here would fail
+    // mid-transaction as a 500 instead of a 400.
+    const result = updateVenueSchema.safeParse({
+      layouts: [
+        { layoutName: "classroom", capacity: 40 },
+        { layoutName: "classroom", capacity: 30 },
+      ],
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toMatch(/only once/i);
+    }
+  });
+
+  it("accepts an empty layouts array, which clears every layout", () => {
+    // Deliberate: removing the last layout is a legitimate edit, and it is one
+    // that flags every booking that named a layout.
+    expect(updateVenueSchema.safeParse({ layouts: [] }).success).toBe(true);
+  });
+
+  it("still enforces the field rules it inherits from createVenueSchema", () => {
+    expect(updateVenueSchema.safeParse({ maxCapacity: 0 }).success).toBe(false);
+    expect(updateVenueSchema.safeParse({ opensAt: "8am" }).success).toBe(false);
+    expect(updateVenueSchema.safeParse({ facilityIds: ["not-a-uuid"] }).success).toBe(false);
   });
 });

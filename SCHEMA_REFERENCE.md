@@ -33,6 +33,7 @@ Copy from here rather than typing from memory.
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
 | `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
+| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
 | `ClarificationRequest.status` | `open` `answered` `closed` |
@@ -161,6 +162,9 @@ Postgres table `venues` &middot; `prisma.venue`
 
 - `opensAt`/`closesAt` are strings, not DateTime. Compare them as strings.
 - A booking outside opening hours is not a *clash*, but it is still not allowed - that is a separate check.
+- **Narrowing the hours does not yet flag anything.** These are wall-clock text and `VenueBooking.startsAt` is a DateTime, so comparing them needs a timezone convention this codebase has not settled - the hours check itself is still unwritten. Moving `opensAt` from 08:00 to 10:00 therefore leaves an approved 09:00 booking unflagged. Deferred rather than guessed; see "Rules the database does NOT enforce" below.
+- `isActive: false` is how a venue is retired. There is no delete: `VenueBooking.venueId` has no cascade, so deleting a booked venue fails at the database, and past bookings must keep pointing at the room they were held in.
+- `GET /api/venues` returns active venues only unless you pass `?includeRetired=true`. A suitability or availability query should not offer a retired room.
 
 ### `VenueLayout`
 
@@ -246,13 +250,13 @@ Postgres table `events` &middot; `prisma.event`
 
 - `title`, `startsAt` and `expectedAttendance` are nullable ONLY because drafts may be incomplete. The PATCH route blocks leaving draft until they are filled.
 - Never write proposed changes here. That is what EventChangeRequest is for.
-- `startsAt`/`endsAt`/`expectedAttendance`/`preferredLayout` describe the event as a whole. For a multi-session event these are **derived** from its `EventSession` rows on every save (earliest start, latest end, largest session's attendance), so anything that lists events keeps working; the sessions themselves hold the real per-session values (see below).
+- `startsAt`/`endsAt`/`expectedAttendance`/`preferredLayout` describe the event as a whole. A multi-session event's individual sessions live in `EventSession` instead. No route creates or edits sessions yet, but they are now read: see `EventSession` below.
 
 ### `EventSession`
 
 Postgres table `event_sessions` &middot; `prisma.eventSession`
 
-A multi-session event's individual sessions (e.g. a two-day conference where day 1 is in one room and day 2 in another). Optional: a single-session event has zero rows here, and its `VenueBooking`/`EquipmentRequest` rows link to the `Event` directly (`sessionId` NULL) exactly as before this table existed. `POST /api/events` and `PATCH /api/events/[id]` (draft edit) create and replace them, along with each session's own `EquipmentRequest` rows (`sessionId` set, reservation window = the session's times ±2h); `GET /api/events/[id]` returns them. There are no standalone session routes. A draft's sessions are replaced wholesale on each save, and a multi-session event has at least two. Venue bookings are not yet session-scoped in practice (`VenueBooking.sessionId` is still NULL until SPM-42).
+A multi-session event's individual sessions (e.g. a two-day conference where day 1 is in one room and day 2 in another). Optional: a single-session event has zero rows here, and its `VenueBooking`/`EquipmentRequest` rows link to the `Event` directly (`sessionId` NULL) exactly as before this table existed. `POST /api/events` and `PATCH /api/events/[id]` (draft edit) create and replace them, along with each session's own `EquipmentRequest` rows (`sessionId` set, reservation window = the session's times ±2h); `GET /api/events/[id]` returns them. There are no standalone session routes. A draft's sessions are replaced wholesale on each save, and a multi-session event has at least two. Venue bookings are not yet session-scoped in practice (`VenueBooking.sessionId` is still NULL until SPM-42), but `api/venues/[id]` PATCH already reads sessions: it resolves `session.expectedAttendance ?? event.expectedAttendance` when deciding whether a venue change breaks a booking, because a session-scoped booking must be judged against that session's headcount. Any other code comparing a booking against an attendance figure needs the same fallback - session data wins when present, event data is the fallback.
 
 | Field | Type | | Notes |
 |---|---|---|---|
@@ -361,6 +365,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `decidedBy` | String |  |  |
 | `decidedAt` | DateTime |  |  |
 | `decisionReason` | String |  | Required when rejecting. |
+| `needsReview` | Boolean |  | A venue change may have invalidated this booking. The booking is NOT changed - a human decides. Defaults to `false`. |
+| `reviewReason` | String |  | Why it was flagged: comma-separated codes, see Status values. NULL when `needsReview` is false. |
+| `flaggedAt` | DateTime |  | When it was last flagged. NULL when never flagged. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
 
@@ -368,6 +375,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 
 - Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`. The same test appears in three places - write it once and reuse it.
 - Only compare against `status: 'approved'`. Pending requests may legitimately compete for the same slot.
+- `needsReview` is a flag, never an action. When a venue is edited or retired, `PATCH /api/venues/[id]` sets it on affected bookings and notifies the coordinator; it does not change the booking's venue, layout, times or status, and it does not touch the Event. Only `approved` bookings that have not yet finished are candidates - a pending booking is not a commitment, so there is nothing to protect by flagging it.
+- **Nothing clears the flag yet.** There is no route for a coordinator to acknowledge or resolve one - that is a separate story. Do not assume a flagged booking is unresolved in real life.
+- `reviewReason` accumulates. A second venue edit merges its codes into the existing list rather than replacing them, so parse it as a set.
 
 ### `VenueUnavailability`
 
@@ -472,7 +482,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req |  |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`. |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |
@@ -480,6 +490,13 @@ Postgres table `notifications` &middot; `prisma.notification`
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
 **Relations:** `recipient` &rarr; User, `event` &rarr; Event
+
+**Watch out:**
+
+- This table is now actually written to. Use the helpers in `src/lib/notifications.ts` rather than `tx.notification.create` directly: `notifyUser(tx, recipientId, {...})` for one named person, `notifyRole(tx, role, {...})` for a queue. Both take a transaction, so a notification is only ever created alongside the state change that caused it.
+- `recipientId` for a venue review flag is `event.coordinatorId` **falling back to `booking.requestedBy`**. `coordinatorId` is nullable, so an unassigned event has no assigned Coordinator to notify; the requester is the person who asked for the room and in practice the coordinator who has to find another one.
+- There is no `venueId` or `bookingId` column, only `eventId`. A notification about a venue or a booking has to name the room and the dates in `body`, or the recipient cannot tell which booking it means.
+- **Nothing reads these yet.** The top-bar bell and every sidebar "Notifications" link point at a screen that does not exist, so a written notification is currently invisible in the app.
 
 ---
 
@@ -494,6 +511,7 @@ double-booked venue. These rules live in route code:
 | Rejection reason | `api/events/[id]` PATCH | a reason is given when status becomes `rejected` |
 | Venue suitability | venues domain (to write) | layout capacity >= attendance, all mandatory facilities present |
 | Booking conflict | venues domain (to write) | no overlapping `approved` booking or unavailability |
+| Venue change impact | `src/lib/venueImpact.ts`, applied by `api/venues/[id]` PATCH | which future `approved` bookings a venue edit or retirement newly breaks, so they can be flagged. Pure functions, unit tested without a database. Does NOT yet cover narrowed `opensAt`/`closesAt` - that needs a timezone convention the codebase has not settled |
 | Equipment availability | equipment domain (to write) | requested <= total - maintenance - overlapping reservations |
 | Registration | `api/registrations` POST | event confirmed, within window, not already registered, seats left |
 
@@ -546,6 +564,25 @@ const agg = await prisma.equipmentRequest.aggregate({
 const available = eq.totalQuantity - eq.quantityInMaintenance - (agg._sum.quantityReserved ?? 0);
 ```
 
+**Bookings flagged for review, newest first** (uses the `[needsReview, flaggedAt]` index):
+
+```ts
+const forReview = await prisma.venueBooking.findMany({
+  where: {
+    needsReview: true,
+    // Scope to one coordinator's own work by going through the event.
+    event: { coordinatorId },
+  },
+  orderBy: { flaggedAt: 'desc' },
+  include: {
+    venue: { select: { code: true, name: true } },
+    event: { select: { title: true, expectedAttendance: true } },
+  },
+});
+// reviewReason holds comma-separated codes - parse it as a set, it accumulates.
+const reasons = forReview[0]?.reviewReason?.split(',') ?? [];
+```
+
 ---
 
 ## Demo data
@@ -575,6 +612,13 @@ Useful logins:
 
 The data deliberately contains things to find: venues that lack a hearing loop so
 suitability checks can rule them out, equipment in maintenance so availability is
-not just the total, an event rejected with a reason on record, and a change request
-refused because the room caps at 40.
+not just the total, an event rejected with a reason on record, a change request
+refused because the room caps at 40, and one approved future booking that starts
+out flagged for review because its room was made too small for it.
+
+**Watch out:**
+
+- **Every id is a fresh UUID on every reseed.** `prisma/seed.ts` hardcodes no ids at all - each `create()` omits `id` and lets `@default(uuid())` fire, then keeps the generated values in in-memory maps (`venues[code]`, `users[email]`, `events[key]`) only long enough to wire up that one run's relations. So reseeding does not merely reset the data, it renumbers it: the "same" logical venue comes back with a different id. Any saved URL (`/venues/<uuid>/edit`), any id pasted into a ticket or a screenshot, and any id hardcoded in a fixture is dead after a reseed.
+- **The only things stable across a reseed are each model's natural unique key**: `Venue.code`, `User.email`, and `name` on `Organisation`, `Facility` and `Equipment`. Look records up by those, never by id, if the code has to survive a reseed - the seed script's own labels (`"JUR-TRN"`, `"confirmed_claims"`) are not in the database.
+- **`Event` has no unique identifier at all.** Not `title`, which is nullable *and* non-unique, and the seed's `key` (`"confirmed_claims"`) is never persisted. So there is currently **no reliable way to refer to "the same event" across a reseed or between environments** - an event can only be re-found by matching on title by convention. That is a schema gap, not just a seed-script quirk: anything that needs a durable external reference to an event (a test fixture, a ticket, a report, an integration) has nothing to hold on to.
 

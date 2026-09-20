@@ -200,8 +200,8 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 | Person | Folder | Domain | Tables | Status |
 |---|---|---|---|---|
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
-| **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (sessions are created and edited through `POST` / `PATCH /api/events`; no standalone session routes) |
-| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create, facilities list; booking routes to build |
+| **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
+| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list; booking decision routes to build |
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
@@ -624,6 +624,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. | events |
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
+| **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
+| **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
+| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles (the event detail screen doesn't exist yet). | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
@@ -647,6 +650,90 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-09-20 — Kayal
+- **`PATCH /api/venues/[id]` — update a venue, or retire it** (SPM-39). The
+  route had only GET and POST: there was no way to change a venue at all, and
+  no way to retire one. Retiring is `isActive: false`, never a delete —
+  `VenueBooking.venueId` has no cascade, so deleting a booked venue fails at
+  the database, and past bookings must keep pointing at the room they were held
+  in. A *present* `layouts` / `facilityIds` array replaces that relation
+  outright (absent means "leave it alone"), which is how a layout or facility
+  gets removed. `GET /api/venues` now returns active venues only unless you
+  pass `?includeRetired=true` — a retired room must not reach a suitability
+  check. `GET /api/venues/[id]` added for the edit screen.
+- **New AC from Kristen (discussion board #120 and #122): affected bookings are
+  flagged, never changed.** `VenueBooking` gains `needsReview` /
+  `reviewReason` / `flaggedAt`, and the assigned Coordinator is notified.
+  Nothing about the booking itself is touched — not its venue, layout, times or
+  status — and `Event` is not written to at all. Which bookings count as
+  affected lives in `src/lib/venueImpact.ts` as pure functions (34 tests, no
+  database): the reasons are the difference between the problems the venue has
+  *after* the edit and the problems it had *before*, which is what makes an
+  unrelated edit, an already-broken booking, and the same form saved twice all
+  stay quiet without extra bookkeeping. Candidates are `approved` bookings that
+  have not yet finished — a pending booking is not a commitment, so there is
+  nothing to protect by flagging it.
+  - Migration: `20260919165337_add_venue_booking_review_flag` — three additive
+    columns plus a `[needsReview, flaggedAt]` review-queue index.
+  - **Not** covered yet: narrowed `opensAt`/`closesAt`. Those are wall-clock
+    strings and `booking.startsAt` is a DateTime; the timezone convention for
+    comparing them does not exist in this codebase yet, and guessing it would
+    produce false flags on every edit. Deferred deliberately.
+- **Venue catalogue UI (S-19, S-20)** — `/venues`, `/venues/new`,
+  `/venues/[id]/edit`. Fields and validation are shared via
+  `src/lib/venueForm.ts` and the *markup* via `src/components/VenueForm.tsx`,
+  so create and edit cannot drift — the events screens share only their logic
+  and duplicate ~200 lines of JSX, which this avoids inheriting. One route
+  serves two audiences, gated on `can(role, "venue:manage")`: Venue Staff get
+  Add venue, clickable rows and retired venues in the list; a coordinator gets
+  the same list read-only, with the "Retired only" filter option hidden because
+  they never receive retired rows (the same reasoning `/events` uses to hide
+  "Draft" from a coordinator). Retire uses `ConfirmDialog` and names its real
+  consequence (§7.5); the reason typed there is not stored on the venue, it goes
+  into each coordinator's notification. The edit screen deliberately does **not**
+  navigate away on save — the flagged bookings in the response are the only
+  place a person is told the AC happened.
+- **`notifyUser(tx, recipientId, {...})` added to `src/lib/notifications.ts`**,
+  beside Kristen's `notifyRole`, sharing a `NotificationContent` type so the two
+  cannot drift on fields. "The assigned Coordinator is notified" is one named
+  person per affected booking, not a role queue — fanning it out would notify
+  four coordinators about a room three of them are not responsible for.
+  `notifyRole`'s parameter type now references that shared interface: same
+  fields, same optionality, no caller changes.
+- **Session-aware attendance.** After merging SPM-25 a booking may be
+  session-scoped, so the impact check resolves
+  `session.expectedAttendance ?? event.expectedAttendance` — a 20-person
+  breakout is not affected by a room that no longer seats the whole conference.
+  `EventFacilityRequirement` is still event-scoped, so the facility rule needs
+  no fallback; noted at the query in case sessions ever gain their own.
+- **Fixed `npm run lint` — closes that known gap.** `next lint` was removed in
+  Next 16, so npm passed "lint" to `next` as a project directory and the script
+  errored for everyone. Now `eslint .`, verified both ways: exit 1 with a real
+  `react-hooks/rules-of-hooks` violation present, exit 0 on a clean tree.
+  Deleted `.eslintrc.json`, which ESLint 9 was already ignoring in favour of
+  `eslint.config.mjs`. Also gitignored and untracked `tsconfig.tsbuildinfo` —
+  TypeScript's build cache was versioned, so it appeared as a machine-specific
+  blob in unrelated diffs.
+- **Opening hours fields**: the hint read "24-hour, e.g. 08:00." while the
+  native time picker renders in the viewer's own locale, which is a 12-hour
+  AM/PM face in some. The stored value was never wrong —
+  `<input type="time">` reports 24-hour `HH:mm` whatever it displays — so the
+  hint was the defect, not the input. Both times are now required, which fixes a
+  second bug in the same fields: an emptied one was sent as `undefined`, which
+  PATCH reads as "leave this alone", so the old value came back silently with
+  nothing shown to the user.
+- **Seed**: Jurong Training Room's classroom layout reduced 60 → 40 seats, so
+  the one pre-flagged booking in the demo data is *justified* by the venue's own
+  state rather than asserted — the Harbourline claims training expects 55. This
+  changes a shared fixture, so it may affect another domain's demo.
+- 24 manual test cases in `docs/test-cases/SPM-39_Test_Cases.xlsx` covering all
+  seven of SPM-39's acceptance criteria, with 11 open questions recorded for
+  Kristen. The two that block sign-off: there is no notifications screen to
+  verify "the assigned Coordinator is notified" from, and no way to see or clear
+  a flag once the save confirmation clears (see Known Gaps).
+- `tsc --noEmit`, `eslint .` and `vitest` (162/162) all clean.
+
+---
 ### 2026-09-20 — Kristen
 - **Implemented SPM-23's new acceptance criterion: multi-session events**
   ("an event can be organised into multiple sessions, each with its own
