@@ -242,7 +242,7 @@ precisely how four routes shipped without authorisation. So there is a second
 layer: `npm run verify:permissions`
 ([`scripts/verify-permissions.ts`](../scripts/verify-permissions.ts)) signs in
 as all six seeded roles against a running server and asserts the real HTTP
-status of 44 refusals and permitted actions, each labelled with the acceptance
+status of 45 refusals and permitted actions, each labelled with the acceptance
 criterion it belongs to (including an `SPM-47` group covering the equipment
 request routes added there). Start `npm run dev` first. It creates its own
 event through the API and deletes everything it made, so it is safe to re-run.
