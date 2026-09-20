@@ -1,0 +1,438 @@
+{
+  "story_key": "SPM-39",
+  "story_title": "As Venue Staff, I want to maintain venue information so that Event Coordinators can identify venues that meet event requirements",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-09-20",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "Venue Staff can create a venue record." },
+    { "id": "AC2", "text": "Venue information includes location, capacity, facilities and accessibility information." },
+    { "id": "AC3", "text": "Supported room layouts can be recorded, each with its own capacity value." },
+    { "id": "AC4", "text": "Venue operating information can be recorded." },
+    { "id": "AC5", "text": "Authorised users can update venue information." },
+    { "id": "AC6", "text": "Unavailable or inactive venues are not presented as available options." },
+    { "id": "AC7", "text": "When a venue's attributes are updated or it is retired, existing bookings that may be affected are flagged for review rather than automatically changed, and the assigned Coordinator is notified." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-39-TC01",
+      "title": "Venue Staff can create a venue record",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data loaded (16 venues).\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click 'Add venue'",
+        "Enter the code, name, building and maximum capacity",
+        "Click 'Add venue'"
+      ],
+      "test_data": "Code: TEST-01\nName: Test Meeting Room\nBuilding: Marina Bay\nMaximum capacity: 24",
+      "expected_result": "The Venues list reopens and now shows 17 venues.\n'Test Meeting Room' appears with code TEST-01, Location 'Marina Bay', Max capacity 24, Layouts 'None set' in amber, Status 'Active'."
+    },
+    {
+      "id": "SPM-39-TC02",
+      "title": "Empty venue form is rejected with a message on every required field",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click 'Add venue'",
+        "Leave every field empty",
+        "Click 'Add venue'"
+      ],
+      "test_data": "All fields left blank",
+      "expected_result": "The venue is not created and the page does not navigate away.\nUnder Code: 'Give the venue a short code, e.g. MAR-GH.'\nUnder Name: 'Enter the venue's name.'\nUnder Building: 'Enter which building this room is in.'\nUnder Maximum capacity: 'Enter the room's maximum capacity.'\nThe Code field receives focus."
+    },
+    {
+      "id": "SPM-39-TC03",
+      "title": "A venue code that is already in use is rejected",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Demo data loaded — a venue with code MAR-GH (Marina Grand Hall) already exists.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click 'Add venue'",
+        "Enter the code, name, building and maximum capacity",
+        "Click 'Add venue'"
+      ],
+      "test_data": "Code: MAR-GH\nName: Duplicate Code Room\nBuilding: Marina Bay\nMaximum capacity: 30",
+      "expected_result": "A message 'A venue with this code already exists' appears at the top of the form.\nNo venue is created — the Venues list still shows the original number of venues."
+    },
+    {
+      "id": "SPM-39-TC04",
+      "title": "A Coordinator cannot reach the Add venue form",
+      "linked_ac": ["AC1", "AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Look for an 'Add venue' button in the page header",
+        "Copy the Add venue page address used by Venue Staff and paste it into the browser address bar",
+        "Press Enter"
+      ],
+      "test_data": "Account: daniel.tan@connectsphere.com (Event Coordinator)",
+      "expected_result": "No 'Add venue' button is shown on the Venues page.\nThe Add venue page shows 'Only Venue Staff can add a venue' with the note that Venue Staff are responsible for venue information, and a 'Back to Venues' button.\nNo venue form is displayed."
+    },
+    {
+      "id": "SPM-39-TC05",
+      "title": "Location, capacity, facilities and accessibility are all recorded and persist",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists from TC01.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click the 'Test Meeting Room' row",
+        "Enter the floor and address",
+        "Change Maximum capacity",
+        "Under 'This venue has', tick 'High-density WiFi' and 'Natural light'",
+        "Under 'Accessibility', tick 'Hearing induction loop' and 'Step-free access'",
+        "Click 'Save changes'",
+        "Click 'Back to Venues', then reopen 'Test Meeting Room'"
+      ],
+      "test_data": "Floor: L2\nAddress: 10 Marina Boulevard\nMaximum capacity: 32\nFacilities: High-density WiFi, Natural light\nAccessibility: Hearing induction loop, Step-free access",
+      "expected_result": "A green message 'Changes saved — No approved bookings were affected.' appears.\nOn reopening, Floor shows 'L2', Address '10 Marina Boulevard', Maximum capacity 32, and all four tick boxes are still ticked.\nThe Venues list shows Location as 'Marina Bay — L2'."
+    },
+    {
+      "id": "SPM-39-TC06",
+      "title": "A maximum capacity of zero is rejected",
+      "linked_ac": ["AC2"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click 'Add venue'",
+        "Enter the code, name and building",
+        "Enter the maximum capacity",
+        "Click 'Add venue'"
+      ],
+      "test_data": "Code: TEST-02\nName: Zero Capacity Room\nBuilding: Marina Bay\nMaximum capacity: 0",
+      "expected_result": "Under Maximum capacity: 'Enter a whole number, at least 1.'\nThe venue is not created.\nRepeating with a maximum capacity of 1 is accepted and the venue is created."
+    },
+    {
+      "id": "SPM-39-TC07",
+      "title": "Several layouts are recorded, each with its own capacity",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists with no layouts.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Test Meeting Room' from the Venues list",
+        "Click 'Add a layout'",
+        "Choose the layout and enter its seats",
+        "Click 'Add a layout' again",
+        "Choose the second layout and enter its seats",
+        "Click 'Save changes'",
+        "Click 'Back to Venues', then reopen 'Test Meeting Room'"
+      ],
+      "test_data": "Layout 1 — Boardroom, Seats: 20\nLayout 2 — U-shape, Seats: 14",
+      "expected_result": "On reopening, both rows are shown: Boardroom with 20 seats and U-shape with 14 seats, each keeping its own value.\nThe Venues list shows Layouts as '2 (max 20 seated)' for this venue."
+    },
+    {
+      "id": "SPM-39-TC08",
+      "title": "A layout row with no capacity is rejected",
+      "linked_ac": ["AC3"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Test Meeting Room' from the Venues list",
+        "Click 'Add a layout'",
+        "Choose the layout but leave Seats empty",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Layout: Theatre\nSeats: (left empty)",
+      "expected_result": "A message 'Every layout needs a capacity of at least 1.' appears above the layout rows.\nThe change is not saved — reopening the venue does not show a Theatre layout."
+    },
+    {
+      "id": "SPM-39-TC09",
+      "title": "The same layout cannot be recorded twice",
+      "linked_ac": ["AC3"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Test Meeting Room' from the Venues list",
+        "Click 'Add a layout' and choose Classroom",
+        "Click 'Add a layout' again",
+        "Open the layout list on the second row",
+        "Keep adding layouts until all seven have been listed"
+      ],
+      "test_data": "First layout: Classroom\nAll seven layouts: Theatre, Classroom, Boardroom, Banquet, Exhibition, U-shape, Cabaret",
+      "expected_result": "Classroom is not offered in the second row's layout list — only the layouts not already used are offered.\nOnce all seven layouts are listed, the 'Add a layout' button is disabled and 'Every layout is already listed.' is shown beneath it."
+    },
+    {
+      "id": "SPM-39-TC10",
+      "title": "Opening hours and turnaround times are recorded",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Test Meeting Room' from the Venues list",
+        "Set 'Opens at' and 'Closes at'",
+        "Set 'Setup minutes' and 'Teardown minutes'",
+        "Click 'Save changes'",
+        "Click 'Back to Venues', then reopen 'Test Meeting Room'"
+      ],
+      "test_data": "Opens at: 07:00\nCloses at: 23:00\nSetup minutes: 45\nTeardown minutes: 30",
+      "expected_result": "On reopening, Opens at shows 07:00, Closes at 23:00, Setup minutes 45 and Teardown minutes 30.\nThe Venues list shows Hours as '07:00–23:00' for this venue."
+    },
+    {
+      "id": "SPM-39-TC11",
+      "title": "A closing time before the opening time is rejected",
+      "linked_ac": ["AC4"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Test Meeting Room' from the Venues list",
+        "Set 'Opens at' to the later time",
+        "Set 'Closes at' to the earlier time",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Opens at: 18:00\nCloses at: 09:00",
+      "expected_result": "Under 'Closes at': 'Closing time must be after opening time.'\nThe change is not saved — reopening the venue shows the previous hours."
+    },
+    {
+      "id": "SPM-39-TC12",
+      "title": "A negative setup time is rejected",
+      "linked_ac": ["AC4"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Test Meeting Room' from the Venues list",
+        "Type the negative value into 'Setup minutes'",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Setup minutes: -5",
+      "expected_result": "Under 'Setup minutes': 'Enter a whole number of minutes, 0 or more.'\nThe change is not saved.\nRepeating with 0 is accepted and saves normally."
+    },
+    {
+      "id": "SPM-39-TC13",
+      "title": "Venue Staff can update an existing venue",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data loaded.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click the 'Orchard Studio' row",
+        "Change the Description",
+        "Click 'Save changes'",
+        "Click 'Back to Venues', then reopen 'Orchard Studio'"
+      ],
+      "test_data": "Description: Workshop room with benches, heavy power supply and a new sink",
+      "expected_result": "A green message 'Changes saved — No approved bookings were affected. No approved bookings were affected, so nobody needed to be notified.' appears at the top of the page.\nThe page stays on the venue rather than navigating away.\nOn reopening, the new description is shown."
+    },
+    {
+      "id": "SPM-39-TC14",
+      "title": "A Coordinator cannot update a venue",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Demo data loaded.\nLogged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click on a venue row",
+        "Copy a venue's edit page address used by Venue Staff and paste it into the browser address bar",
+        "Press Enter"
+      ],
+      "test_data": "Account: daniel.tan@connectsphere.com (Event Coordinator)\nVenue: Marina Grand Hall",
+      "expected_result": "Clicking a row does nothing — rows are not links for this role, and no Status column is shown.\nThe edit page shows 'Only Venue Staff can change a venue' and a 'Back to Venues' button.\nNo venue form, no 'Save changes' button and no 'Retire venue' button are displayed."
+    },
+    {
+      "id": "SPM-39-TC15",
+      "title": "A retired venue is no longer offered to a Coordinator",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) exists, is active and has no bookings.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Test Meeting Room' from the Venues list",
+        "Click 'Retire venue'",
+        "Enter a reason in the confirmation dialog",
+        "Click 'Retire venue' in the dialog",
+        "Click 'Log out', then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Open the 'Show' filter"
+      ],
+      "test_data": "Reason: Closed for renovation until March",
+      "expected_result": "For Venue Staff the venue page gains a 'Retired' label, an amber 'This venue is retired' panel, and the button changes to 'Restore venue'.\nFor the Coordinator, 'Test Meeting Room' does not appear in the Venues list at all.\nThe Coordinator's 'Show' filter offers only 'All venues' and 'Active only' — there is no 'Retired only' option."
+    },
+    {
+      "id": "SPM-39-TC16",
+      "title": "Venue Staff can find a retired venue and restore it",
+      "linked_ac": ["AC6"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Venue 'Test Meeting Room' (TEST-01) has been retired in TC15.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Set the 'Show' filter to 'Retired only'",
+        "Open 'Test Meeting Room'",
+        "Click 'Restore venue'",
+        "Click 'Back to Venues'",
+        "Set the 'Show' filter to 'Active only'"
+      ],
+      "test_data": "Venue: Test Meeting Room (TEST-01)\nShow filter: Retired only, then Active only",
+      "expected_result": "With 'Retired only' selected, 'Test Meeting Room' is listed with Status 'Retired' in amber.\nAfter Restore, a green 'Venue restored' message appears, the 'Retired' label and amber panel disappear, and the button changes back to 'Retire venue'.\nWith 'Active only' selected, the venue is listed again with Status 'Active'."
+    },
+    {
+      "id": "SPM-39-TC17",
+      "title": "Reducing a layout below an approved booking's attendance flags that booking",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded — no flag can be cleared from the app, so reload the demo data before this test.\nOne-North Seminar Room (ONE-SEM) seats 80 theatre-style and has one approved future booking: 'Tanjong Legal CPD Seminar' on 28 Oct 2026, whose event expects 70 people. Its coordinator is Joel Fernandez.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'One-North Seminar Room' from the Venues list",
+        "Change the Theatre layout's Seats value",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Theatre seats: change 80 to 60 (the event expects 70)",
+      "expected_result": "An amber panel appears at the top: 'Changes saved — 1 booking flagged for review, coordinators notified'.\nIt states the bookings have NOT been changed and that each is flagged for its coordinator to decide what to do.\nIt lists 'Tanjong Legal CPD Seminar: the booked layout no longer seats the expected attendance'.\nThe new seats value of 60 is saved and shown on the form."
+    },
+    {
+      "id": "SPM-39-TC18",
+      "title": "A layout capacity exactly equal to the expected attendance does not flag",
+      "linked_ac": ["AC7"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nOne-North Auditorium (ONE-AUD) seats 180 theatre-style and has one approved future booking: 'Bayu Energy Transition Panel' on 3 Nov 2026, whose event expects 160 people.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'One-North Auditorium' from the Venues list",
+        "Change the Theatre layout's Seats value",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Theatre seats: change 180 to 160 (the event expects exactly 160)",
+      "expected_result": "A green panel appears: 'Changes saved — No approved bookings were affected.'\nNo booking is listed as flagged — a room that seats exactly the expected attendance still fits."
+    },
+    {
+      "id": "SPM-39-TC19",
+      "title": "One seat below the expected attendance does flag",
+      "linked_ac": ["AC7"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run immediately after TC18, with One-North Auditorium's Theatre layout at 160 seats and 'Bayu Energy Transition Panel' still unflagged.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'One-North Auditorium' from the Venues list",
+        "Change the Theatre layout's Seats value",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Theatre seats: change 160 to 159 (the event expects 160)",
+      "expected_result": "An amber panel appears: 'Changes saved — 1 booking flagged for review, coordinators notified'.\nIt lists 'Bayu Energy Transition Panel: the booked layout no longer seats the expected attendance'."
+    },
+    {
+      "id": "SPM-39-TC20",
+      "title": "Retiring a venue flags approved bookings but not pending ones",
+      "linked_ac": ["AC7"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nChangi Conference Centre (CBP-CONF) has one APPROVED future booking, 'Anchorpoint Supply Chain Briefing' on 20 Oct 2026, and one PENDING future booking, 'Pearl Delta Safety Conference'.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Changi Conference Centre' from the Venues list",
+        "Click 'Retire venue'",
+        "Enter a reason in the confirmation dialog",
+        "Click 'Retire venue' in the dialog"
+      ],
+      "test_data": "Reason: Air conditioning replacement, closed indefinitely",
+      "expected_result": "The confirmation dialog states the room will stop appearing in the catalogue, that past bookings are kept, and that any approved future booking will be flagged and its coordinator notified.\nAfter confirming, an amber panel reads 'Venue retired — 1 booking flagged for review, coordinators notified'.\nIt lists only 'Anchorpoint Supply Chain Briefing: the venue has been retired'.\n'Pearl Delta Safety Conference' is NOT listed, because a pending booking is not yet a commitment."
+    },
+    {
+      "id": "SPM-39-TC21",
+      "title": "Retiring a venue does not flag bookings that have already finished",
+      "linked_ac": ["AC7"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nJurong Training Room (JUR-TRN) has one approved FUTURE booking, 'Harbourline Claims Systems Training' on 13 Oct 2026, and one approved PAST booking, 'Meridian Compliance Training' from 25 Aug 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Jurong Training Room' from the Venues list",
+        "Click 'Retire venue'",
+        "Click 'Retire venue' in the confirmation dialog"
+      ],
+      "test_data": "Venue: Jurong Training Room (JUR-TRN)\nReason: left blank",
+      "expected_result": "An amber panel reads 'Venue retired — 1 booking flagged for review, coordinators notified'.\nOnly 'Harbourline Claims Systems Training: the venue has been retired' is listed.\n'Meridian Compliance Training' is NOT listed, because the event has already taken place."
+    },
+    {
+      "id": "SPM-39-TC22",
+      "title": "Changing details that cannot affect suitability flags nothing",
+      "linked_ac": ["AC7"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nMarina Grand Hall (MAR-GH) has two approved future bookings.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Marina Grand Hall' from the Venues list",
+        "Change the Description, Floor and Address",
+        "Increase the Theatre layout's Seats value",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Description: Flagship hall, refurbished 2026\nFloor: L1 (Main)\nAddress: 8 Marina View\nTheatre seats: change 500 to 520",
+      "expected_result": "A green panel appears: 'Changes saved — No approved bookings were affected.'\nNo booking is listed as flagged — renaming, relocating or enlarging a room cannot make it unsuitable.\nAll four changed values are saved and shown on reopening."
+    },
+    {
+      "id": "SPM-39-TC23",
+      "title": "Removing a facility an event requires flags its booking",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Demo data freshly loaded.\nJurong Expo Floor (JUR-EXP) has one approved future booking, 'Sundara Hospitality Trade Showcase' on 24 Nov 2026, whose event requires Loading bay access as a mandatory facility. Its coordinator is Daniel Tan.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Jurong Expo Floor' from the Venues list",
+        "Under 'This venue has', untick 'Loading bay access'",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Facility to untick: Loading bay access",
+      "expected_result": "An amber panel reads 'Changes saved — 1 booking flagged for review, coordinators notified'.\nIt lists 'Sundara Hospitality Trade Showcase: a facility this event requires is no longer available at this venue'.\nThe facility remains unticked after saving."
+    },
+    {
+      "id": "SPM-39-TC24",
+      "title": "Removing a facility no event requires flags nothing",
+      "linked_ac": ["AC7"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Demo data freshly loaded.\nJurong Expo Floor (JUR-EXP) offers 'Assistance animal friendly', which its approved booking's event does NOT list as a mandatory requirement.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open 'Jurong Expo Floor' from the Venues list",
+        "Under 'Accessibility', untick 'Assistance animal friendly'",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Facility to untick: Assistance animal friendly",
+      "expected_result": "A green panel appears: 'Changes saved — No approved bookings were affected.'\nNo booking is flagged — a facility the event did not ask for cannot make the room unsuitable for it."
+    }
+  ],
+  "open_questions": [
+    "AC7 says the assigned Coordinator is notified, but there is no notifications screen in the application. The top-bar bell and every sidebar 'Notifications' link point at a page that does not exist yet, so a tester can see the confirmation that coordinators were notified but cannot open a coordinator's inbox to verify it. Is building that screen part of SPM-39, or a separate story?",
+    "AC7 says affected bookings are 'flagged for review', but nothing in the application shows the flag once the save confirmation has gone. There is no review queue and no flag indicator on any booking screen, so the flag is only visible in the database. How should a tester verify that a flag persists?",
+    "Nothing can clear a flag once set — that was scoped out as a follow-up story. Every AC7 test therefore leaves permanent state, so the demo data has to be reloaded between runs. Is that acceptable for the test cycle, or should the acknowledge/resolve story be pulled into SPM-39?",
+    "AC7 says 'existing bookings that may be affected'. The implementation treats only approved bookings that have not yet finished as candidates: pending, rejected, cancelled and already-finished bookings are never flagged. TC20 and TC21 test it this way — please confirm it matches the intent of discussion #120 and #122.",
+    "AC7 also says bookings are not 'automatically changed'. A tester cannot confirm this independently, because no screen shows a booking's venue, layout, times or status — the Booking Requests screen is not built. Currently the only evidence is the wording of the confirmation panel. Is that enough, or should verification wait for the bookings screen?",
+    "AC6 covers both 'unavailable' and 'inactive' venues, but only the inactive half is testable. Retired venues are excluded from the Coordinator's catalogue (TC15). The venue search and booking request screens that would 'present available options' are not built, and venue unavailability (maintenance blocks) has no screen either, so the 'unavailable' half cannot be exercised. Is AC6 considered satisfied for this story?",
+    "A layout's capacity is allowed to exceed the venue's maximum capacity, and the demo data relies on it — Jurong Training Room has a Theatre layout of 70 against a maximum capacity of 60. Intended, or should the form reject a layout larger than the room?",
+    "The rule that a closing time must be after the opening time is only enforced in the browser (TC11). The API itself accepts a venue that closes before it opens. Should the server reject it too?",
+    "Narrowing a venue's opening hours is deliberately not treated as an impact yet, so a booking that now falls outside the opening hours is NOT flagged. This was deferred because comparing the stored opening time text against a booking's date and time needs a timezone convention the codebase has not settled. Please confirm this is acceptable for SPM-39 rather than a gap in AC7.",
+    "AC2 mentions 'accessibility information'. This is implemented as accessibility tick boxes only; unlike an event, a venue has no free-text accessibility notes field. Is the tick list sufficient?",
+    "Duplicate layout names are rejected by the server, but the layout picker only ever offers layouts that are not already used, so the rejection cannot be reached from the interface. TC09 tests the picker instead. No test covers the server-side rule."
+  ],
+  "code_references": [
+    "prisma/schema.prisma",
+    "prisma/migrations/20260919165337_add_venue_booking_review_flag/migration.sql",
+    "src/lib/venueImpact.ts",
+    "src/lib/venueForm.ts",
+    "src/lib/validation/venues.ts",
+    "src/lib/notifications.ts",
+    "src/lib/permissions.ts",
+    "src/app/api/venues/route.ts",
+    "src/app/api/venues/[id]/route.ts",
+    "src/app/venues/page.tsx",
+    "src/app/venues/new/page.tsx",
+    "src/app/venues/[id]/edit/page.tsx",
+    "src/components/VenueForm.tsx"
+  ]
+}

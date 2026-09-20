@@ -1,0 +1,104 @@
+@startuml
+title <size:24>Container View: ConnectSphere</size>\n<size:24>The containers that make up ConnectSphere.</size>
+
+set separator none
+top to bottom direction
+skinparam ranksep 60
+skinparam nodesep 30
+hide stereotype
+
+<style>
+  root {
+    BackgroundColor: #ffffff;
+    FontColor: #444444;
+  }
+  // Element,Container
+  .Element-RWxlbWVudCxDb250YWluZXI= {
+    BackgroundColor: #438dd5;
+    LineColor: #2e6295;
+    LineStyle: 0;
+    LineThickness: 2;
+    FontColor: #ffffff;
+    FontSize: 22;
+    HorizontalAlignment: center;
+    Shadowing: 0;
+    MaximumWidth: 450;
+  }
+  // Element,Container,Database
+  .Element-RWxlbWVudCxDb250YWluZXIsRGF0YWJhc2U= {
+    BackgroundColor: #438dd5;
+    LineColor: #2e6295;
+    LineStyle: 0;
+    LineThickness: 2;
+    FontColor: #ffffff;
+    FontSize: 22;
+    HorizontalAlignment: center;
+    Shadowing: 0;
+    MaximumWidth: 450;
+  }
+  // Element,Person
+  .Element-RWxlbWVudCxQZXJzb24= {
+    BackgroundColor: #08427b;
+    LineColor: #052e56;
+    LineStyle: 0;
+    LineThickness: 2;
+    FontColor: #ffffff;
+    FontSize: 24;
+    HorizontalAlignment: center;
+    Shadowing: 0;
+    MaximumWidth: 450;
+  }
+  // Element,Person,External Person
+  .Element-RWxlbWVudCxQZXJzb24sRXh0ZXJuYWwgUGVyc29u {
+    BackgroundColor: #999999;
+    LineColor: #6b6b6b;
+    LineStyle: 0;
+    LineThickness: 2;
+    FontColor: #ffffff;
+    FontSize: 24;
+    HorizontalAlignment: center;
+    Shadowing: 0;
+    MaximumWidth: 450;
+  }
+  // Relationship,ContextRel
+  .Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw= {
+    LineThickness: 2;
+    LineStyle: 10-10;
+    LineColor: #444444;
+    FontColor: #444444;
+    FontSize: 24;
+  }
+  // ConnectSphere
+  .Boundary-Q29ubmVjdFNwaGVyZQ== {
+    BackgroundColor: #ffffff;
+    LineColor: #0b4884;
+    LineStyle: 0;
+    LineThickness: 2;
+    FontColor: #ffffff;
+    FontSize: 24;
+    HorizontalAlignment: center;
+    Shadowing: 0;
+  }
+</style>
+
+person "==Event Organiser\n<size:16>[Person]</size>\n\nExternal client representative who submits event requests and communicates requirements." <<Element-RWxlbWVudCxQZXJzb24sRXh0ZXJuYWwgUGVyc29u>> as EventOrganiser
+person "==Ops Manager\n<size:16>[Person]</size>\n\nAssigns an Event Coordinator to each submitted request from the unassigned queue." <<Element-RWxlbWVudCxQZXJzb24=>> as OpsManager
+person "==Event Coordinator\n<size:16>[Person]</size>\n\nReviews event requests, requests venue bookings and equipment, and confirms events." <<Element-RWxlbWVudCxQZXJzb24=>> as EventCoordinator
+person "==Venue Staff\n<size:16>[Person]</size>\n\nManages venue information, availability, and booking decisions." <<Element-RWxlbWVudCxQZXJzb24=>> as VenueStaff
+person "==Technical Support Staff\n<size:16>[Person]</size>\n\nManages equipment records, availability, and reservations." <<Element-RWxlbWVudCxQZXJzb24=>> as TechnicalSupportStaff
+person "==Attendee\n<size:16>[Person]</size>\n\nExternal participant who registers for confirmed events." <<Element-RWxlbWVudCxQZXJzb24sRXh0ZXJuYWwgUGVyc29u>> as Attendee
+
+rectangle "ConnectSphere\n<size:16>[Software System]</size>" <<Boundary-Q29ubmVjdFNwaGVyZQ==>> {
+  database "==Database\n<size:15>[Container: PostgreSQL (Neon)]</size>\n\nStores users, events, venues, equipment, bookings and registrations." <<Element-RWxlbWVudCxDb250YWluZXIsRGF0YWJhc2U=>> as ConnectSphere.Database
+  rectangle "==Web Application\n<size:15>[Container: Next.js (React + Node.js, App Router)]</size>\n\nServes the UI for events, venues, equipment and registrations, and exposes the REST API that enforces business rules and validation." <<Element-RWxlbWVudCxDb250YWluZXI=>> as ConnectSphere.WebApplication
+}
+
+EventOrganiser --> ConnectSphere.WebApplication <<Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw=>> : "Submits and edits event requests, tracks status using"
+OpsManager --> ConnectSphere.WebApplication <<Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw=>> : "Assigns coordinators to unassigned requests using"
+EventCoordinator --> ConnectSphere.WebApplication <<Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw=>> : "Reviews requests, confirms events using"
+VenueStaff --> ConnectSphere.WebApplication <<Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw=>> : "Manages venue catalogue and booking approvals using"
+TechnicalSupportStaff --> ConnectSphere.WebApplication <<Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw=>> : "Manages equipment catalogue and reservations using"
+Attendee --> ConnectSphere.WebApplication <<Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw=>> : "Registers for events and views event details using"
+ConnectSphere.WebApplication --> ConnectSphere.Database <<Relationship-UmVsYXRpb25zaGlwLENvbnRleHRSZWw=>> : "Reads from and writes to\n<size:16>[SQL / Prisma / TCP]</size>"
+
+@enduml

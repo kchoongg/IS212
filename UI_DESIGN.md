@@ -193,6 +193,14 @@ A tab the role cannot see is **not rendered** — not rendered-and-disabled.
 Disabled tabs leak the existence of internal planning information, which §8b of
 the briefing forbids.
 
+**Equipment is Organiser: read-only, own event only** (SPM-47). SPM-47's own
+AC6 — "Technical Support Staff can view the requirements" — names one role,
+but confirmed 2026-09-19 that the Organiser should also see what's been
+recorded against the event they raised, even though this is broader than
+AC6's literal wording. Scoped to the event they own — an Organiser never sees
+another client's equipment planning (§8b). The Coordinator sees it too, but
+only because managing it requires seeing it, not as a separate viewing right.
+
 ### 4.4 Primary flows
 
 **Organiser — request to confirmation**
@@ -347,6 +355,12 @@ The core form of the system. Six sections, matching `createEventSchema`.
 | | Category | select | yes | conference, workshop, training, exhibition, meeting, seminar, networking, other |
 | | Purpose | textarea (2 rows) | — | |
 | | Description | textarea (4 rows) | — | |
+| **Sessions** | This event has multiple sessions | checkbox | — | Reveals one card per session (at least two) and **hides Schedule, Attendance and Equipment below** — the sessions hold those. Ticking it moves anything already entered there into Session 1 |
+| | Session name | text | — | e.g. "Day 1 — Keynotes" |
+| | Session starts at / ends at | datetime x2 | yes, **even for a draft** | ends after starts; start in the future (submit only). A session cannot be stored without its times |
+| | Session expected attendance | number | yes (submit) | positive integer |
+| | Session preferred layout | select | — | same options as event-level |
+| | Session equipment | repeatable row, as Equipment below | — | one row per item **across the whole event**; hidden until that session has its times |
 | **Schedule** | Starts at | datetime | yes | must be in the future |
 | | Ends at | datetime | yes | must be after Starts at |
 | **Attendance** | Expected attendance | number | yes | positive integer |
@@ -359,6 +373,13 @@ The core form of the system. Six sections, matching `createEventSchema`.
 | | Registration capacity | number | yes *if enabled* | positive integer |
 | | Registration opens / closes | datetime x2 | — | closes after opens; both before event start |
 
+**Multi-session events.** With the Sessions box ticked the event's own start,
+end and attendance are worked out from its sessions (earliest start, latest end,
+largest session), so lists elsewhere keep working. Facilities, accessibility
+needs and registration stay event-wide — "The venue must have" shows *These apply
+to every session*, and registration must open and close before the **first**
+session starts.
+
 Conditional fields (capacity, open/close dates) are hidden until the checkbox is
 ticked rather than disabled — a disabled field the user cannot explain is worse
 than no field.
@@ -369,7 +390,10 @@ ends at, and expected attendance are all present. The form mirrors that set
 exactly — "Save draft" validates only the title, "Submit request" validates the
 five. Getting this wrong in the client produces a form that lets the user press
 Submit and then shows a server error, which is the thing the spec exists to
-prevent.
+prevent. One exception: when the Sessions box is ticked, "Save draft" also needs
+each session's start and end, since a session cannot be stored without them;
+its attendance is still only required to submit, and the server then checks
+every session has one.
 
 ### 6.3 Other forms
 
@@ -516,6 +540,7 @@ This document specifies the whole first release. What is built so far:
 | S-03 Dashboard, role-aware | `src/app/dashboard/page.tsx` |
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |
+| S-08 Sessions section (multi-session events) | `src/components/SessionFields.tsx`, `src/lib/eventSessions.ts` |
 | Facility and accessibility requirements as rows (§6.2) | `src/app/api/facilities/route.ts`, `createEventSchema.facilityIds` |
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 

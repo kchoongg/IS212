@@ -229,6 +229,48 @@ async function main() {
       }));
 
     // -----------------------------------------------------------------------
+    console.log("\nSPM-47 — equipment requirements are the assigned Coordinator's to record");
+    await expectStatus("SPM-47", "anonymous cannot list an event's equipment", 401,
+      await anon(`/api/events/${createdEventId}/equipment`));
+
+    if (createdEquipmentId) {
+      await expectStatus("SPM-47", "the owning organiser cannot record equipment (Coordinator's job)", 403,
+        await asA(`/api/events/${createdEventId}/equipment`, {
+          method: "POST",
+          body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
+        }));
+      await expectStatus("SPM-47", "technical support cannot record equipment either (views/reviews, does not request)", 403,
+        await asTechSupport(`/api/events/${createdEventId}/equipment`, {
+          method: "POST",
+          body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
+        }));
+      await expectStatus("SPM-47", "an organiser at another client cannot see this event to record equipment on it", 404,
+        await asB(`/api/events/${createdEventId}/equipment`, {
+          method: "POST",
+          body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
+        }));
+
+      const eqReqRes = await asCoordinator(`/api/events/${createdEventId}/equipment`, {
+        method: "POST",
+        body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
+      });
+      record("SPM-47", "the assigned coordinator CAN record an equipment requirement",
+        eqReqRes.status === 201, `expected 201, got ${eqReqRes.status}`);
+    }
+
+    await expectStatus("SPM-47", "venue staff can see the event but not its equipment", 403,
+      await asVenueStaff(`/api/events/${createdEventId}/equipment`));
+    await expectStatus("SPM-47", "technical support CAN view the recorded equipment", 200,
+      await asTechSupport(`/api/events/${createdEventId}/equipment`));
+    // Broader than AC6's literal wording (Technical Support only), confirmed
+    // 2026-09-19 as intended: the owning Organiser gets a read-only view of
+    // their own event's equipment.
+    await expectStatus("SPM-47", "the owning organiser CAN view (read-only) equipment requirements on their own event", 200,
+      await asA(`/api/events/${createdEventId}/equipment`));
+    await expectStatus("SPM-47", "an organiser at another client cannot view this event's equipment", 404,
+      await asB(`/api/events/${createdEventId}/equipment`));
+
+    // -----------------------------------------------------------------------
     console.log("\nAC3 — an Attendee must not see internal planning information (§8b)");
     const attendeeView = await asAttendee(`/api/events/${confirmed.id}`);
     const seen = attendeeView.status === 200 ? await attendeeView.json() : {};
@@ -299,7 +341,7 @@ async function main() {
 
   const failed = results.filter((r) => !r.ok);
   console.log(`\n${"-".repeat(64)}`);
-  for (const ac of ["AC2", "AC3", "AC4"]) {
+  for (const ac of ["AC2", "AC3", "AC4", "SPM-47"]) {
     const group = results.filter((r) => r.ac === ac);
     const bad = group.filter((r) => !r.ok).length;
     console.log(`${ac}: ${group.length - bad}/${group.length} passed`);

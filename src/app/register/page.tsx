@@ -94,6 +94,7 @@ export default function RegisterPage() {
       router.push("/login");
     } catch {
       setFormError("Could not reach the server. Check your connection and try again.");
+      focusFirstError(formRef.current, {});
     } finally {
       setLoading(false);
     }

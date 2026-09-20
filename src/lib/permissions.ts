@@ -39,6 +39,7 @@ export const ACTIONS = [
   "venue_booking:decide",
   "equipment:view",
   "equipment:manage",
+  "equipment_request:manage",
   "equipment_request:review",
   "registration:create",
   "registration:view_list",
@@ -74,6 +75,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "venue:view",
     "venue_booking:request",
     "equipment:view",
+    // ADDED (SPM-47): recording equipment requirements on an event is the
+    // coordinator's job, same footing as requesting a venue booking above —
+    // neither existed when this file was first written (docs/PERMISSIONS.md
+    // §8 only anticipated equipment_request:review, Technical Support's side).
+    "equipment_request:manage",
     "registration:view_list",
     "facility:view",
   ],
@@ -219,6 +225,31 @@ export function canEditEventContent(actor: Actor, event: EventAccessFields): boo
   return ownsEvent(actor, event) && event.status === "draft";
 }
 
+/// SPM-47: equipment requirements are recorded and revised by the coordinator
+/// assigned to the event (or any coordinator, while it has none yet — same
+/// "pick up unassigned work" allowance as isAssignedCoordinator elsewhere).
+/// Unlike canEditEventContent this is not restricted to draft: equipment
+/// planning is explicitly a during-planning activity, well past draft.
+export function canManageEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "equipment_request:manage")) return false;
+  return isAssignedCoordinator(actor, event);
+}
+
+/// SPM-47 AC6 names Technical Support Staff. The Organiser also gets a
+/// read-only view of their own event's equipment — confirmed 2026-09-19 this
+/// is intended (an Organiser reasonably wants to see what's been recorded
+/// against the event they raised), even though it's broader than AC6's own
+/// wording. Restricted to the event they own: an Organiser has no reason to
+/// see another client's equipment planning (briefing §8b). The Coordinator
+/// can see it too, but only because canManageEquipmentRequests already
+/// requires that (you cannot manage what you cannot see) — not a second,
+/// independent viewing right.
+export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
+  if (actor.role === "tech_support") return true;
+  if (actor.role === "organiser") return ownsEvent(actor, event);
+  return canManageEquipmentRequests(actor, event);
+}
+
 // ---------------------------------------------------------------------------
 // STATUS TRANSITIONS
 // ---------------------------------------------------------------------------
@@ -230,6 +261,8 @@ export function canEditEventContent(actor: Actor, event: EventAccessFields): boo
 ///   Step 5  approve / reject             - the assigned coordinator
 ///   Step 10 confirm                      - the assigned coordinator
 ///   Step 14 complete                     - the assigned coordinator
+///   §4      cancel                       - the assigned coordinator only
+///                                          (customer clarification #68)
 ///   §4      postpone                     - the coordinator, or the organiser
 ///                                          for their own event
 ///   §4      cancel                       - the assigned coordinator ONLY

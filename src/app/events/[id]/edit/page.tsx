@@ -16,6 +16,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { SkeletonRows } from "@/components/ui/DataState";
+import { SessionFields } from "@/components/SessionFields";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formErrors";
@@ -26,7 +27,9 @@ import {
   INITIAL,
   validateForm,
   toIso,
+  sessionsPayload,
   toFormValues,
+  availableEquipmentOptions,
   type FormValues,
   type EquipmentRow,
   type Facility,
@@ -121,10 +124,10 @@ export default function EditDraftPage() {
   }, [authState, loadDraft, loadReference, eventId, router]);
 
   const facilities = reference?.facilities ?? [];
-  const equipmentOptions = (reference?.equipment ?? []).map((item) => ({
-    value: item.id,
-    label: item.category ? `${item.name} — ${item.category}` : item.name,
-  }));
+  const equipmentCatalogue = reference?.equipment ?? [];
+  const selectedEquipmentIds = new Set(values.equipment.map((row) => row.equipmentId).filter(Boolean));
+  const allEquipmentSelected =
+    equipmentCatalogue.length > 0 && selectedEquipmentIds.size >= equipmentCatalogue.length;
   const hasDates = Boolean(values.startsAt && values.endsAt);
 
   function toggleFacility(id: string) {
@@ -195,10 +198,12 @@ export default function EditDraftPage() {
       category: v.category || undefined,
       purpose: v.purpose,
       description: v.description,
-      startsAt: toIso(v.startsAt),
-      endsAt: toIso(v.endsAt),
-      expectedAttendance: v.expectedAttendance ? Number(v.expectedAttendance) : undefined,
-      preferredLayout: v.preferredLayout || undefined,
+      // A multi-session event's schedule, attendance and layout live on its
+      // sessions; the server works the event's own out from them.
+      startsAt: v.multiSession ? undefined : toIso(v.startsAt),
+      endsAt: v.multiSession ? undefined : toIso(v.endsAt),
+      expectedAttendance: !v.multiSession && v.expectedAttendance ? Number(v.expectedAttendance) : undefined,
+      preferredLayout: (!v.multiSession && v.preferredLayout) || undefined,
       accessibilityNotes: v.accessibilityNotes,
       specialRequirements: v.specialRequirements,
       registrationEnabled: v.registrationEnabled,
@@ -206,11 +211,17 @@ export default function EditDraftPage() {
       registrationOpensAt: v.registrationEnabled ? toIso(v.registrationOpensAt) : undefined,
       registrationClosesAt: v.registrationEnabled ? toIso(v.registrationClosesAt) : undefined,
       facilityIds: v.facilityIds,
-      equipment: v.equipment.map((row) => ({
-        equipmentId: row.equipmentId,
-        quantityRequested: Number(row.quantityRequested),
-        technicalRequirements: row.technicalRequirements || undefined,
-      })),
+      // Always sent, even empty: `[]` is how an edit drops the event-wide
+      // equipment (multi-session moves it onto the sessions) or, for sessions,
+      // how a draft goes back to being an ordinary single-session event.
+      equipment: v.multiSession
+        ? []
+        : v.equipment.map((row) => ({
+            equipmentId: row.equipmentId,
+            quantityRequested: Number(row.quantityRequested),
+            technicalRequirements: row.technicalRequirements || undefined,
+          })),
+      sessions: v.multiSession ? sessionsPayload(v) : [],
     };
   }
 
@@ -263,6 +274,7 @@ export default function EditDraftPage() {
       router.push(`/events/${eventId}`);
     } catch {
       setFormError("Could not reach the server. Check your connection and try again.");
+      focusFirstError(formRef.current, {});
     } finally {
       setPending(null);
     }
@@ -357,61 +369,82 @@ export default function EditDraftPage() {
           </Field>
         </Fieldset>
 
-        <Fieldset legend="Schedule">
-          <Field label="Starts at" required error={errors.startsAt}>
-            <Input
-              name="startsAt"
-              type="datetime-local"
-              value={values.startsAt}
-              onChange={(e) => setValue("startsAt", e.target.value)}
-            />
-          </Field>
+        <SessionFields
+          values={values}
+          setValues={setValues}
+          errors={errors}
+          setErrors={setErrors}
+          equipmentCatalogue={equipmentCatalogue}
+          referenceLoading={reference === null}
+        />
 
-          <Field
-            label="Ends at"
-            required
-            hint="Include the full programme. Setup and turnaround time is added by ConnectSphere."
-            error={errors.endsAt}
-          >
-            <Input
-              name="endsAt"
-              type="datetime-local"
-              value={values.endsAt}
-              onChange={(e) => setValue("endsAt", e.target.value)}
-            />
-          </Field>
-        </Fieldset>
+        {/* A multi-session event has its schedule and attendance per session
+            (above), so those two sections are not shown for it at all rather
+            than shown and ignored. Event-wide Equipment, further down, is
+            hidden the same way. */}
+        {!values.multiSession && (
+          <>
+            <Fieldset legend="Schedule">
+              <Field label="Starts at" required error={errors.startsAt}>
+                <Input
+                  name="startsAt"
+                  type="datetime-local"
+                  value={values.startsAt}
+                  onChange={(e) => setValue("startsAt", e.target.value)}
+                />
+              </Field>
 
-        <Fieldset legend="Attendance">
-          <Field
-            label="Expected attendance"
-            required
-            hint="Used to check a venue is large enough. An estimate is fine."
-            error={errors.expectedAttendance}
-          >
-            <Input
-              name="expectedAttendance"
-              type="number"
-              min={1}
-              step={1}
-              inputMode="numeric"
-              value={values.expectedAttendance}
-              onChange={(e) => setValue("expectedAttendance", e.target.value)}
-            />
-          </Field>
+              <Field
+                label="Ends at"
+                required
+                hint="Include the full programme. Setup and turnaround time is added by ConnectSphere."
+                error={errors.endsAt}
+              >
+                <Input
+                  name="endsAt"
+                  type="datetime-local"
+                  value={values.endsAt}
+                  onChange={(e) => setValue("endsAt", e.target.value)}
+                />
+              </Field>
+            </Fieldset>
 
-          <Field label="Preferred room layout">
-            <Select
-              name="preferredLayout"
-              placeholder="No preference"
-              options={toOptions(LAYOUTS)}
-              value={values.preferredLayout}
-              onChange={(e) => setValue("preferredLayout", e.target.value)}
-            />
-          </Field>
-        </Fieldset>
+            <Fieldset legend="Attendance">
+              <Field
+                label="Expected attendance"
+                required
+                hint="Used to check a venue is large enough. An estimate is fine."
+                error={errors.expectedAttendance}
+              >
+                <Input
+                  name="expectedAttendance"
+                  type="number"
+                  min={1}
+                  step={1}
+                  inputMode="numeric"
+                  value={values.expectedAttendance}
+                  onChange={(e) => setValue("expectedAttendance", e.target.value)}
+                />
+              </Field>
 
-        <Fieldset legend="Venue requirements">
+              <Field label="Preferred room layout">
+                <Select
+                  name="preferredLayout"
+                  placeholder="No preference"
+                  options={toOptions(LAYOUTS)}
+                  value={values.preferredLayout}
+                  onChange={(e) => setValue("preferredLayout", e.target.value)}
+                />
+              </Field>
+            </Fieldset>
+
+          </>
+        )}
+
+        <Fieldset
+          legend="Venue requirements"
+          description={values.multiSession ? "These apply to every session." : undefined}
+        >
           <CheckboxGroup
             legend="The venue must have"
             hint="We only offer you venues that meet everything you tick here."
@@ -455,91 +488,100 @@ export default function EditDraftPage() {
           </Field>
         </Fieldset>
 
-        <Fieldset legend="Equipment">
-          {!hasDates ? (
-            <Alert variant="info">
-              Add the event date and time above, then you can request equipment here.
-            </Alert>
-          ) : (
-            <>
-              {errors.equipment && <Alert variant="error">{errors.equipment}</Alert>}
+        {/* Event-wide equipment only applies to a single-session event; a
+            multi-session one requests it per session, above. */}
+        {!values.multiSession && (
+          <Fieldset legend="Equipment">
+            {!hasDates ? (
+              <Alert variant="info">
+                Add the event date and time above, then you can request equipment here.
+              </Alert>
+            ) : (
+              <>
+                {errors.equipment && <Alert variant="error">{errors.equipment}</Alert>}
 
-              {values.equipment.length === 0 && (
-                <p className="text-sm text-ink-2">
-                  Nothing requested yet. Add projectors, microphones, video conferencing, or
-                  anything else you need on the day.
-                </p>
-              )}
+                {values.equipment.length === 0 && (
+                  <p className="text-sm text-ink-2">
+                    Nothing requested yet. Add projectors, microphones, video conferencing, or
+                    anything else you need on the day.
+                  </p>
+                )}
 
-              {values.equipment.map((row, index) => (
-                <div key={index} className="rounded-lg border border-line bg-surface-2 p-4">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                    <Field label="Equipment" className="flex-1">
-                      <Select
-                        name={`equipment.${index}.equipmentId`}
-                        placeholder="Choose an item"
-                        options={equipmentOptions}
-                        value={row.equipmentId}
-                        onChange={(e) => setEquipmentRow(index, { equipmentId: e.target.value })}
-                      />
-                    </Field>
+                {values.equipment.map((row, index) => (
+                  <div key={index} className="rounded-lg border border-line bg-surface-2 p-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                      <Field label="Equipment" className="flex-1">
+                        <Select
+                          name={`equipment.${index}.equipmentId`}
+                          placeholder="Choose an item"
+                          options={availableEquipmentOptions(equipmentCatalogue, values.equipment, index)}
+                          value={row.equipmentId}
+                          onChange={(e) => setEquipmentRow(index, { equipmentId: e.target.value })}
+                        />
+                      </Field>
 
-                    <Field label="Quantity" className="sm:w-28">
+                      <Field label="Quantity" className="sm:w-28">
+                        <Input
+                          name={`equipment.${index}.quantityRequested`}
+                          type="number"
+                          min={1}
+                          step={1}
+                          inputMode="numeric"
+                          value={row.quantityRequested}
+                          onChange={(e) =>
+                            setEquipmentRow(index, { quantityRequested: e.target.value })
+                          }
+                        />
+                      </Field>
+
+                      <div className="sm:pt-7">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeEquipmentRow(index)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+
+                    <Field
+                      label="Technical requirements"
+                      hint="Anything our technical team should know — connections, positioning, timing."
+                      className="mt-2"
+                    >
                       <Input
-                        name={`equipment.${index}.quantityRequested`}
-                        type="number"
-                        min={1}
-                        step={1}
-                        inputMode="numeric"
-                        value={row.quantityRequested}
+                        name={`equipment.${index}.technicalRequirements`}
+                        value={row.technicalRequirements}
                         onChange={(e) =>
-                          setEquipmentRow(index, { quantityRequested: e.target.value })
+                          setEquipmentRow(index, { technicalRequirements: e.target.value })
                         }
                       />
                     </Field>
-
-                    <div className="sm:pt-7">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeEquipmentRow(index)}
-                      >
-                        Remove
-                      </Button>
-                    </div>
                   </div>
+                ))}
 
-                  <Field
-                    label="Technical requirements"
-                    hint="Anything our technical team should know — connections, positioning, timing."
-                    className="mt-2"
+                <div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={addEquipmentRow}
+                    disabled={reference === null || allEquipmentSelected}
                   >
-                    <Input
-                      name={`equipment.${index}.technicalRequirements`}
-                      value={row.technicalRequirements}
-                      onChange={(e) =>
-                        setEquipmentRow(index, { technicalRequirements: e.target.value })
-                      }
-                    />
-                  </Field>
+                    Add equipment
+                  </Button>
+                  {allEquipmentSelected && (
+                    <p className="mt-1.5 text-sm text-ink-3">
+                      Every catalogue item is already in your request.
+                    </p>
+                  )}
                 </div>
-              ))}
-
-              <div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={addEquipmentRow}
-                  disabled={reference === null}
-                >
-                  Add equipment
-                </Button>
-              </div>
-            </>
-          )}
-        </Fieldset>
+              </>
+            )}
+          </Fieldset>
+        )}
 
         <Fieldset legend="Registration">
           <Checkbox

@@ -30,11 +30,8 @@ interface EventRow {
   expectedAttendance: number | null;
 }
 
-const STATUS_FILTER_OPTIONS = [
-  { value: "all", label: "All statuses" },
-  ...["draft", "submitted", "under_review", "approved", "planning", "confirmed", "completed", "rejected", "cancelled"].map(
-    (status) => ({ value: status, label: statusLabel(status) })
-  ),
+const ALL_STATUSES = [
+  "draft", "submitted", "under_review", "approved", "planning", "confirmed", "completed", "rejected", "cancelled",
 ];
 
 export default function EventsPage() {
@@ -73,10 +70,23 @@ export default function EventsPage() {
 
   const isOrganiser = user?.role === "organiser";
 
-  const { drafts, submitted } = useMemo(() => {
+  // Non-organiser roles never receive draft events from the API (they stay
+  // private to their owning organiser - docs/PERMISSIONS.md), so offering
+  // "Draft" as a filter to a coordinator or ops manager is a dead option
+  // that always shows zero results.
+  const statusFilterOptions = useMemo(() => {
+    const statuses = isOrganiser ? ALL_STATUSES : ALL_STATUSES.filter((s) => s !== "draft");
+    return [
+      { value: "all", label: "All statuses" },
+      ...statuses.map((status) => ({ value: status, label: statusLabel(status) })),
+    ];
+  }, [isOrganiser]);
+
+  const { filtered, drafts, submitted } = useMemo(() => {
     const filtered =
       events?.filter((event) => statusFilter === "all" || event.status === statusFilter) ?? null;
     return {
+      filtered,
       drafts: filtered?.filter((event) => event.status === "draft") ?? null,
       submitted: filtered?.filter((event) => event.status !== "draft") ?? null,
     };
@@ -132,7 +142,7 @@ export default function EventsPage() {
         </label>
         <Select
           id="status-filter"
-          options={STATUS_FILTER_OPTIONS}
+          options={statusFilterOptions}
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         />
@@ -160,7 +170,7 @@ export default function EventsPage() {
           <h2 className="mb-3 font-display text-lg font-semibold text-ink">Submitted</h2>
         )}
         <DataState
-          data={isOrganiser ? submitted : events}
+          data={isOrganiser ? submitted : filtered}
           error={error}
           onRetry={load}
           empty={{

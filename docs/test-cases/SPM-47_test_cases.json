@@ -1,0 +1,523 @@
+{
+  "story_key": "SPM-47",
+  "story_title": "As an Event Coordinator, I want to record the equipment required for an event so that Technical Support Staff can assess whether the requested resources can be provided",
+  "created_by": "Janelle",
+  "creation_date": "2026-09-20",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Event Coordinator can specify the equipment type."
+    },
+    {
+      "id": "AC2",
+      "text": "The Event Coordinator can specify the required quantity."
+    },
+    {
+      "id": "AC3",
+      "text": "The Event Coordinator can specify relevant technical requirements."
+    },
+    {
+      "id": "AC4",
+      "text": "For a multi-session event, equipment requirements can be recorded per session, since different sessions may need different equipment."
+    },
+    {
+      "id": "AC5",
+      "text": "Equipment requirements are associated with the event (and session, where applicable)."
+    },
+    {
+      "id": "AC6",
+      "text": "Technical Support Staff can view the requirements."
+    },
+    {
+      "id": "AC7",
+      "text": "Equipment requirements can be updated during planning where authorised."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-47-TC01",
+      "title": "Coordinator records an equipment requirement with a type, quantity, and technical requirements",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), the Coordinator assigned to 'Pearl Delta Safety Conference' (status Planning, 4 Dec 2026 09:00-17:00, organised by Samuel Ong).\nThe event already has one requirement: '4K Portable Projector', Quantity 4.",
+      "steps": "1. Open 'Pearl Delta Safety Conference'\n2. Click the 'Equipment' tab\n3. In 'Add equipment', open the 'Equipment' dropdown and choose 'Handheld Wireless Mic'\n4. Set 'Quantity' to 6\n5. Enter 'Lapel mics for panel speakers.' in 'Technical requirements'\n6. Click 'Add'",
+      "test_data": "Equipment: Handheld Wireless Mic | Quantity: 6 | Technical requirements: Lapel mics for panel speakers.",
+      "expected_result": "A new row for 'Handheld Wireless Mic' appears showing Quantity 6 and 'Lapel mics for panel speakers.', with status 'Requested'.\nThe existing '4K Portable Projector' row (Quantity 4) is unchanged.\nThe Add equipment fields reset to their defaults.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "A new row for 'Handheld Wireless Mic' appears showing Quantity 6 and 'Lapel mics for panel speakers.', with status 'Requested'.\nThe existing '4K Portable Projector' row (Quantity 4) is unchanged.\nThe Add equipment fields reset to their defaults.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC02",
+      "title": "Clicking Add without choosing an equipment type is rejected",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), viewing the 'Equipment' tab of 'Pearl Delta Safety Conference'.",
+      "steps": "1. Leave the 'Equipment' dropdown on 'Choose an item'\n2. Set 'Quantity' to 1\n3. Click 'Add'",
+      "test_data": "Equipment: (none selected) | Quantity: 1",
+      "expected_result": "An error message 'Choose an item to add.' is shown above the Add equipment section.\nNo new row is added to the list.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "An error message 'Choose an item to add.' is shown above the Add equipment section.\nNo new row is added to the list.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC03",
+      "title": "Equipment already requested for this event does not appear in the Add dropdown",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), viewing the 'Equipment' tab of 'Pearl Delta Safety Conference', which now has requirements for '4K Portable Projector' and 'Handheld Wireless Mic' (added in SPM-47-TC01).",
+      "steps": "1. Open the 'Equipment' dropdown in 'Add equipment'",
+      "test_data": "Event equipment already requested: 4K Portable Projector, Handheld Wireless Mic",
+      "expected_result": "Neither '4K Portable Projector' nor 'Handheld Wireless Mic' appears in the dropdown's list of choices; only items not yet requested for this event (e.g. 'Portable Projection Screen', 'Lavalier Wireless Mic') are offered.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "Neither '4K Portable Projector' nor 'Handheld Wireless Mic' appears in the dropdown's list of choices; only items not yet requested for this event (e.g. 'Portable Projection Screen', 'Lavalier Wireless Mic') are offered.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC04",
+      "title": "Once requested, an item no longer appears in the Add equipment dropdown",
+      "linked_ac": [
+        "AC1",
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123). 'Pearl Delta Safety Conference' already has a requirement for '4K Portable Projector', Quantity 4.\n",
+      "steps": "1. Open the 'Equipment' tab of 'Pearl Delta Safety Conference'\n2. Open the 'Equipment' dropdown in 'Add equipment'",
+      "test_data": "Event already has: 4K Portable Projector",
+      "expected_result": "4K Portable Projector' does not appear as an option in the dropdown.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "4K Portable Projector' does not appear as an option in the dropdown.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC05",
+      "title": "A quantity of 0 (one below the minimum) is rejected",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), viewing the 'Equipment' tab of 'Pearl Delta Safety Conference'.",
+      "steps": "1. Choose 'Portable Projection Screen' in the Equipment dropdown\n2. Set 'Quantity' to 0\n3. Click 'Add'",
+      "test_data": "Equipment: Portable Projection Screen | Quantity: 0",
+      "expected_result": "An error message 'Enter a whole number, at least 1.' is shown.\nNo new row is added — 'Portable Projection Screen' is not consumed and remains available in the dropdown.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "An error message 'Enter a whole number, at least 1.' is shown.\nNo new row is added — 'Portable Projection Screen' is not consumed and remains available in the dropdown.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC06",
+      "title": "The minimum valid quantity of 1 is accepted",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), viewing the 'Equipment' tab of 'Pearl Delta Safety Conference'.\n'Portable Projection Screen' was not added by the rejected attempt in SPM-47-TC05, so it is still available to choose.",
+      "steps": "1. Choose 'Portable Projection Screen' in the Equipment dropdown\n2. Set 'Quantity' to 1\n3. Click 'Add'",
+      "test_data": "Equipment: Portable Projection Screen | Quantity: 1",
+      "expected_result": "A new row for 'Portable Projection Screen' is added showing Quantity 1.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "A new row for 'Portable Projection Screen' is added showing Quantity 1.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC07",
+      "title": "A quantity of 2 (one above the minimum) is accepted",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), viewing the 'Equipment' tab of 'Pearl Delta Safety Conference'.",
+      "steps": "1. Choose 'Lavalier Wireless Mic' in the Equipment dropdown\n2. Set 'Quantity' to 2\n3. Click 'Add'",
+      "test_data": "Equipment: Lavalier Wireless Mic | Quantity: 2",
+      "expected_result": "A new row for 'Lavalier Wireless Mic' is added showing Quantity 2 — proving acceptance at the boundary (SPM-47-TC06) isn't a special case limited to exactly 1.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "A new row for 'Lavalier Wireless Mic' is added showing Quantity 2 — proving acceptance at the boundary (SPM-47-TC06) isn't a special case limited to exactly 1.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC08",
+      "title": "Technical requirements can be left blank",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), viewing the 'Equipment' tab of 'Pearl Delta Safety Conference'.",
+      "steps": "1. Choose 'Ultra-Short-Throw Projector' in the Equipment dropdown\n2. Set 'Quantity' to 1\n3. Leave 'Technical requirements' empty\n4. Click 'Add'",
+      "test_data": "Equipment: Ultra-Short-Throw Projector | Quantity: 1 | Technical requirements: (blank)",
+      "expected_result": "A new row for 'Ultra-Short-Throw Projector' is added with Quantity 1 and no technical requirements text shown.\nNo validation error appears — Technical requirements is not mandatory.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "A new row for 'Ultra-Short-Throw Projector' is added with Quantity 1 and no technical requirements text shown.\nNo validation error appears — Technical requirements is not mandatory.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC09",
+      "title": "A recorded requirement stays associated with its own event and does not appear on a different event",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), Coordinator of 'Pearl Delta Safety Conference'.\nThat event has a requirement for '4K Portable Projector', Quantity 4.\nA second event, 'Straits Medical Research Symposium' (Coordinator: Daniel Tan), has its own, different equipment (LED Video Wall Panel, PTZ Streaming Camera, Audio Mixing Desk, Hearing Loop Receiver Kit, Lavalier Wireless Mic) but no '4K Portable Projector'.",
+      "steps": "1. Open the 'Equipment' tab of 'Pearl Delta Safety Conference'\n2. Refresh the page\n3. Confirm the '4K Portable Projector' row is still present\n4. Log out and log in as Daniel Tan (daniel.tan@connectsphere.com / password123)\n5. Open the 'Equipment' tab of 'Straits Medical Research Symposium'",
+      "test_data": "Event A: Pearl Delta Safety Conference | Event B: Straits Medical Research Symposium",
+      "expected_result": "On 'Pearl Delta Safety Conference', the '4K Portable Projector' row is still shown after reloading.\nOn 'Straits Medical Research Symposium', the equipment list shows only that event's own five items; '4K Portable Projector' does not appear.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "On 'Pearl Delta Safety Conference', the '4K Portable Projector' row is still shown after reloading.\nOn 'Straits Medical Research Symposium', the equipment list shows only that event's own five items; '4K Portable Projector' does not appear.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC10",
+      "title": "Technical Support Staff can view a Coordinator's recorded requirements on the event",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Kenji Sato (kenji.sato@connectsphere.com / password123), Technical Support.\n'Pearl Delta Safety Conference' has a requirement for '4K Portable Projector', Quantity 4, technical requirements 'Four demonstration stations.'.",
+      "steps": "1. Open 'Pearl Delta Safety Conference'\n2. Click the 'Equipment' tab",
+      "test_data": "Event: Pearl Delta Safety Conference",
+      "expected_result": "The '4K Portable Projector' row is shown with Requested quantity 4, technical requirements 'Four demonstration stations.', and status 'Requested' — quantity and technical requirements as plain text, not an input field.\nNo 'Save', 'Remove', or 'Add equipment' section are shown — the same read-only view as the Organiser gets.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "The '4K Portable Projector' row is shown with Requested quantity 4, technical requirements 'Four demonstration stations.', and status 'Requested' — quantity and technical requirements as plain text, not an input field.\nNo 'Save', 'Remove', or 'Add equipment' section are shown — the same read-only view as the Organiser gets.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC11",
+      "title": "A role with no equipment access cannot open a specific event's Equipment tab",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff.\n'Pearl Delta Safety Conference' has a requirement for '4K Portable Projector'.",
+      "steps": "1. Navigate directly to the Equipment tab's web address for 'Pearl Delta Safety Conference'",
+      "test_data": "Role: Venue Staff",
+      "expected_result": "A message 'Not authorised — You don't have access to this event.' is shown instead of the equipment list.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "A message 'Not authorised — You don't have access to this event.' is shown instead of the equipment list.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC12",
+      "title": "Coordinator updates the quantity of an existing requirement",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123).\n'Pearl Delta Safety Conference' (status Planning) has a requirement for '4K Portable Projector', Quantity 4.",
+      "steps": "1. Open the 'Equipment' tab of 'Pearl Delta Safety Conference'\n2. Change the 'Quantity' field on the '4K Portable Projector' row to 6\n3. Click 'Save' on that row\n4. Refresh the page",
+      "test_data": "New quantity: 6",
+      "expected_result": "After clicking 'Save', the 'Save' button disappears (no unsaved change remains).\nAfter refreshing, the row still shows Quantity 6.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "After clicking 'Save', the 'Save' button disappears (no unsaved change remains).\nAfter refreshing, the row still shows Quantity 6.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC13",
+      "title": "Coordinator removes an equipment requirement entirely",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123).\n'Pearl Delta Safety Conference' (status Planning) has a requirement for 'Portable Projection Screen', Quantity 1 (added in SPM-47-TC06).",
+      "steps": "1. Open the 'Equipment' tab of 'Pearl Delta Safety Conference'\n2. Click 'Remove' on the 'Portable Projection Screen' row\n3. In the confirmation dialog, click 'Remove'\n4. Refresh the page",
+      "test_data": "Item removed: Portable Projection Screen",
+      "expected_result": "The confirmation dialog reads 'Remove this equipment requirement?' with a note that Technical Support will no longer see this item.\nAfter confirming, the row disappears immediately and does not reappear after refreshing — it is deleted, not just hidden.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "The confirmation dialog reads 'Remove this equipment requirement?' with a note that Technical Support will no longer see this item.\nAfter confirming, the row disappears immediately and does not reappear after refreshing — it is deleted, not just hidden.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC14",
+      "title": "Organiser sees the same requirements read-only and cannot edit them",
+      "linked_ac": [
+        "AC6",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Samuel Ong (samuel.ong@pearldeltama.com / password123), the Organiser of 'Pearl Delta Safety Conference'.\nThe event has a requirement for '4K Portable Projector', Quantity 4.\nNote: this is broader than AC6's literal wording ('Technical Support Staff can view the requirements') — the Organiser also gets read-only visibility into their own event's equipment, because they reasonably want to see what's been recorded against the event they raised (see canViewEquipmentRequests in src/lib/permissions.ts).",
+      "steps": "1. Open 'Pearl Delta Safety Conference' from 'My Events'\n2. Click the 'Equipment' tab",
+      "test_data": "Role: Organiser",
+      "expected_result": "The '4K Portable Projector' row is visible with its quantity and technical requirements shown as plain text (not an input field of any kind).\nThere is no editable Quantity or Technical requirements field, no 'Save' or 'Remove' button, and no 'Add equipment' section.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "The '4K Portable Projector' row is visible with its quantity and technical requirements shown as plain text (not an input field of any kind).\nThere is no editable Quantity or Technical requirements field, no 'Save' or 'Remove' button, and no 'Add equipment' section.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC22",
+      "title": "An Organiser cannot view equipment requirements on another client's event",
+      "linked_ac": [
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Samuel Ong (samuel.ong@pearldeltama.com / password123), Organiser at Pearl Delta.\n'Straits Medical Research Symposium' belongs to a different client and has its own equipment requests.",
+      "steps": "1. While logged in as samuel.ong@pearldeltama.com, send GET /api/events/{Straits Medical Research Symposium id}/equipment",
+      "test_data": "Event: a different client's event",
+      "expected_result": "404 response ('Event not found') — the Organiser's read-only equipment access is scoped to events they own, not every event in the system.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "404 response ('Event not found') — the Organiser's read-only equipment access is scoped to events they own, not every event in the system.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC15",
+      "title": "Equipment requirements cannot be changed once the event is cancelled",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Joel Fernandez (joel.fernandez@connectsphere.com / password123), Coordinator of 'Pearl Delta Supplier Forum' (status Cancelled).\nA requirement was recorded for the event while it was still in Planning, and the event's status has since been set to Cancelled (there is no in-app 'Cancel event' action yet, so this is set directly in the database for the test).",
+      "steps": "1. Open the 'Equipment' tab of 'Pearl Delta Supplier Forum'",
+      "test_data": "Event status: Cancelled",
+      "expected_result": "A banner reads 'This event is cancelled — equipment requirements can no longer be changed.'\nThe existing row is shown, but with no editable fields, no 'Save' or 'Remove' button, and no 'Add equipment' section, even though the viewer is the Coordinator.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "A banner reads 'This event is cancelled — equipment requirements can no longer be changed.'\nThe existing row is shown, but with no editable fields, no 'Save' or 'Remove' button, and no 'Add equipment' section, even though the viewer is the Coordinator.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC16",
+      "title": "Coordinator can still update equipment after the event has been confirmed",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Coordinator of 'Meridian Wealth Management Forum' (status Confirmed). The\n  event already has three requirements: 'Handheld Wireless Mic' (Quantity 4), 'Presentation Laptop' (Quantity 1), 'Powered Lectern' (Quantity 1).",
+      "steps": " 1. Open the 'Equipment' tab of 'Meridian Wealth Management Forum'\n  2. Change 'Quantity' on the 'Handheld Wireless Mic' row from 4 to 5\n  3. Click 'Save'  ",
+      "test_data": "Event: Meridian Wealth Management Forum (Confirmed) | Row: Handheld Wireless Mic | New quantity: ",
+      "expected_result": "No locked banner is shown. The Quantity field, 'Save' button, and 'Add equipment' section remain available. The change saves successfully —\n the row shows Quantity 5 after refreshing — the same as when the event is in Planning.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "No locked banner is shown. The Quantity field, 'Save' button, and 'Add equipment' section remain available. The change saves successfully —\n the row shows Quantity 5 after refreshing — the same as when the event is in Planning.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC17",
+      "title": "Coordinator scopes equipment requirements to individual sessions of a multi-session event",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), Coordinator of 'Pearl Delta Safety Conference'.\nThe event has two sessions: 'Morning briefing' (09:00-12:00) and 'Afternoon workshop' (13:00-17:00) — there is no in-app way to add a session yet (EventSession is schema-only groundwork from a separate story, SPM-25), so these were created directly in the database for this test.",
+      "steps": "1. Open the 'Equipment' tab of 'Pearl Delta Safety Conference'\n2. In 'Add equipment', choose 'Gooseneck Table Mic', set Quantity to 1, and choose 'Morning briefing' in the new 'Session' dropdown\n3. Click 'Add'\n4. Choose 'Powered Speaker', set Quantity to 2, and choose 'Afternoon workshop' in 'Session'\n5. Click 'Add'",
+      "test_data": "Session dropdown options: Whole event, Morning briefing, Afternoon workshop | Row 1: Gooseneck Table Mic / Morning briefing | Row 2: Powered Speaker / Afternoon workshop",
+      "expected_result": "Both rows are added, each showing a small label naming its session ('Morning briefing' / 'Afternoon workshop') next to the equipment name.\nEach requirement is independent — Technical Support reviewing 'Afternoon workshop' sees only the Powered Speaker request, not the Gooseneck Table Mic one.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "Both rows are added, each showing a small label naming its session ('Morning briefing' / 'Afternoon workshop') next to the equipment name.\nEach requirement is independent — Technical Support reviewing 'Afternoon workshop' sees only the Powered Speaker request, not the Gooseneck Table Mic one.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC18",
+      "title": "The Session picker does not appear for an event with no sessions",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Coordinator of 'Straits Medical Research Symposium' (status Planning),\n  which has no EventSession rows.",
+      "steps": "  1. Open the 'Equipment' tab of 'Straits Medical Research Symposium'\n  2. Open 'Add equipment'",
+      "test_data": "Event: Straits Medical Research Symposium (zero EventSession rows)",
+      "expected_result": "No 'Session' field appears in 'Add equipment' — only Equipment, Quantity, and Technical requirements, exactly as before multi-session support\nexisted. Equipment recorded applies to the whole event.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "No 'Session' field appears in 'Add equipment' — only Equipment, Quantity, and Technical requirements, exactly as before multi-session support\nexisted. Equipment recorded applies to the whole event.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC19",
+      "title": "Two sessions of the same event can now each independently request the same equipment type",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), Coordinator of 'Pearl Delta Safety Conference', which has the two sessions from SPM-47-TC17.\n'Audio Mixing Desk' has already been requested for 'Morning briefing'.",
+      "steps": "1. In 'Add equipment', choose 'Audio Mixing Desk', set Quantity to 1, and choose 'Afternoon workshop' in 'Session'\n2. Click 'Add'",
+      "test_data": "Equipment: Audio Mixing Desk (already requested for a different session of the same event) | Session: Afternoon workshop",
+      "expected_result": "The row is added successfully, showing the 'Afternoon workshop' session tag.\nBoth the 'Morning briefing' row and this new 'Afternoon workshop' row for 'Audio Mixing Desk' now exist independently on the same event — no 'already requested' error is shown.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "The row is added successfully, showing the 'Afternoon workshop' session tag.\nBoth the 'Morning briefing' row and this new 'Afternoon workshop' row for 'Audio Mixing Desk' now exist independently on the same event — no 'already requested' error is shown.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    },
+    {
+      "id": "SPM-47-TC21",
+      "title": "Once requested for a session, an item no longer appears in the dropdown for that same session",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), Coordinator of 'Pearl Delta Safety Conference'. 'Audio Mixing Desk' has already been  requested for the 'Afternoon workshop' session (added in SPM-47-TC19).",
+      "steps": "1. In 'Add equipment', choose 'Afternoon workshop' in the 'Session' dropdown\n 2. Open the 'Equipment' dropdown",
+      "test_data": "Session: Afternoon workshop (already has Audio Mixing Desk requested)",
+      "expected_result": "Audio Mixing Desk' does not appear as an option in the Equipment dropdown once 'Afternoon workshop' is selected as the session.",
+      "created_by": "Janelle",
+      "creation_date": "2026-09-19",
+      "execution": {
+        "actual_result": "Audio Mixing Desk' does not appear as an option in the Equipment dropdown once 'Afternoon workshop' is selected as the session.",
+        "status": "Pass",
+        "remarks": "NA",
+        "executed_by": "Janelle",
+        "execution_date": "2026-09-19"
+      }
+    }
+  ],
+  "code_references": [
+    "src/lib/validation/equipment.ts",
+    "src/lib/permissions.ts",
+    "src/lib/equipment.ts",
+    "src/lib/eventTabs.ts",
+    "src/app/api/events/[id]/equipment/route.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/events/[id]/EventGlance.tsx",
+    "src/lib/roles.ts",
+    "prisma/schema.prisma",
+    "prisma/migrations/20260919100000_add_partial_unique_equipment_request_session/migration.sql"
+  ]
+}

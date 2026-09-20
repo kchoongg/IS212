@@ -213,6 +213,7 @@ model Event {
   statusHistory        EventStatusHistory[]
   clarifications       ClarificationRequest[]
   changeRequests       EventChangeRequest[]
+  sessions             EventSession[]
   venueBookings        VenueBooking[]
   equipmentRequests    EquipmentRequest[]
   registrations        Registration[]
@@ -223,6 +224,35 @@ model Event {
   @@index([coordinatorId, status])
   @@index([status, startsAt])
   @@map("events")
+}
+
+/// A multi-session event's individual sessions (briefing #74: "sessions may
+/// have different timings and operational requirements, including different
+/// venues, equipment requirements and attendance limits"). Optional: a
+/// single-session event has zero rows here and its VenueBooking /
+/// EquipmentRequest rows link to the Event directly (sessionId null), exactly
+/// as before this model existed. A multi-session event creates one row per
+/// session and scopes each session's own bookings/requests to it.
+model EventSession {
+  id      String @id @default(uuid())
+  eventId String @map("event_id")
+  /// e.g. "Day 1 Morning" — optional, purely a display label.
+  label   String?
+
+  startsAt           DateTime @map("starts_at")
+  endsAt             DateTime @map("ends_at")
+  expectedAttendance Int?     @map("expected_attendance")
+  preferredLayout    String?  @map("preferred_layout")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  venueBookings     VenueBooking[]
+  equipmentRequests EquipmentRequest[]
+
+  @@index([eventId, startsAt])
+  @@map("event_sessions")
 }
 
 model EventFacilityRequirement {
@@ -313,6 +343,9 @@ model EventChangeRequest {
 model VenueBooking {
   id         String  @id @default(uuid())
   eventId    String  @map("event_id")
+  /// Set only for a multi-session event's session-specific booking. NULL means
+  /// this booking applies to the whole (single-session) event, as before.
+  sessionId  String? @map("session_id")
   venueId    String  @map("venue_id")
   /// What Venue Staff physically set up.
   layoutName String? @map("layout_name")
@@ -332,13 +365,30 @@ model VenueBooking {
   /// Required when rejecting — enforced in route code.
   decisionReason   String?   @map("decision_reason")
 
-  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  venue     Venue @relation(fields: [venueId], references: [id])
-  requester User  @relation("BookingRequester", fields: [requestedBy], references: [id])
-  decider   User? @relation("BookingDecider", fields: [decidedBy], references: [id])
+  /// Manage Venue Catalogue (discussion board #120, #122): set when a venue
+  /// edit or retirement may have invalidated this booking. The booking itself
+  /// is deliberately NOT changed — a room that no longer fits is a judgement
+  /// call for the assigned Coordinator, who is notified. Rules and reason
+  /// codes live in src/lib/venueImpact.ts.
+  needsReview  Boolean   @default(false) @map("needs_review")
+  /// Which impact rules fired, as comma-separated codes: venue_retired |
+  /// layout_removed | layout_capacity_below_attendance |
+  /// max_capacity_below_attendance | mandatory_facility_removed. A later edit
+  /// merges its reasons into this list rather than overwriting it.
+  reviewReason String?   @map("review_reason")
+  flaggedAt    DateTime? @map("flagged_at")
+
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  venue     Venue         @relation(fields: [venueId], references: [id])
+  requester User          @relation("BookingRequester", fields: [requestedBy], references: [id])
+  decider   User?         @relation("BookingDecider", fields: [decidedBy], references: [id])
 
   @@index([venueId, status, startsAt, endsAt])
   @@index([eventId, status])
+  @@index([sessionId])
+  /// The Coordinator's review queue: flagged bookings, most recent first.
+  @@index([needsReview, flaggedAt])
   @@map("venue_bookings")
 }
 
@@ -389,9 +439,12 @@ model Equipment {
 /// Request and reservation in one table: a reservation only ever comes from a
 /// request, so splitting them made two rows describe one thing.
 model EquipmentRequest {
-  id          String @id @default(uuid())
-  eventId     String @map("event_id")
-  equipmentId String @map("equipment_id")
+  id          String  @id @default(uuid())
+  eventId     String  @map("event_id")
+  /// Set only for a multi-session event's session-specific request. NULL means
+  /// this request applies to the whole (single-session) event, as before.
+  sessionId   String? @map("session_id")
+  equipmentId String  @map("equipment_id")
 
   quantityRequested Int  @map("quantity_requested")
   /// What Tech Support could commit. NULL until reviewed.
@@ -411,13 +464,30 @@ model EquipmentRequest {
   reviewedAt  DateTime? @map("reviewed_at")
   staffNotes  String?   @map("staff_notes")
 
-  event     Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  equipment Equipment @relation(fields: [equipmentId], references: [id])
-  requester User      @relation("EquipmentRequester", fields: [requestedBy], references: [id])
-  reviewer  User?     @relation("EquipmentReviewer", fields: [reviewedBy], references: [id])
+  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  equipment Equipment     @relation(fields: [equipmentId], references: [id])
+  requester User          @relation("EquipmentRequester", fields: [requestedBy], references: [id])
+  reviewer  User?         @relation("EquipmentReviewer", fields: [reviewedBy], references: [id])
 
-  @@unique([eventId, equipmentId])
+  // Uniqueness is enforced by two Postgres PARTIAL unique indexes, created
+  // directly in migration 20260919100000_add_partial_unique_equipment_request_session
+  // — not expressible as a single `@@unique` here, since Prisma's schema DSL
+  // has no WHERE clause for indexes. A single (eventId, equipmentId) index
+  // can't do both "dedupe whole-event requests" AND "allow two different
+  // sessions of one event to request the same item", because Postgres treats
+  // NULL as distinct in a unique index, so a naive 3-column
+  // (eventId, sessionId, equipmentId) version would stop deduplicating
+  // whole-event requests (sessionId NULL, the common case) entirely. The two
+  // partial indexes split the rule instead of trying to force one index to
+  // do it:
+  //   - unique (eventId, equipmentId)             WHERE sessionId IS NULL
+  //   - unique (eventId, sessionId, equipmentId)   WHERE sessionId IS NOT NULL
+  // Do not add `@@unique([eventId, equipmentId])` back here — `prisma
+  // migrate dev` would try to reconcile schema.prisma against the database
+  // and could drop these partial indexes, since it doesn't know about them.
   @@index([equipmentId, status, startsAt, endsAt])
+  @@index([sessionId])
   @@map("equipment_requests")
 }
 

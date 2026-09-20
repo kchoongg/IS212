@@ -1,0 +1,161 @@
+{
+  "story_key": "SPM-25",
+  "story_title": "As an Event Organiser, I want to submit my completed event request so that ConnectSphere can review and begin processing it.",
+  "created_by": "kchoongg",
+  "creation_date": "2026-09-18",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "Given all mandatory information has been provided, when I submit the request, then the event request is submitted successfully." },
+    { "id": "AC2", "text": "The event status changes from Draft to Submitted." },
+    { "id": "AC3", "text": "A submitted request can no longer be treated as an editable draft." },
+    { "id": "AC4", "text": "The Event Coordinator can view the submitted request." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-25-TC01",
+      "title": "Submitting a complete event request succeeds and moves it to Submitted",
+      "linked_ac": ["AC1", "AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as an Event Organiser (e.g. rachel.ng@meridianfina.com).\nNo existing event named 'Quarterly Town Hall' for this organiser.",
+      "steps": [
+        "From the sidebar, click 'My Events'",
+        "Click 'New event request'",
+        "Enter the event name 'Quarterly Town Hall'",
+        "Select 'Meeting' as the type of event",
+        "Enter a Starts at date/time 7 days from today, 10:00",
+        "Enter an Ends at date/time 7 days from today, 11:00",
+        "Enter '50' as the Expected attendance",
+        "Click 'Submit request'",
+        "From the sidebar, click 'My Events' again"
+      ],
+      "test_data": "Event name: Quarterly Town Hall\nType: Meeting\nStarts at: today + 7 days, 10:00\nEnds at: today + 7 days, 11:00\nExpected attendance: 50",
+      "expected_result": "No validation errors appear; the form submits without returning to the New event request page.\nOn 'My Events', the event does NOT appear under 'Drafts — not yet submitted'.\nThe event appears under 'Submitted' with a 'Submitted' status badge, the correct date/time range, and attendance '50'."
+    },
+    {
+      "id": "SPM-25-TC02",
+      "title": "Submitting a draft with a mandatory field missing is blocked",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as an Event Organiser (e.g. rachel.ng@meridianfina.com).\nNo existing event named 'Vendor Briefing' for this organiser.",
+      "steps": [
+        "From the sidebar, click 'My Events'",
+        "Click 'New event request'",
+        "Enter the event name 'Vendor Briefing'",
+        "Leave every other field blank",
+        "Click 'Save draft'",
+        "From 'My Events', under 'Drafts — not yet submitted', click the 'Vendor Briefing' row",
+        "Leave 'Type of event', 'Starts at', 'Ends at' and 'Expected attendance' blank",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Event name: Vendor Briefing\nAll other mandatory fields: blank",
+      "expected_result": "After 'Save draft', 'Vendor Briefing' appears under 'Drafts — not yet submitted' with a 'Draft' badge.\nAfter clicking 'Submit request', the page does not navigate away. Inline errors appear under each blank required field: 'Choose the type of event.', 'Enter when the event starts.', 'Enter when the event ends.', 'Enter how many people you expect.'\nReturning to 'My Events' shows 'Vendor Briefing' still listed under 'Drafts — not yet submitted', not under 'Submitted'."
+    },
+    {
+      "id": "SPM-25-TC03",
+      "title": "Expected attendance of 0 is rejected on submit",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as an Event Organiser, on the 'New event request' page.",
+      "steps": [
+        "Enter the event name 'Boundary Test Event'",
+        "Select 'Workshop' as the type of event",
+        "Enter a Starts at date/time 7 days from today, 09:00",
+        "Enter an Ends at date/time 7 days from today, 12:00",
+        "Enter '0' as the Expected attendance",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Expected attendance: 0",
+      "expected_result": "Inline error 'Enter a whole number of people, at least 1.' appears under Expected attendance. The form is not submitted and no new event appears in 'My Events'."
+    },
+    {
+      "id": "SPM-25-TC04",
+      "title": "A start date in the past is rejected on submit",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as an Event Organiser, on the 'New event request' page.",
+      "steps": [
+        "Enter the event name 'Past Date Test Event'",
+        "Select 'Meeting' as the type of event",
+        "Enter a Starts at date/time of yesterday, 10:00",
+        "Enter an Ends at date/time of yesterday, 11:00",
+        "Enter '20' as the Expected attendance",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Starts at: yesterday, 10:00",
+      "expected_result": "Inline error 'The start date is in the past.' appears under Starts at. The form is not submitted and no new event appears in 'My Events'."
+    },
+    {
+      "id": "SPM-25-TC05",
+      "title": "A submitted request no longer opens as an editable draft",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "The event from SPM-25-TC01 ('Quarterly Town Hall') has status 'Submitted'.\nLogged in as the organiser who owns it.",
+      "steps": [
+        "From 'My Events', confirm 'Quarterly Town Hall' is listed only under 'Submitted', not under 'Drafts — not yet submitted'",
+        "Use the browser's Back button to return to the 'Edit draft' page for this event that was open earlier in TC01's session (or navigate back to it via browser history)",
+        "Observe the page that loads"
+      ],
+      "test_data": "Event: Quarterly Town Hall (status: Submitted)",
+      "expected_result": "'Quarterly Town Hall' is absent from the 'Drafts — not yet submitted' section.\nThe 'Edit draft' page shows an alert titled 'Could not open this draft' with the message 'This request has already been submitted, so it can no longer be edited here.' No form fields are shown, and a 'Back to My Events' button is offered instead."
+    },
+    {
+      "id": "SPM-25-TC06",
+      "title": "Event Coordinator can see a submitted request in All Events",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "The event from SPM-25-TC01 ('Quarterly Town Hall') has status 'Submitted'.\nLog out of the organiser account.",
+      "steps": [
+        "Log in as the Event Coordinator (e.g. daniel.tan@connectsphere.com)",
+        "From the sidebar, click 'All Events'",
+        "Use the 'Filter by status' dropdown to select 'Submitted'",
+        "Locate the 'Quarterly Town Hall' row"
+      ],
+      "test_data": "Coordinator: daniel.tan@connectsphere.com\nFilter: Submitted",
+      "expected_result": "'Quarterly Town Hall' appears in the table with its date/time range, attendance '50', and a 'Submitted' status badge — confirming the coordinator can see the submitted request.\nEvery other row in the table also shows a 'Submitted' status badge — the filter actually narrows the table to that status, rather than continuing to show every event regardless of the selected filter."
+    },
+    {
+      "id": "SPM-25-TC07",
+      "title": "Event Coordinator cannot see the organiser's request while it is still a draft",
+      "linked_ac": ["AC4"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "No existing event named 'Unsubmitted Draft Event' for the organiser used below.",
+      "steps": [
+        "Log in as an Event Organiser (e.g. rachel.ng@meridianfina.com)",
+        "From the sidebar, click 'My Events'",
+        "Click 'New event request'",
+        "Enter the event name 'Unsubmitted Draft Event'",
+        "Leave every other field blank",
+        "Click 'Save draft'",
+        "Log out",
+        "Log in as the Event Coordinator (e.g. daniel.tan@connectsphere.com)",
+        "From the sidebar, click 'All Events'",
+        "Open the 'Filter by status' dropdown and read the list of options offered",
+        "With 'All statuses' selected, look for 'Unsubmitted Draft Event' in the table"
+      ],
+      "test_data": "Draft event: Unsubmitted Draft Event (status: draft, owned by rachel.ng@meridianfina.com)",
+      "expected_result": "The 'Filter by status' dropdown does not offer a 'Draft' option at all — it isn't a status a coordinator can ever filter to, since drafts are never returned to non-organiser roles.\nWith 'All statuses' selected, 'Unsubmitted Draft Event' does not appear anywhere in the table — a draft stays private to its owning organiser until submitted."
+    }
+  ],
+  "open_questions": [
+    "Both the New event request page and the Edit draft page redirect to /events/{id} on a successful submit, but that general event-detail screen (S-06) has not been built yet (DOCUMENTATION.md 'Known Gaps'). A tester following TC01 or TC06 to a specific event by clicking its row will land on Next.js's default 404 page rather than a confirmation or detail view. Is a temporary redirect target (e.g. back to My Events / All Events with a success toast) wanted until S-06 ships, or is the 404 acceptable for this sprint's demo?",
+    "AC4 says 'the Event Coordinator can view the submitted request.' Today that is only verifiable at the list level (My Events / All Events row) — clicking through to see the full record hits the same S-06 gap above. Should AC4 be considered fully met by list-level visibility, or does it require the detail screen?",
+    "SPM-25's original fifth AC ('the relevant users receive a notification that the request has been submitted') was removed from this story and moved to SPM-53 (Receive Event Notifications) since no notification UI/API exists yet — see the comments on SPM-25 and SPM-53. Not tested here as a result; SPM-53 should carry its own test cases for that behaviour once its UI exists."
+  ],
+  "code_references": [
+    "src/app/api/events/[id]/route.ts",
+    "src/lib/permissions.ts",
+    "src/lib/eventForm.ts",
+    "src/app/events/new/page.tsx",
+    "src/app/events/[id]/edit/page.tsx",
+    "src/app/events/page.tsx",
+    "src/lib/roles.ts",
+    "src/lib/statuses.ts",
+    "src/lib/validation/events.ts"
+  ]
+}

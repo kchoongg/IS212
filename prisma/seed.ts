@@ -276,7 +276,10 @@ async function main() {
     { code: "JUR-TRN", name: "Jurong Training Room", description: "Classroom-style training room with fixed AV",
       building: "Jurong Gateway", floor: "L4", maxCapacity: 60, opensAt: "08:00", closesAt: "21:00",
       setupMinutes: 45, teardownMinutes: 30,
-      layouts: [["classroom", 60], ["u_shape", 36], ["theatre", 70]],
+      // CHANGED: classroom reduced 60 -> 40. This is the state that justifies
+      // the flagged booking created below: the Harbourline claims training
+      // expects 55 in classroom layout and no longer fits.
+      layouts: [["classroom", 40], ["u_shape", 36], ["theatre", 70]],
       facilities: ["High-density WiFi", "Fixed ceiling projector", "Built-in PA system",
         "Natural light", "Blackout blinds", "Step-free access", "Accessible toilet"] },
     { code: "JUR-LAB", name: "Jurong Skills Lab", description: "Workshop room with benches and heavy power supply",
@@ -742,6 +745,26 @@ async function main() {
     });
   }
 
+  // One future approved booking starts out flagged for review, so a coordinator
+  // has something in their review queue on a fresh database. The story the data
+  // tells: Venue Staff reduced Jurong Training Room's classroom layout from 60
+  // seats to 40 (see venueData above), the Harbourline claims training expects
+  // 55, and PATCH /api/venues/[id] flagged the approved booking rather than
+  // changing it. Reason codes come from src/lib/venueImpact.ts; the matching
+  // notification to its coordinator is in the notifications block below.
+  await prisma.venueBooking.updateMany({
+    where: {
+      eventId: events["confirmed_claims"].id,
+      venueId: venues["JUR-TRN"],
+      status: "approved",
+    },
+    data: {
+      needsReview: true,
+      reviewReason: "layout_capacity_below_attendance",
+      flaggedAt: day(-2),
+    },
+  });
+
   // -------------------------------------------------------------------
   // VENUE UNAVAILABILITY
   // -------------------------------------------------------------------
@@ -944,6 +967,10 @@ async function main() {
       "All streaming encoders are committed that week; the product launch request needs review.", events["review_launch"].id, false],
     [users["organiser:Samuel Ong"], "event_cancelled", "Event cancelled",
       "Pearl Delta Supplier Forum has been cancelled and its room released.", events["cancelled"].id, true],
+    [users["priya.raj@connectsphere.com"], "booking_needs_review", "Booking needs review",
+      "Jurong Training Room (JUR-TRN): the booked layout no longer seats the expected attendance. " +
+      "The approved booking for Harbourline Claims Systems Training is flagged for review - " +
+      "nothing has been changed automatically.", events["confirmed_claims"].id, false],
   ];
   for (const [recipientId, type, title, body, eventId, isRead] of notifs) {
     await prisma.notification.create({
@@ -965,7 +992,7 @@ async function main() {
   console.log(`  notifications : ${notifs.length}`);
   console.log(`\nEvery account's password is: ${DEMO_PASSWORD}`);
   console.log("Log in as  daniel.tan@connectsphere.com  (coordinator)");
-  console.log("       or  rachel.ng@meridianfinanc.com  (organiser)");
+  console.log("       or  rachel.ng@meridianfina.com  (organiser)");
 }
 
 main()

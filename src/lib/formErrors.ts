@@ -70,10 +70,21 @@ export function readServerError(body: ServerErrorBody, fallback = "Something wen
 
 /// Focuses the first field with an error and scrolls it into view, so a long
 /// form does not fail silently below the fold (§7.1).
+///
+/// Not every failure is attributable to a field - a network error, or a
+/// server rejection with no field to blame, only sets the form-level Alert
+/// (readServerError's `formError`). That Alert is always the form's first
+/// child, so with no field to focus, scrolling the form itself to "start"
+/// brings the Alert into view instead of leaving it silently off-screen on a
+/// long form the user has scrolled down.
 export function focusFirstError(form: HTMLFormElement | null, errors: FieldErrors) {
   if (!form) return;
   const firstKey = Object.keys(errors)[0];
-  if (!firstKey) return;
+
+  if (!firstKey) {
+    form.scrollIntoView({ block: "start", behavior: "smooth" });
+    return;
+  }
 
   const control = form.querySelector<HTMLElement>(`[name="${firstKey}"]`) ?? form.querySelector<HTMLElement>("[aria-invalid='true']");
   control?.scrollIntoView({ block: "center", behavior: "smooth" });
