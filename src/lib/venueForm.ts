@@ -84,8 +84,19 @@ export function validateVenueForm(values: VenueFormValues): FieldErrors {
     errors.maxCapacity = "Enter a whole number, at least 1.";
   }
 
+  // Required, because Venue.opensAt/closesAt are NOT NULL in the schema -
+  // "clear the opening time" has no valid meaning. Without this, an emptied
+  // field was sent as undefined, which PATCH reads as "leave this alone", so
+  // the old value silently came back with no feedback.
+  //
+  // The HH:MM check is unreachable from a native time input, which reports
+  // either a well-formed value or an empty one. It is kept for a caller that
+  // builds these values some other way.
   for (const field of ["opensAt", "closesAt"] as const) {
-    if (values[field] && !TIME_PATTERN.test(values[field])) {
+    if (!values[field]) {
+      errors[field] =
+        field === "opensAt" ? "Enter when the venue opens." : "Enter when the venue closes.";
+    } else if (!TIME_PATTERN.test(values[field])) {
       errors[field] = "Use 24-hour HH:MM, e.g. 08:00.";
     }
   }
@@ -204,8 +215,11 @@ export function venuePayload(values: VenueFormValues) {
     floor: values.floor.trim() || undefined,
     address: values.address.trim() || undefined,
     maxCapacity: Number(values.maxCapacity),
-    opensAt: values.opensAt || undefined,
-    closesAt: values.closesAt || undefined,
+    // Sent as-is rather than `|| undefined`: these are required, so an empty
+    // one is a bug worth surfacing as a server rejection, not something to
+    // quietly drop from the payload and leave unchanged.
+    opensAt: values.opensAt,
+    closesAt: values.closesAt,
     setupMinutes: values.setupMinutes === "" ? undefined : Number(values.setupMinutes),
     teardownMinutes: values.teardownMinutes === "" ? undefined : Number(values.teardownMinutes),
     facilityIds: values.facilityIds,

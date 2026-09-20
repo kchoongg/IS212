@@ -228,7 +228,18 @@ export function VenueForm({
       </Fieldset>
 
       <Fieldset legend="Opening hours">
-        <Field label="Opens at" hint="24-hour, e.g. 08:00." error={errors.opensAt}>
+        {/* No `step` on these: <input type="time"> yields "HH:mm" and gains a
+            seconds component only when step drops below 60, which would then
+            fail the HH:MM check in validateVenueForm. The browser renders the
+            picker in the viewer's own locale - a 12-hour AM/PM face in some -
+            but the value it reports is always 24-hour, so nothing here needs
+            to restate the stored format. */}
+        <Field
+          label="Opens at"
+          required
+          hint="When the room becomes available for bookings."
+          error={errors.opensAt}
+        >
           <Input
             name="opensAt"
             type="time"
@@ -237,7 +248,7 @@ export function VenueForm({
           />
         </Field>
 
-        <Field label="Closes at" error={errors.closesAt}>
+        <Field label="Closes at" required error={errors.closesAt}>
           <Input
             name="closesAt"
             type="time"
