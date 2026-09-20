@@ -6,7 +6,9 @@ import {
   STATUS_TRANSITION_ROLES,
   can,
   canEditEventContent,
+  canManageEquipmentRequests,
   canSetEventStatus,
+  canViewEquipmentRequests,
   canViewEvent,
   eventListWhere,
   isAssignedCoordinator,
@@ -98,6 +100,13 @@ describe("the role matrix", () => {
     expect(can("coordinator", "venue_booking:decide")).toBe(false);
     expect(can("tech_support", "equipment_request:review")).toBe(true);
     expect(can("venue_staff", "equipment_request:review")).toBe(false);
+
+    // SPM-47: recording the requirements themselves is the coordinator's job,
+    // same footing as requesting a venue booking — separate from Technical
+    // Support's equipment_request:review above.
+    expect(can("coordinator", "equipment_request:manage")).toBe(true);
+    expect(can("organiser", "equipment_request:manage")).toBe(false);
+    expect(can("tech_support", "equipment_request:manage")).toBe(false);
 
     // §5 Step 11: only an attendee registers.
     expect(can("attendee", "registration:create")).toBe(true);
@@ -236,6 +245,73 @@ describe("canEditEventContent", () => {
     const draft = event({ status: "draft" });
     for (const other of [colleagueA, organiserB, coordinator, opsManager, attendee]) {
       expect(canEditEventContent(other, draft)).toBe(false);
+    }
+  });
+});
+
+describe("canManageEquipmentRequests", () => {
+  it("lets the assigned coordinator manage equipment on their event", () => {
+    const mine = event({ status: "planning", coordinatorId: "coordinator-1" });
+    expect(canManageEquipmentRequests(coordinator, mine)).toBe(true);
+  });
+
+  it("lets any coordinator pick up an event with no coordinator yet", () => {
+    expect(canManageEquipmentRequests(coordinator, event({ coordinatorId: null }))).toBe(true);
+  });
+
+  it("stops a coordinator managing equipment on a colleague's event", () => {
+    const theirs = event({ coordinatorId: "coordinator-1" });
+    expect(canManageEquipmentRequests(otherCoordinator, theirs)).toBe(false);
+  });
+
+  it("is not restricted to draft — equipment planning happens well past it", () => {
+    // Unlike canEditEventContent, which is draft-only.
+    const mine = { coordinatorId: "coordinator-1" };
+    for (const status of ["planning", "confirmed", "postponed"]) {
+      expect(canManageEquipmentRequests(coordinator, event({ ...mine, status }))).toBe(true);
+    }
+  });
+
+  it("stops every other role, including the organiser who owns the event", () => {
+    const draft = event({ status: "draft" });
+    for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canManageEquipmentRequests(other, draft)).toBe(false);
+    }
+  });
+});
+
+describe("canViewEquipmentRequests", () => {
+  it("lets Technical Support view any event's equipment, assigned or not", () => {
+    expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1" }))).toBe(
+      true
+    );
+  });
+
+  it("lets the assigned coordinator view it — because managing it requires seeing it", () => {
+    const mine = event({ coordinatorId: "coordinator-1" });
+    expect(canViewEquipmentRequests(coordinator, mine)).toBe(true);
+  });
+
+  it("stops a coordinator viewing equipment on a colleague's event", () => {
+    const theirs = event({ coordinatorId: "coordinator-1" });
+    expect(canViewEquipmentRequests(otherCoordinator, theirs)).toBe(false);
+  });
+
+  it("lets the owning organiser view their own event's equipment read-only", () => {
+    // Broader than AC6's literal wording (Technical Support only), confirmed
+    // 2026-09-19 as intended — an Organiser should be able to see what's
+    // been recorded against the event they raised.
+    expect(canViewEquipmentRequests(organiserA, event())).toBe(true);
+  });
+
+  it("stops an organiser viewing equipment on an event they don't own", () => {
+    expect(canViewEquipmentRequests(organiserB, event())).toBe(false);
+    expect(canViewEquipmentRequests(colleagueA, event())).toBe(false);
+  });
+
+  it("stops every other role", () => {
+    for (const other of [opsManager, venueStaff, attendee]) {
+      expect(canViewEquipmentRequests(other, event())).toBe(false);
     }
   });
 });

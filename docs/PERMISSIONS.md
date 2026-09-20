@@ -67,6 +67,7 @@ the model, deliberately blind to which event is involved.
 | `venue_booking:decide` | — | — | — | ✅ | — | — |
 | `equipment:view` | ✅ | ✅ | ✅ | — | ✅ | — |
 | `equipment:manage` | — | — | — | — | ✅ | — |
+| `equipment_request:manage` | — | ✅ | — | — | — | — |
 | `equipment_request:review` | — | — | — | — | ✅ | — |
 | `registration:create` | — | — | — | — | — | ✅ |
 | `registration:view_list` | ✅ | ✅ | — | — | — | — |
@@ -77,7 +78,7 @@ Each row traces to the briefing's §5 process: the organiser drafts and submits
 and confirms (Steps 4-5, 10), Venue Staff decide bookings (Step 7), Technical
 Support decides equipment (Step 8), attendees register (Step 11).
 
-Two entries are worth explaining:
+Three entries are worth explaining:
 
 - **`equipment:view` includes the organiser.** The event request form (S-08)
   asks the organiser to pick the equipment they need from the catalogue, so the
@@ -85,6 +86,20 @@ Two entries are worth explaining:
 - **`venue:view` excludes the organiser.** Venue selection is the coordinator's
   job (§5 Step 6). An organiser learns their venue through the confirmed event,
   not by browsing the catalogue.
+- **`equipment_request:manage` is separate from `equipment_request:review`.**
+  Recording what an event needs (SPM-47) is the coordinator's job; deciding
+  whether it can actually be provided (SPM-48/49/50) is Technical Support's.
+  Same split as `venue_booking:request` / `venue_booking:decide` above, one
+  action per side of the same conversation.
+- **Viewing one event's recorded equipment is not the same permission as
+  `equipment:view`.** `equipment:view` (above) is the catalogue — what the
+  organiser browses to make a request. Seeing what's actually been recorded
+  *for a specific event* is `canViewEquipmentRequests()` (§3, below the role
+  table — it's a relationship check, not a flat role permission): Technical
+  Support always, the assigned Coordinator because managing it requires
+  seeing it, and the owning Organiser read-only (confirmed 2026-09-19 —
+  broader than AC6's literal wording, but an Organiser reasonably wants to
+  see what's recorded against their own event; see `UI_DESIGN.md` §4.3).
 
 An unknown role — anything not in `ROLES` — is granted nothing.
 
@@ -193,6 +208,9 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `POST /api/venues` | `venue:manage` — Venue Staff |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
+| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support, the assigned Coordinator, or the owning Organiser read-only) |
+| `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |
+| `PATCH`/`DELETE /api/events/[id]/equipment/[requestId]` | Same as `POST` above, resolved from the request's own event |
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event |
 
@@ -208,10 +226,11 @@ permits. Every route re-checks.
 ## 7. How it is tested
 
 `permissions.ts` is pure — no Prisma, no `NextRequest` — so the whole model is
-unit tested against object literals, with no database or running server. 34
+unit tested against object literals, with no database or running server. 45
 tests cover the role matrix, each relationship rule, the list filter (including
-that it agrees with `canViewEvent`), every status transition, and field
-visibility.
+that it agrees with `canViewEvent`), every status transition, field
+visibility, and `canManageEquipmentRequests` / `canViewEquipmentRequests`
+(SPM-47).
 
 The two examples the briefing names have tests of their own:
 
@@ -223,9 +242,10 @@ precisely how four routes shipped without authorisation. So there is a second
 layer: `npm run verify:permissions`
 ([`scripts/verify-permissions.ts`](../scripts/verify-permissions.ts)) signs in
 as all six seeded roles against a running server and asserts the real HTTP
-status of 36 refusals and permitted actions, each labelled with the acceptance
-criterion it belongs to. Start `npm run dev` first. It creates its own event
-through the API and deletes everything it made, so it is safe to re-run.
+status of 45 refusals and permitted actions, each labelled with the acceptance
+criterion it belongs to (including an `SPM-47` group covering the equipment
+request routes added there). Start `npm run dev` first. It creates its own
+event through the API and deletes everything it made, so it is safe to re-run.
 
 Note that two refusals answer 404 where you might expect 403: an attendee
 cannot *see* a submitted event, so visibility refuses before the role check is
@@ -241,9 +261,11 @@ allowed to see.
   coordinator.
 - **Coordinator Assignment** has no endpoint yet, which is why any coordinator
   may pick up an unassigned event.
-- **Venue bookings and equipment requests** have no routes yet. The actions
-  (`venue_booking:decide`, `equipment_request:review`) are defined and ready for
-  whoever builds them.
+- **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
+  ready for whoever builds them.
+- **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)
+  but not yet reviewed. `equipment_request:review` is still defined and ready
+  for whoever builds the Technical Support side (SPM-48/49/50).
 - **`registration:view_list`** is defined but unused — the attendee list screen
   is not built.
 - **`users.role` has no database constraint.** Zod guards the register route;
