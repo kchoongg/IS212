@@ -26,6 +26,13 @@
 > - [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md) — who may do what, and to
 >   which events. **Read this before writing any route**, and check the
 >   permission it needs before you write the handler.
+> - [`docs/ConnectSphere_Status_Lifecycle.drawio`](./docs/ConnectSphere_Status_Lifecycle.drawio)
+>   — the ten event statuses and which moves between them are legal, the
+>   lifecycle the events `PATCH` route refers to (open with
+>   [diagrams.net](https://app.diagrams.net)).
+> - [`docs/ConnectSphere_BPMN.drawio`](./docs/ConnectSphere_BPMN.drawio) — the
+>   whole business process as one swimlane per role, showing who does what, in
+>   what order, from an organiser's first draft to a completed event.
 
 ---
 
