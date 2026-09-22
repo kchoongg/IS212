@@ -40,14 +40,12 @@
         <mxCell id="id102" edge="1" parent="1" source="n_submitted" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_review" value="coordinator">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="id103" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11;fontColor=#8B5A2B;jettySize=auto;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="n_draft" value="clarification needed">
+        <mxCell id="id103" edge="1" parent="1" source="n_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11;fontColor=#8B5A2B;jettySize=auto;exitX=0.25;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=0;entryDx=0;entryDy=0;" target="n_review" value="clarification needed">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="495.05" y="170" />
-              <mxPoint x="120" y="170" />
+              <mxPoint x="500" y="24" />
+              <mxPoint x="580" y="24" />
             </Array>
-            <mxPoint x="495" y="120" as="sourcePoint" />
-            <mxPoint x="220" y="120" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="id104" edge="1" parent="1" source="n_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="n_rejected" value="reject">
