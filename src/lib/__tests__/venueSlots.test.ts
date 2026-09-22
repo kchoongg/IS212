@@ -2,7 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   SLOTS,
   SLOT_BOUNDARIES,
+  addDays,
+  dayNumberOf,
+  dayRange,
+  isDayKey,
   localDayKey,
+  localDayStart,
+  openingHoursCoverage,
+  parseClock,
   localMinuteOfDay,
   minutesOutsideSlots,
   occupiedWindow,
@@ -43,7 +50,7 @@ describe("SLOT_BOUNDARIES", () => {
   });
 
   it("labels each slot from the table rather than hard-coded text", () => {
-    expect(slotRangeLabel("AM")).toBe("08:00–12:00");
+    expect(slotRangeLabel("AM")).toBe("06:00–12:00");
     expect(slotRangeLabel("PM")).toBe("12:00–18:00");
     expect(slotRangeLabel("Night")).toBe("18:00–23:00");
   });
@@ -138,7 +145,7 @@ describe("slotsCovered", () => {
   it("splits a booking that runs past midnight across two days", () => {
     // Slots never cross midnight, so this is two days' cells, not one odd one.
     // 22:00-09:00 touches Night on the 28th, then AM on the 29th. Nothing in
-    // between, because 23:00-08:00 is in no slot at all.
+    // between, because 23:00-06:00 is in no slot at all.
     expect(slotsCovered(at("2026-09-28T22:00:00", "2026-09-29T09:00:00"))).toEqual([
       { day: "2026-09-28", slot: "Night" },
       { day: "2026-09-29", slot: "AM" },
@@ -164,7 +171,7 @@ describe("slotsCovered", () => {
   });
 
   it("returns nothing for a booking that falls entirely between slots", () => {
-    // 23:00-08:00 is covered by no slot under the provisional boundaries.
+    // 23:00-06:00 is covered by no slot under the provisional boundaries.
     // This is the case minutesOutsideSlots() exists to warn about.
     expect(slotsCovered(at("2026-09-28T23:15:00", "2026-09-28T23:45:00"))).toEqual([]);
   });
@@ -190,13 +197,20 @@ describe("minutesOutsideSlots", () => {
   });
 
   it("reports only the part that falls outside", () => {
-    // 06:00-10:00 at a venue that opens at 06:00: two hours before AM starts.
-    expect(minutesOutsideSlots(at("2026-09-28T06:00:00", "2026-09-28T10:00:00"))).toBe(120);
+    // 04:00-08:00: the two hours before AM starts at 06:00 are in no slot.
+    expect(minutesOutsideSlots(at("2026-09-28T04:00:00", "2026-09-28T08:00:00"))).toBe(120);
+  });
+
+  it("covers a 06:00 start completely - the reason AM moved from 08:00", () => {
+    // Jurong Expo Floor opens at 06:00, and Marina Grand Hall's 180-minute
+    // setup puts a 09:00 event in the room from 06:00. With AM at 08:00 these
+    // lost up to 120 minutes each; the grid now has to cover them.
+    expect(minutesOutsideSlots(at("2026-09-28T06:00:00", "2026-09-28T10:00:00"))).toBe(0);
   });
 
   it("counts the overnight gap between Night and the next AM", () => {
-    // 22:00-09:00: 23:00-08:00 is nine hours in no slot.
-    expect(minutesOutsideSlots(at("2026-09-28T22:00:00", "2026-09-29T09:00:00"))).toBe(9 * 60);
+    // 22:00-09:00: 23:00-06:00 is seven hours in no slot.
+    expect(minutesOutsideSlots(at("2026-09-28T22:00:00", "2026-09-29T09:00:00"))).toBe(7 * 60);
   });
 
   it("agrees with slotsCovered about whether anything is covered", () => {
@@ -204,7 +218,7 @@ describe("minutesOutsideSlots", () => {
       ["2026-09-28T09:00:00", "2026-09-28T10:00:00"],
       ["2026-09-28T23:15:00", "2026-09-28T23:45:00"],
       ["2026-09-28T22:00:00", "2026-09-29T09:00:00"],
-      ["2026-09-28T06:00:00", "2026-09-28T07:00:00"],
+      ["2026-09-28T04:00:00", "2026-09-28T05:00:00"],
     ];
     for (const [from, to] of cases) {
       const interval = at(from, to);
@@ -220,5 +234,77 @@ describe("minutesOutsideSlots", () => {
 describe("the slot vocabulary", () => {
   it("is exactly the three the acceptance criterion names", () => {
     expect([...SLOTS]).toEqual<Slot[]>(["AM", "PM", "Night"]);
+  });
+});
+
+describe("calendar days", () => {
+  it("accepts real dates and rejects impossible or malformed ones", () => {
+    expect(isDayKey("2026-09-28")).toBe(true);
+    expect(isDayKey("2028-02-29")).toBe(true); // leap year
+    // Rejected by round-tripping, not by the regex: 31 Feb would otherwise
+    // quietly become 3 March.
+    expect(isDayKey("2026-02-31")).toBe(false);
+    expect(isDayKey("2027-02-29")).toBe(false);
+    expect(isDayKey("28/09/2026")).toBe(false);
+    expect(isDayKey("2026-9-28")).toBe(false);
+    expect(dayNumberOf("nonsense")).toBeNull();
+  });
+
+  it("adds days across month and year ends", () => {
+    expect(addDays("2026-09-30", 1)).toBe("2026-10-01");
+    expect(addDays("2026-12-31", 1)).toBe("2027-01-01");
+    expect(addDays("2026-10-01", -1)).toBe("2026-09-30");
+  });
+
+  it("lists every day in a range, both ends included", () => {
+    expect(dayRange("2026-09-29", "2026-10-02")).toEqual([
+      "2026-09-29",
+      "2026-09-30",
+      "2026-10-01",
+      "2026-10-02",
+    ]);
+    expect(dayRange("2026-09-28", "2026-09-28")).toEqual(["2026-09-28"]);
+    expect(dayRange("2026-10-02", "2026-09-29")).toEqual([]);
+  });
+
+  it("finds the instant a Singapore day begins", () => {
+    // Local midnight on the 28th is 16:00 UTC on the 27th - a query that used
+    // UTC midnight instead would miss the first eight hours of the day.
+    expect(localDayStart("2026-09-28").toISOString()).toBe("2026-09-27T16:00:00.000Z");
+    expect(localDayKey(localDayStart("2026-09-28"))).toBe("2026-09-28");
+    expect(localMinuteOfDay(localDayStart("2026-09-28"))).toBe(0);
+  });
+});
+
+describe("opening hours within a slot", () => {
+  it("reads 24-hour clock times", () => {
+    expect(parseClock("08:30")).toBe(510);
+    expect(parseClock("00:00")).toBe(0);
+    expect(parseClock("24:00")).toBeNull();
+    expect(parseClock("8:30")).toBeNull();
+  });
+
+  it("reports full, partial and closed against the fixed grid", () => {
+    // Orchard Studio: 08:00-21:00. AM runs from 06:00, so a room that opens at
+    // 08:00 is only open for part of it.
+    expect(openingHoursCoverage("AM", "08:00", "21:00")).toBe("partial");
+    expect(openingHoursCoverage("PM", "08:00", "21:00")).toBe("full");
+    expect(openingHoursCoverage("Night", "08:00", "21:00")).toBe("partial");
+    // Opening mid-morning only partly covers AM.
+    expect(openingHoursCoverage("AM", "10:00", "22:00")).toBe("partial");
+    // A room shut by noon has no afternoon or evening at all.
+    expect(openingHoursCoverage("PM", "08:00", "12:00")).toBe("closed");
+    expect(openingHoursCoverage("Night", "08:00", "12:00")).toBe("closed");
+  });
+
+  it("treats opening early or closing late as simply full", () => {
+    // Jurong Expo Floor, 06:00-23:00: the grid does not stretch to fit it.
+    expect(openingHoursCoverage("AM", "06:00", "23:00")).toBe("full");
+    expect(openingHoursCoverage("Night", "06:00", "23:00")).toBe("full");
+  });
+
+  it("does not invent a closure from hours it cannot read", () => {
+    expect(openingHoursCoverage("AM", "garbage", "22:00")).toBe("full");
+    expect(openingHoursCoverage("AM", "18:00", "08:00")).toBe("full");
   });
 });

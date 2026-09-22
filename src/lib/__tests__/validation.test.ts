@@ -8,6 +8,7 @@ import {
   updateEventStatusSchema,
   updateEventDraftSchema,
   updateVenueSchema,
+  venueAvailabilityQuerySchema,
   addEquipmentRequestSchema,
   updateEquipmentRequestSchema,
 } from "../validation";
@@ -768,5 +769,29 @@ describe("updateEquipmentRequestSchema", () => {
 
   it("rejects a quantity below one", () => {
     expect(updateEquipmentRequestSchema.safeParse({ quantityRequested: 0 }).success).toBe(false);
+  });
+});
+
+describe("venueAvailabilityQuerySchema", () => {
+  it("accepts no range at all - the route defaults to a week from today", () => {
+    expect(venueAvailabilityQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it("accepts a real start and end date", () => {
+    const result = venueAvailabilityQuerySchema.safeParse({ from: "2026-09-28", to: "2026-10-04" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a date that does not exist", () => {
+    // Caught by round-tripping, not the format: 31 Feb must not become 3 March.
+    const result = venueAvailabilityQuerySchema.safeParse({ from: "2026-02-31" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toMatch(/YYYY-MM-DD/);
+    }
+  });
+
+  it("rejects a date written in another format", () => {
+    expect(venueAvailabilityQuerySchema.safeParse({ to: "28/09/2026" }).success).toBe(false);
   });
 });

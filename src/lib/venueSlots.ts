@@ -27,8 +27,21 @@ import { TIME_ZONE } from "@/lib/format";
 // SPM-46 names the three slots but never defines their boundaries, and nothing
 // else in the project does either: UI_DESIGN.md never mentions slots, and the
 // S-21 mockup (design/mockups/VenueCalendar.dc.html) draws a continuous time
-// grid instead. Asked on SPM-46 (comment, 2026-09-21) with these values
-// proposed; building on them until Kristen answers.
+// grid instead. Asked on SPM-46 (comment, 2026-09-21); still awaiting Kristen's
+// confirmation, so these may yet change.
+//
+// The grid is FIXED - the same for every venue. A venue's own opening hours do
+// not move the boundaries; they only mark a slot "partial" or "closed" (see
+// openingHoursCoverage). Per-venue boundaries were considered and rejected: a
+// fixed grid keeps venues comparable, and nothing defines where PM would start
+// if AM started at each venue's opening time.
+//
+// AM starts at 06:00, moved from the originally proposed 08:00 (2026-09-22).
+// 08:00 was measured against the seeded data and found too late: four of
+// thirteen approved bookings fell partly before AM began once setup time was
+// added - Jurong Expo Floor opens at 06:00, and Marina Grand Hall's 180-minute
+// setup puts a 09:00 event in the room from 06:00. With AM at 06:00 all four
+// are fully covered. PM and Night are unchanged.
 //
 // This table is the single source of truth - every function below derives from
 // it, so different numbers are a change HERE and nowhere else. Two answers
@@ -43,12 +56,12 @@ export type Slot = (typeof SLOTS)[number];
 /// Minutes from local midnight, half-open: [fromMinute, toMinute). A booking
 /// that starts exactly at 12:00 is PM, not the tail of AM.
 export const SLOT_BOUNDARIES: Record<Slot, { fromMinute: number; toMinute: number }> = {
-  AM: { fromMinute: 8 * 60, toMinute: 12 * 60 }, // 08:00–12:00
+  AM: { fromMinute: 6 * 60, toMinute: 12 * 60 }, // 06:00–12:00 (was 08:00 - see above)
   PM: { fromMinute: 12 * 60, toMinute: 18 * 60 }, // 12:00–18:00
   Night: { fromMinute: 18 * 60, toMinute: 23 * 60 }, // 18:00–23:00
 };
 
-/// "08:00–12:00", for a column header. Derived, never written out by hand, so
+/// "06:00–12:00", for a column header. Derived, never written out by hand, so
 /// a boundary change cannot leave a stale label behind.
 export function slotRangeLabel(slot: Slot): string {
   const { fromMinute, toMinute } = SLOT_BOUNDARIES[slot];
@@ -228,19 +241,17 @@ export function slotsCovered(interval: Interval): SlotCell[] {
 /// How much of an interval falls in no slot at all.
 ///
 /// The slots do not cover the whole day: with the provisional boundaries,
-/// 23:00–08:00 belongs to nothing. A booking inside that window would produce
+/// 23:00–06:00 belongs to nothing. A booking inside that window would produce
 /// ZERO cells from slotsCovered() and vanish from the grid entirely.
 ///
-/// Measured against the seeded data (2026-09-21): of 13 approved bookings,
-/// none vanish, but FOUR are partly outside the grid once setup is applied -
-/// up to 120 minutes each. The cause is the AM boundary: three venues open
-/// before 08:00 (JUR-EXP 06:00, MAR-GH 07:00, CBP-CONF 07:30), and a 180-minute
-/// setup on a 09:00 event puts the room in use from 06:00. So an AM start of
-/// 08:00 is demonstrably too late for real data - worth raising when Kristen
-/// answers on the boundaries.
+/// This function is how the AM boundary was fixed. With AM at 08:00, four of
+/// the thirteen seeded approved bookings reported up to 120 minutes outside
+/// the grid once setup was added (2026-09-21). Moving AM to 06:00 brought all
+/// four to 0 (2026-09-22). Nothing in the seed reaches before 06:00 or after
+/// 23:00 today - but no rule stops a venue opening at 05:00, so keep the check.
 ///
 /// Callers should surface a non-zero result rather than silently dropping the
-/// booking. If Kristen widens the grid to cover the full day, this returns 0
+/// booking. If the grid is ever widened to cover the full day, this returns 0
 /// everywhere and the warning quietly stops firing.
 export function minutesOutsideSlots(interval: Interval): number {
   const from = localAbsoluteMinute(interval.startsAt);
@@ -262,4 +273,106 @@ export function minutesOutsideSlots(interval: Interval): number {
     }
   }
   return Math.max(0, to - from - covered);
+}
+
+// ---------------------------------------------------------------------------
+// CALENDAR DAYS
+// ---------------------------------------------------------------------------
+//
+// The availability endpoint takes its range as local calendar days
+// ("2026-09-28"), because that is what a person picks. These turn a day key
+// into the instants a database query needs, and walk a range day by day.
+
+const DAY_KEY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/// "2026-09-28" -> its day number, or null when it is not a real calendar date.
+/// Checked by round-tripping, so "2026-02-31" is rejected rather than quietly
+/// becoming 3 March.
+export function dayNumberOf(dayKey: string): number | null {
+  const match = DAY_KEY.exec(dayKey);
+  if (!match) return null;
+  const [, y, m, d] = match.map(Number);
+  const ms = Date.UTC(y, m - 1, d);
+  const back = new Date(ms);
+  if (back.getUTCFullYear() !== y || back.getUTCMonth() !== m - 1 || back.getUTCDate() !== d) {
+    return null;
+  }
+  return ms / 86_400_000;
+}
+
+export function isDayKey(value: string): boolean {
+  return dayNumberOf(value) !== null;
+}
+
+/// Assumes a valid day key - validate at the boundary with isDayKey().
+export function addDays(dayKey: string, days: number): string {
+  return dayKeyFromDayNumber((dayNumberOf(dayKey) ?? 0) + days);
+}
+
+/// Every day from `from` to `to`, both included. Empty when to < from.
+export function dayRange(from: string, to: string): string[] {
+  const first = dayNumberOf(from);
+  const last = dayNumberOf(to);
+  if (first === null || last === null || last < first) return [];
+  const days: string[] = [];
+  for (let n = first; n <= last; n++) days.push(dayKeyFromDayNumber(n));
+  return days;
+}
+
+/// The instant a local day begins - local midnight - for querying stored
+/// timestamps. Derives the zone's offset rather than hard-coding +08:00, so it
+/// stays right if TIME_ZONE ever changes. (Exact for a fixed-offset zone like
+/// Singapore's; a zone with daylight saving could be an hour out on the
+/// changeover day itself.)
+export function localDayStart(dayKey: string): Date {
+  const dayNumber = dayNumberOf(dayKey) ?? 0;
+  const utcMidnight = dayNumber * 86_400_000;
+  const offsetMinutes = localAbsoluteMinute(new Date(utcMidnight)) - dayNumber * 1440;
+  return new Date(utcMidnight - offsetMinutes * 60_000);
+}
+
+// ---------------------------------------------------------------------------
+// OPENING HOURS WITHIN A SLOT
+// ---------------------------------------------------------------------------
+//
+// The slot grid is the same for every venue (see SLOT_BOUNDARIES). A venue's
+// own opening hours do not move the boundaries - they say whether the room can
+// be used in a slot at all. Jurong Expo Floor opening 06:00 and Orchard Studio
+// closing 21:00 both show all three slots; the second one's Night is "partial".
+//
+// Both sides of this comparison are wall-clock "HH:MM" text, so unlike the
+// deferred opening-hours *impact* check (which compares Venue.opensAt against a
+// booking's stored timestamp) no timezone question arises here.
+
+export type OpeningHoursCoverage = "full" | "partial" | "closed";
+
+/// "08:30" -> 510. Null for anything that is not a valid 24-hour time.
+export function parseClock(value: string): number | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+/// How much of a slot the venue is open for.
+///
+/// Unreadable or inverted hours report "full" rather than "closed": the venue
+/// form rejects both, so reaching this means bad data, and inventing a closure
+/// from data that cannot be read would hide real availability.
+export function openingHoursCoverage(
+  slot: Slot,
+  opensAt: string,
+  closesAt: string
+): OpeningHoursCoverage {
+  const open = parseClock(opensAt);
+  const close = parseClock(closesAt);
+  if (open === null || close === null || close <= open) return "full";
+
+  const { fromMinute, toMinute } = SLOT_BOUNDARIES[slot];
+  const overlap = Math.min(close, toMinute) - Math.max(open, fromMinute);
+  if (overlap <= 0) return "closed";
+  if (open <= fromMinute && close >= toMinute) return "full";
+  return "partial";
 }
