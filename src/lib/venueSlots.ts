@@ -19,16 +19,14 @@
 import { TIME_ZONE } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
-// SLOT BOUNDARIES — PROVISIONAL, pending confirmation on SPM-46
+// SLOT BOUNDARIES — team decision, recorded on SPM-46
 // ---------------------------------------------------------------------------
-//
-// ⚠️ These times are a WORKING ASSUMPTION, not a confirmed requirement.
 //
 // SPM-46 names the three slots but never defines their boundaries, and nothing
 // else in the project does either: UI_DESIGN.md never mentions slots, and the
 // S-21 mockup (design/mockups/VenueCalendar.dc.html) draws a continuous time
-// grid instead. Asked on SPM-46 (comment, 2026-09-21); still awaiting Kristen's
-// confirmation, so these may yet change.
+// grid instead. So the team set them, on the evidence below, and recorded the
+// decision on SPM-46.
 //
 // The grid is FIXED - the same for every venue. A venue's own opening hours do
 // not move the boundaries; they only mark a slot "partial" or "closed" (see
@@ -44,8 +42,9 @@ import { TIME_ZONE } from "@/lib/format";
 // are fully covered. PM and Night are unchanged.
 //
 // This table is the single source of truth - every function below derives from
-// it, so different numbers are a change HERE and nowhere else. Two answers
-// would need more than new numbers, and both are called out where they bite:
+// it, so different numbers are a change HERE and nowhere else. Two kinds of
+// change would need more than new numbers, and both are called out where they
+// bite:
 //   - a slot that runs past midnight (see slotsCovered)
 //   - widening the grid to cover the whole day (see minutesOutsideSlots)
 
@@ -240,8 +239,8 @@ export function slotsCovered(interval: Interval): SlotCell[] {
 
 /// How much of an interval falls in no slot at all.
 ///
-/// The slots do not cover the whole day: with the provisional boundaries,
-/// 23:00–06:00 belongs to nothing. A booking inside that window would produce
+/// The slots do not cover the whole day: with these boundaries, 23:00–06:00
+/// belongs to nothing. A booking inside that window would produce
 /// ZERO cells from slotsCovered() and vanish from the grid entirely.
 ///
 /// This function is how the AM boundary was fixed. With AM at 08:00, four of

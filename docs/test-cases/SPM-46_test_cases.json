@@ -1,0 +1,437 @@
+{
+  "story_key": "SPM-46",
+  "story_title": "As an authorised internal user, I want to view venue availability over relevant dates and times so that I can identify when venues may be requested",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-09-22",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Users can select a venue and date/time period."
+    },
+    {
+      "id": "AC2",
+      "text": "Availability is shown per fixed slot (AM, PM, Night) for each day, including slots occupied by setup or turnaround time."
+    },
+    {
+      "id": "AC3",
+      "text": "Existing confirmed bookings are displayed."
+    },
+    {
+      "id": "AC4",
+      "text": "Recorded unavailable periods are displayed."
+    },
+    {
+      "id": "AC5",
+      "text": "Overlapping unavailable periods are identifiable."
+    },
+    {
+      "id": "AC6",
+      "text": "Only authorised internal users can access the availability calendar."
+    },
+    {
+      "id": "AC7",
+      "text": "Availability reflects confirmed bookings."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-46-TC01",
+      "title": "Venue Staff open a venue's availability for a chosen date range",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click the 'Marina Grand Hall' row",
+        "Click 'View availability'",
+        "Set 'From' and 'To'",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Marina Grand Hall (MAR-GH)\nFrom: 1 Dec 2026\nTo: 7 Dec 2026",
+      "expected_result": "The 'Marina Grand Hall availability' page opens.\nThe grid shows exactly seven day rows, 1 Dec 2026 to 7 Dec 2026, each with AM, PM and Night columns.\nThe 'Venue' picker shows Marina Grand Hall."
+    },
+    {
+      "id": "SPM-46-TC02",
+      "title": "With no dates chosen, the page shows a week from today",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click the 'Marina Grand Hall' row",
+        "Click 'View availability'"
+      ],
+      "test_data": "Venue: Marina Grand Hall (MAR-GH)\nNo From or To entered",
+      "expected_result": "The grid shows seven day rows, starting today (Singapore time) and ending six days later.\n'From' and 'To' show those two dates."
+    },
+    {
+      "id": "SPM-46-TC03",
+      "title": "Choosing a different venue shows that venue's availability",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nLogged in as Venue Staff and viewing Marina Grand Hall's availability for 24-30 Nov 2026.",
+      "steps": [
+        "Choose a different venue from the 'Venue' picker",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 24 Nov 2026\nTo: 30 Nov 2026",
+      "expected_result": "The page title changes to 'Jurong Expo Floor availability'.\nThe row for 24 Nov 2026 shows the 'Sundara Hospitality Trade Showcase' booking.\nThe date range stays 24-30 Nov 2026."
+    },
+    {
+      "id": "SPM-46-TC04",
+      "title": "An end date before the start date is rejected",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff and viewing Marina Grand Hall's availability.",
+      "steps": [
+        "Set 'From' to the later date",
+        "Set 'To' to the earlier date",
+        "Click 'Show availability'"
+      ],
+      "test_data": "From: 5 Oct 2026\nTo: 1 Oct 2026",
+      "expected_result": "The message 'The end date must be on or after the start date.' is shown.\nNo grid is shown for the invalid range."
+    },
+    {
+      "id": "SPM-46-TC05",
+      "title": "A range of 62 days is accepted and 63 days is rejected",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff and viewing Marina Grand Hall's availability.",
+      "steps": [
+        "Set 'From' and 'To' for a 62-day range",
+        "Click 'Show availability'",
+        "Change 'To' one day later",
+        "Click 'Show availability'"
+      ],
+      "test_data": "From: 1 Oct 2026\n62 days - To: 1 Dec 2026\n63 days - To: 2 Dec 2026",
+      "expected_result": "With To = 1 Dec 2026, the grid shows 62 day rows, 1 Oct to 1 Dec 2026.\nWith To = 2 Dec 2026, the message 'Choose a range of 62 days or fewer - this one is 63.' is shown and no grid is shown."
+    },
+    {
+      "id": "SPM-46-TC06",
+      "title": "Previous week and Next week move the range by seven days",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff and viewing Marina Grand Hall's availability for 1-7 Dec 2026.",
+      "steps": [
+        "Click 'Next week'",
+        "Click 'Previous week' twice"
+      ],
+      "test_data": "Starting range: 1 Dec 2026 - 7 Dec 2026",
+      "expected_result": "After 'Next week' the grid shows 8-14 Dec 2026, and the 14 Dec row shows the 'Meridian Wealth Management Forum' booking.\nAfter 'Previous week' twice the grid shows 24-30 Nov 2026."
+    },
+    {
+      "id": "SPM-46-TC07",
+      "title": "Each day is split into the three fixed slots",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for any venue",
+        "Read the grid's column headings"
+      ],
+      "test_data": "Venue: Marina Grand Hall (MAR-GH)",
+      "expected_result": "The grid has exactly three columns, in this order, each showing its times:\nAM 06:00–12:00\nPM 12:00–18:00\nNight 18:00–23:00\nThe same three columns appear for every venue."
+    },
+    {
+      "id": "SPM-46-TC08",
+      "title": "A slot taken only by setup time shows as Turnaround",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nOne-North Auditorium (ONE-AUD) has a 90-minute setup and an approved booking, 'Bayu Energy Transition Panel', 18:00–21:00 on 3 Nov 2026.\nLogged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for One-North Auditorium",
+        "Set 'From' and 'To' to the same date",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: One-North Auditorium (ONE-AUD)\nFrom: 3 Nov 2026\nTo: 3 Nov 2026",
+      "expected_result": "AM shows 'Free'.\nPM shows 'Turnaround' - the event starts at 18:00, but setup puts the room in use from 16:30.\nNight shows 'Booked' with 'Bayu Energy Transition Panel'.\nUnder 'Approved bookings' the booking shows 3 Nov 2026, 18:00–21:00 and 'Room in use 16:30–22:00'."
+    },
+    {
+      "id": "SPM-46-TC09",
+      "title": "Teardown after an event pushes it into the next slot",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nJurong Expo Floor (JUR-EXP) has a 240-minute setup and 180-minute teardown, and an approved booking, 'Sundara Hospitality Trade Showcase', 10:00–18:00 on 24 Nov 2026.\nLogged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for Jurong Expo Floor",
+        "Set 'From' and 'To' to the same date",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 24 Nov 2026\nTo: 24 Nov 2026",
+      "expected_result": "AM shows 'Booked' and PM shows 'Booked', each with 'Sundara Hospitality Trade Showcase'.\nNight shows 'Turnaround' - the event ends at 18:00, but teardown keeps the room in use until 21:00.\nThe booking shows 'Room in use 06:00–21:00'."
+    },
+    {
+      "id": "SPM-46-TC10",
+      "title": "A venue's opening hours mark slots closed or limited",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Demo data freshly loaded.\nOne-North Rooftop Terrace (ONE-ROOF) is open 16:00–23:00 only.\nLogged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for One-North Rooftop Terrace",
+        "Set 'From' and 'To' to a date with no bookings",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: One-North Rooftop Terrace (ONE-ROOF)\nFrom: 5 Oct 2026\nTo: 5 Oct 2026",
+      "expected_result": "AM shows 'Closed' - the terrace is shut for the whole of 06:00–12:00.\nPM shows 'Free' with the note 'Limited hours' - it is open only from 16:00.\nNight shows 'Free' with no note."
+    },
+    {
+      "id": "SPM-46-TC11",
+      "title": "An approved booking is shown with its event and times",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nJurong Training Room (JUR-TRN) has an approved booking, 'Harbourline Claims Systems Training', 09:00–17:00 on 13 Oct 2026, whose event is confirmed.\nLogged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for Jurong Training Room",
+        "Set 'From' and 'To' to the same date",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Jurong Training Room (JUR-TRN)\nFrom: 13 Oct 2026\nTo: 13 Oct 2026",
+      "expected_result": "AM and PM show 'Booked' with 'Harbourline Claims Systems Training'.\nUnder 'Approved bookings' the booking is listed with the event status 'Confirmed', 13 Oct 2026, 09:00–17:00, layout 'Classroom'."
+    },
+    {
+      "id": "SPM-46-TC12",
+      "title": "A recorded unavailable period is shown on every slot it covers",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nJurong Expo Floor (JUR-EXP) is recorded as unavailable for renovation from 11 Oct 2026 to 18 Oct 2026.\nLogged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for Jurong Expo Floor",
+        "Set 'From' and 'To'",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 11 Oct 2026\nTo: 17 Oct 2026",
+      "expected_result": "Every slot on every day from 11 to 17 Oct 2026 shows 'Unavailable'.\nUnder 'Unavailable periods' one period is listed: 'Renovation', 'Floor resurfacing and loading bay works.', 11 Oct 2026 to 18 Oct 2026."
+    },
+    {
+      "id": "SPM-46-TC13",
+      "title": "A multi-day unavailable period stops on its last day",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nMarina Boardroom 2 (MAR-BR2) is recorded as unavailable for renovation from 19 Nov 2026 to 3 Dec 2026, ending 23:59 on 3 Dec.\nLogged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for Marina Boardroom 2",
+        "Set 'From' and 'To'",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Marina Boardroom 2 (MAR-BR2)\nFrom: 1 Dec 2026\nTo: 7 Dec 2026",
+      "expected_result": "Every slot on 1, 2 and 3 Dec 2026 shows 'Unavailable'.\nEvery slot from 4 to 7 Dec 2026 shows 'Free'.\n'Unavailable periods' lists the period as 'Refurbishment of the boardroom fit-out.', 19 Nov to 3 Dec 2026."
+    },
+    {
+      "id": "SPM-46-TC14",
+      "title": "Two overlapping unavailable periods are identified as overlapping",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "NOT RUNNABLE ON THE CURRENT DEMO DATA - see Open Questions.\nJurong Expo Floor (JUR-EXP) must have two overlapping unavailable periods recorded. The app has no way to create one (the Block venue screen, S-23, is not built) and the seeded periods never overlap, so these must be added to the demo data first.\nLogged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for Jurong Expo Floor",
+        "Set 'From' and 'To' to cover both periods",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nPeriod A: 12 Oct 2026 08:00–14:00, maintenance\nPeriod B: 12 Oct 2026 12:00–18:00, safety\nFrom: 12 Oct 2026\nTo: 12 Oct 2026",
+      "expected_result": "A warning 'Some bookings or unavailable periods overlap' is shown above the grid.\nUnder 'Unavailable periods' each of the two periods is marked 'Overlaps with' the other."
+    },
+    {
+      "id": "SPM-46-TC15",
+      "title": "A single unavailable period is not reported as overlapping",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Demo data freshly loaded.\nJurong Expo Floor (JUR-EXP) has one unavailable period, 11-18 Oct 2026, and no bookings in that week.\nLogged in as Venue Staff.",
+      "steps": [
+        "Open the availability page for Jurong Expo Floor",
+        "Set 'From' and 'To'",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 11 Oct 2026\nTo: 17 Oct 2026",
+      "expected_result": "No overlap warning is shown.\nThe period under 'Unavailable periods' has no 'Overlaps with' note."
+    },
+    {
+      "id": "SPM-46-TC16",
+      "title": "An Event Coordinator can open the availability calendar",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "On the 'Marina Grand Hall' row, click 'View availability'"
+      ],
+      "test_data": "Account: daniel.tan@connectsphere.com (Event Coordinator)\nVenue: Marina Grand Hall (MAR-GH)",
+      "expected_result": "The 'Marina Grand Hall availability' page opens and shows the grid.\nClicking elsewhere on the row does nothing - the Venues list stays read-only for a coordinator.\nThe same link works for grace.lim@connectsphere.com (Operations Manager)."
+    },
+    {
+      "id": "SPM-46-TC17",
+      "title": "An Event Organiser cannot open the availability calendar",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as an Event Organiser: rachel.ng@meridianfina.com / password123\nThe tester knows the availability page address for Marina Grand Hall.",
+      "steps": [
+        "Confirm 'Venues' is not in the sidebar",
+        "Paste the Marina Grand Hall availability page address into the browser address bar",
+        "Press Enter"
+      ],
+      "test_data": "Account: rachel.ng@meridianfina.com (Event Organiser)",
+      "expected_result": "The page shows 'Venue availability is for ConnectSphere staff'.\nNo grid, no bookings and no unavailable periods are shown."
+    },
+    {
+      "id": "SPM-46-TC18",
+      "title": "Technical Support staff cannot open the availability calendar",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Technical Support: kenji.sato@connectsphere.com / password123\nThe tester knows the availability page address for Marina Grand Hall.",
+      "steps": [
+        "Paste the Marina Grand Hall availability page address into the browser address bar",
+        "Press Enter"
+      ],
+      "test_data": "Account: kenji.sato@connectsphere.com (Technical Support)",
+      "expected_result": "The page shows 'Venue availability is for ConnectSphere staff'.\nNo grid is shown."
+    },
+    {
+      "id": "SPM-46-TC19",
+      "title": "An approved booking blocks its slots even while its event is still in planning",
+      "linked_ac": [
+        "AC7",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nMarina Grand Hall (MAR-GH) has an APPROVED booking, 'Straits Medical Research Symposium', 09:00–18:00 on 1 Dec 2026, whose EVENT is still in Planning - not Confirmed.\nLogged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for Marina Grand Hall",
+        "Set 'From' and 'To' to the same date",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Marina Grand Hall (MAR-GH)\nFrom: 1 Dec 2026\nTo: 1 Dec 2026",
+      "expected_result": "AM and PM show 'Booked' with 'Straits Medical Research Symposium' - NOT 'Free'.\nNight shows 'Turnaround' (teardown to 20:00).\nUnder 'Approved bookings' the booking shows the event status 'Planning' and 'Room in use 06:00–20:00'.\nThe room must not read as free: an approved booking already commits it, however far its event has got."
+    },
+    {
+      "id": "SPM-46-TC20",
+      "title": "A pending booking request does not block a slot",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nChangi Conference Centre (CBP-CONF) has a PENDING booking request, 'Pearl Delta Safety Conference', on 8 Dec 2026, and no approved booking that day.\nLogged in as Event Coordinator.",
+      "steps": [
+        "Open the availability page for Changi Conference Centre",
+        "Set 'From' and 'To' to the same date",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Changi Conference Centre (CBP-CONF)\nFrom: 8 Dec 2026\nTo: 8 Dec 2026",
+      "expected_result": "AM, PM and Night all show 'Free'.\n'Pearl Delta Safety Conference' does not appear under 'Approved bookings'."
+    },
+    {
+      "id": "SPM-46-TC21",
+      "title": "Rejected and cancelled bookings do not block a slot",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data freshly loaded.\nMarina Auditorium (MAR-AUD) has a REJECTED booking for 'Nusantara Developer Summit' on 26 Oct 2026.\nChangi Meeting Room 2 (CBP-MTG2) has a CANCELLED booking for 'Pearl Delta Supplier Forum' on 23 Oct 2026.\nLogged in as Event Coordinator.",
+      "steps": [
+        "Open the availability page for Marina Auditorium for 26 Oct 2026",
+        "Choose Changi Meeting Room 2 from the 'Venue' picker",
+        "Set 'From' and 'To' to 23 Oct 2026",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Marina Auditorium (MAR-AUD): 26 Oct 2026\nChangi Meeting Room 2 (CBP-MTG2): 23 Oct 2026",
+      "expected_result": "Every slot at Marina Auditorium on 26 Oct 2026 shows 'Free', and 'Nusantara Developer Summit' is not listed.\nEvery slot at Changi Meeting Room 2 on 23 Oct 2026 shows 'Free', and 'Pearl Delta Supplier Forum' is not listed."
+    },
+    {
+      "id": "SPM-46-TC22",
+      "title": "A retired venue's empty slots are never offered as free",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Demo data freshly loaded.\nJurong Skills Lab (JUR-LAB) has no bookings.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open Jurong Skills Lab from the Venues list",
+        "Click 'Retire venue', then 'Retire venue' in the confirmation dialog",
+        "Click 'View availability'",
+        "Click 'Show availability'",
+        "Return to the venue and click 'Restore venue' to undo the retirement"
+      ],
+      "test_data": "Venue: Jurong Skills Lab (JUR-LAB)\nFrom: 1 Dec 2026\nTo: 7 Dec 2026",
+      "expected_result": "The availability page shows the warning 'This venue is retired'.\nEvery slot shows 'Closed' - none shows 'Free'."
+    }
+  ],
+  "open_questions": [
+    "NO SCREEN EXISTS YET - NONE OF THESE CASES IS EXECUTABLE TODAY. SPM-46 so far delivers only the availability endpoint; the calendar screen (S-21) is not built. These cases were written against the acceptance criteria as the TARGET for that screen, so the page title, controls, column headings, cell labels and messages they name ('View availability', 'Show availability', 'Venue', 'From', 'To', 'Previous week', 'Next week', 'Free', 'Booked', 'Turnaround', 'Unavailable', 'Closed', 'Limited hours', 'Approved bookings', 'Unavailable periods', 'Room in use', 'Overlaps with') are the specification the screen will be built to, not an existing interface. Re-check the wording against the screen once it exists.",
+    "Team decision - how users reach the calendar: a 'View availability' link on every row of the Venues list, and a 'View availability' button on the venue edit page. The Venues list link is the one that matters for Event Coordinators, who hold the calendar permission but cannot open the edit page - their Venues list is read-only and its rows do not click - so a link on the edit page alone would have left the role this story most serves (identifying when venues may be requested, ahead of SPM-42) with no way in except typing the address. TC16 reaches the calendar through the Venues list link.",
+    "AC5 cannot be tested by hand. Nothing in the app can create a venue unavailable period - the Block venue screen (S-23) is not built and nothing writes to that table - and the five seeded periods are at five different venues, so none overlap. TC14 needs two overlapping periods added to the demo data before it can run. Today AC5 is covered by unit tests only.",
+    "Team decision - slot boundaries: AM 06:00–12:00, PM 12:00–18:00, Night 18:00–23:00, no slot crossing midnight, the same grid for every venue. SPM-46 names the three slots but never defines their times, and nothing else in the project does, so the team set them. A venue's own opening hours mark a slot closed or partly open but do not move the boundaries: a fixed grid keeps venues comparable, and nothing defines where PM would start if AM started at each venue's opening time. AM starts at 06:00 rather than the first-proposed 08:00 because 08:00 was measured against the demo data and was too late: of 13 approved bookings, four fell partly outside the grid once setup time was added - up to 120 minutes each - because Jurong Expo Floor opens at 06:00 and Marina Grand Hall's 180-minute setup puts a 09:00 event in the room from 06:00. With AM at 06:00 all 13 fit the grid, and the Sundara Hospitality Trade Showcase went from 120 minutes outside to 0. TC07 and every expected slot in TC08-TC13 and TC19 rest on these times.",
+    "Team decision - 'confirmed bookings' in AC3 and AC7 means a booking whose own status is Approved, not a booking whose event is Confirmed. VenueBooking has no 'confirmed' status; Approved is the state that commits the room. The calendar exists to prevent double-booking, and the event-status reading was checked against the demo data and fails that: the Straits Medical Research Symposium booking at Marina Grand Hall on 1 Dec 2026 is approved while its event is still in Planning, so under the event-status reading the room would show as free and invite a second booking - discovered only at approval time, since this story blocks SPM-42. The event's status is still shown with each booking for information. TC19 is the case that proves this; TC20 and TC21 confirm pending, rejected and cancelled bookings do not block a slot.",
+    "Technical Support is internal staff, but cannot open the calendar (TC18) - the calendar reuses the venue catalogue's 'venue:view' permission, which Technical Support does not hold. AC6 says 'authorised internal users' without naming roles. Is excluding Technical Support intended?",
+    "What should a slot show when the room is open for only part of it? TC10 expects 'Free' with a 'Limited hours' note (One-North Rooftop Terrace opens at 16:00, so only 16:00–18:00 of PM is usable). The acceptance criteria do not cover opening hours at all.",
+    "The S-21 mockup (design/mockups/VenueCalendar.dc.html) shows a continuous hour-by-hour grid, pending requests and 'tentative holds'. AC2 asks for AM/PM/Night slots, and the team chose to follow AC2. Pending requests are deliberately not shown (TC20), and 'tentative hold' does not exist anywhere in the data. Confirm the mockup is superseded for this screen.",
+    "A booking whose room time falls outside every slot (between 23:00 and 06:00) would not appear in the grid at all. Nothing in the demo data does this today, so no case covers it. How should the screen warn about it?",
+    "Two checks the endpoint performs cannot be reached from a date picker and so have no test case: a date that does not exist (e.g. 31 Feb) and a date in the wrong format. The browser's date control cannot produce either."
+  ],
+  "code_references": [
+    "src/app/api/venues/[id]/availability/route.ts",
+    "src/lib/venueAvailability.ts",
+    "src/lib/venueSlots.ts",
+    "src/lib/validation/venues.ts",
+    "src/lib/permissions.ts",
+    "src/lib/format.ts",
+    "src/app/venues/page.tsx",
+    "src/app/venues/[id]/edit/page.tsx",
+    "design/mockups/VenueCalendar.dc.html"
+  ]
+}

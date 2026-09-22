@@ -171,7 +171,7 @@ describe("slotsCovered", () => {
   });
 
   it("returns nothing for a booking that falls entirely between slots", () => {
-    // 23:00-06:00 is covered by no slot under the provisional boundaries.
+    // 23:00-06:00 is covered by no slot under the team's slot boundaries.
     // This is the case minutesOutsideSlots() exists to warn about.
     expect(slotsCovered(at("2026-09-28T23:15:00", "2026-09-28T23:45:00"))).toEqual([]);
   });

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Alert,
   Button,
+  ButtonLink,
   ConfirmDialog,
   Field,
   PageHeader,
@@ -251,6 +252,14 @@ export default function EditVenuePage() {
         title={venueName || "Edit venue"}
         subtitle="Changes here can affect bookings that are already approved. Nothing is changed for them automatically."
         breadcrumbs={crumbs}
+        // SPM-46: the availability calendar for this room. Also linked from
+        // each row of the Venues list - that is the way in for coordinators,
+        // who cannot open this editor at all.
+        actions={
+          <ButtonLink href={`/venues/${venueId}/availability`} variant="secondary">
+            View availability
+          </ButtonLink>
+        }
         meta={
           isActive ? undefined : (
             <span className="rounded-full bg-tone-warning-bg px-2.5 py-0.5 text-xs font-medium text-tone-warning-fg ring-1 ring-inset ring-tone-warning-ring">

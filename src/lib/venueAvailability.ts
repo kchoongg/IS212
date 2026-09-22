@@ -7,7 +7,7 @@
 // arrangement as src/lib/venueImpact.ts, so the rules can be tested without a
 // database.
 //
-// What counts as a booking here (AC3, AC7 - DECIDED, see the SPM-46 comment):
+// What counts as a booking here (AC3, AC7 - team decision, recorded on SPM-46):
 // "confirmed bookings" means VenueBooking.status = "approved", the state that
 // commits the room. NOT Event.status = "confirmed". The calendar exists to stop
 // double-booking, and reading it by event status was measured to hide a real,
