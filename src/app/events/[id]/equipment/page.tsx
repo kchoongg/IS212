@@ -20,7 +20,7 @@ import {
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
-import { formatDateTimeRange, orEmpty } from "@/lib/format";
+import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { isTerminalEventStatus } from "@/lib/statuses";
 import { EventGlance } from "../EventGlance";
 
@@ -49,6 +49,7 @@ interface EventSessionInfo {
 
 interface EventInfo {
   id: string;
+  sequenceNumber: number;
   title: string | null;
   status: string;
   startsAt: string | null;
@@ -346,7 +347,14 @@ export default function EventEquipmentPage() {
             ? formatDateTimeRange(event.startsAt, event.endsAt)
             : "What Technical Support needs to prepare for this event."
         }
-        meta={event && <StatusBadge status={event.status} />}
+        meta={
+          event && (
+            <>
+              <span className="text-xs text-ink-3">{eventReference(event.sequenceNumber)}</span>
+              <StatusBadge status={event.status} />
+            </>
+          )
+        }
         breadcrumbs={[
           { label: "Events", href: "/events" },
           { label: event?.title || "Event" },

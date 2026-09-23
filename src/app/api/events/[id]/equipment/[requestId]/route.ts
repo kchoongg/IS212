@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
+import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
 import { canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
 import { isTerminalEventStatus } from "@/lib/statuses";
@@ -11,6 +11,9 @@ import { ZodError } from "zod";
 // Same authorisation as POST on the parent route: the Coordinator assigned to
 // the event (src/lib/permissions.ts canManageEquipmentRequests).
 
+// CHANGED (SPM-31): callers pass the event's real id here (resolved from the
+// route's "EVT-000123" segment via resolveEventId() first), never the route
+// segment itself - see the comment on resolveEventId() in src/lib/apiAuth.ts.
 async function loadRequest(eventId: string, requestId: string) {
   const request = await prisma.equipmentRequest.findUnique({
     where: { id: requestId },
@@ -42,7 +45,8 @@ export async function PATCH(
       return unauthenticated();
     }
 
-    const existing = await loadRequest(id, requestId);
+    const eventId = await resolveEventId(id);
+    const existing = eventId ? await loadRequest(eventId, requestId) : null;
     if (!existing || !canViewEvent(actor, existing.event)) {
       return hidden();
     }
@@ -94,7 +98,8 @@ export async function DELETE(
     return unauthenticated();
   }
 
-  const existing = await loadRequest(id, requestId);
+  const eventId = await resolveEventId(id);
+  const existing = eventId ? await loadRequest(eventId, requestId) : null;
   if (!existing || !canViewEvent(actor, existing.event)) {
     return hidden();
   }

@@ -558,6 +558,11 @@ async function main() {
 
     const created = await prisma.event.create({
       data: {
+        // ADDED: persists this seed's own natural key (e.g.
+        // "confirmed_claims") so a test fixture, report, or anything else
+        // that needs to refer back to "the same event" survives a reseed -
+        // see the comment on Event.seedKey in schema.prisma.
+        seedKey: e.key,
         title: e.title,
         purpose: e.purpose,
         description: e.description,
