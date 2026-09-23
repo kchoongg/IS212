@@ -26,6 +26,19 @@
 > - [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md) — who may do what, and to
 >   which events. **Read this before writing any route**, and check the
 >   permission it needs before you write the handler.
+> - [`docs/ConnectSphere_Status_Lifecycle.drawio`](./docs/ConnectSphere_Status_Lifecycle.drawio)
+>   — the ten event statuses and which moves between them are legal, the
+>   lifecycle the events `PATCH` route refers to (open with
+>   [diagrams.net](https://app.diagrams.net)).
+> - [`docs/ConnectSphere_BPMN.drawio`](./docs/ConnectSphere_BPMN.drawio) — the
+>   whole business process as one swimlane per role, showing who does what, in
+>   what order, from an organiser's first draft to a completed event.
+>
+> **Keep the two diagrams in step with the code.** A change to the event
+> lifecycle — a new status, a new transition, a changed rule — updates the
+> status lifecycle diagram in the same PR, and a change to the cross-role
+> process — a new step, a changed handoff between roles — updates the BPMN
+> one. A diagram left to drift is worse than none, because people trust it.
 
 ---
 
@@ -759,6 +772,29 @@ what changed, why, and the migration name if there is one.
     SPM-30 ships.
 
 ---
+### 2026-09-22 — Kayal
+- **Clarification no longer sends an event anywhere — it stays in review, with
+  the same coordinator, in both diagrams.** Asking the organiser a question
+  pauses the review; it does not restart it. There is no reason to take the
+  event away from a coordinator who already has its context, or to send it back
+  through the assignment queue.
+  - `docs/ConnectSphere_Status_Lifecycle.drawio` — "clarification needed" is
+    now a loop on **Under review**: the event stays in that status while the
+    organiser answers. It previously went back to **Draft**. The arrow is now
+    attached to Under review at both ends rather than drawn loose. No other
+    status or transition changed.
+  - `docs/ConnectSphere_BPMN.drawio` — "Amend request per clarification" now
+    leads to the coordinator's **Review event request**, labelled "back to
+    coordinator". It previously went back to the organiser's **Submit event
+    request**, labelled "resubmit". Three nearby shapes were nudged to make
+    room for it; layout only.
+  - No route writes `ClarificationRequest` yet, so this is the intended design,
+    not current behaviour. Whoever builds the clarification loop should keep
+    the event in `under_review` while a clarification is open.
+- Linked both diagrams from the Companion documents list at the top of this
+  file — until now only a code comment pointed at the lifecycle and nothing
+  pointed at the BPMN — with a note to update the relevant diagram in the same
+  PR as any change to the event lifecycle or the cross-role process.
 
 ### 2026-09-20 — Kayal
 - **`PATCH /api/venues/[id]` — update a venue, or retire it** (SPM-39). The
