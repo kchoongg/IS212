@@ -39,6 +39,12 @@ async function main() {
   await prisma.eventStatusHistory.deleteMany();
   await prisma.eventFacilityRequirement.deleteMany();
   await prisma.event.deleteMany();
+  // deleteMany() never resets sequence_number's underlying Postgres sequence,
+  // so without this, re-running the seed repeatedly would push every event's
+  // EVT-###### reference higher each time instead of restarting at EVT-000001.
+  await prisma.$executeRawUnsafe(
+    `ALTER SEQUENCE "events_sequence_number_seq" RESTART WITH 1`,
+  );
   await prisma.venueFacility.deleteMany();
   await prisma.venueLayout.deleteMany();
   await prisma.venue.deleteMany();
