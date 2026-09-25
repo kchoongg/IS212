@@ -57,7 +57,10 @@ export function statusTone(status: string): Tone {
   return STATUS_META[status]?.tone ?? "neutral";
 }
 
-function humanise(value: string): string {
+// Exported: also used to display other lower_snake enum-ish values (e.g.
+// Event.category, Event.preferredLayout) with the same "Confirmed"-style
+// capitalisation, rather than showing the raw stored string.
+export function humanise(value: string): string {
   const spaced = value.replace(/_/g, " ");
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }

@@ -13,7 +13,7 @@ import {
   PageHeader,
   StatusBadge,
 } from "@/components/ui";
-import { formatDateTimeRange } from "@/lib/format";
+import { eventReference, formatDateTimeRange } from "@/lib/format";
 import { navFor, roleLabel } from "@/lib/roles";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
@@ -24,6 +24,7 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 
 interface EventSummary {
   id: string;
+  sequenceNumber: number;
   title: string | null;
   status: string;
   startsAt: string | null;
@@ -137,7 +138,9 @@ export default function DashboardPage() {
                   <li key={event.id}>
                     <Link
                       href={
-                        event.status === "draft" ? `/events/${event.id}/edit` : `/events/${event.id}`
+                        event.status === "draft"
+                          ? `/events/${eventReference(event.sequenceNumber)}/edit`
+                          : `/events/${eventReference(event.sequenceNumber)}`
                       }
                       className="block rounded-lg border border-line bg-surface p-4 shadow-card transition-colors hover:border-brand-200 hover:bg-brand-50/40"
                     >

@@ -1,0 +1,303 @@
+{
+  "story_key": "SPM-31",
+  "story_title": "As an authorised user (Event Coordinator, Event Organiser, or other role with access to the event), I want to view an event's current information so that I can plan around or track accurate, up-to-date details",
+  "created_by": "kchoongg",
+  "creation_date": "2026-09-22",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "Authorised users can view the event's current information." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-31-TC01",
+      "title": "Assigned coordinator views full event details on the Overview tab",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator assigned to 'Meridian Wealth Management Forum' (status Confirmed, organised by James Koh, category Conference, expected attendance 150, preferred layout Theatre, registration enabled with capacity 150).",
+      "steps": [
+        "Open 'Meridian Wealth Management Forum' from 'All Events'"
+      ],
+      "test_data": "Event: Meridian Wealth Management Forum",
+      "expected_result": "A reference such as 'EVT-000005' is shown next to the title, beside the 'Confirmed' status badge.\nThe 'Details' card shows Category 'Conference', Status 'Confirmed', the event's date/time range under 'When', Expected attendance '150', Preferred layout 'Theatre', its description, Organiser 'James Koh', Company 'Meridian Financial Group', and Coordinator 'Daniel Tan'.\nThe 'Venue requirements' card shows the event's accessibility notes and special requirements (or '—' where none are recorded).\nThe 'Registration' card shows Capacity '150' and the registration window, since registration is enabled for this event."
+    },
+    {
+      "id": "SPM-31-TC02",
+      "title": "A role with no ownership of the event can still view its Overview tab",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff — not the coordinator, organiser, or attendee of any specific event.\n'Pearl Delta Safety Conference' (status Planning, coordinator Hui Shan Neo) exists.",
+      "steps": [
+        "Open 'All Events'",
+        "Open 'Pearl Delta Safety Conference'"
+      ],
+      "test_data": "Event: Pearl Delta Safety Conference | Viewer role: Venue Staff",
+      "expected_result": "The event opens normally and its Overview details are shown — internal staff can view any non-draft event regardless of their own relationship to it."
+    },
+    {
+      "id": "SPM-31-TC03",
+      "title": "Opening a draft from 'My Events' goes straight to the draft editor, never the Overview tab",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), Event Organiser.\n'Q1 Investor Update (rough idea)' is her own Draft event with description 'Still checking dates with the exec team.' and no category, schedule, or attendance set yet.",
+      "steps": [
+        "Open 'My Events'",
+        "Click the row for 'Q1 Investor Update (rough idea)' under 'Drafts — not yet submitted'"
+      ],
+      "test_data": "Event: Q1 Investor Update (rough idea) (Draft, owned by Rachel Ng)",
+      "expected_result": "She is taken straight to the 'Edit draft' page (the Basics/Schedule/Venue requirements/Registration form), not an Overview tab.\nNo Details card, no Organiser/Company/Coordinator rows, and no draft info banner appear anywhere — a draft has no Overview view at all; it is only ever edited, never overviewed (see SPM-31-TC15)."
+    },
+    {
+      "id": "SPM-31-TC04",
+      "title": "Organiser views a colleague's already-submitted event from the same client organisation",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), Event Organiser at Meridian Financial Group.\n'Meridian Graduate Recruitment Evening' (status Submitted, category Networking, expected attendance 120, preferred layout Exhibition) was raised by her colleague James Koh, also at Meridian Financial Group.",
+      "steps": [
+        "Open 'My Events'",
+        "Open 'Meridian Graduate Recruitment Evening'"
+      ],
+      "test_data": "Event: Meridian Graduate Recruitment Evening (owned by a colleague, same organisation)",
+      "expected_result": "The event opens and shows its details (Category 'Networking', Status 'Submitted', Expected attendance '120', Preferred layout 'Exhibition', Organiser 'James Koh', Company 'Meridian Financial Group', Coordinator 'Not yet assigned') even though Rachel Ng did not raise it herself — an organiser can view their own client organisation's submitted events, not only the ones they personally created."
+    },
+    {
+      "id": "SPM-31-TC05",
+      "title": "Organiser cannot view a colleague's draft, even within the same organisation",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), Event Organiser at Meridian Financial Group.\nHer colleague James Koh (james.koh@meridianfina.com) has created, but not submitted, a new event request titled 'Meridian Q4 Budget Planning' (status Draft) via 'New event request'.",
+      "steps": [
+        "Note the web address of 'Meridian Q4 Budget Planning' while logged in as James Koh",
+        "Log out and log back in as Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Navigate directly to that web address"
+      ],
+      "test_data": "Event: Meridian Q4 Budget Planning (Draft, owned by a colleague)",
+      "expected_result": "The web address James Koh's own draft opens at is its 'Edit draft' address (a draft has no Overview view at all — see SPM-31-TC03/TC15), so that's the address Rachel Ng lands on too.\nShe sees 'Could not open this draft' with the message 'This draft could not be found. It may have been removed, or it isn't yours.' — a draft stays private to the organiser who owns it, even from a colleague at the same client organisation."
+    },
+    {
+      "id": "SPM-31-TC06",
+      "title": "Organiser cannot view another client's event at all",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "'Nusantara Developer Summit' (status Submitted) belongs to Budi Santoso (budi.santoso@nusantaratec.com / password123) at Nusantara Tech Labs.\nJames Koh (james.koh@meridianfina.com / password123) is an Event Organiser at Meridian Financial Group, a different client organisation.",
+      "steps": [
+        "Logged in as Budi Santoso, open 'Nusantara Developer Summit' from 'My Events' and note its web address",
+        "Log out and log in as James Koh (james.koh@meridianfina.com / password123)",
+        "Navigate directly to that web address"
+      ],
+      "test_data": "Event: Nusantara Developer Summit (different client organisation)",
+      "expected_result": "The page shows 'This event doesn't exist, or you don't have access to it.'"
+    },
+    {
+      "id": "SPM-31-TC07",
+      "title": "Attendee cannot view an event that has not yet been confirmed",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "'Pearl Delta Safety Conference' has status Planning (not yet Confirmed), coordinator Hui Shan Neo.\nLee Wei Ming (lee.wei.ming@example.com / password123) is an Attendee. This event is not confirmed, so it never appears in his 'Browse Events' list — the address below has to come from somewhere else, e.g. forwarded by staff.",
+      "steps": [
+        "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), open 'Pearl Delta Safety Conference' and note its web address",
+        "Log out and log in as Lee Wei Ming (lee.wei.ming@example.com / password123)",
+        "Navigate directly to that web address"
+      ],
+      "test_data": "Event: Pearl Delta Safety Conference (status Planning)",
+      "expected_result": "The page shows 'This event doesn't exist, or you don't have access to it.' — an event not yet confirmed is not visible to the public."
+    },
+    {
+      "id": "SPM-31-TC08",
+      "title": "Attendee cannot view a confirmed event that isn't open for registration",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "'Harbourline Claims Systems Training' has status Confirmed but registration is not enabled for it, coordinator Priya Raj.\nAnita Devi (anita.devi@example.com / password123) is an Attendee. Registration isn't open, so this event never appears in her 'Browse Events' list — the address below has to come from somewhere else, e.g. forwarded by staff.",
+      "steps": [
+        "Logged in as Priya Raj (priya.raj@connectsphere.com / password123), open 'Harbourline Claims Systems Training' and note its web address",
+        "Log out and log in as Anita Devi (anita.devi@example.com / password123)",
+        "Navigate directly to that web address"
+      ],
+      "test_data": "Event: Harbourline Claims Systems Training (Confirmed, registration not enabled)",
+      "expected_result": "The page shows 'This event doesn't exist, or you don't have access to it.' — being Confirmed is not enough on its own; the event must also be open for registration for an Attendee to view it."
+    },
+    {
+      "id": "SPM-31-TC09",
+      "title": "Attendee viewing a confirmed, registration-open event sees its public details",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Tom Harris (tom.harris@example.com / password123), Attendee.\n'Meridian Wealth Management Forum' has status Confirmed and registration enabled (capacity 150) — the one case where an Attendee is meant to be authorised to view an event.",
+      "steps": [
+        "Open 'Meridian Wealth Management Forum' from 'Browse Events'"
+      ],
+      "test_data": "Event: Meridian Wealth Management Forum (Confirmed, registration enabled) | Viewer role: Attendee",
+      "expected_result": "A reference such as 'EVT-000005' is shown next to the title, the same as for every other role.\nThe Overview page loads and shows a curated 'Details' card: Category, Status, When, Description, and Company — nothing else.\nThere is no 'Venue requirements' card at all, and no 'Expected attendance', 'Preferred layout', 'Organiser' or 'Coordinator' row — those are omitted entirely rather than shown blank, since none of that is internal planning information or relevant to deciding whether to register (SPM-31-TC19).\nThe 'Registration' card shows Capacity and the registration window."
+    },
+    {
+      "id": "SPM-31-TC10",
+      "title": "A signed-out visitor is sent to log in when opening an event directly",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "No one is logged in (signed out).\n'Meridian Wealth Management Forum' exists and is Confirmed.",
+      "steps": [
+        "Navigate directly to the web address for 'Meridian Wealth Management Forum' while signed out"
+      ],
+      "test_data": "Session: signed out",
+      "expected_result": "The browser is redirected to the login page rather than showing any event information."
+    },
+    {
+      "id": "SPM-31-TC11",
+      "title": "Opening an event that doesn't exist shows a clear message rather than an error page",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.",
+      "steps": [
+        "Edit the web address of any event page to use a reference that doesn't exist, e.g. EVT-999999",
+        "Load that address"
+      ],
+      "test_data": "Event reference: EVT-999999 (does not exist)",
+      "expected_result": "The page shows 'This event doesn't exist, or you don't have access to it.' with a 'Retry' option — not a crash or a raw error page."
+    },
+    {
+      "id": "SPM-31-TC12",
+      "title": "Organiser sees the assigned coordinator's name tagged to their event on the Overview tab",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as James Koh (james.koh@meridianfina.com / password123), Event Organiser.\n'Meridian Wealth Management Forum' (his event) has Daniel Tan assigned as its coordinator.",
+      "steps": [
+        "Open 'My Events'",
+        "Open 'Meridian Wealth Management Forum'"
+      ],
+      "test_data": "Event: Meridian Wealth Management Forum | Coordinator: Daniel Tan",
+      "expected_result": "The Overview tab shows 'Coordinator: Daniel Tan' tagged to the event."
+    },
+    {
+      "id": "SPM-31-TC13",
+      "title": "Overview tab shows 'Not yet assigned' when an event has no coordinator",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as James Koh (james.koh@meridianfina.com / password123), Event Organiser.\n'Meridian Graduate Recruitment Evening' (his event) has status Submitted and no coordinator assigned yet.",
+      "steps": [
+        "Open 'My Events'",
+        "Open 'Meridian Graduate Recruitment Evening'"
+      ],
+      "test_data": "Event: Meridian Graduate Recruitment Evening (no coordinator)",
+      "expected_result": "The Overview tab shows 'Coordinator: Not yet assigned' rather than a blank field."
+    },
+    {
+      "id": "SPM-31-TC14",
+      "title": "Attendee's Overview view shows the company but never the organiser's name or the coordinator",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Tom Harris (tom.harris@example.com / password123), Attendee.\n'Meridian Wealth Management Forum' has status Confirmed, registration enabled, organiser James Koh, company Meridian Financial Group, and Daniel Tan assigned as coordinator.",
+      "steps": [
+        "Open 'Meridian Wealth Management Forum' from 'Browse Events'"
+      ],
+      "test_data": "Event: Meridian Wealth Management Forum | Viewer role: Attendee",
+      "expected_result": "A 'Company' row reads 'Meridian Financial Group'.\nNo 'Organiser' row and no 'Coordinator' row or label appear anywhere on the page, and there is no 'Venue requirements' card at all — who personally raised the request, who is coordinating it, and the venue/facility arrangements all stay internal planning information, hidden from the public, even though the company running it, the coordinator's/organiser's name, and the venue requirements are now all shown to internal roles and the Organiser themselves (see SPM-31-TC19 for the fuller curated-view picture)."
+    },
+    {
+      "id": "SPM-31-TC15",
+      "title": "Navigating directly to a draft's Overview address redirects to the draft editor instead",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), Event Organiser.\n'Q1 Investor Update (rough idea)' is her own Draft event.",
+      "steps": [
+        "Type the Overview web address for 'Q1 Investor Update (rough idea)' directly into the browser (the plain event address, not '/edit')"
+      ],
+      "test_data": "Event: Q1 Investor Update (rough idea) (Draft)",
+      "expected_result": "The browser is immediately redirected to the 'Edit draft' page for that event.\nThe Overview tab's Details card, draft info banner, and Organiser/Company/Coordinator rows are never shown, even briefly — there is no Overview view for a draft, reachable by any address."
+    },
+    {
+      "id": "SPM-31-TC16",
+      "title": "Every event shows a distinct, auto-generated reference number",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Priya Raj (priya.raj@connectsphere.com / password123), Event Coordinator.\n'Kirana Regional Managers Offsite' and 'Straits Medical Research Symposium' are two different, already-submitted events.",
+      "steps": [
+        "Open 'All Events'",
+        "Open 'Kirana Regional Managers Offsite' and note the reference shown next to its title",
+        "Go back and open 'Straits Medical Research Symposium' and note its reference"
+      ],
+      "test_data": "Events: Kirana Regional Managers Offsite, Straits Medical Research Symposium",
+      "expected_result": "Each event shows its own reference in the form 'EVT-######' next to its title, beside the status badge.\nThe two events show two different references — the number is specific to that event, not a shared or repeated value."
+    },
+    {
+      "id": "SPM-31-TC17",
+      "title": "An event's web address uses its reference number, not an internal id",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator assigned to 'Meridian Wealth Management Forum' (reference EVT-000005).",
+      "steps": [
+        "Open 'All Events'",
+        "Open 'Meridian Wealth Management Forum'",
+        "Look at the web address shown in the browser"
+      ],
+      "test_data": "Event: Meridian Wealth Management Forum (EVT-000005)",
+      "expected_result": "The web address ends in '/EVT-000005' — a reference a person could read aloud or type from memory, not a long opaque id.\nOpening that same address directly (typed or bookmarked) loads the same event."
+    },
+    {
+      "id": "SPM-31-TC18",
+      "title": "'All Events' shows each event's reference number as its own column",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.",
+      "steps": [
+        "Open 'All Events'"
+      ],
+      "test_data": "Events list page",
+      "expected_result": "Every row shows a 'Reference' column (e.g. 'EVT-000005') alongside Event, When, Attendance and Status.\nClicking a row opens that event at the web address matching its reference."
+    },
+    {
+      "id": "SPM-31-TC19",
+      "title": "Attendee's Overview view is curated to what's relevant to them, not the full internal record with blanks",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Tom Harris (tom.harris@example.com / password123), Attendee.\n'Meridian Wealth Management Forum' has status Confirmed, registration enabled, expected attendance 150, preferred layout Theatre, and recorded facility requirements.",
+      "steps": [
+        "Open 'Meridian Wealth Management Forum' from 'Browse Events'"
+      ],
+      "test_data": "Event: Meridian Wealth Management Forum | Viewer role: Attendee",
+      "expected_result": "The 'Details' card shows only Category, Status, When, Description and Company.\n'Expected attendance' and 'Preferred layout' do not appear as rows at all (not even showing '150' or a '—' placeholder) — an Attendee deciding whether to register has no need for the coordinator's own planning figures.\nThe whole 'Venue requirements' card is absent, not merely empty — an Attendee never sees a card that would otherwise be full of '—' placeholders.\nBy contrast, logging in as the assigned coordinator and opening the same event still shows every one of these fields, confirming the curation is specific to the Attendee's role rather than a change to the data itself."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED (2026-09-22): src/app/events/[id]/page.tsx crashed for an Attendee viewing a confirmed, registration-open event, because it unconditionally read `event.facilityRequirements.length` while src/lib/permissions.ts's ATTENDEE_EVENT_FIELDS omits that field entirely for an Attendee (it's internal planning information, docs/PERMISSIONS.md §4). Fixed by treating facilityRequirements as optional and guarding the read, rather than adding it to what an Attendee's response includes — that would have leaked internal information the policy deliberately withholds. See SPM-31-TC09 (now Positive) and SPM-31-TC14.",
+    "RESOLVED (2026-09-22): the coordinator's name must be shown tagged to the event on the Overview tab itself (SPM-31-TC12, SPM-31-TC13), not only in the Equipment tab's 'Event at a glance' sidebar. This applies for every role that can already see the coordinator in the API response today (everyone except Attendee — see docs/PERMISSIONS.md's internal-planning-information list); Attendee continues to never see it (SPM-31-TC14).",
+    "RESOLVED (2026-09-22): the Overview tab must also show who organised the event and their company. Internal roles and the Organiser themselves see both 'Organiser' (personal name) and 'Company' (SPM-31-TC01, TC03, TC04). An Attendee sees 'Company' only, never 'Organiser' (SPM-31-TC09, TC14) — this changes docs/PERMISSIONS.md's stated policy that organiser/client identity is withheld entirely from Attendee; the company name is now a deliberate exception, but the organiser's personal name stays withheld. Implemented by fetching the event's own `organisation` relation separately from `organiser.organisation` (src/app/api/events/[id]/route.ts), since the two can differ (see the schema's own note on Event.organisationId vs a user's organisationId).",
+    "RESOLVED (2026-09-22): Category and Preferred layout must render capitalised and human-readable (e.g. 'conference' → 'Conference'), not as the raw stored value, matching how Status already displays. Implemented by exporting and reusing statuses.ts's existing `humanise()` helper rather than duplicating it. Verified visually during manual testing rather than as its own dedicated test case (a formatting-only change, removed from the suite per user request 2026-09-22).",
+    "RESOLVED (2026-09-22): there is no Overview view for a draft at all - only a submitted event has one. Found because the original TC03 described the info banner on the Overview tab for a draft, but 'My Events' actually routes a draft straight to the edit form (src/app/events/[id]/edit/page.tsx, which has no tabs and no link back to Overview), so that banner was only ever reachable by typing the URL directly. Fixed by redirecting the Overview page to '/events/{id}/edit' whenever the fetched event's status is 'draft', and removing the now-dead draft-banner code (src/app/events/[id]/page.tsx). See SPM-31-TC03 (rewritten) and SPM-31-TC15.",
+    "RESOLVED (2026-09-22): added a visible, auto-generated reference number (Event.sequenceNumber, formatted as 'EVT-000123' by eventReference() in src/lib/format.ts) shown to every role including Attendee, next to the event's title. This is distinct from Event.id (an opaque UUID, changes on every reseed) and Event.seedKey (internal, seed-data only, never shown in the UI) - it exists specifically so frontend users have something durable and human-readable to refer to an event by. Migration 20260922213000_add_event_sequence_number. See SPM-31-TC16.",
+    "RESOLVED (2026-09-22): the event's web address itself now uses this reference (e.g. /events/EVT-000005) instead of the underlying UUID. GET/PATCH /api/events/[id] resolve the route segment via parseEventReference() + a lookup by sequenceNumber (src/lib/format.ts, src/app/api/events/[id]/route.ts); the equipment sub-routes and src/lib/apiAuth.ts's new resolveEventId() do the same. Every internal link-building site (events list, dashboard, new-event redirect, tab links) was updated to build the reference rather than use the raw id. This is a bigger, cross-cutting change than SPM-31's original scope - it affects every story that touches an event's URL, not just this one - so it needs surfacing to the team before merging, not just landing quietly. See SPM-31-TC17, TC18.",
+    "RESOLVED (2026-09-22): an Attendee's Overview view is now a genuinely curated subset, not the same three-card layout as every other role with most fields showing '—'. 'Expected attendance', 'Preferred layout', 'Accessibility notes' and 'Special requirements' are now optional on EventDetail (src/app/events/[id]/page.tsx) and each row/card renders only when the field is actually present in the API response, exactly like Organiser/Coordinator/Company already did. The whole 'Venue requirements' card is hidden entirely for an Attendee, rather than shown with every field blank. See SPM-31-TC09, TC14, TC19."
+  ],
+  "code_references": [
+    "prisma/schema.prisma",
+    "prisma/seed.ts",
+    "src/lib/permissions.ts",
+    "src/lib/roles.ts",
+    "src/lib/eventTabs.ts",
+    "src/lib/statuses.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/EventGlance.tsx",
+    "src/lib/format.ts",
+    "src/lib/apiAuth.ts",
+    "src/app/api/events/[id]/equipment/route.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/route.ts",
+    "src/app/dashboard/page.tsx",
+    "src/app/events/new/page.tsx"
+  ]
+}
