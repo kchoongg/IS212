@@ -550,7 +550,7 @@ traceability the module asks for.
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
 | `npx prisma migrate dev` | Create/apply a migration after YOU change `schema.prisma` |
 | `npx prisma studio` | Browser UI to view/edit the database directly |
-| `npx prisma db seed` | ⚠️ Wipes all tables, then loads the demo data |
+| `npx prisma db seed` | ⚠️ Wipes all tables, then loads the demo data. Safe to re-run — as of 2026-09-25 it also resets `Event.sequenceNumber`'s Postgres sequence, so `EVT-000005` etc. come back the same every time |
 | `npx prisma migrate reset` | ⚠️ Wipes the database and replays all migrations |
 
 > `npm run lint` was broken on Next 16 — `next lint` was removed, so the
@@ -665,6 +665,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No route-level tests outside auth/permissions** | `npm run verify:permissions` (45 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
+| **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 
 ---
 
@@ -680,6 +681,26 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-09-25 — Kristen
+- **Fixed `prisma/seed.ts` leaking event reference numbers across reseeds.**
+  A teammate running SPM-31's test cases (TC01, TC09, TC17) got `EVT-000200`
+  for "Meridian Wealth Management Forum" instead of the `EVT-000005` the test
+  data expects. `Event.sequenceNumber` is a Postgres `autoincrement()` column
+  (see `prisma/schema.prisma`'s note on `id` vs `seedKey`), and the seed script
+  clears tables with `deleteMany()`, not `TRUNCATE ... RESTART IDENTITY` — that
+  note explained why `id` churns on every reseed but missed that
+  `sequence_number`'s underlying Postgres sequence *isn't* reset either, so it
+  keeps climbing every time `npx prisma db seed` is re-run instead of
+  restarting at 1. Fixed by adding `ALTER SEQUENCE "events_sequence_number_seq"
+  RESTART WITH 1` right after `event.deleteMany()`. Verified: after reseeding,
+  "Meridian Wealth Management Forum" is `sequenceNumber: 5` again.
+- Also found, while triaging the same test cases: TC19 404s because the
+  Attendee's "Browse Events" nav link (`src/lib/roles.ts`) points at `/browse`,
+  and `src/app/browse/page.tsx` doesn't exist. Not fixed here — logged under
+  Known Gaps.
 
 ---
 
