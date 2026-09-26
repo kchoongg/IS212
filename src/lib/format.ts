@@ -98,6 +98,23 @@ export function formatVenue(name: string | null | undefined, code?: string | nul
   return code ? `${name} (${code})` : name;
 }
 
+/// "EVT-000123" — the user-facing reference for Event.sequenceNumber
+/// (schema.prisma), shown to every role including an Attendee. Distinct
+/// from `id` (opaque, changes on every reseed) and `seedKey` (internal,
+/// seed-data only).
+export function eventReference(sequenceNumber: number): string {
+  return `EVT-${String(sequenceNumber).padStart(6, "0")}`;
+}
+
+/// The inverse of eventReference() — this is what the [id] route segment
+/// under /events actually holds now (see src/lib/apiAuth.ts's
+/// resolveEventId()). Returns null for anything that isn't that shape,
+/// including a raw UUID: the URL no longer accepts one.
+export function parseEventReference(value: string): number | null {
+  const match = /^EVT-(\d+)$/i.exec(value);
+  return match ? Number(match[1]) : null;
+}
+
 /// Any value that may be missing, for direct rendering in a table cell.
 export function orEmpty(value: string | number | null | undefined): string {
   if (value == null || value === "") return EMPTY;

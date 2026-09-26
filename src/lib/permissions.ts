@@ -318,13 +318,18 @@ export function canSetEventStatus(
 /// What an Attendee is allowed to know about an event: the public listing.
 /// Everything else on the record is internal planning information, which
 /// briefing §8b says an Attendee must not see - including who is coordinating
-/// it, why something was rejected, what the client asked for privately, and
-/// the venue and equipment arrangements.
+/// it, who personally organised it, why something was rejected, what the
+/// client asked for privately, and the venue and equipment arrangements.
+///
+/// "organisation" is a deliberate exception: an Attendee may see which
+/// company is running the event (SPM-31), just not the organiser's own name
+/// - "organiser" (which carries the personal name) stays off this list.
 ///
 /// Hiding a tab in the UI does not do this. The API has to withhold the
 /// fields, or the whole record is one request away.
 export const ATTENDEE_EVENT_FIELDS = [
   "id",
+  "sequenceNumber",
   "title",
   "description",
   "category",
@@ -335,6 +340,7 @@ export const ATTENDEE_EVENT_FIELDS = [
   "registrationCapacity",
   "registrationOpensAt",
   "registrationClosesAt",
+  "organisation",
 ] as const;
 
 /// Narrow an event record to the fields this actor may see. Returns a new

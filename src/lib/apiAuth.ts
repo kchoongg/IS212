@@ -11,6 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "./prisma";
 import { getSession } from "./auth";
+import { parseEventReference } from "./format";
 import type { Actor } from "./permissions";
 
 /**
@@ -56,4 +57,20 @@ export function forbidden(message = "You do not have access to this") {
 /// 403 would confirm the record is real. Say "not found" and mean it.
 export function hidden() {
   return NextResponse.json({ error: "Event not found" }, { status: 404 });
+}
+
+/**
+ * Turns the `[id]` route segment under /events - now a reference like
+ * "EVT-000123", not the underlying UUID - into the event's real `id`, for
+ * routes that only need it to scope a foreign key (e.g. EquipmentRequest.
+ * eventId) rather than the full row. Returns null for a malformed reference
+ * or one that matches no event; callers should treat either the same way
+ * (hidden(), not a 400) since a route segment a user typed or bookmarked
+ * wrong looks identical to one that no longer exists.
+ */
+export async function resolveEventId(reference: string): Promise<string | null> {
+  const sequenceNumber = parseEventReference(reference);
+  if (sequenceNumber === null) return null;
+  const event = await prisma.event.findUnique({ where: { sequenceNumber }, select: { id: true } });
+  return event?.id ?? null;
 }

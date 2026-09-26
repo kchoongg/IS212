@@ -23,6 +23,14 @@ const PASSWORD = "password123";
 
 const prisma = new PrismaClient();
 
+// CHANGED (SPM-31): GET/PATCH /api/events/[id] now takes the event's
+// user-facing reference (e.g. "EVT-000123"), not its underlying UUID - see
+// eventReference() in src/lib/format.ts. Kept as a local copy rather than an
+// import so this script stays runnable standalone, same as before.
+function ref(sequenceNumber: number): string {
+  return `EVT-${String(sequenceNumber).padStart(6, "0")}`;
+}
+
 type Check = { ac: string; name: string; ok: boolean; detail: string };
 const results: Check[] = [];
 
@@ -105,6 +113,7 @@ async function main() {
   const asTechSupport = authed(await login(techSupport.email));
 
   let createdEventId: string | null = null;
+  let createdEventRef: string | null = null;
   let createdEquipmentId: string | null = null;
 
   try {
@@ -159,33 +168,35 @@ async function main() {
     record("AC3", "an organiser CAN raise an event request", createRes.status === 201,
       `expected 201, got ${createRes.status}`);
     if (createRes.status !== 201) throw new Error(`Cannot continue: ${createBody}`);
-    createdEventId = JSON.parse(createBody).id as string;
+    const created = JSON.parse(createBody);
+    createdEventId = created.id as string;
+    createdEventRef = ref(created.sequenceNumber as number);
 
     await expectStatus("AC3", "the owning organiser can read their own draft", 200,
-      await asA(`/api/events/${createdEventId}`));
+      await asA(`/api/events/${createdEventRef}`));
     await expectStatus("AC3", "an organiser at ANOTHER client cannot see the draft", 404,
-      await asB(`/api/events/${createdEventId}`));
+      await asB(`/api/events/${createdEventRef}`));
     await expectStatus("AC3", "even a coordinator cannot see someone's unsubmitted draft", 404,
-      await asCoordinator(`/api/events/${createdEventId}`));
+      await asCoordinator(`/api/events/${createdEventRef}`));
     await expectStatus("AC3", "an attendee cannot see the draft", 404,
-      await asAttendee(`/api/events/${createdEventId}`));
+      await asAttendee(`/api/events/${createdEventRef}`));
     await expectStatus("AC3", "a coordinator cannot reach the draft through PATCH either", 404,
-      await asCoordinator(`/api/events/${createdEventId}`, {
+      await asCoordinator(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "submitted" }),
       }));
     await expectStatus("AC3", "an organiser at another client cannot edit the draft", 404,
-      await asB(`/api/events/${createdEventId}`, {
+      await asB(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ title: "hijacked" }),
       }));
     await expectStatus("AC3", "the owner CAN edit their own draft", 200,
-      await asA(`/api/events/${createdEventId}`, {
+      await asA(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ purpose: "Verifying SPM-4" }),
       }));
 
     // -----------------------------------------------------------------------
     console.log("\nAC3/AC4 — who may move an event through the lifecycle (briefing §5)");
     await expectStatus("AC4", "the owner CAN submit their own request (Step 2)", 200,
-      await asA(`/api/events/${createdEventId}`, {
+      await asA(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "submitted" }),
       }));
     // 404, not 403: an attendee cannot SEE a submitted event, so the
@@ -194,63 +205,63 @@ async function main() {
     // exists. The role gate itself is exercised below, on an event the
     // attendee IS allowed to see.
     await expectStatus("AC4", "an ATTENDEE cannot confirm a submitted event", 404,
-      await asAttendee(`/api/events/${createdEventId}`, {
+      await asAttendee(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "confirmed" }),
       }));
     await expectStatus("AC4", "an attendee cannot reject it either", 404,
-      await asAttendee(`/api/events/${createdEventId}`, {
+      await asAttendee(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "rejected", reason: "no" }),
       }));
     // The role gate on its own: this event IS visible to the attendee, so the
     // only thing standing between them and completing it is their role.
     await expectStatus("AC4", "an attendee cannot change the status of an event they CAN see", 403,
-      await asAttendee(`/api/events/${confirmed.id}`, {
+      await asAttendee(`/api/events/${ref(confirmed.sequenceNumber)}`, {
         method: "PATCH", body: JSON.stringify({ status: "completed" }),
       }));
     await expectStatus("AC4", "an organiser cannot complete another client's event", 404,
-      await asB(`/api/events/${createdEventId}`, {
+      await asB(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "completed" }),
       }));
     await expectStatus("AC4", "venue staff cannot drive the event lifecycle", 403,
-      await asVenueStaff(`/api/events/${createdEventId}`, {
+      await asVenueStaff(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
       }));
     await expectStatus("AC4", "the organiser cannot approve their OWN request", 403,
-      await asA(`/api/events/${createdEventId}`, {
+      await asA(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
       }));
     await expectStatus("AC4", "a coordinator CAN take it under review (Step 3)", 200,
-      await asCoordinator(`/api/events/${createdEventId}`, {
+      await asCoordinator(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "under_review" }),
       }));
     await expectStatus("AC4", "a coordinator CAN approve it (Step 5)", 200,
-      await asCoordinator(`/api/events/${createdEventId}`, {
+      await asCoordinator(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
       }));
 
     // -----------------------------------------------------------------------
     console.log("\nSPM-47 — equipment requirements are the assigned Coordinator's to record");
     await expectStatus("SPM-47", "anonymous cannot list an event's equipment", 401,
-      await anon(`/api/events/${createdEventId}/equipment`));
+      await anon(`/api/events/${createdEventRef}/equipment`));
 
     if (createdEquipmentId) {
       await expectStatus("SPM-47", "the owning organiser cannot record equipment (Coordinator's job)", 403,
-        await asA(`/api/events/${createdEventId}/equipment`, {
+        await asA(`/api/events/${createdEventRef}/equipment`, {
           method: "POST",
           body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
         }));
       await expectStatus("SPM-47", "technical support cannot record equipment either (views/reviews, does not request)", 403,
-        await asTechSupport(`/api/events/${createdEventId}/equipment`, {
+        await asTechSupport(`/api/events/${createdEventRef}/equipment`, {
           method: "POST",
           body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
         }));
       await expectStatus("SPM-47", "an organiser at another client cannot see this event to record equipment on it", 404,
-        await asB(`/api/events/${createdEventId}/equipment`, {
+        await asB(`/api/events/${createdEventRef}/equipment`, {
           method: "POST",
           body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
         }));
 
-      const eqReqRes = await asCoordinator(`/api/events/${createdEventId}/equipment`, {
+      const eqReqRes = await asCoordinator(`/api/events/${createdEventRef}/equipment`, {
         method: "POST",
         body: JSON.stringify({ equipmentId: createdEquipmentId, quantityRequested: 1 }),
       });
@@ -259,20 +270,20 @@ async function main() {
     }
 
     await expectStatus("SPM-47", "venue staff can see the event but not its equipment", 403,
-      await asVenueStaff(`/api/events/${createdEventId}/equipment`));
+      await asVenueStaff(`/api/events/${createdEventRef}/equipment`));
     await expectStatus("SPM-47", "technical support CAN view the recorded equipment", 200,
-      await asTechSupport(`/api/events/${createdEventId}/equipment`));
+      await asTechSupport(`/api/events/${createdEventRef}/equipment`));
     // Broader than AC6's literal wording (Technical Support only), confirmed
     // 2026-09-19 as intended: the owning Organiser gets a read-only view of
     // their own event's equipment.
     await expectStatus("SPM-47", "the owning organiser CAN view (read-only) equipment requirements on their own event", 200,
-      await asA(`/api/events/${createdEventId}/equipment`));
+      await asA(`/api/events/${createdEventRef}/equipment`));
     await expectStatus("SPM-47", "an organiser at another client cannot view this event's equipment", 404,
-      await asB(`/api/events/${createdEventId}/equipment`));
+      await asB(`/api/events/${createdEventRef}/equipment`));
 
     // -----------------------------------------------------------------------
     console.log("\nAC3 — an Attendee must not see internal planning information (§8b)");
-    const attendeeView = await asAttendee(`/api/events/${confirmed.id}`);
+    const attendeeView = await asAttendee(`/api/events/${ref(confirmed.sequenceNumber)}`);
     const seen = attendeeView.status === 200 ? await attendeeView.json() : {};
     record("AC3", "an attendee CAN see a confirmed, registerable event", attendeeView.status === 200,
       `expected 200, got ${attendeeView.status}`);
@@ -317,7 +328,7 @@ async function main() {
     });
     if (otherClientEvent) {
       await expectStatus("AC3", "…and fetching another client's event directly is a 404", 404,
-        await asA(`/api/events/${otherClientEvent.id}`));
+        await asA(`/api/events/${ref(otherClientEvent.sequenceNumber)}`));
     }
 
     await expectStatus("AC3", "an attendee cannot register for an event they cannot see", 404,

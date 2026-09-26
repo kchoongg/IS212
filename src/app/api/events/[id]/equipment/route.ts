@@ -5,7 +5,18 @@ import { canManageEquipmentRequests, canViewEquipmentRequests, canViewEvent } fr
 import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
 import { isTerminalEventStatus } from "@/lib/statuses";
+import { parseEventReference } from "@/lib/format";
 import { ZodError } from "zod";
+
+// CHANGED (SPM-31): `id` here is the event's reference (e.g. "EVT-000123"),
+// not its underlying UUID - see eventReference()/parseEventReference() in
+// src/lib/format.ts. Resolve it once per request, then use the returned
+// row's real `event.id` for anything that scopes a foreign key
+// (EquipmentRequest.eventId), never the route segment itself.
+async function resolveEvent(id: string) {
+  const sequenceNumber = parseEventReference(id);
+  return sequenceNumber === null ? null : prisma.event.findUnique({ where: { sequenceNumber } });
+}
 
 // S-16 — the Event Coordinator's equipment requirements screen (SPM-47).
 // GET is Technical Support viewing what's been recorded (AC6, taken
@@ -27,7 +38,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return unauthenticated();
   }
 
-  const event = await prisma.event.findUnique({ where: { id } });
+  const event = await resolveEvent(id);
   if (!event || !canViewEvent(actor, event)) {
     return hidden();
   }
@@ -36,7 +47,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   }
 
   const requests = await prisma.equipmentRequest.findMany({
-    where: { eventId: id },
+    where: { eventId: event.id },
     include: {
       equipment: { select: { id: true, name: true, category: true } },
       // ADDED: which session this requirement is scoped to, if any (SPM-47,
@@ -58,7 +69,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return unauthenticated();
     }
 
-    const event = await prisma.event.findUnique({ where: { id } });
+    const event = await resolveEvent(id);
     if (!event || !canViewEvent(actor, event)) {
       return hidden();
     }
@@ -84,7 +95,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // could scope a requirement to a session of a completely different one.
     if (data.sessionId) {
       const session = await prisma.eventSession.findUnique({ where: { id: data.sessionId } });
-      if (!session || session.eventId !== id) {
+      if (!session || session.eventId !== event.id) {
         return NextResponse.json({ error: "Session not found for this event" }, { status: 400 });
       }
     }
@@ -101,7 +112,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const created = await prisma.equipmentRequest.create({
       data: {
-        eventId: id,
+        eventId: event.id,
         sessionId: data.sessionId,
         equipmentId: data.equipmentId,
         quantityRequested: data.quantityRequested,
