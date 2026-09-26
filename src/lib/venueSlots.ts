@@ -22,11 +22,21 @@ import { TIME_ZONE } from "@/lib/format";
 // SLOT BOUNDARIES — team decision, recorded on SPM-46
 // ---------------------------------------------------------------------------
 //
-// SPM-46 names the three slots but never defines their boundaries, and nothing
-// else in the project does either: UI_DESIGN.md never mentions slots, and the
-// S-21 mockup (design/mockups/VenueCalendar.dc.html) draws a continuous time
-// grid instead. So the team set them, on the evidence below, and recorded the
-// decision on SPM-46.
+// CONTESTED - THE CUSTOMER HAS ALREADY DEFINED THESE AND THE NUMBERS BELOW ARE
+// NOT THEM. See the Known Gap in DOCUMENTATION.md before relying on this table.
+//
+// SPM-46 itself names the three slots without defining their boundaries, and
+// neither UI_DESIGN.md nor the S-21 mockup does. But clarification #50
+// (2026-08-25) does: "The venue will be booked based on 3 time slots (AM, PM,
+// Night) ... AM (7am-12pm, 1pm-6pm, 7pm-12am)" - i.e. AM 07:00-12:00, PM
+// 13:00-18:00, Night 19:00-24:00, with deliberate gaps between them. That was
+// missed when this table was written, because the clarifications live in GitHub
+// Discussions and nothing in this repo points at them.
+//
+// The grid below is therefore the team's own, and differs from the customer's
+// on every boundary. Aligning it is not a one-line change - see the Known Gap:
+// it is coupled to how setup and turnaround are modelled (#108, #123), which
+// this file gets wrong in a second, larger way.
 //
 // The grid is FIXED - the same for every venue. A venue's own opening hours do
 // not move the boundaries; they only mark a slot "partial" or "closed" (see
@@ -35,6 +45,10 @@ import { TIME_ZONE } from "@/lib/format";
 // if AM started at each venue's opening time.
 //
 // AM starts at 06:00, moved from the originally proposed 08:00 (2026-09-22).
+// NOTE this reasoning only holds under the minute-based setup model below, and
+// clarification #123 replaces that model with whole adjacent slots - under
+// which minutes never need to "fit" a slot at all, and this argument for 06:00
+// disappears with it.
 // 08:00 was measured against the seeded data and found too late: four of
 // thirteen approved bookings fell partly before AM began once setup time was
 // added - Jurong Expo Floor opens at 06:00, and Marina Grand Hall's 180-minute
