@@ -9,6 +9,7 @@ function line(overrides: Partial<RequestedLine> = {}): RequestedLine {
   return {
     requestId: "req-1",
     quantityRequested: 1,
+    requestStatus: "under_review",
     equipment: rig,
     sessionId: null,
     sessionLabel: null,
@@ -41,6 +42,11 @@ describe("assembleLines", () => {
     expect(lines[0].result?.status).toBe("unavailable");
     expect(lines[0].result?.heldBy[0].eventTitle).toBe("Gala Dinner");
     expect(allAvailable).toBe(false);
+  });
+
+  it("carries the request status and quantity requested through to the line", () => {
+    const { lines } = assembleLines([line({ quantityRequested: 4, requestStatus: "under_review" })], []);
+    expect(lines[0]).toMatchObject({ quantityRequested: 4, requestStatus: "under_review" });
   });
 
   it("is all available when nothing else holds the equipment", () => {

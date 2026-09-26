@@ -16,6 +16,8 @@ import {
 export interface RequestedLine {
   requestId: string;
   quantityRequested: number;
+  /// The equipment request's own status (requested, under_review, reserved ...).
+  requestStatus: string;
   equipment: {
     id: string;
     name: string;
@@ -50,6 +52,8 @@ export interface OtherRequest {
 
 export interface AvailabilityLine {
   requestId: string;
+  requestStatus: string;
+  quantityRequested: number;
   equipmentId: string;
   equipmentName: string;
   sessionId: string | null;
@@ -74,6 +78,8 @@ export function assembleLines(requested: RequestedLine[], others: OtherRequest[]
   const lines = requested.map((line): AvailabilityLine => {
     const base = {
       requestId: line.requestId,
+      requestStatus: line.requestStatus,
+      quantityRequested: line.quantityRequested,
       equipmentId: line.equipment.id,
       equipmentName: line.equipment.name,
       sessionId: line.sessionId,

@@ -40,6 +40,8 @@ interface AvailabilityResult {
 
 interface Line {
   requestId: string;
+  requestStatus: string;
+  quantityRequested: number;
   equipmentName: string;
   sessionLabel: string | null;
   venueChosen: boolean;
@@ -113,18 +115,24 @@ export default function EquipmentRequestDetailPage() {
     }
   }, [state, load, router, path]);
 
-  const title = event?.title ?? "Equipment request";
+  // One chip for the whole request when every line is at the same stage (the
+  // mockup shows "Under review" beside "Requested items"); nothing if mixed.
+  const stages = new Set(availability?.lines.map((l) => l.requestStatus));
+  const requestStage = stages.size === 1 ? [...stages][0] : null;
 
   return (
     <div>
       <PageHeader
-        title={title}
-        subtitle={event ? formatDateTimeRange(event.startsAt, event.endsAt) : undefined}
+        title="Equipment request"
+        subtitle={
+          event
+            ? `${orEmpty(event.title)} · ${formatDateTimeRange(event.startsAt, event.endsAt)}`
+            : undefined
+        }
         breadcrumbs={[
           { label: "Equipment requests", href: "/equipment/requests" },
           { label: event?.title ?? "Event" },
         ]}
-        meta={event ? <StatusBadge status={event.status} /> : undefined}
       />
 
       {user && user.role !== "tech_support" && (
@@ -142,7 +150,7 @@ export default function EquipmentRequestDetailPage() {
       <Card>
         <CardHeader
           title="Requested items"
-          subtitle="Checked against stock, maintenance, and other events' reservations for these dates."
+          aside={requestStage ? <StatusBadge status={requestStage} /> : undefined}
         />
         <DataState
           data={availability?.lines ?? null}
@@ -184,13 +192,13 @@ function LineRow({ line }: { line: Line }) {
               elsewhere = <span className="font-medium text-ink">{result.available} available</span> for these dates
             </p>
             {result.status === "partial" && (
-              <p className="text-xs text-ink-2">
+              <p className="text-xs text-tone-warning-fg">
                 {result.requested} requested, {result.available} available.
               </p>
             )}
             {result.status === "unavailable" &&
               result.heldBy.map((held) => (
-                <p key={`${held.eventTitle}-${held.availableAgainFrom}`} className="text-xs text-ink-2">
+                <p key={`${held.eventTitle}-${held.availableAgainFrom}`} className="text-xs text-tone-warning-fg">
                   Held by {held.eventTitle} until {formatDay(held.availableAgainFrom)}.
                 </p>
               ))}
@@ -201,12 +209,11 @@ function LineRow({ line }: { line: Line }) {
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-3 text-sm">
-        {result && (
-          <span className="text-ink-3">
-            Requested <span className="font-medium text-ink">{orEmpty(result.requested)}</span>
-          </span>
-        )}
+      <div className="flex shrink-0 items-center gap-6 text-sm">
+        <div className="text-center">
+          <p className="text-xs font-medium uppercase tracking-wide text-ink-3">Requested</p>
+          <p className="mt-1 text-base text-ink">{line.quantityRequested}</p>
+        </div>
         {result && <StatusBadge status={result.status} />}
       </div>
     </li>

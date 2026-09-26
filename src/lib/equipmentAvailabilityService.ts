@@ -47,6 +47,7 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
         select: {
           id: true,
           quantityRequested: true,
+          status: true,
           sessionId: true,
           session: { select: { label: true, startsAt: true, endsAt: true } },
           equipment: {
@@ -68,6 +69,7 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
   const requested: RequestedLine[] = event.equipmentRequests.map((r) => ({
     requestId: r.id,
     quantityRequested: r.quantityRequested,
+    requestStatus: r.status,
     equipment: r.equipment,
     sessionId: r.sessionId,
     sessionLabel: r.session?.label ?? null,
