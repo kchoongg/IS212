@@ -110,6 +110,8 @@ model Venue {
   facilities     VenueFacility[]
   bookings       VenueBooking[]
   unavailability VenueUnavailability[]
+  /// Equipment kept at this venue (Equipment.locationVenueId).
+  equipmentHere  Equipment[]           @relation("EquipmentLocation")
 
   @@index([isActive, building, maxCapacity])
   @@map("venues")
@@ -449,7 +451,19 @@ model Equipment {
 
   isActive Boolean @default(true) @map("is_active")
 
-  requests EquipmentRequest[]
+  /// Where this item is kept (SPM-48; customer Q&A #2: equipment has a
+  /// physical location, and moving it between venues takes transfer and
+  /// preparation time). NULL means ConnectSphere's own storage - the default,
+  /// because after every event equipment is returned there for inspection
+  /// before it becomes available again. Set to a venue only for kit that lives
+  /// there; no transfer time is then added for an event at that same venue.
+  /// A link rather than free text so the "already at the venue" comparison
+  /// cannot be broken by a typo, and not a fake "storage" Venue row, which
+  /// would carry capacity/layout/facility fields that mean nothing here.
+  locationVenueId String? @map("location_venue_id")
+
+  locationVenue Venue?             @relation("EquipmentLocation", fields: [locationVenueId], references: [id], onDelete: SetNull)
+  requests      EquipmentRequest[]
 
   @@map("equipment")
 }

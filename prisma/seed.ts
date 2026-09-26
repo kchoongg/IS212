@@ -400,6 +400,30 @@ async function main() {
     });
     equip[name] = e.id;
   }
+  // SPM-48: kit with a location other than ConnectSphere storage, and a retired
+  // item that an existing request still names.
+  const marinaSound = await prisma.equipment.create({
+    data: {
+      name: "Marina Hall Sound System",
+      category: "AV",
+      description: "Installed PA and mixer, kept in Marina Grand Hall",
+      totalQuantity: 1,
+      quantityInMaintenance: 0,
+      locationVenueId: venues["MAR-GH"],
+    },
+  });
+  equip["Marina Hall Sound System"] = marinaSound.id;
+  const legacyProjector = await prisma.equipment.create({
+    data: {
+      name: "Legacy Overhead Projector",
+      category: "AV",
+      description: "Retired - replaced by the portable projectors",
+      totalQuantity: 4,
+      quantityInMaintenance: 0,
+      isActive: false,
+    },
+  });
+  equip["Legacy Overhead Projector"] = legacyProjector.id;
 
   // -------------------------------------------------------------------
   // EVENTS
@@ -625,6 +649,32 @@ async function main() {
       purpose: "Gala dinner",
       category: "networking", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
       days: 173, startHour: 9, durationHours: 8, attendance: 50, layout: "banquet" },
+
+    // --- SPM-48 availability scenarios ---------------------------------
+    // Three events on neighbouring days that compete for the same kit, so the
+    // Equipment request screen has real shortfalls to show:
+    //   expo_day (day 49) and awards_night (day 51) each hold equipment, and
+    //   vendor_evening (day 50) falls the day after one and the day before the
+    //   other - blocked by both through the D-1 / Return Day+1 rule.
+    { key: "expo_day", title: "Regional Tech Expo", status: "confirmed",
+      purpose: "Trade expo for regional technology vendors",
+      description: "Full-day expo with two livestreamed stages.",
+      category: "conference", organiser: "Budi Santoso", coordinator: "daniel.tan@connectsphere.com",
+      days: 49, startHour: 9, durationHours: 9, attendance: 220, layout: "exhibition" },
+
+    { key: "vendor_evening", title: "Vendor Networking Evening", status: "planning",
+      purpose: "Evening pitches and networking for expo vendors",
+      description: "Short vendor pitches followed by networking; closing pitches livestreamed.",
+      category: "networking", organiser: "Hakim Zulkifli", coordinator: "daniel.tan@connectsphere.com",
+      days: 50, startHour: 17, durationHours: 5, attendance: 120, layout: "banquet" },
+
+    // No venue booked yet, so the availability screen says "venue not yet
+    // chosen" and adds no transfer time.
+    { key: "awards_night", title: "Annual Partner Awards Night", status: "planning",
+      purpose: "Recognise long-standing partners",
+      description: "Evening ceremony, livestreamed to partners abroad.",
+      category: "networking", organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+      days: 51, startHour: 18, durationHours: 4, attendance: 130, layout: "banquet" },
   ];
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -802,6 +852,8 @@ async function main() {
     ["submitted", "ORC-SEM", "pending"],
     ["submitted", "MAR-AUD", "rejected", "Auditorium seating is fixed theatre-style and cannot support parallel tracks."],
     ["planning", "MAR-GH", "approved"],
+    ["expo_day", "ORC-GAL", "approved"],
+    ["vendor_evening", "MAR-GH", "approved"],
     ["confirmed_forum", "MAR-GH", "approved"],
     ["completed_training", "JUR-TRN", "approved"],
     ["confirmed_briefing", "CBP-CONF", "approved"],
@@ -924,6 +976,18 @@ async function main() {
     ["planning_safety", "Portable WiFi Access Point", 4, null, "under_review", "High-density WiFi for the demo area."],
     ["review_launch", "LED Video Wall Panel", 4, null, "under_review", "Product reveal wall."],
     ["review_launch", "Streaming Encoder", 1, null, "unavailable", "All encoders committed to the trade showcase that week."],
+    // SPM-48 scenarios. Streaming Encoder has 3 in total: the expo holds 2 and
+    // the awards night 1, so the vendor evening between them gets none.
+    // Lavalier Wireless Mic has 10 - 2 in maintenance = 8: the expo holds 4,
+    // so the vendor evening's 6 is only partly available.
+    ["expo_day", "Lavalier Wireless Mic", 4, 4, "reserved", "Presenter mics for both stages."],
+    ["expo_day", "Streaming Encoder", 2, 2, "reserved", "One per livestreamed stage."],
+    ["awards_night", "Streaming Encoder", 1, 1, "reserved", "Livestream of the ceremony."],
+    ["awards_night", "Legacy Overhead Projector", 1, null, "requested", "Asked for the old overhead projector by name."],
+    ["vendor_evening", "Lavalier Wireless Mic", 6, null, "under_review", "One per vendor pitch, plus spares."],
+    ["vendor_evening", "Streaming Encoder", 1, null, "under_review", "Livestream the closing pitches."],
+    ["vendor_evening", "Truss Lighting Bar", 2, null, "under_review", "Stage wash for the pitches."],
+    ["vendor_evening", "Marina Hall Sound System", 1, null, "under_review", "Already installed in the hall."],
   ];
   for (let i = 0; i < eqReqs.length; i++) {
     const [eventKey, eqName, requested, reserved, status, note] = eqReqs[i];

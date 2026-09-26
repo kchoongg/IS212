@@ -412,9 +412,16 @@ Tracked by quantity, not by serial number: a coordinator requests "3 projectors"
 | `description` | String |  |  |
 | `totalQuantity` | Int | req | How many ConnectSphere owns. |
 | `quantityInMaintenance` | Int |  | Out of service. Available = total - maintenance - reserved. Defaults to `0`. |
-| `isActive` | Boolean |  | Defaults to `true`. |
+| `isActive` | Boolean |  | Defaults to `true`. `false` retires an item: it is not offered for new requests (`GET /api/equipment` and the add-equipment routes), and an existing request for it shows as Unavailable with 0 available. |
+| `locationVenueId` | String |  | SPM-48. Where the item is kept. NULL means ConnectSphere storage - the default, because equipment is returned there after every event (customer Q&A #2, #5). Set to a `Venue` only for kit that lives at that venue: no transfer time is then added for an event at the same venue. `ON DELETE SET NULL`. |
 
-**Relations:** `requests` &rarr; EquipmentRequest[]
+**Relations:** `locationVenue` &rarr; Venue, `requests` &rarr; EquipmentRequest[]
+
+**Availability (SPM-48)** is computed, not stored - `src/lib/equipmentAvailability.ts`. Per equipment line: `available = total - quantityInMaintenance - units held by other events`, and 0 if the item is inactive.
+
+- An event holds the equipment from the day before it (D-1, the collection day) through its Return Day, counted in Singapore calendar days. The Return Day is the event's own end date (Q&A #113 leaves this to the team). Equipment is available again from Return Day+1, and an event needs it free from its own D-1. So two events on the same day cannot share one unit (Q&A #5).
+- A fixed 2-hour transfer and preparation time applies BEFORE the event, when the item is not already at the event's venue (Q&A #2). Nothing is added after the event.
+- Only `reserved` and `partially_fulfilled` requests hold stock, by `quantityReserved`. Requests of cancelled, postponed, rejected and draft events are ignored - TEMPORARY, until SPM-37 (Cancel) and SPM-38 (Postpone) release reservations themselves.
 
 ### `EquipmentRequest`
 

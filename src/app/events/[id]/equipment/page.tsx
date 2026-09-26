@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Alert,
   Button,
+  ButtonLink,
   Card,
   CardHeader,
   ConfirmDialog,
@@ -360,6 +361,15 @@ export default function EventEquipmentPage() {
           { label: event?.title || "Event" },
           { label: "Equipment" },
         ]}
+        // SPM-48: Technical Support goes from what was requested to whether it
+        // can be supported. Only they can use the check, so nobody else sees it.
+        actions={
+          user?.role === "tech_support" ? (
+            <ButtonLink href={`/equipment/requests/${eventId}`} variant="secondary">
+              Check availability
+            </ButtonLink>
+          ) : undefined
+        }
       />
 
       {tabs.length > 0 && <Tabs items={tabs} activeKey="equipment" className="mb-6" />}

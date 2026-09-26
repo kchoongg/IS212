@@ -20,7 +20,14 @@ export async function GET(req: NextRequest) {
 
   // CHANGED: prisma.equipmentItem -> prisma.equipment (the model is Equipment;
   // it tracks pooled quantities, not individual physical units).
-  const items = await prisma.equipment.findMany();
+  // ADDED (SPM-48): retired (inactive) equipment is not offered for new
+  // requests - the same rule as inactive venues in the venue catalogue
+  // (SPM-39). Someone who manages the catalogue can still ask for everything.
+  const includeInactive =
+    req.nextUrl.searchParams.get("includeInactive") === "true" && can(actor.role, "equipment:manage");
+  const items = await prisma.equipment.findMany({
+    where: includeInactive ? undefined : { isActive: true },
+  });
   return NextResponse.json(items);
 }
 
