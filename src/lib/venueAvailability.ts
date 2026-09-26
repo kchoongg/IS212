@@ -20,7 +20,8 @@ import {
   SLOTS,
   addDays,
   dayRange,
-  minutesOutsideSlots,
+  hiddenMinutes,
+  occupiedCells,
   occupiedWindow,
   openingHoursCoverage,
   slotRangeLabel,
@@ -85,10 +86,14 @@ export interface AvailabilityBlockInput extends Interval {
 ///                 or the venue is retired
 ///   free        - bookable
 ///
-/// A slot's status never claims two things CLASH. Slots are hours wide, so two
-/// short bookings can share PM without touching, and "PM cannot be checked
-/// against another booking". Real clashes are worked out on real intervals and
-/// reported on the bookings and blocks themselves - see `overlaps` below.
+/// A slot's status never claims two things CLASH - it says what the slot is,
+/// and the cell lists everything in it. Clashes are reported on the bookings
+/// and blocks themselves, see `overlaps` below.
+///
+/// Note that under #107 a slot is consumed IN FULL by anything that touches
+/// it, so two approved bookings in one slot now ARE a clash, even when their
+/// own minutes never meet. That is a change from the earlier model, where
+/// slots were treated as wide enough to share.
 export type CellStatus = "unavailable" | "booked" | "turnaround" | "closed" | "free";
 
 export interface AvailabilityCell {
@@ -244,21 +249,17 @@ export function buildAvailability(input: {
   }));
   const cellAt = new Map(days.map((d) => [d.date, d.slots]));
 
-  // Each booking occupies its published times, plus turnaround either side.
-  const occupied = input.bookings.map((b) => ({ booking: b, window: occupiedWindow(b, venue) }));
+  // Each booking consumes, in full, every slot its own times touch (#107),
+  // plus one whole slot of setup before and one of turnaround after (#108,
+  // #123). occupiedCells() owns that rule; this only places the result.
+  const occupied = input.bookings.map((b) => ({
+    booking: b,
+    cells: occupiedCells(b, venue),
+    window: occupiedWindow(b, venue),
+  }));
 
-  const bookings: AvailabilityBooking[] = occupied.map(({ booking, window }) => {
-    const published = new Set(
-      slotsCovered(booking).map((c) => `${c.day}|${c.slot}`)
-    );
-    const cells = slotsCovered(window)
-      .filter((c) => inRange.has(c.day))
-      .map((c) => ({
-        day: c.day,
-        slot: c.slot,
-        // Touching the slot by its own times beats touching it by turnaround.
-        via: published.has(`${c.day}|${c.slot}`) ? ("booking" as const) : ("turnaround" as const),
-      }));
+  const bookings: AvailabilityBooking[] = occupied.map(({ booking, window, cells: all }) => {
+    const cells = all.filter((c) => inRange.has(c.day));
 
     for (const cell of cells) {
       const target = cellAt.get(cell.day)?.[cell.slot];
@@ -278,7 +279,7 @@ export function buildAvailability(input: {
       occupiedFrom: window.startsAt,
       occupiedTo: window.endsAt,
       cells,
-      minutesOutsideSlots: minutesOutsideSlots(window),
+      minutesOutsideSlots: hiddenMinutes(booking),
       overlaps: { bookingIds: [], unavailabilityIds: [] },
     };
   });

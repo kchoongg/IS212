@@ -8,6 +8,9 @@ import {
   isDayKey,
   localDayKey,
   localDayStart,
+  adjacentSlot,
+  hiddenMinutes,
+  occupiedCells,
   openingHoursCoverage,
   openingHoursNote,
   parseClock,
@@ -45,15 +48,15 @@ describe("SLOT_BOUNDARIES", () => {
     for (const slot of SLOTS) {
       const { fromMinute, toMinute } = SLOT_BOUNDARIES[slot];
       expect(toMinute).toBeGreaterThan(fromMinute);
-      expect(fromMinute).toBeGreaterThanOrEqual(previousEnd);
+      expect(fromMinute).toBeGreaterThanOrEqual(previousEnd); // gaps allowed, overlaps not
       previousEnd = toMinute;
     }
   });
 
   it("labels each slot from the table rather than hard-coded text", () => {
-    expect(slotRangeLabel("AM")).toBe("06:00–12:00");
-    expect(slotRangeLabel("PM")).toBe("12:00–18:00");
-    expect(slotRangeLabel("Night")).toBe("18:00–23:00");
+    expect(slotRangeLabel("AM")).toBe("07:00–12:00");
+    expect(slotRangeLabel("PM")).toBe("13:00–18:00");
+    expect(slotRangeLabel("Night")).toBe("19:00–24:00");
   });
 });
 
@@ -73,38 +76,100 @@ describe("local time", () => {
   });
 });
 
-describe("occupiedWindow - setup and turnaround", () => {
-  it("widens a booking by the venue's own setup and teardown", () => {
+describe("occupiedCells - setup and turnaround (#107, #108, #123)", () => {
+  it("takes one WHOLE slot either side, however many minutes are recorded", () => {
+    // 09:00-17:00 touches AM and PM. Setup claims the slot before AM - the
+    // PREVIOUS day's Night - and turnaround the slot after PM, same-day Night.
+    // 20 minutes and 240 minutes cost exactly the same: one slot (#108).
     const booking = at("2026-09-28T09:00:00", "2026-09-28T17:00:00");
-    const window = occupiedWindow(booking, { setupMinutes: 60, teardownMinutes: 30 });
-    expect(window.startsAt).toEqual(sgt("2026-09-28T08:00:00"));
-    expect(window.endsAt).toEqual(sgt("2026-09-28T17:30:00"));
+    for (const venue of [
+      { setupMinutes: 20, teardownMinutes: 15 },
+      { setupMinutes: 240, teardownMinutes: 180 },
+    ]) {
+      expect(occupiedCells(booking, venue)).toEqual([
+        { day: "2026-09-27", slot: "Night", via: "turnaround" },
+        { day: "2026-09-28", slot: "AM", via: "booking" },
+        { day: "2026-09-28", slot: "PM", via: "booking" },
+        { day: "2026-09-28", slot: "Night", via: "turnaround" },
+      ]);
+    }
   });
 
-  it("leaves a booking untouched when the venue has no turnaround", () => {
+  it("wraps a Night event's turnaround onto the next day's AM", () => {
+    // #123: "A Night event requiring setup would occupy the PM slot, and its
+    // turnaround would occupy the AM slot of the following day."
+    const booking = at("2026-09-28T19:30:00", "2026-09-28T22:00:00");
+    expect(occupiedCells(booking, { setupMinutes: 90, teardownMinutes: 60 })).toEqual([
+      { day: "2026-09-28", slot: "PM", via: "turnaround" },
+      { day: "2026-09-28", slot: "Night", via: "booking" },
+      { day: "2026-09-29", slot: "AM", via: "turnaround" },
+    ]);
+  });
+
+  it("takes no adjacent slot when the venue records none", () => {
+    const booking = at("2026-09-28T09:00:00", "2026-09-28T11:00:00");
+    expect(occupiedCells(booking, NO_TURNAROUND)).toEqual([
+      { day: "2026-09-28", slot: "AM", via: "booking" },
+    ]);
+  });
+
+  it("never downgrades a slot the booking holds by its own times", () => {
+    // A booking covering all three slots: turnaround must not relabel one of
+    // them as setup, and must land on the neighbouring days instead.
+    const booking = at("2026-09-28T08:00:00", "2026-09-28T23:00:00");
+    const cells = occupiedCells(booking, { setupMinutes: 60, teardownMinutes: 60 });
+    expect(cells.filter((c) => c.day === "2026-09-28").every((c) => c.via === "booking")).toBe(true);
+    expect(cells).toContainEqual({ day: "2026-09-27", slot: "Night", via: "turnaround" });
+    expect(cells).toContainEqual({ day: "2026-09-29", slot: "AM", via: "turnaround" });
+  });
+
+  it("gives the room-in-use window as whole slots, not raw minutes", () => {
     const booking = at("2026-09-28T09:00:00", "2026-09-28T17:00:00");
-    const window = occupiedWindow(booking, NO_TURNAROUND);
-    expect(window).toEqual(booking);
+    const window = occupiedWindow(booking, { setupMinutes: 60, teardownMinutes: 30 });
+    // Previous day's Night starts 19:00; same-day Night ends at midnight.
+    expect(window.startsAt).toEqual(sgt("2026-09-27T19:00:00"));
+    expect(window.endsAt).toEqual(sgt("2026-09-29T00:00:00"));
+  });
+
+  it("leaves a booking that touches no slot alone", () => {
+    // 12:15-12:45 is inside the lunch gap and holds nothing.
+    const booking = at("2026-09-28T12:15:00", "2026-09-28T12:45:00");
+    expect(occupiedCells(booking, { setupMinutes: 60, teardownMinutes: 60 })).toEqual([]);
+    expect(occupiedWindow(booking, { setupMinutes: 60, teardownMinutes: 60 })).toEqual(booking);
   });
 
   it("does not mutate the booking it was given", () => {
     const booking = at("2026-09-28T09:00:00", "2026-09-28T17:00:00");
-    occupiedWindow(booking, { setupMinutes: 240, teardownMinutes: 180 });
+    occupiedCells(booking, { setupMinutes: 240, teardownMinutes: 180 });
     expect(booking.startsAt).toEqual(sgt("2026-09-28T09:00:00"));
   });
 
   it("pulls a booking into a slot it does not nominally touch", () => {
-    // AC2's actual point. A 13:00 start is PM only - but Jurong Expo Floor's
-    // 240-minute setup means the room is occupied from 09:00, so AM is gone.
+    // AC2's actual point. A 13:00 start is PM only - but a venue that needs
+    // setup also takes the whole AM before it (#123).
     const booking = at("2026-09-28T13:00:00", "2026-09-28T17:00:00");
     expect(slotsCovered(booking)).toEqual([{ day: "2026-09-28", slot: "PM" }]);
 
-    const withSetup = occupiedWindow(booking, { setupMinutes: 240, teardownMinutes: 180 });
-    expect(slotsCovered(withSetup)).toEqual([
-      { day: "2026-09-28", slot: "AM" },
-      { day: "2026-09-28", slot: "PM" },
-      { day: "2026-09-28", slot: "Night" },
+    expect(occupiedCells(booking, { setupMinutes: 240, teardownMinutes: 180 })).toEqual([
+      { day: "2026-09-28", slot: "AM", via: "turnaround" },
+      { day: "2026-09-28", slot: "PM", via: "booking" },
+      { day: "2026-09-28", slot: "Night", via: "turnaround" },
     ]);
+  });
+
+  it("adjacentSlot wraps at both ends of the day", () => {
+    expect(adjacentSlot({ day: "2026-09-28", slot: "AM" }, -1)).toEqual({
+      day: "2026-09-27",
+      slot: "Night",
+    });
+    expect(adjacentSlot({ day: "2026-09-28", slot: "Night" }, 1)).toEqual({
+      day: "2026-09-29",
+      slot: "AM",
+    });
+    expect(adjacentSlot({ day: "2026-09-28", slot: "PM" }, -1)).toEqual({
+      day: "2026-09-28",
+      slot: "AM",
+    });
   });
 });
 
@@ -118,26 +183,35 @@ describe("slotsCovered", () => {
   });
 
   it("marks every slot a long booking runs through", () => {
-    expect(slotsCovered(at("2026-09-28T09:00:00", "2026-09-28T19:00:00"))).toEqual([
+    expect(slotsCovered(at("2026-09-28T09:00:00", "2026-09-28T20:00:00"))).toEqual([
       { day, slot: "AM" },
       { day, slot: "PM" },
       { day, slot: "Night" },
     ]);
   });
 
+  it("consumes a slot in full from any overlap at all (#107)", () => {
+    // "If an event runs across two slots, does it consume both slots in full?
+    // Yes." Eleven minutes of PM takes the whole of PM.
+    expect(slotsCovered(at("2026-09-28T11:00:00", "2026-09-28T13:11:00"))).toEqual([
+      { day, slot: "AM" },
+      { day, slot: "PM" },
+    ]);
+  });
+
   it("treats the interval as half-open at both ends", () => {
-    // Ends exactly when PM starts: AM only.
+    // Ends exactly when AM ends: AM only.
     expect(slotsCovered(at("2026-09-28T08:00:00", "2026-09-28T12:00:00"))).toEqual([
       { day, slot: "AM" },
     ]);
-    // Starts exactly when PM starts: PM only, not the tail of AM.
-    expect(slotsCovered(at("2026-09-28T12:00:00", "2026-09-28T13:00:00"))).toEqual([
+    // Starts exactly when PM starts: PM only, never the tail of AM.
+    expect(slotsCovered(at("2026-09-28T13:00:00", "2026-09-28T14:00:00"))).toEqual([
       { day, slot: "PM" },
     ]);
   });
 
   it("marks a slot from one minute of overlap", () => {
-    expect(slotsCovered(at("2026-09-28T11:59:00", "2026-09-28T12:01:00"))).toEqual([
+    expect(slotsCovered(at("2026-09-28T11:59:00", "2026-09-28T13:01:00"))).toEqual([
       { day, slot: "AM" },
       { day, slot: "PM" },
     ]);
@@ -146,7 +220,7 @@ describe("slotsCovered", () => {
   it("splits a booking that runs past midnight across two days", () => {
     // Slots never cross midnight, so this is two days' cells, not one odd one.
     // 22:00-09:00 touches Night on the 28th, then AM on the 29th. Nothing in
-    // between, because 23:00-06:00 is in no slot at all.
+    // between, because 24:00-07:00 is in no slot at all.
     expect(slotsCovered(at("2026-09-28T22:00:00", "2026-09-29T09:00:00"))).toEqual([
       { day: "2026-09-28", slot: "Night" },
       { day: "2026-09-29", slot: "AM" },
@@ -172,13 +246,15 @@ describe("slotsCovered", () => {
   });
 
   it("returns nothing for a booking that falls entirely between slots", () => {
-    // 23:00-06:00 is covered by no slot under the team's slot boundaries.
-    // This is the case minutesOutsideSlots() exists to warn about.
-    expect(slotsCovered(at("2026-09-28T23:15:00", "2026-09-28T23:45:00"))).toEqual([]);
+    // The customer's grid leaves 12:00-13:00, 18:00-19:00 and 24:00-07:00
+    // uncovered (#50). This is the case hiddenMinutes() exists to warn about.
+    expect(slotsCovered(at("2026-09-28T12:15:00", "2026-09-28T12:45:00"))).toEqual([]);
+    expect(slotsCovered(at("2026-09-28T18:10:00", "2026-09-28T18:50:00"))).toEqual([]);
+    expect(slotsCovered(at("2026-09-28T02:00:00", "2026-09-28T05:00:00"))).toEqual([]);
   });
 
   it("orders cells by day, then by slot", () => {
-    const cells = slotsCovered(at("2026-09-28T17:00:00", "2026-09-29T13:00:00"));
+    const cells = slotsCovered(at("2026-09-28T17:00:00", "2026-09-29T14:00:00"));
     expect(cells).toEqual([
       { day: "2026-09-28", slot: "PM" },
       { day: "2026-09-28", slot: "Night" },
@@ -189,37 +265,41 @@ describe("slotsCovered", () => {
 });
 
 describe("minutesOutsideSlots", () => {
-  it("reports nothing for a booking inside the grid", () => {
-    expect(minutesOutsideSlots(at("2026-09-28T09:00:00", "2026-09-28T17:00:00"))).toBe(0);
+  it("counts the lunch gap an ordinary event runs through", () => {
+    // 09:00-17:00 crosses 12:00-13:00. The minutes are really outside the
+    // grid, and this function says so - but see hiddenMinutes(): the booking
+    // still holds AM and PM in full, so nothing is hidden from the calendar.
+    expect(minutesOutsideSlots(at("2026-09-28T09:00:00", "2026-09-28T17:00:00"))).toBe(60);
   });
 
   it("reports the whole booking when it falls in the uncovered gap", () => {
-    expect(minutesOutsideSlots(at("2026-09-28T23:15:00", "2026-09-28T23:45:00"))).toBe(30);
+    expect(minutesOutsideSlots(at("2026-09-28T12:15:00", "2026-09-28T12:45:00"))).toBe(30);
   });
 
   it("reports only the part that falls outside", () => {
-    // 04:00-08:00: the two hours before AM starts at 06:00 are in no slot.
-    expect(minutesOutsideSlots(at("2026-09-28T04:00:00", "2026-09-28T08:00:00"))).toBe(120);
-  });
-
-  it("covers a 06:00 start completely - the reason AM moved from 08:00", () => {
-    // Jurong Expo Floor opens at 06:00, and Marina Grand Hall's 180-minute
-    // setup puts a 09:00 event in the room from 06:00. With AM at 08:00 these
-    // lost up to 120 minutes each; the grid now has to cover them.
-    expect(minutesOutsideSlots(at("2026-09-28T06:00:00", "2026-09-28T10:00:00"))).toBe(0);
+    // 05:00-09:00: the two hours before AM starts at 07:00 are in no slot.
+    expect(minutesOutsideSlots(at("2026-09-28T05:00:00", "2026-09-28T09:00:00"))).toBe(120);
   });
 
   it("counts the overnight gap between Night and the next AM", () => {
-    // 22:00-09:00: 23:00-06:00 is seven hours in no slot.
+    // 22:00-09:00: 24:00-07:00 is seven hours in no slot.
     expect(minutesOutsideSlots(at("2026-09-28T22:00:00", "2026-09-29T09:00:00"))).toBe(7 * 60);
+  });
+
+  it("hiddenMinutes warns only when the grid shows nothing at all", () => {
+    // Crosses the lunch gap but is visible in AM and PM: not hidden.
+    expect(hiddenMinutes(at("2026-09-28T09:00:00", "2026-09-28T17:00:00"))).toBe(0);
+    // Entirely inside a gap: invisible, and the screen must say so.
+    expect(hiddenMinutes(at("2026-09-28T12:15:00", "2026-09-28T12:45:00"))).toBe(30);
+    expect(hiddenMinutes(at("2026-09-28T02:00:00", "2026-09-28T05:00:00"))).toBe(180);
   });
 
   it("agrees with slotsCovered about whether anything is covered", () => {
     const cases: [string, string][] = [
       ["2026-09-28T09:00:00", "2026-09-28T10:00:00"],
-      ["2026-09-28T23:15:00", "2026-09-28T23:45:00"],
+      ["2026-09-28T12:15:00", "2026-09-28T12:45:00"],
       ["2026-09-28T22:00:00", "2026-09-29T09:00:00"],
-      ["2026-09-28T04:00:00", "2026-09-28T05:00:00"],
+      ["2026-09-28T02:00:00", "2026-09-28T05:00:00"],
     ];
     for (const [from, to] of cases) {
       const interval = at(from, to);
@@ -286,7 +366,7 @@ describe("opening hours within a slot", () => {
   });
 
   it("reports full, partial and closed against the fixed grid", () => {
-    // Orchard Studio: 08:00-21:00. AM runs from 06:00, so a room that opens at
+    // Orchard Studio: 08:00-21:00. AM runs from 07:00, so a room that opens at
     // 08:00 is only open for part of it.
     expect(openingHoursCoverage("AM", "08:00", "21:00")).toBe("partial");
     expect(openingHoursCoverage("PM", "08:00", "21:00")).toBe("full");
@@ -299,9 +379,12 @@ describe("opening hours within a slot", () => {
   });
 
   it("treats opening early or closing late as simply full", () => {
-    // Jurong Expo Floor, 06:00-23:00: the grid does not stretch to fit it.
+    // Jurong Expo Floor, 06:00-23:00: opening an hour before AM does not
+    // stretch the grid, it just makes AM fully covered.
     expect(openingHoursCoverage("AM", "06:00", "23:00")).toBe("full");
-    expect(openingHoursCoverage("Night", "06:00", "23:00")).toBe("full");
+    // ...but Night now runs to midnight, so closing at 23:00 clips it.
+    expect(openingHoursCoverage("Night", "06:00", "23:00")).toBe("partial");
+    expect(openingHoursCoverage("Night", "06:00", "24:00")).toBe("full");
   });
 
   it("does not invent a closure from hours it cannot read", () => {
@@ -317,8 +400,8 @@ describe("opening hours within a slot", () => {
     // so it reads as "from" - and says the two hours of PM that are usable,
     // which "Limited hours" never did.
     expect(openingHoursNote("PM", "16:00", "23:00")).toBe("Open from 16:00");
-    // Both ends clipped inside one slot: open 13:00-17:00 against PM 12:00-18:00.
-    expect(openingHoursNote("PM", "13:00", "17:00")).toBe("Open 13:00–17:00");
+    // Both ends clipped inside one slot: open 14:00-17:00 against PM 13:00-18:00.
+    expect(openingHoursNote("PM", "14:00", "17:00")).toBe("Open 14:00–17:00");
   });
 
   it("has no note when the venue is open for all of a slot, or none of it", () => {

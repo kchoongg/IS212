@@ -667,7 +667,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
-| **The slot grid and the setup/turnaround model both contradict the customer's clarifications** | Two answers in GitHub Discussions settle things SPM-46 decided for itself, and neither was seen because **nothing in this repo points at the discussions**. (1) **#50, 2026-08-25** defines the slots: "AM (7am-12pm, 1pm-6pm, 7pm-12am)" — AM 07:00–12:00, PM 13:00–18:00, Night 19:00–24:00, with gaps between them. `SLOT_BOUNDARIES` (`src/lib/venueSlots.ts`) uses 06:00–12:00 / 12:00–18:00 / 18:00–23:00, contiguous — every boundary differs. (2) **#108, 2026-09-07** and **#123, 2026-09-14** make one slot the smallest unit of setup and turnaround, each taking at most one *whole adjacent* slot and crossing days: an AM event's setup takes the **previous day's Night** slot; a Night event's turnaround takes the **next day's AM**. We model them as per-venue minutes (`Venue.setupMinutes` / `teardownMinutes`, widened in `occupiedWindow()`), so setup only reaches an earlier slot when the minutes happen to span it, and can never reach the previous day. The two are coupled: adopting #50's gapped grid while keeping minute buffers puts occupancy in the 12:00–13:00 and 18:00–19:00 gaps, where no slot covers it. Fixing both touches `venueSlots.ts`, `venueAvailability.ts`, the `Venue` schema, `prisma/seed.ts`, ~650 lines of unit tests, the availability response, and SPM-46's test cases — and lands on SPM-41 and SPM-42, which are in flight. Needs a team decision, including what a booking inside a gap (e.g. 12:30) should do. Flagged 2026-09-26. | venues |
 | **Every test case's dates go stale on the next reseed** | `prisma/seed.ts` builds every date as `day(n)` = **today + n days** (line 20), so the absolute dates written into `docs/test-cases/*` ("1 Dec 2026", "3 Nov 2026") are only valid for a database seeded on the day those cases were written. A reseed six days later moves every booking and unavailable period six days, and a tester following the steps sees an empty grid and reports a bug that isn't one. Measured on 2026-09-26: all of SPM-46's dated fixtures had shifted **+6 days**. Affects every story's cases, not one. SPM-46's file has been re-based onto the 2026-09-26 seed and names that anchor in every case's preconditions — but that is a patch per file, not a fix: a **fixed anchor date in the seed** (so `day(n)` is stable) would end it for everyone. Needs a team decision; the other case files are still on their original anchors. The fixtures SPM-46's cases use, as `day(n)` offsets from the seed day, so any future reseed can be re-derived instead of re-measured: Rooftop Terrace free day +15; Jurong Expo Floor renovation +21 to +28; Harbourline Claims training +23; Changi Meeting Room 2 cancelled booking +33; Marina Auditorium rejected booking +36; Bayu Energy panel +44; Marina Boardroom 2 refurbishment +60 to +74; Sundara Trade Showcase +65; Straits Medical Symposium +72; Pearl Delta pending request +79; Meridian Wealth Forum +85. Flagged 2026-09-26. | unclaimed |
 
 ---
@@ -708,16 +707,33 @@ what changed, why, and the migration name if there is one.
     `closed` > `free`, first match wins; a slot never claims two things clash,
     because slots are hours wide — real clashes are reported on the bookings
     and periods themselves via `overlaps` / `hasOverlaps` (AC5).
-  - **The slot times and the setup model are both contested** — clarifications
-    #50, #108 and #123 settle them differently, and were missed because nothing
-    in this repo points at the discussions. See Known Gaps; it needs a team
-    decision and its own story, not a patch here.
-  - **The AM slot starts at 06:00, not 08:00.** Jurong Expo Floor has a
-    240-minute setup, so a 09:00 event puts the room in use from 05:00; with AM
-    at 08:00 that occupancy fell outside every slot and the grid under-reported
-    it. `minutesOutsideSlots` now reports any remainder rather than hiding it.
-  - Buffers belong to the **venue**, not the booking, so the same event in a
-    different room occupies a different window.
+  - **The slot grid and the setup rule come from the customer, not from us.**
+    An earlier version of this branch set its own boundaries and its own
+    minute-based buffers, and said in a code comment that nothing in the
+    project defined them. That was wrong, and it was wrong because **nothing in
+    this repo points at the clarification discussions**. Corrected here:
+    - **Slots are AM 07:00–12:00, PM 13:00–18:00, Night 19:00–24:00**
+      (#50, 2026-08-25), with 12:00–13:00, 18:00–19:00 and 24:00–07:00
+      deliberately uncovered. Those gaps are changeover time and nothing is
+      lost to them: a booking running through one still holds the slots either
+      side (#107), and the setup rule claims the adjacent slot anyway.
+    - **A slot touched at all is consumed in full** (#107). Two approved
+      bookings in one slot are therefore a clash, even when their own minutes
+      never meet — which is the point of the calendar.
+    - **Setup and turnaround each take one WHOLE adjacent slot, across days**
+      (#108, #123): an AM event's setup takes the previous day's Night, a Night
+      event's turnaround takes the next day's AM. `Venue.setupMinutes` /
+      `teardownMinutes` are now read as yes/no rather than as a duration — 20
+      minutes and 240 minutes cost the same one slot. **No schema change**:
+      Venue Staff still record the real minutes on the venue form, which is
+      what #43 asks them to maintain.
+    - `hiddenMinutes()` replaces the old "minutes outside the grid" warning,
+      which would otherwise have fired on every ordinary event that runs
+      through lunch. It warns only when a booking touches no slot at all and
+      would vanish from the calendar.
+    - Checked against every seeded venue over eight months: **no clashes
+      introduced and no booking falls into a gap**, so the seed needed no
+      changes and no reseed.
   - A **retired** venue's slots all read `closed`, never `free`.
   - Tests: `vitest` 325/325 (`venueSlots.test.ts` + `venueAvailability.test.ts`
     added, 647 lines), `tsc --noEmit` and `eslint` clean. `verify:permissions`

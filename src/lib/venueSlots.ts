@@ -19,24 +19,22 @@
 import { TIME_ZONE } from "@/lib/format";
 
 // ---------------------------------------------------------------------------
-// SLOT BOUNDARIES — team decision, recorded on SPM-46
+// SLOT BOUNDARIES — set by the customer, clarification #50 (2026-08-25)
 // ---------------------------------------------------------------------------
 //
-// CONTESTED - THE CUSTOMER HAS ALREADY DEFINED THESE AND THE NUMBERS BELOW ARE
-// NOT THEM. See the Known Gap in DOCUMENTATION.md before relying on this table.
+// "The venue will be booked based on 3 time slots (AM, PM, Night); if full day
+// will be all 3 slots. AM (7am-12pm, 1pm-6pm, 7pm-12am)."
 //
-// SPM-46 itself names the three slots without defining their boundaries, and
-// neither UI_DESIGN.md nor the S-21 mockup does. But clarification #50
-// (2026-08-25) does: "The venue will be booked based on 3 time slots (AM, PM,
-// Night) ... AM (7am-12pm, 1pm-6pm, 7pm-12am)" - i.e. AM 07:00-12:00, PM
-// 13:00-18:00, Night 19:00-24:00, with deliberate gaps between them. That was
-// missed when this table was written, because the clarifications live in GitHub
-// Discussions and nothing in this repo points at them.
+// So: AM 07:00-12:00, PM 13:00-18:00, Night 19:00-24:00. These are NOT ours to
+// choose - an earlier version of this file set its own grid (06:00-12:00 /
+// 12:00-18:00 / 18:00-23:00) and said "nothing else in the project defines
+// them", which was simply wrong. Change them only if the customer does.
 //
-// The grid below is therefore the team's own, and differs from the customer's
-// on every boundary. Aligning it is not a one-line change - see the Known Gap:
-// it is coupled to how setup and turnaround are modelled (#108, #123), which
-// this file gets wrong in a second, larger way.
+// The hours BETWEEN slots - 12:00-13:00, 18:00-19:00 and 24:00-07:00 - belong
+// to no slot on purpose. They are changeover time, and nothing is lost by them:
+// a booking that runs through one still consumes the slots on either side of
+// it (#107, below), and the setup/turnaround rule claims the adjacent slot
+// anyway (#123, see adjacentSlot).
 //
 // The grid is FIXED - the same for every venue. A venue's own opening hours do
 // not move the boundaries; they only mark a slot "partial" or "closed" (see
@@ -44,16 +42,8 @@ import { TIME_ZONE } from "@/lib/format";
 // fixed grid keeps venues comparable, and nothing defines where PM would start
 // if AM started at each venue's opening time.
 //
-// AM starts at 06:00, moved from the originally proposed 08:00 (2026-09-22).
-// NOTE this reasoning only holds under the minute-based setup model below, and
-// clarification #123 replaces that model with whole adjacent slots - under
-// which minutes never need to "fit" a slot at all, and this argument for 06:00
-// disappears with it.
-// 08:00 was measured against the seeded data and found too late: four of
-// thirteen approved bookings fell partly before AM began once setup time was
-// added - Jurong Expo Floor opens at 06:00, and Marina Grand Hall's 180-minute
-// setup puts a 09:00 event in the room from 06:00. With AM at 06:00 all four
-// are fully covered. PM and Night are unchanged.
+// Night ends AT midnight rather than crossing it, so the caveat below about a
+// slot running past midnight still does not apply.
 //
 // This table is the single source of truth - every function below derives from
 // it, so different numbers are a change HERE and nowhere else. Two kinds of
@@ -69,12 +59,12 @@ export type Slot = (typeof SLOTS)[number];
 /// Minutes from local midnight, half-open: [fromMinute, toMinute). A booking
 /// that starts exactly at 12:00 is PM, not the tail of AM.
 export const SLOT_BOUNDARIES: Record<Slot, { fromMinute: number; toMinute: number }> = {
-  AM: { fromMinute: 6 * 60, toMinute: 12 * 60 }, // 06:00–12:00 (was 08:00 - see above)
-  PM: { fromMinute: 12 * 60, toMinute: 18 * 60 }, // 12:00–18:00
-  Night: { fromMinute: 18 * 60, toMinute: 23 * 60 }, // 18:00–23:00
+  AM: { fromMinute: 7 * 60, toMinute: 12 * 60 }, // 07:00–12:00
+  PM: { fromMinute: 13 * 60, toMinute: 18 * 60 }, // 13:00–18:00
+  Night: { fromMinute: 19 * 60, toMinute: 24 * 60 }, // 19:00–24:00
 };
 
-/// "06:00–12:00", for a column header. Derived, never written out by hand, so
+/// "07:00–12:00", for a column header. Derived, never written out by hand, so
 /// a boundary change cannot leave a stale label behind.
 export function slotRangeLabel(slot: Slot): string {
   const { fromMinute, toMinute } = SLOT_BOUNDARIES[slot];
@@ -183,22 +173,91 @@ export interface Turnaround {
   teardownMinutes: number;
 }
 
-/// How long the room is ACTUALLY occupied by a booking: its published times
-/// widened by the venue's setup and teardown.
+/// The slot immediately before or after a given cell, wrapping across days.
 ///
-/// This is the whole of AC2's "including slots occupied by setup or turnaround
-/// time". Nothing else in the codebase has ever read setupMinutes /
-/// teardownMinutes - until now they were recorded on the venue form and never
-/// used - so this is the first place the numbers mean anything.
+/// "Setup and turnaround use the immediately adjacent booking slot, including
+/// across days" (#123, 2026-09-14). So the slot before AM is the PREVIOUS
+/// day's Night, and the slot after Night is the NEXT day's AM.
+export function adjacentSlot(cell: SlotCell, direction: -1 | 1): SlotCell {
+  const index = SLOTS.indexOf(cell.slot) + direction;
+  if (index < 0) return { day: addDays(cell.day, -1), slot: SLOTS[SLOTS.length - 1] };
+  if (index >= SLOTS.length) return { day: addDays(cell.day, 1), slot: SLOTS[0] };
+  return { day: cell.day, slot: SLOTS[index] };
+}
+
+/// Every cell a booking takes out of circulation: the slots its own times
+/// touch, plus one slot of setup before and one of turnaround after.
 ///
-/// Note the buffers belong to the VENUE, not the booking: the same event in a
-/// room with a 240-minute setup occupies far more of the day than in one with
-/// 20. Jurong Expo Floor is 240/180 in the seed; Orchard Studio is 20/15.
-export function occupiedWindow(booking: Interval, venue: Turnaround): Interval {
-  return {
-    startsAt: new Date(booking.startsAt.getTime() - venue.setupMinutes * 60_000),
-    endsAt: new Date(booking.endsAt.getTime() + venue.teardownMinutes * 60_000),
+/// This is AC2's "including slots occupied by setup or turnaround time", and
+/// the shape of it comes from the customer, not from us:
+///
+///   #107 (2026-09-07) - an event running across two slots "consumes both
+///         slots in full". Touching any part of a slot takes the whole slot;
+///         that is already how slotsCovered() works.
+///   #108 (2026-09-07) - "one slot will be treated as the smallest unit for
+///         setup and turnaround time ... does not need to support setup or
+///         turnaround durations smaller than a slot".
+///   #123 (2026-09-14) - each takes "at most one full slot", on the
+///         immediately adjacent slot, across days where needed.
+///
+/// So Venue.setupMinutes / teardownMinutes are read as a YES/NO here, not as a
+/// duration: any non-zero value costs exactly one whole adjacent slot, whether
+/// it is 20 minutes or 240. Venue Staff still record the real minutes on the
+/// venue form - that is what #43 asks them to maintain - and this is the only
+/// place that reinterprets them.
+///
+/// An earlier version widened the booking by those minutes instead and derived
+/// cells from the result. That could not express either half of #123: setup
+/// reached an earlier slot only when the minutes happened to span it, and it
+/// could never reach the previous day at all.
+export function occupiedCells(booking: Interval, venue: Turnaround): OccupiedCell[] {
+  const own = slotsCovered(booking);
+  if (own.length === 0) return [];
+
+  const cells: OccupiedCell[] = own.map((cell) => ({ ...cell, via: "booking" as const }));
+  const seen = new Set(own.map(key));
+
+  const add = (cell: SlotCell) => {
+    if (seen.has(key(cell))) return; // a booking already holding it wins
+    seen.add(key(cell));
+    cells.push({ ...cell, via: "turnaround" });
   };
+  if (venue.setupMinutes > 0) add(adjacentSlot(own[0], -1));
+  if (venue.teardownMinutes > 0) add(adjacentSlot(own[own.length - 1], 1));
+
+  return cells.sort((a, b) => key(a).localeCompare(key(b)));
+}
+
+/// A cell, and why the booking holds it.
+export interface OccupiedCell extends SlotCell {
+  via: "booking" | "turnaround";
+}
+
+const key = (cell: SlotCell): string =>
+  `${cell.day}#${SLOTS.indexOf(cell.slot)}`;
+
+/// The wall-clock window a booking takes the room out of circulation for: the
+/// start of its first occupied slot to the end of its last. Shown as "Room in
+/// use"; it can span days, because setup and turnaround can.
+///
+/// Returns the booking's own times unchanged when it touches no slot at all -
+/// see minutesOutsideSlots(), which is how that case gets surfaced.
+export function occupiedWindow(booking: Interval, venue: Turnaround): Interval {
+  const cells = occupiedCells(booking, venue);
+  if (cells.length === 0) return booking;
+
+  const first = cells[0];
+  const last = cells[cells.length - 1];
+  return {
+    startsAt: slotStart(first),
+    endsAt: slotStart(last, "end"),
+  };
+}
+
+function slotStart(cell: SlotCell, edge: "start" | "end" = "start"): Date {
+  const { fromMinute, toMinute } = SLOT_BOUNDARIES[cell.slot];
+  const minutes = edge === "start" ? fromMinute : toMinute;
+  return new Date(localDayStart(cell.day).getTime() + minutes * 60_000);
 }
 
 export interface SlotCell {
@@ -253,19 +312,15 @@ export function slotsCovered(interval: Interval): SlotCell[] {
 
 /// How much of an interval falls in no slot at all.
 ///
-/// The slots do not cover the whole day: with these boundaries, 23:00–06:00
-/// belongs to nothing. A booking inside that window would produce
-/// ZERO cells from slotsCovered() and vanish from the grid entirely.
+/// The slots deliberately do not cover the whole day: 12:00-13:00, 18:00-19:00
+/// and 24:00-07:00 belong to nothing (#50). Most of that is harmless - an event
+/// running 09:00-17:00 crosses the lunch gap but still holds AM and PM in full,
+/// so the grid shows the room as taken on both sides and nothing is hidden.
 ///
-/// This function is how the AM boundary was fixed. With AM at 08:00, four of
-/// the thirteen seeded approved bookings reported up to 120 minutes outside
-/// the grid once setup was added (2026-09-21). Moving AM to 06:00 brought all
-/// four to 0 (2026-09-22). Nothing in the seed reaches before 06:00 or after
-/// 23:00 today - but no rule stops a venue opening at 05:00, so keep the check.
-///
-/// Callers should surface a non-zero result rather than silently dropping the
-/// booking. If the grid is ever widened to cover the full day, this returns 0
-/// everywhere and the warning quietly stops firing.
+/// The case that matters is a booking which touches NO slot - 12:15-12:45, say,
+/// or 01:00-05:00. That produces zero cells from slotsCovered() and vanishes
+/// from the grid entirely. Callers should surface THAT rather than every minute
+/// of changeover time; see hiddenMinutes(), which is what the calendar reports.
 export function minutesOutsideSlots(interval: Interval): number {
   const from = localAbsoluteMinute(interval.startsAt);
   const to = localAbsoluteMinute(interval.endsAt);
@@ -286,6 +341,17 @@ export function minutesOutsideSlots(interval: Interval): number {
     }
   }
   return Math.max(0, to - from - covered);
+}
+
+/// The minutes of a booking the grid genuinely cannot show: its whole duration
+/// when it touches no slot, and zero otherwise.
+///
+/// Splitting this from minutesOutsideSlots() keeps that function honest - it
+/// still answers exactly what it says - while giving the screen the one signal
+/// worth a warning. Before the slots were corrected to the customer's (#50) the
+/// two were the same thing, because the old grid had no interior gaps.
+export function hiddenMinutes(interval: Interval): number {
+  return slotsCovered(interval).length === 0 ? minutesOutsideSlots(interval) : 0;
 }
 
 // ---------------------------------------------------------------------------

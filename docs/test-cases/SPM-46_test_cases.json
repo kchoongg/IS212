@@ -54,7 +54,7 @@
         "Click 'Show availability'"
       ],
       "test_data": "Venue: Marina Grand Hall (MAR-GH), then Jurong Expo Floor (JUR-EXP)\nFrom: 7 Dec 2026\nTo: 13 Dec 2026",
-      "expected_result": "The 'Marina Grand Hall availability' page opens on a week from today (Singapore time): seven day rows, with 'From' and 'To' already filled in with those two dates. The grid has exactly three columns, in this order, each showing its times: AM 06:00–12:00, PM 12:00–18:00, Night 18:00–23:00. After 'Show availability' the grid shows exactly seven day rows, 7 Dec 2026 to 13 Dec 2026 (the 7 Dec row is not empty — it carries the Straits Medical Research Symposium booking). Choosing Jurong Expo Floor changes the title to 'Jurong Expo Floor availability', keeps the range at 7–13 Dec 2026, and shows the same three columns."
+      "expected_result": "The 'Marina Grand Hall availability' page opens on a week from today (Singapore time): seven day rows, with 'From' and 'To' already filled in with those two dates. The grid has exactly three columns, in this order, each showing its times: AM 07:00–12:00, PM 13:00–18:00, Night 19:00–24:00. After 'Show availability' the grid shows exactly seven day rows, 7 Dec 2026 to 13 Dec 2026 (the 7 Dec row is not empty — it carries the Straits Medical Research Symposium booking). Choosing Jurong Expo Floor changes the title to 'Jurong Expo Floor availability', keeps the range at 7–13 Dec 2026, and shows the same three columns."
     },
     {
       "id": "SPM-46-TC02",
@@ -109,37 +109,37 @@
     },
     {
       "id": "SPM-46-TC05",
-      "title": "Setup time puts the room in use before the event, in the earlier slot",
+      "title": "A Night event's setup takes the whole PM slot, and its turnaround the next day's AM",
       "linked_ac": [
         "AC2"
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Demo data seeded 2026-09-26 — the dates below move with the seed, because prisma/seed.ts builds them as today + n days (see DOCUMENTATION.md, Known Gaps).\nOne-North Auditorium (ONE-AUD) has a 90-minute setup and an approved booking, 'Bayu Energy Transition Panel', 18:00–21:00 on 9 Nov 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data seeded 2026-09-26 — the dates below move with the seed, because prisma/seed.ts builds them as today + n days (see DOCUMENTATION.md, Known Gaps).\nOne-North Auditorium (ONE-AUD) records setup and teardown time, and has an approved booking, 'Bayu Energy Transition Panel', 18:00–21:00 on 9 Nov 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open the availability page for One-North Auditorium",
-        "Set 'From' and 'To' to the same date",
+        "Set 'From' to 9 Nov 2026 and 'To' to 10 Nov 2026",
         "Click 'Show availability'"
       ],
-      "test_data": "Venue: One-North Auditorium (ONE-AUD)\nFrom: 9 Nov 2026\nTo: 9 Nov 2026",
-      "expected_result": "AM shows 'Free'. PM shows 'Turnaround' — the event starts at 18:00, but setup puts the room in use from 16:30. Night shows 'Booked' with 'Bayu Energy Transition Panel'. Under 'Approved bookings' the booking shows 9 Nov 2026, 18:00–21:00 and 'Room in use 16:30–22:00'."
+      "test_data": "Venue: One-North Auditorium (ONE-AUD)\nFrom: 9 Nov 2026\nTo: 10 Nov 2026",
+      "expected_result": "On 9 Nov 2026: AM shows 'Free'. PM shows 'Turnaround' — the whole slot before the event is taken for setup. Night shows 'Booked' with 'Bayu Energy Transition Panel'. On 10 Nov 2026: AM shows 'Turnaround' — the turnaround runs into the NEXT DAY, because Night is the last slot of its own day; PM and Night show 'Free'. Under 'Approved bookings' the booking shows 18:00–21:00 with 'Room in use' running from 9 Nov 2026, 13:00 to 10 Nov 2026, 12:00 — whole slots, not the recorded minutes."
     },
     {
       "id": "SPM-46-TC06",
-      "title": "Teardown keeps the room in use after the event, into the later slot",
+      "title": "An event's setup takes the whole slot before it, on the previous day where needed",
       "linked_ac": [
         "AC2"
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Demo data seeded 2026-09-26 — the dates below move with the seed, because prisma/seed.ts builds them as today + n days (see DOCUMENTATION.md, Known Gaps).\nJurong Expo Floor (JUR-EXP) has a 240-minute setup and 180-minute teardown, and an approved booking, 'Sundara Hospitality Trade Showcase', 10:00–18:00 on 30 Nov 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data seeded 2026-09-26 — the dates below move with the seed, because prisma/seed.ts builds them as today + n days (see DOCUMENTATION.md, Known Gaps).\nJurong Expo Floor (JUR-EXP) records setup and teardown time, and has an approved booking, 'Sundara Hospitality Trade Showcase', 10:00–18:00 on 30 Nov 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open the availability page for Jurong Expo Floor",
-        "Set 'From' and 'To' to the same date",
+        "Set 'From' to 29 Nov 2026 and 'To' to 30 Nov 2026",
         "Click 'Show availability'"
       ],
-      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 30 Nov 2026\nTo: 30 Nov 2026",
-      "expected_result": "AM shows 'Booked' and PM shows 'Booked', each with 'Sundara Hospitality Trade Showcase'. Night shows 'Turnaround' — the event ends at 18:00, but teardown keeps the room in use until 21:00. Under 'Approved bookings' the booking shows 'Room in use 06:00–21:00'."
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 29 Nov 2026\nTo: 30 Nov 2026",
+      "expected_result": "On 29 Nov 2026: AM and PM show 'Free', and Night shows 'Turnaround' — the event is in the morning, so the slot before it is the PREVIOUS DAY'S Night. On 30 Nov 2026: AM and PM show 'Booked' with 'Sundara Hospitality Trade Showcase' (the event runs 10:00–18:00, and a slot touched at all is taken in full), and Night shows 'Turnaround'. Under 'Approved bookings', 'Room in use' runs from 29 Nov 2026, 19:00 to 1 Dec 2026, 00:00."
     },
     {
       "id": "SPM-46-TC07",
@@ -156,7 +156,7 @@
         "Click 'Show availability'"
       ],
       "test_data": "Venue: One-North Rooftop Terrace (ONE-ROOF)\nFrom: 11 Oct 2026\nTo: 11 Oct 2026",
-      "expected_result": "AM shows 'Closed' — the terrace is shut for the whole of 06:00–12:00. PM shows 'Free' with the note 'Open from 16:00' — only 16:00–18:00 of that slot is bookable. Night shows 'Free' with no note, because the terrace is open for all of 18:00–23:00."
+      "expected_result": "AM shows 'Closed' — the terrace is shut for the whole of 07:00–12:00. PM shows 'Free' with the note 'Open from 16:00' — only 16:00–18:00 of that slot is bookable. Night shows 'Free' with the note 'Open until 23:00' — the slot runs to midnight but the terrace closes at 23:00."
     },
     {
       "id": "SPM-46-TC08",
@@ -256,12 +256,12 @@
       "preconditions": "Demo data seeded 2026-09-26 — the dates below move with the seed, because prisma/seed.ts builds them as today + n days (see DOCUMENTATION.md, Known Gaps).\nMarina Grand Hall (MAR-GH) has an APPROVED booking, 'Straits Medical Research Symposium', 09:00–18:00 on 7 Dec 2026, whose EVENT is still in Planning — not Confirmed. The venue has a 180-minute setup and 120-minute teardown.\nLogged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
       "steps": [
         "Open the availability page for Marina Grand Hall",
-        "Set 'From' and 'To' to the same date",
+        "Set 'From' to 6 Dec 2026 and 'To' to 7 Dec 2026",
         "Click 'Show availability'",
         "Read the booking under 'Approved bookings'"
       ],
-      "test_data": "Venue: Marina Grand Hall (MAR-GH)\nFrom: 7 Dec 2026\nTo: 7 Dec 2026",
-      "expected_result": "AM and PM show 'Booked' with 'Straits Medical Research Symposium' — NOT 'Free'. Night shows 'Turnaround' (teardown to 20:00). Under 'Approved bookings' the booking is listed with the event status 'Planning', 7 Dec 2026, 09:00–18:00, layout 'Theatre', and 'Room in use 06:00–20:00'. The room must not read as free: an approved booking already commits it, however far its event has got."
+      "test_data": "Venue: Marina Grand Hall (MAR-GH)\nFrom: 6 Dec 2026\nTo: 7 Dec 2026",
+      "expected_result": "On 7 Dec 2026 AM and PM show 'Booked' with 'Straits Medical Research Symposium' — NOT 'Free' — and Night shows 'Turnaround'. On 6 Dec 2026 Night shows 'Turnaround' too, for the setup slot before the event. Under 'Approved bookings' the booking is listed with the event status 'Planning', 7 Dec 2026, 09:00–18:00, layout 'Theatre', and 'Room in use' from 6 Dec 2026, 19:00 to 8 Dec 2026, 00:00. The room must not read as free: an approved booking already commits it, however far its event has got."
     },
     {
       "id": "SPM-46-TC14",

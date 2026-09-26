@@ -117,9 +117,9 @@ describe("buildAvailability - the grid", () => {
       "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04",
     ]);
     expect(result.slots).toEqual([
-      { slot: "AM", label: "06:00–12:00" },
-      { slot: "PM", label: "12:00–18:00" },
-      { slot: "Night", label: "18:00–23:00" },
+      { slot: "AM", label: "07:00–12:00" },
+      { slot: "PM", label: "13:00–18:00" },
+      { slot: "Night", label: "19:00–24:00" },
     ]);
   });
 
@@ -157,30 +157,56 @@ describe("AC3 / AC7 - approved bookings block their slots", () => {
     expect(bookings[0].eventStatus).toBe("planning");
   });
 
-  it("lets two bookings share a slot without calling it a clash", () => {
-    // Slots are hours wide - "PM cannot be checked against another booking".
-    // 12:00-14:00 and 15:00-17:00 both sit in PM and never touch.
-    const early = booking("2026-09-28T12:00:00", "2026-09-28T14:00:00");
+  it("flags two bookings that share a slot, because a slot is consumed in full", () => {
+    // #107: "If an event runs across two slots, does it consume both slots in
+    // full? Yes." So two approved bookings in the same PM - even ones whose
+    // own times never touch - are a double-booking, not neighbours sharing an
+    // afternoon. Reported rather than assumed away: no database constraint
+    // stops it, and stopping it is what this calendar is for.
+    const early = booking("2026-09-28T13:00:00", "2026-09-28T14:00:00");
     const late = booking("2026-09-28T15:00:00", "2026-09-28T17:00:00");
     const result = build({ bookings: [early, late] });
     expect(result.days[0].slots.PM.bookingIds).toEqual([early.id, late.id]);
-    expect(result.bookings.every((b) => b.overlaps.bookingIds.length === 0)).toBe(true);
-    expect(result.hasOverlaps).toBe(false);
+    expect(result.bookings[0].overlaps.bookingIds).toEqual([late.id]);
+    expect(result.bookings[1].overlaps.bookingIds).toEqual([early.id]);
+    expect(result.hasOverlaps).toBe(true);
+  });
+
+  it("flags a booking whose turnaround slot another booking already holds", () => {
+    // An AM event's turnaround takes PM; a PM event holds PM. Under the old
+    // minute model these two only clashed if the raw minutes touched.
+    const morning = booking("2026-09-28T09:00:00", "2026-09-28T11:00:00");
+    const afternoon = booking("2026-09-28T14:00:00", "2026-09-28T16:00:00");
+    const result = build({
+      venue: { setupMinutes: 30, teardownMinutes: 30 },
+      bookings: [morning, afternoon],
+    });
+    expect(result.hasOverlaps).toBe(true);
   });
 });
 
 describe("AC2 - slots occupied by setup or turnaround", () => {
-  it("shows a slot reached only through setup as turnaround, not booked", () => {
-    // 13:00 start is PM; a 240-minute setup puts the room in use from 09:00.
+  it("shows the whole slot before a booking as turnaround, not booked", () => {
+    // A 13:00 start is PM. Any setup at all claims the WHOLE slot before it -
+    // AM - however many minutes are recorded (#108, #123).
     const b = booking("2026-09-28T13:00:00", "2026-09-28T16:00:00");
     const { days, bookings } = build({ venue: { setupMinutes: 240 }, bookings: [b] });
     expect(days[0].slots.AM).toMatchObject({ status: "turnaround", turnaroundBookingIds: [b.id], bookingIds: [] });
     expect(days[0].slots.PM).toMatchObject({ status: "booked", bookingIds: [b.id] });
-    expect(bookings[0].occupiedFrom).toEqual(sgt("2026-09-28T09:00:00"));
+    // "Room in use" now runs from the start of the setup slot.
+    expect(bookings[0].occupiedFrom).toEqual(sgt("2026-09-28T07:00:00"));
+  });
+
+  it("costs one slot whether setup is 20 minutes or 240", () => {
+    const b = booking("2026-09-28T13:00:00", "2026-09-28T16:00:00");
+    for (const setupMinutes of [20, 240]) {
+      const { days } = build({ venue: { setupMinutes }, bookings: [b] });
+      expect(days[0].slots.AM.status).toBe("turnaround");
+    }
   });
 
   it("shows teardown reaching into the next slot as turnaround", () => {
-    const b = booking("2026-09-28T14:00:00", "2026-09-28T17:30:00");
+    const b = booking("2026-09-28T14:00:00", "2026-09-28T17:00:00");
     const { days } = build({ venue: { teardownMinutes: 60 }, bookings: [b] });
     expect(days[0].slots.PM.status).toBe("booked");
     expect(days[0].slots.Night.status).toBe("turnaround");
@@ -205,12 +231,15 @@ describe("AC2 - slots occupied by setup or turnaround", () => {
     ]);
   });
 
-  it("reports time a booking spends outside every slot", () => {
-    // A 240-minute setup for a 09:00 start puts the room in use from 05:00 -
-    // an hour before AM begins at 06:00.
-    const b = booking("2026-09-28T09:00:00", "2026-09-28T11:00:00");
-    const { bookings } = build({ venue: { setupMinutes: 240 }, bookings: [b] });
-    expect(bookings[0].minutesOutsideSlots).toBe(60);
+  it("warns only about a booking the grid cannot show at all", () => {
+    // Crossing the lunch gap is normal and holds AM and PM, so no warning.
+    const ordinary = booking("2026-09-28T09:00:00", "2026-09-28T17:00:00");
+    expect(build({ bookings: [ordinary] }).bookings[0].minutesOutsideSlots).toBe(0);
+
+    // Entirely inside the 12:00-13:00 gap: it touches no slot and would
+    // vanish from the grid, which is the case worth surfacing.
+    const hidden = booking("2026-09-28T12:15:00", "2026-09-28T12:45:00");
+    expect(build({ bookings: [hidden] }).bookings[0].minutesOutsideSlots).toBe(30);
   });
 });
 
