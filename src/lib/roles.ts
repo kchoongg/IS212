@@ -103,6 +103,15 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     DASHBOARD,
     { href: "/assignments", label: "Assignments" },
     { href: "/events", label: "All Events" },
+    // An Ops Manager holds venue:view, so the venue catalogue and the
+    // availability calendar behind it (S-21, SPM-46) are theirs to read - but
+    // until 2026-09-27 there was no link to either, and the only way in was to
+    // type the address. Found while checking SPM-46-TC11, which asks an Ops
+    // Manager to reach the calendar from this sidebar.
+    //
+    // Read-only, like a coordinator's: venue:manage is what makes the rows
+    // clickable, and this role does not hold it.
+    { href: "/venues", label: "Venues" },
     NOTIFICATIONS,
   ],
 };

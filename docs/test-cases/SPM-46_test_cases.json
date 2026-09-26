@@ -226,7 +226,7 @@
         "Sign out, sign in as the Operations Manager, and repeat the first two steps"
       ],
       "test_data": "Accounts: daniel.tan@connectsphere.com (Event Coordinator), grace.lim@connectsphere.com (Operations Manager)\nVenue: Marina Grand Hall (MAR-GH)",
-      "expected_result": "The 'Marina Grand Hall availability' page opens and shows the grid for both accounts. Clicking elsewhere on the row does nothing — the Venues list stays read-only for a coordinator."
+      "expected_result": "Both accounts have 'Venues' in the sidebar, and for both the 'Marina Grand Hall availability' page opens and shows the grid. Clicking elsewhere on the row does nothing — the Venues list stays read-only for both, because neither holds the permission that makes a row editable."
     },
     {
       "id": "SPM-46-TC12",
@@ -238,12 +238,15 @@
       "source": "Acceptance Criteria",
       "preconditions": "The tester knows the availability page address for Marina Grand Hall.\nAccounts available: rachel.ng@meridianfina.com (Event Organiser) and kenji.sato@connectsphere.com (Technical Support), both / password123",
       "steps": [
-        "Sign in as the Event Organiser and confirm 'Venues' is not in the sidebar",
+        "Sign in as the Event Organiser",
+        "Confirm there is no 'Venues' item in the sidebar",
         "Paste the Marina Grand Hall availability page address into the address bar and press Enter",
-        "Sign out, sign in as Technical Support, and open the same address"
+        "Sign out and sign in as Technical Support",
+        "Confirm there is no 'Venues' item in their sidebar either",
+        "Open the same address again"
       ],
       "test_data": "Account: rachel.ng@meridianfina.com (Event Organiser)\nAccount: kenji.sato@connectsphere.com (Technical Support)",
-      "expected_result": "For both accounts the page shows 'Venue availability is for ConnectSphere staff'. No grid, no bookings and no unavailable periods are shown. Technical Support is internal staff but still has no access, because the calendar reuses the venue catalogue's permission."
+      "expected_result": "Neither account has 'Venues' in the sidebar, so neither can reach the calendar by navigating — an Event Organiser sees Dashboard, My Events and Notifications; Technical Support sees Dashboard, Equipment, Equipment Requests and Notifications.\nTyping the address directly is refused as well: the page shows 'Venue availability is for ConnectSphere staff', with no grid, no bookings and no unavailable periods. Hiding the link is not the control — the server refuses it too. Technical Support is internal staff and still has no access, because the calendar reuses the venue catalogue's permission, which they do not hold."
     },
     {
       "id": "SPM-46-TC13",
