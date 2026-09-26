@@ -21,7 +21,7 @@ import { cn } from "@/lib/cn";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
 import { TIME_ZONE, formatDate, formatDateTimeRange, formatTime } from "@/lib/format";
-import { addDays } from "@/lib/venueSlots";
+import { addDays, openingHoursNote } from "@/lib/venueSlots";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import type {
   AvailabilityBlock,
@@ -286,7 +286,14 @@ function VenueAvailability() {
       key: slot,
       header: `${slot} ${label}`,
       render: (day: AvailabilityDay) => (
-        <SlotCellView cell={day.slots[slot]} bookingsById={bookingsById} blocksById={blocksById} />
+        <SlotCellView
+          cell={day.slots[slot]}
+          hoursNote={
+            data ? openingHoursNote(slot, data.venue.opensAt, data.venue.closesAt) : null
+          }
+          bookingsById={bookingsById}
+          blocksById={blocksById}
+        />
       ),
     })),
   ];
@@ -396,7 +403,12 @@ type Lookups = {
 /// One slot. Says its status in words, then everything occupying it - so a
 /// slot showing "Unavailable" still names the booking sharing it, and nothing
 /// is hidden behind the status that won.
-function SlotCellView({ cell, bookingsById, blocksById }: { cell: AvailabilityCell } & Lookups) {
+function SlotCellView({
+  cell,
+  hoursNote,
+  bookingsById,
+  blocksById,
+}: { cell: AvailabilityCell; hoursNote: string | null } & Lookups) {
   const booked = cell.bookingIds.map((id) => bookingsById.get(id)?.eventTitle ?? "Untitled event");
   const turnaround = cell.turnaroundBookingIds.map((id) => bookingsById.get(id)?.eventTitle ?? "Untitled event");
   const blocks = cell.unavailabilityIds.map((id) => {
@@ -414,8 +426,8 @@ function SlotCellView({ cell, bookingsById, blocksById }: { cell: AvailabilityCe
       >
         {STATUS_LABEL[cell.status]}
       </span>
-      {cell.status === "free" && cell.openingHours === "partial" && (
-        <span className="text-xs text-ink-3">Limited hours</span>
+      {cell.status === "free" && hoursNote && (
+        <span className="text-xs text-ink-3">{hoursNote}</span>
       )}
       {blocks.map((label, i) => (
         <span key={`u${i}`} className="text-xs text-ink-2">

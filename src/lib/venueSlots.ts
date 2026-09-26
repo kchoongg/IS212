@@ -375,3 +375,30 @@ export function openingHoursCoverage(
   if (open <= fromMinute && close >= toMinute) return "full";
   return "partial";
 }
+
+/// The note a partly-open slot carries, e.g. "Open from 08:00" - null when the
+/// venue is open for the whole slot, or shut for all of it.
+///
+/// This says WHICH hours rather than just "Limited hours", because with AM
+/// starting at 06:00 a generic note fires on 14 of the 16 seeded venues: only
+/// Jurong Expo Floor opens that early. A label on almost every cell carries no
+/// information, and worse, it made One-North Rooftop Terrace - open 16:00, so
+/// barely usable in PM - look the same as a room that opens at 08:00 and is
+/// fine. The times tell those two apart.
+export function openingHoursNote(
+  slot: Slot,
+  opensAt: string,
+  closesAt: string
+): string | null {
+  if (openingHoursCoverage(slot, opensAt, closesAt) !== "partial") return null;
+
+  const open = parseClock(opensAt)!;
+  const close = parseClock(closesAt)!;
+  const { fromMinute, toMinute } = SLOT_BOUNDARIES[slot];
+  const opensLate = open > fromMinute;
+  const closesEarly = close < toMinute;
+
+  if (opensLate && closesEarly) return `Open ${asClock(open)}–${asClock(close)}`;
+  if (opensLate) return `Open from ${asClock(open)}`;
+  return `Open until ${asClock(close)}`;
+}

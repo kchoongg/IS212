@@ -143,7 +143,7 @@
     },
     {
       "id": "SPM-46-TC07",
-      "title": "A venue's opening hours mark slots Closed or Limited hours",
+      "title": "A venue's opening hours mark slots Closed, or name the hours it is open",
       "linked_ac": [
         "AC2"
       ],
@@ -156,7 +156,7 @@
         "Click 'Show availability'"
       ],
       "test_data": "Venue: One-North Rooftop Terrace (ONE-ROOF)\nFrom: 11 Oct 2026\nTo: 11 Oct 2026",
-      "expected_result": "AM shows 'Closed' — the terrace is shut for the whole of 06:00–12:00. PM shows 'Free' with the note 'Limited hours' — it is open only from 16:00. Night shows 'Free' with no note."
+      "expected_result": "AM shows 'Closed' — the terrace is shut for the whole of 06:00–12:00. PM shows 'Free' with the note 'Open from 16:00' — only 16:00–18:00 of that slot is bookable. Night shows 'Free' with no note, because the terrace is open for all of 18:00–23:00."
     },
     {
       "id": "SPM-46-TC08",

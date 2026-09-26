@@ -9,6 +9,7 @@ import {
   localDayKey,
   localDayStart,
   openingHoursCoverage,
+  openingHoursNote,
   parseClock,
   localMinuteOfDay,
   minutesOutsideSlots,
@@ -306,5 +307,27 @@ describe("opening hours within a slot", () => {
   it("does not invent a closure from hours it cannot read", () => {
     expect(openingHoursCoverage("AM", "garbage", "22:00")).toBe("full");
     expect(openingHoursCoverage("AM", "18:00", "08:00")).toBe("full");
+  });
+
+  it("names the hours a partly-open slot is actually open for", () => {
+    // One-North Auditorium, 08:00-22:00: AM opens late, Night closes early.
+    expect(openingHoursNote("AM", "08:00", "22:00")).toBe("Open from 08:00");
+    expect(openingHoursNote("Night", "08:00", "22:00")).toBe("Open until 22:00");
+    // One-North Rooftop Terrace, 16:00-23:00: only the front of PM is clipped,
+    // so it reads as "from" - and says the two hours of PM that are usable,
+    // which "Limited hours" never did.
+    expect(openingHoursNote("PM", "16:00", "23:00")).toBe("Open from 16:00");
+    // Both ends clipped inside one slot: open 13:00-17:00 against PM 12:00-18:00.
+    expect(openingHoursNote("PM", "13:00", "17:00")).toBe("Open 13:00–17:00");
+  });
+
+  it("has no note when the venue is open for all of a slot, or none of it", () => {
+    expect(openingHoursNote("AM", "06:00", "23:00")).toBeNull();
+    expect(openingHoursNote("PM", "08:00", "21:00")).toBeNull();
+    // Shut for the whole slot - the cell already says "Closed".
+    expect(openingHoursNote("AM", "16:00", "23:00")).toBeNull();
+    expect(openingHoursNote("Night", "08:00", "12:00")).toBeNull();
+    // Unreadable hours report "full", so they carry no note either.
+    expect(openingHoursNote("AM", "garbage", "22:00")).toBeNull();
   });
 });
