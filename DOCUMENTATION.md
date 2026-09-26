@@ -657,7 +657,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
-| **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table. The seed's five periods are all at different venues, so none overlap: **AC5 is covered by unit tests only** and cannot be exercised by a manual tester without S-23 or overlapping rows added to `prisma/seed.ts`. | venues |
+| **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC10 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
 | **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
 | **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
@@ -747,9 +747,12 @@ what changed, why, and the migration name if there is one.
     unavailable period is not flagged as overlapping (it only asserted the absence
     of something nothing can create yet), and a booking-details case already
     proven by TC13.
-    Executed against a live server on 2026-09-26: **14 pass, TC10 is blocked** —
-    it needs two overlapping unavailable periods, which nothing can create until
-    S-23 (see Known Gaps; the rule itself is unit tested).
+    Executed against a live server on 2026-09-26: **15/15 pass**, including
+    TC10 — AC5 was previously untestable by hand, and `prisma/seed.ts` now
+    carries the one overlapping pair it needs (Jurong Expo Floor, days 40–44
+    and 42–46). They were also inserted into the shared dev database directly,
+    additively, so the case runs there without waiting for a reseed. Nothing
+    else reads `VenueUnavailability`, so no other story is affected.
     Their dates were **re-based +6 days onto the current seed**, which every
     case now names in its preconditions — see the Known Gap on seed dates for
     the `day(n)` offsets to re-derive them after a reseed.

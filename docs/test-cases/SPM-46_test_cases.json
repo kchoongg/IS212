@@ -200,14 +200,15 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "BLOCKED — NOT RUNNABLE ON THE DEMO DATA. Nothing in the app can create a venue unavailable period: the Block venue screen (S-23) is not built and no route writes to that table, and the five seeded periods sit at five different venues, so none overlap. Two overlapping periods must be added to prisma/seed.ts before this can run. The rule itself is covered by the unit tests in src/lib/__tests__/venueAvailability.test.ts. Recorded under Known Gaps in DOCUMENTATION.md.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data seeded 2026-09-26 — the dates below move with the seed, because prisma/seed.ts builds them as today + n days (see DOCUMENTATION.md, Known Gaps).\nJurong Expo Floor (JUR-EXP) has TWO unavailable periods that overlap each other: 'Loading bay hoist inspection.' (maintenance) 5–9 Nov 2026, and 'Fire suppression system recertification.' (safety) 7–11 Nov 2026. They are the only overlapping pair in the demo data — nothing in the app can create one until the Block venue screen (S-23) is built, so they are seeded.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open the availability page for Jurong Expo Floor",
-        "Set 'From' and 'To' to cover both periods",
-        "Click 'Show availability'"
+        "Set 'From' to 5 Nov 2026 and 'To' to 11 Nov 2026",
+        "Click 'Show availability'",
+        "Read the 'Unavailable periods' list"
       ],
-      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nPeriod A: 18 Oct 2026 08:00–14:00, maintenance\nPeriod B: 18 Oct 2026 12:00–18:00, safety\nFrom: 18 Oct 2026\nTo: 18 Oct 2026",
-      "expected_result": "A warning 'Some bookings or unavailable periods overlap' is shown above the grid, and under 'Unavailable periods' each of the two periods is marked 'Overlaps with' the other."
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 5 Nov 2026\nTo: 11 Nov 2026",
+      "expected_result": "A warning 'Some bookings or unavailable periods overlap' is shown above the grid. Under 'Unavailable periods' both are listed — 'Maintenance', 'Loading bay hoist inspection.' and 'Safety', 'Fire suppression system recertification.' — and EACH carries an 'Overlaps with' note naming the other. Every slot from 5 to 11 Nov 2026 shows 'Unavailable', since between them the two periods cover the whole range."
     },
     {
       "id": "SPM-46-TC11",
