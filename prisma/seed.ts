@@ -17,8 +17,27 @@ const prisma = new PrismaClient();
 // Every seeded account uses this password.
 const DEMO_PASSWORD = "password123";
 
-const now = new Date();
-/** n days from today, at the given hour (local time). */
+/// Every date below is built as `day(n)` = this anchor + n days, so the whole
+/// demo data set slides with whenever the seed was last run. That is why every
+/// test case in docs/test-cases/ names the seed date it was written against:
+/// reseed on a different day and every date in them is wrong, and a tester
+/// following the steps sees an empty screen and reports a bug that isn't one.
+///
+/// Set SEED_ANCHOR=YYYY-MM-DD to pin it and make the data reproducible:
+///
+///   SEED_ANCHOR=2026-09-26 npx prisma db seed
+///
+/// Pin it before a test run or a demo, so everyone's data matches the test
+/// cases and each other. Left unset it is today, which keeps the demo data
+/// looking current - the reason it was written this way.
+const anchor = process.env.SEED_ANCHOR;
+const now = anchor ? new Date(`${anchor}T00:00:00`) : new Date();
+if (anchor && Number.isNaN(now.getTime())) {
+  throw new Error(`SEED_ANCHOR must be YYYY-MM-DD, got "${anchor}"`);
+}
+console.log(`Seeding relative to ${now.toDateString()}${anchor ? " (SEED_ANCHOR)" : " (today)"}`);
+
+/** n days from the anchor, at the given hour (local time). */
 function day(n: number, hour = 9, minute = 0): Date {
   const d = new Date(now);
   d.setDate(d.getDate() + n);

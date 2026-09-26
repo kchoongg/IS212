@@ -66,6 +66,19 @@ export interface AvailabilityBookingInput extends Interval {
   sessionLabel: string | null;
 }
 
+/// A PENDING booking request - a tentative hold (#41). Distinct from an
+/// approved booking: it does not take the room, it only warns that someone has
+/// asked for it.
+export interface AvailabilityHoldInput extends Interval {
+  id: string;
+  eventId: string;
+  eventTitle: string | null;
+}
+
+export interface AvailabilityHold extends AvailabilityHoldInput {
+  cells: { day: string; slot: Slot }[];
+}
+
 /// A VenueUnavailability row - maintenance, renovation and the like.
 export interface AvailabilityBlockInput extends Interval {
   id: string;
@@ -106,6 +119,15 @@ export interface AvailabilityCell {
   /// Bookings that reach this slot only through setup or teardown.
   turnaroundBookingIds: string[];
   unavailabilityIds: string[];
+  /// PENDING booking requests touching this slot - the customer's "tentative
+  /// hold" (#41). Advisory only: a hold never changes `status`, because AC7
+  /// says availability reflects CONFIRMED bookings. It is shown so a
+  /// coordinator can see a hold already exists before requesting the same
+  /// room, which is what #41 asks for - "only one active tentative hold or
+  /// confirmed booking should exist for the same venue and overlapping time
+  /// period". The hard block belongs at booking time (SPM-42), where the BPMN
+  /// puts it: Venue Staff "Review booking & check conflicts".
+  holdIds: string[];
 }
 
 export interface AvailabilityDay {
@@ -162,6 +184,8 @@ export interface AvailabilityResponse {
   days: AvailabilityDay[];
   bookings: AvailabilityBooking[];
   unavailability: AvailabilityBlock[];
+  /// Pending requests in range - see AvailabilityCell.holdIds.
+  holds: AvailabilityHold[];
   /// True when any booking or unavailable period overlaps another - the one
   /// flag a screen needs to decide whether to show a warning at all.
   hasOverlaps: boolean;
@@ -213,6 +237,7 @@ function emptyCell(openingHours: OpeningHoursCoverage): AvailabilityCell {
     bookingIds: [],
     turnaroundBookingIds: [],
     unavailabilityIds: [],
+    holdIds: [],
   };
 }
 
@@ -236,6 +261,7 @@ export function buildAvailability(input: {
   timeZone: string;
   bookings: readonly AvailabilityBookingInput[];
   unavailability: readonly AvailabilityBlockInput[];
+  holds?: readonly AvailabilityHoldInput[];
 }): AvailabilityResponse {
   const { venue, from, to, timeZone } = input;
   const inRange = new Set(dayRange(from, to));
@@ -350,6 +376,19 @@ export function buildAvailability(input: {
     bookings.some((b) => b.overlaps.bookingIds.length + b.overlaps.unavailabilityIds.length > 0) ||
     unavailability.some((u) => u.overlaps.unavailabilityIds.length > 0);
 
+  // Tentative holds (#41). Marked on their own slots only - a hold is a
+  // request, not a commitment, so it does not claim setup or turnaround slots
+  // the way an approved booking does.
+  const holds: AvailabilityHold[] = (input.holds ?? []).map((hold) => {
+    const cells = slotsCovered(hold)
+      .filter((c) => inRange.has(c.day))
+      .map((c) => ({ day: c.day, slot: c.slot }));
+    for (const cell of cells) {
+      cellAt.get(cell.day)?.[cell.slot].holdIds.push(hold.id);
+    }
+    return { ...hold, cells };
+  });
+
   return {
     venue,
     range: { from, to, timeZone },
@@ -357,6 +396,7 @@ export function buildAvailability(input: {
     days,
     bookings,
     unavailability,
+    holds,
     hasOverlaps,
   };
 }

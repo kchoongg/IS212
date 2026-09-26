@@ -644,6 +644,12 @@ deliberately.
 
 ---
 
+> **Customer clarifications live in GitHub Discussions, not in the brief.**
+> `docs/CUSTOMER_CLARIFICATIONS.md` indexes every ruling that binds this
+> codebase, with links. Check it before deciding a rule for yourself — SPM-46
+> built a slot grid the customer had already specified a month earlier,
+> because nothing here pointed at them.
+
 ## 🕳️ KNOWN GAPS
 
 Open items that affect everyone. **This list, not a changelog entry, is where a
@@ -667,7 +673,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
-| **Every test case's dates go stale on the next reseed** | `prisma/seed.ts` builds every date as `day(n)` = **today + n days** (line 20), so the absolute dates written into `docs/test-cases/*` ("1 Dec 2026", "3 Nov 2026") are only valid for a database seeded on the day those cases were written. A reseed six days later moves every booking and unavailable period six days, and a tester following the steps sees an empty grid and reports a bug that isn't one. Measured on 2026-09-26: all of SPM-46's dated fixtures had shifted **+6 days**. Affects every story's cases, not one. SPM-46's file has been re-based onto the 2026-09-26 seed and names that anchor in every case's preconditions — but that is a patch per file, not a fix: a **fixed anchor date in the seed** (so `day(n)` is stable) would end it for everyone. Needs a team decision; the other case files are still on their original anchors. The fixtures SPM-46's cases use, as `day(n)` offsets from the seed day, so any future reseed can be re-derived instead of re-measured: Rooftop Terrace free day +15; Jurong Expo Floor renovation +21 to +28; Harbourline Claims training +23; Changi Meeting Room 2 cancelled booking +33; Marina Auditorium rejected booking +36; Bayu Energy panel +44; Marina Boardroom 2 refurbishment +60 to +74; Sundara Trade Showcase +65; Straits Medical Symposium +72; Pearl Delta pending request +79; Meridian Wealth Forum +85. Flagged 2026-09-26. | unclaimed |
+| **Every test case's dates go stale on the next reseed** | `prisma/seed.ts` builds every date as `day(n)` = anchor + n days, so `docs/test-cases/*` go stale whenever someone reseeds on a different day. **`SEED_ANCHOR=YYYY-MM-DD npx prisma db seed` now pins the anchor** — use it before a test run or the demo so everyone's data matches the test cases and each other. Left unset it is still today, which keeps demo data looking current. What is still open is whether to pin it permanently in the repo: that would make every case file stable for good, at the cost of the data drifting into the past. Team decision. Flagged 2026-09-26. | unclaimed |
 
 ---
 

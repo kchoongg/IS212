@@ -266,7 +266,7 @@
     },
     {
       "id": "SPM-46-TC14",
-      "title": "Pending, rejected and cancelled bookings never block a slot",
+      "title": "Only an approved booking takes a slot; a pending request is shown but does not",
       "linked_ac": [
         "AC7"
       ],
@@ -279,7 +279,7 @@
         "Choose Changi Meeting Room 2 from the 'Venue' picker and show 29 Oct 2026"
       ],
       "test_data": "Changi Conference Centre (CBP-CONF): 14 Dec 2026\nMarina Auditorium (MAR-AUD): 1 Nov 2026\nChangi Meeting Room 2 (CBP-MTG2): 29 Oct 2026",
-      "expected_result": "On all three days every slot shows 'Free'. None of 'Pearl Delta Safety Conference', 'Nusantara Developer Summit' or 'Pearl Delta Supplier Forum' appears under 'Approved bookings' — only an approved booking takes a room."
+      "expected_result": "On all three days every slot shows 'Free'. None of 'Pearl Delta Safety Conference', 'Nusantara Developer Summit' or 'Pearl Delta Supplier Forum' appears under 'Approved bookings' — only an approved booking takes a room.\nOn 14 Dec 2026 the Changi Conference Centre slots additionally carry the note 'Requested: Pearl Delta Safety Conference', and a card 'Requested, not yet approved' lists it below the grid. The slots stay 'Free' — a request is not a commitment — but the hold is visible so a second coordinator does not request the same room unaware. The rejected and cancelled bookings carry no such note: they are not live requests."
     },
     {
       "id": "SPM-46-TC15",

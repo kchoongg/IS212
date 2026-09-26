@@ -28,6 +28,7 @@ import type {
   AvailabilityBooking,
   AvailabilityCell,
   AvailabilityDay,
+  AvailabilityHold,
   AvailabilityResponse,
   CellStatus,
 } from "@/lib/venueAvailability";
@@ -250,6 +251,10 @@ function VenueAvailability() {
     () => new Map((data?.bookings ?? []).map((b) => [b.id, b])),
     [data]
   );
+  const holdsById = useMemo(
+    () => new Map((data?.holds ?? []).map((h) => [h.id, h])),
+    [data]
+  );
   const blocksById = useMemo(
     () => new Map((data?.unavailability ?? []).map((u) => [u.id, u])),
     [data]
@@ -293,6 +298,7 @@ function VenueAvailability() {
           }
           bookingsById={bookingsById}
           blocksById={blocksById}
+          holdsById={holdsById}
         />
       ),
     })),
@@ -384,8 +390,9 @@ function VenueAvailability() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <BookingsCard bookings={data.bookings} bookingsById={bookingsById} blocksById={blocksById} />
-            <UnavailabilityCard blocks={data.unavailability} bookingsById={bookingsById} blocksById={blocksById} />
+            <BookingsCard bookings={data.bookings} bookingsById={bookingsById} blocksById={blocksById} holdsById={holdsById} />
+            <UnavailabilityCard blocks={data.unavailability} bookingsById={bookingsById} blocksById={blocksById} holdsById={holdsById} />
+            <HoldsCard holds={data.holds} />
           </div>
         </div>
       )}
@@ -398,6 +405,7 @@ function VenueAvailability() {
 type Lookups = {
   bookingsById: Map<string, AvailabilityBooking>;
   blocksById: Map<string, AvailabilityBlock>;
+  holdsById: Map<string, AvailabilityHold>;
 };
 
 /// One slot. Says its status in words, then everything occupying it - so a
@@ -408,6 +416,7 @@ function SlotCellView({
   hoursNote,
   bookingsById,
   blocksById,
+  holdsById,
 }: { cell: AvailabilityCell; hoursNote: string | null } & Lookups) {
   const booked = cell.bookingIds.map((id) => bookingsById.get(id)?.eventTitle ?? "Untitled event");
   const turnaround = cell.turnaroundBookingIds.map((id) => bookingsById.get(id)?.eventTitle ?? "Untitled event");
@@ -429,6 +438,14 @@ function SlotCellView({
       {cell.status === "free" && hoursNote && (
         <span className="text-xs text-ink-3">{hoursNote}</span>
       )}
+      {/* AC7 keeps the slot free - a request is not a commitment - but #41
+          says only one tentative hold may exist for a venue and period, so
+          the hold has to be visible or the calendar causes the second one. */}
+      {cell.holdIds.map((id) => (
+        <span key={`h${id}`} className="text-xs text-tone-warning-fg">
+          Requested: {holdsById.get(id)?.eventTitle ?? "another event"}
+        </span>
+      ))}
       {blocks.map((label, i) => (
         <span key={`u${i}`} className="text-xs text-ink-2">
           {label}
@@ -492,6 +509,33 @@ function OverlapNote({
   ];
   if (names.length === 0) return null;
   return <p className="text-sm font-medium text-tone-warning-fg">Overlaps with: {names.join("; ")}</p>;
+}
+
+/// Tentative holds - pending requests. Deliberately its own card, below the
+/// approved bookings, so nothing here can be mistaken for a commitment. #41:
+/// "Only one active tentative hold or confirmed booking should exist for the
+/// same venue and overlapping time period."
+function HoldsCard({ holds }: { holds: AvailabilityHold[] }) {
+  if (holds.length === 0) return null;
+  return (
+    <Card>
+      <CardHeader title="Requested, not yet approved" />
+      <CardBody>
+        <ul className="flex flex-col gap-3">
+          {holds.map((h) => (
+            <li key={h.id} className="flex flex-col gap-0.5">
+              <span className="font-medium text-ink">{h.eventTitle ?? "Untitled event"}</span>
+              <p className="text-sm text-ink-2">{formatDateTimeRange(h.startsAt, h.endsAt)}</p>
+              <p className="text-sm text-ink-3">
+                These slots are still free, but someone has already asked for this room.
+                Check with the Event Coordinator before requesting it as well.
+              </p>
+            </li>
+          ))}
+        </ul>
+      </CardBody>
+    </Card>
+  );
 }
 
 function BookingsCard({ bookings, ...lookups }: { bookings: AvailabilityBooking[] } & Lookups) {

@@ -96,7 +96,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         // booking whose event is still in planning (Marina Grand Hall, 1 Dec
         // 2026, in the seed) and would let someone else book the same slot.
         // Pending, rejected and cancelled bookings do not block a slot.
-        status: "approved",
+        //
+        // Pending ones are still FETCHED, as tentative holds (#41: "only one
+        // active tentative hold or confirmed booking should exist for the same
+        // venue and overlapping time period"). They are split out below and
+        // shown without changing any slot's status - a coordinator needs to
+        // see that a room has already been asked for, or the calendar itself
+        // causes the second hold the customer forbids.
+        status: { in: ["approved", "pending"] },
         // Overlap test from SCHEMA_REFERENCE.md, against the widened window.
         startsAt: { lt: new Date(rangeEnd.getTime() + setupMs) },
         endsAt: { gt: new Date(rangeStart.getTime() - teardownMs) },
@@ -125,7 +132,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       from: range.from,
       to: range.to,
       timeZone: TIME_ZONE,
-      bookings: bookings.map((b) => ({
+      holds: bookings
+        .filter((b) => b.status === "pending")
+        .map((b) => ({
+          id: b.id,
+          startsAt: b.startsAt,
+          endsAt: b.endsAt,
+          eventId: b.eventId,
+          eventTitle: b.event.title,
+        })),
+      bookings: bookings
+        .filter((b) => b.status === "approved")
+        .map((b) => ({
         id: b.id,
         startsAt: b.startsAt,
         endsAt: b.endsAt,

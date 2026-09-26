@@ -5,6 +5,7 @@ import {
   buildAvailability,
   resolveAvailabilityRange,
   type AvailabilityBlockInput,
+  type AvailabilityHoldInput,
   type AvailabilityBookingInput,
   type AvailabilityVenue,
 } from "../venueAvailability";
@@ -53,6 +54,7 @@ function build(opts: {
   to?: string;
   bookings?: AvailabilityBookingInput[];
   unavailability?: AvailabilityBlockInput[];
+  holds?: AvailabilityHoldInput[];
 }) {
   return buildAvailability({
     venue: { ...VENUE, ...opts.venue },
@@ -61,6 +63,7 @@ function build(opts: {
     timeZone: "Asia/Singapore",
     bookings: opts.bookings ?? [],
     unavailability: opts.unavailability ?? [],
+    holds: opts.holds ?? [],
   });
 }
 
@@ -240,6 +243,39 @@ describe("AC2 - slots occupied by setup or turnaround", () => {
     // vanish from the grid, which is the case worth surfacing.
     const hidden = booking("2026-09-28T12:15:00", "2026-09-28T12:45:00");
     expect(build({ bookings: [hidden] }).bookings[0].minutesOutsideSlots).toBe(30);
+  });
+});
+
+describe("tentative holds - pending requests (#41)", () => {
+  it("shows a hold on its slots without taking them", () => {
+    const hold = { id: "h1", eventId: "e9", eventTitle: "Pearl Delta Safety Conference",
+      startsAt: sgt("2026-09-28T14:00:00"), endsAt: sgt("2026-09-28T16:00:00") };
+    const { days, holds } = build({ holds: [hold] });
+    // AC7: availability reflects CONFIRMED bookings, so the slot stays free...
+    expect(days[0].slots.PM.status).toBe("free");
+    // ...but the hold is visible, which is what #41 needs: a coordinator must
+    // see that this room has already been asked for.
+    expect(days[0].slots.PM.holdIds).toEqual(["h1"]);
+    expect(holds[0].eventTitle).toBe("Pearl Delta Safety Conference");
+  });
+
+  it("never lets a hold change a slot's status or count as a clash", () => {
+    const hold = { id: "h1", eventId: "e9", eventTitle: "A request",
+      startsAt: sgt("2026-09-28T14:00:00"), endsAt: sgt("2026-09-28T16:00:00") };
+    const result = build({ holds: [hold] });
+    expect(Object.values(result.days[0].slots).every((c) => c.status === "free")).toBe(true);
+    expect(result.hasOverlaps).toBe(false);
+  });
+
+  it("claims only its own slots, not setup or turnaround ones", () => {
+    // A request is not a commitment, so it does not reserve the slot either
+    // side the way an approved booking does.
+    const hold = { id: "h1", eventId: "e9", eventTitle: "A request",
+      startsAt: sgt("2026-09-28T14:00:00"), endsAt: sgt("2026-09-28T16:00:00") };
+    const { days } = build({ venue: { setupMinutes: 240, teardownMinutes: 180 }, holds: [hold] });
+    expect(days[0].slots.AM.holdIds).toEqual([]);
+    expect(days[0].slots.PM.holdIds).toEqual(["h1"]);
+    expect(days[0].slots.Night.holdIds).toEqual([]);
   });
 });
 
