@@ -46,14 +46,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Catalogue contains 'HD Projector' (12 total, 0 in maintenance, none reserved elsewhere) and 'Wireless Mic' (1 total, all reserved elsewhere for the same dates).\nEvent 'Town Hall Q4' requests 2x HD Projector only.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\n'Podium Mic': 1 total, held in full by 'Keynote Rehearsal' on the same day (2026-10-20).\nEvent 'Town Hall Q4' (2026-10-20) requests 2x Cordless Mic Set only.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Town Hall Q4 event",
-        "Read the HD Projector line under Requested items"
+        "Read the Cordless Mic Set line under Requested items"
       ],
-      "test_data": "Equipment: HD Projector, Requested: 2",
-      "expected_result": "The HD Projector line shows the chip 'Available' and '12 total − 0 in maintenance − 0 reserved elsewhere = 12 available for these dates'.\nWireless Mic having no free stock has no effect on this line.\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Cordless Mic Set, Requested: 2",
+      "expected_result": "The Cordless Mic Set line shows the chip 'Available' and '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nPodium Mic being fully held has no effect on this line.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC02",
@@ -64,7 +64,7 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "'Smoke Machine' is in the catalogue with 0 total, 0 in maintenance.\nEvent 'Halloween Party' requests 1x Smoke Machine.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Smoke Machine': 0 total, 0 in maintenance.\nEvent 'Halloween Party' (2026-10-30) requests 1x Smoke Machine.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Halloween Party event",
@@ -81,14 +81,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'Wireless Mic' has 5 total, 0 in maintenance, none reserved elsewhere for the event's dates.\nEvent 'Career Fair' requests 3x Wireless Mic.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Career Fair' (2026-10-14) requests 3x Cordless Mic Set.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Career Fair event",
-        "Read the Wireless Mic line under Requested items"
+        "Read the Cordless Mic Set line under Requested items"
       ],
-      "test_data": "Equipment: Wireless Mic, Requested: 3, Available: 5",
-      "expected_result": "The Wireless Mic line shows the chip 'Available' and '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Cordless Mic Set, Requested: 3, Available: 5",
+      "expected_result": "The Cordless Mic Set line shows the chip 'Available' and '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC04",
@@ -98,14 +98,14 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "'Wireless Mic' has 5 total, 0 in maintenance, none reserved elsewhere for the event's dates.\nEvent 'Career Fair 2' requests 10x Wireless Mic.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Career Fair 2' (2026-10-15) requests 10x Cordless Mic Set.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Career Fair 2 event",
-        "Read the Wireless Mic line under Requested items"
+        "Read the Cordless Mic Set line under Requested items"
       ],
-      "test_data": "Equipment: Wireless Mic, Requested: 10, Available: 5",
-      "expected_result": "The Wireless Mic line shows the chip 'Partial', '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates' and '10 requested, 5 available.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "test_data": "Equipment: Cordless Mic Set, Requested: 10, Available: 5",
+      "expected_result": "The Cordless Mic Set line shows the chip 'Partial', '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates' and '10 requested, 5 available.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC05",
@@ -115,7 +115,7 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "'Tripod Screen' has 4 total, 0 in maintenance, none reserved elsewhere for the event's dates.\nEvent 'Product Launch' requests 4x Tripod Screen.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Tripod Screen': 4 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Product Launch' (2026-10-16) requests 4x Tripod Screen.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Product Launch event",
@@ -132,7 +132,7 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "'Tripod Screen' has 4 total, 0 in maintenance, none reserved elsewhere for the event's dates.\nEvent 'Product Launch 2' requests 5x Tripod Screen.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Tripod Screen': 4 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Product Launch 2' (2026-10-17) requests 5x Tripod Screen.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Product Launch 2 event",
@@ -149,15 +149,15 @@
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Logged in as the Coordinator or Organiser who owns event 'Career Fair'.\n'Wireless Mic' is in the equipment catalogue and not yet requested for 'Career Fair'.",
+      "preconditions": "Data: seeded by `npx prisma db seed`.\nLogged in as the assigned Coordinator, daniel.tan@connectsphere.com (password123).\nEvent 'Career Fair' (2026-10-14) has a request for Cordless Mic Set only; 'Tripod Screen' is not yet requested for it.",
       "steps": [
         "Open the Career Fair event's Equipment page",
-        "Under Add equipment, choose Wireless Mic",
+        "Under Add equipment, choose Tripod Screen",
         "Enter 0 in Quantity",
         "Click Add"
       ],
-      "test_data": "Equipment: Wireless Mic, Quantity: 0",
-      "expected_result": "The message 'Enter a whole number, at least 1.' is shown.\nWireless Mic is not added and no availability result is produced for it."
+      "test_data": "Equipment: Tripod Screen, Quantity: 0",
+      "expected_result": "The message 'Enter a whole number, at least 1.' is shown.\nTripod Screen is not added and no availability result is produced for it."
     },
     {
       "id": "SPM-48-TC08",
@@ -167,7 +167,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'PA Speaker' has 2 total, 0 in maintenance.\nEvent 'Open House' (2026-10-05, 09:00-17:00) already holds a reservation for 2x PA Speaker.\nEvent 'Orientation Day' (2026-10-05, 09:00-17:00) requests 2x PA Speaker.\nEvent 'Sports Meet' (2026-11-20, 09:00-17:00) requests 2x PA Speaker with no other reservations near that date.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'PA Speaker': 2 total, 0 in maintenance.\nEvent 'Open House' (2026-10-05, 09:00-17:00) holds 2x PA Speaker (reserved).\nEvent 'Orientation Day' (2026-10-05) and event 'Sports Meet' (2026-11-20) each request 2x PA Speaker.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Orientation Day event",
@@ -176,8 +176,8 @@
         "Open the equipment request for the Sports Meet event",
         "Read the PA Speaker line under Requested items"
       ],
-      "test_data": "Equipment: PA Speaker, Requested: 2, Event A date: 2026-10-05, Event B date: 2026-11-20",
-      "expected_result": "Orientation Day: the PA Speaker line shows the chip 'Unavailable' and '2 total − 0 in maintenance − 2 reserved elsewhere = 0 available for these dates'.\nSports Meet: the PA Speaker line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates'."
+      "test_data": "Equipment: PA Speaker, Requested: 2, Orientation Day: 2026-10-05, Sports Meet: 2026-11-20",
+      "expected_result": "Orientation Day: the PA Speaker line shows the chip 'Unavailable', '2 total − 0 in maintenance − 2 reserved elsewhere = 0 available for these dates' and 'Held by Open House (2 units) until 6 Oct.'\nSports Meet: the PA Speaker line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates'."
     },
     {
       "id": "SPM-48-TC09",
@@ -187,14 +187,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #16 and #114 (a reschedule or change means availability is re-checked).\n'HD Projector' has 1 total, 0 in maintenance.\nEvent 'Faculty Day' (2026-11-10) holds a reservation for 1x HD Projector.\nEvent 'Town Hall Q4' was on 2026-11-03 and has been rescheduled to 2026-11-10 (same day as Faculty Day). It requests 1x HD Projector.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: customer Q&A #16 and #114 (a reschedule or change means availability is re-checked). The change flow (SPM-32 / SPM-35) is not built, so 'Homecoming Weekend' is seeded as if already moved onto 2026-11-10.\n'Follow Spot': 1 total, 0 in maintenance.\nEvent 'Faculty Day' (2026-11-10) holds 1x Follow Spot (reserved).\nEvent 'Homecoming Weekend' (2026-11-10, 'rescheduled' here) requests 1x Follow Spot.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Town Hall Q4 event",
-        "Read the HD Projector line under Requested items"
+        "Open the equipment request for the Homecoming Weekend event",
+        "Read the Follow Spot line under Requested items"
       ],
-      "test_data": "Equipment: HD Projector, Requested: 1, New event date: 2026-11-10",
-      "expected_result": "The HD Projector line reflects the new date: chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Faculty Day until 11 Nov.'\nNothing is left over from the old date of 2026-11-03."
+      "test_data": "Equipment: Follow Spot, Requested: 1, New event date: 2026-11-10",
+      "expected_result": "The Follow Spot line reflects the new date: chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Faculty Day (1 unit) until 11 Nov.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC10",
@@ -205,14 +205,14 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "'HD Projector' has 3 total, 0 in maintenance.\nEvent 'Board Meeting' (2026-10-12, 10:00-12:00) already holds a reservation for 2x HD Projector.\nEvent 'Investor Briefing' (2026-10-12, 11:00-13:00, overlapping Board Meeting) requests 2x HD Projector.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'HD Projector': 3 total, 0 in maintenance.\nEvent 'Board Meeting' (2026-10-26, 10:00-12:00) holds 2x HD Projector (reserved).\nEvent 'Investor Briefing' (2026-10-26, 11:00-13:00, overlapping Board Meeting) requests 2x HD Projector.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Investor Briefing event",
         "Read the HD Projector line under Requested items"
       ],
       "test_data": "Equipment: HD Projector, Requested: 2, Total: 3, Reserved by overlapping event: 2",
-      "expected_result": "The HD Projector line shows the chip 'Partial', '3 total − 0 in maintenance − 2 reserved elsewhere = 1 available for these dates' and '2 requested, 1 available.'\nThe 2 units committed to Board Meeting are excluded from the available count.\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "expected_result": "The HD Projector line shows the chip 'Partial', '3 total − 0 in maintenance − 2 reserved elsewhere = 1 available for these dates' and '2 requested, 1 available.'\nThe 2 units held by Board Meeting are excluded from the available count.\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC11",
@@ -222,14 +222,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'HD Projector' has 3 total, 0 in maintenance.\nEvent 'Board Meeting' (2026-10-12) holds a reservation for 2x HD Projector.\nEvent 'Year-End Gala' (2027-01-15) requests 3x HD Projector with no other reservations near that date.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'HD Projector': 3 total, 0 in maintenance.\nEvent 'Board Meeting' (2026-10-26) holds 2x HD Projector.\nEvent 'Year-End Gala' (2027-01-15) requests 3x HD Projector with no other holds near that date.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Year-End Gala event",
         "Read the HD Projector line under Requested items"
       ],
       "test_data": "Equipment: HD Projector, Requested: 3, Event date: 2027-01-15",
-      "expected_result": "The HD Projector line shows the chip 'Available' and '3 total − 0 in maintenance − 0 reserved elsewhere = 3 available for these dates'; the October reservation has no effect.\nNo 'Not everything requested is available.' banner is shown."
+      "expected_result": "The HD Projector line shows the chip 'Available' and '3 total − 0 in maintenance − 0 reserved elsewhere = 3 available for these dates'; the October hold has no effect.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC12",
@@ -239,7 +239,7 @@
       ],
       "type": "Positive",
       "source": "Code",
-      "preconditions": "Rule source: SCHEMA_REFERENCE.md - only 'reserved' and 'partially_fulfilled' count against availability.\n'HD Projector' has 3 total, 0 in maintenance.\nEvent 'Staff Retreat' (2026-10-12) has a request for 2x HD Projector with status 'Under review' (not reserved).\nEvent 'Board Meeting 2' (2026-10-12) requests 3x HD Projector.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: SCHEMA_REFERENCE.md - only 'reserved' and 'partially_fulfilled' count against availability.\n'HD Projector': 3 total, 0 in maintenance.\nEvent 'Staff Retreat' (2026-12-14) has a request for 2x HD Projector with status 'Under review' (not reserved).\nEvent 'Board Meeting 2' (2026-12-14) requests 3x HD Projector.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Board Meeting 2 event",
@@ -256,14 +256,14 @@
       ],
       "type": "Boundary",
       "source": "Code",
-      "preconditions": "Rule source: SCHEMA_REFERENCE.md - 'partially_fulfilled' counts against availability.\n'HD Projector' has 5 total, 0 in maintenance.\nEvent 'Open Day' (2026-10-12) requested 4x HD Projector but only 2 were reserved (status 'Partially fulfilled').\nEvent 'Alumni Mixer' (2026-10-12) requests 3x HD Projector.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: SCHEMA_REFERENCE.md - 'partially_fulfilled' counts against availability.\n'Conference Phone': 5 total, 0 in maintenance.\nEvent 'Open Day' (2026-11-06) requested 4x Conference Phone but only 2 were reserved (status 'Partially fulfilled').\nEvent 'Alumni Mixer' (2026-11-06) requests 3x Conference Phone.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Alumni Mixer event",
-        "Read the HD Projector line under Requested items"
+        "Read the Conference Phone line under Requested items"
       ],
-      "test_data": "Equipment: HD Projector, Requested: 3, Total: 5, Open Day requested 4 / reserved 2",
-      "expected_result": "The HD Projector line shows the chip 'Available' and '5 total − 0 in maintenance − 2 reserved elsewhere = 3 available for these dates' - 2 (the quantity reserved), not 4 (the quantity requested).\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Conference Phone, Requested: 3, Total: 5, Open Day requested 4 / reserved 2",
+      "expected_result": "The Conference Phone line shows the chip 'Available' and '5 total − 0 in maintenance − 2 reserved elsewhere = 3 available for these dates' - 2 (the quantity reserved), not 4 (the quantity requested).\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC14",
@@ -273,14 +273,14 @@
       ],
       "type": "Positive",
       "source": "Code",
-      "preconditions": "Rule source: briefing and SPM-37 (cancelling an event releases its equipment reservations). Until SPM-37 ships, the check ignores requests of cancelled events (temporary filter).\n'Wireless Mic' has 2 total, 0 in maintenance.\nEvent 'Cancelled Summit' (2026-10-12) has status 'Cancelled' and its request for 2x Wireless Mic is still marked 'Reserved'.\nEvent 'Product Demo' (2026-10-12) requests 2x Wireless Mic.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: briefing and SPM-37 (cancelling an event releases its equipment reservations). Until SPM-37 ships, the check ignores requests of cancelled events (temporary filter).\n'Presenter Tablet': 2 total, 0 in maintenance.\nEvent 'Cancelled Summit' (2026-11-12) has status 'Cancelled' and its request for 2x Presenter Tablet is still marked 'Reserved'.\nEvent 'Product Demo' (2026-11-12) requests 2x Presenter Tablet.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Product Demo event",
-        "Read the Wireless Mic line under Requested items"
+        "Read the Presenter Tablet line under Requested items"
       ],
-      "test_data": "Equipment: Wireless Mic, Requested: 2, Total: 2, Cancelled Summit reserved: 2",
-      "expected_result": "The Wireless Mic line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates' - the cancelled event's units are not counted.\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Presenter Tablet, Requested: 2, Total: 2, Cancelled Summit reserved: 2",
+      "expected_result": "The Presenter Tablet line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates' - the cancelled event's units are not counted.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC15",
@@ -290,14 +290,14 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #5 (collected one day before the event, available again from Return Day+1). Return Day is the day the event ends.\n'Lighting Rig' has 1 total, 0 in maintenance.\nEvent 'Gala Dinner' (Monday 2026-10-12, 10:00-16:00) holds a reservation for 1x Lighting Rig: blocked from its D-1 (2026-10-11) through its Return Day (2026-10-12).\nEvent 'Charity Concert' (Tuesday 2026-10-13) requests 1x Lighting Rig. It would need collecting on 2026-10-12 (its own D-1), while the rig is still being returned and checked.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: customer Q&A #5 (collected one day before the event, available again from Return Day+1). Return Day is the day the event ends.\n'Lighting Rig': 1 total, 0 in maintenance.\nEvent 'Gala Dinner' (Monday 2026-11-02, 10:00-16:00) holds 1x Lighting Rig: blocked from its D-1 (2026-11-01) through its Return Day (2026-11-02).\nEvent 'Charity Concert' (Tuesday 2026-11-03) requests 1x Lighting Rig. It would need collecting on 2026-11-02 (its own D-1), while the rig is still being returned and checked.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Charity Concert event",
         "Read the Lighting Rig line under Requested items"
       ],
-      "test_data": "Equipment: Lighting Rig, Requested: 1, Checked date: 2026-10-13",
-      "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Gala Dinner until 13 Oct.' (the day it is available again, Return Day+1).\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "test_data": "Equipment: Lighting Rig, Requested: 1, Checked date: 2026-11-03",
+      "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Gala Dinner (1 unit) until 3 Nov.' (the day it is available again, Return Day+1).\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC16",
@@ -307,13 +307,13 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "'Lighting Rig' has 1 total, 0 in maintenance.\nEvent 'Gala Dinner' (Monday 2026-10-12) holds a reservation for 1x Lighting Rig; it is available again from Return Day+1 (2026-10-13).\nEvent 'School Concert' (Wednesday 2026-10-14) requests 1x Lighting Rig; its own D-1 is 2026-10-13.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Lighting Rig': 1 total, 0 in maintenance.\nEvent 'Gala Dinner' (Monday 2026-11-02) holds 1x Lighting Rig; it is available again from Return Day+1 (2026-11-03).\nEvent 'School Concert' (Wednesday 2026-11-04) requests 1x Lighting Rig; its own D-1 is 2026-11-03.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the School Concert event",
         "Read the Lighting Rig line under Requested items"
       ],
-      "test_data": "Equipment: Lighting Rig, Requested: 1, Checked date: 2026-10-14",
+      "test_data": "Equipment: Lighting Rig, Requested: 1, Checked date: 2026-11-04",
       "expected_result": "The Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
@@ -324,14 +324,14 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "'Lighting Rig' has 1 total, 0 in maintenance.\nEvent 'Workshop Wrap-up' (Wednesday 2026-10-14) holds a reservation for 1x Lighting Rig; it is collected on 2026-10-13 (D-1).\nEvent 'Setup Day Talk' (Tuesday 2026-10-13) requests 1x Lighting Rig; its own Return Day (2026-10-13) runs into Workshop Wrap-up's collection day.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Lighting Rig': 1 total, 0 in maintenance.\nEvent 'Workshop Wrap-up' (Wednesday 2026-11-11) holds 1x Lighting Rig; it is collected on 2026-11-10 (D-1).\nEvent 'Setup Day Talk' (Tuesday 2026-11-10) requests 1x Lighting Rig; its own Return Day (2026-11-10) runs into Workshop Wrap-up's collection day.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Setup Day Talk event",
         "Read the Lighting Rig line under Requested items"
       ],
-      "test_data": "Equipment: Lighting Rig, Requested: 1, Checked date: 2026-10-13",
-      "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Workshop Wrap-up until 15 Oct.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "test_data": "Equipment: Lighting Rig, Requested: 1, Checked date: 2026-11-10",
+      "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Workshop Wrap-up (1 unit) until 12 Nov.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC18",
@@ -341,7 +341,7 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #82 (no maximum reservation period).\n'Lighting Rig' has 1 total, 0 in maintenance.\nEvent 'Three-Day Expo' (2026-10-12 to 2026-10-14, 09:00-17:00 daily) holds one reservation for 1x Lighting Rig for the whole period: blocked from 2026-10-11 through its Return Day (2026-10-14), available again from 2026-10-15.\nEvent 'Post-Expo Mixer' (2026-10-15) and event 'Later Concert' (2026-10-16) each request 1x Lighting Rig.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: customer Q&A #82 (no maximum reservation period).\n'Lighting Rig': 1 total, 0 in maintenance.\nEvent 'Three-Day Expo' (2026-11-16 to 2026-11-18, 09:00 on the first day to 17:00 on the last) holds one reservation for 1x Lighting Rig for the whole period: blocked from 2026-11-15 through its Return Day (2026-11-18), available again from 2026-11-19.\nEvent 'Post-Expo Mixer' (2026-11-19) and event 'Later Concert' (2026-11-20) each request 1x Lighting Rig.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Post-Expo Mixer event",
@@ -350,8 +350,8 @@
         "Open the equipment request for the Later Concert event",
         "Read the Lighting Rig line under Requested items"
       ],
-      "test_data": "Equipment: Lighting Rig, Requested: 1, Expo: 2026-10-12 to 2026-10-14, Checked dates: 2026-10-15 and 2026-10-16",
-      "expected_result": "Post-Expo Mixer: the Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nLater Concert: the Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
+      "test_data": "Equipment: Lighting Rig, Requested: 1, Expo: 2026-11-16 to 2026-11-18, Checked dates: 2026-11-19 and 2026-11-20",
+      "expected_result": "Post-Expo Mixer: the Lighting Rig line shows the chip 'Unavailable', '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates' and 'Held by Three-Day Expo (1 unit) until 19 Nov.'\nLater Concert: the Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
     },
     {
       "id": "SPM-48-TC19",
@@ -362,13 +362,13 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #2 (transfer time affects pre-event availability; Return Day+1 governs post-event availability). Return Day is the event's own end date; no extra time is added after the event.\n'Lighting Rig' has 1 total, 0 in maintenance.\nEvent 'Late Gala' (Monday 2026-10-26, 19:00-23:30) holds a reservation for 1x Lighting Rig; Return Day is 2026-10-26, available again from 2026-10-27.\nEvent 'Wednesday Fair' (2026-10-28) requests 1x Lighting Rig; its own D-1 is 2026-10-27.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: customer Q&A #2 (transfer time affects pre-event availability; Return Day+1 governs post-event availability). Return Day is the event's own end date; no extra time is added after the event.\n'Lighting Rig': 1 total, 0 in maintenance.\nEvent 'Late Gala' (Monday 2026-11-23, 19:00-23:30) holds 1x Lighting Rig; Return Day is 2026-11-23, available again from 2026-11-24.\nEvent 'Wednesday Fair' (2026-11-25) requests 1x Lighting Rig; its own D-1 is 2026-11-24.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Wednesday Fair event",
         "Read the Lighting Rig line under Requested items"
       ],
-      "test_data": "Equipment: Lighting Rig, Requested: 1, Late Gala ends: 23:30 Monday, Checked date: 2026-10-28",
+      "test_data": "Equipment: Lighting Rig, Requested: 1, Late Gala ends: 23:30 Monday, Checked date: 2026-11-25",
       "expected_result": "The Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates' - finishing at 23:30 does not move the Return Day to Tuesday.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
@@ -380,14 +380,14 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #5 (equipment cannot be shared between events on the same day).\n'Lighting Rig' has 1 total, 0 in maintenance.\nEvent 'Morning Workshop' (2026-10-28, 09:00-12:00) holds a reservation for 1x Lighting Rig.\nEvent 'Evening Recital' (2026-10-28, 18:00-21:00, does not overlap Morning Workshop) requests 1x Lighting Rig.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: customer Q&A #5 (equipment cannot be shared between events on the same day).\n'Lighting Rig': 1 total, 0 in maintenance.\nEvent 'Morning Workshop' (2026-12-01, 09:00-12:00) holds 1x Lighting Rig.\nEvent 'Evening Recital' (2026-12-01, 18:00-21:00, does not overlap Morning Workshop) requests 1x Lighting Rig.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Evening Recital event",
         "Read the Lighting Rig line under Requested items"
       ],
       "test_data": "Equipment: Lighting Rig, Requested: 1, Morning Workshop 09:00-12:00, Evening Recital 18:00-21:00, same day",
-      "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Morning Workshop until 29 Oct.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Morning Workshop (1 unit) until 2 Dec.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC21",
@@ -398,14 +398,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'Lighting Rig' has 2 total, 0 in maintenance.\nEvent 'Morning Workshop' (2026-10-28, 09:00-12:00) holds a reservation for 1x Lighting Rig.\nEvent 'Evening Recital' (2026-10-28, 18:00-21:00) requests 1x Lighting Rig.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Stage Wash Light': 2 total, 0 in maintenance.\nEvent 'Morning Workshop' (2026-12-01, 09:00-12:00) holds 1x Stage Wash Light.\nEvent 'Evening Recital' (2026-12-01, 18:00-21:00) requests 1x Stage Wash Light.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Evening Recital event",
-        "Read the Lighting Rig line under Requested items"
+        "Read the Stage Wash Light line under Requested items"
       ],
-      "test_data": "Equipment: Lighting Rig, Requested: 1, Total: 2, Reserved by Morning Workshop: 1",
-      "expected_result": "The Lighting Rig line shows the chip 'Available' and '2 total − 0 in maintenance − 1 reserved elsewhere = 1 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Stage Wash Light, Requested: 1, Total: 2, Held by Morning Workshop: 1",
+      "expected_result": "The Stage Wash Light line shows the chip 'Available' and '2 total − 0 in maintenance − 1 reserved elsewhere = 1 available for these dates'."
     },
     {
       "id": "SPM-48-TC22",
@@ -416,15 +416,15 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #74 (different sessions can have different equipment) and SPM-47.\n'Wireless Mic' has 2 total, 0 in maintenance.\nEvent 'Open House' (2026-10-05) holds a reservation for 2x Wireless Mic.\nEvent 'Two-Day Summit' has session 'Day 1' (2026-10-05) and session 'Day 2' (2026-10-20). Each session requests 2x Wireless Mic.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: customer Q&A #74 (different sessions can have different equipment) and SPM-47.\n'PA Speaker': 2 total, 0 in maintenance.\nEvent 'Open House' (2026-10-05) holds 2x PA Speaker.\nEvent 'Two-Day Summit' has session 'Day 1' (2026-10-05) and session 'Day 2' (2026-10-20). Each session requests 2x PA Speaker.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Two-Day Summit event",
-        "Read the Wireless Mic line under Day 1",
-        "Read the Wireless Mic line under Day 2"
+        "Read the PA Speaker line under Day 1",
+        "Read the PA Speaker line under Day 2"
       ],
-      "test_data": "Equipment: Wireless Mic, Requested: 2 per session, Day 1: 2026-10-05, Day 2: 2026-10-20",
-      "expected_result": "Day 1: the Wireless Mic line shows the chip 'Unavailable' and '2 total − 0 in maintenance − 2 reserved elsewhere = 0 available for these dates'.\nDay 2: the Wireless Mic line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates'.\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "test_data": "Equipment: PA Speaker, Requested: 2 per session, Day 1: 2026-10-05, Day 2: 2026-10-20",
+      "expected_result": "Day 1: the PA Speaker line shows the chip 'Unavailable' and '2 total − 0 in maintenance − 2 reserved elsewhere = 0 available for these dates'.\nDay 2: the PA Speaker line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates'.\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC23",
@@ -434,14 +434,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #2 - transfer and preparation time is considered when equipment must move to the event venue. Fixed at 2 hours (team proposal).\n'Lighting Rig' has 1 total, 0 in maintenance, location: ConnectSphere storage (no venue set).\nEvent 'Product Showcase' (2026-10-21, 11:00-15:00) is at Auditorium A and requests 1x Lighting Rig.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Rule source: customer Q&A #2 - transfer and preparation time is considered when equipment must move to the event venue. Fixed at 2 hours (team proposal).\n'Follow Spot': 1 total, 0 in maintenance, kept in ConnectSphere storage (no venue set).\nEvent 'Product Showcase' (2026-10-21, 11:00-15:00) is booked at Marina Auditorium and requests 1x Follow Spot.\nThis event has a venue, so it does not show 'Venue not yet chosen'.",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Product Showcase event",
-        "Read the equipment time window shown for the Lighting Rig line"
+        "Read the Follow Spot line under Requested items"
       ],
-      "test_data": "Event start: 2026-10-21 11:00, Equipment location: ConnectSphere storage, Event venue: Auditorium A, Transfer/prep time: 2 hours",
-      "expected_result": "The equipment is shown as leaving at 09:00 on 2026-10-21, 2 hours before the 11:00 start.\nThe Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
+      "test_data": "Event start: 2026-10-21 11:00, Equipment location: ConnectSphere storage, Event venue: Marina Auditorium, Transfer/prep time: 2 hours",
+      "expected_result": "The line shows 'Leaves 21 Oct 2026, 09:00 — 2 hours before the event for transfer and preparation.'\nThe Follow Spot line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
     },
     {
       "id": "SPM-48-TC24",
@@ -451,14 +451,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'Auditorium A Sound System' has 1 total, 0 in maintenance, location: Auditorium A.\nEvent 'Welcome Assembly' (2026-10-21, 11:00-15:00) is at Auditorium A and requests 1x Auditorium A Sound System.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Marina Hall Sound System': 1 total, 0 in maintenance, kept at Marina Grand Hall.\nEvent 'Welcome Assembly' (2026-10-21, 11:00-15:00) is booked at Marina Grand Hall and requests 1x Marina Hall Sound System.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Welcome Assembly event",
-        "Read the equipment time window shown for the Auditorium A Sound System line"
+        "Read the Marina Hall Sound System line under Requested items"
       ],
-      "test_data": "Event start: 2026-10-21 11:00, Equipment location: Auditorium A, Event venue: Auditorium A",
-      "expected_result": "No transfer or preparation time is added: the equipment is shown as needed from 11:00, not 09:00.\nThe line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
+      "test_data": "Event start: 2026-10-21 11:00, Equipment location: Marina Grand Hall, Event venue: Marina Grand Hall",
+      "expected_result": "The line shows 'Already at the venue: needed from 21 Oct 2026, 11:00.' - no transfer or preparation time is added.\nThe line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
     },
     {
       "id": "SPM-48-TC25",
@@ -468,14 +468,14 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "'PA Speaker' has 1 total, 0 in maintenance, location: ConnectSphere storage.\nEvent 'Planning Workshop' (2026-11-03, 11:00-15:00) has no venue booked yet and requests 1x PA Speaker.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Podium Mic': 1 total, 0 in maintenance, kept in ConnectSphere storage; held on 2026-10-20 by 'Keynote Rehearsal', far from this event.\nEvent 'Planning Workshop' (2026-11-03, 11:00-15:00) has no venue booked yet and requests 1x Podium Mic.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Planning Workshop event",
-        "Read the PA Speaker line under Requested items"
+        "Read the Podium Mic line under Requested items"
       ],
-      "test_data": "Equipment: PA Speaker, Requested: 1, Event venue: none yet",
-      "expected_result": "The PA Speaker line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'.\nThe line notes 'Venue not yet chosen - transfer time not included.' No transfer time is applied.\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Podium Mic, Requested: 1, Event venue: none yet",
+      "expected_result": "The Podium Mic line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'.\nThe line notes 'Venue not yet chosen — transfer time not included.' No transfer time is applied.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC26",
@@ -485,14 +485,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'HD Projector' has 5 total with 2 recorded as in maintenance, none reserved elsewhere for the event's dates.\nEvent 'Alumni Talk' requests 3x HD Projector.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Document Camera': 5 total with 2 recorded as in maintenance, none reserved elsewhere.\nEvent 'Alumni Talk' (2026-10-28) requests 3x Document Camera.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Alumni Talk event",
-        "Read the HD Projector line under Requested items"
+        "Read the Document Camera line under Requested items"
       ],
-      "test_data": "Equipment: HD Projector, Total: 5, In maintenance: 2, Requested: 3",
-      "expected_result": "The HD Projector line shows the chip 'Available' and '5 total − 2 in maintenance − 0 reserved elsewhere = 3 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Document Camera, Total: 5, In maintenance: 2, Requested: 3",
+      "expected_result": "The Document Camera line shows the chip 'Available' and '5 total − 2 in maintenance − 0 reserved elsewhere = 3 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC27",
@@ -502,16 +502,16 @@
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "'Laser Pointer' has 10 total but is recorded as inactive (retired).\nEvent 'Debate Finals' already has a request for 1x Laser Pointer.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Laser Pointer': 10 total but retired (inactive).\nEvent 'Debate Finals' (2026-11-05) already has a request for 1x Laser Pointer.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'\nFor the last two steps, log in as the assigned Coordinator, daniel.tan@connectsphere.com (password123).",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Debate Finals event",
         "Read the Laser Pointer line under Requested items",
-        "Open the Debate Finals event's Equipment page",
-        "Open the Add equipment list"
+        "Log out and log in as daniel.tan@connectsphere.com",
+        "Open the Debate Finals event's Equipment page and open the Add equipment list"
       ],
       "test_data": "Equipment: Laser Pointer, Total: 10, Status: inactive, Requested: 1",
-      "expected_result": "The Laser Pointer line shows the chip 'Unavailable' with 0 available, regardless of the recorded total of 10.\nThe banner 'Not everything requested is available.' is shown above the requested items.\nLaser Pointer is not offered in the Add equipment list."
+      "expected_result": "The Laser Pointer line shows the chip 'Unavailable' with '10 total − 0 in maintenance − 0 reserved elsewhere = 0 available for these dates'.\nThe banner 'Not everything requested is available.' is shown above the requested items.\nLaser Pointer is not offered in the Add equipment list."
     },
     {
       "id": "SPM-48-TC28",
@@ -521,14 +521,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'Wireless Mic' has 4 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Graduation Ceremony' requests 2x Wireless Mic (its only equipment line).\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Graduation Ceremony' (2026-10-29) requests 2x Cordless Mic Set (its only equipment line).\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Graduation Ceremony event",
-        "Read the Wireless Mic line under Requested items"
+        "Read the Cordless Mic Set line under Requested items"
       ],
-      "test_data": "Equipment: Wireless Mic, Requested: 2, Available: 4",
-      "expected_result": "A green 'Available' chip is shown on the Wireless Mic line next to '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
+      "test_data": "Equipment: Cordless Mic Set, Requested: 2, Available: 5",
+      "expected_result": "A green 'Available' chip is shown on the Cordless Mic Set line next to '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
       "id": "SPM-48-TC29",
@@ -538,14 +538,14 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "'Wireless Mic' has 4 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Graduation Ceremony 2' requests 6x Wireless Mic (its only equipment line).\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Graduation Ceremony 2' (2026-10-30) requests 6x Cordless Mic Set (its only equipment line).\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Graduation Ceremony 2 event",
-        "Read the Wireless Mic line under Requested items"
+        "Read the Cordless Mic Set line under Requested items"
       ],
-      "test_data": "Equipment: Wireless Mic, Requested: 6, Available: 4",
-      "expected_result": "An amber 'Partial' chip is shown on the Wireless Mic line next to '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates' and '6 requested, 4 available.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "test_data": "Equipment: Cordless Mic Set, Requested: 6, Available: 5",
+      "expected_result": "An amber 'Partial' chip is shown on the Cordless Mic Set line next to '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates' and '6 requested, 5 available.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
       "id": "SPM-48-TC30",
@@ -556,28 +556,30 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "'Wireless Mic' has 12 total, 3 in maintenance, 7 reserved elsewhere for the event's dates.\n'Projector - 4K laser' has 6 total, 0 in maintenance, 3 reserved elsewhere.\n'Video conferencing kit' has 4 total, 1 in maintenance, 3 reserved elsewhere.\nEvent 'Vendor Networking Evening' (2026-12-05, 17:00-22:00) requests 4x Wireless Mic, 2x Projector - 4K laser and 1x Video conferencing kit.\nLogged in as Technical Support Staff.\nThe event's equipment request is listed under Equipment Requests with status 'Under review'.",
+      "preconditions": "Event 'Vendor Networking Evening' (2026-11-15, 17:00-22:00, booked at Marina Grand Hall) requests 6x Lavalier Wireless Mic, 1x Streaming Encoder, 2x Truss Lighting Bar and 1x Marina Hall Sound System.\nStock for those dates: Lavalier Wireless Mic 10 total, 2 in maintenance, 4 held by 'Regional Tech Expo' (2026-11-14). Streaming Encoder 3 total, 2 held by 'Regional Tech Expo' and 1 by 'Annual Partner Awards Night' (2026-11-16). Truss Lighting Bar 6 total, 1 in maintenance. Marina Hall Sound System 1 total, kept at Marina Grand Hall.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Vendor Networking Evening event",
-        "Read all three lines under Requested items",
+        "Read all four lines under Requested items",
         "Read the area above the requested items"
       ],
-      "test_data": "Wireless Mic: requested 4, available 2. Projector - 4K laser: requested 2, available 3. Video conferencing kit: requested 1, available 0",
-      "expected_result": "Wireless Mic shows the chip 'Partial', '12 total − 3 in maintenance − 7 reserved elsewhere = 2 available for these dates' and '4 requested, 2 available.'\nProjector - 4K laser shows the chip 'Available' and '6 total − 0 in maintenance − 3 reserved elsewhere = 3 available for these dates'.\nVideo conferencing kit shows the chip 'Unavailable' and '4 total − 1 in maintenance − 3 reserved elsewhere = 0 available for these dates'.\nThe banner 'Not everything requested is available.' is shown above the requested items."
+      "test_data": "Lavalier Wireless Mic: requested 6, available 4. Streaming Encoder: requested 1, available 0. Truss Lighting Bar: requested 2, available 5. Marina Hall Sound System: requested 1, available 1",
+      "expected_result": "Lavalier Wireless Mic shows the chip 'Partial', '10 total − 2 in maintenance − 4 reserved elsewhere = 4 available for these dates' and '6 requested, 4 available.'\nStreaming Encoder shows the chip 'Unavailable', '3 total − 0 in maintenance − 3 reserved elsewhere = 0 available for these dates', 'Held by Regional Tech Expo (2 units) until 15 Nov.' and 'Held by Annual Partner Awards Night (1 unit) until 17 Nov.'\nTruss Lighting Bar shows the chip 'Available' and '6 total − 1 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nMarina Hall Sound System shows the chip 'Available', '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates' and 'Already at the venue: needed from 15 Nov 2026, 17:00.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     }
   ],
   "open_questions": [
-    "The availability feature is not built yet (src/lib/equipment.ts says checking availability against stock, SPM-48, is a separate ticket). Steps and expected results follow the S-25 Equipment request mockup (design/mockups/EquipmentRequests.dc.html) and UI_DESIGN.md section 7.4: availability appears automatically on the request page, with chips 'Available' / 'Partial' / 'Unavailable', the breakdown 'total - in maintenance - reserved elsewhere = N available for these dates', and the banner 'Not everything requested is available.'. Labels for the equipment time window, the 'venue not yet chosen' note and the per-session layout are proposed and need re-verifying once the screen exists.",
+    "Test data: every case runs against the seeded database (`npx prisma db seed`, section 'SPM-48 test-case events' in prisma/seed.ts). Event and equipment names, stock and dates are fixed there (Oct 2026 - Jan 2027), so they do not drift with the day the seed is run. Reseeding replaces ALL data in the shared database and logs everyone out. The seed script and this file must be changed together.",
+    "The availability screen (S-25) follows design/mockups/EquipmentRequests.dc.html and UI_DESIGN.md section 7.4: availability appears automatically on the request page, with chips 'Available' / 'Partial' / 'Unavailable', the breakdown 'total - in maintenance - reserved elsewhere = N available for these dates', and the banner 'Not everything requested is available.'. There is no separate 'Check availability' button on that page. The transfer note wording ('Leaves ...', 'Already at the venue ...', 'Venue not yet chosen ...') is proposed.",
     "Design decisions assumed by these cases (team proposals; customer Q&A #2, #13, #113 leave them to the team): (a) the fixed 2-hour transfer/prep time applies BEFORE the event only, and only when the equipment is not already at the event venue; nothing is added after the event, so EQUIPMENT_LOAD_WINDOW_MS in equipmentWindowFor() must stop adding 2 hours after the event; (b) Return Day is the event's own end date (automatically populated; Q&A #113 allows this); (c) equipment location is a nullable locationVenueId on Equipment where null means ConnectSphere storage (needs a schema change and migration); (d) an event with no venue yet skips transfer time and shows 'Venue not yet chosen'.",
     "AC5 wording: the Jira text says equipment is unavailable 'through Return Day+1', but the customer (Q&A #5, #2) says it is 'available again from Return Day+1'. These cases follow the customer. The Jira acceptance criterion should be corrected. 'Held by <event> until <date>' is assumed to show the day the equipment is available again (Return Day+1).",
     "Only requests with status 'reserved' or 'partially_fulfilled' count against availability (SCHEMA_REFERENCE.md), using quantityReserved. Requests of cancelled, postponed, rejected and draft events are ignored by a TEMPORARY filter on Event.status (TC14) until SPM-37 (Cancel) and SPM-38 (Postpone) release reservations themselves. Revisit when those stories ship.",
     "Zero total stock (TC02) is shown as 'Unavailable' with 0 available. The team wants different wording from an input error, but the wording is not decided. Requesting zero units (TC07) uses the existing message 'Enter a whole number, at least 1.'.",
     "Retired/inactive equipment (TC27): shown as 'Unavailable' on an existing request and hidden from the Add equipment list, following SPM-39. GET /api/equipment does not filter inactive items today, so the hiding is new behaviour.",
-    "AC7: 'recorded as unavailable' is defined by SPM-55 (Record Equipment Unavailability: unavailable, damaged or under maintenance, with a reason), which is not built. Only quantityInMaintenance and the inactive flag exist today (TC26, TC27). Add cases once SPM-55 lands.",
     "Sessions of the same event (TC22): it is not defined whether two sessions of one event, on nearby days, block each other's equipment. No case written.",
     "The 'Reserve what is available' button in the mockup belongs to SPM-49 (Reserve Equipment) and is out of scope for SPM-48. Partial reservation is allowed by the customer (Q&A #90).",
-    "Rescheduling (TC09) depends on the change flow (SPM-32 / SPM-35), which is not built. The case assumes the event date has already changed."
+    "Rescheduling (TC09) depends on the change flow (SPM-32 / SPM-35), which is not built. The case assumes the event date has already changed.",
+    "AC7: Technical Support can record units as out of service with a reason through PATCH /api/equipment/[id]/out-of-service (the availability check already subtracts them - TC26). There is no screen for it yet: that belongs to SPM-55 (Record Equipment Unavailability), so no manual test case can be written for the recording step. It is covered by unit tests (recordOutOfServiceSchema, checkOutOfService, and the effect on availability). Add cases once SPM-55 provides the screen.",
+    "TC09 (reschedule): the change flow (SPM-32 / SPM-35) is not built, so the event is seeded as already moved. Once it exists, add the steps that move the event."
   ],
   "code_references": [
     "src/lib/equipment.ts",
@@ -588,6 +590,8 @@
     "SCHEMA_REFERENCE.md",
     "UI_DESIGN.md",
     "design/mockups/EquipmentRequests.dc.html",
-    "Customer Q&A (IS212-2026 discussions #2, #5, #13, #16, #19, #74, #82, #90, #113, #114)"
+    "Customer Q&A (IS212-2026 discussions #2, #5, #13, #16, #19, #74, #82, #90, #113, #114)",
+    "src/app/api/equipment/[id]/out-of-service/route.ts",
+    "src/lib/equipment.ts"
   ]
 }

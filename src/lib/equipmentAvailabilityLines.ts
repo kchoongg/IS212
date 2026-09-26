@@ -18,6 +18,8 @@ export interface RequestedLine {
   quantityRequested: number;
   /// The equipment request's own status (requested, under_review, reserved ...).
   requestStatus: string;
+  /// What Technical Support has committed so far. NULL until reviewed.
+  quantityReserved: number | null;
   equipment: {
     id: string;
     name: string;
@@ -54,6 +56,7 @@ export interface AvailabilityLine {
   requestId: string;
   requestStatus: string;
   quantityRequested: number;
+  quantityReserved: number | null;
   equipmentId: string;
   equipmentName: string;
   sessionId: string | null;
@@ -80,6 +83,7 @@ export function assembleLines(requested: RequestedLine[], others: OtherRequest[]
       requestId: line.requestId,
       requestStatus: line.requestStatus,
       quantityRequested: line.quantityRequested,
+      quantityReserved: line.quantityReserved,
       equipmentId: line.equipment.id,
       equipmentName: line.equipment.name,
       sessionId: line.sessionId,

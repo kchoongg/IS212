@@ -26,6 +26,16 @@ function day(n: number, hour = 9, minute = 0): Date {
   return d;
 }
 
+/** Whole days from today to a fixed calendar date ("2026-11-15"). Lets a
+ *  scenario keep the SAME date whatever day the seed is run, so test cases can
+ *  quote it (docs/test-cases/SPM-48_Test_Cases.xlsx). Negative once it is past. */
+function daysUntil(isoDate: string): number {
+  const target = new Date(`${isoDate}T00:00:00`);
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}
+
 async function main() {
   console.log("Clearing existing data…");
   // Reverse dependency order so foreign keys never block a delete.
@@ -425,6 +435,31 @@ async function main() {
   });
   equip["Legacy Overhead Projector"] = legacyProjector.id;
 
+  // SPM-48 test-case equipment. One item per stock level the cases need, kept
+  // apart from the real catalogue above so its numbers never disturb it.
+  // [name, category, description, total, in maintenance, active]
+  const fixtureEquipment: [string, string, string, number, number, boolean][] = [
+    ["Cordless Mic Set", "AV", "SPM-48 test item: 5 in stock", 5, 0, true],
+    ["Tripod Screen", "AV", "SPM-48 test item: 4 in stock", 4, 0, true],
+    ["Smoke Machine", "Staging", "SPM-48 test item: none in stock", 0, 0, true],
+    ["PA Speaker", "AV", "SPM-48 test item: 2 in stock", 2, 0, true],
+    ["HD Projector", "AV", "SPM-48 test item: 3 in stock", 3, 0, true],
+    ["Conference Phone", "IT", "SPM-48 test item: 5 in stock", 5, 0, true],
+    ["Presenter Tablet", "IT", "SPM-48 test item: 2 in stock", 2, 0, true],
+    ["Lighting Rig", "Staging", "SPM-48 test item: a single unit", 1, 0, true],
+    ["Stage Wash Light", "Staging", "SPM-48 test item: 2 in stock", 2, 0, true],
+    ["Follow Spot", "Staging", "SPM-48 test item: a single unit, kept in storage", 1, 0, true],
+    ["Podium Mic", "AV", "SPM-48 test item: a single unit", 1, 0, true],
+    ["Document Camera", "AV", "SPM-48 test item: 5 in stock, 2 in maintenance", 5, 2, true],
+    ["Laser Pointer", "AV", "SPM-48 test item: retired", 10, 0, false],
+  ];
+  for (const [name, category, description, totalQuantity, quantityInMaintenance, isActive] of fixtureEquipment) {
+    const e = await prisma.equipment.create({
+      data: { name, category, description, totalQuantity, quantityInMaintenance, isActive },
+    });
+    equip[name] = e.id;
+  }
+
   // -------------------------------------------------------------------
   // EVENTS
   // -------------------------------------------------------------------
@@ -660,13 +695,13 @@ async function main() {
       purpose: "Trade expo for regional technology vendors",
       description: "Full-day expo with two livestreamed stages.",
       category: "conference", organiser: "Budi Santoso", coordinator: "daniel.tan@connectsphere.com",
-      days: 49, startHour: 9, durationHours: 9, attendance: 220, layout: "exhibition" },
+      days: daysUntil("2026-11-14"), startHour: 9, durationHours: 9, attendance: 220, layout: "exhibition" },
 
     { key: "vendor_evening", title: "Vendor Networking Evening", status: "planning",
       purpose: "Evening pitches and networking for expo vendors",
       description: "Short vendor pitches followed by networking; closing pitches livestreamed.",
       category: "networking", organiser: "Hakim Zulkifli", coordinator: "daniel.tan@connectsphere.com",
-      days: 50, startHour: 17, durationHours: 5, attendance: 120, layout: "banquet" },
+      days: daysUntil("2026-11-15"), startHour: 17, durationHours: 5, attendance: 120, layout: "banquet" },
 
     // No venue booked yet, so the availability screen says "venue not yet
     // chosen" and adds no transfer time.
@@ -674,8 +709,63 @@ async function main() {
       purpose: "Recognise long-standing partners",
       description: "Evening ceremony, livestreamed to partners abroad.",
       category: "networking", organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
-      days: 51, startHour: 18, durationHours: 4, attendance: 130, layout: "banquet" },
+      days: daysUntil("2026-11-16"), startHour: 18, durationHours: 4, attendance: 130, layout: "banquet" },
   ];
+
+  // SPM-48 test-case events (docs/test-cases/SPM-48_Test_Cases.xlsx): each case
+  // names its event and the date it happens on, so the dates are fixed.
+  const fixture = (
+    key: string, title: string, date: string, startHour: number, durationHours: number,
+    organiser: string, status = "planning", extra: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser, coordinator: "daniel.tan@connectsphere.com",
+    days: daysUntil(date), startHour, durationHours, ...extra,
+  });
+  eventData.push(
+    fixture("fx_town_hall", "Town Hall Q4", "2026-10-20", 9, 8, "Rachel Ng"),
+    fixture("fx_keynote", "Keynote Rehearsal", "2026-10-20", 14, 2, "James Koh"),
+    fixture("fx_halloween", "Halloween Party", "2026-10-30", 19, 4, "Grace Abdullah"),
+    fixture("fx_career_fair", "Career Fair", "2026-10-14", 10, 6, "Faridah Aziz"),
+    fixture("fx_career_fair2", "Career Fair 2", "2026-10-15", 10, 6, "Faridah Aziz"),
+    fixture("fx_prod_launch", "Product Launch", "2026-10-16", 10, 4, "Melissa Yap"),
+    fixture("fx_prod_launch2", "Product Launch 2", "2026-10-17", 10, 4, "Melissa Yap"),
+    fixture("fx_open_house", "Open House", "2026-10-05", 9, 8, "Kelvin Loh"),
+    fixture("fx_orientation", "Orientation Day", "2026-10-05", 9, 8, "Samuel Ong"),
+    fixture("fx_sports_meet", "Sports Meet", "2026-11-20", 9, 8, "Samuel Ong"),
+    fixture("fx_faculty_day", "Faculty Day", "2026-11-10", 9, 8, "Grace Abdullah"),
+    fixture("fx_homecoming", "Homecoming Weekend", "2026-11-10", 10, 6, "Grace Abdullah"),
+    fixture("fx_board_meeting", "Board Meeting", "2026-10-26", 10, 2, "James Koh"),
+    fixture("fx_investor_briefing", "Investor Briefing", "2026-10-26", 11, 2, "James Koh"),
+    fixture("fx_year_end_gala", "Year-End Gala", "2027-01-15", 18, 4, "Rachel Ng"),
+    fixture("fx_staff_retreat", "Staff Retreat", "2026-12-14", 9, 8, "Rachel Ng"),
+    fixture("fx_board_meeting2", "Board Meeting 2", "2026-12-14", 10, 3, "Rachel Ng"),
+    fixture("fx_open_day", "Open Day", "2026-11-06", 9, 8, "Faridah Aziz"),
+    fixture("fx_alumni_mixer", "Alumni Mixer", "2026-11-06", 18, 3, "Faridah Aziz"),
+    fixture("fx_cancelled_summit", "Cancelled Summit", "2026-11-12", 9, 8, "Budi Santoso", "cancelled",
+      { cancellationReason: "Client cancelled after a change in plans." }),
+    fixture("fx_product_demo", "Product Demo", "2026-11-12", 10, 4, "Budi Santoso"),
+    fixture("fx_gala_dinner", "Gala Dinner", "2026-11-02", 10, 6, "Evelyn Chen"),
+    fixture("fx_charity_concert", "Charity Concert", "2026-11-03", 18, 3, "Evelyn Chen"),
+    fixture("fx_school_concert", "School Concert", "2026-11-04", 18, 3, "Evelyn Chen"),
+    fixture("fx_wrap_up", "Workshop Wrap-up", "2026-11-11", 10, 6, "Hakim Zulkifli"),
+    fixture("fx_setup_talk", "Setup Day Talk", "2026-11-10", 10, 6, "Hakim Zulkifli"),
+    fixture("fx_expo3", "Three-Day Expo", "2026-11-16", 9, 56, "Budi Santoso"),
+    fixture("fx_post_expo", "Post-Expo Mixer", "2026-11-19", 18, 3, "Budi Santoso"),
+    fixture("fx_later_concert", "Later Concert", "2026-11-20", 18, 3, "Evelyn Chen"),
+    fixture("fx_late_gala", "Late Gala", "2026-11-23", 19, 4.5, "Evelyn Chen"),
+    fixture("fx_wed_fair", "Wednesday Fair", "2026-11-25", 10, 6, "Melissa Yap"),
+    fixture("fx_morning_ws", "Morning Workshop", "2026-12-01", 9, 3, "Hakim Zulkifli"),
+    fixture("fx_evening_recital", "Evening Recital", "2026-12-01", 18, 3, "Hakim Zulkifli"),
+    // Runs 5 to 20 Oct in two sessions (Day 1 and Day 2), created further down.
+    fixture("fx_two_day_summit", "Two-Day Summit", "2026-10-05", 9, 368, "Budi Santoso"),
+    fixture("fx_prod_showcase", "Product Showcase", "2026-10-21", 11, 4, "Melissa Yap"),
+    fixture("fx_welcome_assembly", "Welcome Assembly", "2026-10-21", 11, 4, "Kelvin Loh"),
+    fixture("fx_planning_workshop", "Planning Workshop", "2026-11-03", 11, 4, "Kelvin Loh"),
+    fixture("fx_alumni_talk", "Alumni Talk", "2026-10-28", 10, 3, "Grace Abdullah"),
+    fixture("fx_debate_finals", "Debate Finals", "2026-11-05", 10, 6, "Samuel Ong"),
+    fixture("fx_grad", "Graduation Ceremony", "2026-10-29", 10, 4, "Grace Abdullah"),
+    fixture("fx_grad2", "Graduation Ceremony 2", "2026-10-30", 10, 4, "Grace Abdullah"),
+  );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
@@ -854,6 +944,8 @@ async function main() {
     ["planning", "MAR-GH", "approved"],
     ["expo_day", "ORC-GAL", "approved"],
     ["vendor_evening", "MAR-GH", "approved"],
+    ["fx_prod_showcase", "MAR-AUD", "approved"],
+    ["fx_welcome_assembly", "MAR-GH", "approved"],
     ["confirmed_forum", "MAR-GH", "approved"],
     ["completed_training", "JUR-TRN", "approved"],
     ["confirmed_briefing", "CBP-CONF", "approved"],
@@ -989,6 +1081,53 @@ async function main() {
     ["vendor_evening", "Truss Lighting Bar", 2, null, "under_review", "Stage wash for the pitches."],
     ["vendor_evening", "Marina Hall Sound System", 1, null, "under_review", "Already installed in the hall."],
   ];
+  // SPM-48 test-case requests. Only `reserved` / `partially_fulfilled` rows hold
+  // stock, so the events that HOLD equipment are marked below; every other row
+  // is a request still under review that only asks.
+  eqReqs.push(
+    ["fx_town_hall", "Cordless Mic Set", 2, null, "under_review"],
+    ["fx_keynote", "Podium Mic", 1, 1, "reserved"],
+    ["fx_halloween", "Smoke Machine", 1, null, "requested"],
+    ["fx_career_fair", "Cordless Mic Set", 3, null, "under_review"],
+    ["fx_career_fair2", "Cordless Mic Set", 10, null, "under_review"],
+    ["fx_prod_launch", "Tripod Screen", 4, null, "under_review"],
+    ["fx_prod_launch2", "Tripod Screen", 5, null, "under_review"],
+    ["fx_open_house", "PA Speaker", 2, 2, "reserved"],
+    ["fx_orientation", "PA Speaker", 2, null, "under_review"],
+    ["fx_sports_meet", "PA Speaker", 2, null, "under_review"],
+    ["fx_faculty_day", "Follow Spot", 1, 1, "reserved"],
+    ["fx_homecoming", "Follow Spot", 1, null, "under_review"],
+    ["fx_board_meeting", "HD Projector", 2, 2, "reserved"],
+    ["fx_investor_briefing", "HD Projector", 2, null, "under_review"],
+    ["fx_year_end_gala", "HD Projector", 3, null, "under_review"],
+    ["fx_staff_retreat", "HD Projector", 2, null, "under_review"],
+    ["fx_board_meeting2", "HD Projector", 3, null, "under_review"],
+    ["fx_open_day", "Conference Phone", 4, 2, "partially_fulfilled"],
+    ["fx_alumni_mixer", "Conference Phone", 3, null, "under_review"],
+    ["fx_cancelled_summit", "Presenter Tablet", 2, 2, "reserved"],
+    ["fx_product_demo", "Presenter Tablet", 2, null, "under_review"],
+    ["fx_gala_dinner", "Lighting Rig", 1, 1, "reserved"],
+    ["fx_charity_concert", "Lighting Rig", 1, null, "under_review"],
+    ["fx_school_concert", "Lighting Rig", 1, null, "under_review"],
+    ["fx_wrap_up", "Lighting Rig", 1, 1, "reserved"],
+    ["fx_setup_talk", "Lighting Rig", 1, null, "under_review"],
+    ["fx_expo3", "Lighting Rig", 1, 1, "reserved"],
+    ["fx_post_expo", "Lighting Rig", 1, null, "under_review"],
+    ["fx_later_concert", "Lighting Rig", 1, null, "under_review"],
+    ["fx_late_gala", "Lighting Rig", 1, 1, "reserved"],
+    ["fx_wed_fair", "Lighting Rig", 1, null, "under_review"],
+    ["fx_morning_ws", "Lighting Rig", 1, 1, "reserved"],
+    ["fx_morning_ws", "Stage Wash Light", 1, 1, "reserved"],
+    ["fx_evening_recital", "Lighting Rig", 1, null, "under_review"],
+    ["fx_evening_recital", "Stage Wash Light", 1, null, "under_review"],
+    ["fx_prod_showcase", "Follow Spot", 1, null, "under_review"],
+    ["fx_welcome_assembly", "Marina Hall Sound System", 1, null, "under_review"],
+    ["fx_planning_workshop", "Podium Mic", 1, null, "under_review"],
+    ["fx_alumni_talk", "Document Camera", 3, null, "under_review"],
+    ["fx_debate_finals", "Laser Pointer", 1, null, "requested"],
+    ["fx_grad", "Cordless Mic Set", 2, null, "under_review"],
+    ["fx_grad2", "Cordless Mic Set", 6, null, "under_review"],
+  );
   for (let i = 0; i < eqReqs.length; i++) {
     const [eventKey, eqName, requested, reserved, status, note] = eqReqs[i];
     const ev = events[eventKey];
@@ -1009,6 +1148,36 @@ async function main() {
         requestedAt: day(seed.days - 27),
         reviewedBy: reviewed ? users[techStaff[i % techStaff.length]] : undefined,
         reviewedAt: reviewed ? day(seed.days - 25) : undefined,
+      },
+    });
+  }
+
+  // -------------------------------------------------------------------
+  // EVENT SESSIONS (SPM-48): a two-day event whose sessions each ask for the
+  // same equipment, so availability is checked against each session's own date.
+  // -------------------------------------------------------------------
+  console.log("Creating event sessions…");
+  const summit = events["fx_two_day_summit"];
+  for (const [label, date] of [["Day 1", "2026-10-05"], ["Day 2", "2026-10-20"]] as const) {
+    const startsAt = day(daysUntil(date), 9);
+    const endsAt = day(daysUntil(date), 17);
+    const session = await prisma.eventSession.create({
+      data: { eventId: summit.id, label, startsAt, endsAt },
+    });
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: summit.id,
+        sessionId: session.id,
+        equipmentId: equip["PA Speaker"],
+        quantityRequested: 2,
+        technicalRequirements: `Speakers for ${label}.`,
+        startsAt,
+        endsAt,
+        status: "under_review",
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(summit.days - 27),
+        reviewedBy: users[techStaff[0]],
+        reviewedAt: day(summit.days - 25),
       },
     });
   }
@@ -1144,7 +1313,7 @@ async function main() {
   console.log(`  users         : ${staff.length + organisers.length + attendeeNames.length}`);
   console.log(`  venues        : ${venueData.length}`);
   console.log(`  facilities    : ${facilityData.length}`);
-  console.log(`  equipment     : ${equipmentData.length}`);
+  console.log(`  equipment     : ${Object.keys(equip).length}`);
   console.log(`  events        : ${eventData.length}`);
   console.log(`  bookings      : ${bookings.length}`);
   console.log(`  eq. requests  : ${eqReqs.length}`);

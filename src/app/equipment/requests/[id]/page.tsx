@@ -42,6 +42,7 @@ interface Line {
   requestId: string;
   requestStatus: string;
   quantityRequested: number;
+  quantityReserved: number | null;
   equipmentName: string;
   sessionLabel: string | null;
   venueChosen: boolean;
@@ -199,22 +200,33 @@ function LineRow({ line }: { line: Line }) {
             {result.status === "unavailable" &&
               result.heldBy.map((held) => (
                 <p key={`${held.eventTitle}-${held.availableAgainFrom}`} className="text-xs text-tone-warning-fg">
-                  Held by {held.eventTitle} until {formatDay(held.availableAgainFrom)}.
+                  Held by {held.eventTitle} ({held.quantity} unit{held.quantity === 1 ? "" : "s"}) until{" "}
+                  {formatDay(held.availableAgainFrom)}.
                 </p>
               ))}
-            <p className="text-xs text-ink-3">{transferNote(line, result)}</p>
+            <p className="inline-block rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-xs text-ink-2">
+              {transferNote(line, result)}
+            </p>
           </>
         ) : (
           <p className="text-xs text-ink-3">Cannot be checked yet — the event has no dates.</p>
         )}
       </div>
 
-      <div className="flex shrink-0 items-center gap-6 text-sm">
-        <div className="text-center">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-3">Requested</p>
-          <p className="mt-1 text-base text-ink">{line.quantityRequested}</p>
-        </div>
-        {result && <StatusBadge status={result.status} />}
+      {/* Three fixed-width columns, so Requested, Reserved and the chip line up
+          from one row to the next whatever the chip says. */}
+      <div className="grid shrink-0 grid-cols-[4rem_4rem_7rem] gap-4 text-center text-sm">
+        <Column label="Requested">
+          <NumberBox value={line.quantityRequested} />
+        </Column>
+        <Column label="Reserved">
+          <NumberBox value={line.quantityReserved} />
+        </Column>
+        <Column label="Availability">
+          <div className="flex h-9 items-center justify-center">
+            {result ? <StatusBadge status={result.status} /> : <span className="text-ink-3">—</span>}
+          </div>
+        </Column>
       </div>
     </li>
   );
@@ -227,4 +239,23 @@ function transferNote(line: Line, result: AvailabilityResult): string {
     return `Leaves ${formatDateTime(result.leavesAt)} — ${formatHours(line.transferMinutes)} before the event for transfer and preparation.`;
   }
   return `Already at the venue: needed from ${formatDateTime(result.leavesAt)}.`;
+}
+
+function Column({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-ink-3">{label}</p>
+      <div className="mt-1">{children}</div>
+    </div>
+  );
+}
+
+/// A count in a bordered box, like the mockup's quantity boxes. "—" when there
+/// is no number yet (nothing reserved so far).
+function NumberBox({ value }: { value: number | null }) {
+  return (
+    <div className="flex h-9 w-16 items-center justify-center rounded-md border border-line-strong bg-surface text-base text-ink">
+      {value ?? "—"}
+    </div>
+  );
 }

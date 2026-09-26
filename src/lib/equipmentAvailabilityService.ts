@@ -47,6 +47,7 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
         select: {
           id: true,
           quantityRequested: true,
+          quantityReserved: true,
           status: true,
           sessionId: true,
           session: { select: { label: true, startsAt: true, endsAt: true } },
@@ -70,6 +71,7 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
     requestId: r.id,
     quantityRequested: r.quantityRequested,
     requestStatus: r.status,
+    quantityReserved: r.quantityReserved,
     equipment: r.equipment,
     sessionId: r.sessionId,
     sessionLabel: r.session?.label ?? null,

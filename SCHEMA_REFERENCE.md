@@ -411,7 +411,8 @@ Tracked by quantity, not by serial number: a coordinator requests "3 projectors"
 | `category` | String |  | AV \| IT \| Staging \| Networking \| Accessibility |
 | `description` | String |  |  |
 | `totalQuantity` | Int | req | How many ConnectSphere owns. |
-| `quantityInMaintenance` | Int |  | Out of service. Available = total - maintenance - reserved. Defaults to `0`. |
+| `quantityInMaintenance` | Int |  | Out of service - unavailable, damaged or under maintenance. Set by Technical Support through `PATCH /api/equipment/[id]/out-of-service` (SPM-48 AC7), never more than `totalQuantity`. Available = total - maintenance - reserved. Defaults to `0`. |
+| `outOfServiceReason` | String |  | Why those units are out of service. NULL when none are - recording 0 clears it. |
 | `isActive` | Boolean |  | Defaults to `true`. `false` retires an item: it is not offered for new requests (`GET /api/equipment` and the add-equipment routes), and an existing request for it shows as Unavailable with 0 available. |
 | `locationVenueId` | String |  | SPM-48. Where the item is kept. NULL means ConnectSphere storage - the default, because equipment is returned there after every event (customer Q&A #2, #5). Set to a `Venue` only for kit that lives at that venue: no transfer time is then added for an event at the same venue. `ON DELETE SET NULL`. |
 

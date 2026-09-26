@@ -446,8 +446,12 @@ model Equipment {
   description String?
 
   totalQuantity         Int @map("total_quantity")
-  /// Out of service. Availability = total − maintenance − reserved.
+  /// Out of service - unavailable, damaged or under maintenance (SPM-55's three
+  /// words for one thing). Availability = total − maintenance − reserved.
   quantityInMaintenance Int @default(0) @map("quantity_in_maintenance")
+  /// Why those units are out of service, as recorded by Technical Support
+  /// (SPM-48 AC7 / SPM-55). NULL when none are.
+  outOfServiceReason    String? @map("out_of_service_reason")
 
   isActive Boolean @default(true) @map("is_active")
 
