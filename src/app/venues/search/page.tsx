@@ -27,6 +27,8 @@ import {
   searchFormErrors,
   searchFromEvent,
   searchQuery,
+  shouldStartPlanning,
+  START_PLANNING_REASON,
   type SearchableEvent,
   type SearchFormValues,
 } from "@/lib/venueSearchForm";
@@ -69,6 +71,8 @@ interface SearchResponse {
 interface EventForSearch extends SearchableEvent {
   title: string | null;
   sequenceNumber: number;
+  status: string;
+  coordinatorId: string | null;
   sessions?: (NonNullable<SearchableEvent["sessions"]>[number] & { label: string | null })[];
 }
 
@@ -97,6 +101,9 @@ function VenueSearch() {
   const [data, setData] = useState<SearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
+  /// Set once this visit has moved the event from Approved to Planning, or
+  /// tried to and failed - either way the coordinator is told.
+  const [planning, setPlanning] = useState<"started" | "failed" | null>(null);
 
   const search = useCallback(
     async (next: SearchFormValues) => {
@@ -159,13 +166,28 @@ function VenueSearch() {
         const loaded: EventForSearch = await eventRes.json();
         setEvent(loaded);
         initial = searchFromEvent(loaded);
+
+        // Starting the venue search is what moves an Approved event into
+        // Planning (the lifecycle diagram's "search" edge). Through the
+        // existing status route, so its permission check and status history
+        // apply exactly as for any other move. A failure here must not stop
+        // the search itself - it is reported, and the search goes on.
+        if (user && shouldStartPlanning(loaded, user)) {
+          const res = await authedFetch(`/api/events/${eventRef}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "planning", reason: START_PLANNING_REASON }),
+          });
+          setPlanning(res.ok ? "started" : "failed");
+          if (res.ok) setEvent({ ...loaded, status: "planning" });
+        }
       }
       setValues(initial);
       await search(initial);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [eventRef, router, search, selfUrl]);
+  }, [eventRef, router, search, selfUrl, user]);
 
   useEffect(() => {
     if (state === "anonymous") {
@@ -244,6 +266,18 @@ function VenueSearch() {
             : [{ label: "Venues", href: "/venues" }, { label: "Find a venue" }]
         }
       />
+
+      {planning === "started" && (
+        <Alert variant="success" title="Planning has started" className="mb-6">
+          This event has moved from Approved to Planning now that its venue search has begun.
+        </Alert>
+      )}
+      {planning === "failed" && (
+        <Alert variant="warning" title="The event is still Approved" className="mb-6">
+          Its status could not be moved to Planning. The search below still works; try reopening
+          this page.
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[20rem_1fr]">
         <Card className="self-start">

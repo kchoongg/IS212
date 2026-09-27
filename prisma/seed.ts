@@ -625,6 +625,17 @@ async function main() {
       purpose: "Gala dinner",
       category: "networking", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
       days: 173, startHour: 9, durationHours: 8, attendance: 50, layout: "banquet" },
+
+    // -----------------------------------------------------------------
+    // SPM-40 QA fixture: the only seeded event in APPROVED status, so the
+    // "opening Find a venue moves Approved -> Planning" case can be run by
+    // hand (nothing in the app can approve an event yet - S-13 is not built).
+    // Appended LAST so no earlier event's EVT- reference number shifts.
+    // -----------------------------------------------------------------
+    { key: "spm40_approved", title: "SPM40 Approved Workshop", status: "approved",
+      purpose: "Venue search walkthrough",
+      category: "workshop", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+      days: 180, startHour: 9, durationHours: 3, attendance: 30, layout: "classroom" },
   ];
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -717,6 +728,7 @@ async function main() {
     draft: [],
     submitted: ["submitted"],
     under_review: ["submitted", "under_review"],
+    approved: ["submitted", "under_review", "approved"],
     planning: ["submitted", "under_review", "approved", "planning"],
     confirmed: ["submitted", "under_review", "approved", "planning", "confirmed"],
     completed: ["submitted", "under_review", "approved", "planning", "confirmed", "completed"],

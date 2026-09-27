@@ -4,6 +4,7 @@ import {
   searchFormErrors,
   searchFromEvent,
   searchQuery,
+  shouldStartPlanning,
   type SearchableEvent,
 } from "../venueSearchForm";
 
@@ -127,5 +128,26 @@ describe("searchFormErrors", () => {
     expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "0" }).attendance).toBeTruthy();
     expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "12.5" }).attendance).toBeTruthy();
     expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "12" })).toEqual({});
+  });
+});
+
+describe("shouldStartPlanning - Approved -> Planning when the search starts", () => {
+  const daniel = { id: "u-daniel", role: "coordinator" };
+  const approved = { status: "approved", coordinatorId: "u-daniel" };
+
+  it("moves an Approved event when its assigned coordinator opens the search", () => {
+    expect(shouldStartPlanning(approved, daniel)).toBe(true);
+  });
+
+  it("never moves an event that is not Approved", () => {
+    for (const status of ["under_review", "planning", "confirmed", "postponed", "cancelled"]) {
+      expect(shouldStartPlanning({ ...approved, status }, daniel)).toBe(false);
+    }
+  });
+
+  it("leaves it alone for another coordinator, or another role", () => {
+    expect(shouldStartPlanning(approved, { id: "u-priya", role: "coordinator" })).toBe(false);
+    expect(shouldStartPlanning(approved, { id: "u-daniel", role: "venue_staff" })).toBe(false);
+    expect(shouldStartPlanning(approved, { id: "u-grace", role: "ops_manager" })).toBe(false);
   });
 });
