@@ -164,6 +164,24 @@ model VenueFacility {
 
 model Event {
   id          String  @id @default(uuid())
+  /// A user-facing, auto-generated reference number (e.g. "EVT-000123" via
+  /// eventReference() in src/lib/format.ts). Unlike `id` (an opaque UUID
+  /// that changes on every reseed) or `seedKey` (internal, seed-data only),
+  /// this is meant to be shown to every role, including an Attendee - see
+  /// ATTENDEE_EVENT_FIELDS in src/lib/permissions.ts.
+  sequenceNumber Int @unique @default(autoincrement()) @map("sequence_number")
+  /// A stable natural key for seeded/demo events, e.g. "confirmed_claims" -
+  /// the same value prisma/seed.ts's own EventSeed.key already carried, just
+  /// never persisted until now. NULL for every event raised through the app
+  /// itself (POST /api/events): those have no equivalent concept, and their
+  /// `id` is already durable in practice since production is never reseeded.
+  /// See SCHEMA_REFERENCE.md: "Event has no unique identifier at all" - this
+  /// is what closes that gap. `id` alone isn't enough because a reseed
+  /// truncates and reinserts every row with fresh UUIDs (deleteMany(), not
+  /// TRUNCATE ... RESTART IDENTITY), so nothing about `id` survives a reseed
+  /// to let a test fixture, ticket, report or integration refer back to "the
+  /// same event".
+  seedKey     String? @unique @map("seed_key")
   title       String?
   description String?
   purpose     String?

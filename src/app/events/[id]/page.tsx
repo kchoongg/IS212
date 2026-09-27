@@ -17,8 +17,8 @@ import {
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
-import { EMPTY, formatDateTimeRange, orEmpty } from "@/lib/format";
-import { statusLabel } from "@/lib/statuses";
+import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
+import { humanise, statusLabel } from "@/lib/statuses";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -33,6 +33,9 @@ interface FacilityRequirement {
 
 interface EventDetail {
   id: string;
+  // Present for every role, including an Attendee - see ATTENDEE_EVENT_FIELDS
+  // (src/lib/permissions.ts). Format with eventReference() for display.
+  sequenceNumber: number;
   title: string | null;
   description: string | null;
   purpose: string | null;
@@ -40,15 +43,27 @@ interface EventDetail {
   status: string;
   startsAt: string | null;
   endsAt: string | null;
-  expectedAttendance: number | null;
-  preferredLayout: string | null;
-  accessibilityNotes: string | null;
-  specialRequirements: string | null;
   registrationEnabled: boolean;
   registrationCapacity: number | null;
   registrationOpensAt: string | null;
   registrationClosesAt: string | null;
-  facilityRequirements: FacilityRequirement[];
+  // Absent (not just empty/null) for an Attendee: ATTENDEE_EVENT_FIELDS
+  // (src/lib/permissions.ts) omits them entirely, since expected attendance,
+  // preferred layout, accessibility/special requirements, the organiser's own
+  // name, the coordinator, and facility requirements are all either internal
+  // planning information or simply not relevant to someone deciding whether
+  // to register (docs/PERMISSIONS.md §4). Each is rendered only when present,
+  // rather than as an empty "—" row/card an Attendee has no reason to see.
+  expectedAttendance?: number | null;
+  preferredLayout?: string | null;
+  accessibilityNotes?: string | null;
+  specialRequirements?: string | null;
+  organiser?: { fullName: string };
+  coordinator?: { fullName: string } | null;
+  facilityRequirements?: FacilityRequirement[];
+  // Present for an Attendee too - which company is running the event is
+  // public, even though who personally organised it (above) is not.
+  organisation?: { name: string } | null;
 }
 
 export default function EventOverviewPage() {
@@ -73,7 +88,16 @@ export default function EventOverviewPage() {
         return;
       }
       if (!res.ok) throw new Error("Could not load this event.");
-      setEvent(await res.json());
+      const data = await res.json();
+      // The Overview hub is for a submitted request onwards; a draft is
+      // edited, not overviewed - only its owning organiser can ever reach
+      // this far (canViewEvent hides a draft from everyone else), so send
+      // them to the draft editor instead of a page with nothing to show.
+      if (data.status === "draft") {
+        router.replace(`/events/${eventId}/edit`);
+        return;
+      }
+      setEvent(data);
     } catch (err) {
       setEvent(null);
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -102,7 +126,14 @@ export default function EventOverviewPage() {
       <PageHeader
         title={event?.title || (error ? "Event" : "Loading…")}
         subtitle={event?.purpose ?? undefined}
-        meta={event && <StatusBadge status={event.status} />}
+        meta={
+          event && (
+            <>
+              <span className="text-xs text-ink-3">{eventReference(event.sequenceNumber)}</span>
+              <StatusBadge status={event.status} />
+            </>
+          )
+        }
         breadcrumbs={[
           { label: user?.role === "organiser" ? "My Events" : "Events", href: "/events" },
           { label: event?.title || "Event" },
@@ -127,56 +158,81 @@ export default function EventOverviewPage() {
         <SkeletonRows rows={3} />
       ) : (
         <div className="flex flex-col gap-6">
-          {event.status === "draft" && (
-            <Alert variant="info">
-              This is a draft — only visible to you until it&apos;s submitted. Full draft editing
-              isn&apos;t available yet.
-            </Alert>
-          )}
-
           <Card>
             <CardHeader title="Details" />
             <CardBody>
               <DetailList
                 items={[
-                  { label: "Category", value: orEmpty(event.category) },
+                  { label: "Category", value: orEmpty(event.category && humanise(event.category)) },
                   { label: "Status", value: statusLabel(event.status) },
                   { label: "When", value: formatDateTimeRange(event.startsAt, event.endsAt) },
-                  { label: "Expected attendance", value: orEmpty(event.expectedAttendance) },
-                  { label: "Preferred layout", value: orEmpty(event.preferredLayout) },
+                  // Not relevant to someone deciding whether to register, and
+                  // absent from an Attendee's response entirely - see the
+                  // comment on EventDetail above.
+                  ...(event.expectedAttendance !== undefined
+                    ? [{ label: "Expected attendance", value: orEmpty(event.expectedAttendance) }]
+                    : []),
+                  ...(event.preferredLayout !== undefined
+                    ? [
+                        {
+                          label: "Preferred layout",
+                          value: orEmpty(event.preferredLayout && humanise(event.preferredLayout)),
+                        },
+                      ]
+                    : []),
                   { label: "Description", value: orEmpty(event.description) },
+                  // Absent entirely for an Attendee (internal planning info) —
+                  // shown here, not only on the Equipment tab's "at a glance"
+                  // sidebar, so every other authorised role sees it without
+                  // having to leave Overview (SPM-31).
+                  ...(event.organiser !== undefined
+                    ? [{ label: "Organiser", value: event.organiser.fullName }]
+                    : []),
+                  // Independent of Organiser above: an Attendee gets this
+                  // row (which company is running the event) without the
+                  // organiser's personal name.
+                  ...(event.organisation !== undefined
+                    ? [{ label: "Company", value: orEmpty(event.organisation?.name) }]
+                    : []),
+                  ...(event.coordinator !== undefined
+                    ? [{ label: "Coordinator", value: event.coordinator?.fullName ?? "Not yet assigned" }]
+                    : []),
                 ]}
               />
             </CardBody>
           </Card>
 
-          <Card>
-            <CardHeader title="Venue requirements" />
-            <CardBody>
-              <DetailList
-                items={[
-                  {
-                    label: "Required facilities",
-                    value:
-                      event.facilityRequirements.length === 0 ? (
-                        EMPTY
-                      ) : (
-                        <ul className="flex flex-col gap-1">
-                          {event.facilityRequirements.map((req) => (
-                            <li key={req.facilityId}>
-                              {req.facility.name}
-                              {!req.isMandatory && <span className="text-ink-3"> (nice-to-have)</span>}
-                            </li>
-                          ))}
-                        </ul>
-                      ),
-                  },
-                  { label: "Accessibility notes", value: orEmpty(event.accessibilityNotes) },
-                  { label: "Special requirements", value: orEmpty(event.specialRequirements) },
-                ]}
-              />
-            </CardBody>
-          </Card>
+          {/* Absent entirely, not just empty, for an Attendee - internal
+              planning information they have no reason to see (SPM-31). */}
+          {event.facilityRequirements !== undefined && (
+            <Card>
+              <CardHeader title="Venue requirements" />
+              <CardBody>
+                <DetailList
+                  items={[
+                    {
+                      label: "Required facilities",
+                      value:
+                        event.facilityRequirements.length === 0 ? (
+                          EMPTY
+                        ) : (
+                          <ul className="flex flex-col gap-1">
+                            {event.facilityRequirements.map((req) => (
+                              <li key={req.facilityId}>
+                                {req.facility.name}
+                                {!req.isMandatory && <span className="text-ink-3"> (nice-to-have)</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        ),
+                    },
+                    { label: "Accessibility notes", value: orEmpty(event.accessibilityNotes) },
+                    { label: "Special requirements", value: orEmpty(event.specialRequirements) },
+                  ]}
+                />
+              </CardBody>
+            </Card>
+          )}
 
           <Card>
             <CardHeader title="Registration" />

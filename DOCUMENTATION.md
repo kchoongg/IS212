@@ -26,6 +26,19 @@
 > - [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md) — who may do what, and to
 >   which events. **Read this before writing any route**, and check the
 >   permission it needs before you write the handler.
+> - [`docs/ConnectSphere_Status_Lifecycle.drawio`](./docs/ConnectSphere_Status_Lifecycle.drawio)
+>   — the ten event statuses and which moves between them are legal, the
+>   lifecycle the events `PATCH` route refers to (open with
+>   [diagrams.net](https://app.diagrams.net)).
+> - [`docs/ConnectSphere_BPMN.drawio`](./docs/ConnectSphere_BPMN.drawio) — the
+>   whole business process as one swimlane per role, showing who does what, in
+>   what order, from an organiser's first draft to a completed event.
+>
+> **Keep the two diagrams in step with the code.** A change to the event
+> lifecycle — a new status, a new transition, a changed rule — updates the
+> status lifecycle diagram in the same PR, and a change to the cross-role
+> process — a new step, a changed handoff between roles — updates the BPMN
+> one. A diagram left to drift is worse than none, because people trust it.
 
 ---
 
@@ -138,11 +151,21 @@ IS212/
     │   ├── dashboard/page.tsx         # S-03, role-aware
     │   ├── events/page.tsx             # S-07
     │   ├── events/new/page.tsx          # S-08, the event request form (create)
-    │   ├── events/[id]/edit/page.tsx  # S-08, the same form (edit a saved draft)
-    │   ├── events/[id]/page.tsx         # ❌ NOT BUILT YET — general event detail.
-    │   │                                    Dashboard and the events list both link
-    │   │                                    here for non-draft events; until this
-    │   │                                    exists those links 404.
+    │   ├── events/[id]/edit/page.tsx  # S-08, the same form (edit a saved draft) —
+    │   │                                also the ONLY screen a draft has: opening a
+    │   │                                draft's Overview address redirects straight
+    │   │                                here (SPM-31, 2026-09-23), so this page has
+    │   │                                no Tabs and no link back to Overview.
+    │   ├── events/[id]/page.tsx         # S-06, "the hub" — Overview tab (SPM-47 built
+    │   │                                the page, SPM-31 filled in what it shows).
+    │   │                                The address is the event's reference, e.g.
+    │   │                                /events/EVT-000123, not its id (SPM-31,
+    │   │                                2026-09-23) — see eventReference() /
+    │   │                                parseEventReference() in lib/format.ts.
+    │   │                                An Attendee gets a curated subset (no Venue
+    │   │                                requirements card, no internal-only rows);
+    │   │                                every other role sees the full record.
+    │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
     │   │
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
@@ -161,12 +184,17 @@ IS212/
         ├── prisma.ts           # Database client — import this, don't create your own
         ├── auth.ts              # Password hashing + JWT helpers (server-side)
         ├── permissions.ts        # WHO MAY DO WHAT — pure, testable, no Prisma
-        ├── apiAuth.ts             # getActor() + 401/403/404 helpers for routes
+        ├── apiAuth.ts             # getActor() + 401/403/404 helpers for routes, plus
+        │                           resolveEventId() (an event's real id from its
+        │                           reference — SPM-31, 2026-09-23)
         ├── session.ts            # Browser-side: storing/reading the login token
         ├── useCurrentUser.ts      # Who is signed in (for rendering only, never for access)
         ├── roles.ts                # Role labels + which nav/tabs each role sees
         ├── statuses.ts              # Status label + colour for EVERY status in the system
-        ├── format.ts                 # Dates, capacities, venue names — one format each
+        ├── format.ts                 # Dates, capacities, venue names — one format each.
+        │                              Also eventReference()/parseEventReference():
+        │                              an event's user-facing id, e.g. EVT-000123
+        │                              (SPM-31, 2026-09-23)
         ├── formErrors.ts              # Client validation + mapping server errors to fields
         ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues, sessionsPayload
         ├── eventSessions.ts             # Multi-session events (pure): deriveEventFromSessions, equipmentWindow
@@ -514,7 +542,7 @@ traceability the module asks for.
 |---|---|
 | `npm run dev` | Start the app (auto-reloads as you edit) |
 | `npm run build` | Production build |
-| `npx eslint src --ext .ts,.tsx` | Check code style/common mistakes |
+| `npm run lint` | Check code style/common mistakes (runs `eslint .` over the whole repo) |
 | `npm test` | Run tests once |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
@@ -522,12 +550,13 @@ traceability the module asks for.
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
 | `npx prisma migrate dev` | Create/apply a migration after YOU change `schema.prisma` |
 | `npx prisma studio` | Browser UI to view/edit the database directly |
-| `npx prisma db seed` | ⚠️ Wipes all tables, then loads the demo data |
+| `npx prisma db seed` | ⚠️ Wipes all tables, then loads the demo data. Safe to re-run — as of 2026-09-25 it also resets `Event.sequenceNumber`'s Postgres sequence, so `EVT-000005` etc. come back the same every time |
 | `npx prisma migrate reset` | ⚠️ Wipes the database and replays all migrations |
 
-> ⚠️ `npm run lint` is **broken** on Next 16 — `next lint` was removed and the
-> argument is read as a directory (`no such directory: C:\IS212\lint`). Use the
-> `npx eslint` command above until someone updates the script in `package.json`.
+> `npm run lint` was broken on Next 16 — `next lint` was removed, so the
+> argument was read as a directory (`no such directory: C:\IS212\lint`). Fixed
+> on 2026-09-20: the script is now `eslint .`, which lints the whole repo
+> rather than just `src`.
 >
 > (The two `prisma` rows above used to sit *below* this note, outside the
 > table, so they rendered as plain text instead of rows.)
@@ -624,20 +653,19 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | Gap | Impact | Owner |
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
-| **No general event detail screen** (`src/app/events/[id]/page.tsx`) | The dashboard and events list link here for non-draft events; those links 404. | unclaimed |
 | **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. | events |
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
 | **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
-| **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles (the event detail screen doesn't exist yet). | events / venues / equipment |
+| **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
-| **`npm run lint` is broken on Next 16** | Use `npx eslint src --ext .ts,.tsx`. | unclaimed |
-| **No route-level tests outside auth/permissions** | `npm run verify:permissions` (36 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
+| **No route-level tests outside auth/permissions** | `npm run verify:permissions` (45 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
+| **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 
 ---
 
@@ -656,54 +684,139 @@ what changed, why, and the migration name if there is one.
 
 ---
 
-### 2026-09-18 — Jordan (SPM-21, later the same day)
-Audited the four acceptance criteria of **SPM-21 (User Login)** against the
-running app. AC1 (valid credentials authenticate) and AC2 (invalid credentials
-are refused with a message) already held. AC3 and AC4 held at the route layer —
-`verify:permissions` was 36/36 — but both were reachable around the side:
+### 2026-09-25 — Kristen
+- **Fixed `prisma/seed.ts` leaking event reference numbers across reseeds.**
+  A teammate running SPM-31's test cases (TC01, TC09, TC17) got `EVT-000200`
+  for "Meridian Wealth Management Forum" instead of the `EVT-000005` the test
+  data expects. `Event.sequenceNumber` is a Postgres `autoincrement()` column
+  (see `prisma/schema.prisma`'s note on `id` vs `seedKey`), and the seed script
+  clears tables with `deleteMany()`, not `TRUNCATE ... RESTART IDENTITY` — that
+  note explained why `id` churns on every reseed but missed that
+  `sequence_number`'s underlying Postgres sequence *isn't* reset either, so it
+  keeps climbing every time `npx prisma db seed` is re-run instead of
+  restarting at 1. Fixed by adding `ALTER SEQUENCE "events_sequence_number_seq"
+  RESTART WITH 1` right after `event.deleteMany()`. Verified: after reseeding,
+  "Meridian Wealth Management Forum" is `sequenceNumber: 5` again.
+- Also found, while triaging the same test cases: TC19 404s because the
+  Attendee's "Browse Events" nav link (`src/lib/roles.ts`) points at `/browse`,
+  and `src/app/browse/page.tsx` doesn't exist. Not fixed here — logged under
+  Known Gaps.
 
-- **Anyone could self-assign an internal role.** `POST /api/auth/register` takes
-  no session and passed `role` from the request body straight to
-  `prisma.user.create`, accepting all six roles. An anonymous request created an
-  `ops_manager`, which then read every client's events with `organiserId`,
-  `organisationId` and `coordinatorId` attached — the exact case briefing §8b
-  names. The permission model was being enforced perfectly against a role the
-  caller had chosen for themselves. Registration is now limited to the two
-  external roles via `SELF_REGISTERABLE_ROLES` (`src/lib/roles.ts`), enforced in
-  `registerSchema` and mirrored in the S-02 dropdown, which had been offering
-  "Operations Manager" to the public.
-  - Note for whoever reads `docs/PERMISSIONS.md` §8: the open item there said
-    "Zod guards the register route". Zod guarded that the role was one of six
-    valid *strings*, not that the caller was entitled to it. Corrected.
-- **A deactivated account could log in.** `POST /api/auth/login` never checked
-  `isActive`, and `/api/auth/me` was the one route not going through
-  `getActor()`, so it skipped the check too. The result was a user who logged in
-  "successfully", saw the signed-in chrome, and then had every data route 401 and
-  bounce them back to `/login` — a loop, not a refusal. Login now refuses with a
-  403 that says why, and `me` uses `getActor()` like everything else.
-- **Cancellation narrowed to the Event Coordinator** (customer clarification,
-  2026-09-18). `STATUS_TRANSITION_ROLES.cancelled` was
-  `["coordinator", "organiser", "ops_manager"]` and is now `["coordinator"]`;
-  `event:cancel` dropped off the organiser and Ops Manager role lists to match.
-  Cancelling releases the venue, frees the equipment and drops the attendee
-  list, so it is ConnectSphere's call rather than the client's. **Postponement
-  was deliberately left alone** — an organiser may still postpone their own
-  event. A new test asserts `can()` and `STATUS_TRANSITION_ROLES` agree about
-  `event:cancel`, so the two halves cannot drift apart again.
-- **New: `scripts/verify-login.ts`** (`npm run verify:login`) — SPM-21's
-  acceptance check against a running server, 29 checks labelled AC1-AC4 so the
-  output goes straight into the test evidence. Includes the cancellation rule
-  end to end and an assertion that a wrong password and an unknown email are
-  refused *identically* (no account enumeration). Creates its own throwaway
-  account and event and deletes both; safe to re-run.
-- **Tests: 123 passing (was 114).** `loginSchema` had no unit test at all —
-  AC1 and AC2 were the two criteria with nothing traceable to them. Added those
-  plus the self-registration guard and the cancellation rule.
-- **Verified:** `vitest` 123/123, `verify:login` 29/29, `verify:permissions`
-  36/36 (unchanged), `tsc --noEmit` and `eslint src scripts` clean.
-- ⚠️ **Knock-on effects, both now in Known Gaps:** there is no in-app way to
-  create a staff account any more (seed only), and an organiser has no way to
-  request cancellation until Event Change Requests has an endpoint.
+---
+
+### 2026-09-23 — Kristen
+- **SPM-31 (View Event Information): filled in the Overview tab (S-06) that
+  SPM-47 built the shell of, and gave every event a durable, user-facing
+  identity along the way.** The page already existed (`src/app/events/[id]/page.tsx`,
+  built as scaffolding for SPM-47's Equipment tab) but the "❌ NOT BUILT YET"
+  line in this doc's own Directory Structure was stale — the page has worked
+  since 2026-09-19. Fixed here, and see Known Gaps (that row is now gone).
+  - **Every event gets an auto-generated reference number**, e.g.
+    `EVT-000123` (`Event.sequenceNumber`, `eventReference()` in
+    `src/lib/format.ts`), shown next to the title for every role including an
+    Attendee. Distinct from `id` (opaque, changes on every reseed) and from
+    the new `Event.seedKey` (below).
+  - **`Event.seedKey` persists `prisma/seed.ts`'s own natural key** (e.g.
+    `"confirmed_claims"`) — previously an in-memory label only, per this
+    doc's own note under Watch Out in `SCHEMA_REFERENCE.md`
+    ("`Event` has no unique identifier at all"). Nullable; NULL for every
+    event raised through the app itself, which has no equivalent concept and
+    doesn't need one since production is never reseeded.
+  - **Event URLs now use the reference, not the id** —
+    `/events/EVT-000123`, not `/events/<uuid>`. `GET`/`PATCH
+    /api/events/[id]` resolve the route segment via `parseEventReference()` +
+    a lookup by `sequenceNumber`; the equipment sub-routes and a new
+    `resolveEventId()` (`src/lib/apiAuth.ts`) do the same. Every
+    internal link-building site was updated to match: the events list, the
+    dashboard, the redirect after creating an event, and both
+    `scripts/verify-permissions.ts` / `scripts/verify-login.ts`. **This is a
+    bigger, cross-cutting change than SPM-31's own scope** — it touches the
+    shared event route and `prisma/schema.prisma`, which other in-progress
+    branches (venue suitability, equipment availability) also touch — flagged
+    to the team before merging, not pushed yet.
+  - **The Overview tab now names the organiser, their company, and the
+    coordinator** — previously only the Equipment tab's "Event at a glance"
+    sidebar named the coordinator, and nothing showed the organiser at all
+    (the API didn't even fetch it). An Attendee sees the **company** only,
+    never the organiser's personal name — a deliberate, narrow exception to
+    `docs/PERMISSIONS.md`'s "organiser/client identity is withheld from an
+    Attendee" rule, resolved via the event's own `organisation` relation kept
+    separate from `organiser.organisation` (the two can differ — see the
+    schema's note on `Event.organisationId`).
+  - **Category and Preferred layout render capitalised** (`"conference"` →
+    `"Conference"`), reusing `statuses.ts`'s existing `humanise()` (now
+    exported) instead of showing the raw stored value.
+  - **A draft has no Overview view at all** — only a submitted event does.
+    Found because a test case's precondition (an info banner on Overview for
+    a draft) didn't match what "My Events" actually does: it routes a draft
+    straight to `events/[id]/edit`, which has no tabs and no link back to
+    Overview, so that banner was only ever reachable by typing the address
+    directly. Fixed by redirecting Overview to `/edit` whenever the fetched
+    event's status is `draft`, and removed the now-dead banner code.
+  - **Fixed a real crash, found while writing SPM-31's test cases, not
+    invented for them:** an Attendee viewing the one event they're actually
+    authorised to see (confirmed + registration open) got a broken page.
+    `ATTENDEE_EVENT_FIELDS` (`src/lib/permissions.ts`) has never included
+    `facilityRequirements` — it's internal planning information — so the
+    field is simply absent from an Attendee's response, but the page
+    unconditionally read `.length` off it. Fixed by treating it (and
+    `expectedAttendance`, `preferredLayout`, `accessibilityNotes`,
+    `specialRequirements`, `organiser`, `coordinator`) as optional and
+    rendering each row only when present, rather than blank.
+  - **An Attendee's Overview is now a genuinely curated subset**, not the
+    same three-card layout as every other role with most fields showing
+    "—". The whole "Venue requirements" card, and the "Expected attendance" /
+    "Preferred layout" rows, are omitted entirely for an Attendee rather than
+    shown empty — none of it is relevant to deciding whether to register.
+  - Migrations: `20260922210000_add_event_seed_key`,
+    `20260922213000_add_event_sequence_number`.
+  - Tests: `vitest` 258/258, `tsc --noEmit` and `eslint` clean.
+    `npm run verify:permissions` 45/45, `npm run verify:login` 29/29 (both
+    updated for the new URL scheme and re-run against a live server, not just
+    patched and assumed). Manually walked through every role in a real
+    browser (Chromium) for both the URL change and the curated Attendee view;
+    a throwaway test draft used for one of those checks was deleted
+    afterwards.
+  - Test cases: `docs/test-cases/SPM-31_*` — 19 cases covering viewing rights
+    across every role, the reference number, the URL scheme, the draft
+    redirect, and the curated Attendee view. Split off from an earlier
+    combined "View and Update Event Information" story; the update/edit half
+    moved to a new story, SPM-62, left in the backlog.
+  - **Decisions confirmed for SPM-31 (2026-09-22/23):** an Attendee sees the
+    company running an event but never the organiser's own name; the
+    coordinator's name belongs on Overview itself, not only the Equipment
+    tab's sidebar; assigning a coordinator should also move status
+    `submitted` → `under_review` in the same action (an SPM-30 decision,
+    recorded here because it changes `isAssignedCoordinator()`'s "or
+    unassigned" clause that SPM-31's tests also touch) — an unassigned event
+    can be approved or rejected by nobody, not "any coordinator," once
+    SPM-30 ships.
+
+---
+### 2026-09-22 — Kayal
+- **Clarification no longer sends an event anywhere — it stays in review, with
+  the same coordinator, in both diagrams.** Asking the organiser a question
+  pauses the review; it does not restart it. There is no reason to take the
+  event away from a coordinator who already has its context, or to send it back
+  through the assignment queue.
+  - `docs/ConnectSphere_Status_Lifecycle.drawio` — "clarification needed" is
+    now a loop on **Under review**: the event stays in that status while the
+    organiser answers. It previously went back to **Draft**. The arrow is now
+    attached to Under review at both ends rather than drawn loose. No other
+    status or transition changed.
+  - `docs/ConnectSphere_BPMN.drawio` — "Amend request per clarification" now
+    leads to the coordinator's **Review event request**, labelled "back to
+    coordinator". It previously went back to the organiser's **Submit event
+    request**, labelled "resubmit". Three nearby shapes were nudged to make
+    room for it; layout only.
+  - No route writes `ClarificationRequest` yet, so this is the intended design,
+    not current behaviour. Whoever builds the clarification loop should keep
+    the event in `under_review` while a clarification is open.
+- Linked both diagrams from the Companion documents list at the top of this
+  file — until now only a code comment pointed at the lifecycle and nothing
+  pointed at the BPMN — with a note to update the relevant diagram in the same
+  PR as any change to the event lifecycle or the cross-role process.
+
 ### 2026-09-20 — Kayal
 - **`PATCH /api/venues/[id]` — update a venue, or retire it** (SPM-39). The
   route had only GET and POST: there was no way to change a venue at all, and
@@ -1132,6 +1245,55 @@ are refused with a message) already held. AC3 and AC4 held at the route layer �
   screen/endpoint to read them back. The top-bar bell already links to
   `/notifications`, but the route and a `GET /api/notifications` endpoint
   don't exist — tracked on SPM-53.
+
+### 2026-09-18 — Jordan (SPM-21, later the same day)
+Audited the four acceptance criteria of **SPM-21 (User Login)** against the
+running app. AC1 (valid credentials authenticate) and AC2 (invalid credentials
+are refused with a message) already held. AC3 and AC4 held at the route layer —
+`verify:permissions` was 36/36 — but both were reachable around the side:
+
+- **Anyone could self-assign an internal role.** `POST /api/auth/register` takes
+  no session and passed `role` from the request body straight to
+  `prisma.user.create`, accepting all six roles. An anonymous request created an
+  `ops_manager`, which then read every client's events with `organiserId`,
+  `organisationId` and `coordinatorId` attached — the exact case briefing §8b
+  names. The permission model was being enforced perfectly against a role the
+  caller had chosen for themselves. Registration is now limited to the two
+  external roles via `SELF_REGISTERABLE_ROLES` (`src/lib/roles.ts`), enforced in
+  `registerSchema` and mirrored in the S-02 dropdown, which had been offering
+  "Operations Manager" to the public.
+  - Note for whoever reads `docs/PERMISSIONS.md` §8: the open item there said
+    "Zod guards the register route". Zod guarded that the role was one of six
+    valid *strings*, not that the caller was entitled to it. Corrected.
+- **A deactivated account could log in.** `POST /api/auth/login` never checked
+  `isActive`, and `/api/auth/me` was the one route not going through
+  `getActor()`, so it skipped the check too. The result was a user who logged in
+  "successfully", saw the signed-in chrome, and then had every data route 401 and
+  bounce them back to `/login` — a loop, not a refusal. Login now refuses with a
+  403 that says why, and `me` uses `getActor()` like everything else.
+- **Cancellation narrowed to the Event Coordinator** (customer clarification,
+  2026-09-18). `STATUS_TRANSITION_ROLES.cancelled` was
+  `["coordinator", "organiser", "ops_manager"]` and is now `["coordinator"]`;
+  `event:cancel` dropped off the organiser and Ops Manager role lists to match.
+  Cancelling releases the venue, frees the equipment and drops the attendee
+  list, so it is ConnectSphere's call rather than the client's. **Postponement
+  was deliberately left alone** — an organiser may still postpone their own
+  event. A new test asserts `can()` and `STATUS_TRANSITION_ROLES` agree about
+  `event:cancel`, so the two halves cannot drift apart again.
+- **New: `scripts/verify-login.ts`** (`npm run verify:login`) — SPM-21's
+  acceptance check against a running server, 29 checks labelled AC1-AC4 so the
+  output goes straight into the test evidence. Includes the cancellation rule
+  end to end and an assertion that a wrong password and an unknown email are
+  refused *identically* (no account enumeration). Creates its own throwaway
+  account and event and deletes both; safe to re-run.
+- **Tests: 123 passing (was 114).** `loginSchema` had no unit test at all —
+  AC1 and AC2 were the two criteria with nothing traceable to them. Added those
+  plus the self-registration guard and the cancellation rule.
+- **Verified:** `vitest` 123/123, `verify:login` 29/29, `verify:permissions`
+  36/36 (unchanged), `tsc --noEmit` and `eslint src scripts` clean.
+- ⚠️ **Knock-on effects, both now in Known Gaps:** there is no in-app way to
+  create a staff account any more (seed only), and an organiser has no way to
+  request cancellation until Event Change Requests has an endpoint.
 
 ### 2026-09-18 — Jordan
 - **SPM-4 (role and permission model) implemented end to end.** Closes the

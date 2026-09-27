@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
+import { parseEventReference } from "@/lib/format";
 import {
   canEditEventContent,
   canSetEventStatus,
@@ -22,24 +23,41 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return unauthenticated();
   }
 
-  const event = await prisma.event.findUnique({
-    where: { id },
-    include: {
-      facilityRequirements: { include: { facility: true } },
-      // ADDED (SPM-47): the hub's "Event at a glance" sidebar (S-06,
-      // design/mockups/OrganiserEventDetail.dc.html) names the coordinator.
-      coordinator: { select: { fullName: true } },
-      // Each row carries its sessionId (null = the whole event), which is how
-      // the edit form tells event-wide equipment from a session's own.
-      equipmentRequests: true,
-      // ADDED (SPM-23, multi-session events): empty for an ordinary
-      // single-session event. SESSION_SELECT (src/lib/sessionWrites.ts) is a
-      // superset of what SPM-47's per-session equipment picker needs
-      // (id/label/startsAt/endsAt), so it's reused here rather than
-      // duplicating a second, narrower select shape.
-      sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
-    },
-  });
+  // CHANGED (SPM-31): the route segment is now the user-facing reference
+  // (e.g. "EVT-000123"), not the underlying UUID - see eventReference() /
+  // parseEventReference() in src/lib/format.ts. A segment that doesn't parse
+  // gets the same refusal as one that parses but matches nothing.
+  const sequenceNumber = parseEventReference(id);
+  const event =
+    sequenceNumber === null
+      ? null
+      : await prisma.event.findUnique({
+          where: { sequenceNumber },
+          include: {
+            facilityRequirements: { include: { facility: true } },
+            // ADDED (SPM-47): the hub's "Event at a glance" sidebar (S-06,
+            // design/mockups/OrganiserEventDetail.dc.html) names the coordinator.
+            coordinator: { select: { fullName: true } },
+            // ADDED (SPM-31): the Overview tab names who raised the request,
+            // symmetric to the coordinator above. Stripped for an Attendee by
+            // visibleEventFor() (ATTENDEE_EVENT_FIELDS omits "organiser").
+            organiser: { select: { fullName: true } },
+            // ADDED (SPM-31): the event's OWN organisation relation, not
+            // organiser.organisation - kept separate so an Attendee can be shown
+            // which company is running the event (ATTENDEE_EVENT_FIELDS includes
+            // "organisation") without exposing the organiser's personal name.
+            organisation: { select: { name: true } },
+            // Each row carries its sessionId (null = the whole event), which is how
+            // the edit form tells event-wide equipment from a session's own.
+            equipmentRequests: true,
+            // ADDED (SPM-23, multi-session events): empty for an ordinary
+            // single-session event. SESSION_SELECT (src/lib/sessionWrites.ts) is a
+            // superset of what SPM-47's per-session equipment picker needs
+            // (id/label/startsAt/endsAt), so it's reused here rather than
+            // duplicating a second, narrower select shape.
+            sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
+          },
+        });
   if (!event) {
     return hidden();
   }
@@ -82,7 +100,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     const body = await req.json();
 
-    const event = await prisma.event.findUnique({ where: { id } });
+    // CHANGED (SPM-31): see the matching comment in GET above.
+    const sequenceNumber = parseEventReference(id);
+    const event =
+      sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
     if (!event) {
       return hidden();
     }
@@ -99,9 +120,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // promise rejection instead of landing in the catch below, since the
     // `return` completes this try block before the inner promise settles.
     if (body && typeof body === "object" && "status" in body) {
-      return await handleStatusChange(id, actor, event, body);
+      return await handleStatusChange(event.id, actor, event, body);
     }
-    return await handleDraftEdit(id, actor, event, body);
+    return await handleDraftEdit(event.id, actor, event, body);
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });

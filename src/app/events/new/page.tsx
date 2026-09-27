@@ -15,6 +15,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { SessionFields } from "@/components/SessionFields";
+import { eventReference } from "@/lib/format";
 import { authedFetch } from "@/lib/session";
 import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formErrors";
 import {
@@ -211,7 +212,7 @@ export default function NewEventPage() {
 
       // The event is created as a draft; submitting is a second step, and the
       // server re-checks completeness before it lets the status change.
-      const submitRes = await authedFetch(`/api/events/${body.id}`, {
+      const submitRes = await authedFetch(`/api/events/${eventReference(body.sequenceNumber)}`, {
         method: "PATCH",
         body: JSON.stringify({ status: "submitted" }),
       });
@@ -226,7 +227,7 @@ export default function NewEventPage() {
         return;
       }
 
-      router.push(`/events/${body.id}`);
+      router.push(`/events/${eventReference(body.sequenceNumber)}`);
     } catch {
       setFormError("Could not reach the server. Check your connection and try again.");
       focusFirstError(formRef.current, {});

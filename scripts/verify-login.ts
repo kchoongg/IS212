@@ -32,6 +32,14 @@ const TEMP_EMAIL = "spm21-verify-throwaway@example.invalid";
 
 const prisma = new PrismaClient();
 
+// CHANGED (SPM-31): GET/PATCH /api/events/[id] now takes the event's
+// user-facing reference (e.g. "EVT-000123"), not its underlying UUID - see
+// eventReference() in src/lib/format.ts. Kept as a local copy rather than an
+// import so this script stays runnable standalone, same as before.
+function ref(sequenceNumber: number): string {
+  return `EVT-${String(sequenceNumber).padStart(6, "0")}`;
+}
+
 type Check = { ac: string; name: string; ok: boolean; detail: string };
 const results: Check[] = [];
 
@@ -90,6 +98,7 @@ async function main() {
   console.log(`\nServer: ${BASE}\n`);
 
   let createdEventId: string | null = null;
+  let createdEventRef: string | null = null;
 
   try {
     // -----------------------------------------------------------------------
@@ -205,31 +214,33 @@ async function main() {
     });
     const createBody = await createRes.text();
     if (createRes.status !== 201) throw new Error(`Cannot continue: ${createBody}`);
-    createdEventId = JSON.parse(createBody).id as string;
+    const created = JSON.parse(createBody);
+    createdEventId = created.id as string;
+    createdEventRef = ref(created.sequenceNumber as number);
 
     // Out of draft, so the refusals below are the CANCELLATION rule talking and
     // not draft privacy (which would answer 404 for everyone but the owner).
-    await asOrganiser(`/api/events/${createdEventId}`, {
+    await asOrganiser(`/api/events/${createdEventRef}`, {
       method: "PATCH", body: JSON.stringify({ status: "submitted" }),
     });
-    await asCoordinator(`/api/events/${createdEventId}`, {
+    await asCoordinator(`/api/events/${createdEventRef}`, {
       method: "PATCH", body: JSON.stringify({ status: "under_review" }),
     });
 
     await expectStatus("AC4", "the OWNING ORGANISER cannot cancel their own event", 403,
-      await asOrganiser(`/api/events/${createdEventId}`, {
+      await asOrganiser(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "cancelled", reason: "changed our minds" }),
       }));
     await expectStatus("AC4", "the OPS MANAGER cannot cancel an event either", 403,
-      await asOpsManager(`/api/events/${createdEventId}`, {
+      await asOpsManager(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "cancelled", reason: "tidying the queue" }),
       }));
     await expectStatus("AC4", "an attendee cannot cancel an event", 404,
-      await asAttendee(`/api/events/${createdEventId}`, {
+      await asAttendee(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "cancelled" }),
       }));
     await expectStatus("AC4", "the assigned COORDINATOR can cancel it", 200,
-      await asCoordinator(`/api/events/${createdEventId}`, {
+      await asCoordinator(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "cancelled", reason: "Venue withdrawn" }),
       }));
 

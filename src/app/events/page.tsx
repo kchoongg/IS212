@@ -11,7 +11,7 @@ import {
   Table,
   type Column,
 } from "@/components/ui";
-import { formatDateTimeRange, orEmpty } from "@/lib/format";
+import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { statusLabel } from "@/lib/statuses";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
@@ -22,6 +22,7 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 
 interface EventRow {
   id: string;
+  sequenceNumber: number;
   title: string | null;
   status: string;
   category: string | null;
@@ -94,6 +95,11 @@ export default function EventsPage() {
 
   const columns: Column<EventRow>[] = [
     {
+      key: "reference",
+      header: "Reference",
+      render: (row) => <span className="text-ink-3">{eventReference(row.sequenceNumber)}</span>,
+    },
+    {
       key: "title",
       header: "Event",
       hideLabelOnMobile: true,
@@ -159,7 +165,7 @@ export default function EventsPage() {
             columns={columns}
             rows={drafts}
             rowKey={(row) => row.id}
-            onRowClick={(row) => router.push(`/events/${row.id}/edit`)}
+            onRowClick={(row) => router.push(`/events/${eventReference(row.sequenceNumber)}/edit`)}
             caption="Draft event requests"
           />
         </section>
@@ -190,7 +196,7 @@ export default function EventsPage() {
               columns={columns}
               rows={rows}
               rowKey={(row) => row.id}
-              onRowClick={(row) => router.push(`/events/${row.id}`)}
+              onRowClick={(row) => router.push(`/events/${eventReference(row.sequenceNumber)}`)}
               caption="Events"
             />
           )}
