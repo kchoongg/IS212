@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   EMPTY,
+  eventReference,
   formatCapacity,
   formatDate,
   formatDateTime,
@@ -9,6 +10,7 @@ import {
   formatTime,
   formatVenue,
   orEmpty,
+  parseEventReference,
 } from "../format";
 
 // Traces to SPM-7: "the interface is consistent across user roles". A date has
@@ -119,5 +121,32 @@ describe("orEmpty", () => {
     expect(orEmpty(null)).toBe(EMPTY);
     expect(orEmpty(undefined)).toBe(EMPTY);
     expect(orEmpty("")).toBe(EMPTY);
+  });
+});
+
+describe("eventReference / parseEventReference", () => {
+  it("formats and parses back the same number", () => {
+    expect(eventReference(123)).toBe("EVT-000123");
+    expect(parseEventReference("EVT-000123")).toBe(123);
+  });
+
+  it("is case-insensitive and needs no padding to parse", () => {
+    expect(parseEventReference("evt-42")).toBe(42);
+  });
+
+  it("rejects anything that isn't the EVT-<digits> shape, including a raw UUID", () => {
+    expect(parseEventReference("not-a-reference")).toBeNull();
+    expect(parseEventReference("a1b2c3d4-0000-0000-0000-000000000000")).toBeNull();
+    expect(parseEventReference("EVT-")).toBeNull();
+    expect(parseEventReference("EVT-12a")).toBeNull();
+  });
+
+  // FIXED (found in review of PR #21): a reference above Postgres's int4
+  // range crashed every route that resolved it, with a 500 instead of the 404
+  // an unmatched reference should give.
+  it("rejects a number too large for the database's sequence column, rather than crashing later", () => {
+    expect(parseEventReference("EVT-2147483647")).toBe(2_147_483_647); // int4 max: still valid
+    expect(parseEventReference("EVT-2147483648")).toBeNull(); // one past int4 max
+    expect(parseEventReference("EVT-99999999999")).toBeNull();
   });
 });

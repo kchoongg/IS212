@@ -40,23 +40,6 @@
   "test_cases": [
     {
       "id": "SPM-48-TC01",
-      "title": "Availability check matches on the requested equipment type",
-      "linked_ac": [
-        "AC1"
-      ],
-      "type": "Positive",
-      "source": "Acceptance Criteria",
-      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\n'Podium Mic': 1 total, held in full by 'Keynote Rehearsal' on the same day (2026-10-20).\nEvent 'Town Hall Q4' (2026-10-20) requests 2x Cordless Mic Set only.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Town Hall Q4 event",
-        "Read the Cordless Mic Set line under Requested items"
-      ],
-      "test_data": "Equipment: Cordless Mic Set, Requested: 2",
-      "expected_result": "The Cordless Mic Set line shows the chip 'Available' and '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nPodium Mic being fully held has no effect on this line.\nNo 'Not everything requested is available.' banner is shown."
-    },
-    {
-      "id": "SPM-48-TC02",
       "title": "Equipment type with no stock at all is reported as unavailable",
       "linked_ac": [
         "AC1",
@@ -74,41 +57,7 @@
       "expected_result": "The Smoke Machine line shows the chip 'Unavailable' and '0 total − 0 in maintenance − 0 reserved elsewhere = 0 available for these dates'.\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
-      "id": "SPM-48-TC03",
-      "title": "Sufficient quantity is reported when stock exceeds the request",
-      "linked_ac": [
-        "AC2"
-      ],
-      "type": "Positive",
-      "source": "Acceptance Criteria",
-      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Career Fair' (2026-10-14) requests 3x Cordless Mic Set.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Career Fair event",
-        "Read the Cordless Mic Set line under Requested items"
-      ],
-      "test_data": "Equipment: Cordless Mic Set, Requested: 3, Available: 5",
-      "expected_result": "The Cordless Mic Set line shows the chip 'Available' and '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
-    },
-    {
-      "id": "SPM-48-TC04",
-      "title": "Insufficient quantity is reported when the request exceeds stock",
-      "linked_ac": [
-        "AC2"
-      ],
-      "type": "Negative",
-      "source": "Acceptance Criteria",
-      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Career Fair 2' (2026-10-15) requests 10x Cordless Mic Set.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Career Fair 2 event",
-        "Read the Cordless Mic Set line under Requested items"
-      ],
-      "test_data": "Equipment: Cordless Mic Set, Requested: 10, Available: 5",
-      "expected_result": "The Cordless Mic Set line shows the chip 'Partial', '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates' and '10 requested, 5 available.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
-    },
-    {
-      "id": "SPM-48-TC05",
+      "id": "SPM-48-TC02",
       "title": "Requested quantity exactly equal to available stock is sufficient",
       "linked_ac": [
         "AC2"
@@ -125,7 +74,7 @@
       "expected_result": "The Tripod Screen line shows the chip 'Available' and '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC06",
+      "id": "SPM-48-TC03",
       "title": "Requested quantity one more than available stock is insufficient",
       "linked_ac": [
         "AC2"
@@ -142,7 +91,7 @@
       "expected_result": "The Tripod Screen line shows the chip 'Partial', '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates' and '5 requested, 4 available.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
-      "id": "SPM-48-TC07",
+      "id": "SPM-48-TC04",
       "title": "Requesting zero units is rejected with a validation message",
       "linked_ac": [
         "AC2"
@@ -160,44 +109,7 @@
       "expected_result": "The message 'Enter a whole number, at least 1.' is shown.\nTripod Screen is not added and no availability result is produced for it."
     },
     {
-      "id": "SPM-48-TC08",
-      "title": "Same equipment gives a different result for a different event date",
-      "linked_ac": [
-        "AC3"
-      ],
-      "type": "Positive",
-      "source": "Acceptance Criteria",
-      "preconditions": "'PA Speaker': 2 total, 0 in maintenance.\nEvent 'Open House' (2026-10-05, 09:00-17:00) holds 2x PA Speaker (reserved).\nEvent 'Orientation Day' (2026-10-05) and event 'Sports Meet' (2026-11-20) each request 2x PA Speaker.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Orientation Day event",
-        "Read the PA Speaker line under Requested items",
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Sports Meet event",
-        "Read the PA Speaker line under Requested items"
-      ],
-      "test_data": "Equipment: PA Speaker, Requested: 2, Orientation Day: 2026-10-05, Sports Meet: 2026-11-20",
-      "expected_result": "Orientation Day: the PA Speaker line shows the chip 'Unavailable', '2 total − 0 in maintenance − 2 reserved elsewhere = 0 available for these dates' and 'Held by Open House (2 units) until 6 Oct.'\nSports Meet: the PA Speaker line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates'."
-    },
-    {
-      "id": "SPM-48-TC09",
-      "title": "Availability is recalculated when the event is rescheduled",
-      "linked_ac": [
-        "AC3"
-      ],
-      "type": "Positive",
-      "source": "Acceptance Criteria",
-      "preconditions": "Rule source: customer Q&A #16 and #114 (a reschedule or change means availability is re-checked). The change flow (SPM-32 / SPM-35) is not built, so 'Homecoming Weekend' is seeded as if already moved onto 2026-11-10.\n'Follow Spot': 1 total, 0 in maintenance.\nEvent 'Faculty Day' (2026-11-10) holds 1x Follow Spot (reserved).\nEvent 'Homecoming Weekend' (2026-11-10, 'rescheduled' here) requests 1x Follow Spot.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Homecoming Weekend event",
-        "Read the Follow Spot line under Requested items"
-      ],
-      "test_data": "Equipment: Follow Spot, Requested: 1, New event date: 2026-11-10",
-      "expected_result": "The Follow Spot line reflects the new date: chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Faculty Day (1 unit) until 11 Nov.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
-    },
-    {
-      "id": "SPM-48-TC10",
+      "id": "SPM-48-TC05",
       "title": "Overlapping events competing for the same equipment reduce the available quantity",
       "linked_ac": [
         "AC3",
@@ -215,24 +127,7 @@
       "expected_result": "The HD Projector line shows the chip 'Partial', '3 total − 0 in maintenance − 2 reserved elsewhere = 1 available for these dates' and '2 requested, 1 available.'\nThe 2 units held by Board Meeting are excluded from the available count.\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
-      "id": "SPM-48-TC11",
-      "title": "Events on unrelated dates do not affect each other's availability",
-      "linked_ac": [
-        "AC4"
-      ],
-      "type": "Positive",
-      "source": "Acceptance Criteria",
-      "preconditions": "'HD Projector': 3 total, 0 in maintenance.\nEvent 'Board Meeting' (2026-10-26) holds 2x HD Projector.\nEvent 'Year-End Gala' (2027-01-15) requests 3x HD Projector with no other holds near that date.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Year-End Gala event",
-        "Read the HD Projector line under Requested items"
-      ],
-      "test_data": "Equipment: HD Projector, Requested: 3, Event date: 2027-01-15",
-      "expected_result": "The HD Projector line shows the chip 'Available' and '3 total − 0 in maintenance − 0 reserved elsewhere = 3 available for these dates'; the October hold has no effect.\nNo 'Not everything requested is available.' banner is shown."
-    },
-    {
-      "id": "SPM-48-TC12",
+      "id": "SPM-48-TC06",
       "title": "A request that is only requested or under review does not reduce availability",
       "linked_ac": [
         "AC4"
@@ -249,7 +144,7 @@
       "expected_result": "The HD Projector line shows the chip 'Available' and '3 total − 0 in maintenance − 0 reserved elsewhere = 3 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC13",
+      "id": "SPM-48-TC07",
       "title": "A partially fulfilled reservation reduces availability by the quantity reserved",
       "linked_ac": [
         "AC4"
@@ -266,7 +161,7 @@
       "expected_result": "The Conference Phone line shows the chip 'Available' and '5 total − 0 in maintenance − 2 reserved elsewhere = 3 available for these dates' - 2 (the quantity reserved), not 4 (the quantity requested).\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC14",
+      "id": "SPM-48-TC08",
       "title": "Equipment held by a cancelled event is released",
       "linked_ac": [
         "AC4"
@@ -283,7 +178,7 @@
       "expected_result": "The Presenter Tablet line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates' - the cancelled event's units are not counted.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC15",
+      "id": "SPM-48-TC09",
       "title": "Equipment is unavailable the day after another event's Return Day",
       "linked_ac": [
         "AC5"
@@ -300,7 +195,7 @@
       "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Gala Dinner (1 unit) until 3 Nov.' (the day it is available again, Return Day+1).\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
-      "id": "SPM-48-TC16",
+      "id": "SPM-48-TC10",
       "title": "Equipment is available for an event two days after another event's Return Day",
       "linked_ac": [
         "AC5"
@@ -317,24 +212,7 @@
       "expected_result": "The Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC17",
-      "title": "Equipment is unavailable for an event the day before another reservation's collection day",
-      "linked_ac": [
-        "AC5"
-      ],
-      "type": "Negative",
-      "source": "Acceptance Criteria",
-      "preconditions": "'Lighting Rig': 1 total, 0 in maintenance.\nEvent 'Workshop Wrap-up' (Wednesday 2026-11-11) holds 1x Lighting Rig; it is collected on 2026-11-10 (D-1).\nEvent 'Setup Day Talk' (Tuesday 2026-11-10) requests 1x Lighting Rig; its own Return Day (2026-11-10) runs into Workshop Wrap-up's collection day.\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Setup Day Talk event",
-        "Read the Lighting Rig line under Requested items"
-      ],
-      "test_data": "Equipment: Lighting Rig, Requested: 1, Checked date: 2026-11-10",
-      "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Workshop Wrap-up (1 unit) until 12 Nov.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
-    },
-    {
-      "id": "SPM-48-TC18",
+      "id": "SPM-48-TC11",
       "title": "A multi-day reservation blocks the equipment until the day after its last day",
       "linked_ac": [
         "AC5"
@@ -354,7 +232,7 @@
       "expected_result": "Post-Expo Mixer: the Lighting Rig line shows the chip 'Unavailable', '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates' and 'Held by Three-Day Expo (1 unit) until 19 Nov.'\nLater Concert: the Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
     },
     {
-      "id": "SPM-48-TC19",
+      "id": "SPM-48-TC12",
       "title": "A late-night finish does not extend the blocked period",
       "linked_ac": [
         "AC5",
@@ -372,7 +250,7 @@
       "expected_result": "The Lighting Rig line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates' - finishing at 23:30 does not move the Return Day to Tuesday.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC20",
+      "id": "SPM-48-TC13",
       "title": "Two events on the same day cannot share the same single unit, even at different times",
       "linked_ac": [
         "AC4",
@@ -390,7 +268,7 @@
       "expected_result": "The Lighting Rig line shows the chip 'Unavailable' and '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available for these dates'.\nThe line notes 'Held by Morning Workshop (1 unit) until 2 Dec.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
-      "id": "SPM-48-TC21",
+      "id": "SPM-48-TC14",
       "title": "Two events on the same day can both be supported when stock covers both",
       "linked_ac": [
         "AC4",
@@ -408,7 +286,7 @@
       "expected_result": "The Stage Wash Light line shows the chip 'Available' and '2 total − 0 in maintenance − 1 reserved elsewhere = 1 available for these dates'."
     },
     {
-      "id": "SPM-48-TC22",
+      "id": "SPM-48-TC15",
       "title": "Each session of a multi-session event is checked against its own dates",
       "linked_ac": [
         "AC3",
@@ -427,7 +305,7 @@
       "expected_result": "Day 1: the PA Speaker line shows the chip 'Unavailable' and '2 total − 0 in maintenance − 2 reserved elsewhere = 0 available for these dates'.\nDay 2: the PA Speaker line shows the chip 'Available' and '2 total − 0 in maintenance − 0 reserved elsewhere = 2 available for these dates'.\nThe banner 'Not everything requested is available.' is shown above the requested items."
     },
     {
-      "id": "SPM-48-TC23",
+      "id": "SPM-48-TC16",
       "title": "Equipment in ConnectSphere storage leaves the fixed transfer/prep time before the event",
       "linked_ac": [
         "AC6"
@@ -444,7 +322,7 @@
       "expected_result": "The line shows 'Leaves 21 Oct 2026, 09:00 — 2 hours before the event for transfer and preparation.'\nThe Follow Spot line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
     },
     {
-      "id": "SPM-48-TC24",
+      "id": "SPM-48-TC17",
       "title": "No transfer time is added when the equipment is already at the event venue",
       "linked_ac": [
         "AC6"
@@ -461,7 +339,7 @@
       "expected_result": "The line shows 'Already at the venue: needed from 21 Oct 2026, 11:00.' - no transfer or preparation time is added.\nThe line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'."
     },
     {
-      "id": "SPM-48-TC25",
+      "id": "SPM-48-TC18",
       "title": "Availability is still shown when the event has no venue yet",
       "linked_ac": [
         "AC6"
@@ -478,7 +356,7 @@
       "expected_result": "The Podium Mic line shows the chip 'Available' and '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available for these dates'.\nThe line notes 'Venue not yet chosen — transfer time not included.' No transfer time is applied.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC26",
+      "id": "SPM-48-TC19",
       "title": "Units under maintenance are excluded from the available count",
       "linked_ac": [
         "AC7"
@@ -495,7 +373,7 @@
       "expected_result": "The Document Camera line shows the chip 'Available' and '5 total − 2 in maintenance − 0 reserved elsewhere = 3 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
     },
     {
-      "id": "SPM-48-TC27",
+      "id": "SPM-48-TC20",
       "title": "Retired equipment is unavailable on an existing request and hidden from the Add list",
       "linked_ac": [
         "AC7"
@@ -514,41 +392,7 @@
       "expected_result": "The Laser Pointer line shows the chip 'Unavailable' with '10 total − 0 in maintenance − 0 reserved elsewhere = 0 available for these dates'.\nThe banner 'Not everything requested is available.' is shown above the requested items.\nLaser Pointer is not offered in the Add equipment list."
     },
     {
-      "id": "SPM-48-TC28",
-      "title": "Sufficient availability is indicated on the line and no shortfall banner is shown",
-      "linked_ac": [
-        "AC8"
-      ],
-      "type": "Positive",
-      "source": "Acceptance Criteria",
-      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Graduation Ceremony' (2026-10-29) requests 2x Cordless Mic Set (its only equipment line).\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Graduation Ceremony event",
-        "Read the Cordless Mic Set line under Requested items"
-      ],
-      "test_data": "Equipment: Cordless Mic Set, Requested: 2, Available: 5",
-      "expected_result": "A green 'Available' chip is shown on the Cordless Mic Set line next to '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates'.\nNo 'Not everything requested is available.' banner is shown."
-    },
-    {
-      "id": "SPM-48-TC29",
-      "title": "Insufficient availability is indicated with the shortfall and the banner",
-      "linked_ac": [
-        "AC8"
-      ],
-      "type": "Negative",
-      "source": "Acceptance Criteria",
-      "preconditions": "'Cordless Mic Set': 5 total, 0 in maintenance, none reserved elsewhere.\nEvent 'Graduation Ceremony 2' (2026-10-30) requests 6x Cordless Mic Set (its only equipment line).\nData: seeded by `npx prisma db seed` (SPM-48 test fixtures).\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).\nUnless a case says otherwise, the event has no venue booked yet, so each line also shows 'Venue not yet chosen — transfer time not included.'",
-      "steps": [
-        "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Graduation Ceremony 2 event",
-        "Read the Cordless Mic Set line under Requested items"
-      ],
-      "test_data": "Equipment: Cordless Mic Set, Requested: 6, Available: 5",
-      "expected_result": "An amber 'Partial' chip is shown on the Cordless Mic Set line next to '5 total − 0 in maintenance − 0 reserved elsewhere = 5 available for these dates' and '6 requested, 5 available.'\nThe banner 'Not everything requested is available.' is shown above the requested items."
-    },
-    {
-      "id": "SPM-48-TC30",
+      "id": "SPM-48-TC21",
       "title": "A request with several lines shows a result per line and one overall banner",
       "linked_ac": [
         "AC2",
@@ -572,14 +416,12 @@
     "The availability screen (S-25) follows design/mockups/EquipmentRequests.dc.html and UI_DESIGN.md section 7.4: availability appears automatically on the request page, with chips 'Available' / 'Partial' / 'Unavailable', the breakdown 'total - in maintenance - reserved elsewhere = N available for these dates', and the banner 'Not everything requested is available.'. There is no separate 'Check availability' button on that page. The transfer note wording ('Leaves ...', 'Already at the venue ...', 'Venue not yet chosen ...') is proposed.",
     "Design decisions assumed by these cases (team proposals; customer Q&A #2, #13, #113 leave them to the team): (a) the fixed 2-hour transfer/prep time applies BEFORE the event only, and only when the equipment is not already at the event venue; nothing is added after the event, so EQUIPMENT_LOAD_WINDOW_MS in equipmentWindowFor() must stop adding 2 hours after the event; (b) Return Day is the event's own end date (automatically populated; Q&A #113 allows this); (c) equipment location is a nullable locationVenueId on Equipment where null means ConnectSphere storage (needs a schema change and migration); (d) an event with no venue yet skips transfer time and shows 'Venue not yet chosen'.",
     "AC5 wording: the Jira text says equipment is unavailable 'through Return Day+1', but the customer (Q&A #5, #2) says it is 'available again from Return Day+1'. These cases follow the customer. The Jira acceptance criterion should be corrected. 'Held by <event> until <date>' is assumed to show the day the equipment is available again (Return Day+1).",
-    "Only requests with status 'reserved' or 'partially_fulfilled' count against availability (SCHEMA_REFERENCE.md), using quantityReserved. Requests of cancelled, postponed, rejected and draft events are ignored by a TEMPORARY filter on Event.status (TC14) until SPM-37 (Cancel) and SPM-38 (Postpone) release reservations themselves. Revisit when those stories ship.",
-    "Zero total stock (TC02) is shown as 'Unavailable' with 0 available. The team wants different wording from an input error, but the wording is not decided. Requesting zero units (TC07) uses the existing message 'Enter a whole number, at least 1.'.",
-    "Retired/inactive equipment (TC27): shown as 'Unavailable' on an existing request and hidden from the Add equipment list, following SPM-39. GET /api/equipment does not filter inactive items today, so the hiding is new behaviour.",
-    "Sessions of the same event (TC22): it is not defined whether two sessions of one event, on nearby days, block each other's equipment. No case written.",
+    "Only requests with status 'reserved' or 'partially_fulfilled' count against availability (SCHEMA_REFERENCE.md), using quantityReserved. Requests of cancelled, postponed, rejected and draft events are ignored by a TEMPORARY filter on Event.status (TC08) until SPM-37 (Cancel) and SPM-38 (Postpone) release reservations themselves. Revisit when those stories ship.",
+    "Zero total stock (TC01) is shown as 'Unavailable' with 0 available. The team wants different wording from an input error, but the wording is not decided. Requesting zero units (TC04) uses the existing message 'Enter a whole number, at least 1.'.",
+    "Retired/inactive equipment (TC20): shown as 'Unavailable' on an existing request and hidden from the Add equipment list, following SPM-39. GET /api/equipment does not filter inactive items today, so the hiding is new behaviour.",
+    "Sessions of the same event (TC15): it is not defined whether two sessions of one event, on nearby days, block each other's equipment. No case written.",
     "The 'Reserve what is available' button in the mockup belongs to SPM-49 (Reserve Equipment) and is out of scope for SPM-48. Partial reservation is allowed by the customer (Q&A #90).",
-    "Rescheduling (TC09) depends on the change flow (SPM-32 / SPM-35), which is not built. The case assumes the event date has already changed.",
-    "AC7: Technical Support can record units as out of service with a reason through PATCH /api/equipment/[id]/out-of-service (the availability check already subtracts them - TC26). There is no screen for it yet: that belongs to SPM-55 (Record Equipment Unavailability), so no manual test case can be written for the recording step. It is covered by unit tests (recordOutOfServiceSchema, checkOutOfService, and the effect on availability). Add cases once SPM-55 provides the screen.",
-    "TC09 (reschedule): the change flow (SPM-32 / SPM-35) is not built, so the event is seeded as already moved. Once it exists, add the steps that move the event."
+    "AC7: Technical Support can record units as out of service with a reason through PATCH /api/equipment/[id]/out-of-service (the availability check already subtracts them - TC19). There is no screen for it yet: that belongs to SPM-55 (Record Equipment Unavailability), so no manual test case can be written for the recording step. It is covered by unit tests (recordOutOfServiceSchema, checkOutOfService, and the effect on availability). Add cases once SPM-55 provides the screen."
   ],
   "code_references": [
     "src/lib/equipment.ts",

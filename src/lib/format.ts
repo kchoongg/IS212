@@ -103,13 +103,23 @@ export function eventReference(sequenceNumber: number): string {
   return `EVT-${String(sequenceNumber).padStart(6, "0")}`;
 }
 
+/// Postgres int4 max - Event.sequenceNumber's column type. A reference above
+/// this can never match a real row.
+const MAX_SEQUENCE_NUMBER = 2_147_483_647;
+
 /// The inverse of eventReference() — this is what the [id] route segment
 /// under /events actually holds now (see src/lib/apiAuth.ts's
 /// resolveEventId()). Returns null for anything that isn't that shape,
-/// including a raw UUID: the URL no longer accepts one.
+/// including a raw UUID (the URL no longer accepts one) and a number too
+/// large for the database column (FIXED, found in review of PR #21: an
+/// unbounded \d+ let e.g. "EVT-99999999999" through, which Prisma then threw
+/// on trying to fit into a 32-bit column - three routes surfaced that as an
+/// unhandled 500 instead of the 404 an unmatched reference should give).
 export function parseEventReference(value: string): number | null {
   const match = /^EVT-(\d+)$/i.exec(value);
-  return match ? Number(match[1]) : null;
+  if (!match) return null;
+  const sequenceNumber = Number(match[1]);
+  return sequenceNumber <= MAX_SEQUENCE_NUMBER ? sequenceNumber : null;
 }
 
 /// Any value that may be missing, for direct rendering in a table cell.
