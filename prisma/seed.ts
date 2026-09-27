@@ -549,6 +549,82 @@ async function main() {
       category: "meeting", organiser: "Samuel Ong", coordinator: "joel.fernandez@connectsphere.com",
       days: 33, startHour: 9, durationHours: 5, attendance: 60, layout: "u_shape",
       cancellationReason: "Client cancelled after a change in the procurement schedule." },
+
+    // -----------------------------------------------------------------
+    // SPM-41 QA fixtures — "Find a venue" suitability test cases.
+    // One event per test case (see docs/test-cases/SPM-41_test_cases.json);
+    // names used to collide across cases with different attendance/layout/
+    // facility data, so each case now gets its own event.
+    // -----------------------------------------------------------------
+    { key: "spm41_training_60", title: "SPM41 Training Day 60", status: "under_review",
+      purpose: "Internal training session",
+      category: "training", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 60, layout: "classroom" },
+
+    { key: "spm41_training_55", title: "SPM41 Training Day 55", status: "under_review",
+      purpose: "Internal training session",
+      category: "training", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 55, layout: "classroom" },
+
+    { key: "spm41_training_70", title: "SPM41 Training Day 70", status: "under_review",
+      purpose: "Internal training session",
+      category: "training", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 70, layout: "classroom" },
+
+    { key: "spm41_training_71", title: "SPM41 Training Day 71", status: "under_review",
+      purpose: "Internal training session",
+      category: "training", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 71, layout: "classroom" },
+
+    { key: "spm41_training_55_loop", title: "SPM41 Training Day 55 Loop", status: "under_review",
+      purpose: "Internal training session",
+      category: "training", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 55, layout: "classroom" },
+
+    { key: "spm41_layout_theatre", title: "SPM41 Layout Theatre", status: "under_review",
+      purpose: "Layout comparison fixture",
+      category: "seminar", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 100, layout: "theatre" },
+
+    { key: "spm41_layout_classroom", title: "SPM41 Layout Classroom", status: "under_review",
+      purpose: "Layout comparison fixture",
+      category: "seminar", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 100, layout: "classroom" },
+
+    { key: "spm41_hybrid_vc_live", title: "SPM41 Hybrid Forum VC+Live", status: "under_review",
+      purpose: "Hybrid forum, livestreamed",
+      category: "conference", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 100, layout: "theatre" },
+
+    { key: "spm41_hybrid_vc_only", title: "SPM41 Hybrid Forum VC Only", status: "under_review",
+      purpose: "Hybrid forum, video conferencing only",
+      category: "conference", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 100, layout: "theatre" },
+
+    { key: "spm41_symposium", title: "SPM41 Symposium", status: "under_review",
+      purpose: "Symposium requiring multiple facilities",
+      category: "seminar", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 40, layout: "theatre" },
+
+    { key: "spm41_lecture_200", title: "SPM41 Open Lecture 200", status: "under_review",
+      purpose: "Public lecture requiring accessibility features",
+      category: "seminar", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 200, layout: "theatre" },
+
+    { key: "spm41_lecture_100", title: "SPM41 Open Lecture 100", status: "under_review",
+      purpose: "Public lecture requiring accessibility features",
+      category: "seminar", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 100, layout: "theatre" },
+
+    { key: "spm41_gala_300", title: "SPM41 Gala Dinner 300", status: "under_review",
+      purpose: "Gala dinner",
+      category: "networking", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 300, layout: "banquet" },
+
+    { key: "spm41_gala_50", title: "SPM41 Gala Dinner 50", status: "under_review",
+      purpose: "Gala dinner",
+      category: "networking", organiser: "Rachel Ng", coordinator: "priya.raj@connectsphere.com",
+      days: 173, startHour: 9, durationHours: 8, attendance: 50, layout: "banquet" },
   ];
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -615,6 +691,15 @@ async function main() {
       ["Adjacent breakout rooms", true], ["Step-free access", true]]],
     ["review_launch", [["High-density WiFi", true], ["Raised stage", true],
       ["Livestream capability", true], ["Green room", false]]],
+
+    // SPM-41 QA fixtures
+    ["spm41_training_55_loop", [["Hearing induction loop", true]]],
+    ["spm41_hybrid_vc_live", [["Video conferencing suite", true], ["Livestream capability", true]]],
+    ["spm41_hybrid_vc_only", [["Video conferencing suite", true]]],
+    ["spm41_symposium", [["Video conferencing suite", true], ["Livestream capability", true],
+      ["Green room", true]]],
+    ["spm41_lecture_200", [["Hearing induction loop", true], ["Wheelchair spaces", true]]],
+    ["spm41_lecture_100", [["Hearing induction loop", true]]],
   ];
   for (const [eventKey, reqs] of facReqs) {
     for (const [facilityName, isMandatory] of reqs) {
