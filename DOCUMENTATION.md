@@ -166,6 +166,13 @@ IS212/
     │   │                                requirements card, no internal-only rows);
     │   │                                every other role sees the full record.
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
+    │   ├── equipment/requests/page.tsx      # S-25 queue — events with equipment
+    │   │                                     requested (SPM-48). Technical Support only.
+    │   ├── equipment/requests/[id]/page.tsx # S-25 detail — Check Equipment Availability
+    │   │                                     (SPM-48): one chip per requested line
+    │   │                                     (Available/Partial/Unavailable), the
+    │   │                                     total-minus-maintenance-minus-reserved
+    │   │                                     breakdown, and the shortfall banner.
     │   │
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
@@ -199,6 +206,15 @@ IS212/
         ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues, sessionsPayload
         ├── eventSessions.ts             # Multi-session events (pure): deriveEventFromSessions, equipmentWindow
         ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
+        ├── equipment.ts                  # equipmentWindowFor() (pre-SPM-47) + checkOutOfService()/
+        │                                  outOfServiceReasonFor() (SPM-48 AC7)
+        ├── equipmentAvailability.ts       # SPM-48 rules, pure — no Prisma. D-1 → Return Day+1
+        │                                  (Singapore calendar days), the fixed 2h transfer/prep
+        │                                  time, and which requests count against stock.
+        ├── equipmentAvailabilityLines.ts   # SPM-48: turns loaded rows into one result per
+        │                                    requested equipment line (assembleLines())
+        ├── equipmentAvailabilityService.ts  # SPM-48: the only file that queries Prisma for
+        │                                     availability (loadEventAvailability())
         ├── cn.ts                       # Tiny class-name joiner
         ├── validation/                  # Zod schemas, one file per domain
         │   ├── auth.ts
@@ -666,6 +682,10 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
+| **No equipment catalogue screen** | The sidebar's "Equipment" link (Coordinator + Technical Support) points at `/equipment`, which doesn't exist — no story in the backlog builds it, so it 404s. The catalogue exists as data (`prisma/seed.ts`) and is read by every equipment picker; only *editing* it (or an item's location/status) has no screen. Candidate owner is SPM-55 (Record Equipment Unavailability), whose ACs need a status screen anyway. Flagged 2026-09-27. | unclaimed |
+| **Check Equipment Availability is read-only** | SPM-48 built the check (`GET /api/events/[id]/equipment/availability`, the `/equipment/requests` screens) and `PATCH /api/equipment/[id]/out-of-service` for AC7, but nothing *reserves* what the check finds available — that's SPM-49, not built. The mockup's "Reserve what is available" button is intentionally absent. | equipment |
+| **Equipment availability's cancelled/postponed filter is temporary** | Only `EquipmentRequest.status IN (reserved, partially_fulfilled)` counts against stock, and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). This is standing in for SPM-37 (Cancel Event) and SPM-38 (Postpone Event) actually releasing the reservation when built — remove the filter once they do, and check nothing still relies on it. | equipment |
+| **Equipment transfer/prep time is a flat 2h with no location UI** | `Equipment.locationVenueId` (SPM-48) lets an item be pinned to a venue — no transfer time is added for an event there — but nothing in the app sets it; only `prisma/seed.ts`'s fixtures do. The 2h figure itself, and "before the event only, nothing added after" (SPM-48 open question, not yet asked at a customer Q&A), are both team assumptions. | equipment |
 
 ---
 
@@ -681,6 +701,45 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-09-27 — Janelle
+- **SPM-48 (Check Equipment Availability): built end to end.** Rules live in
+  `src/lib/equipmentAvailability.ts` (pure, unit tested — see the file list
+  above), loaded by `equipmentAvailabilityService.ts` and turned into one
+  result per line by `equipmentAvailabilityLines.ts`. Screens: `/equipment/requests`
+  (queue) and `/equipment/requests/[id]` (detail, following the S-25 mockup),
+  both Technical Support only — a result names the *other* events holding the
+  equipment, which would leak them to an Organiser via `canViewEquipmentRequests`.
+  Also built AC7's recording side: `PATCH /api/equipment/[id]/out-of-service`.
+- **Decisions the team should sanity-check, none yet confirmed by the customer:**
+  equipment is busy from D-1 through its Return Day (the event's own end date)
+  and free again *from* Return Day+1 — matches the customer Q&A, not the Jira
+  AC text ("through Return Day+1"), which should be corrected; the 2h transfer/
+  prep time (`EQUIPMENT_TRANSFER_PREP_MS`) applies before the event only, never
+  after; only `reserved`/`partially_fulfilled` requests count, and cancelled/
+  postponed/rejected/draft events are filtered out as a stand-in for SPM-37/38
+  actually releasing the reservation (see Known Gaps).
+- **Schema, both additive, already applied to the shared `is212-dev` database**
+  (not just committed — teammates on an un-rebased branch will see `prisma
+  migrate status` mention a migration their own `prisma/migrations/` doesn't
+  have; that's expected until this merges, and `prisma migrate dev` should be
+  avoided meanwhile since it may offer to reset the database):
+  - Migration `20260926160000_add_equipment_location`:
+    `Equipment.locationVenueId` (nullable → `Venue`; NULL = ConnectSphere
+    storage).
+  - Migration `20260926170000_add_equipment_out_of_service_reason`:
+    `Equipment.outOfServiceReason` (nullable text).
+- Also: retired (`isActive: false`) equipment is now excluded from
+  `GET /api/equipment` and refused by both add-equipment routes — previously
+  a retired item stayed pickable forever (matches SPM-39's rule for retired
+  venues). New Known Gaps rows for what this leaves open: the equipment
+  catalogue screen, SPM-49 (reserve), and the location/transfer assumptions.
+- Test cases: `docs/test-cases/SPM-48_Test_Cases.xlsx` (30 cases, all 8 ACs),
+  with fixture events/equipment added to `prisma/seed.ts` so every case has
+  real data to run against — reseeding replaces the fixtures' dates, not
+  their names, so cases stay reusable across reseeds.
 
 ---
 
