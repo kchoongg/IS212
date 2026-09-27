@@ -1,0 +1,450 @@
+{
+  "story_key": "SPM-49",
+  "story_title": "As Technical Support Staff, I want to reserve available equipment for an event so that the same limited equipment is not committed to incompatible events.",
+  "created_by": "Janelle",
+  "creation_date": "2026-09-27",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Technical Support Staff can reserve available equipment for an event."
+    },
+    {
+      "id": "AC2",
+      "text": "The reservation records the equipment type and quantity."
+    },
+    {
+      "id": "AC3",
+      "text": "The reservation is associated with the event."
+    },
+    {
+      "id": "AC4",
+      "text": "Reserved quantities are no longer considered freely available for overlapping events."
+    },
+    {
+      "id": "AC5",
+      "text": "The system prevents reservations exceeding available quantities."
+    },
+    {
+      "id": "AC6",
+      "text": "Reservations can be viewed by authorised Technical Support Staff."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-49-TC01",
+      "title": "Reserve the full requested quantity when enough is available",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule (team decision): clicking Reserve always reserves the smaller of what was requested and what is available for that line - never more than requested, and never more than available. There is no quantity box to type into.\n'Portable Stage': 6 total, 0 in maintenance, none held by other events for these dates.\nEvent 'Spring Fair' (2027-02-02) requests 3x Portable Stage (status 'Under review').\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Spring Fair event",
+        "Read the Portable Stage line",
+        "Click Reserve on the Portable Stage line"
+      ],
+      "test_data": "Equipment: Portable Stage, Requested: 3, Available: 6",
+      "expected_result": "A confirmation that the reservation was saved is shown.\nThe Reserved box on the Portable Stage line shows 3.\nThe request status chip shows 'Reserved'."
+    },
+    {
+      "id": "SPM-49-TC02",
+      "title": "Reserve what is available when only part of the request can be supported",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Ring Light': 2 total, 0 in maintenance, none held by other events for these dates.\nEvent 'Founders Day' (2027-02-04) requests 4x Ring Light.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Founders Day event",
+        "Read the Ring Light line: it shows 2 available",
+        "Click Reserve on the Ring Light line"
+      ],
+      "test_data": "Equipment: Ring Light, Requested: 4, Available: 2",
+      "expected_result": "A confirmation that the reservation was saved is shown.\nThe Reserved box on the Ring Light line shows 2 - the smaller of requested (4) and available (2), never more than either.\nThe request status chip shows 'Partially fulfilled'."
+    },
+    {
+      "id": "SPM-49-TC03",
+      "title": "A Coordinator is not offered the reserve controls",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Summer Fair' (2027-03-09) has a request for Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures).\nLogged in as the assigned Coordinator, daniel.tan@connectsphere.com (password123).",
+      "steps": [
+        "Open the Summer Fair event and click its Equipment tab",
+        "Look for a Reserve button",
+        "Note the event's reference (for example EVT-000123) shown at the top of the page",
+        "Type /equipment/requests/<that reference> into the address bar"
+      ],
+      "test_data": "Role: Coordinator, Event: Summer Fair",
+      "expected_result": "The Equipment tab shows the Portable Stage row with no Reserve button.\nThe address you typed shows the message 'Equipment availability is for Technical Support Staff.' and no Reserve controls."
+    },
+    {
+      "id": "SPM-49-TC04",
+      "title": "Reserve what is available across several lines, one at a time",
+      "linked_ac": [
+        "AC1",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Event 'Product Expo' (2027-06-14) requests 2x Portable Stage (6 in stock, all free), 4x Ring Light (2 in stock, all free) and 1x Mobile Charging Cart (1 in stock, held in full by 'Summit Lunch' the same day).\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Product Expo event",
+        "Read the three lines",
+        "Click Reserve on the Portable Stage line",
+        "Click Reserve on the Ring Light line"
+      ],
+      "test_data": "Portable Stage: requested 2, available 6. Ring Light: requested 4, available 2. Mobile Charging Cart: requested 1, available 0",
+      "expected_result": "Portable Stage line: Reserved box shows 2 and no Reserve button remains (fully reserved).\nRing Light line: Reserved box shows 2 (only what was available) and the request status chip shows 'Partially fulfilled'.\nMobile Charging Cart line: no Reserve button is offered, because 0 is available; the line still shows 'Unavailable'."
+    },
+    {
+      "id": "SPM-49-TC05",
+      "title": "The reservation is still there, with its type and quantity, after reloading",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Portable Stage': 6 total, 0 in maintenance, none held by other events for these dates.\nEvent 'Autumn Fair' (2027-02-09) requests 2x Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Autumn Fair event",
+        "Click Reserve on the Portable Stage line",
+        "Reload the page in the browser",
+        "Read the Portable Stage line"
+      ],
+      "test_data": "Equipment: Portable Stage, Requested: 2",
+      "expected_result": "After the reload the line still says Portable Stage and the Reserved box shows 2.\nThe request status chip shows 'Reserved'."
+    },
+    {
+      "id": "SPM-49-TC06",
+      "title": "The reserved quantity is never more than what was requested, even when more is available",
+      "linked_ac": [
+        "AC2",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule (team decision): clicking Reserve always reserves the smaller of what was requested and what is available for that line - never more than requested, and never more than available. There is no quantity box to type into.\n'Portable Stage': 6 total, 0 in maintenance, none held by other events for these dates.\nEvent 'Craft Market' (2027-03-16) requests 5x Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Craft Market event",
+        "Read the Portable Stage line: 6 available for a request of 5",
+        "Click Reserve on the Portable Stage line"
+      ],
+      "test_data": "Equipment: Portable Stage, Requested: 5, Available: 6",
+      "expected_result": "The Reserved box shows 5, not 6.\nThe request status chip shows 'Reserved' (the full request was met)."
+    },
+    {
+      "id": "SPM-49-TC07",
+      "title": "Reserving for one event does not reserve anything for another event that asked for the same item",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Portable Stage': 6 total, 0 in maintenance.\nEvent 'Harvest Fair' (2027-03-02) and event 'Summer Fair' (2027-03-09) each request 2x Portable Stage; their dates do not overlap.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Harvest Fair event",
+        "Click Reserve on the Portable Stage line",
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Summer Fair event",
+        "Read the Portable Stage line"
+      ],
+      "test_data": "Equipment: Portable Stage, Requested: 2 for each event",
+      "expected_result": "Harvest Fair: the Reserved box shows 2.\nSummer Fair: the Reserved box on the Portable Stage line is empty and its request status is unchanged (not 'Reserved')."
+    },
+    {
+      "id": "SPM-49-TC08",
+      "title": "The Coordinator sees the reservation on their event",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Portable Stage': 6 total, 0 in maintenance.\nEvent 'Winter Fair' (2027-02-16), whose assigned Coordinator is daniel.tan@connectsphere.com, requests 2x Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Winter Fair event",
+        "Click Reserve on the Portable Stage line",
+        "Log out and log in as daniel.tan@connectsphere.com (password123)",
+        "Open the Winter Fair event and click its Equipment tab"
+      ],
+      "test_data": "Equipment: Portable Stage, Requested: 2",
+      "expected_result": "The Portable Stage row on the Coordinator's Equipment tab shows '2 reserved' and the status 'Reserved'."
+    },
+    {
+      "id": "SPM-49-TC09",
+      "title": "An overlapping event sees fewer units available once equipment is reserved",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Confidence Monitor': 4 total, 0 in maintenance, none held by other events.\nEvent 'Product Demo Day' (Monday 2027-03-15, 10:00-14:00) requests 3x Confidence Monitor.\nEvent 'Partner Lunch' (2027-03-15, 11:00-13:00, overlapping) requests 2x Confidence Monitor.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Partner Lunch event",
+        "Read the Confidence Monitor line (before)",
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Product Demo Day event",
+        "Click Reserve on the Confidence Monitor line (reserves 3)",
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Partner Lunch event",
+        "Read the Confidence Monitor line (after)"
+      ],
+      "test_data": "Equipment: Confidence Monitor, Product Demo Day reserves 3, Partner Lunch requests 2",
+      "expected_result": "Before: Partner Lunch shows the chip 'Available' and '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates'.\nAfter: Partner Lunch shows the chip 'Partial', '4 total − 0 in maintenance − 3 reserved elsewhere = 1 available for these dates' and '2 requested, 1 available.'"
+    },
+    {
+      "id": "SPM-49-TC10",
+      "title": "An event on an unrelated date is not affected by a reservation",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Confidence Monitor': 4 total, 0 in maintenance.\nEvent 'Sales Kickoff' (Monday 2027-04-05) requests 3x Confidence Monitor.\nEvent 'Board Retreat' (2027-04-26) requests 2x Confidence Monitor. The two are three weeks apart.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Sales Kickoff event",
+        "Click Reserve on the Confidence Monitor line (reserves 3)",
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Board Retreat event",
+        "Read the Confidence Monitor line"
+      ],
+      "test_data": "Equipment: Confidence Monitor, Sales Kickoff reserves 3, Board Retreat requests 2 (2027-04-26)",
+      "expected_result": "Board Retreat shows the chip 'Available' and '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates'."
+    },
+    {
+      "id": "SPM-49-TC11",
+      "title": "The day after the Return Day is still affected by a reservation",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule source: customer Q&A #5 (equipment is collected the day before an event and available again from Return Day+1).\n'Confidence Monitor': 4 total, 0 in maintenance.\nEvent 'Trade Show' (Monday 2027-04-12) requests 3x Confidence Monitor.\nEvent 'Media Briefing' (Tuesday 2027-04-13) requests 2x Confidence Monitor.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Trade Show event",
+        "Click Reserve on the Confidence Monitor line (reserves 3)",
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Media Briefing event",
+        "Read the Confidence Monitor line"
+      ],
+      "test_data": "Equipment: Confidence Monitor, Trade Show (Mon) reserves 3, Media Briefing (Tue) requests 2",
+      "expected_result": "Media Briefing shows the chip 'Partial', '4 total − 0 in maintenance − 3 reserved elsewhere = 1 available for these dates' and '2 requested, 1 available.'"
+    },
+    {
+      "id": "SPM-49-TC12",
+      "title": "Two days after the Return Day the equipment is free again",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Confidence Monitor': 4 total, 0 in maintenance.\nEvent 'Careers Day' (Monday 2027-04-19) requests 3x Confidence Monitor.\nEvent 'Wrap Party' (Wednesday 2027-04-21) requests 2x Confidence Monitor.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Careers Day event",
+        "Click Reserve on the Confidence Monitor line (reserves 3)",
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Wrap Party event",
+        "Read the Confidence Monitor line"
+      ],
+      "test_data": "Equipment: Confidence Monitor, Careers Day (Mon) reserves 3, Wrap Party (Wed) requests 2",
+      "expected_result": "Wrap Party shows the chip 'Available' and '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates'."
+    },
+    {
+      "id": "SPM-49-TC13",
+      "title": "An event's own reservation does not reduce its own available count",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Confidence Monitor': 4 total, 0 in maintenance, none held by other events.\nEvent 'Innovation Day' (Monday 2027-05-03) requests 3x Confidence Monitor.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Innovation Day event",
+        "Click Reserve on the Confidence Monitor line (reserves 3)",
+        "Reload the page",
+        "Read the Confidence Monitor line"
+      ],
+      "test_data": "Equipment: Confidence Monitor, Innovation Day requests 3",
+      "expected_result": "The Reserved box shows 3.\nThe breakdown still reads '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates': the event's own 3 units are not counted as held elsewhere."
+    },
+    {
+      "id": "SPM-49-TC14",
+      "title": "The Reserve button is not offered when nothing is available",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Ring Light': 2 total, 0 in maintenance. Event 'Fashion Show' (2027-03-23) already holds both (reserved).\nEvent 'After Party' (2027-03-23, evening) requests 1x Ring Light.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the After Party event",
+        "Read the Ring Light line"
+      ],
+      "test_data": "Equipment: Ring Light, Requested: 1, Available: 0",
+      "expected_result": "The line shows the chip 'Unavailable' and '2 total − 0 in maintenance − 2 reserved elsewhere = 0 available for these dates'.\nNo Reserve button is offered on this line; nothing can be reserved."
+    },
+    {
+      "id": "SPM-49-TC15",
+      "title": "A second event is limited to what the first one left available",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule source: customer Q&A #35 (the system should identify and block overlapping bookings and help prevent double-booking).\n'Podium Light': 4 total, 0 in maintenance. Event 'Gala Night' (2027-05-10, 18:00-22:00) already holds 3 (reserved).\nEvent 'Awards Dinner' (2027-05-10, 19:00-23:00, overlapping) requests 2x Podium Light.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Awards Dinner event",
+        "Read the Podium Light line: 1 available for a request of 2",
+        "Click Reserve on the Podium Light line"
+      ],
+      "test_data": "Equipment: Podium Light, Requested: 2, Available: 1",
+      "expected_result": "Before reserving, the line shows the chip 'Partial' and '4 total − 0 in maintenance − 3 reserved elsewhere = 1 available for these dates'.\nThe reservation is saved for 1 unit - the available amount, not the requested 2. The Reserved box shows 1 and the request status chip shows 'Partially fulfilled'."
+    },
+    {
+      "id": "SPM-49-TC16",
+      "title": "Two Technical Support users cannot both reserve the last unit",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule source: customer Q&A #35 (block double-booking).\n'Mobile Charging Cart': 1 total, 0 in maintenance.\nEvent 'Pop-up Store' (2027-05-17) and event 'Flash Sale' (2027-05-17, same day) each request 1x Mobile Charging Cart.\nTwo browser windows, one logged in as vikram.nair@connectsphere.com and one (private window) as chloe.teo@connectsphere.com, password123.",
+      "steps": [
+        "In window 1 (Vikram) open the equipment request for the Pop-up Store event; it shows 1 available with a Reserve button",
+        "In window 2 (Chloe) open the equipment request for the Flash Sale event; it also shows 1 available with a Reserve button",
+        "In window 1 click Reserve",
+        "In window 2, without reloading, click Reserve"
+      ],
+      "test_data": "Equipment: Mobile Charging Cart, total 1, two events on the same day each requesting 1",
+      "expected_result": "Window 1: the reservation is saved and the Reserved box shows 1.\nWindow 2: the reservation is refused with a message that nothing is available any more (for example 'Nothing is available for these dates any more.'), and Flash Sale has nothing reserved.\nAfter Chloe reloads, Flash Sale shows the chip 'Unavailable', 'Held by Pop-up Store (1 unit) until 18 May' and no Reserve button."
+    },
+    {
+      "id": "SPM-49-TC17",
+      "title": "Units in maintenance cannot be reserved",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "'Backup Laptop': 5 total, 2 in maintenance, none held by other events.\nEvent 'IT Bootcamp' (2027-05-24) requests 4x Backup Laptop.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the IT Bootcamp event",
+        "Read the Backup Laptop line: 3 available for a request of 4",
+        "Click Reserve on the Backup Laptop line"
+      ],
+      "test_data": "Equipment: Backup Laptop, Total: 5, In maintenance: 2, Requested: 4",
+      "expected_result": "Before reserving, the line shows the chip 'Partial' and '5 total − 2 in maintenance − 0 reserved elsewhere = 3 available for these dates'.\nThe reservation is saved for 3 units, not 4. The Reserved box shows 3 and the request status chip shows 'Partially fulfilled'."
+    },
+    {
+      "id": "SPM-49-TC18",
+      "title": "Equipment cannot be reserved for a cancelled event",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Rule source: customer Q&A #68 and #69 and SPM-37 / SPM-38 (cancelling or postponing an event releases its arrangements).\nEvent 'Cancelled Roadshow' (2027-06-01) has status 'Cancelled' and still has a request for 2x Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Cancelled Roadshow event",
+        "Look for a Reserve button on the Portable Stage line"
+      ],
+      "test_data": "Event: Cancelled Roadshow (Cancelled), Equipment: Portable Stage, Requested: 2",
+      "expected_result": "No Reserve button is offered, or clicking it shows the message 'This event is cancelled - equipment can no longer be reserved.' and nothing is reserved.\nThe Reserved box stays empty."
+    },
+    {
+      "id": "SPM-49-TC19",
+      "title": "Each session of a multi-session event is reserved against its own dates",
+      "linked_ac": [
+        "AC3",
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule source: customer Q&A #74 (sessions can need different equipment).\n'Wireless Presenter': 4 total, 0 in maintenance. Event 'Trade Mixer' (2027-06-07) already holds all 4 (reserved).\nEvent 'Two-Day Forum' has session 'Day 1' (2027-06-07) and session 'Day 2' (2027-06-21), each requesting 2x Wireless Presenter.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Two-Day Forum event",
+        "Read the Wireless Presenter line under Day 1 and under Day 2",
+        "Click Reserve on the Day 2 line",
+        "Look for a Reserve button on the Day 1 line"
+      ],
+      "test_data": "Equipment: Wireless Presenter, Requested: 2 per session, Day 1: 2027-06-07 (held), Day 2: 2027-06-21",
+      "expected_result": "Day 1 shows the chip 'Unavailable' and '4 total − 0 in maintenance − 4 reserved elsewhere = 0 available for these dates'.\nDay 2 shows the chip 'Available' and '4 total − 0 in maintenance − 0 reserved elsewhere = 4 available for these dates'.\nDay 2: the reservation is saved and its Reserved box shows 2.\nDay 1: no Reserve button is offered."
+    },
+    {
+      "id": "SPM-49-TC20",
+      "title": "A saved reservation can be viewed by another Technical Support user",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule source: customer Q&A #66 (Technical Support is not restricted by equipment type or location).\n'Portable Stage': 6 total, 0 in maintenance.\nEvent 'Reserved Showcase' (2027-07-05) already has a reservation for 3x Portable Stage (status 'Reserved'), made by another Technical Support user.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures).\nLogged in as Technical Support Staff (chloe.teo@connectsphere.com, password123).",
+      "steps": [
+        "Click Equipment Requests in the side menu",
+        "Open the equipment request for the Reserved Showcase event",
+        "Read the Portable Stage line"
+      ],
+      "test_data": "Equipment: Portable Stage, Requested: 3, Reserved: 3",
+      "expected_result": "The Reserved box on the Portable Stage line shows 3.\nThe request status chip shows 'Reserved'.\nThe breakdown reads '6 total − 0 in maintenance − 0 reserved elsewhere = 6 available for these dates' (the event's own reservation is not counted against itself)."
+    },
+    {
+      "id": "SPM-49-TC21",
+      "title": "A user who is not Technical Support cannot view reservations on the request page",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Rule source: customer Q&A #91 (equipment arrangements are protected: access depends on role and relationship to the event).\nEvent 'Reserved Showcase' (2027-07-05), raised by the Organiser rachel.ng@meridianfina.com, has a reservation for 3x Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures).\nLogged in as that Organiser (rachel.ng@meridianfina.com, password123).",
+      "steps": [
+        "Open the Reserved Showcase event and note its reference (for example EVT-000123) shown at the top of the page",
+        "Type /equipment/requests/<that reference> into the address bar"
+      ],
+      "test_data": "Role: Organiser, Event: Reserved Showcase",
+      "expected_result": "The page shows the message 'Equipment availability is for Technical Support Staff.' and the request cannot be read.\nNo Reserved box, reservation quantity or Reserve control is shown."
+    }
+  ],
+  "open_questions": [
+    "The reserve feature is not built yet. Steps and results follow the S-25 Equipment request mockup (design/mockups/EquipmentRequests.dc.html), with one simplification the team has confirmed: clicking Reserve always reserves min(requested, available) for that line - there is no quantity box to type into, and Technical Support cannot reserve more than requested or hold back less than what is available. The confirmation, refusal and cancelled-event messages are proposed wording.",
+    "Depends on SPM-48: the availability figures and the S-25 page come from SPM-48, which is not yet merged into main. This branch is based on the SPM-48 branch, so the SPM-49 pull request should be raised after SPM-48 is merged (or target the SPM-48 branch).",
+    "ANSWERED - who can view reservations (AC6, TC22, TC23): Q&A #66 says Technical Support is not restricted by equipment type or location, and #91 says equipment arrangements are protected: access depends on role and relationship to the event. An Organiser and a Coordinator can already see reservations on their own event's Equipment tab (SPM-47 behaviour, read-only for the Organiser); TC23 checks only that the Technical Support request page is closed to them.",
+    "ANSWERED, out of scope - changing or releasing a reservation after it is made: Q&A #114 says requirements may change after reservation, the affected arrangements are reviewed and updated, and Technical Support re-checks suitability and availability; the exact workflow is for the team. That belongs to SPM-50 and the change flow, not SPM-49.",
+    "PARTLY ANSWERED - notifying the Coordinator ('the coordinator is notified either way' in the mockup): the briefing lists 'requested equipment is confirmed or found to be unavailable' as a notification, and the Q&A says notifications are BATCHED with configurable frequency, in-app and email, configurable by type. So it is not an instant on-screen effect; it belongs to the notification story and no case is written.",
+    "MOSTLY ANSWERED - reserving for a cancelled, postponed, rejected or draft event (TC17): Q&A #68 and #69 and SPM-37 / SPM-38 say cancelling or postponing releases the event's arrangements, so refusing is consistent (and a draft is invisible to Technical Support anyway). Still to confirm: rejected events, and the wording of the refusal message.",
+    "ANSWERED in principle - two users reserving the last unit (TC15): Q&A #35 says the system should identify and block overlapping bookings and help prevent double-booking (a hard block, not a warning). The server must therefore check availability again at the moment of saving, not only when the page was opened.",
+    "Test data: these cases change the data they read (except TC03, TC22 and TC23). Reseed before running a case again. Their events and items are fixed (Feb to Jul 2027) and must be added to prisma/seed.ts together with these cases."
+  ],
+  "code_references": [
+    "design/mockups/EquipmentRequests.dc.html",
+    "UI_DESIGN.md",
+    "SCHEMA_REFERENCE.md",
+    "prisma/schema.prisma (EquipmentRequest: quantityReserved, status)",
+    "src/lib/permissions.ts (equipment_request:review)",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/lib/equipmentAvailability.ts and src/app/equipment/requests/[id]/page.tsx (SPM-48, this branch is based on it)",
+    "Customer Q&A (IS212-2026 discussions #5, #16, #19, #35, #66, #68, #69, #74, #82, #90, #91, #114)"
+  ]
+}
