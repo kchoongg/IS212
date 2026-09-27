@@ -166,6 +166,12 @@ IS212/
     │   │                                requirements card, no internal-only rows);
     │   │                                every other role sees the full record.
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
+    │   ├── venues/search/page.tsx       # S-14 "Find a venue" (SPM-40): filters on the
+    │   │                                left, ONLY matching venues on the right.
+    │   │                                ?event=EVT-000123 pre-fills it from that
+    │   │                                event's requirements (and lets a session be
+    │   │                                chosen). Reached from /venues and from the
+    │   │                                event's Venue tab ("Search with filters").
     │   │
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
@@ -199,6 +205,16 @@ IS212/
         ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues, sessionsPayload
         ├── eventSessions.ts             # Multi-session events (pure): deriveEventFromSessions, equipmentWindow
         ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
+        ├── venueSlots.ts                  # AM/PM/Night slots, setup/turnaround as whole
+        │                                   adjacent slots (#50/#107/#108/#123). Written
+        │                                   for SPM-46; SPM-40 carries an identical copy
+        │                                   so the two branches merge cleanly - change it
+        │                                   on ONE branch only.
+        ├── venueSearch.ts                 # SPM-40 filter rules, pure - no Prisma. One
+        │                                   function per AC; searchVenues() keeps only
+        │                                   venues passing every filter (AC7).
+        ├── venueSearchForm.ts             # SPM-40 form values: pre-fill from an event,
+        │                                   query string, client-side checks
         ├── cn.ts                       # Tiny class-name joiner
         ├── validation/                  # Zod schemas, one file per domain
         │   ├── auth.ts
@@ -229,7 +245,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 |---|---|---|---|---|
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
 | **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
-| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list; booking decision routes to build |
+| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list, venue search + filters (SPM-40); booking decision routes to build |
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
@@ -665,6 +681,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No route-level tests outside auth/permissions** | `npm run verify:permissions` (45 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
+| **Nothing moves an event from Approved to Planning** | The status lifecycle labels Approved → Planning "search", and the seed's history reason for Planning is "Venue search started" — but SPM-40's search is a read-only `GET` and deliberately changes no status (an event would flip just because someone looked). No other code makes the move either. Proposal: SPM-42's first venue booking request does it. Needs a team decision; update the lifecycle diagram's edge label when it's made. | venues / events |
+| **SPM-41's Venue tab 404s on main** | `GET /api/events/[id]/venue-suitability` still looks events up with `where: { id }`, but since SPM-31 every link passes the reference (`EVT-000123`), so `/events/EVT-…/venue` always shows "This event doesn't exist". Fix: resolve it with `parseEventReference()` like `api/events/[id]/route.ts` does. Found while testing SPM-40, not fixed there (not its story). Flagged 2026-09-28. | venues (SPM-41) |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 
 ---
@@ -683,6 +701,52 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-09-28 — Kayal
+- **SPM-40 (Search and Filter Suitable Venues): built.** S-14 "Find a venue"
+  at `/venues/search`, backed by `GET /api/venues/search` (`venue:view`, so
+  Coordinator, Ops Manager and Venue Staff). Filters: date and time, expected
+  attendance, location (building), room layout, accessibility requirements,
+  required facilities. **Only venues passing every filter are returned (AC7)**
+  — the difference from SPM-41's Venue tab, which grades every venue and keeps
+  the failures visible. The customer draws the same line (#83).
+- **Rules** (all in `src/lib/venueSearch.ts`, pure, unit tested):
+  - Attendance is checked against the chosen **layout's** capacity (#112);
+    with no layout chosen, some layout must seat everyone. `maxCapacity` is
+    never used, and a venue with no layouts never passes an attendance filter.
+  - Date/time uses **SPM-46's slot rules** (#50/#107/#108/#123): a clash is an
+    overlap of occupied windows, and the searched event's *own* setup and
+    turnaround slots must be free too. Approved bookings and maintenance blocks
+    hide a venue; so does another event's **pending** request (#41, one active
+    hold per venue and time). Rejected/cancelled requests never block. The
+    searched-for event's own bookings never count against it.
+  - The time must fall inside the venue's opening hours (#46), checked on the
+    first day's start and the last day's end.
+  - Times are typed and sent as **Singapore wall-clock** (`2026-12-09T09:00`)
+    and converted on the server (#36), so a laptop set to another zone still
+    searches the morning that was typed.
+- **`?event=EVT-000123` pre-fills the form** from that event: its times,
+  attendance, layout and **mandatory** facility/accessibility requirements
+  (nice-to-haves are left unticked so they don't hide venues). A multi-session
+  event can pick one session instead (#74).
+- **`src/lib/venueSlots.ts` (+ its tests) and the `TIME_ZONE` export in
+  `format.ts` are byte-for-byte copies from the unmerged SPM-46 branch**, so
+  the date filter follows the same rules as the availability calendar and the
+  two branches merge without conflict. Edit them on one branch only until both
+  are merged.
+- Entry points: "Find a venue" on `/venues`; "Search with filters" on the
+  event's Venue tab.
+- Diagrams: **no change needed.** The BPMN's Coordinator lane already has
+  "Search venues & check suitability" between approval and the booking
+  request, and SPM-40 changes no status. The lifecycle's Approved → Planning
+  edge ("search") is now a Known Gap, because nothing performs it.
+- Tests: 53 new unit tests (`venueSearch.test.ts`, `venueSearchForm.test.ts`,
+  `venueSearchQuerySchema` in `validation.test.ts`), plus SPM-46's slot tests
+  carried over. Manual cases: `docs/test-cases/SPM-40_*` — 24 cases, with 10
+  open questions for the team.
+- No schema change, no migration, no seed change: the existing seed already
+  has a booked venue, a pending hold, a renovation block and a late-opening
+  venue to test against.
 
 ### 2026-09-25 — Kristen
 - **Fixed `prisma/seed.ts` leaking event reference numbers across reseeds.**
