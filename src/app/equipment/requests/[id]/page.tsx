@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Alert, Card, CardHeader, DataState, PageHeader, StatusBadge } from "@/components/ui";
+import { Alert, Button, Card, CardHeader, DataState, PageHeader, StatusBadge } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDate, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
@@ -10,7 +10,11 @@ import { formatDate, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/
 // S-25 (detail). SPM-48: for each equipment line an event has requested, is
 // there enough suitable stock free for its dates? Shown automatically on load -
 // the mockup (design/mockups/EquipmentRequests.dc.html) has no "check" button.
-// Read-only: reserving what is free is SPM-49.
+//
+// SPM-49 (reserve): a line that still has something to give can be reserved
+// with one click - no quantity to type in, see the Reserve button below and
+// POST .../reserve. Reserving is its own permission (canReserveEquipment),
+// checked server-side; this page only decides whether to show the button.
 
 interface EventInfo {
   sequenceNumber: number;
@@ -74,6 +78,11 @@ export default function EquipmentRequestDetailPage() {
   const [event, setEvent] = useState<EventInfo | null>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // SPM-49: which line is mid-reservation, and the refusal message per line
+  // (a race lost to another Technical Support user, or a status that no
+  // longer allows it) - keyed by requestId, since several lines are on screen.
+  const [reservingId, setReservingId] = useState<string | null>(null);
+  const [reserveErrors, setReserveErrors] = useState<Record<string, string>>({});
 
   const path = `/equipment/requests/${eventId}`;
 
@@ -115,6 +124,35 @@ export default function EquipmentRequestDetailPage() {
       void load();
     }
   }, [state, load, router, path]);
+
+  async function reserve(requestId: string) {
+    setReservingId(requestId);
+    setReserveErrors((current) => ({ ...current, [requestId]: "" }));
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/equipment/${requestId}/reserve`, {
+        method: "POST",
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor(path));
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setReserveErrors((current) => ({
+          ...current,
+          [requestId]: body?.error ?? "Could not reserve this item.",
+        }));
+        return;
+      }
+      // Re-read the whole request: the amount just reserved changes what
+      // every OTHER line's availability shows too (AC4), not only this one.
+      await load();
+    } catch {
+      setReserveErrors((current) => ({ ...current, [requestId]: "Could not reserve this item." }));
+    } finally {
+      setReservingId(null);
+    }
+  }
 
   // One chip for the whole request when every line is at the same stage (the
   // mockup shows "Under review" beside "Requested items"); nothing if mixed.
@@ -165,7 +203,14 @@ export default function EquipmentRequestDetailPage() {
           {(lines) => (
             <ul className="divide-y divide-line">
               {lines.map((line) => (
-                <LineRow key={line.requestId} line={line} />
+                <LineRow
+                  key={line.requestId}
+                  line={line}
+                  canReserve={user?.role === "tech_support"}
+                  reserving={reservingId === line.requestId}
+                  reserveError={reserveErrors[line.requestId]}
+                  onReserve={() => reserve(line.requestId)}
+                />
               ))}
             </ul>
           )}
@@ -175,7 +220,28 @@ export default function EquipmentRequestDetailPage() {
   );
 }
 
-function LineRow({ line }: { line: Line }) {
+// SPM-49 AC5: only offered while there is something left to give and the
+// request itself is still open. Reserving again after a partial fulfilment is
+// allowed - more may have freed up - so "partially_fulfilled" still offers it;
+// "reserved" (already given everything requested) and "cancelled" do not.
+function canOfferReserve(line: Line): boolean {
+  return (
+    line.result !== null &&
+    line.result.available > 0 &&
+    line.requestStatus !== "reserved" &&
+    line.requestStatus !== "cancelled"
+  );
+}
+
+interface LineRowProps {
+  line: Line;
+  canReserve: boolean;
+  reserving: boolean;
+  reserveError?: string;
+  onReserve: () => void;
+}
+
+function LineRow({ line, canReserve, reserving, reserveError, onReserve }: LineRowProps) {
   const { result } = line;
 
   return (
@@ -207,26 +273,34 @@ function LineRow({ line }: { line: Line }) {
             <p className="inline-block rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-xs text-ink-2">
               {transferNote(line, result)}
             </p>
+            {reserveError && <p className="text-xs text-tone-danger-fg">{reserveError}</p>}
           </>
         ) : (
           <p className="text-xs text-ink-3">Cannot be checked yet — the event has no dates.</p>
         )}
       </div>
 
-      {/* Three fixed-width columns, so Requested, Reserved and the chip line up
-          from one row to the next whatever the chip says. */}
-      <div className="grid shrink-0 grid-cols-[4rem_4rem_7rem] gap-4 text-center text-sm">
-        <Column label="Requested">
-          <NumberBox value={line.quantityRequested} />
-        </Column>
-        <Column label="Reserved">
-          <NumberBox value={line.quantityReserved} />
-        </Column>
-        <Column label="Availability">
-          <div className="flex h-9 items-center justify-center">
-            {result ? <StatusBadge status={result.status} /> : <span className="text-ink-3">—</span>}
-          </div>
-        </Column>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        {/* Three fixed-width columns, so Requested, Reserved and the chip line up
+            from one row to the next whatever the chip says. */}
+        <div className="grid grid-cols-[4rem_4rem_7rem] gap-4 text-center text-sm">
+          <Column label="Requested">
+            <NumberBox value={line.quantityRequested} />
+          </Column>
+          <Column label="Reserved">
+            <NumberBox value={line.quantityReserved} />
+          </Column>
+          <Column label="Availability">
+            <div className="flex h-9 items-center justify-center">
+              {result ? <StatusBadge status={result.status} /> : <span className="text-ink-3">—</span>}
+            </div>
+          </Column>
+        </div>
+        {canReserve && canOfferReserve(line) && (
+          <Button variant="secondary" size="sm" onClick={onReserve} disabled={reserving}>
+            {reserving ? "Reserving…" : "Reserve"}
+          </Button>
+        )}
       </div>
     </li>
   );

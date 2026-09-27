@@ -193,3 +193,10 @@ export function checkAvailability(input: AvailabilityInput): AvailabilityResult 
 export function allLinesAvailable(results: Pick<AvailabilityResult, "status">[]): boolean {
   return results.every((r) => r.status === "available");
 }
+
+/// SPM-49 AC1/AC5. There is no quantity box: clicking Reserve always takes the
+/// smaller of what was requested and what is available - never more than
+/// either one (team decision, replacing an earlier "type a number" design).
+export function reserveQuantity(requested: number, available: number): number {
+  return Math.max(0, Math.min(requested, available));
+}

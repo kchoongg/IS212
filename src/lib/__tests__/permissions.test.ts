@@ -6,6 +6,7 @@ import {
   STATUS_TRANSITION_ROLES,
   can,
   canCheckEquipmentAvailability,
+  canReserveEquipment,
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
@@ -289,6 +290,17 @@ describe("canCheckEquipmentAvailability (SPM-48)", () => {
   it("stops everyone else - the result names other events' bookings", () => {
     expect(canCheckEquipmentAvailability(coordinator)).toBe(false);
     expect(canCheckEquipmentAvailability(organiserA)).toBe(false);
+  });
+});
+
+describe("canReserveEquipment (SPM-49)", () => {
+  it("lets Technical Support reserve equipment", () => {
+    expect(canReserveEquipment(techSupport)).toBe(true);
+  });
+
+  it("stops a Coordinator or Organiser from reserving", () => {
+    expect(canReserveEquipment(coordinator)).toBe(false);
+    expect(canReserveEquipment(organiserA)).toBe(false);
   });
 });
 

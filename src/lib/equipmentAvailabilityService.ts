@@ -2,14 +2,20 @@
 // The rules are in equipmentAvailability.ts, the per-line assembly in
 // equipmentAvailabilityLines.ts; this file only reads the database.
 
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { COMMITTING_REQUEST_STATUSES } from "@/lib/equipmentAvailability";
 import {
   assembleLines,
+  type AvailabilityLine,
   type EventAvailability,
   type OtherRequest,
   type RequestedLine,
 } from "@/lib/equipmentAvailabilityLines";
+
+/// Either the shared client or one $transaction hands the callback - both
+/// expose the same query methods this file uses.
+type Db = PrismaClient | Prisma.TransactionClient;
 
 // Bookings that say "this event is going to be at that venue". A rejected or
 // cancelled booking does not; an approved one wins over a pending one.
@@ -119,4 +125,91 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
   }));
 
   return assembleLines(requested, others);
+}
+
+/// SPM-49: one requested line's fresh availability, read with `db` - normally
+/// a `$transaction` callback, so the read happens under the row lock the
+/// reserve route takes on the equipment item first. Reusing loadEventAvailability
+/// here would also load every OTHER line of the event, which the caller does
+/// not need and would rather not pay for inside a lock.
+export async function loadSingleLineAvailability(db: Db, requestId: string): Promise<AvailabilityLine | null> {
+  const request = await db.equipmentRequest.findUnique({
+    where: { id: requestId },
+    select: {
+      id: true,
+      quantityRequested: true,
+      quantityReserved: true,
+      status: true,
+      sessionId: true,
+      session: { select: { label: true, startsAt: true, endsAt: true } },
+      equipment: {
+        select: {
+          id: true,
+          name: true,
+          totalQuantity: true,
+          quantityInMaintenance: true,
+          isActive: true,
+          locationVenueId: true,
+        },
+      },
+      event: {
+        select: {
+          id: true,
+          startsAt: true,
+          endsAt: true,
+          venueBookings: { select: { venueId: true, sessionId: true, status: true } },
+        },
+      },
+    },
+  });
+  if (!request) return null;
+
+  const line: RequestedLine = {
+    requestId: request.id,
+    quantityRequested: request.quantityRequested,
+    requestStatus: request.status,
+    quantityReserved: request.quantityReserved,
+    equipment: request.equipment,
+    sessionId: request.sessionId,
+    sessionLabel: request.session?.label ?? null,
+    startsAt: request.session?.startsAt ?? request.event.startsAt,
+    endsAt: request.session?.endsAt ?? request.event.endsAt,
+    venueId: venueFor(request.event.venueBookings, request.sessionId),
+  };
+
+  const otherRows = await db.equipmentRequest.findMany({
+    where: {
+      equipmentId: request.equipment.id,
+      eventId: { not: request.event.id },
+      status: { in: COMMITTING_REQUEST_STATUSES },
+    },
+    select: {
+      equipmentId: true,
+      status: true,
+      quantityReserved: true,
+      sessionId: true,
+      session: { select: { startsAt: true, endsAt: true } },
+      event: {
+        select: {
+          title: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          venueBookings: { select: { venueId: true, sessionId: true, status: true } },
+        },
+      },
+    },
+  });
+  const others: OtherRequest[] = otherRows.map((o) => ({
+    equipmentId: o.equipmentId,
+    eventTitle: o.event.title,
+    requestStatus: o.status,
+    quantityReserved: o.quantityReserved,
+    eventStatus: o.event.status,
+    startsAt: o.session?.startsAt ?? o.event.startsAt,
+    endsAt: o.session?.endsAt ?? o.event.endsAt,
+    venueId: venueFor(o.event.venueBookings, o.sessionId),
+  }));
+
+  return assembleLines([line], others).lines[0];
 }

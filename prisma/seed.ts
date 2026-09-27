@@ -460,6 +460,25 @@ async function main() {
     equip[name] = e.id;
   }
 
+  // SPM-49 test-case equipment (Reserve Equipment). Also kept apart from the
+  // real catalogue, and from SPM-48's fixtures above, so reserving one does
+  // not change what any other story's test cases see.
+  const fixtureEquipment49: [string, string, string, number, number][] = [
+    ["Portable Stage", "Staging", "SPM-49 test item: 6 in stock", 6, 0],
+    ["Ring Light", "AV", "SPM-49 test item: 2 in stock", 2, 0],
+    ["Confidence Monitor", "AV", "SPM-49 test item: 4 in stock", 4, 0],
+    ["Podium Light", "Staging", "SPM-49 test item: 4 in stock", 4, 0],
+    ["Mobile Charging Cart", "IT", "SPM-49 test item: a single unit", 1, 0],
+    ["Backup Laptop", "IT", "SPM-49 test item: 5 in stock, 2 in maintenance", 5, 2],
+    ["Wireless Presenter", "AV", "SPM-49 test item: 4 in stock", 4, 0],
+  ];
+  for (const [name, category, description, totalQuantity, quantityInMaintenance] of fixtureEquipment49) {
+    const e = await prisma.equipment.create({
+      data: { name, category, description, totalQuantity, quantityInMaintenance },
+    });
+    equip[name] = e.id;
+  }
+
   // -------------------------------------------------------------------
   // EVENTS
   // -------------------------------------------------------------------
@@ -716,10 +735,10 @@ async function main() {
   // names its event and the date it happens on, so the dates are fixed.
   const fixture = (
     key: string, title: string, date: string, startHour: number, durationHours: number,
-    organiser: string, status = "planning", extra: Partial<EventSeed> = {}
+    organiser: string, options: { status?: string } & Partial<EventSeed> = {}
   ): EventSeed => ({
-    key, title, status, organiser, coordinator: "daniel.tan@connectsphere.com",
-    days: daysUntil(date), startHour, durationHours, ...extra,
+    key, title, organiser, coordinator: "daniel.tan@connectsphere.com",
+    days: daysUntil(date), startHour, durationHours, status: "planning", ...options,
   });
   eventData.push(
     fixture("fx_town_hall", "Town Hall Q4", "2026-10-20", 9, 8, "Rachel Ng"),
@@ -741,8 +760,8 @@ async function main() {
     fixture("fx_board_meeting2", "Board Meeting 2", "2026-12-14", 10, 3, "Rachel Ng"),
     fixture("fx_open_day", "Open Day", "2026-11-06", 9, 8, "Faridah Aziz"),
     fixture("fx_alumni_mixer", "Alumni Mixer", "2026-11-06", 18, 3, "Faridah Aziz"),
-    fixture("fx_cancelled_summit", "Cancelled Summit", "2026-11-12", 9, 8, "Budi Santoso", "cancelled",
-      { cancellationReason: "Client cancelled after a change in plans." }),
+    fixture("fx_cancelled_summit", "Cancelled Summit", "2026-11-12", 9, 8, "Budi Santoso",
+      { status: "cancelled", cancellationReason: "Client cancelled after a change in plans." }),
     fixture("fx_product_demo", "Product Demo", "2026-11-12", 10, 4, "Budi Santoso"),
     fixture("fx_gala_dinner", "Gala Dinner", "2026-11-02", 10, 6, "Evelyn Chen"),
     fixture("fx_charity_concert", "Charity Concert", "2026-11-03", 18, 3, "Evelyn Chen"),
@@ -765,6 +784,45 @@ async function main() {
     fixture("fx_debate_finals", "Debate Finals", "2026-11-05", 10, 6, "Samuel Ong"),
     fixture("fx_grad", "Graduation Ceremony", "2026-10-29", 10, 4, "Grace Abdullah"),
     fixture("fx_grad2", "Graduation Ceremony 2", "2026-10-30", 10, 4, "Grace Abdullah"),
+
+    // SPM-49 test-case events (docs/test-cases/SPM-49_Test_Cases.xlsx): Reserve
+    // Equipment. Several of these are reserved by an actual call to
+    // POST .../reserve while running the cases, not seeded already-reserved -
+    // only the events that need to already HOLD stock before the case starts
+    // (Fashion Show, Gala Night, Trade Mixer, Summit Lunch, Reserved Showcase)
+    // are seeded with a reservation below.
+    fixture("fx49_spring_fair", "Spring Fair", "2027-02-02", 9, 6, "Rachel Ng", { status: "under_review" }),
+    fixture("fx49_founders_day", "Founders Day", "2027-02-04", 9, 6, "James Koh", { status: "under_review" }),
+    fixture("fx49_autumn_fair", "Autumn Fair", "2027-02-09", 9, 6, "Melissa Yap", { status: "under_review" }),
+    fixture("fx49_winter_fair", "Winter Fair", "2027-02-16", 9, 6, "Kelvin Loh", { status: "under_review" }),
+    fixture("fx49_harvest_fair", "Harvest Fair", "2027-03-02", 9, 6, "Samuel Ong", { status: "under_review" }),
+    fixture("fx49_summer_fair", "Summer Fair", "2027-03-09", 9, 6, "Faridah Aziz", { status: "under_review" }),
+    fixture("fx49_craft_market", "Craft Market", "2027-03-16", 9, 6, "Grace Abdullah", { status: "under_review" }),
+    fixture("fx49_fashion_show", "Fashion Show", "2027-03-23", 14, 6, "Evelyn Chen", { status: "under_review" }),
+    fixture("fx49_after_party", "After Party", "2027-03-23", 20, 3, "Hakim Zulkifli", { status: "under_review" }),
+    fixture("fx49_product_demo_day", "Product Demo Day", "2027-03-15", 10, 4, "Budi Santoso", { status: "under_review" }),
+    fixture("fx49_partner_lunch", "Partner Lunch", "2027-03-15", 11, 2, "Rachel Ng", { status: "under_review" }),
+    fixture("fx49_sales_kickoff", "Sales Kickoff", "2027-04-05", 9, 6, "James Koh", { status: "under_review" }),
+    fixture("fx49_board_retreat", "Board Retreat", "2027-04-26", 9, 6, "Melissa Yap", { status: "under_review" }),
+    fixture("fx49_trade_show", "Trade Show", "2027-04-12", 9, 6, "Kelvin Loh", { status: "under_review" }),
+    fixture("fx49_media_briefing", "Media Briefing", "2027-04-13", 9, 6, "Samuel Ong", { status: "under_review" }),
+    fixture("fx49_careers_day", "Careers Day", "2027-04-19", 9, 6, "Faridah Aziz", { status: "under_review" }),
+    fixture("fx49_wrap_party", "Wrap Party", "2027-04-21", 18, 3, "Grace Abdullah", { status: "under_review" }),
+    fixture("fx49_innovation_day", "Innovation Day", "2027-05-03", 9, 6, "Evelyn Chen", { status: "under_review" }),
+    fixture("fx49_gala_night", "Gala Night", "2027-05-10", 18, 4, "Hakim Zulkifli", { status: "under_review" }),
+    fixture("fx49_awards_dinner", "Awards Dinner", "2027-05-10", 19, 4, "Budi Santoso", { status: "under_review" }),
+    fixture("fx49_popup_store", "Pop-up Store", "2027-05-17", 9, 6, "Rachel Ng", { status: "under_review" }),
+    fixture("fx49_flash_sale", "Flash Sale", "2027-05-17", 9, 6, "James Koh", { status: "under_review" }),
+    fixture("fx49_it_bootcamp", "IT Bootcamp", "2027-05-24", 9, 6, "Melissa Yap", { status: "under_review" }),
+    fixture("fx49_cancelled_roadshow", "Cancelled Roadshow", "2027-06-01", 9, 6, "Kelvin Loh",
+      { status: "cancelled", cancellationReason: "Client withdrew the request." }),
+    fixture("fx49_trade_mixer", "Trade Mixer", "2027-06-07", 18, 3, "Samuel Ong", { status: "under_review" }),
+    // Runs its Day 1 session on the same date Trade Mixer holds all the stock,
+    // and Day 2 three weeks later - sessions created further down.
+    fixture("fx49_two_day_forum", "Two-Day Forum", "2027-06-07", 9, 368, "Faridah Aziz", { status: "under_review" }),
+    fixture("fx49_summit_lunch", "Summit Lunch", "2027-06-14", 12, 2, "Grace Abdullah", { status: "under_review" }),
+    fixture("fx49_product_expo", "Product Expo", "2027-06-14", 9, 6, "Evelyn Chen", { status: "under_review" }),
+    fixture("fx49_reserved_showcase", "Reserved Showcase", "2027-07-05", 9, 6, "Rachel Ng", { status: "under_review" }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -776,7 +834,7 @@ async function main() {
       select: { organisationId: true },
     });
     const startsAt = e.status === "draft" ? null : day(e.days, e.startHour ?? 9);
-    const endsAt = startsAt ? new Date(startsAt.getTime() + (e.durationHours ?? 4) * 3600_000) : null;
+    const endsAt = startsAt ? new Date(startsAt.getTime() + (e.durationHours ?? 4) * 3_600_000) : null;
 
     const created = await prisma.event.create({
       data: {
@@ -1127,6 +1185,41 @@ async function main() {
     ["fx_debate_finals", "Laser Pointer", 1, null, "requested"],
     ["fx_grad", "Cordless Mic Set", 2, null, "under_review"],
     ["fx_grad2", "Cordless Mic Set", 6, null, "under_review"],
+    // SPM-49 test-case requests (Reserve Equipment). Most are left `under_review`
+    // with nothing reserved yet - the test cases themselves call
+    // POST .../reserve and check the result. Only the events a case needs to
+    // find ALREADY holding stock (Fashion Show, Gala Night, Trade Mixer, Summit
+    // Lunch, Reserved Showcase) are seeded pre-reserved.
+    ["fx49_spring_fair", "Portable Stage", 3, null, "under_review"],
+    ["fx49_founders_day", "Ring Light", 4, null, "under_review"],
+    ["fx49_autumn_fair", "Portable Stage", 2, null, "under_review"],
+    ["fx49_winter_fair", "Portable Stage", 2, null, "under_review"],
+    ["fx49_harvest_fair", "Portable Stage", 2, null, "under_review"],
+    ["fx49_summer_fair", "Portable Stage", 2, null, "under_review"],
+    ["fx49_craft_market", "Portable Stage", 5, null, "under_review"],
+    ["fx49_fashion_show", "Ring Light", 2, 2, "reserved"],
+    ["fx49_after_party", "Ring Light", 1, null, "under_review"],
+    ["fx49_product_demo_day", "Confidence Monitor", 3, null, "under_review"],
+    ["fx49_partner_lunch", "Confidence Monitor", 2, null, "under_review"],
+    ["fx49_sales_kickoff", "Confidence Monitor", 3, null, "under_review"],
+    ["fx49_board_retreat", "Confidence Monitor", 2, null, "under_review"],
+    ["fx49_trade_show", "Confidence Monitor", 3, null, "under_review"],
+    ["fx49_media_briefing", "Confidence Monitor", 2, null, "under_review"],
+    ["fx49_careers_day", "Confidence Monitor", 3, null, "under_review"],
+    ["fx49_wrap_party", "Confidence Monitor", 2, null, "under_review"],
+    ["fx49_innovation_day", "Confidence Monitor", 3, null, "under_review"],
+    ["fx49_gala_night", "Podium Light", 3, 3, "reserved"],
+    ["fx49_awards_dinner", "Podium Light", 2, null, "under_review"],
+    ["fx49_popup_store", "Mobile Charging Cart", 1, null, "under_review"],
+    ["fx49_flash_sale", "Mobile Charging Cart", 1, null, "under_review"],
+    ["fx49_it_bootcamp", "Backup Laptop", 4, null, "under_review"],
+    ["fx49_cancelled_roadshow", "Portable Stage", 2, null, "under_review"],
+    ["fx49_trade_mixer", "Wireless Presenter", 4, 4, "reserved"],
+    ["fx49_summit_lunch", "Mobile Charging Cart", 1, 1, "reserved"],
+    ["fx49_product_expo", "Portable Stage", 2, null, "under_review"],
+    ["fx49_product_expo", "Ring Light", 4, null, "under_review"],
+    ["fx49_product_expo", "Mobile Charging Cart", 1, null, "under_review"],
+    ["fx49_reserved_showcase", "Portable Stage", 3, 3, "reserved"],
   );
   for (let i = 0; i < eqReqs.length; i++) {
     const [eventKey, eqName, requested, reserved, status, note] = eqReqs[i];
@@ -1141,8 +1234,8 @@ async function main() {
         quantityReserved: reserved ?? undefined,
         technicalRequirements: note,
         // Kit leaves the store early and comes back late.
-        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3600_000),
-        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3600_000),
+        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
+        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
         status,
         requestedBy: seed.coordinator ? users[seed.coordinator] : users["daniel.tan@connectsphere.com"],
         requestedAt: day(seed.days - 27),
@@ -1182,13 +1275,42 @@ async function main() {
     });
   }
 
+  // SPM-49 (TC19): a second multi-session event, so a session-scoped
+  // reservation is checked against its own session's dates, not the other
+  // session's or the whole event's. Day 1 shares its date with Trade Mixer,
+  // which already holds every Wireless Presenter; Day 2 is unrelated.
+  const forum = events["fx49_two_day_forum"];
+  for (const [label, date] of [["Day 1", "2027-06-07"], ["Day 2", "2027-06-21"]] as const) {
+    const startsAt = day(daysUntil(date), 9);
+    const endsAt = day(daysUntil(date), 17);
+    const session = await prisma.eventSession.create({
+      data: { eventId: forum.id, label, startsAt, endsAt },
+    });
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: forum.id,
+        sessionId: session.id,
+        equipmentId: equip["Wireless Presenter"],
+        quantityRequested: 2,
+        technicalRequirements: `Presenters for ${label}.`,
+        startsAt,
+        endsAt,
+        status: "under_review",
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(forum.days - 27),
+        reviewedBy: users[techStaff[0]],
+        reviewedAt: day(forum.days - 25),
+      },
+    });
+  }
+
   // -------------------------------------------------------------------
   // REGISTRATIONS
   // -------------------------------------------------------------------
   console.log("Creating registrations…");
   const dietary = [null, null, null, "Vegetarian", null, "No shellfish", null,
     "Halal", null, null, "Vegan", null, "No nuts", null, null];
-  const access = [...Array(12).fill(null),
+  const access = [...new Array(12).fill(null),
     "Wheelchair user - please reserve a front space",
     "Requires a hearing loop receiver", null];
 
@@ -1241,8 +1363,8 @@ async function main() {
       requestedBy: users["organiser:Melissa Yap"],
       requestedAt: day(-9),
       reason: "Our keynote speaker can no longer make the morning; please move to the afternoon.",
-      proposedStartsAt: new Date(events["confirmed_briefing"].startsAt!.getTime() + 5 * 3600_000),
-      proposedEndsAt: new Date(events["confirmed_briefing"].endsAt!.getTime() + 5 * 3600_000),
+      proposedStartsAt: new Date(events["confirmed_briefing"].startsAt!.getTime() + 5 * 3_600_000),
+      proposedEndsAt: new Date(events["confirmed_briefing"].endsAt!.getTime() + 5 * 3_600_000),
       isSignificant: true,
       status: "approved",
       reviewedBy: users["joel.fernandez@connectsphere.com"],
