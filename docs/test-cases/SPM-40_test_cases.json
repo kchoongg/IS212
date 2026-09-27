@@ -1,0 +1,421 @@
+{
+  "story_key": "SPM-40",
+  "story_title": "As an Event Coordinator, I want to search and filter venues using event requirements so that I can identify suitable options for the event.",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-09-28",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "The Event Coordinator can filter by date and time." },
+    { "id": "AC2", "text": "The Event Coordinator can filter by expected attendance/capacity." },
+    { "id": "AC3", "text": "The Event Coordinator can filter by location." },
+    { "id": "AC4", "text": "The Event Coordinator can filter by accessibility requirements." },
+    { "id": "AC5", "text": "The Event Coordinator can filter by room layout." },
+    { "id": "AC6", "text": "The Event Coordinator can filter by required facilities." },
+    { "id": "AC7", "text": "Results only display venues matching the selected criteria." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-40-TC01",
+      "title": "Find a venue opens from the Venues page and lists every active venue when no filter is set",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Seed data freshly loaded (npx prisma db seed): 16 active venues.\nLogged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click 'Find a venue'",
+        "Look at the results count above the list"
+      ],
+      "test_data": "No filters set",
+      "expected_result": "The 'Find a venue' page opens with the subtitle 'Only venues matching every filter you set are shown.'\nAll filters are empty ('Any building', 'Any layout', no boxes ticked).\nThe count reads '16 of 16 venues match' and 16 venue cards are listed, from Changi Conference Centre (CBP-CONF) to Orchard Studio (ORC-STU)."
+    },
+    {
+      "id": "SPM-40-TC02",
+      "title": "Filter by location shows only venues in the chosen building",
+      "linked_ac": ["AC3", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "In 'Location', choose 'Marina Centre'",
+        "Click 'Search'"
+      ],
+      "test_data": "Location: Marina Centre",
+      "expected_result": "The count reads '4 of 16 venues match'.\nOnly Marina Auditorium (MAR-AUD), Marina Boardroom 1 (MAR-BR1), Marina Boardroom 2 (MAR-BR2) and Marina Grand Hall (MAR-GH) are listed; each card shows 'Marina Centre' as its building."
+    },
+    {
+      "id": "SPM-40-TC03",
+      "title": "Location list offers every building that has an active venue",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page.",
+      "steps": [
+        "Open the 'Location' dropdown",
+        "Choose 'Jurong Gateway' and click 'Search'",
+        "Open the 'Location' dropdown again"
+      ],
+      "test_data": "Location: Jurong Gateway",
+      "expected_result": "The dropdown lists 'Any building', Changi Business Park, Jurong Gateway, Marina Centre, One-North, Orchard Hub.\nAfter searching Jurong Gateway (3 of 16 match: JUR-EXP, JUR-LAB, JUR-TRN), the dropdown still lists all five buildings - picking one does not remove the others."
+    },
+    {
+      "id": "SPM-40-TC04",
+      "title": "Filter by room layout shows only venues offering that layout",
+      "linked_ac": ["AC5", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "In 'Room layout', choose 'Banquet'",
+        "Click 'Search'"
+      ],
+      "test_data": "Room layout: Banquet",
+      "expected_result": "The count reads '5 of 16 venues match'.\nOnly Changi Conference Centre (CBP-CONF), Jurong Expo Floor (JUR-EXP), Marina Grand Hall (MAR-GH), One-North Rooftop Terrace (ONE-ROOF) and Orchard Gallery (ORC-GAL) are listed, and 'Banquet' appears in each card's layout line."
+    },
+    {
+      "id": "SPM-40-TC05",
+      "title": "Filter by expected attendance compares with the chosen layout's capacity, not the venue maximum",
+      "linked_ac": ["AC2", "AC5", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.\nMarina Grand Hall seats 500 theatre-style but 250 classroom-style.",
+      "steps": [
+        "Enter 300 in 'Expected attendance'",
+        "Click 'Search'",
+        "Choose 'Classroom' in 'Room layout'",
+        "Click 'Search'"
+      ],
+      "test_data": "Expected attendance: 300\nRoom layout: (any), then Classroom",
+      "expected_result": "With any layout: '2 of 16 venues match' - Marina Grand Hall (MAR-GH) then Jurong Expo Floor (JUR-EXP); the smallest room that still fits is listed first.\nWith Classroom: '0 of 16 venues match' and the message 'No venues match these filters' with 'Try a wider time, a different layout or location, or fewer facilities.' No venue seats 300 in classroom layout, so Marina Grand Hall (classroom 250) is not shown even though its maximum is 500."
+    },
+    {
+      "id": "SPM-40-TC06",
+      "title": "Attendance equal to the layout capacity matches; one more does not",
+      "linked_ac": ["AC2", "AC7"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.\nMarina Grand Hall theatre capacity 500; Jurong Expo Floor theatre capacity 600.",
+      "steps": [
+        "Choose 'Theatre' in 'Room layout'",
+        "Enter 500 in 'Expected attendance'",
+        "Click 'Search'",
+        "Change 'Expected attendance' to 501",
+        "Click 'Search'"
+      ],
+      "test_data": "Room layout: Theatre\nExpected attendance: 500, then 501",
+      "expected_result": "At 500: Marina Grand Hall (MAR-GH) and Jurong Expo Floor (JUR-EXP) are listed, Marina first.\nAt 501: only Jurong Expo Floor (JUR-EXP) is listed."
+    },
+    {
+      "id": "SPM-40-TC07",
+      "title": "Expected attendance of 0 or a fraction is refused before searching",
+      "linked_ac": ["AC2"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page.",
+      "steps": [
+        "Enter 0 in 'Expected attendance'",
+        "Click 'Search'",
+        "Change 'Expected attendance' to 12.5",
+        "Click 'Search'"
+      ],
+      "test_data": "Expected attendance: 0, then 12.5",
+      "expected_result": "Both times the field shows 'Enter a whole number of people, 1 or more.' in red and the results list does not change."
+    },
+    {
+      "id": "SPM-40-TC08",
+      "title": "Filter by an accessibility requirement",
+      "linked_ac": ["AC4", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "Under 'Accessibility requirements', tick 'Braille signage'",
+        "Click 'Search'"
+      ],
+      "test_data": "Accessibility requirements: Braille signage",
+      "expected_result": "The count reads '2 of 16 venues match'.\nOnly Marina Auditorium (MAR-AUD) and One-North Auditorium (ONE-AUD) are listed; on each card 'Braille signage' is shown first, as a green chip."
+    },
+    {
+      "id": "SPM-40-TC09",
+      "title": "Several accessibility requirements must ALL be met",
+      "linked_ac": ["AC4", "AC7"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.\nOrchard Seminar Room has Wheelchair spaces but no Hearing induction loop.",
+      "steps": [
+        "Under 'Accessibility requirements', tick 'Wheelchair spaces'",
+        "Tick 'Hearing induction loop'",
+        "Click 'Search'"
+      ],
+      "test_data": "Accessibility requirements: Wheelchair spaces, Hearing induction loop",
+      "expected_result": "The count reads '4 of 16 venues match': Changi Conference Centre (CBP-CONF), Marina Auditorium (MAR-AUD), Marina Grand Hall (MAR-GH), One-North Auditorium (ONE-AUD).\nOrchard Seminar Room (ORC-SEM) is not listed although it has wheelchair spaces."
+    },
+    {
+      "id": "SPM-40-TC10",
+      "title": "Filter by required facilities",
+      "linked_ac": ["AC6", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "Under 'Required facilities', tick 'Livestream capability'",
+        "Tick 'Green room'",
+        "Click 'Search'"
+      ],
+      "test_data": "Required facilities: Livestream capability, Green room",
+      "expected_result": "The count reads '3 of 16 venues match': Marina Auditorium (MAR-AUD), Marina Grand Hall (MAR-GH), One-North Auditorium (ONE-AUD).\nOn each card the two ticked facilities appear first as green chips."
+    },
+    {
+      "id": "SPM-40-TC11",
+      "title": "Facilities combine with location",
+      "linked_ac": ["AC3", "AC6", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "In 'Location', choose 'Jurong Gateway'",
+        "Under 'Required facilities', tick 'Loading bay access'",
+        "Click 'Search'"
+      ],
+      "test_data": "Location: Jurong Gateway\nRequired facilities: Loading bay access",
+      "expected_result": "Only Jurong Expo Floor (JUR-EXP) and Jurong Skills Lab (JUR-LAB) are listed. Marina Grand Hall and Orchard Gallery also have a loading bay but are in other buildings, so they are not shown."
+    },
+    {
+      "id": "SPM-40-TC12",
+      "title": "Filter by date and time hides a venue already booked at that time",
+      "linked_ac": ["AC1", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed data: Marina Grand Hall (MAR-GH) has an approved booking for 'Straits Medical Research Symposium' (EVT-000004), 09:00-18:00 on its event date (72 days after seeding; 8 Dec 2026 if seeded on 28 Sep 2026).\nOn the Find a venue page with all filters cleared (opened from the Venues page, not from an event).",
+      "steps": [
+        "In 'From', enter the symposium's date at 09:00",
+        "In 'To', enter the same date at 18:00",
+        "In 'Location', choose 'Marina Centre'",
+        "Click 'Search'"
+      ],
+      "test_data": "From: 8 Dec 2026 09:00\nTo: 8 Dec 2026 18:00\nLocation: Marina Centre",
+      "expected_result": "Marina Grand Hall (MAR-GH) is not listed.\nMarina Auditorium (MAR-AUD) and Marina Boardroom 1 (MAR-BR1) are listed. Marina Boardroom 2 (MAR-BR2) is also missing - it is under renovation that day (see TC14)."
+    },
+    {
+      "id": "SPM-40-TC13",
+      "title": "A venue whose setup slot is taken by the next day's booking is hidden",
+      "linked_ac": ["AC1", "AC7"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed data: Jurong Training Room (JUR-TRN) has an approved booking for 'Harbourline Claims Systems Training' (EVT-000012), 09:00-17:00, 23 days after seeding (20 Oct 2026 if seeded on 28 Sep 2026). JUR-TRN records setup time, so under the customer's slot rules (#123) that AM booking also takes the previous day's Night slot.\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "In 'Location', choose 'Jurong Gateway'",
+        "Enter From = the day BEFORE the training at 19:00, To = the same day at 20:00",
+        "Click 'Search'",
+        "Change From to 08:00 and To to 11:00 on that same day",
+        "Click 'Search'"
+      ],
+      "test_data": "Location: Jurong Gateway\nFrom/To: 19 Oct 2026 19:00-20:00, then 19 Oct 2026 08:00-11:00",
+      "expected_result": "19:00-20:00: only Jurong Skills Lab (JUR-LAB) is listed. Jurong Training Room is hidden although nothing is booked in it that evening - the Night slot is its next-morning setup.\n08:00-11:00: Jurong Skills Lab (JUR-LAB) and Jurong Training Room (JUR-TRN) are both listed."
+    },
+    {
+      "id": "SPM-40-TC14",
+      "title": "A venue blocked for renovation is hidden for those dates",
+      "linked_ac": ["AC1", "AC7"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed data: Jurong Expo Floor (JUR-EXP) is unavailable for renovation from 21 to 28 days after seeding (19-26 Oct 2026 if seeded on 28 Sep 2026).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "In 'Location', choose 'Jurong Gateway'",
+        "Enter From = 22 days after seeding at 09:00, To = the same day at 12:00",
+        "Click 'Search'",
+        "Change From/To to 1 Mar 2027 09:00-12:00",
+        "Click 'Search'"
+      ],
+      "test_data": "Location: Jurong Gateway\nFrom/To: 20 Oct 2026 09:00-12:00, then 1 Mar 2027 09:00-12:00",
+      "expected_result": "20 Oct: Jurong Expo Floor (JUR-EXP) is not listed.\n1 Mar 2027: Jurong Expo Floor (JUR-EXP) is listed again, with Jurong Skills Lab and Jurong Training Room."
+    },
+    {
+      "id": "SPM-40-TC15",
+      "title": "A venue on tentative hold for another event at that time is hidden",
+      "linked_ac": ["AC1", "AC7"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed data: Changi Conference Centre (CBP-CONF) has a PENDING booking request for 'Pearl Delta Safety Conference' (EVT-000014), 09:00-17:00, 79 days after seeding (15 Dec 2026 if seeded on 28 Sep 2026).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "In 'Location', choose 'Changi Business Park'",
+        "Enter From = the safety conference's date at 09:00, To = the same date at 17:00",
+        "Click 'Search'"
+      ],
+      "test_data": "Location: Changi Business Park\nFrom/To: 15 Dec 2026 09:00-17:00",
+      "expected_result": "Only Changi Meeting Room 1 (CBP-MTG1) and Changi Meeting Room 2 (CBP-MTG2) are listed. Changi Conference Centre is hidden because it is already on hold for that time (customer ruling #41: one active hold per venue and time)."
+    },
+    {
+      "id": "SPM-40-TC16",
+      "title": "Opening hours: starting at opening time matches, one minute earlier does not",
+      "linked_ac": ["AC1", "AC7"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.\nOrchard Seminar Room is open 08:00-22:00; Orchard Studio 08:00-21:00; Orchard Gallery 09:00-23:00.",
+      "steps": [
+        "In 'Location', choose 'Orchard Hub'",
+        "Enter From = 1 Mar 2027 08:00, To = 1 Mar 2027 22:00",
+        "Click 'Search'",
+        "Change From to 07:59",
+        "Click 'Search'"
+      ],
+      "test_data": "Location: Orchard Hub\nFrom/To: 1 Mar 2027 08:00-22:00, then 07:59-22:00",
+      "expected_result": "08:00-22:00: only Orchard Seminar Room (ORC-SEM) is listed (the Studio closes at 21:00, the Gallery opens at 09:00).\n07:59-22:00: no venue is listed; 'No venues match these filters' is shown."
+    },
+    {
+      "id": "SPM-40-TC17",
+      "title": "A venue that opens late is hidden for a morning search",
+      "linked_ac": ["AC1", "AC7"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.\nOne-North Rooftop Terrace opens at 16:00.",
+      "steps": [
+        "In 'Location', choose 'One-North'",
+        "Enter From = 1 Mar 2027 09:00, To = 1 Mar 2027 11:00",
+        "Click 'Search'",
+        "Change From to 17:00 and To to 22:00",
+        "Click 'Search'"
+      ],
+      "test_data": "Location: One-North\nFrom/To: 1 Mar 2027 09:00-11:00, then 17:00-22:00",
+      "expected_result": "09:00-11:00: One-North Auditorium (ONE-AUD) and One-North Seminar Room (ONE-SEM) are listed; One-North Rooftop Terrace is not.\n17:00-22:00: One-North Auditorium (ONE-AUD) and One-North Rooftop Terrace (ONE-ROOF) are listed (the Seminar Room closes at 21:00)."
+    },
+    {
+      "id": "SPM-40-TC18",
+      "title": "A start without an end, or an end before the start, is refused",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "Enter From = 1 Mar 2027 09:00 and leave 'To' empty",
+        "Click 'Search'",
+        "Enter To = 1 Mar 2027 09:00",
+        "Click 'Search'"
+      ],
+      "test_data": "From: 1 Mar 2027 09:00\nTo: (empty), then 1 Mar 2027 09:00",
+      "expected_result": "First search: 'To' shows 'Give both a start and an end, or clear both.' and the results do not change.\nSecond search: 'To' shows 'The end must be after the start.' and the results do not change."
+    },
+    {
+      "id": "SPM-40-TC19",
+      "title": "Opening Find a venue from an event fills every filter from the event's requirements",
+      "linked_ac": ["AC1", "AC2", "AC4", "AC5", "AC6"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'Straits Medical Research Symposium' (EVT-000004, status Planning).\nThe symposium expects 200 people, theatre layout, 09:00-18:00 on its date; mandatory requirements: High-density WiFi, Video conferencing suite, Livestream capability, Hearing induction loop, Wheelchair spaces; Catering pantry is a nice-to-have.",
+      "steps": [
+        "Open 'Straits Medical Research Symposium' from Events",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'"
+      ],
+      "test_data": "Event: EVT-000004",
+      "expected_result": "The Find a venue page opens with the breadcrumb 'Events / EVT-000004 / Find a venue' and the subtitle 'Filled in from Straits Medical Research Symposium's requirements...'.\nFrom/To show the event's date 09:00 and 18:00; Expected attendance 200; Room layout Theatre; Location 'Any building'.\nWheelchair spaces and Hearing induction loop are ticked under Accessibility requirements; High-density WiFi, Video conferencing suite and Livestream capability are ticked under Required facilities; Catering pantry is NOT ticked.\nThe results are already shown: Marina Auditorium (MAR-AUD), Changi Conference Centre (CBP-CONF), Marina Grand Hall (MAR-GH), each with a 'Check suitability' button."
+    },
+    {
+      "id": "SPM-40-TC20",
+      "title": "The event's own booking does not hide its venue",
+      "linked_ac": ["AC1", "AC7"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "As TC19: Marina Grand Hall is booked (approved) for the symposium itself.\nFind a venue opened from the symposium's Venue tab (filters pre-filled).",
+      "steps": [
+        "Look for Marina Grand Hall in the results",
+        "Click 'Venues' in the sidebar, then 'Find a venue'",
+        "Enter the same From/To, Expected attendance 200, Room layout Theatre, and tick the same five requirements as TC19",
+        "Click 'Search'"
+      ],
+      "test_data": "From/To: symposium date 09:00-18:00\nExpected attendance: 200\nRoom layout: Theatre",
+      "expected_result": "Opened from the event: Marina Grand Hall (MAR-GH) IS listed - its only booking that day is this event's own.\nOpened from Venues (no event): Marina Grand Hall is NOT listed; only Marina Auditorium (MAR-AUD) and Changi Conference Centre (CBP-CONF) are."
+    },
+    {
+      "id": "SPM-40-TC21",
+      "title": "All six filters together return only the venues meeting every one",
+      "linked_ac": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC6", "AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page with all filters cleared.",
+      "steps": [
+        "Enter From = 1 Mar 2027 09:00, To = 1 Mar 2027 12:00",
+        "Enter 100 in 'Expected attendance'",
+        "Choose 'Marina Centre' in 'Location'",
+        "Choose 'Theatre' in 'Room layout'",
+        "Tick 'Step-free access' and 'Hearing induction loop' under Accessibility requirements",
+        "Tick 'Built-in PA system' under Required facilities",
+        "Click 'Search'"
+      ],
+      "test_data": "From/To: 1 Mar 2027 09:00-12:00\nExpected attendance: 100\nLocation: Marina Centre\nRoom layout: Theatre\nAccessibility: Step-free access, Hearing induction loop\nFacilities: Built-in PA system",
+      "expected_result": "Only Marina Auditorium (MAR-AUD, theatre 220) and Marina Grand Hall (MAR-GH, theatre 500) are listed, in that order.\nThe Theatre capacity is shown in bold on each card, and the three ticked items appear first as green chips."
+    },
+    {
+      "id": "SPM-40-TC22",
+      "title": "Clear filters resets the form and shows the whole catalogue",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page after running TC21.",
+      "steps": [
+        "Click 'Clear filters'"
+      ],
+      "test_data": "N/A",
+      "expected_result": "Every filter is empty again ('Any building', 'Any layout', no boxes ticked) and the count reads '16 of 16 venues match'."
+    },
+    {
+      "id": "SPM-40-TC23",
+      "title": "Venue Staff can also use Find a venue",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click 'Find a venue'",
+        "Choose 'Orchard Hub' in 'Location' and click 'Search'"
+      ],
+      "test_data": "Location: Orchard Hub",
+      "expected_result": "On the Venues page 'Find a venue' sits beside 'Add venue'.\nThe search lists Orchard Gallery (ORC-GAL), Orchard Seminar Room (ORC-SEM) and Orchard Studio (ORC-STU). Retired venues never appear in the results."
+    },
+    {
+      "id": "SPM-40-TC24",
+      "title": "An Event Organiser cannot use venue search",
+      "linked_ac": ["AC7"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Event Organiser Evelyn Chen (look up her email in npx prisma studio > users; password123), organiser of 'Straits Medical Research Symposium'.",
+      "steps": [
+        "Check the sidebar for a 'Venues' link",
+        "Type /venues/search into the address bar and press Enter"
+      ],
+      "test_data": "Page: /venues/search",
+      "expected_result": "There is no 'Venues' link in the organiser's sidebar.\nThe page shows the error 'Not available - Venue search is for ConnectSphere staff.' and no venue is listed."
+    }
+  ],
+  "open_questions": [
+    "Approved -> Planning: the status lifecycle diagram labels this move 'search', and the seed's status history reason for Planning is 'Venue search started'. SPM-40 does NOT change the event's status - searching is read-only, and an event would flip to Planning just because someone looked. Nothing else moves Approved -> Planning yet either. Should the move happen when the coordinator submits the first venue booking request (SPM-42), or when they first open Find a venue for the event?",
+    "Tentative holds (#41): a venue with a PENDING booking request for another event at an overlapping time is hidden from results, because the customer allows only one active hold per venue and time, so asking for it would only be refused. SPM-46's availability calendar shows the same hold as a warning rather than a block. Confirm hiding it is right for search.",
+    "Opening hours: a venue is matched only when the search starts at or after its opening time and ends at or before its closing time (checked on the first and last day of a multi-day search, not overnight). The AC says 'date and time' only; this is the team's reading of #46 (Venue Staff maintain operating hours). Confirm.",
+    "Setup and turnaround: under the customer's slot rules (#50, #107, #108, #123, implemented by SPM-46's venueSlots.ts) the searched event's OWN setup and turnaround slots must be free too, so e.g. an AM search hides a venue whose previous-night slot is another booking's turnaround. This makes the search stricter than 'is anything booked during my hours'. Confirm this is wanted.",
+    "Attendance with no layout chosen matches a venue if ANY of its layouts seats that many; a venue with no layouts never matches an attendance filter. Venue.maxCapacity is never used (#112). Confirm.",
+    "Pre-filling from an event ticks only its MANDATORY facility and accessibility requirements; nice-to-haves are left unticked so they don't hide venues (AC7 would drop any venue lacking one). Location is left as 'Any building' because an event has no location requirement. Confirm both.",
+    "Mockup vs AC7: design/mockups/VenueSearch.dc.html shows over-capacity, partial-match and unavailable venues greyed out in the list. AC7 says results show ONLY matching venues, so SPM-40 hides them; the greyed 'not suitable, and why' view is SPM-41's Venue tab. The mockup should be updated or the team should confirm the split.",
+    "No 'Request' button: the mockup's Request / Request anyway buttons belong to S-15 Venue booking request (SPM-42), not built. SPM-40 offers 'Check suitability' (SPM-41) from an event's results instead.",
+    "Dates in these test cases depend on the day the seed was run - seed dates are relative to 'today'. Absolute dates given assume seeding on 28 Sep 2026; recompute from the event dates shown in the app otherwise.",
+    "Found while testing, outside SPM-40: on main, the SPM-41 Venue tab (/events/EVT-000004/venue) always says the event does not exist, because GET /api/events/[id]/venue-suitability looks the event up by its internal id while every link now uses the EVT- reference (SPM-31). TC19 reaches Find a venue through that tab's 'Search with filters' button, which still works because the button renders even when the tab's own check fails. The SPM-41 owner should switch that route to parseEventReference()."
+  ],
+  "code_references": [
+    "src/lib/venueSearch.ts",
+    "src/lib/venueSearchForm.ts",
+    "src/lib/validation/venues.ts",
+    "src/app/api/venues/search/route.ts",
+    "src/app/venues/search/page.tsx",
+    "src/app/venues/page.tsx",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/lib/venueSlots.ts",
+    "src/lib/venueSuitability.ts",
+    "src/app/api/venues/route.ts",
+    "src/app/api/facilities/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/lib/permissions.ts",
+    "prisma/schema.prisma",
+    "prisma/seed.ts",
+    "design/mockups/VenueSearch.dc.html",
+    "UI_DESIGN.md"
+  ]
+}

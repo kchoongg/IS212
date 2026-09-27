@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Alert,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   PageHeader,
@@ -114,6 +115,13 @@ export default function EventVenuePage() {
           { label: "Event", href: `/events/${eventId}` },
           { label: "Venue" },
         ]}
+        actions={
+          // SPM-40: the same event's requirements as search FILTERS - only the
+          // matching venues, narrowed further by date, location and so on.
+          <ButtonLink href={`/venues/search?event=${eventId}`} variant="secondary">
+            Search with filters
+          </ButtonLink>
+        }
       />
 
       {tabs.length > 0 && <Tabs items={tabs} activeKey="venue" className="mb-6" />}
