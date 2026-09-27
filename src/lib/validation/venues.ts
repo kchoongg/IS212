@@ -32,41 +32,6 @@ export const createVenueSchema = z.object({
 });
 export type CreateVenueInput = z.infer<typeof createVenueSchema>;
 
-// ADDED: PATCH /api/venues/[id]. Every field optional - an absent field means
-// "leave this alone", the same convention updateEventDraftSchema uses. A
-// PRESENT `layouts` or `facilityIds` array is a full replacement of that
-// relation, which is how a layout or a facility gets REMOVED from a venue, and
-// removal is exactly what flags existing bookings for review (venueImpact.ts).
-export const updateVenueSchema = createVenueSchema
-  .partial()
-  .extend({
-    /// Retiring a venue is `isActive: false`, never a delete: VenueBooking
-    /// holds a plain foreign key to Venue with no cascade, so deleting a
-    /// booked venue would fail at the database, and past bookings must keep
-    /// pointing at the room they were held in.
-    isActive: z.boolean().optional(),
-    /// Why the venue changed or was retired. Deliberately NOT stored on Venue
-    /// - there is no column for it and we are not adding one. It goes into the
-    /// notification sent to the coordinators of affected bookings, which is
-    /// where a human will actually read it.
-    reason: z.string().max(500).optional(),
-  })
-  .refine((data) => Object.keys(data).length > 0, {
-    message: "Provide at least one field to change",
-  })
-  .refine(
-    (data) => {
-      if (!data.layouts) return true;
-      const names = data.layouts.map((l) => l.layoutName);
-      return new Set(names).size === names.length;
-    },
-    {
-      message: "Each layout may appear only once",
-      path: ["layouts"],
-    }
-  );
-export type UpdateVenueInput = z.infer<typeof updateVenueSchema>;
-
 // ADDED (SPM-40): GET /api/venues/search. Query strings, so every value
 // arrives as text; empty strings are treated as "filter not set" rather than
 // errors, because that is what an untouched form field sends.
@@ -104,3 +69,38 @@ export const venueSearchQuerySchema = z
     path: ["to"],
   });
 export type VenueSearchQuery = z.infer<typeof venueSearchQuerySchema>;
+
+// ADDED: PATCH /api/venues/[id]. Every field optional - an absent field means
+// "leave this alone", the same convention updateEventDraftSchema uses. A
+// PRESENT `layouts` or `facilityIds` array is a full replacement of that
+// relation, which is how a layout or a facility gets REMOVED from a venue, and
+// removal is exactly what flags existing bookings for review (venueImpact.ts).
+export const updateVenueSchema = createVenueSchema
+  .partial()
+  .extend({
+    /// Retiring a venue is `isActive: false`, never a delete: VenueBooking
+    /// holds a plain foreign key to Venue with no cascade, so deleting a
+    /// booked venue would fail at the database, and past bookings must keep
+    /// pointing at the room they were held in.
+    isActive: z.boolean().optional(),
+    /// Why the venue changed or was retired. Deliberately NOT stored on Venue
+    /// - there is no column for it and we are not adding one. It goes into the
+    /// notification sent to the coordinators of affected bookings, which is
+    /// where a human will actually read it.
+    reason: z.string().max(500).optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, {
+    message: "Provide at least one field to change",
+  })
+  .refine(
+    (data) => {
+      if (!data.layouts) return true;
+      const names = data.layouts.map((l) => l.layoutName);
+      return new Set(names).size === names.length;
+    },
+    {
+      message: "Each layout may appear only once",
+      path: ["layouts"],
+    }
+  );
+export type UpdateVenueInput = z.infer<typeof updateVenueSchema>;

@@ -8,10 +8,11 @@ import {
   updateEventStatusSchema,
   updateEventDraftSchema,
   updateVenueSchema,
-  venueSearchQuerySchema,
   addEquipmentRequestSchema,
   updateEquipmentRequestSchema,
 } from "../validation";
+// SPM-40 - its own import so the shared list above stays conflict-free.
+import { venueSearchQuerySchema } from "../validation";
 
 import { SELF_REGISTERABLE_ROLES } from "../roles";
 
@@ -692,6 +693,48 @@ describe("updateVenueSchema", () => {
 
 // ---- Equipment requirements recorded after the event exists (SPM-47, S-16) ----
 
+// SPM-40: GET /api/venues/search query string.
+describe("venueSearchQuerySchema", () => {
+  const UUID = "3f2b8c1e-4a5d-4e6f-9a0b-1c2d3e4f5a6b";
+
+  it("accepts no filters at all", () => {
+    expect(venueSearchQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it("treats blank values as filters not set", () => {
+    const parsed = venueSearchQuerySchema.parse({ from: "", to: "", attendance: "", building: "" });
+    expect(parsed).toEqual({});
+  });
+
+  it("coerces attendance and splits facilityIds", () => {
+    const parsed = venueSearchQuerySchema.parse({ attendance: "120", facilityIds: `${UUID}, ${UUID}` });
+    expect(parsed.attendance).toBe(120);
+    expect(parsed.facilityIds).toEqual([UUID, UUID]);
+  });
+
+  it("rejects a start without an end", () => {
+    expect(venueSearchQuerySchema.safeParse({ from: "2026-12-09T09:00" }).success).toBe(false);
+  });
+
+  it("rejects an end at or before the start", () => {
+    expect(
+      venueSearchQuerySchema.safeParse({ from: "2026-12-09T09:00", to: "2026-12-09T09:00" }).success
+    ).toBe(false);
+  });
+
+  it("rejects a non-positive or fractional attendance, and a malformed facility id", () => {
+    expect(venueSearchQuerySchema.safeParse({ attendance: "0" }).success).toBe(false);
+    expect(venueSearchQuerySchema.safeParse({ attendance: "2.5" }).success).toBe(false);
+    expect(venueSearchQuerySchema.safeParse({ facilityIds: "not-a-uuid" }).success).toBe(false);
+  });
+
+  it("rejects a time that is not YYYY-MM-DDTHH:MM", () => {
+    expect(
+      venueSearchQuerySchema.safeParse({ from: "9 Dec 2026", to: "10 Dec 2026" }).success
+    ).toBe(false);
+  });
+});
+
 describe("addEquipmentRequestSchema", () => {
   const projector = "8f14e45f-ceea-4e7c-9c2f-1f6a8e4f1f10";
 
@@ -769,47 +812,5 @@ describe("updateEquipmentRequestSchema", () => {
 
   it("rejects a quantity below one", () => {
     expect(updateEquipmentRequestSchema.safeParse({ quantityRequested: 0 }).success).toBe(false);
-  });
-});
-
-// SPM-40: GET /api/venues/search query string.
-describe("venueSearchQuerySchema", () => {
-  const UUID = "3f2b8c1e-4a5d-4e6f-9a0b-1c2d3e4f5a6b";
-
-  it("accepts no filters at all", () => {
-    expect(venueSearchQuerySchema.safeParse({}).success).toBe(true);
-  });
-
-  it("treats blank values as filters not set", () => {
-    const parsed = venueSearchQuerySchema.parse({ from: "", to: "", attendance: "", building: "" });
-    expect(parsed).toEqual({});
-  });
-
-  it("coerces attendance and splits facilityIds", () => {
-    const parsed = venueSearchQuerySchema.parse({ attendance: "120", facilityIds: `${UUID}, ${UUID}` });
-    expect(parsed.attendance).toBe(120);
-    expect(parsed.facilityIds).toEqual([UUID, UUID]);
-  });
-
-  it("rejects a start without an end", () => {
-    expect(venueSearchQuerySchema.safeParse({ from: "2026-12-09T09:00" }).success).toBe(false);
-  });
-
-  it("rejects an end at or before the start", () => {
-    expect(
-      venueSearchQuerySchema.safeParse({ from: "2026-12-09T09:00", to: "2026-12-09T09:00" }).success
-    ).toBe(false);
-  });
-
-  it("rejects a non-positive or fractional attendance, and a malformed facility id", () => {
-    expect(venueSearchQuerySchema.safeParse({ attendance: "0" }).success).toBe(false);
-    expect(venueSearchQuerySchema.safeParse({ attendance: "2.5" }).success).toBe(false);
-    expect(venueSearchQuerySchema.safeParse({ facilityIds: "not-a-uuid" }).success).toBe(false);
-  });
-
-  it("rejects a time that is not YYYY-MM-DDTHH:MM", () => {
-    expect(
-      venueSearchQuerySchema.safeParse({ from: "9 Dec 2026", to: "10 Dec 2026" }).success
-    ).toBe(false);
   });
 });
