@@ -681,8 +681,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No route-level tests outside auth/permissions** | `npm run verify:permissions` (45 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
-| **Nothing moves an event from Approved to Planning** | The status lifecycle labels Approved → Planning "search", and the seed's history reason for Planning is "Venue search started" — but SPM-40's search is a read-only `GET` and deliberately changes no status (an event would flip just because someone looked). No other code makes the move either. Proposal: SPM-42's first venue booking request does it. Needs a team decision; update the lifecycle diagram's edge label when it's made. | venues / events |
-| **SPM-41's Venue tab 404s on main** | `GET /api/events/[id]/venue-suitability` still looks events up with `where: { id }`, but since SPM-31 every link passes the reference (`EVT-000123`), so `/events/EVT-…/venue` always shows "This event doesn't exist". Fix: resolve it with `parseEventReference()` like `api/events/[id]/route.ts` does. Found while testing SPM-40, not fixed there (not its story). Flagged 2026-09-28. | venues (SPM-41) |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 
 ---
@@ -734,19 +732,31 @@ what changed, why, and the migration name if there is one.
   the date filter follows the same rules as the availability calendar and the
   two branches merge without conflict. Edit them on one branch only until both
   are merged.
+- **Approved → Planning now happens.** When the event's *assigned*
+  coordinator opens Find a venue for an **Approved** event, the page moves it
+  to Planning through the existing `PATCH /api/events/[id]` (history reason
+  "Venue search started", the seed's own wording). That is the lifecycle
+  diagram's "search" edge; the BPMN and the seed history already said so.
+  Guarded client-side by `shouldStartPlanning()` because the status route
+  checks *who* may move a status, not *from where* — without the guard a
+  Confirmed event would drop back to Planning on every search. The route
+  itself is unchanged.
 - Entry points: "Find a venue" on `/venues`; "Search with filters" on the
-  event's Venue tab.
-- Diagrams: **no change needed.** The BPMN's Coordinator lane already has
-  "Search venues & check suitability" between approval and the booking
-  request, and SPM-40 changes no status. The lifecycle's Approved → Planning
-  edge ("search") is now a Known Gap, because nothing performs it.
-- Tests: 53 new unit tests (`venueSearch.test.ts`, `venueSearchForm.test.ts`,
+  event's Venue tab (a header button only - SPM-41's own logic is untouched).
+- Diagrams: **no change needed.** The code now matches both: the BPMN's
+  "Search venues & check suitability" step, and the lifecycle's Approved →
+  Planning "search" edge.
+- Seed: one fixture appended, `spm40_approved` ("SPM40 Approved Workshop",
+  Daniel Tan) - the only Approved event, since nothing in the app can approve
+  one yet (S-13). Appended last so no existing EVT- reference shifts; the
+  status-history table gained its missing `approved` chain. **Not applied to
+  the shared database** - reseed when convenient.
+- Tests: 56 new unit tests (`venueSearch.test.ts`, `venueSearchForm.test.ts`,
   `venueSearchQuerySchema` in `validation.test.ts`), plus SPM-46's slot tests
-  carried over. Manual cases: `docs/test-cases/SPM-40_*` — 24 cases, with 10
-  open questions for the team.
-- No schema change, no migration, no seed change: the existing seed already
-  has a booked venue, a pending hold, a renovation block and a late-opening
-  venue to test against.
+  carried over. Manual cases: `docs/test-cases/SPM-40_*` — 16 cases covering
+  all seven ACs; the rulings behind each decision are listed in the JSON's
+  `open_questions` with their discussion numbers.
+- No schema change, no migration.
 
 ### 2026-09-25 — Kristen
 - **Fixed `prisma/seed.ts` leaking event reference numbers across reseeds.**
