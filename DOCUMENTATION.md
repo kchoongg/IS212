@@ -181,6 +181,12 @@ IS212/
     │   │                                coordinator" / "Change coordinator" card
     │   │                                here (SPM-30).
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
+    │   ├── venues/search/page.tsx       # S-14 "Find a venue" (SPM-40): filters on the
+    │   │                                left, ONLY matching venues on the right.
+    │   │                                ?event=EVT-000123 pre-fills it from that
+    │   │                                event's requirements (and lets a session be
+    │   │                                chosen). Reached from /venues and from the
+    │   │                                event's Venue tab ("Search with filters").
     │   ├── equipment/requests/page.tsx      # S-25 queue — events with equipment
     │   │                                     requested (SPM-48). Technical Support only.
     │   ├── equipment/requests/[id]/page.tsx # S-25 detail — Check Equipment Availability
@@ -225,6 +231,16 @@ IS212/
         ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues, sessionsPayload
         ├── eventSessions.ts             # Multi-session events (pure): deriveEventFromSessions, equipmentWindow
         ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
+        ├── venueSlots.ts                  # AM/PM/Night slots, setup/turnaround as whole
+        │                                   adjacent slots (#50/#107/#108/#123). Written
+        │                                   for SPM-46; SPM-40 carries an identical copy
+        │                                   so the two branches merge cleanly - change it
+        │                                   on ONE branch only.
+        ├── venueSearch.ts                 # SPM-40 filter rules, pure - no Prisma. One
+        │                                   function per AC; searchVenues() keeps only
+        │                                   venues passing every filter (AC7).
+        ├── venueSearchForm.ts             # SPM-40 form values: pre-fill from an event,
+        │                                   query string, client-side checks
         ├── equipment.ts                  # equipmentWindowFor() (pre-SPM-47) + checkOutOfService()/
         │                                  outOfServiceReasonFor() (SPM-48 AC7)
         ├── equipmentAvailability.ts       # SPM-48 rules, pure — no Prisma. D-1 → Return Day+1
@@ -264,7 +280,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 |---|---|---|---|---|
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
 | **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
-| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list; booking decision routes to build |
+| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list, availability calendar (S-21, SPM-46 — read-only), venue search + filters (SPM-40); booking decision routes and Block venue (S-23) to build |
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
@@ -682,6 +698,12 @@ deliberately.
 
 ---
 
+> **Customer clarifications live in GitHub Discussions, not in the brief.**
+> `docs/CUSTOMER_CLARIFICATIONS.md` indexes every ruling that binds this
+> codebase, with links. Check it before deciding a rule for yourself — SPM-46
+> built a slot grid the customer had already specified a month earlier,
+> because nothing here pointed at them.
+
 ## 🕳️ KNOWN GAPS
 
 Open items that affect everyone. **This list, not a changelog entry, is where a
@@ -694,8 +716,10 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
+| **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC09 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
 | **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
-| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39; coordinator assigned/unassigned, SPM-30) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
+| **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
+| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
@@ -778,6 +802,63 @@ what changed, why, and the migration name if there is one.
 ---
 
 ### 2026-09-28 — Kayal
+- **SPM-40 (Search and Filter Suitable Venues): built.** S-14 "Find a venue"
+  at `/venues/search`, backed by `GET /api/venues/search` (`venue:view`, so
+  Coordinator, Ops Manager and Venue Staff). Filters: date and time, expected
+  attendance, location (building), room layout, accessibility requirements,
+  required facilities. **Only venues passing every filter are returned (AC7)**
+  — the difference from SPM-41's Venue tab, which grades every venue and keeps
+  the failures visible. The customer draws the same line (#83).
+- **Rules** (all in `src/lib/venueSearch.ts`, pure, unit tested):
+  - Attendance is checked against the chosen **layout's** capacity (#112);
+    with no layout chosen, some layout must seat everyone. `maxCapacity` is
+    never used, and a venue with no layouts never passes an attendance filter.
+  - Date/time uses **SPM-46's slot rules** (#50/#107/#108/#123): a clash is an
+    overlap of occupied windows, and the searched event's *own* setup and
+    turnaround slots must be free too. Approved bookings and maintenance blocks
+    hide a venue; so does another event's **pending** request (#41, one active
+    hold per venue and time). Rejected/cancelled requests never block. The
+    searched-for event's own bookings never count against it.
+  - The time must fall inside the venue's opening hours (#46), checked on the
+    first day's start and the last day's end.
+  - Times are typed and sent as **Singapore wall-clock** (`2026-12-09T09:00`)
+    and converted on the server (#36), so a laptop set to another zone still
+    searches the morning that was typed.
+- **`?event=EVT-000123` pre-fills the form** from that event: its times,
+  attendance, layout and **mandatory** facility/accessibility requirements
+  (nice-to-haves are left unticked so they don't hide venues). A multi-session
+  event can pick one session instead (#74).
+- **`src/lib/venueSlots.ts` (+ its tests) and the `TIME_ZONE` export in
+  `format.ts` are byte-for-byte copies from the unmerged SPM-46 branch**, so
+  the date filter follows the same rules as the availability calendar and the
+  two branches merge without conflict. Edit them on one branch only until both
+  are merged.
+- **Approved → Planning now happens.** When the event's *assigned*
+  coordinator opens Find a venue for an **Approved** event, the page moves it
+  to Planning through the existing `PATCH /api/events/[id]` (history reason
+  "Venue search started", the seed's own wording). That is the lifecycle
+  diagram's "search" edge; the BPMN and the seed history already said so.
+  Guarded client-side by `shouldStartPlanning()` because the status route
+  checks *who* may move a status, not *from where* — without the guard a
+  Confirmed event would drop back to Planning on every search. The route
+  itself is unchanged.
+- Entry points: "Find a venue" on `/venues`; "Search with filters" on the
+  event's Venue tab (a header button only - SPM-41's own logic is untouched).
+- Diagrams: **no change needed.** The code now matches both: the BPMN's
+  "Search venues & check suitability" step, and the lifecycle's Approved →
+  Planning "search" edge.
+- Seed: one fixture appended, `spm40_approved` ("SPM40 Approved Workshop",
+  Daniel Tan) - the only Approved event, since nothing in the app can approve
+  one yet (S-13). Pushed last, after SPM-48/49's fixtures, so no existing EVT-
+  reference shifts; the
+  status-history table gained its missing `approved` chain. **Not applied to
+  the shared database** - reseed when convenient.
+- Tests: 56 new unit tests (`venueSearch.test.ts`, `venueSearchForm.test.ts`,
+  `venueSearchQuerySchema` in `validation.test.ts`), plus SPM-46's slot tests
+  carried over. Manual cases: `docs/test-cases/SPM-40_*` — 16 cases covering
+  all seven ACs; the rulings behind each decision are listed in the JSON's
+  `open_questions` with their discussion numbers.
+- No schema change, no migration.
 - **`prisma/seed.ts` dates no longer move when someone reseeds.** Every seeded
   date used to be *today* + n days, so each reseed of the shared database slid
   every event, booking and block by however many days had passed, and the
@@ -804,6 +885,16 @@ what changed, why, and the migration name if there is one.
   `npx tsx prisma/topup-spm40-46.ts`, which writes the same rows on the same
   dates and deletes nothing else. Re-run it to put the workshop back to
   Approved before re-running SPM-40-TC15.
+- **SPM-46 test cases: 15 → 14**, re-checked against the shared database on
+  2026-09-28 (every data-dependent expectation matches the live API). The old
+  TC08 (a period covers every slot) was a subset of TC09 (a period stops on its
+  last day); they are now one TC08 on Jurong Expo Floor, 16–25 Oct, which also
+  checks the period's *first* day - neither case did. TC10–TC15 became
+  TC09–TC14. Preconditions no longer say the dates move with the seed.
+- **SPM-40 test cases re-checked** against the shared database on 2026-09-28:
+  all 16 expected results match the live search API, no case overlaps another,
+  so none were added or removed. Preconditions no longer ask for a fresh
+  reseed; TC15 says how to reset its event; TC16 names Evelyn Chen's login.
 
 ---
 
@@ -843,6 +934,99 @@ what changed, why, and the migration name if there is one.
   with fixture events/equipment added to `prisma/seed.ts` so every case has
   real data to run against. Fixture events are pinned to real calendar dates
   via `daysUntil()`, so cases stay reusable across reseeds.
+
+---
+
+### 2026-09-26 — Kayal
+- **SPM-46 (View Venue Availability): `GET /api/venues/[id]/availability` and
+  the availability calendar (S-21).** One venue, a range of local calendar
+  days, and for each day the AM / PM / Night slots with whatever occupies them.
+  Reached from a "View availability" link on every row of the Venues list and a
+  button on the venue edit page — the list link is the one that matters, because
+  an Event Coordinator holds the calendar permission but cannot open the edit
+  page.
+  - **"Confirmed booking" means `VenueBooking.status = "approved"`, not
+    `Event.status = "confirmed"`** (AC3/AC7). Reading it by event status hid a
+    real approved booking whose event was still in `planning` — Marina Grand
+    Hall in the seed — and would have let someone book the same room twice. The
+    event's status travels along for display only and never decides
+    availability.
+  - **Slot derivation and turnaround live in `src/lib/venueSlots.ts` and
+    `src/lib/venueAvailability.ts`** as pure functions over plain data, no
+    Prisma and no `NextRequest`, the same arrangement as `venueImpact.ts`. The
+    route only loads rows. A cell is `unavailable` > `booked` > `turnaround` >
+    `closed` > `free`, first match wins; a slot never claims two things clash,
+    because slots are hours wide — real clashes are reported on the bookings
+    and periods themselves via `overlaps` / `hasOverlaps` (AC5).
+  - **The slot grid and the setup rule come from the customer, not from us.**
+    An earlier version of this branch set its own boundaries and its own
+    minute-based buffers, and said in a code comment that nothing in the
+    project defined them. That was wrong, and it was wrong because **nothing in
+    this repo points at the clarification discussions**. Corrected here:
+    - **Slots are AM 07:00–12:00, PM 13:00–18:00, Night 19:00–24:00**
+      (#50, 2026-08-25), with 12:00–13:00, 18:00–19:00 and 24:00–07:00
+      deliberately uncovered. Those gaps are changeover time and nothing is
+      lost to them: a booking running through one still holds the slots either
+      side (#107), and the setup rule claims the adjacent slot anyway.
+    - **A slot touched at all is consumed in full** (#107). Two approved
+      bookings in one slot are therefore a clash, even when their own minutes
+      never meet — which is the point of the calendar.
+    - **Setup and turnaround each take one WHOLE adjacent slot, across days**
+      (#108, #123): an AM event's setup takes the previous day's Night, a Night
+      event's turnaround takes the next day's AM. `Venue.setupMinutes` /
+      `teardownMinutes` are now read as yes/no rather than as a duration — 20
+      minutes and 240 minutes cost the same one slot. **No schema change**:
+      Venue Staff still record the real minutes on the venue form, which is
+      what #43 asks them to maintain.
+    - `hiddenMinutes()` replaces the old "minutes outside the grid" warning,
+      which would otherwise have fired on every ordinary event that runs
+      through lunch. It warns only when a booking touches no slot at all and
+      would vanish from the calendar.
+    - Checked against every seeded venue over eight months: **no clashes
+      introduced and no booking falls into a gap**, so the seed needed no
+      changes and no reseed.
+  - A **retired** venue's slots all read `closed`, never `free`.
+  - Tests: `vitest` 325/325 (`venueSlots.test.ts` + `venueAvailability.test.ts`
+    added, 647 lines), `tsc --noEmit` and `eslint` clean. `verify:permissions`
+    45/45 and `verify:login` 29/29 against a live server after merging main.
+  - Test cases: `docs/test-cases/SPM-46_*` — **15 cases covering all seven AC**,
+    consolidated from an initial 22 that overlapped each other. Merged: opening
+    the calendar, the default range, switching venue and the three column
+    headings are one flow, not four; "an organiser cannot open it" and "Technical
+    Support cannot open it" are one case with two accounts; pending, rejected and
+    cancelled bookings are one case, not two. Dropped: a case asserting a *single*
+    unavailable period is not flagged as overlapping (it only asserted the absence
+    of something nothing can create yet), and a booking-details case already
+    proven by TC13.
+    Executed against a live server on 2026-09-26: **15/15 pass**, including
+    TC10 — AC5 was previously untestable by hand, and `prisma/seed.ts` now
+    carries the one overlapping pair it needs (Jurong Expo Floor, days 40–44
+    and 42–46). They were also inserted into the shared dev database directly,
+    additively, so the case runs there without waiting for a reseed. Nothing
+    else reads `VenueUnavailability`, so no other story is affected.
+    Their dates were **re-based +6 days onto the current seed**, which every
+    case now names in its preconditions. (Since 2026-09-28 the anchor is fixed
+    at 2026-09-26, so these dates no longer go stale on a reseed.)
+  - The generated workbook is **Summary + one sheet per case**. The generator
+    also writes an "Open Questions" sheet; it was removed from this workbook
+    (`del wb['Open Questions']`) because its contents had become three different
+    things — real questions, decisions already recorded here, and testing notes.
+    The script itself is untouched, so other stories still get that sheet.
+  - **Still open for the team, from that sheet:** is excluding Technical Support
+    from the calendar intended (AC6 says "authorised internal users" without
+    naming roles, and the calendar reuses `venue:view`, which they do not hold)?
+    Is "Free" with a "Limited hours" note the right thing for a partly-open
+    slot, given the AC say nothing about opening hours? Is the S-21 mockup
+    (`design/mockups/VenueCalendar.dc.html`, an hour-by-hour grid with pending
+    requests and "tentative holds") superseded by AC2's three slots? And how
+    should the screen warn about a booking whose room time falls entirely
+    between 23:00 and 06:00, which no slot covers?
+  - Merged `main` after SPM-31 landed. SPM-31's new event URL scheme needed no
+    change here: the availability payload carries `eventId` for display
+    grouping only and never builds an `/events/...` link or looks an event up
+    by route segment. Only `src/lib/format.ts` overlapped, and cleanly — this
+    story exported `TIME_ZONE` from it so slot derivation and display cannot
+    drift apart.
 
 ---
 

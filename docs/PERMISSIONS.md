@@ -259,6 +259,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
 | `GET /api/venues` | `venue:view` — Coordinator, Ops Manager, Venue Staff |
 | `POST /api/venues` | `venue:manage` — Venue Staff |
+| `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
 | `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support, the assigned Coordinator, or the owning Organiser read-only) |

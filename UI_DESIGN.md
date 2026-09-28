@@ -93,7 +93,7 @@ cite.
 | --- | --- | --- | --- |
 | S-12 | Review queue | `/queue` | Events assigned to me, grouped by what they need. |
 | S-13 | Event review | `/events/[id]/review` | Approve, reject, or request clarification. |
-| S-14 | Venue search | `/venues/search?eventId=` | Filter venues against this event's requirements. |
+| S-14 | Venue search | `/venues/search?event=EVT-000123` | Filter venues against this event's requirements. Built (SPM-40): shows only matching venues; the greyed "not suitable, and why" view is the event's Venue tab (SPM-41). |
 | S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
@@ -460,7 +460,7 @@ getting right.
 | Required facility missing | S-14 | "Missing: hearing loop" listed on the venue card; venue ranked below full matches. |
 | Venue double-booking | S-15 submit, S-22 approve | Blocking error naming the conflicting event and its times, with a link to the S-21 calendar. |
 | Booking overlaps setup/teardown | S-15 | Warning, not a block: "This starts 20 min after the previous event ends; this venue needs 30 min turnaround." |
-| Venue blocked for maintenance | S-14, S-15 | Venue excluded from results with the reason shown on expand. |
+| Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
 | Equipment in maintenance | S-24, S-25 | Availability shown as `total − maintenance − reserved`; the breakdown is visible, not just the result. |
 | Registration full | S-26 | Register button becomes "Join waiting list" with the current waiting-list position. |
@@ -543,6 +543,7 @@ This document specifies the whole first release. What is built so far:
 | S-08 Sessions section (multi-session events) | `src/components/SessionFields.tsx`, `src/lib/eventSessions.ts` |
 | Facility and accessibility requirements as rows (§6.2) | `src/app/api/facilities/route.ts`, `createEventSchema.facilityIds` |
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
+| S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
 
 Specified but not yet built, and why:
 
