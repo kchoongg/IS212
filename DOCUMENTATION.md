@@ -704,6 +704,20 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-09-28 — Janelle
+- **SPM-48: two fixes to the equipment availability check.**
+  - "Reserved elsewhere" is now the most units held on any **single day** the
+    event needs, not the sum of every overlapping hold. Units are pooled, so two
+    holds that never share a day can use the same units; adding them up
+    reported shortages that weren't there on multi-day windows.
+  - A session is now checked against its **own event's other sessions** too,
+    not only other events - previously two same-day sessions could both be
+    shown (and, with SPM-49, reserved) the same units.
+- Changes one seeded result: SPM-48-TC21's Streaming Encoder is now 'Available'
+  (2 reserved elsewhere, 1 available) - test case updated, re-run it.
+
+---
+
 ### 2026-09-28 — Kayal
 - **`prisma/seed.ts` dates no longer move when someone reseeds.** Every seeded
   date used to be *today* + n days, so each reseed of the shared database slid

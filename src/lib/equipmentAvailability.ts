@@ -152,8 +152,11 @@ export interface AvailabilityResult {
   leavesAt: Date;
 }
 
-/// available = total - in maintenance - reserved elsewhere, where "elsewhere"
-/// means another event whose blocked days overlap this one's.
+/// available = total - in maintenance - reserved elsewhere, where "reserved
+/// elsewhere" is the most units other commitments hold on any single day this
+/// one needs. Units are pooled and interchangeable, so two commitments that
+/// never share a day can use the same units: adding them up would report a
+/// shortfall that isn't there.
 export function checkAvailability(input: AvailabilityInput): AvailabilityResult {
   const mine = blockedDays(input.startsAt, input.endsAt, input.transferLeadMs);
   const overlapping = input.commitments
@@ -161,7 +164,13 @@ export function checkAvailability(input: AvailabilityInput): AvailabilityResult 
     .map((c) => ({ c, days: blockedDays(c.startsAt, c.endsAt, c.transferLeadMs) }))
     .filter(({ days }) => daysOverlap(mine, days));
 
-  const reservedElsewhere = overlapping.reduce((sum, { c }) => sum + c.quantity, 0);
+  let reservedElsewhere = 0;
+  for (let day = mine.firstDay; day <= mine.lastDay; day++) {
+    const heldThatDay = overlapping
+      .filter(({ days }) => days.firstDay <= day && day <= days.lastDay)
+      .reduce((sum, { c }) => sum + c.quantity, 0);
+    reservedElsewhere = Math.max(reservedElsewhere, heldThatDay);
+  }
   const inMaintenance = Math.max(0, input.quantityInMaintenance);
   const total = Math.max(0, input.totalQuantity);
   // A retired item is never available, whatever total is still recorded.
