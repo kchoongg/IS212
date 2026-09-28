@@ -4,18 +4,38 @@
   "created_by": "TAN JORDAN",
   "creation_date": "2026-09-26",
   "acceptance_criteria": [
-    { "id": "AC1", "text": "Given my role, when I view the main navigation, then only the nav items defined for my role are shown (e.g. an Attendee sees Browse Events and My Registrations, not Review Queue, Venues, or Assignments)." },
-    { "id": "AC2", "text": "Given my role, when I open an event's detail page, then only the tabs permitted for my role are rendered (e.g. an Attendee sees only Overview; Venue Staff sees only Overview and Venue)." },
-    { "id": "AC3", "text": "Given an action is not permitted for my role, when the relevant screen renders, then the corresponding button, link or tab is not shown at all, rather than shown disabled." },
-    { "id": "AC4", "text": "Given I navigate directly to a URL for a screen outside my role's permissions, when the page loads, then I see an access-denied state or am redirected, and no restricted data is rendered." },
-    { "id": "AC5", "text": "Given fields are restricted to internal roles (e.g. coordinator assignment, rejection reasons, venue/equipment arrangements), when an Attendee views an event, then those fields are absent from the page, not merely blank." },
-    { "id": "AC6", "text": "Given the Operations Manager role, when they use the interface, then they see the Assignments and All Events navigation matching their permissions." }
+    {
+      "id": "AC1",
+      "text": "Given my role, when I view the main navigation, then only the nav items defined for my role are shown (e.g. an Attendee sees Browse Events and My Registrations, not Review Queue, Venues, or Assignments)."
+    },
+    {
+      "id": "AC2",
+      "text": "Given my role, when I open an event's detail page, then only the tabs permitted for my role are rendered (e.g. an Attendee sees only Overview; Venue Staff sees only Overview and Venue)."
+    },
+    {
+      "id": "AC3",
+      "text": "Given an action is not permitted for my role, when the relevant screen renders, then the corresponding button, link or tab is not shown at all, rather than shown disabled."
+    },
+    {
+      "id": "AC4",
+      "text": "Given I navigate directly to a URL for a screen outside my role's permissions, when the page loads, then I see an access-denied state or am redirected, and no restricted data is rendered."
+    },
+    {
+      "id": "AC5",
+      "text": "Given fields are restricted to internal roles (e.g. coordinator assignment, rejection reasons, venue/equipment arrangements), when an Attendee views an event, then those fields are absent from the page, not merely blank."
+    },
+    {
+      "id": "AC6",
+      "text": "Given the Operations Manager role, when they use the interface, then they see the Assignments and All Events navigation matching their permissions."
+    }
   ],
   "test_cases": [
     {
       "id": "SPM-22-TC01",
       "title": "An Attendee's sidebar offers only the Attendee screens",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Demo data is seeded. Logged in as Daniel Lim (daniel.lim@example.com / password123), an Attendee.",
@@ -28,7 +48,9 @@
     {
       "id": "SPM-22-TC02",
       "title": "An Event Coordinator's sidebar offers the coordinator's working screens",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), an Event Coordinator.",
@@ -41,7 +63,9 @@
     {
       "id": "SPM-22-TC03",
       "title": "Venue Staff and Technical Support get different sidebars from each other",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Demo data is seeded. No one is signed in.",
@@ -56,7 +80,9 @@
     {
       "id": "SPM-22-TC04",
       "title": "An Attendee opening an event sees only the Overview tab",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Daniel Lim (daniel.lim@example.com / password123), an Attendee. At least one confirmed event that is open for registration exists.",
@@ -71,7 +97,9 @@
     {
       "id": "SPM-22-TC05",
       "title": "An Event Coordinator opening an event sees the Overview and Equipment tabs",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), an Event Coordinator, with at least one event visible in All Events.",
@@ -86,7 +114,9 @@
     {
       "id": "SPM-22-TC06",
       "title": "Venue Staff opening an event sees only the tabs that exist for them",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Code",
       "preconditions": "Logged in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff, viewing an event Venue Staff is allowed to see.",
@@ -100,7 +130,9 @@
     {
       "id": "SPM-22-TC07",
       "title": "A Coordinator sees no Add venue control on the venue catalogue",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), an Event Coordinator, who may read the venue catalogue but not change it.",
@@ -115,7 +147,9 @@
     {
       "id": "SPM-22-TC08",
       "title": "Venue Staff do get the Add venue control on the same screen",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Logged in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff, who hold venue management.",
@@ -130,7 +164,9 @@
     {
       "id": "SPM-22-TC09",
       "title": "Refusals are never expressed as a disabled control",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), an Event Coordinator.",
@@ -145,7 +181,9 @@
     {
       "id": "SPM-22-TC10",
       "title": "The New event request action appears only for an Organiser",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Demo data is seeded. No one is signed in.",
@@ -160,7 +198,9 @@
     {
       "id": "SPM-22-TC11",
       "title": "An Attendee typing the Venues address is refused and sees no venue data",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Daniel Lim (daniel.lim@example.com / password123), an Attendee, whose sidebar does not offer Venues.",
@@ -175,7 +215,9 @@
     {
       "id": "SPM-22-TC12",
       "title": "An Operations Manager typing the Review Queue address is refused",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Grace Lim (grace.lim@connectsphere.com / password123), an Operations Manager. Reviewing requests belongs to the Event Coordinator.",
@@ -189,7 +231,9 @@
     {
       "id": "SPM-22-TC13",
       "title": "A Coordinator typing the New event request address is refused at the door",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), an Event Coordinator. Only an Organiser may raise an event request.",
@@ -203,7 +247,9 @@
     {
       "id": "SPM-22-TC14",
       "title": "An Attendee typing the Assignments address is refused",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Daniel Lim (daniel.lim@example.com / password123), an Attendee.",
@@ -217,7 +263,9 @@
     {
       "id": "SPM-22-TC15",
       "title": "A signed-out visitor typing a restricted address is sent to log in",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "No one is signed in.",
@@ -232,7 +280,10 @@
     {
       "id": "SPM-22-TC16",
       "title": "A permitted role opening a screen that is not built yet is told so, not shown a 404",
-      "linked_ac": ["AC4", "AC6"],
+      "linked_ac": [
+        "AC4",
+        "AC6"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Logged in as Grace Lim (grace.lim@connectsphere.com / password123), an Operations Manager, whose sidebar offers Assignments.",
@@ -247,7 +298,9 @@
     {
       "id": "SPM-22-TC17",
       "title": "Internal planning fields are absent from an Attendee's view of an event",
-      "linked_ac": ["AC5"],
+      "linked_ac": [
+        "AC5"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Daniel Lim (daniel.lim@example.com / password123), an Attendee. A confirmed event that is open for registration exists and has a coordinator assigned, an expected attendance and special requirements recorded.",
@@ -262,7 +315,9 @@
     {
       "id": "SPM-22-TC18",
       "title": "The same event shows its internal fields to a Coordinator",
-      "linked_ac": ["AC5"],
+      "linked_ac": [
+        "AC5"
+      ],
       "type": "Positive",
       "source": "Code",
       "preconditions": "Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), an Event Coordinator, opening the same event used in SPM-22-TC17.",
@@ -277,7 +332,9 @@
     {
       "id": "SPM-22-TC19",
       "title": "The Operations Manager's navigation matches their permissions",
-      "linked_ac": ["AC6"],
+      "linked_ac": [
+        "AC6"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Logged in as Grace Lim (grace.lim@connectsphere.com / password123), an Operations Manager.",
@@ -291,7 +348,9 @@
     {
       "id": "SPM-22-TC20",
       "title": "Every item in the Operations Manager's sidebar opens without an error",
-      "linked_ac": ["AC6"],
+      "linked_ac": [
+        "AC6"
+      ],
       "type": "Boundary",
       "source": "Code",
       "preconditions": "Logged in as Grace Lim (grace.lim@connectsphere.com / password123), an Operations Manager.",
@@ -309,7 +368,9 @@
     "AC2 says Venue Staff see Overview and Venue, but the Venue tab has no screen behind it yet (IMPLEMENTED_TABS in src/lib/eventTabs.ts limits the tab bar to Overview and Equipment). Venue Staff therefore see Overview alone today, which SPM-22-TC06 records. Is leaving an unbuilt-but-permitted tab out the behaviour you want, or should the tab appear and lead to a 'not built yet' screen the way the sidebar items now do?",
     "SPM-22 added seven placeholder screens (Review Queue, Assignments, Equipment, Equipment Requests, Booking Requests, Browse Events, My Registrations) plus Notifications, so that every sidebar item leads somewhere and AC4 can be tested on all of them. Each is permission-guarded first and empty second. Confirm this is the intended approach — the alternative was to hide sidebar items whose screens do not exist, which would have removed Assignments from the Operations Manager's sidebar and contradicted AC6.",
     "AC3 was verified on the venue catalogue, which is the only screen today that renders the same route to two roles with different permissions. Once the review queue, booking and equipment screens are real, AC3 deserves a case on each of them; as written it can only be checked where a permitted and a refused role share a screen.",
-    "Two database migrations on this branch (add_event_seed_key and add_event_sequence_number) are not applied to the shared database, so the events list returns an error and no event can be opened. SPM-22-TC04, TC05, TC06, TC17 and TC18 cannot be executed until someone applies them with prisma migrate deploy using the direct (non-pooled) connection string."
+    "RESOLVED 2026-09-28. The migrations add_event_seed_key and add_event_sequence_number have been applied to the shared database, so the events list loads and every case in this workbook has now been executed. No reseed was needed: add_event_sequence_number adds its column with DEFAULT nextval(...), which backfilled the existing rows.",
+    "RESOLVED 2026-09-28. SPM-22-TC17 first read as a leak: an Attendee is shown COMPANY, the client's name. It is deliberate - SPM-31 decided an attendee may see whose event they are registering for, and the rationale is written on ATTENDEE_EVENT_FIELDS in src/lib/permissions.ts. What was wrong was the documentation: docs/PERMISSIONS.md section 4 still listed eleven fields and said client identity was withheld. Section 4 now records both exceptions (organisation and sequenceNumber), and permissions.test.ts pins them, so the code and the document can no longer drift apart silently. The organiser's own name and the raw organisationId stay withheld.",
+    "Raised while executing SPM-22-TC05. Event tabs are filtered by role, but the Equipment tab's data is also gated by relationship: a coordinator who is not the assigned coordinator for an event still sees the Equipment tab, and opening it shows the generic 'Could not load equipment requirements.' error rather than an access-denied state (the request is refused with 403). AC3 and AC4 are written about role, so this is outside their letter, but the user-visible result is the 'shown then broken' pattern SPM-22 set out to remove. Should the tab bar take the relationship into account, or should the tab at least render the access-denied state instead of a load error?"
   ],
   "code_references": [
     "src/lib/roles.ts",
