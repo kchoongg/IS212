@@ -10,6 +10,7 @@ import {
   updateVenueSchema,
   addEquipmentRequestSchema,
   updateEquipmentRequestSchema,
+  recordOutOfServiceSchema,
 } from "../validation";
 
 import { SELF_REGISTERABLE_ROLES } from "../roles";
@@ -768,5 +769,32 @@ describe("updateEquipmentRequestSchema", () => {
 
   it("rejects a quantity below one", () => {
     expect(updateEquipmentRequestSchema.safeParse({ quantityRequested: 0 }).success).toBe(false);
+  });
+});
+
+describe("recordOutOfServiceSchema (SPM-48 AC7)", () => {
+  it("accepts a number of units and a reason", () => {
+    const parsed = recordOutOfServiceSchema.parse({ quantityOutOfService: 2, reason: "  Cracked lens  " });
+    expect(parsed).toEqual({ quantityOutOfService: 2, reason: "Cracked lens" });
+  });
+
+  it("accepts zero units, to record that everything is back in service", () => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 0 }).success).toBe(true);
+  });
+
+  it("does not need a reason", () => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1 }).success).toBe(true);
+  });
+
+  it.each([-1, 1.5, "2", null])("rejects %s as the number of units", (value) => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: value }).success).toBe(false);
+  });
+
+  it("rejects a missing number of units", () => {
+    expect(recordOutOfServiceSchema.safeParse({ reason: "Broken" }).success).toBe(false);
+  });
+
+  it("rejects a reason longer than 500 characters", () => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, reason: "x".repeat(501) }).success).toBe(false);
   });
 });
