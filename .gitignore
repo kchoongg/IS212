@@ -17,3 +17,4 @@ tsconfig.tsbuildinfo
 # Next.js version) — regenerates itself, so it isn't project source.
 AGENTS.md
 CLAUDE.md
+"*.tsbuildinfo" 

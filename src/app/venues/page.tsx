@@ -11,6 +11,7 @@ import {
   Table,
   type Column,
 } from "@/components/ui";
+import { RequirePermission } from "@/components/RequirePermission";
 import { orEmpty } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
@@ -44,7 +45,22 @@ interface VenueRow {
   layouts: { layoutName: string; capacity: number }[];
 }
 
+// SPM-22: the catalogue is venue:view, which an Organiser and an Attendee do
+// not hold. They used to reach the screen and be told by a 403 handler that the
+// list had failed to load, which reads as a broken page rather than a refusal.
 export default function VenuesPage() {
+  return (
+    <RequirePermission
+      action="venue:view"
+      title="Venues"
+      reason="The venue catalogue is for ConnectSphere staff. Your venue is confirmed with your event once a coordinator has booked it."
+    >
+      <VenuesCatalogue />
+    </RequirePermission>
+  );
+}
+
+function VenuesCatalogue() {
   const router = useRouter();
   const { user, state } = useCurrentUser();
   const [venues, setVenues] = useState<VenueRow[] | null>(null);

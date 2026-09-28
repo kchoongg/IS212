@@ -100,6 +100,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       }
     }
 
+    // ADDED (SPM-48): a retired item cannot be requested. The picker no longer
+    // lists it, but the server is what enforces it.
+    const item = await prisma.equipment.findUnique({
+      where: { id: data.equipmentId },
+      select: { isActive: true },
+    });
+    if (item && !item.isActive) {
+      return NextResponse.json({ error: "This equipment has been retired and can no longer be requested" }, { status: 400 });
+    }
+
     // Mirrors createEventSchema: EquipmentRequest.startsAt / endsAt are NOT
     // NULL and are derived from the event's own times.
     const window = equipmentWindowFor(event.startsAt, event.endsAt);

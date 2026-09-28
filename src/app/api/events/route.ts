@@ -59,6 +59,20 @@ export async function POST(req: NextRequest) {
     // Support adjusts the window when they review the request.
     const equipmentTimes = startsAt && endsAt ? equipmentWindow(startsAt, endsAt) : null;
 
+    // ADDED (SPM-48): refuse retired equipment here too, not only in the picker.
+    if (data.equipment?.length) {
+      const retired = await prisma.equipment.findFirst({
+        where: { id: { in: data.equipment.map((item) => item.equipmentId) }, isActive: false },
+        select: { name: true },
+      });
+      if (retired) {
+        return NextResponse.json(
+          { error: `${retired.name} has been retired and can no longer be requested` },
+          { status: 400 }
+        );
+      }
+    }
+
     // The event and its requirements are one thing to the organiser, so they
     // are one transaction here: a half-written request with facilities but no
     // equipment - or sessions but no event - would be worse than a failure they
