@@ -165,12 +165,24 @@ to.
 Hiding a tab in the UI is not access control — the record is one request away.
 So the API narrows the record itself. An attendee receives only:
 
-`id · title · description · category · startsAt · endsAt · status ·
-registrationEnabled · registrationCapacity · registrationOpensAt ·
-registrationClosesAt`
+`id · sequenceNumber · title · description · category · startsAt · endsAt ·
+status · registrationEnabled · registrationCapacity · registrationOpensAt ·
+registrationClosesAt · organisation`
+
+The last two entries are exceptions worth naming, because both were added after
+this section was first written:
+
+- **`sequenceNumber`** is the event's public reference (EVT-000123). It is
+  deliberately visible to every role — an attendee quoting a reference number
+  is the point of having one (SPM-31).
+- **`organisation`** is the **name only** of the client running the event, so an
+  attendee can see whose event they are registering for (SPM-31, confirmed
+  2026-09-28). The organiser's own name is a different question and stays
+  withheld: `organiser` is not on the list, and neither is the raw
+  `organisationId`.
 
 Everything else is internal planning information and is withheld: the assigned
-coordinator, the organiser and client identity, expected attendance, special
+coordinator, the organiser's personal name, expected attendance, special
 requirements, accessibility notes, rejection and cancellation reasons, facility
 requirements, equipment requests, sessions (a multi-session event's per-session
 times, attendance, layout and equipment), and status history. The event's own
