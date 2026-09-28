@@ -303,15 +303,16 @@
       ],
       "type": "Positive",
       "source": "Code",
-      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed: 'SPM40 Approved Workshop' (status Approved, coordinator Daniel Tan, 30 people, Classroom, 09:00-12:00 on 25 Mar 2027, day 180 of the fixed 2026-09-26 seed) - the only Approved event in the seed. If it is missing, or already in Planning because this case was run before, run: npx tsx prisma/topup-spm40-46.ts (adds or resets it without a reseed).",
+      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed: 'SPM40 Approved Workshop' (status Approved, coordinator Daniel Tan, 30 people, Classroom, 09:00-12:00 on 25 Mar 2027, day 180 of the fixed 2026-09-26 seed) - the only Approved event in the seed. If it is missing, or still in Planning because the last run skipped the reset step, run: npx tsx prisma/topup-spm40-46.ts (adds or resets it without a reseed).",
       "steps": [
         "Open 'SPM40 Approved Workshop' from Events and note its status badge",
         "Click the 'Venue' tab, then 'Search with filters'",
         "Go back to the event's Overview",
-        "Reopen Find a venue from the Venue tab"
+        "Reopen Find a venue from the Venue tab",
+        "Reset for the next run (this is not a reseed - it changes only this event): in the project folder run npx tsx prisma/topup-spm40-46.ts, then refresh the event's Overview"
       ],
       "test_data": "Event: SPM40 Approved Workshop",
-      "expected_result": "Before: the status badge reads 'Approved'.\nFind a venue shows the green message 'Planning has started - This event has moved from Approved to Planning now that its venue search has begun.' above the filters, with results already listed.\nBack on the Overview the status badge reads 'Planning'.\nReopening Find a venue shows no message and the status stays Planning."
+      "expected_result": "Before: the status badge reads 'Approved'.\nFind a venue shows the green message 'Planning has started - This event has moved from Approved to Planning now that its venue search has begun.' above the filters, with results already listed.\nBack on the Overview the status badge reads 'Planning'.\nReopening Find a venue shows no message and the status stays Planning.\nAfter the reset the script prints 'SPM40 Approved Workshop: already there (was planning) - reset to approved', and the Overview's status badge reads 'Approved' again."
     },
     {
       "id": "SPM-40-TC16",
