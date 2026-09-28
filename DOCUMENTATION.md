@@ -738,7 +738,7 @@ what changed, why, and the migration name if there is one.
   onto 2026-09-26 if they were written against another seed day.
 - **SPM-40 and SPM-46 test data, ahead of the features** (same approach as
   SPM-48's test-data PR). `seed.ts` gains Jurong Expo Floor's two overlapping
-  unavailable periods (days 40-44 and 42-46, for SPM-46-TC10) and "SPM40
+  unavailable periods (days 40-44 and 42-46, for SPM-46-TC09) and "SPM40
   Approved Workshop" (day 180, the only Approved event, for SPM-40-TC15; pushed
   last so no EVT- number shifts), plus the `approved` status-history chain.
 - **Added to the shared database without a reseed** by
