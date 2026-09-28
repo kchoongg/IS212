@@ -845,6 +845,19 @@ async function main() {
     fixture("fx49_reserved_showcase", "Reserved Showcase", "2027-07-05", 9, 6, "Rachel Ng", { status: "under_review" }),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-40 QA fixture: the only seeded event in APPROVED status, so the
+  // "opening Find a venue moves Approved -> Planning" case can be run by
+  // hand (nothing in the app can approve an event yet - S-13 is not built).
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  eventData.push(
+    { key: "spm40_approved", title: "SPM40 Approved Workshop", status: "approved",
+      purpose: "Venue search walkthrough",
+      category: "workshop", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+      days: 180, startHour: 9, durationHours: 3, attendance: 30, layout: "classroom" },
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -935,6 +948,7 @@ async function main() {
     draft: [],
     submitted: ["submitted"],
     under_review: ["submitted", "under_review"],
+    approved: ["submitted", "under_review", "approved"],
     planning: ["submitted", "under_review", "approved", "planning"],
     confirmed: ["submitted", "under_review", "approved", "planning", "confirmed"],
     completed: ["submitted", "under_review", "approved", "planning", "confirmed", "completed"],
@@ -1093,6 +1107,15 @@ async function main() {
     ["ORC-STU", 106, 109, "internal_activity", "ConnectSphere staff year-end function."],
     ["ONE-ROOF", 40, 42, "safety", "High-wind advisory; terrace closed."],
     ["MAR-BR2", 60, 74, "renovation", "Refurbishment of the boardroom fit-out."],
+    // The only OVERLAPPING pair in the demo data, and the only way SPM-46's
+    // AC5 ("overlapping unavailable periods are identifiable") can be tested
+    // by hand: nothing in the app writes to this table until the Block venue
+    // screen (S-23) is built, and every other period above sits at a different
+    // venue. They overlap each other in the middle, days 42-44, and touch
+    // nothing else - Jurong Expo Floor's renovation is days 21-28, its only
+    // booking is day 65, and no test case looks at this venue in this window.
+    ["JUR-EXP", 40, 44, "maintenance", "Loading bay hoist inspection."],
+    ["JUR-EXP", 42, 46, "safety", "Fire suppression system recertification."],
   ];
   for (let i = 0; i < unavailable.length; i++) {
     const [code, from, to, reason, notes] = unavailable[i];
