@@ -48,3 +48,16 @@ export const updateEquipmentRequestSchema = z
     message: "Nothing to update",
   });
 export type UpdateEquipmentRequestInput = z.infer<typeof updateEquipmentRequestSchema>;
+
+// ---- Recording units out of service (SPM-48 AC7 / SPM-55) ----
+
+// How many units of an item are unavailable, damaged or under maintenance - one
+// number, because equipment is tracked as a pooled quantity, not unit by unit.
+// The reason is free text and optional (SPM-55: "can provide a reason").
+// "Cannot exceed the total" needs the item, so the route checks that
+// (see checkOutOfService in src/lib/equipment.ts).
+export const recordOutOfServiceSchema = z.object({
+  quantityOutOfService: z.number().int().nonnegative(),
+  reason: z.string().trim().max(500).optional(),
+});
+export type RecordOutOfServiceInput = z.infer<typeof recordOutOfServiceSchema>;

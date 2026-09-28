@@ -5,6 +5,7 @@ import {
   ROLE_PERMISSIONS,
   STATUS_TRANSITION_ROLES,
   can,
+  canCheckEquipmentAvailability,
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
@@ -280,6 +281,17 @@ describe("canManageEquipmentRequests", () => {
   });
 });
 
+describe("canCheckEquipmentAvailability (SPM-48)", () => {
+  it("lets Technical Support check equipment availability", () => {
+    expect(canCheckEquipmentAvailability(techSupport)).toBe(true);
+  });
+
+  it("stops everyone else - the result names other events' bookings", () => {
+    expect(canCheckEquipmentAvailability(coordinator)).toBe(false);
+    expect(canCheckEquipmentAvailability(organiserA)).toBe(false);
+  });
+});
+
 describe("canViewEquipmentRequests", () => {
   it("lets Technical Support view any event's equipment, assigned or not", () => {
     expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1" }))).toBe(
@@ -425,6 +437,11 @@ describe("visibleEventFor", () => {
     cancellationReason: null,
     equipmentRequests: [{ id: "eq1" }],
     facilityRequirements: [{ facilityId: "f1" }],
+    // Shown to an attendee by name (§4). Present here so the pair of tests
+    // below pin BOTH halves of the rule: the client's name goes out, the
+    // organiser's personal name and the raw organisationId do not.
+    organisation: { name: "Tanjong Legal Chambers" },
+    organiser: { fullName: "Aaron Sim" },
   };
 
   it("withholds internal planning information from an attendee (§8b, second example)", () => {
@@ -440,9 +457,23 @@ describe("visibleEventFor", () => {
       "cancellationReason",
       "equipmentRequests",
       "facilityRequirements",
+      // The organiser's personal name is withheld even though the client's
+      // company name is not - see the note on ATTENDEE_EVENT_FIELDS.
+      "organiser",
     ]) {
       expect(visible).not.toHaveProperty(hidden);
     }
+  });
+
+  // SPM-31 decided an attendee may see whose event it is; docs/PERMISSIONS.md §4
+  // records it. Asserted here so the exception cannot be dropped or widened by
+  // accident - nothing exercised it before, which is how it drifted from §4 in
+  // the first place (SPM-22 TC17).
+  it("shows an attendee the client's company name, but not the organiser's own", () => {
+    const visible = visibleEventFor(attendee, full);
+    expect(visible.organisation).toEqual({ name: "Tanjong Legal Chambers" });
+    expect(visible).not.toHaveProperty("organiser");
+    expect(visible).not.toHaveProperty("organisationId");
   });
 
   it("still tells an attendee what they need in order to register", () => {
