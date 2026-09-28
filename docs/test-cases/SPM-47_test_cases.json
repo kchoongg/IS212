@@ -44,7 +44,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), the Coordinator assigned to 'Pearl Delta Safety Conference' (status Planning, 4 Dec 2026 09:00-17:00, organised by Samuel Ong).\nThe event already has one requirement: '4K Portable Projector', Quantity 4.",
+      "preconditions": "Logged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), the Coordinator assigned to 'Pearl Delta Safety Conference' (status Planning, 14 Dec 2026 09:00-17:00, organised by Samuel Ong).\nThe event already has one requirement: '4K Portable Projector', Quantity 4.",
       "steps": "1. Open 'Pearl Delta Safety Conference'\n2. Click the 'Equipment' tab\n3. In 'Add equipment', open the 'Equipment' dropdown and choose 'Handheld Wireless Mic'\n4. Set 'Quantity' to 6\n5. Enter 'Lapel mics for panel speakers.' in 'Technical requirements'\n6. Click 'Add'",
       "test_data": "Equipment: Handheld Wireless Mic | Quantity: 6 | Technical requirements: Lapel mics for panel speakers.",
       "expected_result": "A new row for 'Handheld Wireless Mic' appears showing Quantity 6 and 'Lapel mics for panel speakers.', with status 'Requested'.\nThe existing '4K Portable Projector' row (Quantity 4) is unchanged.\nThe Add equipment fields reset to their defaults.",
