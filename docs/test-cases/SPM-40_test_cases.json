@@ -43,7 +43,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Seed data freshly loaded (npx prisma db seed): 16 active venues in 5 buildings.\nLogged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "preconditions": "Demo data from prisma/seed.ts: 16 active venues in 5 buildings. A venue retired while testing (e.g. by SPM-46-TC14) must be restored first.\nLogged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
       "steps": [
         "Click 'Venues' in the sidebar, then 'Find a venue'",
         "Note the results count",
@@ -303,7 +303,7 @@
       ],
       "type": "Positive",
       "source": "Code",
-      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed: 'SPM40 Approved Workshop' (status Approved, coordinator Daniel Tan, 30 people, Classroom, 09:00-12:00 on 25 Mar 2027, day 180 of the fixed 2026-09-26 seed) - the only Approved event in the seed.",
+      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed: 'SPM40 Approved Workshop' (status Approved, coordinator Daniel Tan, 30 people, Classroom, 09:00-12:00 on 25 Mar 2027, day 180 of the fixed 2026-09-26 seed) - the only Approved event in the seed. If it is missing, or already in Planning because this case was run before, run: npx tsx prisma/topup-spm40-46.ts (adds or resets it without a reseed).",
       "steps": [
         "Open 'SPM40 Approved Workshop' from Events and note its status badge",
         "Click the 'Venue' tab, then 'Search with filters'",
@@ -321,7 +321,7 @@
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Logged in as Event Organiser Evelyn Chen (email in npx prisma studio > users; password123).",
+      "preconditions": "Logged in as Event Organiser Evelyn Chen: evelyn.chen@straitsmedic.com / password123",
       "steps": [
         "Check the sidebar for 'Venues'",
         "Type /venues/search into the address bar and press Enter"

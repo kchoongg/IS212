@@ -818,6 +818,10 @@ what changed, why, and the migration name if there is one.
   `npx tsx prisma/topup-spm40-46.ts`, which writes the same rows on the same
   dates and deletes nothing else. Re-run it to put the workshop back to
   Approved before re-running SPM-40-TC15.
+- **SPM-40 test cases re-checked** against the shared database on 2026-09-28:
+  all 16 expected results match the live search API, no case overlaps another,
+  so none were added or removed. Preconditions no longer ask for a fresh
+  reseed; TC15 says how to reset its event; TC16 names Evelyn Chen's login.
 
 ---
 
