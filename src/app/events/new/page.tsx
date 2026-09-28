@@ -14,6 +14,7 @@ import {
   Select,
   Textarea,
 } from "@/components/ui";
+import { RequirePermission } from "@/components/RequirePermission";
 import { SessionFields } from "@/components/SessionFields";
 import { eventReference } from "@/lib/format";
 import { authedFetch } from "@/lib/session";
@@ -45,7 +46,24 @@ import {
 // Fields, options and validation are shared with the edit-a-draft screen
 // (SPM-24) via src/lib/eventForm.ts, so the two forms cannot drift apart.
 
+// SPM-22: raising an event request is the Organiser's action. The sidebar only
+// offers "New event request" to an organiser, but a typed URL reached the form
+// anyway and only failed on Save, with the server's refusal shown against a
+// form the role was never allowed to fill in. Refuse at the door instead.
 export default function NewEventPage() {
+  return (
+    <RequirePermission
+      action="event:create"
+      title="New event request"
+      breadcrumbs={[{ label: "Events", href: "/events" }, { label: "New request" }]}
+      reason="Only an Event Organiser can raise an event request. Coordinators and ConnectSphere staff work on requests once they have been submitted."
+    >
+      <NewEventForm />
+    </RequirePermission>
+  );
+}
+
+function NewEventForm() {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
 
