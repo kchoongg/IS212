@@ -1,0 +1,357 @@
+{
+  "story_key": "SPM-30",
+  "story_title": "As an Event Operations Manager, I want to assign an Event Coordinator to an event so that there is a clear person responsible for coordinating it",
+  "created_by": "kchoongg",
+  "creation_date": "2026-09-28",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "An authorised user can assign a coordinator to an event." },
+    { "id": "AC2", "text": "The Event Operations Manager can view or filter submitted events that do not yet have an assigned coordinator." },
+    { "id": "AC3", "text": "The assigned coordinator is recorded against the event." },
+    { "id": "AC4", "text": "The assigned coordinator can view and manage the event." },
+    { "id": "AC5", "text": "The Event Organiser can see the assigned coordinator where appropriate." },
+    { "id": "AC6", "text": "An event can be reassigned to another coordinator." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-30-TC01",
+      "title": "Assignments page lists only submitted events with no coordinator",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures freshly loaded (npm run fixtures:spm30).\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123), Event Operations Manager.",
+      "steps": [
+        "Click 'Assignments' in the sidebar"
+      ],
+      "test_data": "Expected rows include: SPM30 Nusantara Developer Meetup, SPM30 Meridian Graduate Evening | Must not appear: SPM30 Kirana Regional Offsite (Under review, Priya Raj), SPM30 Draft Investor Update (Draft)",
+      "expected_result": "The 'Awaiting assignment' table shows 'SPM30 Nusantara Developer Meetup' and 'SPM30 Meridian Graduate Evening' with their client, date and how long they have been waiting.\n'SPM30 Kirana Regional Offsite' (already has a coordinator) is not listed.\n'SPM30 Draft Investor Update' (draft) is not listed.\nEvery row shown has status Submitted."
+    },
+    {
+      "id": "SPM-30-TC02",
+      "title": "Ops Manager dashboard 'Awaiting assignment' shows unassigned submitted events",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "SPM-30 fixtures freshly loaded.\nLogged in as Nadia Rahman (nadia.rahman@connectsphere.com / password123), Event Operations Manager.",
+      "steps": [
+        "Open the Dashboard"
+      ],
+      "test_data": "Expected: SPM30 Nusantara Developer Meetup, SPM30 Meridian Graduate Evening",
+      "expected_result": "The 'Awaiting assignment' section ('Submitted events with no coordinator yet.') lists 'SPM30 Nusantara Developer Meetup' and 'SPM30 Meridian Graduate Evening'.\n'SPM30 Kirana Regional Offsite' is not listed."
+    },
+    {
+      "id": "SPM-30-TC03",
+      "title": "Non-Ops-Manager roles cannot open the Assignments page",
+      "linked_ac": ["AC1", "AC2"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged out.\nAccounts: Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator; Budi Santoso (budi.santoso@nusantaratec.com / password123), Event Organiser; Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff.",
+      "steps": [
+        "Log in as Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Check the sidebar for an 'Assignments' link",
+        "Type the Assignments page address into the browser address bar and press Enter",
+        "Log out and log in as Budi Santoso (budi.santoso@nusantaratec.com / password123)",
+        "Repeat the sidebar check and the direct address check",
+        "Log out and log in as Marcus Wong (marcus.wong@connectsphere.com / password123)",
+        "Repeat the sidebar check and the direct address check"
+      ],
+      "test_data": "Event Coordinator: daniel.tan@connectsphere.com / password123 | Event Organiser: budi.santoso@nusantaratec.com / password123 | Venue Staff: marcus.wong@connectsphere.com / password123",
+      "expected_result": "For each of the three users:\nNo 'Assignments' link is shown in the sidebar.\nOpening the page directly shows an access-denied message: 'Assigning coordinators is the Event Operations Manager's role.'\nNo events or 'Assign to' controls are shown."
+    },
+    {
+      "id": "SPM-30-TC04",
+      "title": "Coordinator dropdown only lists Event Coordinators",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Open the 'Assign to' dropdown on the 'SPM30 Meridian Graduate Evening' row"
+      ],
+      "test_data": "Expected options: Daniel Tan, Priya Raj, Joel Fernandez, Hui Shan Neo, Arif Mansor",
+      "expected_result": "The dropdown lists exactly the five Event Coordinators.\nNo Ops Managers (Grace Lim, Nadia Rahman), Venue Staff (e.g. Marcus Wong), Technical Support (e.g. Kenji Sato), Organisers or Attendees appear."
+    },
+    {
+      "id": "SPM-30-TC05",
+      "title": "Assign cannot be completed without choosing a coordinator",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Meridian Graduate Evening' is Submitted with no coordinator.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Leave the 'Assign to' dropdown for 'SPM30 Meridian Graduate Evening' on 'Choose a coordinator'",
+        "Try to click 'Assign'"
+      ],
+      "test_data": "Coordinator: (none selected)",
+      "expected_result": "The 'Assign' button is disabled, or a validation message asking to choose a coordinator is shown.\nThe event stays in the 'Awaiting assignment' list with status Submitted."
+    },
+    {
+      "id": "SPM-30-TC06",
+      "title": "Organiser sees 'Not yet assigned' before a coordinator is assigned",
+      "linked_ac": ["AC5"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Meridian Graduate Evening' is Submitted with no coordinator.\nLogged in as James Koh (james.koh@meridianfina.com / password123), the event's organiser.",
+      "steps": [
+        "Click 'All Events'",
+        "Open 'SPM30 Meridian Graduate Evening'"
+      ],
+      "test_data": "Event: SPM30 Meridian Graduate Evening",
+      "expected_result": "The 'Details' card shows Coordinator 'Not yet assigned'."
+    },
+    {
+      "id": "SPM-30-TC07",
+      "title": "Coordinators cannot manage an event that has no coordinator yet",
+      "linked_ac": ["AC4"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Meridian Graduate Evening' is Submitted with no coordinator.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.",
+      "steps": [
+        "Open the Dashboard",
+        "Click 'All Events'",
+        "Open 'SPM30 Meridian Graduate Evening'",
+        "Open the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM30 Meridian Graduate Evening (unassigned) | Viewer: Daniel Tan",
+      "expected_result": "The event does not appear under 'Awaiting your review' on Daniel Tan's dashboard.\nThe event details can be viewed and show Coordinator 'Not yet assigned'.\nNo options to add or edit equipment requirements, or to change the event's status, are available."
+    },
+    {
+      "id": "SPM-30-TC08",
+      "title": "Ops Manager assigns a coordinator; it is recorded and the event moves to Under review",
+      "linked_ac": ["AC1", "AC2", "AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Nusantara Developer Meetup' (organiser Budi Santoso, Nusantara Tech Labs) is Submitted with no coordinator.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "In the 'Assign to' dropdown for 'SPM30 Nusantara Developer Meetup', choose 'Daniel Tan'",
+        "Click 'Assign'",
+        "Click 'All Events' and open 'SPM30 Nusantara Developer Meetup'",
+        "Reload the page"
+      ],
+      "test_data": "Event: SPM30 Nusantara Developer Meetup | Coordinator: Daniel Tan",
+      "expected_result": "A success message confirming the assignment is shown.\n'SPM30 Nusantara Developer Meetup' disappears from the 'Awaiting assignment' list.\nAfter reloading the event page, the status badge shows 'Under review' (previously 'Submitted') and the 'Details' card shows Coordinator 'Daniel Tan'."
+    },
+    {
+      "id": "SPM-30-TC09",
+      "title": "Assigned coordinator sees and can manage the event",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "TC08 completed: Daniel Tan is assigned to 'SPM30 Nusantara Developer Meetup'.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Open the Dashboard",
+        "Open 'SPM30 Nusantara Developer Meetup' from the 'Awaiting your review' list",
+        "Open the 'Equipment' tab",
+        "Add an equipment requirement and save"
+      ],
+      "test_data": "Event: SPM30 Nusantara Developer Meetup | Equipment: Projector x 2",
+      "expected_result": "'SPM30 Nusantara Developer Meetup' appears under 'Awaiting your review' on Daniel Tan's dashboard.\nThe equipment requirement is saved and shown in the list (management actions are available, not read-only)."
+    },
+    {
+      "id": "SPM-30-TC10",
+      "title": "Owning organiser sees the assigned coordinator",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "TC08 completed: Daniel Tan is assigned to 'SPM30 Nusantara Developer Meetup'.\nLogged in as Budi Santoso (budi.santoso@nusantaratec.com / password123), the event's organiser.",
+      "steps": [
+        "Click 'All Events'",
+        "Open 'SPM30 Nusantara Developer Meetup'"
+      ],
+      "test_data": "Event: SPM30 Nusantara Developer Meetup | Organiser: Budi Santoso",
+      "expected_result": "The 'Details' card shows Coordinator 'Daniel Tan'."
+    },
+    {
+      "id": "SPM-30-TC11",
+      "title": "Organiser from the same company sees the assigned coordinator",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Meridian Client Forum' (owned by James Koh, Meridian Financial Group) is Confirmed with coordinator Daniel Tan.\nLogged in as Rachel Ng (rachel.ng@meridianfina.com / password123), another organiser at Meridian Financial Group.",
+      "steps": [
+        "Click 'All Events'",
+        "Open 'SPM30 Meridian Client Forum'"
+      ],
+      "test_data": "Event: SPM30 Meridian Client Forum | Viewer: Rachel Ng (same company, not owner)",
+      "expected_result": "The 'Details' card shows Coordinator 'Daniel Tan'."
+    },
+    {
+      "id": "SPM-30-TC12",
+      "title": "Attendee does not see the assigned coordinator",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Meridian Client Forum' is Confirmed, registration enabled, coordinator Daniel Tan.\nLogged in as an Attendee (lee.wei.ming@example.com / password123).",
+      "steps": [
+        "Open 'SPM30 Meridian Client Forum' from the browse events page"
+      ],
+      "test_data": "Event: SPM30 Meridian Client Forum | Viewer role: Attendee",
+      "expected_result": "The event page shows its public details only.\nNo 'Coordinator' row is shown, and the name 'Daniel Tan' does not appear anywhere on the page."
+    },
+    {
+      "id": "SPM-30-TC13",
+      "title": "Ops Manager reassigns an event from the event page",
+      "linked_ac": ["AC6", "AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Kirana Regional Offsite' (organiser Faridah Aziz) is Under review with coordinator Priya Raj.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events'",
+        "Open 'SPM30 Kirana Regional Offsite'",
+        "Choose the option to change the coordinator",
+        "Select 'Joel Fernandez'",
+        "Confirm the change",
+        "Reload the page"
+      ],
+      "test_data": "Event: SPM30 Kirana Regional Offsite | From: Priya Raj | To: Joel Fernandez",
+      "expected_result": "A success message confirming the reassignment is shown.\nAfter reloading, the 'Details' card shows Coordinator 'Joel Fernandez'.\nThe event status is unchanged (Under review)."
+    },
+    {
+      "id": "SPM-30-TC14",
+      "title": "After reassignment the previous coordinator loses access and the new one gains it",
+      "linked_ac": ["AC6", "AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "TC13 completed: 'SPM30 Kirana Regional Offsite' reassigned from Priya Raj to Joel Fernandez.",
+      "steps": [
+        "Log in as Priya Raj (priya.raj@connectsphere.com / password123)",
+        "Open the Dashboard",
+        "Open 'SPM30 Kirana Regional Offsite' from 'All Events' and open the 'Equipment' tab",
+        "Log out and log in as Joel Fernandez (joel.fernandez@connectsphere.com / password123)",
+        "Open the Dashboard"
+      ],
+      "test_data": "Event: SPM30 Kirana Regional Offsite | Previous: Priya Raj | New: Joel Fernandez",
+      "expected_result": "The event is no longer listed on Priya Raj's dashboard, and she sees no add/edit options on its Equipment tab.\nThe event is listed under 'Awaiting your review' on Joel Fernandez's dashboard."
+    },
+    {
+      "id": "SPM-30-TC15",
+      "title": "Ops Manager reassigns an event from the Assignments page",
+      "linked_ac": ["AC6", "AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Nusantara Product Launch' (organiser Sari Widodo) is Under review with coordinator Daniel Tan.\nLogged in as Nadia Rahman (nadia.rahman@connectsphere.com / password123), Event Operations Manager.",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Switch to the view listing events that already have a coordinator",
+        "Find the row for 'SPM30 Nusantara Product Launch'",
+        "Choose 'Hui Shan Neo' as the new coordinator",
+        "Confirm the change",
+        "Click 'All Events' and open 'SPM30 Nusantara Product Launch'"
+      ],
+      "test_data": "Event: SPM30 Nusantara Product Launch | From: Daniel Tan | To: Hui Shan Neo",
+      "expected_result": "A success message confirming the reassignment is shown.\nThe event page shows Coordinator 'Hui Shan Neo'.\nThe event status is unchanged (Under review)."
+    },
+    {
+      "id": "SPM-30-TC16",
+      "title": "Confirmed and Postponed events can be reassigned",
+      "linked_ac": ["AC6"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Anchorpoint Partner Briefing' is Confirmed with coordinator Joel Fernandez; 'SPM30 Civic Trust Workshop' is Postponed with coordinator Arif Mansor.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events'",
+        "Open 'SPM30 Anchorpoint Partner Briefing'",
+        "Change the coordinator to 'Arif Mansor' and confirm",
+        "Open 'SPM30 Civic Trust Workshop'",
+        "Change the coordinator to 'Hui Shan Neo' and confirm"
+      ],
+      "test_data": "SPM30 Anchorpoint Partner Briefing (Confirmed): Joel Fernandez -> Arif Mansor | SPM30 Civic Trust Workshop (Postponed): Arif Mansor -> Hui Shan Neo",
+      "expected_result": "Both reassignments succeed.\n'SPM30 Anchorpoint Partner Briefing' shows Coordinator 'Arif Mansor' and stays 'Confirmed'.\n'SPM30 Civic Trust Workshop' shows Coordinator 'Hui Shan Neo' and stays 'Postponed'."
+    },
+    {
+      "id": "SPM-30-TC17",
+      "title": "Completed, Cancelled and Rejected events cannot be reassigned",
+      "linked_ac": ["AC6"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Harbourline Claims Training' is Completed (Priya Raj), 'SPM30 Pearl Delta Supplier Forum' is Cancelled (Joel Fernandez), 'SPM30 Selaras Overnight Field Day' is Rejected (Priya Raj).\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events'",
+        "Open 'SPM30 Harbourline Claims Training' and look for an option to change the coordinator",
+        "Open 'SPM30 Pearl Delta Supplier Forum' and look for an option to change the coordinator",
+        "Open 'SPM30 Selaras Overnight Field Day' and look for an option to change the coordinator",
+        "Click 'Assignments' and check whether any of these three events are listed"
+      ],
+      "test_data": "Events: SPM30 Harbourline Claims Training (Completed), SPM30 Pearl Delta Supplier Forum (Cancelled), SPM30 Selaras Overnight Field Day (Rejected)",
+      "expected_result": "No option to change the coordinator is shown on any of the three events.\nNone of them appear on the Assignments page.\nEach still shows its original coordinator."
+    },
+    {
+      "id": "SPM-30-TC18",
+      "title": "Reassigning to the currently assigned coordinator is not a change",
+      "linked_ac": ["AC6"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Straits Journal Club' is Under review with coordinator Joel Fernandez.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events'",
+        "Open 'SPM30 Straits Journal Club'",
+        "Choose the option to change the coordinator",
+        "Select 'Joel Fernandez' (the current coordinator)"
+      ],
+      "test_data": "Event: SPM30 Straits Journal Club | Coordinator: Joel Fernandez -> Joel Fernandez",
+      "expected_result": "The confirm button is disabled, or a message says Joel Fernandez is already the assigned coordinator.\nThe coordinator remains 'Joel Fernandez'."
+    },
+    {
+      "id": "SPM-30-TC19",
+      "title": "Coordinator and organiser cannot change the assigned coordinator",
+      "linked_ac": ["AC1", "AC6"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-30 fixtures loaded: 'SPM30 Straits Journal Club' is Under review with coordinator Joel Fernandez (organiser Raj Kumar).",
+      "steps": [
+        "Log in as Joel Fernandez (joel.fernandez@connectsphere.com / password123)",
+        "Open 'SPM30 Straits Journal Club' and look for an option to change the coordinator",
+        "Log out and log in as Raj Kumar (raj.kumar@straitsmedic.com / password123)",
+        "Open 'SPM30 Straits Journal Club' and look for an option to change the coordinator"
+      ],
+      "test_data": "Event: SPM30 Straits Journal Club | Roles: Event Coordinator, Event Organiser",
+      "expected_result": "Neither user sees any option to assign or change the coordinator.\nThe Coordinator row shows 'Joel Fernandez' as read-only text."
+    },
+    {
+      "id": "SPM-30-TC20",
+      "title": "Empty state when no events are awaiting assignment",
+      "linked_ac": ["AC2"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run on a Neon branch or local database, not the shared one.\nEvery event in the 'Awaiting assignment' list has been assigned, so no submitted event is unassigned.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar"
+      ],
+      "test_data": "Unassigned submitted events: 0",
+      "expected_result": "An empty-state message is shown saying there are no events awaiting assignment.\nNo table rows and no error are shown."
+    }
+  ],
+  "open_questions": [
+    "NOTE: SPM-30 is not implemented yet. The Assignments page (src/app/assignments/page.tsx) is a 'not built yet' placeholder and there is no assignment endpoint. Steps follow the S-28 Assignment Queue mockup (design/mockups/AssignmentQueue.dc.html) and must be re-checked against the built UI (button labels, messages, reassign controls).",
+    "NOTE: Test data comes from scripts/seed-spm30.ts (npm run fixtures:spm30). It only deletes and recreates events whose seed key starts with 'spm30_'; the rest of the database is untouched. Run it before a full pass (TC01-TC19 run in order from fresh fixtures) and again afterwards to reset.",
+    "NOTE: TC20 (empty state) needs zero unassigned submitted events in the whole database, which on the shared database means assigning base-seed events such as 'Nusantara Developer Summit'. The fixture script does not restore those. Run TC20 on a Neon branch or local database.",
+    "NOTE: Organisers from an unrelated company not seeing the event is covered by SPM-31 (visibility), so it is not repeated here.",
+    "RESOLVED 2026-09-28: Only the Event Operations Manager can assign or reassign a coordinator (no self-assignment).",
+    "RESOLVED 2026-09-28: Assigning a coordinator moves the event from Submitted to Under review (TC08). So a Submitted event never has a coordinator, and filtering the Ops Manager dashboard's 'Awaiting assignment' section on status Submitted is enough.",
+    "RESOLVED 2026-09-28: Reassignment is available from both the event detail page (TC13) and the Assignments page (TC15). The mockup has no Assignments view for already-assigned events yet; re-check TC15's steps once built.",
+    "RESOLVED 2026-09-28: Events can be reassigned in any active status (Under review, Approved, Planning, Confirmed, Postponed), not Completed, Cancelled or Rejected (TC16, TC17).",
+    "RESOLVED 2026-09-28: The owning organiser and organisers from the same client organisation see the assigned coordinator at any non-draft status, with 'Not yet assigned' shown until then (TC06, TC10, TC11).",
+    "RESOLVED 2026-09-28: Remove the 'any coordinator can manage an unassigned event' allowance (TC07). This requires changing isAssignedCoordinator in src/lib/permissions.ts and updating docs/PERMISSIONS.md ('Assigned' relationship and Open items).",
+    "RESOLVED 2026-09-28: On assignment the new coordinator is notified; on reassignment both the new and previous coordinators are notified; the organiser is not notified. No test cases yet because the Notifications page (S-04, SPM-53) is still a placeholder, so a tester cannot see notifications on screen. Add them once SPM-53 is built.",
+    "RESOLVED 2026-09-28: The mockup's 'Coordinator workload' panel is not a requirement. Customer clarification #93: choosing a coordinator 'is up to Event Operations Manager, they have their own SOP which is handled outside of the system'. #92: a coordinator can be assigned to multiple events concurrently (no cap). No Jira story covers it. Out of scope for SPM-30; no test cases.",
+    "CONFIRMED by customer clarifications (docs/discussions/20260916): #94 and #101 - only the Event Operations Manager assigns and reassigns, as a separate role, and reassignment approval happens outside the system; #95 - no acceptance step, the assignment takes effect immediately (TC09); #81 - organisers in the same client organisation may view each other's events (TC11); #117 - the Ops Manager must be able to identify newly submitted events needing assignment, without a notification per submission (TC01, TC02)."
+  ],
+  "code_references": [
+    "src/app/assignments/page.tsx",
+    "design/mockups/AssignmentQueue.dc.html",
+    "src/lib/permissions.ts",
+    "src/lib/roles.ts",
+    "docs/PERMISSIONS.md",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/EventGlance.tsx",
+    "src/app/dashboard/page.tsx",
+    "src/app/events/page.tsx",
+    "prisma/schema.prisma",
+    "prisma/seed.ts",
+    "scripts/seed-spm30.ts",
+    "docs/discussions/20260916 - IS212-2026-discussions.md"
+  ]
+}

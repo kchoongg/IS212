@@ -130,16 +130,30 @@ specific event, the user must also be related to it.
 | --- | --- |
 | **Owns** | `event.organiserId === user.id` — the organiser who raised the request |
 | **Same client** | `event.organisationId === user.organisationId`, both non-null |
-| **Assigned** | `event.coordinatorId === user.id`, **or** the event has no coordinator yet |
+| **Assigned** | `event.coordinatorId === user.id` — and only that; an event with no coordinator is nobody's (SPM-30) |
 
 The user's `organisationId` is not in the JWT. `getActor()` in
 [`src/lib/apiAuth.ts`](../src/lib/apiAuth.ts) loads it (and the current role,
 and `isActive`) per request, so a role change or a deactivated account takes
 effect immediately rather than when the eight-hour token expires.
 
-The "or unassigned" clause on **Assigned** lets any coordinator pick work off
-the review queue before Coordinator Assignment is built. Once it exists, decide
-whether to keep that clause.
+**Assigned** used to have an "or the event has no coordinator yet" clause, so
+any coordinator could pick work off the review queue before Coordinator
+Assignment existed. SPM-30 removed it (confirmed 2026-09-28): the Event
+Operations Manager assigns every submitted event (clarifications #94, #101),
+so an unassigned event is visible to every coordinator but managed by none.
+
+**Who may assign.** `canAssignCoordinator()` — the Ops Manager only
+(`event:assign_coordinator`), and only while there is something to coordinate:
+
+| Event | Allowed | Effect |
+| --- | --- | --- |
+| `submitted`, no coordinator | Assign | Coordinator recorded; status → `under_review` in the same transaction |
+| `under_review`, `approved`, `planning`, `confirmed`, `postponed` | Reassign | Coordinator replaced; status unchanged |
+| `completed`, `cancelled`, `rejected`, `draft` | Neither | 400 |
+
+The new coordinator is notified; on reassignment the previous one is too. The
+organiser is not.
 
 ### Who can see which event
 
@@ -241,6 +255,8 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]` | `canViewEvent()` → 404; `visibleEventFor()` narrows the fields |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403 |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
+| `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
+| `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
 | `GET /api/venues` | `venue:view` — Coordinator, Ops Manager, Venue Staff |
 | `POST /api/venues` | `venue:manage` — Venue Staff |
 | `GET /api/equipment` | `equipment:view` |
@@ -296,8 +312,11 @@ allowed to see.
 - **Lifecycle validation.** Who may set a status is enforced; which transitions
   are legal is not. `draft → confirmed` in one step is currently possible for a
   coordinator.
-- **Coordinator Assignment** has no endpoint yet, which is why any coordinator
-  may pick up an unassigned event.
+- **`under_review` via the status PATCH.** `STATUS_TRANSITION_ROLES` still
+  lets the Ops Manager set `under_review` directly, which would leave an event
+  under review with no coordinator. The UI never does this (it assigns through
+  `PUT /api/events/[id]/coordinator`); removing it belongs with Lifecycle
+  validation above.
 - **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
   ready for whoever builds them.
 - **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)

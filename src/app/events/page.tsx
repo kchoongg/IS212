@@ -15,6 +15,7 @@ import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { statusLabel } from "@/lib/statuses";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { can } from "@/lib/permissions";
 
 // S-07. Drafts stay visibly separate from submitted requests: the customer's
 // complaint is not knowing whether something has actually been sent
@@ -29,7 +30,17 @@ interface EventRow {
   startsAt: string | null;
   endsAt: string | null;
   expectedAttendance: number | null;
+  // Absent for an Attendee (internal planning information).
+  coordinatorId?: string | null;
 }
+
+// SPM-30 AC2: the Ops Manager can filter to events with no coordinator yet,
+// as well as working from the Assignments screen.
+const COORDINATOR_FILTER_OPTIONS = [
+  { value: "all", label: "Any coordinator" },
+  { value: "unassigned", label: "Not yet assigned" },
+  { value: "assigned", label: "Assigned" },
+];
 
 const ALL_STATUSES = [
   "draft", "submitted", "under_review", "approved", "planning", "confirmed", "completed", "rejected", "cancelled",
@@ -41,6 +52,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [coordinatorFilter, setCoordinatorFilter] = useState("all");
 
   const load = useCallback(async () => {
     setError(null);
@@ -70,6 +82,7 @@ export default function EventsPage() {
   }, [state, load, router]);
 
   const isOrganiser = user?.role === "organiser";
+  const mayAssign = user ? can(user.role, "event:assign_coordinator") : false;
 
   // Non-organiser roles never receive draft events from the API (they stay
   // private to their owning organiser - docs/PERMISSIONS.md), so offering
@@ -85,13 +98,18 @@ export default function EventsPage() {
 
   const { filtered, drafts, submitted } = useMemo(() => {
     const filtered =
-      events?.filter((event) => statusFilter === "all" || event.status === statusFilter) ?? null;
+      events?.filter(
+        (event) =>
+          (statusFilter === "all" || event.status === statusFilter) &&
+          (coordinatorFilter === "all" ||
+            (coordinatorFilter === "unassigned" ? !event.coordinatorId : Boolean(event.coordinatorId)))
+      ) ?? null;
     return {
       filtered,
       drafts: filtered?.filter((event) => event.status === "draft") ?? null,
       submitted: filtered?.filter((event) => event.status !== "draft") ?? null,
     };
-  }, [events, statusFilter]);
+  }, [events, statusFilter, coordinatorFilter]);
 
   const columns: Column<EventRow>[] = [
     {
@@ -142,16 +160,31 @@ export default function EventsPage() {
         }
       />
 
-      <div className="mb-5 max-w-xs">
-        <label htmlFor="status-filter" className="mb-1.5 block text-sm font-medium text-ink">
-          Filter by status
-        </label>
-        <Select
-          id="status-filter"
-          options={statusFilterOptions}
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        />
+      <div className="mb-5 flex flex-wrap gap-4">
+        <div className="w-full max-w-xs">
+          <label htmlFor="status-filter" className="mb-1.5 block text-sm font-medium text-ink">
+            Filter by status
+          </label>
+          <Select
+            id="status-filter"
+            options={statusFilterOptions}
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          />
+        </div>
+        {mayAssign && (
+          <div className="w-full max-w-xs">
+            <label htmlFor="coordinator-filter" className="mb-1.5 block text-sm font-medium text-ink">
+              Coordinator
+            </label>
+            <Select
+              id="coordinator-filter"
+              options={COORDINATOR_FILTER_OPTIONS}
+              value={coordinatorFilter}
+              onChange={(e) => setCoordinatorFilter(e.target.value)}
+            />
+          </div>
+        )}
       </div>
 
       {/* Drafts first and under their own heading — an unsent request is the
