@@ -167,13 +167,13 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page (Venues > Find a venue) with all filters cleared.\nSeed: Marina Grand Hall has an approved booking for 'Straits Medical Research Symposium' (EVT-000004), 09:00-18:00 on its date (72 days after seeding; 8 Dec 2026 if seeded on 28 Sep 2026). Marina Boardroom 2 is under renovation 60-74 days after seeding.",
+      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page (Venues > Find a venue) with all filters cleared.\nSeed: Marina Grand Hall has an approved booking for 'Straits Medical Research Symposium' (EVT-000004), 09:00-18:00 on its date, 7 Dec 2026 (day 72 of the fixed 2026-09-26 seed). Marina Boardroom 2 is under renovation 25 Nov-9 Dec 2026 (days 60-74).",
       "steps": [
         "Enter From = the symposium's date 09:00, To = the same date 18:00",
         "Choose 'Marina Centre' in 'Location'",
         "Click 'Search'"
       ],
-      "test_data": "From/To: 8 Dec 2026 09:00-18:00\nLocation: Marina Centre",
+      "test_data": "From/To: 7 Dec 2026 09:00-18:00\nLocation: Marina Centre",
       "expected_result": "Only Marina Auditorium (MAR-AUD) and Marina Boardroom 1 (MAR-BR1) are listed. Marina Grand Hall (booked) and Marina Boardroom 2 (renovation) are not."
     },
     {
@@ -185,13 +185,13 @@
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page (Venues > Find a venue) with all filters cleared.\nSeed: Changi Conference Centre has a PENDING booking request for 'Pearl Delta Safety Conference' (EVT-000014), 09:00-17:00, 79 days after seeding (15 Dec 2026 if seeded on 28 Sep 2026).",
+      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page (Venues > Find a venue) with all filters cleared.\nSeed: Changi Conference Centre has a PENDING booking request for 'Pearl Delta Safety Conference' (EVT-000014), 09:00-17:00 on 14 Dec 2026 (day 79 of the fixed 2026-09-26 seed).",
       "steps": [
         "Choose 'Changi Business Park' in 'Location'",
         "Enter From = the safety conference's date 09:00, To = the same date 17:00",
         "Click 'Search'"
       ],
-      "test_data": "Location: Changi Business Park\nFrom/To: 15 Dec 2026 09:00-17:00",
+      "test_data": "Location: Changi Business Park\nFrom/To: 14 Dec 2026 09:00-17:00",
       "expected_result": "Only Changi Meeting Room 1 (CBP-MTG1) and Changi Meeting Room 2 (CBP-MTG2) are listed; Changi Conference Centre is hidden (customer ruling #41: one active hold per venue and time)."
     },
     {
@@ -203,13 +203,13 @@
       ],
       "type": "Boundary",
       "source": "Code",
-      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page (Venues > Find a venue) with all filters cleared.\nSeed: Jurong Training Room (JUR-TRN) has an approved booking for 'Harbourline Claims Systems Training' (EVT-000012), 09:00-17:00, 23 days after seeding (20 Oct 2026 if seeded on 28 Sep 2026). It records setup time, so that AM booking also holds the previous day's Night slot (#123).",
+      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nOn the Find a venue page (Venues > Find a venue) with all filters cleared.\nSeed: Jurong Training Room (JUR-TRN) has an approved booking for 'Harbourline Claims Systems Training' (EVT-000012), 09:00-17:00 on 19 Oct 2026 (day 23 of the fixed 2026-09-26 seed). It records setup time, so that AM booking also holds the previous day's Night slot (#123).",
       "steps": [
         "Choose 'Jurong Gateway' in 'Location'",
         "Enter From = the day BEFORE the training 19:00, To = the same day 20:00, and click 'Search'",
         "Change the times to 08:00-11:00 on that same day and click 'Search'"
       ],
-      "test_data": "Location: Jurong Gateway\nFrom/To: 19 Oct 2026 19:00-20:00, then 08:00-11:00",
+      "test_data": "Location: Jurong Gateway\nFrom/To: 18 Oct 2026 19:00-20:00, then 08:00-11:00",
       "expected_result": "19:00-20:00: only Jurong Skills Lab (JUR-LAB); Jurong Training Room is hidden although nothing is booked in it that evening. (Jurong Expo Floor is under renovation all that week.)\n08:00-11:00: Jurong Skills Lab (JUR-LAB) and Jurong Training Room (JUR-TRN)."
     },
     {
@@ -303,7 +303,7 @@
       ],
       "type": "Positive",
       "source": "Code",
-      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed: 'SPM40 Approved Workshop' (status Approved, coordinator Daniel Tan, 30 people, Classroom, 09:00-12:00, 180 days after seeding) - the only Approved event in the seed.",
+      "preconditions": "Logged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).\nSeed: 'SPM40 Approved Workshop' (status Approved, coordinator Daniel Tan, 30 people, Classroom, 09:00-12:00 on 25 Mar 2027, day 180 of the fixed 2026-09-26 seed) - the only Approved event in the seed.",
       "steps": [
         "Open 'SPM40 Approved Workshop' from Events and note its status badge",
         "Click the 'Venue' tab, then 'Search with filters'",
@@ -339,7 +339,7 @@
     "(5) Attendance with no layout chosen matches if any layout seats everyone; Venue.maxCapacity is never used (TC03) - #112, #119.",
     "(6) Pre-fill ticks mandatory requirements only and leaves Location as 'Any building' (TC14) - EventFacilityRequirement.isMandatory 'must NOT disqualify a venue'; #80; #111.",
     "(7) Non-matching venues are hidden, not greyed as in design/mockups/VenueSearch.dc.html - AC7 and #83; the greyed view is SPM-41's Venue tab.",
-    "Not decisions: there is no 'Request' button because S-15 venue booking (SPM-42) is not built; and seed dates are relative to the day the seed ran - absolute dates here assume seeding on 28 Sep 2026.",
+    "Not decisions: there is no 'Request' button because S-15 venue booking (SPM-42) is not built; and seed dates are fixed (2026-09-26 + n days, see prisma/seed.ts), so the absolute dates here hold after any reseed.",
     "Known, outside SPM-40: the SPM-41 Venue tab currently says the event does not exist for every event (its route looks events up by internal id, but links use the EVT- reference since SPM-31). TC14 and TC15 still work because the 'Search with filters' button renders above that message. Reported to the SPM-41 owner separately."
   ],
   "code_references": [

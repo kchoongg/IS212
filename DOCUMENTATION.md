@@ -748,7 +748,8 @@ what changed, why, and the migration name if there is one.
   Planning "search" edge.
 - Seed: one fixture appended, `spm40_approved` ("SPM40 Approved Workshop",
   Daniel Tan) - the only Approved event, since nothing in the app can approve
-  one yet (S-13). Appended last so no existing EVT- reference shifts; the
+  one yet (S-13). Pushed last, after SPM-48/49's fixtures, so no existing EVT-
+  reference shifts; the
   status-history table gained its missing `approved` chain. **Not applied to
   the shared database** - reseed when convenient.
 - Tests: 56 new unit tests (`venueSearch.test.ts`, `venueSearchForm.test.ts`,
@@ -757,6 +758,25 @@ what changed, why, and the migration name if there is one.
   all seven ACs; the rulings behind each decision are listed in the JSON's
   `open_questions` with their discussion numbers.
 - No schema change, no migration.
+- **`prisma/seed.ts` dates no longer move when someone reseeds.** Every seeded
+  date used to be *today* + n days, so each reseed of the shared database slid
+  every event, booking and block by however many days had passed, and the
+  dates in `docs/test-cases/` stopped matching. The suites on `main` had each
+  been written against a different seed day (SPM-47 on 16 Sep, SPM-39 on
+  20 Sep, SPM-41 on 23 Sep). `day(n)` is now a fixed anchor, **2026-09-26**,
+  + n days, built as Singapore wall-clock time so the seeder's own time zone
+  doesn't matter either. Reseed on any day and you get the same data.
+- Re-based the seed-dependent dates in SPM-39 (+6 days), SPM-41 (+3) and
+  SPM-47 (+10), JSON and xlsx, onto that anchor. SPM-21/23/24/25/31 only use
+  dates the tester types in, so they're unchanged.
+- **Writing test cases:** quote dates against 2026-09-26 + n. Don't change
+  the anchor unless you re-base every date in `docs/test-cases/` by the same
+  number of days. `SEED_ANCHOR=YYYY-MM-DD npx prisma db seed` still overrides
+  it for a one-off local run — never on the shared database.
+- Branches not yet merged: merge `main` in, then re-base your own test cases
+  onto 2026-09-26 if they were written against another seed day.
+
+---
 
 ### 2026-09-25 — Kristen
 - **Fixed `prisma/seed.ts` leaking event reference numbers across reseeds.**
