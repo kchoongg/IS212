@@ -4,8 +4,8 @@
  * Run with:  npx prisma db seed
  *
  * Safe to re-run: it clears every table first, in reverse dependency order.
- * Dates are relative to the day you run it, so the calendar always has
- * past events (for reporting) and future ones (for the venue calendar).
+ * Dates are fixed: every one is SEED_ANCHOR + n days (see below), so a reseed
+ * on any day, from any machine, writes the same dates the test cases expect.
  *
  * Replace PLACEHOLDER_HASH before any real demo — see the note at the bottom.
  */
@@ -17,13 +17,32 @@ const prisma = new PrismaClient();
 // Every seeded account uses this password.
 const DEMO_PASSWORD = "password123";
 
-const now = new Date();
-/** n days from today, at the given hour (local time). */
+/// Every date below is built as `day(n)` = this anchor + n days. It used to be
+/// today + n, so the whole data set slid with whoever reseeded last and the
+/// dates in docs/test-cases/ went stale on the shared database. It is now a
+/// fixed date, and every test case is written against it — do not change it
+/// without re-basing every date in docs/test-cases/ by the same number of days.
+///
+/// Override it only for a one-off local run:
+///
+///   SEED_ANCHOR=2026-12-01 npx prisma db seed
+const SEED_ANCHOR = process.env.SEED_ANCHOR ?? "2026-09-26";
+const anchorMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(SEED_ANCHOR);
+if (!anchorMatch) {
+  throw new Error(`SEED_ANCHOR must be YYYY-MM-DD, got "${SEED_ANCHOR}"`);
+}
+const [anchorYear, anchorMonth, anchorDay] = anchorMatch.slice(1).map(Number);
+console.log(`Seeding relative to ${SEED_ANCHOR}${process.env.SEED_ANCHOR ? " (SEED_ANCHOR override)" : ""}`);
+
+/** Singapore has no daylight saving: always UTC+8. */
+const SGT_OFFSET_HOURS = 8;
+
+/**
+ * n days from the anchor, at the given Singapore wall-clock time. Built in
+ * UTC so the result doesn't depend on the time zone of whoever runs the seed.
+ */
 function day(n: number, hour = 9, minute = 0): Date {
-  const d = new Date(now);
-  d.setDate(d.getDate() + n);
-  d.setHours(hour, minute, 0, 0);
-  return d;
+  return new Date(Date.UTC(anchorYear, anchorMonth - 1, anchorDay + n, hour - SGT_OFFSET_HOURS, minute));
 }
 
 async function main() {
