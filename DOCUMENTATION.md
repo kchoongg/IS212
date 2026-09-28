@@ -116,7 +116,7 @@ After seeding, **every account's password is `password123`**.
 | Email | Role |
 |---|---|
 | `daniel.tan@connectsphere.com` | coordinator, owns several events |
-| `grace.lim@connectsphere.com` | ops manager, sees the unassigned queue |
+| `grace.lim@connectsphere.com` | ops manager — assigns and reassigns coordinators on `/assignments` (SPM-30) |
 | `marcus.wong@connectsphere.com` | venue staff |
 | `kenji.sato@connectsphere.com` | tech support |
 
@@ -139,7 +139,13 @@ IS212/
 ├── design/mockups/             # Visual mockups (.dc.html), one file per screen
 ├── docs/
 │   ├── PERMISSIONS.md           # THE permission model — read before writing a route
+│   ├── discussions/             # Customer Q&A exports (GitHub Discussions), by date
 │   └── test-cases/              # Per-story test case exports (Excel + JSON)
+│
+├── scripts/
+│   ├── verify-permissions.ts    # `npm run verify:permissions` — see Everyday Commands
+│   ├── verify-login.ts          # `npm run verify:login`
+│   └── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
 │
 └── src/
     ├── app/
@@ -149,7 +155,13 @@ IS212/
     │   ├── login/page.tsx           # S-01
     │   ├── register/page.tsx         # S-02
     │   ├── dashboard/page.tsx         # S-03, role-aware
-    │   ├── events/page.tsx             # S-07
+    │   ├── events/page.tsx             # S-07. The Ops Manager also gets a
+    │   │                                "Coordinator" filter (Not yet assigned /
+    │   │                                Assigned) here (SPM-30 AC2).
+    │   ├── assignments/page.tsx         # S-28 Coordinator Assignment (SPM-30), Ops
+    │   │                                Manager only. Tabs: "Awaiting assignment"
+    │   │                                (submitted, no coordinator) and "Assigned"
+    │   │                                (live events, for reassignment).
     │   ├── events/new/page.tsx          # S-08, the event request form (create)
     │   ├── events/[id]/edit/page.tsx  # S-08, the same form (edit a saved draft) —
     │   │                                also the ONLY screen a draft has: opening a
@@ -165,6 +177,9 @@ IS212/
     │   │                                An Attendee gets a curated subset (no Venue
     │   │                                requirements card, no internal-only rows);
     │   │                                every other role sees the full record.
+    │   │                                The Ops Manager also gets an "Assign a
+    │   │                                coordinator" / "Change coordinator" card
+    │   │                                here (SPM-30).
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
     │   ├── equipment/requests/page.tsx      # S-25 queue — events with equipment
     │   │                                     requested (SPM-48). Technical Support only.
@@ -176,7 +191,9 @@ IS212/
     │   │
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
-    │       ├── events/                  (Kristen)
+    │       ├── events/                  (Kristen) — incl. events/[id]/coordinator
+    │       │                                (PUT: assign/reassign, SPM-30)
+    │       ├── assignments/              (Kristen) — the S-28 queue's data (SPM-30)
     │       ├── venues/                   (Kayal)
     │       ├── facilities/                (Kayal — reference data for forms + venue search)
     │       ├── equipment/                  (Janelle)
@@ -185,6 +202,8 @@ IS212/
     ├── components/
     │   ├── AppShell.tsx        # Top bar + role-aware sidebar. Wraps every route.
     │   ├── SessionFields.tsx    # S-08's "Sessions" section, shared by events/new and events/[id]/edit
+    │   ├── AssignCoordinator.tsx # SPM-30: the assign/reassign control, shared by
+    │   │                          /assignments and the event Overview page
     │   └── ui/                  # THE component library — see §6. Import from "@/components/ui"
     │
     └── lib/
@@ -497,6 +516,8 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
 | Only the role the briefing gives a step may perform it: organiser submits, Ops Manager assigns, assigned coordinator approves/confirms, Venue Staff decide bookings, Technical Support decides equipment | `canSetEventStatus()`, `can()` | ✅ done |
 | Catalogue writes belong to their owner — venues to Venue Staff, equipment to Technical Support | `api/venues` POST, `api/equipment` POST | ✅ done |
+| **Only the Event Operations Manager assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
+| **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
 | **A role cannot be self-assigned** — public registration offers the two external roles only; staff accounts are created internally | `registerSchema`, `SELF_REGISTERABLE_ROLES` | ✅ done |
 | A deactivated account cannot authenticate at all, and is refused at login rather than at the first API call | `api/auth/login`, `getActor()` | ✅ done |
@@ -561,6 +582,7 @@ traceability the module asks for.
 | `npm run lint` | Check code style/common mistakes (runs `eslint .` over the whole repo) |
 | `npm test` | Run tests once |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
+| `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`. Re-run before each SPM-30 test pass |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -669,15 +691,15 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | Gap | Impact | Owner |
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
-| **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. | events |
+| **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
-| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
+| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39; coordinator assigned/unassigned, SPM-30) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
-| **No route-level tests outside auth/permissions** | `npm run verify:permissions` (45 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
+| **No route-level tests outside auth/permissions** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
@@ -700,6 +722,44 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-09-28 — Kristen
+- **SPM-30 (Assign Event Coordinator): built end to end.** The Ops Manager
+  assigns a coordinator to a submitted event, or reassigns a live one, from the
+  new Assignments screen (`/assignments`, S-28) or the event's Overview page.
+  - `PUT /api/events/[id]/coordinator` does both. A first assignment also moves
+    the event `submitted → under_review` and writes a status-history row; a
+    reassignment leaves the status alone. Refused (400) for completed,
+    cancelled, rejected or draft events, for anyone who isn't an active
+    coordinator, and for the coordinator the event already has. The update is
+    conditional, so two Ops Managers acting at once get a 409, not a silent
+    overwrite.
+  - Notifies the new coordinator, and on reassignment the previous one. The
+    organiser is not notified. Nothing displays these yet (Known Gaps).
+  - `GET /api/assignments` feeds the screen: unassigned submitted events, live
+    assigned events, and the active coordinators.
+- **Behaviour change — check your own features:** `isAssignedCoordinator()`
+  no longer lets *any* coordinator act on an event with no coordinator. Only
+  the assigned one can approve, confirm, cancel or manage its equipment.
+  Knock-on fixes: the coordinator dashboard's "Awaiting your review" now shows
+  only their own events (it showed every event in those statuses); the
+  Equipment tab tells a non-assigned coordinator why they can't see it rather
+  than showing a load error; `verify-permissions.ts` now has the Ops Manager
+  assign before the coordinator approves (47 checks, all passing).
+- Also: a "Coordinator" filter on All Events for the Ops Manager (AC2).
+- **Decisions confirmed 2026-09-28** (Q&A in `docs/discussions/`: #92–#95,
+  #101, #117): Ops Manager only; reassignable while Under review, Approved,
+  Planning, Confirmed or Postponed; the owning organiser and same-company
+  organisers see the coordinator; the mockup's "Coordinator workload" panel is
+  out of scope (#93: choosing a coordinator is the Ops Manager's own SOP).
+- Test cases: `docs/test-cases/SPM-30_Test_Cases.xlsx` (20 cases, all 6 ACs).
+  Test data is **added without a reseed** by `npm run fixtures:spm30`
+  (`scripts/seed-spm30.ts`): 12 "SPM30 …" events, deleted and recreated on
+  each run, so it doubles as the reset. SPM-30-TC20 (empty queue) needs every
+  submitted event assigned, so run it on a Neon branch, not the shared database.
+- Removed the "Coordinator Assignment has no endpoint" Known Gaps row.
 
 ---
 
