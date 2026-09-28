@@ -6,6 +6,7 @@ import { Alert, Button, Card, CardHeader, DataState, PageHeader, StatusBadge } f
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDate, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
+import { eventAllowsReserving, reservingClosedMessage } from "@/lib/equipmentAvailability";
 
 // S-25 (detail). SPM-48: for each equipment line an event has requested, is
 // there enough suitable stock free for its dates? Shown automatically on load -
@@ -83,6 +84,9 @@ export default function EquipmentRequestDetailPage() {
   // longer allows it) - keyed by requestId, since several lines are on screen.
   const [reservingId, setReservingId] = useState<string | null>(null);
   const [reserveErrors, setReserveErrors] = useState<Record<string, string>>({});
+  // The confirmation after a reservation saves, per line - kept across the
+  // reload that follows, so the tester sees both it and the new numbers.
+  const [reserveNotices, setReserveNotices] = useState<Record<string, string>>({});
 
   const path = `/equipment/requests/${eventId}`;
 
@@ -128,6 +132,7 @@ export default function EquipmentRequestDetailPage() {
   async function reserve(requestId: string) {
     setReservingId(requestId);
     setReserveErrors((current) => ({ ...current, [requestId]: "" }));
+    setReserveNotices((current) => ({ ...current, [requestId]: "" }));
     try {
       const res = await authedFetch(`/api/events/${eventId}/equipment/${requestId}/reserve`, {
         method: "POST",
@@ -144,6 +149,14 @@ export default function EquipmentRequestDetailPage() {
         }));
         return;
       }
+      const saved = await res.json().catch(() => null);
+      setReserveNotices((current) => ({
+        ...current,
+        [requestId]:
+          typeof saved?.quantityReserved === "number"
+            ? `Reservation saved: ${saved.quantityReserved} reserved.`
+            : "Reservation saved.",
+      }));
       // Re-read the whole request: the amount just reserved changes what
       // every OTHER line's availability shows too (AC4), not only this one.
       await load();
@@ -158,6 +171,12 @@ export default function EquipmentRequestDetailPage() {
   // mockup shows "Under review" beside "Requested items"); nothing if mixed.
   const stages = new Set(availability?.lines.map((l) => l.requestStatus));
   const requestStage = stages.size === 1 ? [...stages][0] : null;
+
+  // Same rule the Reserve route enforces: a finished, abandoned or released
+  // event takes no new reservations, so no button is offered and the page
+  // says why rather than letting a click fail.
+  const reservingOpen = event ? eventAllowsReserving(event.status) : false;
+  const isTechSupport = user?.role === "tech_support";
 
   return (
     <div>
@@ -177,6 +196,12 @@ export default function EquipmentRequestDetailPage() {
       {user && user.role !== "tech_support" && (
         <Alert variant="info" className="mb-5">
           Equipment availability is for Technical Support Staff.
+        </Alert>
+      )}
+
+      {isTechSupport && event && !reservingOpen && (
+        <Alert variant="info" className="mb-5">
+          {reservingClosedMessage(event.status)}
         </Alert>
       )}
 
@@ -206,9 +231,10 @@ export default function EquipmentRequestDetailPage() {
                 <LineRow
                   key={line.requestId}
                   line={line}
-                  canReserve={user?.role === "tech_support"}
+                  canReserve={isTechSupport && reservingOpen}
                   reserving={reservingId === line.requestId}
                   reserveError={reserveErrors[line.requestId]}
+                  reserveNotice={reserveNotices[line.requestId]}
                   onReserve={() => reserve(line.requestId)}
                 />
               ))}
@@ -238,10 +264,11 @@ interface LineRowProps {
   canReserve: boolean;
   reserving: boolean;
   reserveError?: string;
+  reserveNotice?: string;
   onReserve: () => void;
 }
 
-function LineRow({ line, canReserve, reserving, reserveError, onReserve }: LineRowProps) {
+function LineRow({ line, canReserve, reserving, reserveError, reserveNotice, onReserve }: LineRowProps) {
   const { result } = line;
 
   return (
@@ -273,6 +300,7 @@ function LineRow({ line, canReserve, reserving, reserveError, onReserve }: LineR
             <p className="inline-block rounded-md border border-line bg-surface-2 px-2.5 py-1.5 text-xs text-ink-2">
               {transferNote(line, result)}
             </p>
+            {reserveNotice && <p className="text-xs text-tone-success-fg">{reserveNotice}</p>}
             {reserveError && <p className="text-xs text-tone-danger-fg">{reserveError}</p>}
           </>
         ) : (

@@ -46,7 +46,7 @@
         "Click Reserve on the Portable Stage line"
       ],
       "test_data": "Equipment: Portable Stage, Requested: 3, Available: 6",
-      "expected_result": "A confirmation that the reservation was saved is shown.\nThe Reserved box on the Portable Stage line shows 3.\nThe request status chip shows 'Reserved'."
+      "expected_result": "The message 'Reservation saved: 3 reserved.' appears on the Portable Stage line.\nThe Reserved box on the Portable Stage line shows 3.\nThe request status chip shows 'Reserved'."
     },
     {
       "id": "SPM-49-TC02",
@@ -64,7 +64,7 @@
         "Click Reserve on the Ring Light line"
       ],
       "test_data": "Equipment: Ring Light, Requested: 4, Available: 2",
-      "expected_result": "A confirmation that the reservation was saved is shown.\nThe Reserved box on the Ring Light line shows 2 - the smaller of requested (4) and available (2), never more than either.\nThe request status chip shows 'Partially fulfilled'."
+      "expected_result": "The message 'Reservation saved: 2 reserved.' appears on the Ring Light line.\nThe Reserved box on the Ring Light line shows 2 - the smaller of requested (4) and available (2), never more than either.\nThe request status chip shows 'Partially fulfilled'."
     },
     {
       "id": "SPM-49-TC03",
@@ -370,7 +370,7 @@
         "Look for a Reserve button on the Portable Stage line"
       ],
       "test_data": "Event: Cancelled Roadshow (Cancelled), Equipment: Portable Stage, Requested: 2",
-      "expected_result": "No Reserve button is offered, or clicking it shows the message 'This event is cancelled - equipment can no longer be reserved.' and nothing is reserved.\nThe Reserved box stays empty."
+      "expected_result": "No Reserve button is offered on the Portable Stage line, and the page shows the message 'This event is cancelled — equipment can no longer be reserved.'\nNothing is reserved: the Reserved box stays empty."
     },
     {
       "id": "SPM-49-TC19",

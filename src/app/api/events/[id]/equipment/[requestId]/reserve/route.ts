@@ -2,9 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
 import { canReserveEquipment, canViewEvent } from "@/lib/permissions";
-import { RELEASED_EVENT_STATUSES, reserveQuantity } from "@/lib/equipmentAvailability";
+import { eventAllowsReserving, reserveQuantity, reservingClosedMessage } from "@/lib/equipmentAvailability";
 import { loadSingleLineAvailability } from "@/lib/equipmentAvailabilityService";
-import { TERMINAL_EVENT_STATUSES } from "@/lib/statuses";
 
 // SPM-49 — Reserve Equipment. "As Technical Support Staff, I want to reserve
 // available equipment for an event so that the same limited equipment is not
@@ -63,9 +62,9 @@ export async function POST(
   // the same mistake in the other direction. A draft is invisible to
   // Technical Support already (canViewEvent), so this mainly catches
   // cancelled/postponed/rejected/completed.
-  if (TERMINAL_EVENT_STATUSES.includes(existing.event.status) || RELEASED_EVENT_STATUSES.includes(existing.event.status)) {
+  if (!eventAllowsReserving(existing.event.status)) {
     return NextResponse.json(
-      { error: `This event is ${existing.event.status} — equipment can no longer be reserved.` },
+      { error: reservingClosedMessage(existing.event.status) },
       { status: 400 }
     );
   }

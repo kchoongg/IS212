@@ -8,7 +8,9 @@ import {
   dayIndex,
   dayStart,
   equipmentLeavesAt,
+  eventAllowsReserving,
   reserveQuantity,
+  reservingClosedMessage,
   transferLeadFor,
   type Commitment,
 } from "../equipmentAvailability";
@@ -399,5 +401,23 @@ describe("reserveQuantity (SPM-49 AC1, AC5)", () => {
 
   it("never goes negative", () => {
     expect(reserveQuantity(2, -1)).toBe(0);
+  });
+});
+
+describe("eventAllowsReserving (SPM-49)", () => {
+  it("allows reserving while the event is still being planned or is confirmed", () => {
+    for (const status of ["submitted", "under_review", "approved", "planning", "confirmed"]) {
+      expect(eventAllowsReserving(status)).toBe(true);
+    }
+  });
+
+  it("refuses once the event is finished, abandoned or its arrangements are released", () => {
+    for (const status of ["completed", "cancelled", "rejected", "postponed", "draft"]) {
+      expect(eventAllowsReserving(status)).toBe(false);
+    }
+  });
+
+  it("explains the refusal in the words the screen and the route both show", () => {
+    expect(reservingClosedMessage("cancelled")).toBe("This event is cancelled — equipment can no longer be reserved.");
   });
 });
