@@ -188,18 +188,22 @@ export async function loadSingleLineAvailability(db: Db, requestId: string): Pro
     venueId: venueFor(request.event.venueBookings, request.sessionId),
   };
 
+  // Every other hold on this item, including this event's own other sessions -
+  // the same rule as loadEventAvailability - but never this request itself, so
+  // re-reserving a line does not count its current reservation against it.
   const otherRows = await db.equipmentRequest.findMany({
     where: {
       equipmentId: request.equipment.id,
-      eventId: { not: request.event.id },
+      id: { not: request.id },
       status: { in: COMMITTING_REQUEST_STATUSES },
     },
     select: {
+      id: true,
       equipmentId: true,
       status: true,
       quantityReserved: true,
       sessionId: true,
-      session: { select: { startsAt: true, endsAt: true } },
+      session: { select: { label: true, startsAt: true, endsAt: true } },
       event: {
         select: {
           title: true,
@@ -212,8 +216,9 @@ export async function loadSingleLineAvailability(db: Db, requestId: string): Pro
     },
   });
   const others: OtherRequest[] = otherRows.map((o) => ({
+    requestId: o.id,
     equipmentId: o.equipmentId,
-    eventTitle: o.event.title,
+    eventTitle: heldByLabel(o.event.title, o.session?.label ?? null),
     requestStatus: o.status,
     quantityReserved: o.quantityReserved,
     eventStatus: o.event.status,
