@@ -203,6 +203,43 @@ describe("checkAvailability", () => {
       expect(r).toMatchObject({ available: 2, reservedElsewhere: 3, status: "partial" });
     });
 
+    it("does not add up commitments that never share a day - units are pooled", () => {
+      // 3 units. Monday's event holds 2 and Friday's holds 2, which is legal:
+      // they never overlap, so they can share units. A Monday-Friday event
+      // never sees more than 2 out on one day, so 1 is free throughout.
+      const r = check({
+        start: "2026-11-02T09:00",
+        end: "2026-11-06T17:00",
+        total: 3,
+        requested: 1,
+        commitments: [
+          commitment("Monday Event", "2026-11-02T09:00", "2026-11-02T17:00", 2),
+          commitment("Friday Event", "2026-11-06T09:00", "2026-11-06T17:00", 2),
+        ],
+      });
+      expect(r).toMatchObject({ status: "available", available: 1, reservedElsewhere: 2 });
+      expect(r.heldBy.map((h) => h.eventTitle)).toEqual(["Monday Event", "Friday Event"]);
+    });
+
+    it("counts the busiest day when commitments overlap only partly", () => {
+      // 3 units over Mon-Wed: A holds 1 on Mon-Tue, B holds 2 on Tue, C holds
+      // 1 on Wed. Tuesday is the busiest day, with 3 out.
+      const r = check({
+        start: "2026-11-02T09:00",
+        end: "2026-11-04T17:00",
+        total: 3,
+        requested: 1,
+        commitments: [
+          commitment("A", "2026-11-02T09:00", "2026-11-03T17:00", 1),
+          commitment("B", "2026-11-04T09:00", "2026-11-04T12:00", 2),
+          commitment("C", "2026-11-05T09:00", "2026-11-05T12:00", 1),
+        ],
+      });
+      // Blocked days (D-1 to Return Day): A Nov 1-3, B Nov 3-4, C Nov 4-5.
+      // Nov 3 has A + B = 3 out; Nov 4 has B + C = 3 out.
+      expect(r).toMatchObject({ status: "unavailable", available: 0, reservedElsewhere: 3 });
+    });
+
     it("ignores a commitment of zero units", () => {
       const r = check({
         start: "2026-10-12T09:00",

@@ -118,6 +118,35 @@ describe("assembleLines", () => {
     expect(allAvailable).toBe(false);
   });
 
+  it("blocks a session with its own event's other session on the same day", () => {
+    // 2 speakers. The Morning session holds both; the Afternoon session of the
+    // same event, same day, asks for 2 - none are free.
+    const speaker = { ...rig, id: "spk", name: "PA Speaker", totalQuantity: 2 };
+    const { lines } = assembleLines(
+      [
+        line({ requestId: "am", equipment: speaker, sessionId: "s-am", sessionLabel: "Morning",
+          quantityRequested: 2, quantityReserved: 2, requestStatus: "reserved",
+          startsAt: sgt("2026-11-10T09:00"), endsAt: sgt("2026-11-10T12:00") }),
+        line({ requestId: "pm", equipment: speaker, sessionId: "s-pm", sessionLabel: "Afternoon",
+          quantityRequested: 2, startsAt: sgt("2026-11-10T13:00"), endsAt: sgt("2026-11-10T17:00") }),
+      ],
+      [
+        other({ requestId: "am", equipmentId: "spk", eventTitle: "Summit · Morning", quantityReserved: 2,
+          startsAt: sgt("2026-11-10T09:00"), endsAt: sgt("2026-11-10T12:00") }),
+      ]
+    );
+    expect(lines[1].result).toMatchObject({ status: "unavailable", available: 0, reservedElsewhere: 2 });
+    expect(lines[1].result?.heldBy[0].eventTitle).toBe("Summit · Morning");
+  });
+
+  it("never counts a line's own reservation against itself", () => {
+    const { lines } = assembleLines(
+      [line({ requestId: "mine", quantityReserved: 1, requestStatus: "reserved" })],
+      [other({ requestId: "mine", startsAt: sgt("2026-10-13T18:00"), endsAt: sgt("2026-10-13T21:00") })]
+    );
+    expect(lines[0].result).toMatchObject({ status: "available", available: 1, reservedElsewhere: 0 });
+  });
+
   it("cannot check a line while the event has no dates, and does not claim all is well", () => {
     const { lines, allAvailable } = assembleLines([line({ startsAt: null, endsAt: null })], []);
     expect(lines[0].result).toBeNull();

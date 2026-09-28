@@ -40,8 +40,11 @@ export interface RequestedLine {
   venueId: string | null;
 }
 
-/// Another event's request for some equipment item.
+/// Another request for some equipment item: another event's, or another
+/// session's of the same event (sessions compete for the same units too).
 export interface OtherRequest {
+  /// Lets a line skip itself when the event's own requests are included.
+  requestId?: string;
   equipmentId: string;
   eventTitle: string | null;
   requestStatus: string;
@@ -97,7 +100,7 @@ export function assembleLines(requested: RequestedLine[], others: OtherRequest[]
 
     const commitments: Commitment[] = [];
     for (const other of others) {
-      if (other.equipmentId !== line.equipment.id) continue;
+      if (other.equipmentId !== line.equipment.id || other.requestId === line.requestId) continue;
       const quantity = committedQuantity({
         status: other.requestStatus,
         quantityReserved: other.quantityReserved,

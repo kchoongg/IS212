@@ -37,8 +37,18 @@ function venueFor(bookings: BookingRef[], sessionId: string | null): string | nu
   return (sessionId ? pick(sessionId) : undefined)?.venueId ?? pick(null)?.venueId ?? null;
 }
 
-/// Availability of every equipment line the event has requested. The event
-/// itself is left out of "reserved elsewhere", so it never blocks itself.
+/// "Held by" names the session too when a hold belongs to one, so a session
+/// held by its own event's other session reads sensibly ("Two-Day Summit ·
+/// Day 1"), not as the event blocking itself.
+function heldByLabel(eventTitle: string | null, sessionLabel: string | null): string | null {
+  if (!sessionLabel) return eventTitle;
+  return `${eventTitle ?? "Untitled event"} · ${sessionLabel}`;
+}
+
+/// Availability of every equipment line the event has requested. Each line is
+/// checked against every other request that holds the same item - other
+/// events', and this event's own other sessions', which compete for the same
+/// units - but never against itself.
 export async function loadEventAvailability(eventId: string): Promise<EventAvailability | null> {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
@@ -91,15 +101,15 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
     ? await prisma.equipmentRequest.findMany({
         where: {
           equipmentId: { in: equipmentIds },
-          eventId: { not: event.id },
           status: { in: COMMITTING_REQUEST_STATUSES },
         },
         select: {
+          id: true,
           equipmentId: true,
           status: true,
           quantityReserved: true,
           sessionId: true,
-          session: { select: { startsAt: true, endsAt: true } },
+          session: { select: { label: true, startsAt: true, endsAt: true } },
           event: {
             select: {
               title: true,
@@ -114,8 +124,9 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
     : [];
 
   const others: OtherRequest[] = otherRows.map((o) => ({
+    requestId: o.id,
     equipmentId: o.equipmentId,
-    eventTitle: o.event.title,
+    eventTitle: heldByLabel(o.event.title, o.session?.label ?? null),
     requestStatus: o.status,
     quantityReserved: o.quantityReserved,
     eventStatus: o.event.status,
