@@ -1088,6 +1088,9 @@ async function main() {
     ["planning_safety", "Portable WiFi Access Point", 4, null, "under_review", "High-density WiFi for the demo area."],
     ["review_launch", "LED Video Wall Panel", 4, null, "under_review", "Product reveal wall."],
     ["review_launch", "Streaming Encoder", 1, null, "unavailable", "All encoders committed to the trade showcase that week."],
+    // SPM-47-TC15: recorded while the event was still in planning, before it
+    // was cancelled, so the locked Equipment tab has a row to show.
+    ["cancelled", "4K Portable Projector", 2, null, "requested", "Projectors for the supplier presentations."],
     // SPM-48 scenarios. Streaming Encoder has 3 in total: the expo holds 2 and
     // the awards night 1, so the vendor evening between them gets none.
     // Lavalier Wireless Mic has 10 - 2 in maintenance = 8: the expo holds 4,
@@ -1201,6 +1204,33 @@ async function main() {
       },
     });
   }
+
+  // SPM-47 test cases (TC17, TC19, TC21): Pearl Delta Safety Conference split
+  // into a morning and an afternoon session on its own day, with Audio Mixing
+  // Desk already requested for the morning one. There is no in-app way to add
+  // a session to an existing event, so the cases rely on these rows.
+  const safety = events["planning_safety"];
+  const safetySessions: Record<string, string> = {};
+  for (const [label, from, to] of [["Morning briefing", 9, 12], ["Afternoon workshop", 13, 17]] as const) {
+    const session = await prisma.eventSession.create({
+      data: { eventId: safety.id, label, startsAt: day(safety.days, from), endsAt: day(safety.days, to) },
+    });
+    safetySessions[label] = session.id;
+  }
+  await prisma.equipmentRequest.create({
+    data: {
+      eventId: safety.id,
+      sessionId: safetySessions["Morning briefing"],
+      equipmentId: equip["Audio Mixing Desk"],
+      quantityRequested: 1,
+      technicalRequirements: "Mixing for the briefing panel.",
+      startsAt: day(safety.days, 9),
+      endsAt: day(safety.days, 12),
+      status: "requested",
+      requestedBy: users["huishan.neo@connectsphere.com"],
+      requestedAt: day(safety.days - 20),
+    },
+  });
 
   // -------------------------------------------------------------------
   // REGISTRATIONS
