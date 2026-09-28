@@ -166,6 +166,12 @@ IS212/
     │   │                                requirements card, no internal-only rows);
     │   │                                every other role sees the full record.
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
+    │   ├── venues/search/page.tsx       # S-14 "Find a venue" (SPM-40): filters on the
+    │   │                                left, ONLY matching venues on the right.
+    │   │                                ?event=EVT-000123 pre-fills it from that
+    │   │                                event's requirements (and lets a session be
+    │   │                                chosen). Reached from /venues and from the
+    │   │                                event's Venue tab ("Search with filters").
     │   ├── equipment/requests/page.tsx      # S-25 queue — events with equipment
     │   │                                     requested (SPM-48). Technical Support only.
     │   ├── equipment/requests/[id]/page.tsx # S-25 detail — Check Equipment Availability
@@ -206,6 +212,16 @@ IS212/
         ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues, sessionsPayload
         ├── eventSessions.ts             # Multi-session events (pure): deriveEventFromSessions, equipmentWindow
         ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
+        ├── venueSlots.ts                  # AM/PM/Night slots, setup/turnaround as whole
+        │                                   adjacent slots (#50/#107/#108/#123). Written
+        │                                   for SPM-46; SPM-40 carries an identical copy
+        │                                   so the two branches merge cleanly - change it
+        │                                   on ONE branch only.
+        ├── venueSearch.ts                 # SPM-40 filter rules, pure - no Prisma. One
+        │                                   function per AC; searchVenues() keeps only
+        │                                   venues passing every filter (AC7).
+        ├── venueSearchForm.ts             # SPM-40 form values: pre-fill from an event,
+        │                                   query string, client-side checks
         ├── equipment.ts                  # equipmentWindowFor() (pre-SPM-47) + checkOutOfService()/
         │                                  outOfServiceReasonFor() (SPM-48 AC7)
         ├── equipmentAvailability.ts       # SPM-48 rules, pure — no Prisma. D-1 → Return Day+1
@@ -245,7 +261,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 |---|---|---|---|---|
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
 | **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
-| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list, availability calendar (S-21, SPM-46 — read-only); booking decision routes and Block venue (S-23) to build |
+| **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list, availability calendar (S-21, SPM-46 — read-only), venue search + filters (SPM-40); booking decision routes and Block venue (S-23) to build |
 | **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
@@ -727,6 +743,63 @@ what changed, why, and the migration name if there is one.
 ---
 
 ### 2026-09-28 — Kayal
+- **SPM-40 (Search and Filter Suitable Venues): built.** S-14 "Find a venue"
+  at `/venues/search`, backed by `GET /api/venues/search` (`venue:view`, so
+  Coordinator, Ops Manager and Venue Staff). Filters: date and time, expected
+  attendance, location (building), room layout, accessibility requirements,
+  required facilities. **Only venues passing every filter are returned (AC7)**
+  — the difference from SPM-41's Venue tab, which grades every venue and keeps
+  the failures visible. The customer draws the same line (#83).
+- **Rules** (all in `src/lib/venueSearch.ts`, pure, unit tested):
+  - Attendance is checked against the chosen **layout's** capacity (#112);
+    with no layout chosen, some layout must seat everyone. `maxCapacity` is
+    never used, and a venue with no layouts never passes an attendance filter.
+  - Date/time uses **SPM-46's slot rules** (#50/#107/#108/#123): a clash is an
+    overlap of occupied windows, and the searched event's *own* setup and
+    turnaround slots must be free too. Approved bookings and maintenance blocks
+    hide a venue; so does another event's **pending** request (#41, one active
+    hold per venue and time). Rejected/cancelled requests never block. The
+    searched-for event's own bookings never count against it.
+  - The time must fall inside the venue's opening hours (#46), checked on the
+    first day's start and the last day's end.
+  - Times are typed and sent as **Singapore wall-clock** (`2026-12-09T09:00`)
+    and converted on the server (#36), so a laptop set to another zone still
+    searches the morning that was typed.
+- **`?event=EVT-000123` pre-fills the form** from that event: its times,
+  attendance, layout and **mandatory** facility/accessibility requirements
+  (nice-to-haves are left unticked so they don't hide venues). A multi-session
+  event can pick one session instead (#74).
+- **`src/lib/venueSlots.ts` (+ its tests) and the `TIME_ZONE` export in
+  `format.ts` are byte-for-byte copies from the unmerged SPM-46 branch**, so
+  the date filter follows the same rules as the availability calendar and the
+  two branches merge without conflict. Edit them on one branch only until both
+  are merged.
+- **Approved → Planning now happens.** When the event's *assigned*
+  coordinator opens Find a venue for an **Approved** event, the page moves it
+  to Planning through the existing `PATCH /api/events/[id]` (history reason
+  "Venue search started", the seed's own wording). That is the lifecycle
+  diagram's "search" edge; the BPMN and the seed history already said so.
+  Guarded client-side by `shouldStartPlanning()` because the status route
+  checks *who* may move a status, not *from where* — without the guard a
+  Confirmed event would drop back to Planning on every search. The route
+  itself is unchanged.
+- Entry points: "Find a venue" on `/venues`; "Search with filters" on the
+  event's Venue tab (a header button only - SPM-41's own logic is untouched).
+- Diagrams: **no change needed.** The code now matches both: the BPMN's
+  "Search venues & check suitability" step, and the lifecycle's Approved →
+  Planning "search" edge.
+- Seed: one fixture appended, `spm40_approved` ("SPM40 Approved Workshop",
+  Daniel Tan) - the only Approved event, since nothing in the app can approve
+  one yet (S-13). Pushed last, after SPM-48/49's fixtures, so no existing EVT-
+  reference shifts; the
+  status-history table gained its missing `approved` chain. **Not applied to
+  the shared database** - reseed when convenient.
+- Tests: 56 new unit tests (`venueSearch.test.ts`, `venueSearchForm.test.ts`,
+  `venueSearchQuerySchema` in `validation.test.ts`), plus SPM-46's slot tests
+  carried over. Manual cases: `docs/test-cases/SPM-40_*` — 16 cases covering
+  all seven ACs; the rulings behind each decision are listed in the JSON's
+  `open_questions` with their discussion numbers.
+- No schema change, no migration.
 - **`prisma/seed.ts` dates no longer move when someone reseeds.** Every seeded
   date used to be *today* + n days, so each reseed of the shared database slid
   every event, booking and block by however many days had passed, and the
@@ -759,6 +832,10 @@ what changed, why, and the migration name if there is one.
   last day); they are now one TC08 on Jurong Expo Floor, 16–25 Oct, which also
   checks the period's *first* day - neither case did. TC10–TC15 became
   TC09–TC14. Preconditions no longer say the dates move with the seed.
+- **SPM-40 test cases re-checked** against the shared database on 2026-09-28:
+  all 16 expected results match the live search API, no case overlaps another,
+  so none were added or removed. Preconditions no longer ask for a fresh
+  reseed; TC15 says how to reset its event; TC16 names Evelyn Chen's login.
 
 ---
 

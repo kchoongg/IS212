@@ -230,11 +230,18 @@ function VenuesCatalogue() {
             : "The rooms ConnectSphere can offer. Venue Staff maintain these details."
         }
         actions={
-          canManage ? (
-            <ButtonLink href="/venues/new" variant="accent">
-              Add venue
+          <>
+            {/* SPM-40: S-14 filters this same catalogue against a date,
+                attendance, location, layout and facilities. */}
+            <ButtonLink href="/venues/search" variant={canManage ? "secondary" : "accent"}>
+              Find a venue
             </ButtonLink>
-          ) : undefined
+            {canManage && (
+              <ButtonLink href="/venues/new" variant="accent">
+                Add venue
+              </ButtonLink>
+            )}
+          </>
         }
       />
 

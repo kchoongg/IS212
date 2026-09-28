@@ -33,6 +33,44 @@ export const createVenueSchema = z.object({
 });
 export type CreateVenueInput = z.infer<typeof createVenueSchema>;
 
+// ADDED (SPM-40): GET /api/venues/search. Query strings, so every value
+// arrives as text; empty strings are treated as "filter not set" rather than
+// errors, because that is what an untouched form field sends.
+const blankToUndefined = (value: unknown) =>
+  typeof value === "string" && value.trim() === "" ? undefined : value;
+
+export const venueSearchQuerySchema = z
+  .object({
+    /// Singapore wall-clock time, "YYYY-MM-DDTHH:MM" - what a datetime-local
+    /// input produces. Converted to an instant by parseWallClock() in the
+    /// route, which is also where an impossible date is caught.
+    from: z.preprocess(blankToUndefined, z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).optional()),
+    to: z.preprocess(blankToUndefined, z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/).optional()),
+    attendance: z.preprocess(blankToUndefined, z.coerce.number().int().positive().optional()),
+    building: z.preprocess(blankToUndefined, z.string().max(100).optional()),
+    layout: z.preprocess(blankToUndefined, z.string().max(50).optional()),
+    /// Comma-separated Facility ids - facilities and accessibility features alike.
+    facilityIds: z.preprocess(
+      (value) =>
+        typeof value === "string"
+          ? value.split(",").map((s) => s.trim()).filter(Boolean)
+          : undefined,
+      z.array(z.string().uuid()).max(50).optional()
+    ),
+    /// The event being searched for, as its reference ("EVT-000123").
+    event: z.preprocess(blankToUndefined, z.string().max(20).optional()),
+  })
+  .refine((q) => (q.from == null) === (q.to == null), {
+    message: "Give both a start and an end, or neither",
+    path: ["to"],
+  })
+  // Plain string comparison is safe: both are zero-padded, same format.
+  .refine((q) => q.from == null || q.to == null || q.to > q.from, {
+    message: "The end must be after the start",
+    path: ["to"],
+  });
+export type VenueSearchQuery = z.infer<typeof venueSearchQuerySchema>;
+
 // ADDED: PATCH /api/venues/[id]. Every field optional - an absent field means
 // "leave this alone", the same convention updateEventDraftSchema uses. A
 // PRESENT `layouts` or `facilityIds` array is a full replacement of that
