@@ -1,0 +1,299 @@
+{
+  "story_key": "SPM-41",
+  "story_title": "As an Event Coordinator, I want the system to check whether a venue is suitable for my event so that I can avoid selecting venues that cannot meet its requirements",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-09-21",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The system compares expected attendance against the venue's capacity for the event's selected room layout, not a single venue-wide figure."
+    },
+    {
+      "id": "AC2",
+      "text": "The system checks required facilities against available venue facilities."
+    },
+    {
+      "id": "AC3",
+      "text": "The system checks required accessibility features."
+    },
+    {
+      "id": "AC4",
+      "text": "The system checks required room layout."
+    },
+    {
+      "id": "AC5",
+      "text": "A venue that fails a mandatory requirement is identified as unsuitable."
+    },
+    {
+      "id": "AC6",
+      "text": "The system clearly indicates which requirement is not met."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-41-TC01",
+      "title": "Venue is suitable when attendance fits the selected layout's capacity",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 60' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 60 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has a Classroom layout with capacity 70.",
+      "steps": [
+        "Open the event 'SPM41 Training Day 60'",
+        "Open the Find a venue page for the event",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the results"
+      ],
+      "test_data": "Expected attendance: 60\nLayout: Classroom\nVenue: Orchard Seminar Room, Classroom capacity 70",
+      "expected_result": "Orchard Seminar Room is shown as Suitable.\nNo 'not met' reason is shown for it."
+    },
+    {
+      "id": "SPM-41-TC02",
+      "title": "Venue is unsuitable when attendance exceeds the layout capacity even though it is under the venue-wide maximum",
+      "linked_ac": [
+        "AC1",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 55' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 55 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Jurong Training Room (JUR-TRN) has max capacity 60 and a Classroom layout with capacity 40.",
+      "steps": [
+        "Open the event 'SPM41 Training Day 55'",
+        "Open the Find a venue page for the event",
+        "Find 'Jurong Training Room (JUR-TRN)' in the results"
+      ],
+      "test_data": "Expected attendance: 55\nLayout: Classroom\nVenue: Jurong Training Room, max capacity 60, Classroom capacity 40",
+      "expected_result": "Jurong Training Room is NOT shown as Suitable (55 is under the max capacity of 60 but over the Classroom capacity of 40).\nThe reason states the Classroom capacity of 40 and the expected attendance of 55."
+    },
+    {
+      "id": "SPM-41-TC03",
+      "title": "Attendance equal to the layout capacity is accepted",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 70' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 70 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) Classroom capacity is 70.",
+      "steps": [
+        "Open the event 'SPM41 Training Day 70'",
+        "Open the Find a venue page for the event",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the results"
+      ],
+      "test_data": "Expected attendance: 70\nLayout: Classroom\nVenue: Orchard Seminar Room, Classroom capacity 70",
+      "expected_result": "Orchard Seminar Room is shown as Suitable."
+    },
+    {
+      "id": "SPM-41-TC04",
+      "title": "Attendance one above the layout capacity is rejected",
+      "linked_ac": [
+        "AC1",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 71' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 71 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has max capacity 120 and Classroom capacity 70.",
+      "steps": [
+        "Open the event 'SPM41 Training Day 71'",
+        "Open the Find a venue page for the event",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the results"
+      ],
+      "test_data": "Expected attendance: 71\nLayout: Classroom\nVenue: Orchard Seminar Room, max capacity 120, Classroom capacity 70",
+      "expected_result": "Orchard Seminar Room is NOT shown as Suitable.\nThe reason states the Classroom capacity of 70 and the expected attendance of 71."
+    },
+    {
+      "id": "SPM-41-TC05",
+      "title": "The same attendance gets a different result under a different layout",
+      "linked_ac": [
+        "AC1",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Layout Theatre' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nA second test event 'SPM41 Layout Classroom' has the same organiser, coordinator and date.\nBoth events expect 100 people and require no facilities. 'SPM41 Layout Theatre' prefers Theatre; 'SPM41 Layout Classroom' prefers Classroom.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 and Classroom capacity 70.",
+      "steps": [
+        "Open the event 'SPM41 Layout Theatre'",
+        "Open the Find a venue page for the event",
+        "Note the result shown for 'Orchard Seminar Room (ORC-SEM)'",
+        "Go back and open the event 'SPM41 Layout Classroom'",
+        "Open the Find a venue page for the event",
+        "Note the result shown for 'Orchard Seminar Room (ORC-SEM)'"
+      ],
+      "test_data": "Expected attendance: 100 for both events\nEvent 1 layout: Theatre (capacity 120)\nEvent 2 layout: Classroom (capacity 70)",
+      "expected_result": "For 'SPM41 Layout Theatre', Orchard Seminar Room is shown as Suitable.\nFor 'SPM41 Layout Classroom', it is NOT Suitable and the reason states the Classroom capacity of 70 against 100 expected."
+    },
+    {
+      "id": "SPM-41-TC06",
+      "title": "Venue with all required facilities is suitable",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Hybrid Forum VC+Live' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required facilities: Video conferencing suite and Livestream capability, on a date with no bookings.\nSeed data loaded: Changi Conference Centre (CBP-CONF) has both facilities and Theatre capacity 260.",
+      "steps": [
+        "Open the event 'SPM41 Hybrid Forum VC+Live'",
+        "Open the Find a venue page for the event",
+        "Find 'Changi Conference Centre (CBP-CONF)' in the results"
+      ],
+      "test_data": "Required facilities: Video conferencing suite, Livestream capability\nExpected attendance: 100\nLayout: Theatre",
+      "expected_result": "Changi Conference Centre is shown as Suitable.\nNo 'not met' reason is shown for it."
+    },
+    {
+      "id": "SPM-41-TC07",
+      "title": "Venue missing a required facility is unsuitable and names it",
+      "linked_ac": [
+        "AC2",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Hybrid Forum VC Only' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required facility: Video conferencing suite, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 but no Video conferencing suite.",
+      "steps": [
+        "Open the event 'SPM41 Hybrid Forum VC Only'",
+        "Open the Find a venue page for the event",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the results"
+      ],
+      "test_data": "Required facility: Video conferencing suite\nExpected attendance: 100\nLayout: Theatre (capacity 120, so capacity is not the failing requirement)",
+      "expected_result": "Orchard Seminar Room is NOT shown as Suitable.\nThe reason says 'Video conferencing suite' is missing.\nNo capacity or layout reason is shown, because those are met."
+    },
+    {
+      "id": "SPM-41-TC08",
+      "title": "Every missing required facility is listed, not just the first",
+      "linked_ac": [
+        "AC2",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Symposium' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 40 people, layout Theatre, required facilities: Video conferencing suite, Livestream capability and Green room, on a date with no bookings.\nSeed data loaded: One-North Seminar Room (ONE-SEM) has Theatre capacity 80 and none of those three facilities.",
+      "steps": [
+        "Open the event 'SPM41 Symposium'",
+        "Open the Find a venue page for the event",
+        "Find 'One-North Seminar Room (ONE-SEM)' in the results"
+      ],
+      "test_data": "Required facilities: Video conferencing suite, Livestream capability, Green room\nExpected attendance: 40\nLayout: Theatre",
+      "expected_result": "One-North Seminar Room is NOT shown as Suitable.\nThe reason lists all three missing facilities: Video conferencing suite, Livestream capability and Green room."
+    },
+    {
+      "id": "SPM-41-TC09",
+      "title": "Venue with all required accessibility features is suitable",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Open Lecture 200' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 200 people, layout Theatre, required accessibility features: Hearing induction loop and Wheelchair spaces, on a date with no bookings.\nSeed data loaded: Marina Auditorium (MAR-AUD) has both and Theatre capacity 220.",
+      "steps": [
+        "Open the event 'SPM41 Open Lecture 200'",
+        "Open the Find a venue page for the event",
+        "Find 'Marina Auditorium (MAR-AUD)' in the results"
+      ],
+      "test_data": "Required accessibility: Hearing induction loop, Wheelchair spaces\nExpected attendance: 200\nLayout: Theatre",
+      "expected_result": "Marina Auditorium is shown as Suitable.\nNo 'not met' reason is shown for it."
+    },
+    {
+      "id": "SPM-41-TC10",
+      "title": "Venue missing a required accessibility feature is unsuitable and names it",
+      "linked_ac": [
+        "AC3",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Open Lecture 100' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required accessibility feature: Hearing induction loop, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 but no Hearing induction loop.",
+      "steps": [
+        "Open the event 'SPM41 Open Lecture 100'",
+        "Open the Find a venue page for the event",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the results"
+      ],
+      "test_data": "Required accessibility: Hearing induction loop\nExpected attendance: 100\nLayout: Theatre (capacity 120, so capacity is not the failing requirement)",
+      "expected_result": "Orchard Seminar Room is NOT shown as Suitable.\nThe reason says 'Hearing induction loop' is missing.\nNo capacity or layout reason is shown."
+    },
+    {
+      "id": "SPM-41-TC11",
+      "title": "Venue that offers the required layout is suitable",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Gala Dinner 300' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 300 people, preferred layout Banquet, no required facilities, on a date with no bookings.\nSeed data loaded: Marina Grand Hall (MAR-GH) has a Banquet layout with capacity 320.",
+      "steps": [
+        "Open the event 'SPM41 Gala Dinner 300'",
+        "Open the Find a venue page for the event",
+        "Find 'Marina Grand Hall (MAR-GH)' in the results"
+      ],
+      "test_data": "Expected attendance: 300\nLayout: Banquet\nVenue: Marina Grand Hall, Banquet capacity 320",
+      "expected_result": "Marina Grand Hall is shown as Suitable."
+    },
+    {
+      "id": "SPM-41-TC12",
+      "title": "Venue that does not offer the required layout is unsuitable and names the layout",
+      "linked_ac": [
+        "AC4",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Gala Dinner 50' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 50 people, preferred layout Banquet, no required facilities, on a date with no bookings.\nSeed data loaded: One-North Auditorium (ONE-AUD) has only Theatre and Classroom layouts (max capacity 180).",
+      "steps": [
+        "Open the event 'SPM41 Gala Dinner 50'",
+        "Open the Find a venue page for the event",
+        "Find 'One-North Auditorium (ONE-AUD)' in the results"
+      ],
+      "test_data": "Expected attendance: 50\nLayout: Banquet\nVenue layouts: Theatre 180, Classroom 100",
+      "expected_result": "One-North Auditorium is NOT shown as Suitable.\nThe reason says the Banquet layout is not offered.\nNo capacity figure is used as a fallback to mark it suitable."
+    },
+    {
+      "id": "SPM-41-TC13",
+      "title": "Venue failing several requirements is unsuitable and every failure is shown",
+      "linked_ac": [
+        "AC1",
+        "AC3",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 55 Loop' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 55 people, layout Classroom, required accessibility feature: Hearing induction loop, on a date with no bookings.\nSeed data loaded: Jurong Training Room (JUR-TRN) has Classroom capacity 40 and no Hearing induction loop.",
+      "steps": [
+        "Open the event 'SPM41 Training Day 55 Loop'",
+        "Open the Find a venue page for the event",
+        "Find 'Jurong Training Room (JUR-TRN)' in the results"
+      ],
+      "test_data": "Expected attendance: 55\nLayout: Classroom (capacity 40)\nRequired accessibility: Hearing induction loop",
+      "expected_result": "Jurong Training Room is NOT shown as Suitable.\nBoth reasons are shown: Classroom capacity 40 against 55 expected, and 'Hearing induction loop' missing."
+    }
+  ],
+  "open_questions": [
+    "The suitability check is not built on branch SPM-41-check-venue-suitability yet. These cases follow the 'Find a venue' mockup (design/mockups/VenueSearch.dc.html): a Find a venue page opened from the event, a Suitable / Too small / Partial match badge, and reason lines such as 'Capacity 300 — your event expects 450.' and 'Missing: hearing loop.' Confirm the entry point, badge labels and reason wording; the expected results are worded loosely until then.",
+    "The mockup labels a failing venue 'Too small' or 'Partial match', while AC5 says 'unsuitable'. Should there be one explicit 'Unsuitable' label?",
+    "The mockup shows a 'Request anyway' button on venues that fail. AC5 only says such a venue is identified as unsuitable. Should a coordinator still be able to request one?",
+    "The mockup's Marina Grand Hall shows theatre capacity 300, but seed data has Theatre 500 (max 500). Cases use the seed data.",
+    "Seed data has Jurong Training Room with a Theatre layout of 70 but a max capacity of 60. Is a layout allowed to exceed the venue's max capacity? Cases avoid that layout.",
+    "The schema (EventFacilityRequirement.isMandatory) says a nice-to-have facility must NOT disqualify a venue, but the event form and API only ever create mandatory requirements, so a tester cannot set one from the UI. No case written. Is there a way to mark a requirement optional, and should AC5's 'mandatory' wording be tested through it?",
+    "AC3 says the system checks required accessibility features. The event's free-text 'Accessibility notes' cannot be matched against a venue; only ticked accessibility facilities can. Is checking the ticked features what AC3 intends?",
+    "What should the check do for a draft event with no expected attendance or no preferred layout: show 'incomplete', treat as passing, or block the check? No case written.",
+    "For multi-session events, each session has its own attendance and layout. Should the check run per session and name the failing session? No case written.",
+    "A venue with no layouts is described in src/app/venues/page.tsx as 'never offered by venue search'. Should it instead be shown as unsuitable with a reason (layout not offered)?",
+    "Venue availability (existing bookings) and opening hours are not mentioned in these acceptance criteria. All cases assume a date with no bookings. Confirm they are out of scope for SPM-41.",
+    "RESOLVED: the same 'SPM41 …' event name was originally reused across test cases with conflicting attendance/layout/facility values (e.g. 'SPM41 Training Day' needed 60, 55, 70 and 71 attendees at once). Each test case now targets its own uniquely-named event, seeded in prisma/seed.ts (organiser Rachel Ng, coordinator Priya Raj, status Under review, ~18 Mar 2027), so no manual event creation is needed before running these cases."
+  ],
+  "code_references": [
+    "prisma/schema.prisma",
+    "prisma/seed.ts",
+    "src/app/api/venues/route.ts",
+    "src/app/venues/page.tsx",
+    "src/components/VenueForm.tsx",
+    "src/lib/eventForm.ts",
+    "src/lib/eventSessions.ts",
+    "src/lib/venueImpact.ts",
+    "src/lib/__tests__/venueImpact.test.ts",
+    "design/mockups/VenueSearch.dc.html"
+  ]
+}

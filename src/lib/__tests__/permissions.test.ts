@@ -5,6 +5,7 @@ import {
   ROLE_PERMISSIONS,
   STATUS_TRANSITION_ROLES,
   can,
+  canCheckEquipmentAvailability,
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
@@ -277,6 +278,17 @@ describe("canManageEquipmentRequests", () => {
     for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
       expect(canManageEquipmentRequests(other, draft)).toBe(false);
     }
+  });
+});
+
+describe("canCheckEquipmentAvailability (SPM-48)", () => {
+  it("lets Technical Support check equipment availability", () => {
+    expect(canCheckEquipmentAvailability(techSupport)).toBe(true);
+  });
+
+  it("stops everyone else - the result names other events' bookings", () => {
+    expect(canCheckEquipmentAvailability(coordinator)).toBe(false);
+    expect(canCheckEquipmentAvailability(organiserA)).toBe(false);
   });
 });
 

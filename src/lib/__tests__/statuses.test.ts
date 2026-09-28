@@ -39,6 +39,9 @@ describe("statusTone", () => {
     expect(statusTone("rejected")).toBe("danger");
     expect(statusTone("cancelled")).toBe("danger");
     expect(statusTone("unavailable")).toBe("danger");
+    // SPM-48 availability chips
+    expect(statusTone("available")).toBe("success");
+    expect(statusTone("partial")).toBe("warning");
   });
 
   it("marks settled, good outcomes as success", () => {

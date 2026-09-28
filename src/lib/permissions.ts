@@ -250,6 +250,15 @@ export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields)
   return canManageEquipmentRequests(actor, event);
 }
 
+/// SPM-48: "As Technical Support Staff, I want to check whether sufficient
+/// suitable equipment is available". Deliberately narrower than
+/// canViewEquipmentRequests - a result names the OTHER events holding the
+/// equipment ("Held by Gala Dinner until 13 Oct"), which would show an
+/// Organiser another client's events (briefing §8b).
+export function canCheckEquipmentAvailability(actor: Actor): boolean {
+  return actor.role === "tech_support";
+}
+
 // ---------------------------------------------------------------------------
 // STATUS TRANSITIONS
 // ---------------------------------------------------------------------------

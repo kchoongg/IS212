@@ -22,3 +22,21 @@ export function equipmentWindowFor(
     endsAt: new Date(eventEndsAt.getTime() + EQUIPMENT_LOAD_WINDOW_MS),
   };
 }
+
+/// The rules for recording units out of service, kept out of the route so they
+/// can be tested. `null` means the request is fine.
+///  * you cannot have more units out of service than the item has in total
+///    (the create route enforces the same rule)
+export function checkOutOfService(totalQuantity: number, quantityOutOfService: number): string | null {
+  if (quantityOutOfService > totalQuantity) {
+    return `Only ${totalQuantity} unit${totalQuantity === 1 ? "" : "s"} in total - cannot mark ${quantityOutOfService} as out of service`;
+  }
+  return null;
+}
+
+/// The reason only makes sense while some units are out of service: recording
+/// "0 out of service" clears it, so a stale reason never outlives the problem.
+export function outOfServiceReasonFor(quantityOutOfService: number, reason: string | undefined): string | null {
+  if (quantityOutOfService === 0) return null;
+  return reason && reason.length > 0 ? reason : null;
+}

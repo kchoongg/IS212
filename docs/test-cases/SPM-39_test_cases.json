@@ -290,7 +290,7 @@
       "linked_ac": ["AC7"],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Demo data freshly loaded — no flag can be cleared from the app, so reload the demo data before this test.\nOne-North Seminar Room (ONE-SEM) seats 80 theatre-style and has one approved future booking: 'Tanjong Legal CPD Seminar' on 28 Oct 2026, whose event expects 70 people. Its coordinator is Joel Fernandez.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data freshly loaded — no flag can be cleared from the app, so reload the demo data before this test.\nOne-North Seminar Room (ONE-SEM) seats 80 theatre-style and has one approved future booking: 'Tanjong Legal CPD Seminar' on 3 Nov 2026, whose event expects 70 people. Its coordinator is Joel Fernandez.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open 'One-North Seminar Room' from the Venues list",
         "Change the Theatre layout's Seats value",
@@ -305,7 +305,7 @@
       "linked_ac": ["AC7"],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Demo data freshly loaded.\nOne-North Auditorium (ONE-AUD) seats 180 theatre-style and has one approved future booking: 'Bayu Energy Transition Panel' on 3 Nov 2026, whose event expects 160 people.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data freshly loaded.\nOne-North Auditorium (ONE-AUD) seats 180 theatre-style and has one approved future booking: 'Bayu Energy Transition Panel' on 9 Nov 2026, whose event expects 160 people.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open 'One-North Auditorium' from the Venues list",
         "Change the Theatre layout's Seats value",
@@ -335,7 +335,7 @@
       "linked_ac": ["AC7"],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Demo data freshly loaded.\nChangi Conference Centre (CBP-CONF) has one APPROVED future booking, 'Anchorpoint Supply Chain Briefing' on 20 Oct 2026, and one PENDING future booking, 'Pearl Delta Safety Conference'.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data freshly loaded.\nChangi Conference Centre (CBP-CONF) has one APPROVED future booking, 'Anchorpoint Supply Chain Briefing' on 26 Oct 2026, and one PENDING future booking, 'Pearl Delta Safety Conference'.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open 'Changi Conference Centre' from the Venues list",
         "Click 'Retire venue'",
@@ -351,7 +351,7 @@
       "linked_ac": ["AC7"],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Demo data freshly loaded.\nJurong Training Room (JUR-TRN) has one approved FUTURE booking, 'Harbourline Claims Systems Training' on 13 Oct 2026, and one approved PAST booking, 'Meridian Compliance Training' from 25 Aug 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data freshly loaded.\nJurong Training Room (JUR-TRN) has one approved FUTURE booking, 'Harbourline Claims Systems Training' on 19 Oct 2026, and one approved PAST booking, 'Meridian Compliance Training' from 31 Aug 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open 'Jurong Training Room' from the Venues list",
         "Click 'Retire venue'",
@@ -382,7 +382,7 @@
       "linked_ac": ["AC7"],
       "type": "Positive",
       "source": "Code",
-      "preconditions": "Demo data freshly loaded.\nJurong Expo Floor (JUR-EXP) has one approved future booking, 'Sundara Hospitality Trade Showcase' on 24 Nov 2026, whose event requires Loading bay access as a mandatory facility. Its coordinator is Daniel Tan.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "preconditions": "Demo data freshly loaded.\nJurong Expo Floor (JUR-EXP) has one approved future booking, 'Sundara Hospitality Trade Showcase' on 30 Nov 2026, whose event requires Loading bay access as a mandatory facility. Its coordinator is Daniel Tan.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
       "steps": [
         "Open 'Jurong Expo Floor' from the Venues list",
         "Under 'This venue has', untick 'Loading bay access'",
