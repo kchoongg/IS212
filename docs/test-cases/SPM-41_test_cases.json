@@ -38,7 +38,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 60' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 60 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has a Classroom layout with capacity 70.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 60' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 60 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has a Classroom layout with capacity 70.",
       "steps": [
         "Open the event 'SPM41 Training Day 60'",
         "Open the Find a venue page for the event",
@@ -57,7 +57,7 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 55' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 55 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Jurong Training Room (JUR-TRN) has max capacity 60 and a Classroom layout with capacity 40.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 55' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 55 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Jurong Training Room (JUR-TRN) has max capacity 60 and a Classroom layout with capacity 40.",
       "steps": [
         "Open the event 'SPM41 Training Day 55'",
         "Open the Find a venue page for the event",
@@ -74,7 +74,7 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 70' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 70 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) Classroom capacity is 70.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 70' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 70 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) Classroom capacity is 70.",
       "steps": [
         "Open the event 'SPM41 Training Day 70'",
         "Open the Find a venue page for the event",
@@ -93,7 +93,7 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 71' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 71 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has max capacity 120 and Classroom capacity 70.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 71' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 71 people, preferred layout Classroom, no required facilities, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has max capacity 120 and Classroom capacity 70.",
       "steps": [
         "Open the event 'SPM41 Training Day 71'",
         "Open the Find a venue page for the event",
@@ -111,7 +111,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Layout Theatre' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nA second test event 'SPM41 Layout Classroom' has the same organiser, coordinator and date.\nBoth events expect 100 people and require no facilities. 'SPM41 Layout Theatre' prefers Theatre; 'SPM41 Layout Classroom' prefers Classroom.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 and Classroom capacity 70.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Layout Theatre' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nA second test event 'SPM41 Layout Classroom' has the same organiser, coordinator and date.\nBoth events expect 100 people and require no facilities. 'SPM41 Layout Theatre' prefers Theatre; 'SPM41 Layout Classroom' prefers Classroom.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 and Classroom capacity 70.",
       "steps": [
         "Open the event 'SPM41 Layout Theatre'",
         "Open the Find a venue page for the event",
@@ -131,7 +131,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Hybrid Forum VC+Live' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required facilities: Video conferencing suite and Livestream capability, on a date with no bookings.\nSeed data loaded: Changi Conference Centre (CBP-CONF) has both facilities and Theatre capacity 260.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Hybrid Forum VC+Live' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required facilities: Video conferencing suite and Livestream capability, on a date with no bookings.\nSeed data loaded: Changi Conference Centre (CBP-CONF) has both facilities and Theatre capacity 260.",
       "steps": [
         "Open the event 'SPM41 Hybrid Forum VC+Live'",
         "Open the Find a venue page for the event",
@@ -150,7 +150,7 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Hybrid Forum VC Only' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required facility: Video conferencing suite, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 but no Video conferencing suite.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Hybrid Forum VC Only' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required facility: Video conferencing suite, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 but no Video conferencing suite.",
       "steps": [
         "Open the event 'SPM41 Hybrid Forum VC Only'",
         "Open the Find a venue page for the event",
@@ -168,7 +168,7 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Symposium' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 40 people, layout Theatre, required facilities: Video conferencing suite, Livestream capability and Green room, on a date with no bookings.\nSeed data loaded: One-North Seminar Room (ONE-SEM) has Theatre capacity 80 and none of those three facilities.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Symposium' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 40 people, layout Theatre, required facilities: Video conferencing suite, Livestream capability and Green room, on a date with no bookings.\nSeed data loaded: One-North Seminar Room (ONE-SEM) has Theatre capacity 80 and none of those three facilities.",
       "steps": [
         "Open the event 'SPM41 Symposium'",
         "Open the Find a venue page for the event",
@@ -185,7 +185,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Open Lecture 200' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 200 people, layout Theatre, required accessibility features: Hearing induction loop and Wheelchair spaces, on a date with no bookings.\nSeed data loaded: Marina Auditorium (MAR-AUD) has both and Theatre capacity 220.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Open Lecture 200' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 200 people, layout Theatre, required accessibility features: Hearing induction loop and Wheelchair spaces, on a date with no bookings.\nSeed data loaded: Marina Auditorium (MAR-AUD) has both and Theatre capacity 220.",
       "steps": [
         "Open the event 'SPM41 Open Lecture 200'",
         "Open the Find a venue page for the event",
@@ -204,7 +204,7 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Open Lecture 100' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required accessibility feature: Hearing induction loop, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 but no Hearing induction loop.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Open Lecture 100' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 100 people, layout Theatre, required accessibility feature: Hearing induction loop, on a date with no bookings.\nSeed data loaded: Orchard Seminar Room (ORC-SEM) has Theatre capacity 120 but no Hearing induction loop.",
       "steps": [
         "Open the event 'SPM41 Open Lecture 100'",
         "Open the Find a venue page for the event",
@@ -221,7 +221,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Gala Dinner 300' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 300 people, preferred layout Banquet, no required facilities, on a date with no bookings.\nSeed data loaded: Marina Grand Hall (MAR-GH) has a Banquet layout with capacity 320.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Gala Dinner 300' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 300 people, preferred layout Banquet, no required facilities, on a date with no bookings.\nSeed data loaded: Marina Grand Hall (MAR-GH) has a Banquet layout with capacity 320.",
       "steps": [
         "Open the event 'SPM41 Gala Dinner 300'",
         "Open the Find a venue page for the event",
@@ -240,7 +240,7 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Gala Dinner 50' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 50 people, preferred layout Banquet, no required facilities, on a date with no bookings.\nSeed data loaded: One-North Auditorium (ONE-AUD) has only Theatre and Classroom layouts (max capacity 180).",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Gala Dinner 50' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 50 people, preferred layout Banquet, no required facilities, on a date with no bookings.\nSeed data loaded: One-North Auditorium (ONE-AUD) has only Theatre and Classroom layouts (max capacity 180).",
       "steps": [
         "Open the event 'SPM41 Gala Dinner 50'",
         "Open the Find a venue page for the event",
@@ -260,7 +260,7 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 55 Loop' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 15 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 55 people, layout Classroom, required accessibility feature: Hearing induction loop, on a date with no bookings.\nSeed data loaded: Jurong Training Room (JUR-TRN) has Classroom capacity 40 and no Hearing induction loop.",
+      "preconditions": "Logged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), who is assigned to the test event 'SPM41 Training Day 55 Loop' (status Under review, requested by Rachel Ng, rachel.ng@meridianfina.com; dated 18 Mar 2027 09:00-17:00 with no venue bookings on that day).\nThe event expects 55 people, layout Classroom, required accessibility feature: Hearing induction loop, on a date with no bookings.\nSeed data loaded: Jurong Training Room (JUR-TRN) has Classroom capacity 40 and no Hearing induction loop.",
       "steps": [
         "Open the event 'SPM41 Training Day 55 Loop'",
         "Open the Find a venue page for the event",
@@ -282,7 +282,7 @@
     "For multi-session events, each session has its own attendance and layout. Should the check run per session and name the failing session? No case written.",
     "A venue with no layouts is described in src/app/venues/page.tsx as 'never offered by venue search'. Should it instead be shown as unsuitable with a reason (layout not offered)?",
     "Venue availability (existing bookings) and opening hours are not mentioned in these acceptance criteria. All cases assume a date with no bookings. Confirm they are out of scope for SPM-41.",
-    "RESOLVED: the same 'SPM41 …' event name was originally reused across test cases with conflicting attendance/layout/facility values (e.g. 'SPM41 Training Day' needed 60, 55, 70 and 71 attendees at once). Each test case now targets its own uniquely-named event, seeded in prisma/seed.ts (organiser Rachel Ng, coordinator Priya Raj, status Under review, ~15 Mar 2027), so no manual event creation is needed before running these cases."
+    "RESOLVED: the same 'SPM41 …' event name was originally reused across test cases with conflicting attendance/layout/facility values (e.g. 'SPM41 Training Day' needed 60, 55, 70 and 71 attendees at once). Each test case now targets its own uniquely-named event, seeded in prisma/seed.ts (organiser Rachel Ng, coordinator Priya Raj, status Under review, ~18 Mar 2027), so no manual event creation is needed before running these cases."
   ],
   "code_references": [
     "prisma/schema.prisma",

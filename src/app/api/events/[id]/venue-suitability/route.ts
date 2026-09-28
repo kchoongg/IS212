@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canViewEvent } from "@/lib/permissions";
+import { parseEventReference } from "@/lib/format";
 import { assessVenues, missingEventInputs, type EventNeeds } from "@/lib/venueSuitability";
 
 // SPM-41. Every active venue, judged against this event's attendance, layout,
@@ -18,10 +19,23 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return forbidden("Venue suitability is for ConnectSphere staff");
   }
 
-  const event = await prisma.event.findUnique({
-    where: { id },
-    include: { facilityRequirements: { include: { facility: true } } },
-  });
+  // FIXED (found in review of PR #21): `id` is the event's reference (e.g.
+  // "EVT-000123"), not its underlying id, since SPM-31 - see the sibling
+  // /equipment route. This route still looked the event up by the raw route
+  // segment, so the Venue tab's "Find a venue" link 404'd for every event.
+  //
+  // One query, like the other routes that need the full row rather than just
+  // an id to scope a foreign key - resolveEventId() (src/lib/apiAuth.ts) is
+  // for the latter and would cost a second round trip here (caught in
+  // review).
+  const sequenceNumber = parseEventReference(id);
+  const event =
+    sequenceNumber === null
+      ? null
+      : await prisma.event.findUnique({
+          where: { sequenceNumber },
+          include: { facilityRequirements: { include: { facility: true } } },
+        });
   // Same rule as GET /api/events/[id]: an event the user may not see is 404,
   // not 403, so its existence is not confirmed.
   if (!event || !canViewEvent(actor, event)) {
