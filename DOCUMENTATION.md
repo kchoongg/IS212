@@ -679,9 +679,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
-| **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC10 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
+| **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC09 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
 | **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
-| **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC11 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
+| **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
 | **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
@@ -746,13 +746,19 @@ what changed, why, and the migration name if there is one.
   onto 2026-09-26 if they were written against another seed day.
 - **SPM-40 and SPM-46 test data, ahead of the features** (same approach as
   SPM-48's test-data PR). `seed.ts` gains Jurong Expo Floor's two overlapping
-  unavailable periods (days 40-44 and 42-46, for SPM-46-TC10) and "SPM40
+  unavailable periods (days 40-44 and 42-46, for SPM-46-TC09) and "SPM40
   Approved Workshop" (day 180, the only Approved event, for SPM-40-TC15; pushed
   last so no EVT- number shifts), plus the `approved` status-history chain.
 - **Added to the shared database without a reseed** by
   `npx tsx prisma/topup-spm40-46.ts`, which writes the same rows on the same
   dates and deletes nothing else. Re-run it to put the workshop back to
   Approved before re-running SPM-40-TC15.
+- **SPM-46 test cases: 15 → 14**, re-checked against the shared database on
+  2026-09-28 (every data-dependent expectation matches the live API). The old
+  TC08 (a period covers every slot) was a subset of TC09 (a period stops on its
+  last day); they are now one TC08 on Jurong Expo Floor, 16–25 Oct, which also
+  checks the period's *first* day - neither case did. TC10–TC15 became
+  TC09–TC14. Preconditions no longer say the dates move with the seed.
 
 ---
 

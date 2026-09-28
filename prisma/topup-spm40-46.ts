@@ -6,7 +6,7 @@
  *
  * Writes exactly what prisma/seed.ts writes for the same rows (same anchor,
  * same dates), so a later full reseed produces the same data:
- *   - SPM-46-TC10: Jurong Expo Floor's two overlapping unavailable periods
+ *   - SPM-46-TC09: Jurong Expo Floor's two overlapping unavailable periods
  *     (days 40-44 and 42-46).
  *   - SPM-40-TC15: "SPM40 Approved Workshop" (day 180) and its status history.
  *
