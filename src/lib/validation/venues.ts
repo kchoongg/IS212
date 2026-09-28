@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isDayKey } from "@/lib/venueSlots";
 
 // ---- Venues ----
 
@@ -104,3 +105,21 @@ export const updateVenueSchema = createVenueSchema
     }
   );
 export type UpdateVenueInput = z.infer<typeof updateVenueSchema>;
+
+// ADDED (SPM-46): the query string of GET /api/venues/[id]/availability.
+//
+// Both optional - an absent `from` means today and an absent `to` means a week
+// on - and both are LOCAL calendar days, because that is what a person picks
+// from a calendar. Only the format and that each is a real date are checked
+// here; defaults, "to is not before from" and the maximum span need to know
+// today's date, so they live in resolveAvailabilityRange()
+// (src/lib/venueAvailability.ts) where that can be passed in and tested.
+const availabilityDay = z
+  .string()
+  .refine(isDayKey, { message: "Use a real date written as YYYY-MM-DD, e.g. 2026-09-28" });
+
+export const venueAvailabilityQuerySchema = z.object({
+  from: availabilityDay.optional(),
+  to: availabilityDay.optional(),
+});
+export type VenueAvailabilityQuery = z.infer<typeof venueAvailabilityQuerySchema>;

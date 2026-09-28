@@ -8,6 +8,9 @@ import {
   dayIndex,
   dayStart,
   equipmentLeavesAt,
+  eventAllowsReserving,
+  reserveQuantity,
+  reservingClosedMessage,
   transferLeadFor,
   type Commitment,
 } from "../equipmentAvailability";
@@ -372,5 +375,49 @@ describe("checkAvailability", () => {
     it("treats a request with no lines as nothing missing", () => {
       expect(allLinesAvailable([])).toBe(true);
     });
+  });
+});
+
+describe("reserveQuantity (SPM-49 AC1, AC5)", () => {
+  it("reserves the full request when enough is available", () => {
+    expect(reserveQuantity(3, 6)).toBe(3);
+  });
+
+  it("reserves what is available when the request exceeds it", () => {
+    expect(reserveQuantity(4, 2)).toBe(2);
+  });
+
+  it("reserves nothing when nothing is available", () => {
+    expect(reserveQuantity(1, 0)).toBe(0);
+  });
+
+  it("never reserves more than was requested, even when more is available", () => {
+    expect(reserveQuantity(2, 6)).toBe(2);
+  });
+
+  it("reserves exactly the amount when requested and available are equal", () => {
+    expect(reserveQuantity(2, 2)).toBe(2);
+  });
+
+  it("never goes negative", () => {
+    expect(reserveQuantity(2, -1)).toBe(0);
+  });
+});
+
+describe("eventAllowsReserving (SPM-49)", () => {
+  it("allows reserving while the event is still being planned or is confirmed", () => {
+    for (const status of ["submitted", "under_review", "approved", "planning", "confirmed"]) {
+      expect(eventAllowsReserving(status)).toBe(true);
+    }
+  });
+
+  it("refuses once the event is finished, abandoned or its arrangements are released", () => {
+    for (const status of ["completed", "cancelled", "rejected", "postponed", "draft"]) {
+      expect(eventAllowsReserving(status)).toBe(false);
+    }
+  });
+
+  it("explains the refusal in the words the screen and the route both show", () => {
+    expect(reservingClosedMessage("cancelled")).toBe("This event is cancelled — equipment can no longer be reserved.");
   });
 });

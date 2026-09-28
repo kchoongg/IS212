@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ButtonLink,
@@ -23,8 +24,9 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 //   - Venue Staff hold venue:manage (briefing §3, "responsible for venue
 //     information"), so they get Add venue and can open a room to edit it.
 //   - A coordinator holds venue:view only. They get the same list, read-only:
-//     no Add button, and rows do not navigate, because the only venue screen
-//     built so far is the editor and sending them there would be a dead end.
+//     no Add button, and rows do not navigate, because a row opens the editor
+//     and sending them there would be a dead end. What they CAN open is each
+//     room's availability calendar (SPM-46), through the link in its row.
 //
 // The gate is can(), the same function the API routes use, so the interface and
 // the server cannot disagree about who may do what. Hiding a button is not
@@ -194,6 +196,28 @@ function VenuesCatalogue() {
           },
         ]
       : []),
+    // SPM-46: every row links to that room's availability calendar. This is
+    // the way in for coordinators, who hold venue:view and are who the calendar
+    // is for, but whose rows do not click and who cannot open the editor. Venue
+    // Staff also get a "View availability" button on the edit page.
+    {
+      key: "availability",
+      header: "Availability",
+      render: (row) => (
+        <Link
+          href={`/venues/${row.id}/availability`}
+          // A Venue Staff row is itself clickable and opens the editor. Stop the
+          // event here, or following this link would ALSO trigger the row and
+          // race it to a different page. The mobile card view listens for
+          // Enter/Space, so the keypress is stopped too.
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="text-sm font-medium text-brand-700 hover:underline"
+        >
+          View availability
+        </Link>
+      ),
+    },
   ];
 
   return (

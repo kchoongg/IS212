@@ -1,0 +1,303 @@
+{
+  "story_key": "SPM-46",
+  "story_title": "As an authorised internal user, I want to view venue availability over relevant dates and times so that I can identify when venues may be requested",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-09-26",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Users can select a venue and date/time period."
+    },
+    {
+      "id": "AC2",
+      "text": "Availability is shown per fixed slot (AM, PM, Night) for each day, including slots occupied by setup or turnaround time."
+    },
+    {
+      "id": "AC3",
+      "text": "Existing confirmed bookings are displayed."
+    },
+    {
+      "id": "AC4",
+      "text": "Recorded unavailable periods are displayed."
+    },
+    {
+      "id": "AC5",
+      "text": "Overlapping unavailable periods are identifiable."
+    },
+    {
+      "id": "AC6",
+      "text": "Only authorised internal users can access the availability calendar."
+    },
+    {
+      "id": "AC7",
+      "text": "Availability reflects confirmed bookings."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-46-TC01",
+      "title": "Open a venue's availability and read the grid",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "On the 'Marina Grand Hall' row, click 'View availability'",
+        "Read the range the page opens with, and the three column headings",
+        "Set 'From' to 7 Dec 2026 and 'To' to 13 Dec 2026",
+        "Click 'Show availability'",
+        "Choose 'Jurong Expo Floor' from the 'Venue' picker",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Marina Grand Hall (MAR-GH), then Jurong Expo Floor (JUR-EXP)\nFrom: 7 Dec 2026\nTo: 13 Dec 2026",
+      "expected_result": "The 'Marina Grand Hall availability' page opens on a week from today (Singapore time): seven day rows, with 'From' and 'To' already filled in with those two dates. The grid has exactly three columns, in this order, each showing its times: AM 07:00–12:00, PM 13:00–18:00, Night 19:00–24:00. After 'Show availability' the grid shows exactly seven day rows, 7 Dec 2026 to 13 Dec 2026 (the 7 Dec row is not empty — it carries the Straits Medical Research Symposium booking). Choosing Jurong Expo Floor changes the title to 'Jurong Expo Floor availability', keeps the range at 7–13 Dec 2026, and shows the same three columns."
+    },
+    {
+      "id": "SPM-46-TC02",
+      "title": "An end date before the start date is rejected",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff: marcus.wong@connectsphere.com / password123\nViewing Marina Grand Hall's availability.",
+      "steps": [
+        "Set 'From' to 11 Oct 2026",
+        "Set 'To' to 7 Oct 2026",
+        "Click 'Show availability'"
+      ],
+      "test_data": "From: 11 Oct 2026\nTo: 7 Oct 2026",
+      "expected_result": "The message 'The end date must be on or after the start date.' is shown, and no grid is shown for the invalid range."
+    },
+    {
+      "id": "SPM-46-TC03",
+      "title": "A range of 62 days is accepted and 63 days is rejected",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff: marcus.wong@connectsphere.com / password123\nViewing Marina Grand Hall's availability.",
+      "steps": [
+        "Set 'From' to 7 Oct 2026 and 'To' to 7 Dec 2026",
+        "Click 'Show availability'",
+        "Change 'To' to 8 Dec 2026",
+        "Click 'Show availability'"
+      ],
+      "test_data": "From: 7 Oct 2026\n62 days — To: 7 Dec 2026\n63 days — To: 8 Dec 2026",
+      "expected_result": "With To = 7 Dec 2026 the grid shows 62 day rows, 7 Oct to 7 Dec 2026. With To = 8 Dec 2026 the message 'Choose a range of 62 days or fewer - this one is 63.' is shown and no grid is shown."
+    },
+    {
+      "id": "SPM-46-TC04",
+      "title": "Previous week and Next week move the range by seven days",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123\nViewing Marina Grand Hall's availability for 7–13 Dec 2026.",
+      "steps": [
+        "Click 'Next week'",
+        "Click 'Previous week' twice"
+      ],
+      "test_data": "Starting range: 7 Dec 2026 – 13 Dec 2026",
+      "expected_result": "After 'Next week' the grid shows 14–20 Dec 2026, and the 20 Dec row shows the 'Meridian Wealth Management Forum' booking. After 'Previous week' twice the grid shows 30 Nov 2026 to 6 Dec 2026."
+    },
+    {
+      "id": "SPM-46-TC05",
+      "title": "A Night event's setup takes the whole PM slot, and its turnaround the next day's AM",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nOne-North Auditorium (ONE-AUD) records setup and teardown time, and has an approved booking, 'Bayu Energy Transition Panel', 18:00–21:00 on 9 Nov 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for One-North Auditorium",
+        "Set 'From' to 9 Nov 2026 and 'To' to 10 Nov 2026",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: One-North Auditorium (ONE-AUD)\nFrom: 9 Nov 2026\nTo: 10 Nov 2026",
+      "expected_result": "On 9 Nov 2026: AM shows 'Free'. PM shows 'Turnaround' — the whole slot before the event is taken for setup. Night shows 'Booked' with 'Bayu Energy Transition Panel'. On 10 Nov 2026: AM shows 'Turnaround' — the turnaround runs into the NEXT DAY, because Night is the last slot of its own day; PM and Night show 'Free'. Under 'Approved bookings' the booking shows 18:00–21:00 with 'Room in use' running from 9 Nov 2026, 13:00 to 10 Nov 2026, 12:00 — whole slots, not the recorded minutes."
+    },
+    {
+      "id": "SPM-46-TC06",
+      "title": "An event's setup takes the whole slot before it, on the previous day where needed",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nJurong Expo Floor (JUR-EXP) records setup and teardown time, and has an approved booking, 'Sundara Hospitality Trade Showcase', 10:00–18:00 on 30 Nov 2026.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for Jurong Expo Floor",
+        "Set 'From' to 29 Nov 2026 and 'To' to 30 Nov 2026",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 29 Nov 2026\nTo: 30 Nov 2026",
+      "expected_result": "On 29 Nov 2026: AM and PM show 'Free', and Night shows 'Turnaround' — the event is in the morning, so the slot before it is the PREVIOUS DAY'S Night. On 30 Nov 2026: AM and PM show 'Booked' with 'Sundara Hospitality Trade Showcase' (the event runs 10:00–18:00, and a slot touched at all is taken in full), and Night shows 'Turnaround'. Under 'Approved bookings', 'Room in use' runs from 29 Nov 2026, 19:00 to 1 Dec 2026, 00:00."
+    },
+    {
+      "id": "SPM-46-TC07",
+      "title": "A venue's opening hours mark slots Closed, or name the hours it is open",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nOne-North Rooftop Terrace (ONE-ROOF) is open 16:00–23:00 only, and has no bookings on this date.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for One-North Rooftop Terrace",
+        "Set 'From' and 'To' to 11 Oct 2026",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: One-North Rooftop Terrace (ONE-ROOF)\nFrom: 11 Oct 2026\nTo: 11 Oct 2026",
+      "expected_result": "AM shows 'Closed' — the terrace is shut for the whole of 07:00–12:00. PM shows 'Free' with the note 'Open from 16:00' — only 16:00–18:00 of that slot is bookable. Night shows 'Free' with the note 'Open until 23:00' — the slot runs to midnight but the terrace closes at 23:00."
+    },
+    {
+      "id": "SPM-46-TC08",
+      "title": "An unavailable period covers every slot from its first day to its last, and no further",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nJurong Expo Floor (JUR-EXP) is recorded as unavailable for renovation from 17 Oct 2026, 00:00 to 24 Oct 2026, 23:59, and has nothing else from 16 to 25 Oct 2026. It is open 06:00–23:00.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for Jurong Expo Floor",
+        "Set 'From' to 16 Oct 2026 and 'To' to 25 Oct 2026",
+        "Click 'Show availability'",
+        "Read the 'Unavailable periods' list"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 16 Oct 2026\nTo: 25 Oct 2026",
+      "expected_result": "16 Oct 2026: AM, PM and Night all show 'Free' (Night with the note 'Open until 23:00') — the period does not start early. 17 to 24 Oct 2026: every slot shows 'Unavailable' — 24 cells, none of them 'Free'. 25 Oct 2026: AM, PM and Night all show 'Free' again — the period stops on its last day and does not spill into the next. Under 'Unavailable periods' exactly one period is listed: 'Renovation', 'Floor resurfacing and loading bay works.', 17 Oct 2026 to 24 Oct 2026, with no 'Overlaps with' note and no overlap warning above the grid."
+    },
+    {
+      "id": "SPM-46-TC09",
+      "title": "Two overlapping unavailable periods are identified as overlapping",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nJurong Expo Floor (JUR-EXP) has TWO unavailable periods that overlap each other: 'Loading bay hoist inspection.' (maintenance) 5–9 Nov 2026, and 'Fire suppression system recertification.' (safety) 7–11 Nov 2026. They are the only overlapping pair in the demo data — nothing in the app can create one until the Block venue screen (S-23) is built, so they are seeded. If they are missing from the shared database, run: npx tsx prisma/topup-spm40-46.ts (adds them without a reseed).\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for Jurong Expo Floor",
+        "Set 'From' to 5 Nov 2026 and 'To' to 11 Nov 2026",
+        "Click 'Show availability'",
+        "Read the 'Unavailable periods' list"
+      ],
+      "test_data": "Venue: Jurong Expo Floor (JUR-EXP)\nFrom: 5 Nov 2026\nTo: 11 Nov 2026",
+      "expected_result": "A warning 'Some bookings or unavailable periods overlap' is shown above the grid. Under 'Unavailable periods' both are listed — 'Maintenance', 'Loading bay hoist inspection.' and 'Safety', 'Fire suppression system recertification.' — and EACH carries an 'Overlaps with' note naming the other. Every slot from 5 to 11 Nov 2026 shows 'Unavailable', since between them the two periods cover the whole range."
+    },
+    {
+      "id": "SPM-46-TC10",
+      "title": "An Event Coordinator and an Operations Manager can open the calendar",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "On the 'Marina Grand Hall' row, click 'View availability'",
+        "Go back to 'Venues' and click elsewhere on the 'Marina Grand Hall' row",
+        "Sign out, sign in as the Operations Manager, and repeat the first two steps"
+      ],
+      "test_data": "Accounts: daniel.tan@connectsphere.com (Event Coordinator), grace.lim@connectsphere.com (Operations Manager)\nVenue: Marina Grand Hall (MAR-GH)",
+      "expected_result": "Both accounts have 'Venues' in the sidebar, and for both the 'Marina Grand Hall availability' page opens and shows the grid. Clicking elsewhere on the row does nothing — the Venues list stays read-only for both, because neither holds the permission that makes a row editable."
+    },
+    {
+      "id": "SPM-46-TC11",
+      "title": "A role without venue permissions cannot open the calendar",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The tester knows the availability page address for Marina Grand Hall.\nAccounts available: rachel.ng@meridianfina.com (Event Organiser) and kenji.sato@connectsphere.com (Technical Support), both / password123",
+      "steps": [
+        "Sign in as the Event Organiser",
+        "Confirm there is no 'Venues' item in the sidebar",
+        "Paste the Marina Grand Hall availability page address into the address bar and press Enter",
+        "Sign out and sign in as Technical Support",
+        "Confirm there is no 'Venues' item in their sidebar either",
+        "Open the same address again"
+      ],
+      "test_data": "Account: rachel.ng@meridianfina.com (Event Organiser)\nAccount: kenji.sato@connectsphere.com (Technical Support)",
+      "expected_result": "Neither account has 'Venues' in the sidebar, so neither can reach the calendar by navigating — an Event Organiser sees Dashboard, My Events and Notifications; Technical Support sees Dashboard, Equipment, Equipment Requests and Notifications.\nTyping the address directly is refused as well: the page shows 'Venue availability is for ConnectSphere staff', with no grid, no bookings and no unavailable periods. Hiding the link is not the control — the server refuses it too. Technical Support is internal staff and still has no access, because the calendar reuses the venue catalogue's permission, which they do not hold."
+    },
+    {
+      "id": "SPM-46-TC12",
+      "title": "An approved booking blocks its slots, and is listed, even while its event is still in planning",
+      "linked_ac": [
+        "AC3",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nMarina Grand Hall (MAR-GH) has an APPROVED booking, 'Straits Medical Research Symposium', 09:00–18:00 on 7 Dec 2026, whose EVENT is still in Planning — not Confirmed. The venue has a 180-minute setup and 120-minute teardown.\nLogged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for Marina Grand Hall",
+        "Set 'From' to 6 Dec 2026 and 'To' to 7 Dec 2026",
+        "Click 'Show availability'",
+        "Read the booking under 'Approved bookings'"
+      ],
+      "test_data": "Venue: Marina Grand Hall (MAR-GH)\nFrom: 6 Dec 2026\nTo: 7 Dec 2026",
+      "expected_result": "On 7 Dec 2026 AM and PM show 'Booked' with 'Straits Medical Research Symposium' — NOT 'Free' — and Night shows 'Turnaround'. On 6 Dec 2026 Night shows 'Turnaround' too, for the setup slot before the event. Under 'Approved bookings' the booking is listed with the event status 'Planning', 7 Dec 2026, 09:00–18:00, layout 'Theatre', and 'Room in use' from 6 Dec 2026, 19:00 to 8 Dec 2026, 00:00. The room must not read as free: an approved booking already commits it, however far its event has got."
+    },
+    {
+      "id": "SPM-46-TC13",
+      "title": "Only an approved booking takes a slot; a pending request is shown but does not",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nChangi Conference Centre (CBP-CONF) has a PENDING booking request, 'Pearl Delta Safety Conference', on 14 Dec 2026 and no approved booking that day. Marina Auditorium (MAR-AUD) has a REJECTED booking for 'Nusantara Developer Summit' on 1 Nov 2026. Changi Meeting Room 2 (CBP-MTG2) has a CANCELLED booking for 'Pearl Delta Supplier Forum' on 29 Oct 2026.\nLogged in as Event Coordinator: daniel.tan@connectsphere.com / password123",
+      "steps": [
+        "Open the availability page for Changi Conference Centre for 14 Dec 2026",
+        "Choose Marina Auditorium from the 'Venue' picker and show 1 Nov 2026",
+        "Choose Changi Meeting Room 2 from the 'Venue' picker and show 29 Oct 2026"
+      ],
+      "test_data": "Changi Conference Centre (CBP-CONF): 14 Dec 2026\nMarina Auditorium (MAR-AUD): 1 Nov 2026\nChangi Meeting Room 2 (CBP-MTG2): 29 Oct 2026",
+      "expected_result": "On all three days every slot shows 'Free'. None of 'Pearl Delta Safety Conference', 'Nusantara Developer Summit' or 'Pearl Delta Supplier Forum' appears under 'Approved bookings' — only an approved booking takes a room.\nOn 14 Dec 2026 the Changi Conference Centre slots additionally carry the note 'Requested: Pearl Delta Safety Conference', and a card 'Requested, not yet approved' lists it below the grid. The slots stay 'Free' — a request is not a commitment — but the hold is visible so a second coordinator does not request the same room unaware. The rejected and cancelled bookings carry no such note: they are not live requests."
+    },
+    {
+      "id": "SPM-46-TC14",
+      "title": "A retired venue's slots are never offered as free",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Demo data from prisma/seed.ts. Its dates are fixed (2026-09-26 + n days), so a reseed does not move them.\nJurong Skills Lab (JUR-LAB) is active and has no bookings.\nLogged in as Venue Staff: marcus.wong@connectsphere.com / password123",
+      "steps": [
+        "Open Jurong Skills Lab from the Venues list",
+        "Click 'Retire venue', then 'Retire venue' in the confirmation dialog",
+        "Click 'View availability'",
+        "Set 'From' to 7 Dec 2026 and 'To' to 13 Dec 2026, then click 'Show availability'",
+        "Return to the venue and click 'Restore venue' to undo the retirement"
+      ],
+      "test_data": "Venue: Jurong Skills Lab (JUR-LAB)\nFrom: 7 Dec 2026\nTo: 13 Dec 2026",
+      "expected_result": "The availability page shows the warning 'This venue is retired'. Every slot on every day shows 'Closed' — none shows 'Free'. After 'Restore venue' the venue is active again."
+    }
+  ],
+  "open_questions": [],
+  "code_references": [
+    "src/app/api/venues/[id]/availability/route.ts",
+    "src/lib/venueAvailability.ts",
+    "src/lib/venueSlots.ts",
+    "src/lib/validation/venues.ts",
+    "src/lib/permissions.ts",
+    "src/lib/format.ts",
+    "src/app/venues/page.tsx",
+    "src/app/venues/[id]/edit/page.tsx",
+    "design/mockups/VenueCalendar.dc.html"
+  ]
+}

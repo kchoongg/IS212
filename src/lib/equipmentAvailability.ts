@@ -21,6 +21,7 @@
 //         (TEMPORARY - see COMMITTING_EVENT_STATUSES).
 
 import { EQUIPMENT_LOAD_WINDOW_MS } from "@/lib/eventSessions";
+import { TERMINAL_EVENT_STATUSES } from "@/lib/statuses";
 
 /// Fixed transfer + preparation time before an event (team proposal; Q&A #2
 /// leaves the representation to the team). One value for every item.
@@ -201,4 +202,24 @@ export function checkAvailability(input: AvailabilityInput): AvailabilityResult 
 /// The request-level banner: shown when any line is not fully available.
 export function allLinesAvailable(results: Pick<AvailabilityResult, "status">[]): boolean {
   return results.every((r) => r.status === "available");
+}
+
+/// SPM-49 AC1/AC5. There is no quantity box: clicking Reserve always takes the
+/// smaller of what was requested and what is available - never more than
+/// either one (team decision, replacing an earlier "type a number" design).
+export function reserveQuantity(requested: number, available: number): number {
+  return Math.max(0, Math.min(requested, available));
+}
+
+/// SPM-49: can equipment still be reserved for an event in this status? Not
+/// once it is finished or abandoned (completed, cancelled, rejected) or its
+/// arrangements are released (postponed, draft - customer Q&A #68, #69). One
+/// rule for both the Reserve route, which refuses, and the Equipment request
+/// screen, which hides the button and says why.
+export function eventAllowsReserving(eventStatus: string): boolean {
+  return !TERMINAL_EVENT_STATUSES.includes(eventStatus) && !RELEASED_EVENT_STATUSES.includes(eventStatus);
+}
+
+export function reservingClosedMessage(eventStatus: string): string {
+  return `This event is ${eventStatus} — equipment can no longer be reserved.`;
 }

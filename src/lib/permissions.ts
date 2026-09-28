@@ -259,6 +259,17 @@ export function canCheckEquipmentAvailability(actor: Actor): boolean {
   return actor.role === "tech_support";
 }
 
+/// SPM-49: "As Technical Support Staff, I want to reserve available equipment
+/// for an event." Uses the `equipment_request:review` action that was already
+/// in the permission model (ROLE_PERMISSIONS, tech_support) but unused until
+/// now - see DOCUMENTATION.md Known Gaps. Same set of people as
+/// canCheckEquipmentAvailability() in practice (only tech_support holds this
+/// action), kept as its own function because reserving is a distinct action
+/// from viewing, not just a stricter view.
+export function canReserveEquipment(actor: Actor): boolean {
+  return can(actor.role, "equipment_request:review");
+}
+
 // ---------------------------------------------------------------------------
 // STATUS TRANSITIONS
 // ---------------------------------------------------------------------------
