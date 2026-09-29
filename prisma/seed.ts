@@ -858,6 +858,72 @@ async function main() {
       days: 180, startHour: 9, durationHours: 3, attendance: 30, layout: "classroom" },
   );
 
+  // -----------------------------------------------------------------
+  // SPM-30 QA fixtures (Assign Event Coordinator) - one event per starting
+  // state docs/test-cases/SPM-30_test_cases.json needs. The SAME events as
+  // scripts/seed-spm30.ts (`npm run fixtures:spm30`), which adds or resets
+  // them on the shared database without a reseed - keep the two in step.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  eventData.push(
+    // Awaiting assignment - submitted, no coordinator.
+    { key: "spm30_unassigned_nusantara", title: "SPM30 Nusantara Developer Meetup", status: "submitted",
+      purpose: "Community developer meetup",
+      category: "conference", organiser: "Budi Santoso",
+      days: daysUntil("2027-01-22"), startHour: 9, durationHours: 6, attendance: 120, layout: "theatre" },
+    { key: "spm30_unassigned_meridian", title: "SPM30 Meridian Graduate Evening", status: "submitted",
+      purpose: "Campus recruitment networking evening",
+      category: "networking", organiser: "James Koh",
+      days: daysUntil("2027-02-09"), startHour: 18, durationHours: 3, attendance: 100, layout: "exhibition" },
+    // Must NOT appear on the Assignments page.
+    { key: "spm30_draft", title: "SPM30 Draft Investor Update", status: "draft",
+      purpose: "Still checking dates",
+      category: "meeting", organiser: "Rachel Ng",
+      days: daysUntil("2027-03-01"), startHour: 9, durationHours: 2, attendance: 20, layout: "boardroom" },
+    // Already assigned - reassignment.
+    { key: "spm30_reassign_kirana", title: "SPM30 Kirana Regional Offsite", status: "under_review",
+      purpose: "Half-year strategy alignment",
+      category: "meeting", organiser: "Faridah Aziz", coordinator: "priya.raj@connectsphere.com",
+      days: daysUntil("2027-02-15"), startHour: 9, durationHours: 8, attendance: 45, layout: "u_shape" },
+    { key: "spm30_same_coordinator", title: "SPM30 Straits Journal Club", status: "under_review",
+      purpose: "Monthly journal club",
+      category: "seminar", organiser: "Raj Kumar", coordinator: "joel.fernandez@connectsphere.com",
+      days: daysUntil("2027-01-28"), startHour: 12, durationHours: 2, attendance: 30, layout: "boardroom" },
+    { key: "spm30_reassign_queue", title: "SPM30 Nusantara Product Launch", status: "under_review",
+      purpose: "Regional product launch",
+      category: "exhibition", organiser: "Sari Widodo", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-03-03"), startHour: 15, durationHours: 4, attendance: 200, layout: "theatre" },
+    { key: "spm30_confirmed", title: "SPM30 Anchorpoint Partner Briefing", status: "confirmed",
+      purpose: "Quarterly partner briefing",
+      category: "seminar", organiser: "Melissa Yap", coordinator: "joel.fernandez@connectsphere.com",
+      days: daysUntil("2027-01-19"), startHour: 9, durationHours: 4, attendance: 90, layout: "theatre" },
+    { key: "spm30_postponed", title: "SPM30 Civic Trust Workshop", status: "postponed",
+      purpose: "Teachers' curriculum workshop",
+      category: "workshop", organiser: "Grace Abdullah", coordinator: "arif.mansor@connectsphere.com",
+      days: daysUntil("2027-03-10"), startHour: 9, durationHours: 5, attendance: 40, layout: "classroom" },
+    // Closed statuses - cannot be reassigned.
+    { key: "spm30_completed", title: "SPM30 Harbourline Claims Training", status: "completed",
+      purpose: "Claims systems training",
+      category: "training", organiser: "Preeti Sharma", coordinator: "priya.raj@connectsphere.com",
+      days: daysUntil("2026-08-20"), startHour: 9, durationHours: 4, attendance: 35, layout: "classroom" },
+    { key: "spm30_cancelled", title: "SPM30 Pearl Delta Supplier Forum", status: "cancelled",
+      purpose: "Supplier engagement forum",
+      category: "meeting", organiser: "Samuel Ong", coordinator: "joel.fernandez@connectsphere.com",
+      days: daysUntil("2027-01-12"), startHour: 9, durationHours: 5, attendance: 60, layout: "u_shape",
+      cancellationReason: "Client cancelled after a change in the procurement schedule." },
+    { key: "spm30_rejected", title: "SPM30 Selaras Overnight Field Day", status: "rejected",
+      purpose: "Overnight field demonstration",
+      category: "workshop", organiser: "Nurul Izzah", coordinator: "priya.raj@connectsphere.com",
+      days: daysUntil("2027-01-15"), startHour: 20, durationHours: 24, attendance: 80, layout: "exhibition",
+      rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+    // Attendee view - confirmed with registration open.
+    { key: "spm30_attendee_forum", title: "SPM30 Meridian Client Forum", status: "confirmed",
+      purpose: "Client-facing market outlook forum",
+      category: "conference", organiser: "James Koh", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-02-24"), startHour: 13, durationHours: 5, attendance: 150, layout: "theatre",
+      regEnabled: true, regCapacity: 150 },
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -954,6 +1020,8 @@ async function main() {
     completed: ["submitted", "under_review", "approved", "planning", "confirmed", "completed"],
     rejected: ["submitted", "under_review", "rejected"],
     cancelled: ["submitted", "under_review", "approved", "planning", "cancelled"],
+    // SPM-30's postponed fixture; same chain as scripts/seed-spm30.ts.
+    postponed: ["submitted", "under_review", "approved", "planning", "postponed"],
   };
   const REASONS: Record<string, string> = {
     under_review: "Coordinator assigned",
@@ -963,6 +1031,7 @@ async function main() {
     completed: "Event took place",
     rejected: "Overnight occupancy not licensed",
     cancelled: "Client withdrew the request",
+    postponed: "Client requested a later date",
   };
   for (const e of eventData) {
     const chain = CHAIN[e.status];
@@ -1394,6 +1463,9 @@ async function main() {
   let regCount = 0;
   for (const e of eventData) {
     if (!e.regEnabled || !e.regCapacity) continue;
+    // SPM-30's fixtures carry no registrations, so a reseed matches what
+    // `npm run fixtures:spm30` writes to the shared database.
+    if (e.key.startsWith("spm30_")) continue;
     const ev = events[e.key];
     const past = e.days < 0;
     // A realistic fraction of capacity, capped by how many attendees exist.

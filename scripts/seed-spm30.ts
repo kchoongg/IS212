@@ -13,8 +13,25 @@
  * the test cases do to these events, so run it again to reset them before a
  * fresh pass through docs/test-cases/SPM-30_Test_Cases.xlsx.
  *
+ * Also puts the two base-seed events that start in the Assignments queue back
+ * to Submitted with no coordinator - needed after SPM-30-TC20, which assigns
+ * everything in the queue to reach its empty state. Automatic when they were
+ * only assigned; if another story moved one further, it is left alone unless
+ * forced with:
+ *
+ *   npm run fixtures:spm30 -- --restore-queue
+ *
+ * See restoreQueue().
+ *
  * Needs the base seed's users (grace.lim@connectsphere.com, the coordinators
  * and the organisers named below) to exist already.
+ *
+ * prisma/seed.ts creates the same 12 events (same seed keys, titles, dates and
+ * coordinators), so a full reseed and this script agree - keep the two in
+ * step. The one difference: this script dates the submission and status
+ * history in the past, so the Assignments screen's "Waiting" column reads
+ * sensibly; seed.ts dates it 40 days before the event, like every other
+ * seeded event.
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -239,6 +256,69 @@ async function main() {
   }
 
   console.log(`Done: ${FIXTURES.length} SPM-30 fixture events ready.`);
+
+  await restoreQueue(process.argv.includes("--restore-queue"));
+}
+
+/// The base-seed events that start in the Assignments queue (prisma/seed.ts:
+/// status submitted, no coordinator). SPM-30-TC20 has the tester assign them
+/// to reach the empty queue; other stories' test cases expect them unassigned
+/// (e.g. SPM-31 on "Meridian Graduate Recruitment Evening").
+const QUEUE_SEED_KEYS = ["submitted", "submitted_recruit"];
+
+/// Puts those events back as the base seed left them - Submitted, no
+/// coordinator - removing only what assigning them added: status history
+/// after submission and the coordinator assigned/unassigned notifications.
+/// Nothing else about them is touched, and no other base-seed event is.
+///
+/// Runs on every `npm run fixtures:spm30`, but on its own only undoes a plain
+/// SPM-30 assignment (Under review, nothing further). An event another story
+/// has moved on - approved, planning and so on - is left alone with a warning,
+/// since undoing that could break someone else's test run.
+/// `-- --restore-queue` restores it anyway.
+async function restoreQueue(force: boolean) {
+  console.log(`\nBase-seed Assignments queue${force ? " (--restore-queue: forced)" : ""}:`);
+  for (const seedKey of QUEUE_SEED_KEYS) {
+    const event = await prisma.event.findUnique({
+      where: { seedKey },
+      select: {
+        id: true, title: true, status: true, coordinatorId: true,
+        statusHistory: { select: { toStatus: true } },
+      },
+    });
+    if (!event) {
+      console.log(`  ${seedKey}: not found - skipped (was the base seed changed?)`);
+      continue;
+    }
+    if (event.status === "submitted" && event.coordinatorId === null) {
+      console.log(`  ${event.title}: already Submitted with no coordinator`);
+      continue;
+    }
+    const onlyAssigned =
+      event.status === "under_review" &&
+      event.statusHistory.every((h) => h.toStatus === "submitted" || h.toStatus === "under_review");
+    if (!onlyAssigned && !force) {
+      console.log(
+        `  ${event.title}: NOT restored - it is ${event.status}, moved on past assignment ` +
+          `(another story's testing?). Run \`npm run fixtures:spm30 -- --restore-queue\` to restore it anyway.`
+      );
+      continue;
+    }
+    await prisma.$transaction([
+      prisma.event.update({
+        where: { id: event.id },
+        data: { status: "submitted", coordinatorId: null },
+      }),
+      // The base seed gives these events a single draft -> submitted row.
+      prisma.eventStatusHistory.deleteMany({
+        where: { eventId: event.id, toStatus: { not: "submitted" } },
+      }),
+      prisma.notification.deleteMany({
+        where: { eventId: event.id, type: { in: ["coordinator_assigned", "coordinator_unassigned"] } },
+      }),
+    ]);
+    console.log(`  ${event.title}: was ${event.status}, restored to Submitted with no coordinator`);
+  }
 }
 
 main()

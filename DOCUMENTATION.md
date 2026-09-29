@@ -598,7 +598,7 @@ traceability the module asks for.
 | `npm run lint` | Check code style/common mistakes (runs `eslint .` over the whole repo) |
 | `npm test` | Run tests once |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
-| `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`. Re-run before each SPM-30 test pass |
+| `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -783,6 +783,9 @@ what changed, why, and the migration name if there is one.
   (`scripts/seed-spm30.ts`): 12 "SPM30 …" events, deleted and recreated on
   each run, so it doubles as the reset. SPM-30-TC20 (empty queue) needs every
   submitted event assigned, so run it on a Neon branch, not the shared database.
+  The same 12 events are also in `prisma/seed.ts` (pushed last, so no existing
+  EVT- number shifts; no registrations), so a full reseed includes them. The
+  seed also gains a `postponed` status-history chain.
 - Removed the "Coordinator Assignment has no endpoint" Known Gaps row.
 
 ---
