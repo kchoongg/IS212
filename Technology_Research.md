@@ -4,10 +4,11 @@
 technology options so that we can select an appropriate technology stack for
 ConnectSphere.
 
-**Purpose:** Research done at project kickoff, before any repo or code
-existed. Requirements are drawn from the **IS212 Scrum Project
-Instructions**, the **customer briefing**, and **customer clarifications**
-— not from an existing implementation.
+**Purpose:** Records the technology options the team considered (SPM-8) and
+the stack the project now runs on. Requirements are drawn from the **IS212
+Scrum Project Instructions**, the **customer briefing**, and **customer
+clarifications**. Items marked **(planned)** are decisions the team has made
+but not yet set up in the repo — currently CI/CD.
 
 ---
 
@@ -22,12 +23,9 @@ Instructions**, the **customer briefing**, and **customer clarifications**
 | **R5** | Traceable, high-coverage tests (rubric expects ~100% coverage) running in an automated CI pipeline — itself a graded deliverable. *(Deliverables 3 & 6; "Testing and traceability" / "Code quality and CI" rubric rows)* |
 | **R6** | Every decision — including AI-assisted code — must be explainable in a 20-minute Q&A. *("Interactive Q&A Session"; "Accountability and Explainability" rubric row)* |
 
-R1 (team size/time budget) and R2 (cross-domain coupling) were previously
-merged into one requirement; they're split here because they point to
-different risks and drive different decisions below — collapsing them made
-some "addressed by" claims (e.g. Tailwind) read as if they were about
-workflow coupling when they're really about parallel-work speed under a
-fixed calendar.
+R1 (team size/time budget) and R2 (cross-domain coupling) are kept separate
+because they point to different risks. For example, Tailwind addresses R1
+(parallel work under a fixed calendar), not R2 (workflow coupling).
 
 ---
 
@@ -38,7 +36,7 @@ fixed calendar.
 | Option | Advantages | Disadvantages |
 |---|---|---|
 | Microservices | Independently deployable/scalable; isolated failures | R2's cross-domain workflows need distributed transactions across services — real cost, no benefit here; also needs Docker/orchestration the team has no time for (R1) |
-| **Monolith** ✅ | One shared DB makes R2's cross-domain consistency a single transaction, not distributed; one deploy target fits R1 | Less separation if independent scaling were ever needed — accepted trade, not a concern at this scale |
+| **Monolith** ✅ | One shared DB makes R2's cross-domain consistency a single transaction, not distributed; one app to run fits R1 | Less separation if independent scaling were ever needed — accepted trade, not a concern at this scale |
 
 ### 2.2 Language
 
@@ -53,7 +51,13 @@ fixed calendar.
 |---|---|---|
 | MongoDB | Flexible schema, no upfront modelling — faster start under R1 | Conflicts with R3 — conflict/suitability/availability are relational integrity rules, not documents |
 | MySQL | Relational, satisfies R3 | Fewer free serverless-hosting options than Postgres |
-| **PostgreSQL** ✅ | Satisfies R3 natively; most mature TypeScript ORM support | Relational schema must be modelled up front — real cost against R1 that MongoDB avoids, accepted because R3's integrity rules need it anyway |
+| **PostgreSQL** ✅ | Relational model with foreign keys and unique constraints gives R3's rules a consistent base; most mature TypeScript ORM support | Relational schema must be modelled up front — real cost against R1 that MongoDB avoids, accepted because R3's data is relational anyway |
+
+Note: Postgres provides the relational structure, but the business rules in
+R3 themselves (booking conflicts, capacity, equipment availability, draft
+completeness) are enforced in application code, not as database constraints
+— see the header of `prisma/schema.prisma`. Keeping them in TypeScript makes
+them unit-testable with Vitest (R5) and easier to explain (R6).
 
 ### 2.4 Data access layer
 
@@ -69,18 +73,21 @@ fixed calendar.
 |---|---|---|
 | Supabase | Free tier, Postgres | Pauses fully after inactivity — risks a dead DB at demo or CI time (R1, R5) |
 | Self-hosted Postgres | No third-party dependency | Needs an always-on server the team doesn't have time to run (R1) |
-| **Neon** ✅ | Scales to zero instead of pausing (R1); free; per-branch databases give each CI run a clean, reproducible database — an R5 *isolation/reliability* benefit (no shared-state flakiness), not a speed claim | Cold-start latency after idle adds a few seconds to the first query of any idle branch, including a CI run's first request — a real, separate speed cost that the isolation benefit doesn't offset, but doesn't undermine reliability either |
+| **Neon** ✅ | Scales to zero instead of pausing (R1); free; database branching — today the team works against a shared `is212-dev` branch, and new branches auto-expire after 7 days (`neon.ts`). **(Planned)** once CI exists, a branch per CI run would give each run a clean, reproducible database — an R5 *isolation/reliability* benefit, not a speed claim | Cold-start latency after idle adds a few seconds to the first query of an idle branch (and, once CI exists, to a CI run's first request) |
 
-### App hosting
+### 2.5a App hosting
 
-Database hosting isn't the whole picture — the Next.js app itself needs a
-deploy target, which the original draft of this document omitted.
+Not in scope. The team does not plan to host the app; it runs locally
+(`npm run dev`) against the shared Neon database, including for demos.
 
-| Option | Advantages | Disadvantages |
-|---|---|---|
-| Self-hosted (VPS) | Full control, no platform lock-in | Team manages the server, TLS, and process manager — ongoing cost against R1 |
-| Railway / Render | Simple git-based deploys, reasonable free tier | Less native support for Next.js-specific features (edge functions, ISR) |
-| **Vercel** ✅ | Built by the Next.js maintainers — zero-config deploys from GitHub, automatic preview deployments per PR (fits R5's CI/CD expectation); free tier | Serverless functions cold-start similarly to Neon; some optimisations are Vercel-specific — a mild lock-in |
+### 2.5b CI/CD (planned)
+
+No pipeline exists yet (there is no `.github/workflows`, and the
+`ci/cd-pipeline` branch has no commits beyond `main`). The intended pipeline
+is GitHub Actions running `npm run lint`, `npm test`, and `npm run build` on
+every pull request to `main`. It checks and builds the code only; there is
+no deploy step, since the app is not hosted (§2.5a). This is the part of R5
+that is not yet met.
 
 ### 2.6 Authentication
 
@@ -88,7 +95,7 @@ deploy target, which the original draft of this document omitted.
 |---|---|---|
 | NextAuth.js | Handles OAuth/session out of the box | Six-role, org-scoped model (R4) still needs custom logic on top — added config layer harder to explain (R6) |
 | Managed auth (Clerk, Auth0) | Fully hosted | Costs money; external internals the team can't fully explain (R6) |
-| **Hand-rolled (hashing + signed tokens)** ✅ | Fully explainable (R6); free; the session can carry a role directly, and whatever else R4's access model ends up needing (e.g. organisation-scoping) can be looked up per-request instead of baked into the token if that turns out to matter for staleness | No password-reset/account-recovery flow — but this isn't a silent gap: clarification `#64` states this is "not specified in the current requirements," so the team is explicitly deferring it beyond Release 1 per the customer's own answer, not hiding an unanswerable question |
+| **Hand-rolled (bcryptjs + JWT)** ✅ | Fully explainable (R6); free. The token carries only the user's id and role (8-hour expiry, `src/lib/auth.ts`); organisation and active status are looked up per request (`src/lib/apiAuth.ts`), so a changed organisation or deactivated account takes effect immediately rather than when the token expires | No password-reset/account-recovery flow — but this isn't a silent gap: clarification `#64` states this is "not specified in the current requirements," so the team is explicitly deferring it beyond Release 1 per the customer's own answer, not hiding an unanswerable question |
 
 ### 2.7 Validation
 
@@ -110,7 +117,11 @@ deploy target, which the original draft of this document omitted.
 | Option | Advantages | Disadvantages |
 |---|---|---|
 | Jest | Large ecosystem | Slower, more TS/ESM config — costs R1's time and R5's CI feedback speed |
-| **Vitest** ✅ | Minimal config (R1); fast CI runs (R5); Jest-compatible API | Smaller ecosystem — not a practical issue here |
+| **Vitest** ✅ | Minimal config (R1); fast runs locally and, once CI exists, in the pipeline (R5); Jest-compatible API | Smaller ecosystem — not a practical issue here |
+
+Coverage measurement is not configured yet — no coverage provider is
+installed and `vitest.config.mts` has no coverage settings. Adding
+`@vitest/coverage-v8` is needed before the ~100% target in R5 can be shown.
 
 ### 2.10 UI library
 
@@ -130,11 +141,11 @@ by Next.js. **Selected: React.**
 
 | Requirement | Addressed by |
 |---|---|
-| R1 — small team, fixed time budget | Low-config Vitest/ESLint, Tailwind, Neon/Vercel's zero-ops model |
+| R1 — small team, fixed time budget | Low-config Vitest/ESLint, Tailwind, Neon's zero-ops model, no app hosting to run |
 | R2 — cross-domain workflow coupling | Monolith + shared DB, Prisma's single schema, TypeScript's cross-domain type checks |
-| R3 — relational integrity | PostgreSQL |
-| R4 — 6-role, org-scoped access | Hand-rolled auth, role + org in session token |
-| R5 — traceable testing in CI | TypeScript, Zod, Vitest, ESLint, Prisma migrations, Neon branch-per-run, Vercel preview deploys |
+| R3 — relational integrity | PostgreSQL for structure; business rules in tested application code |
+| R4 — 6-role, org-scoped access | Hand-rolled auth: role in the session token, organisation looked up per request |
+| R5 — traceable testing in CI | Now: TypeScript, Zod, Vitest, ESLint, Prisma migrations. Planned: CI pipeline, coverage reporting, Neon branch-per-run |
 | R6 — explainable decisions | Hand-rolled auth, framework-aligned lint/UI, Zod's single pattern |
 
 ---
@@ -149,12 +160,13 @@ by Next.js. **Selected: React.**
 | Styling | Tailwind CSS |
 | Database | PostgreSQL on Neon |
 | ORM | Prisma |
-| App hosting | Vercel |
 | Authentication | Hand-rolled — bcryptjs + jsonwebtoken |
 | Validation | Zod |
 | Testing | Vitest |
-| Linting | ESLint |
-| Workflow | GitHub + Jira, one branch per ticket |
+| Linting | ESLint (`eslint-config-next`) |
+| Workflow | GitHub + Jira, one branch per ticket (e.g. `SPM-40-search-filter-venues`) |
+| App hosting | None — runs locally; hosting not in scope |
+| CI/CD | GitHub Actions (lint, test, build; no deploy) — **planned**, not yet set up |
 
 ---
 
@@ -169,12 +181,17 @@ infrastructure the team has no time to run (microservices, self-hosted
 DBs/servers). Two choices (UI library, linting) weren't independent
 decisions — they followed from the framework. Not every choice is free of
 trade-offs even where selected: TypeScript costs setup time against R1,
-Neon's cold start cuts against the CI-speed argument for it, and hand-rolled
-auth explicitly leaves password recovery unbuilt (deferred per `#64`, not
-overlooked).
+Neon's cold start adds latency to the first query on an idle branch, and
+hand-rolled auth explicitly leaves password recovery unbuilt (deferred per
+`#64`, not overlooked).
 
-**Known gap:** clarifications `#71`, `#44`, `#5`, `#55` describe
-schedule-driven behaviour (auto-completing events, expiring waitlist offers,
-equipment turnaround, batched notifications) that nothing above addresses.
-Left open deliberately, rather than resolving a question the team hasn't
-faced yet.
+**Not yet in place:** the CI/CD pipeline and coverage reporting are planned
+but not set up, so R5 is only partly met today. Hosting the app is not
+planned; it runs locally.
+
+**Known gap:** clarifications `#71`, `#44`, `#55` describe schedule-driven
+behaviour (auto-completing events, expiring waitlist offers, batched
+notifications) that needs something to run on a timer, which nothing above
+provides. Left open deliberately until those stories are picked up.
+Equipment turnaround (`#5`) did not need a scheduler: availability is
+computed at query time from the event dates (`src/lib/equipmentAvailability.ts`).
