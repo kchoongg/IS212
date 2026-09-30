@@ -14,11 +14,13 @@ import {
   StatusBadge,
   Tabs,
 } from "@/components/ui";
+import { AssignCoordinator, type AssignResult, type CoordinatorOption } from "@/components/AssignCoordinator";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
+import { can, canAssignCoordinator } from "@/lib/permissions";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -60,6 +62,11 @@ interface EventDetail {
   specialRequirements?: string | null;
   organiser?: { fullName: string };
   coordinator?: { fullName: string } | null;
+  // SPM-30: needed to tell "assign" from "reassign", and which choice would be
+  // a no-op. Absent for an Attendee along with the rest of the internal fields.
+  coordinatorId?: string | null;
+  organiserId?: string;
+  organisationId?: string | null;
   facilityRequirements?: FacilityRequirement[];
   // Present for an Attendee too - which company is running the event is
   // public, even though who personally organised it (above) is not.
@@ -74,6 +81,10 @@ export default function EventOverviewPage() {
 
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // SPM-30: the Ops Manager's coordinator choices, and what just happened.
+  const [coordinators, setCoordinators] = useState<CoordinatorOption[] | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const mayAssign = user ? can(user.role, "event:assign_coordinator") : false;
 
   const load = useCallback(async () => {
     setError(null);
@@ -114,6 +125,46 @@ export default function EventOverviewPage() {
       void load();
     }
   }, [state, load, router, eventId]);
+
+  // Only fetched for a role that can use it - nobody else is shown the list of
+  // coordinators to choose from.
+  useEffect(() => {
+    if (!mayAssign) return;
+    void (async () => {
+      try {
+        const res = await authedFetch("/api/assignments");
+        if (res.ok) setCoordinators((await res.json()).coordinators);
+      } catch {
+        // The page still works without it; the assign card just doesn't show.
+      }
+    })();
+  }, [mayAssign]);
+
+  function handleAssigned(result: AssignResult) {
+    setNotice(
+      result.previousCoordinator
+        ? `Reassigned from ${result.previousCoordinator.fullName} to ${result.coordinator.fullName}.`
+        : `${result.coordinator.fullName} is now the coordinator. The event has moved to ${statusLabel(result.status)}.`
+    );
+    void load();
+  }
+
+  const showAssign = Boolean(
+    user &&
+    event &&
+    coordinators &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canAssignCoordinator(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
 
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
@@ -158,6 +209,40 @@ export default function EventOverviewPage() {
         <SkeletonRows rows={3} />
       ) : (
         <div className="flex flex-col gap-6">
+          {notice && <Alert variant="success">{notice}</Alert>}
+
+          {/* SPM-30: the Ops Manager assigns or changes the coordinator here as
+              well as from the Assignments screen. Absent for every other
+              role, and for an event whose coordinator can no longer change
+              (completed, cancelled, rejected). */}
+          {showAssign && (
+            <Card>
+              <CardHeader
+                title={event.coordinatorId ? "Change coordinator" : "Assign a coordinator"}
+                subtitle={
+                  event.coordinatorId
+                    ? `Currently ${event.coordinator?.fullName ?? "assigned"}.`
+                    : "Assigning one moves this event to Under review."
+                }
+              />
+              <CardBody>
+                <AssignCoordinator
+                  eventRef={eventReference(event.sequenceNumber)}
+                  eventTitle={event.title || "Untitled event"}
+                  current={
+                    event.coordinatorId
+                      ? { id: event.coordinatorId, fullName: event.coordinator?.fullName ?? "" }
+                      : null
+                  }
+                  coordinators={coordinators ?? []}
+                  label={event.coordinatorId ? "Reassign to" : "Assign to"}
+                  onAssigned={handleAssigned}
+                  className="max-w-md"
+                />
+              </CardBody>
+            </Card>
+          )}
+
           <Card>
             <CardHeader title="Details" />
             <CardBody>

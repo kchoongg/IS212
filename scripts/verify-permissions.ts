@@ -85,6 +85,7 @@ async function main() {
   const pick = async (role: string) =>
     prisma.user.findFirstOrThrow({ where: { role }, select: { id: true, email: true } });
   const coordinator = await pick("coordinator");
+  const opsManager = await pick("ops_manager");
   const attendee = await pick("attendee");
   const venueStaff = await pick("venue_staff");
   const techSupport = await pick("tech_support");
@@ -108,6 +109,7 @@ async function main() {
   const asA = authed(await login(organiserA.email));
   const asB = authed(await login(organiserB.email));
   const asCoordinator = authed(await login(coordinator.email));
+  const asOpsManager = authed(await login(opsManager.email));
   const asAttendee = authed(await login(attendee.email));
   const asVenueStaff = authed(await login(venueStaff.email));
   const asTechSupport = authed(await login(techSupport.email));
@@ -230,9 +232,20 @@ async function main() {
       await asA(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
       }));
-    await expectStatus("AC4", "a coordinator CAN take it under review (Step 3)", 200,
+    // CHANGED (SPM-30): Step 3 is now the Ops Manager assigning a coordinator,
+    // which moves the event to under_review in the same action. A coordinator
+    // can no longer pick up an unassigned event themselves.
+    await expectStatus("SPM-30", "a coordinator cannot pick up an unassigned event", 403,
       await asCoordinator(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "under_review" }),
+      }));
+    await expectStatus("SPM-30", "a coordinator cannot assign themselves either", 403,
+      await asCoordinator(`/api/events/${createdEventRef}/coordinator`, {
+        method: "PUT", body: JSON.stringify({ coordinatorId: coordinator.id }),
+      }));
+    await expectStatus("SPM-30", "the Ops Manager CAN assign a coordinator (Step 3)", 200,
+      await asOpsManager(`/api/events/${createdEventRef}/coordinator`, {
+        method: "PUT", body: JSON.stringify({ coordinatorId: coordinator.id }),
       }));
     await expectStatus("AC4", "a coordinator CAN approve it (Step 5)", 200,
       await asCoordinator(`/api/events/${createdEventRef}`, {

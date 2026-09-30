@@ -3,8 +3,10 @@ import { ROLES } from "../roles";
 import {
   ACTIONS,
   ROLE_PERMISSIONS,
+  REASSIGNABLE_STATUSES,
   STATUS_TRANSITION_ROLES,
   can,
+  canAssignCoordinator,
   canCheckEquipmentAvailability,
   canReserveEquipment,
   canEditEventContent,
@@ -150,12 +152,18 @@ describe("relationship to an event", () => {
     expect(sharesOrganisation(coordinator, event({ organisationId: null }))).toBe(false);
   });
 
-  it("lets the assigned coordinator act, and lets any coordinator pick up an unassigned event", () => {
+  it("lets only the assigned coordinator act", () => {
     expect(isAssignedCoordinator(coordinator, event({ coordinatorId: "coordinator-1" }))).toBe(true);
     expect(isAssignedCoordinator(otherCoordinator, event({ coordinatorId: "coordinator-1" }))).toBe(
       false
     );
-    expect(isAssignedCoordinator(coordinator, event({ coordinatorId: null }))).toBe(true);
+  });
+
+  // SPM-30 (confirmed 2026-09-28): the "any coordinator may pick up an
+  // unassigned event" allowance is gone now that the Ops Manager assigns.
+  it("gives no coordinator an event nobody has been assigned to yet", () => {
+    expect(isAssignedCoordinator(coordinator, event({ coordinatorId: null }))).toBe(false);
+    expect(isAssignedCoordinator(otherCoordinator, event({ coordinatorId: null }))).toBe(false);
   });
 });
 
@@ -257,8 +265,8 @@ describe("canManageEquipmentRequests", () => {
     expect(canManageEquipmentRequests(coordinator, mine)).toBe(true);
   });
 
-  it("lets any coordinator pick up an event with no coordinator yet", () => {
-    expect(canManageEquipmentRequests(coordinator, event({ coordinatorId: null }))).toBe(true);
+  it("stops every coordinator on an event with no coordinator yet (SPM-30)", () => {
+    expect(canManageEquipmentRequests(coordinator, event({ coordinatorId: null }))).toBe(false);
   });
 
   it("stops a coordinator managing equipment on a colleague's event", () => {
@@ -278,6 +286,38 @@ describe("canManageEquipmentRequests", () => {
     const draft = event({ status: "draft" });
     for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
       expect(canManageEquipmentRequests(other, draft)).toBe(false);
+    }
+  });
+});
+
+describe("canAssignCoordinator (SPM-30)", () => {
+  it("lets the Ops Manager assign a submitted event that has no coordinator", () => {
+    expect(canAssignCoordinator(opsManager, event({ status: "submitted", coordinatorId: null }))).toBe(true);
+  });
+
+  it("lets the Ops Manager reassign a live event", () => {
+    for (const status of REASSIGNABLE_STATUSES) {
+      expect(canAssignCoordinator(opsManager, event({ status, coordinatorId: "coordinator-1" }))).toBe(true);
+    }
+  });
+
+  it("does not reassign a completed, cancelled or rejected event", () => {
+    for (const status of ["completed", "cancelled", "rejected"]) {
+      expect(canAssignCoordinator(opsManager, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  });
+
+  it("does not assign a draft, or a live event somehow left without one", () => {
+    expect(canAssignCoordinator(opsManager, event({ status: "draft" }))).toBe(false);
+    expect(canAssignCoordinator(opsManager, event({ status: "planning", coordinatorId: null }))).toBe(false);
+  });
+
+  it("stops every other role, including coordinators and the owning organiser (#94, #101)", () => {
+    const submitted = event({ status: "submitted" });
+    const live = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    for (const other of [coordinator, otherCoordinator, organiserA, venueStaff, techSupport, attendee]) {
+      expect(canAssignCoordinator(other, submitted)).toBe(false);
+      expect(canAssignCoordinator(other, live)).toBe(false);
     }
   });
 });

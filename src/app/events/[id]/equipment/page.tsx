@@ -114,6 +114,10 @@ export default function EventEquipmentPage() {
   const [requests, setRequests] = useState<EquipmentRequestRow[] | null>(null);
   const [catalogue, setCatalogue] = useState<EquipmentItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // SPM-30: a coordinator who is not assigned to this event can still open it
+  // (every coordinator sees every submitted event) but not its equipment - the
+  // API answers 403. Say why, rather than showing a load failure.
+  const [notPermitted, setNotPermitted] = useState<string | null>(null);
 
   // Draft edits per row, keyed by EquipmentRequest id — only rows the
   // Coordinator has touched appear here, so "Save" only shows on dirty rows.
@@ -141,7 +145,16 @@ export default function EventEquipmentPage() {
         return;
       }
       if (!eventRes.ok) throw new Error("Could not load this event.");
+      if (requestsRes.status === 403) {
+        setEvent(await eventRes.json());
+        setRequests([]);
+        setNotPermitted(
+          "Only the coordinator assigned to this event can view and manage its equipment requirements."
+        );
+        return;
+      }
       if (!requestsRes.ok) throw new Error("Could not load equipment requirements.");
+      setNotPermitted(null);
       setEvent(await eventRes.json());
       setRequests(await requestsRes.json());
     } catch (err) {
@@ -187,7 +200,7 @@ export default function EventEquipmentPage() {
   // server-side (canViewEquipmentRequests) — a role check is enough here.
   const canView = user && ["organiser", "coordinator", "tech_support"].includes(user.role);
   const locked = event ? isTerminalEventStatus(event.status) : false;
-  const canEdit = isCoordinator && !locked;
+  const canEdit = isCoordinator && !locked && !notPermitted;
 
   const equipmentOptions = useMemo(() => {
     // Scoped to the session currently chosen in "Add equipment" - uniqueness
@@ -385,6 +398,9 @@ export default function EventEquipmentPage() {
             </Alert>
           )}
 
+          {notPermitted ? (
+            <Alert variant="info">{notPermitted}</Alert>
+          ) : (
           <DataState
             data={requests}
             error={loadError}
@@ -517,6 +533,7 @@ export default function EventEquipmentPage() {
               </Card>
             )}
           </DataState>
+          )}
 
           {canEdit && (
             <Fieldset legend="Add equipment">
