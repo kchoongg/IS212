@@ -1,0 +1,330 @@
+{
+  "story_key": "SPM-28",
+  "story_title": "As an Event Coordinator, I want to review a submitted event request so that I can determine whether sufficient information is available to proceed with planning",
+  "created_by": "kchoongg",
+  "creation_date": "2026-09-30",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Event Coordinator can view submitted event requests they are authorised to review."
+    },
+    {
+      "id": "AC2",
+      "text": "All relevant event requirements are displayed."
+    },
+    {
+      "id": "AC3",
+      "text": "The Event Coordinator can identify incomplete or unclear information."
+    },
+    {
+      "id": "AC4",
+      "text": "The Event Coordinator can approve the request for planning."
+    },
+    {
+      "id": "AC5",
+      "text": "The Event Coordinator can reject the request."
+    },
+    {
+      "id": "AC6",
+      "text": "The event status is updated according to the review outcome."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-28-TC01",
+      "title": "Review Queue lists only the Under review events assigned to the logged-in coordinator",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.",
+      "steps": [
+        "Click 'Review Queue' in the sidebar"
+      ],
+      "test_data": "Must appear (Under review, coordinator Daniel Tan): SPM28 Nusantara Product Launch (EVT-000124), SPM28 Harbourline Client Seminar (EVT-000125) | Must not appear: SPM28 Kirana Regional Offsite (EVT-000126, coordinator Priya Raj), SPM28 Straits Journal Club (EVT-000127, coordinator Joel Fernandez)",
+      "expected_result": "Step 1: The Review Queue page lists 'SPM28 Nusantara Product Launch' (client 'Nusantara Tech Labs', 17 Mar 2027, 'Under review' badge) and 'SPM28 Harbourline Client Seminar'. Other Under review events assigned to Daniel Tan may also appear; only the SPM28 events are checked here. 'SPM28 Kirana Regional Offsite' and 'SPM28 Straits Journal Club' are not listed."
+    },
+    {
+      "id": "SPM-28-TC02",
+      "title": "Events past review are not in the coordinator's Review Queue",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.\nDaniel Tan also coordinates 'SPM28 Straits Research Symposium' (Planning) and 'SPM28 Meridian Wealth Forum' (Approved).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar"
+      ],
+      "test_data": "Must not appear: SPM28 Straits Research Symposium (EVT-000128, Planning), SPM28 Meridian Wealth Forum (EVT-000129, Approved)",
+      "expected_result": "Step 1: Neither 'SPM28 Straits Research Symposium' nor 'SPM28 Meridian Wealth Forum' is listed, even though Daniel Tan is their coordinator. Every listed event shows the 'Under review' badge."
+    },
+    {
+      "id": "SPM-28-TC03",
+      "title": "A coordinator cannot review an event assigned to another coordinator",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Priya Raj (priya.raj@connectsphere.com / password123), Event Coordinator not assigned to 'SPM28 Nusantara Product Launch' (its coordinator is Daniel Tan).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM28 Nusantara Product Launch'",
+        "Type /events/EVT-000124/review after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000124/review) and press Enter"
+      ],
+      "test_data": "Event: SPM28 Nusantara Product Launch (EVT-000124, coordinator Daniel Tan) | User: Priya Raj",
+      "expected_result": "Step 1: 'SPM28 Nusantara Product Launch' is not listed.\nStep 2: The event page opens with the 'Under review' badge, but shows no 'This request is waiting for your review' alert and no 'Review request' button.\nStep 3: A red alert 'You can't review this request' reads 'Only the coordinator assigned to this request can review it.' None of the request details and no 'Approve — planning can start' or 'Reject this request' options are shown."
+    },
+    {
+      "id": "SPM-28-TC04",
+      "title": "Non-coordinator roles cannot open the Review Queue",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged out.\nAccounts: Grace Lim (grace.lim@connectsphere.com / password123), Event Operations Manager; Sari Widodo (sari.widodo@nusantaratec.com / password123), Event Organiser; Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff.",
+      "steps": [
+        "Log in as Grace Lim",
+        "Check the sidebar for a 'Review Queue' link",
+        "Type /queue after the site address in the browser address bar (e.g. http://localhost:3000/queue) and press Enter",
+        "Log out and log in as Sari Widodo",
+        "Check the sidebar for a 'Review Queue' link",
+        "Type /queue after the site address in the browser address bar (e.g. http://localhost:3000/queue) and press Enter",
+        "Log out and log in as Marcus Wong",
+        "Check the sidebar for a 'Review Queue' link",
+        "Type /queue after the site address in the browser address bar (e.g. http://localhost:3000/queue) and press Enter"
+      ],
+      "test_data": "Roles: Event Operations Manager, Event Organiser, Venue Staff",
+      "expected_result": "Step 1: The Dashboard opens.\nStep 2: No 'Review Queue' link is shown.\nStep 3: The refusal message 'Reviewing event requests is the Event Coordinator's role. You can still see events you are involved in from All Events.' is shown, and no list of requests.\nStep 4: The Dashboard opens.\nStep 5: No 'Review Queue' link is shown.\nStep 6: The same refusal message as step 3 is shown, and no list of requests.\nStep 7: The Dashboard opens.\nStep 8: No 'Review Queue' link is shown.\nStep 9: The same refusal message as step 3 is shown, and no list of requests."
+    },
+    {
+      "id": "SPM-28-TC05",
+      "title": "Review page displays all requirements of the request",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.",
+      "steps": [
+        "Click 'Review Queue' in the sidebar",
+        "Click 'SPM28 Nusantara Product Launch'"
+      ],
+      "test_data": "Event: SPM28 Nusantara Product Launch (EVT-000124) | Client: Nusantara Tech Labs | Organiser: Sari Widodo | Category: Exhibition | Purpose: Regional product launch and press event | Description: Press event with livestream and product demonstration area. | When: 17 Mar 2027, 15:00–19:00 | Expected attendance: 200 | Preferred layout: Theatre | Registration: Not enabled | Facilities: High-density WiFi (required), Raised stage (required), Livestream capability (required), Green room (nice-to-have) | Equipment: LED Video Wall Panel × 4, Streaming Encoder × 1 | Accessibility needs and Special requirements: left empty by the organiser",
+      "expected_result": "Step 1: The Review Queue page opens and lists 'SPM28 Nusantara Product Launch'.\nStep 2: The 'Review request' page opens, with 'SPM28 Nusantara Product Launch' under the title and the 'Under review' badge. The 'What was requested' card shows every value in the test data next to its label, each facility followed by '(required)' or '(nice-to-have)', and each equipment item as 'name × quantity'. Accessibility needs and Special requirements show a 'Not provided' marker. No raw stored values (e.g. 'under_review', 'theatre') are shown."
+    },
+    {
+      "id": "SPM-28-TC06",
+      "title": "Missing information is clearly flagged on the review page",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Joel Fernandez (joel.fernandez@connectsphere.com / password123), Event Coordinator assigned to 'SPM28 Straits Journal Club' (Under review).\nThe request has no description, accessibility needs, special requirements, facilities or equipment.",
+      "steps": [
+        "Click 'Review Queue' in the sidebar",
+        "Click 'SPM28 Straits Journal Club'"
+      ],
+      "test_data": "Event: SPM28 Straits Journal Club (EVT-000127) | Empty: Description, Accessibility needs, Special requirements, Facilities, Equipment | Filled: Purpose 'Monthly journal club', Expected attendance 30, Layout Boardroom",
+      "expected_result": "Step 1: The Review Queue page opens and lists 'SPM28 Straits Journal Club'.\nStep 2: A yellow alert 'Some information was not provided' lists 'Description, Accessibility needs, Special requirements, Facilities, Equipment'. In 'What was requested', each of those rows shows a 'Not provided' marker (not blank or hidden). Purpose shows 'Monthly journal club', Expected attendance shows 30 and Preferred layout shows 'Boardroom'."
+    },
+    {
+      "id": "SPM-28-TC07",
+      "title": "Assigned coordinator can start a review from the event page",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM28 Nusantara Product Launch' (Under review).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM28 Nusantara Product Launch'",
+        "Click 'Review request' in the alert"
+      ],
+      "test_data": "Event: SPM28 Nusantara Product Launch (EVT-000124) | User: Daniel Tan (assigned coordinator)",
+      "expected_result": "Step 1: A blue alert 'This request is waiting for your review' with a 'Review request' button is shown above the Details card.\nStep 2: The 'Review request' page for 'SPM28 Nusantara Product Launch' opens with the 'Under review' badge and the 'Your decision' card."
+    },
+    {
+      "id": "SPM-28-TC08",
+      "title": "Coordinator approves a request for planning",
+      "linked_ac": [
+        "AC4",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nBefore: run `npm run fixtures:spm28` so 'SPM28 Harbourline Client Seminar' is back to Under review.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM28 Harbourline Client Seminar' (Under review).\nAfter: run `npm run fixtures:spm28` so the next tester starts from the same state. It deletes and recreates only the 'SPM28 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'Review Queue' in the sidebar",
+        "Click 'SPM28 Harbourline Client Seminar'",
+        "Select 'Approve — planning can start'",
+        "Click 'Approve request'",
+        "Click 'Approve' in the dialog",
+        "Click 'Review Queue' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM28 Harbourline Client Seminar'"
+      ],
+      "test_data": "Event: SPM28 Harbourline Client Seminar (EVT-000125) | Outcome: Approve",
+      "expected_result": "Step 2: The 'Review request' page opens with the 'Under review' badge.\nStep 3: The option is highlighted and an 'Approve request' button is shown.\nStep 4: A dialog 'Approve this request?' appears, saying the event moves from Under review to Approved. The status has not changed yet.\nStep 5: A green 'Request approved' alert reads '\"SPM28 Harbourline Client Seminar\" is now Approved. Planning can start.' The status badge changes from 'Under review' to 'Approved' and the 'Your decision' card disappears.\nStep 6: 'SPM28 Harbourline Client Seminar' is no longer listed.\nStep 7: The event page shows the 'Approved' status badge, and no 'This request is waiting for your review' alert."
+    },
+    {
+      "id": "SPM-28-TC09",
+      "title": "Cancelling the approve confirmation leaves the request unchanged",
+      "linked_ac": [
+        "AC4",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.\n'SPM28 Nusantara Product Launch' review page is open.",
+      "steps": [
+        "Select 'Approve — planning can start'",
+        "Click 'Approve request'",
+        "Click 'Cancel' in the dialog",
+        "Click 'Review Queue' in the sidebar"
+      ],
+      "test_data": "Event: SPM28 Nusantara Product Launch (EVT-000124) | Outcome: Approve, then cancelled",
+      "expected_result": "Step 1: The option is highlighted and an 'Approve request' button is shown.\nStep 2: The 'Approve this request?' dialog appears.\nStep 3: The dialog closes, no success message is shown, and the status badge still shows 'Under review'.\nStep 4: 'SPM28 Nusantara Product Launch' is still listed."
+    },
+    {
+      "id": "SPM-28-TC10",
+      "title": "Coordinator rejects a request with a reason",
+      "linked_ac": [
+        "AC5",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nBefore: run `npm run fixtures:spm28` so 'SPM28 Kirana Regional Offsite' is back to Under review.\nLogged in as Priya Raj (priya.raj@connectsphere.com / password123), Event Coordinator assigned to 'SPM28 Kirana Regional Offsite' (Under review).\nAfter: if you are running SPM-28-TC11 next, go straight to it - it needs this rejection. Otherwise run `npm run fixtures:spm28` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar",
+        "Click 'SPM28 Kirana Regional Offsite'",
+        "Select 'Reject this request'",
+        "Type the reason into 'Reason for rejection'",
+        "Click 'Reject request'",
+        "Click 'Review Queue' in the sidebar"
+      ],
+      "test_data": "Event: SPM28 Kirana Regional Offsite (EVT-000126) | Reason for rejection: Headcount was not confirmed after two reminders; please resubmit once numbers are final.",
+      "expected_result": "Step 2: The 'Review request' page opens with the 'Under review' badge.\nStep 3: The 'Reason for rejection' field (marked required) and the 'Reject request' and 'Cancel' buttons appear.\nStep 5: A green 'Request rejected' alert reads '\"SPM28 Kirana Regional Offsite\" is now Rejected. The organiser can see your reason on the event.' followed by 'Reason:' and the reason exactly as typed. The status badge changes from 'Under review' to 'Rejected'.\nStep 6: 'SPM28 Kirana Regional Offsite' is no longer listed."
+    },
+    {
+      "id": "SPM-28-TC11",
+      "title": "Organiser sees the Rejected status and the reason",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-28-TC10 has just been run ('SPM28 Kirana Regional Offsite' rejected by Priya Raj).\nLogged in as Faridah Aziz (faridah.aziz@kiranaretail.com / password123), Event Organiser of 'SPM28 Kirana Regional Offsite'.\nAfter: run `npm run fixtures:spm28` so the next tester starts from the same state. It deletes and recreates only the 'SPM28 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM28 Kirana Regional Offsite'"
+      ],
+      "test_data": "Expected reason: Headcount was not confirmed after two reminders; please resubmit once numbers are final.",
+      "expected_result": "Step 1: 'SPM28 Kirana Regional Offsite' is listed with the 'Rejected' badge.\nStep 2: A red alert banner at the top of the Overview reads 'This request was rejected' followed by the reason exactly as Priya Raj typed it."
+    },
+    {
+      "id": "SPM-28-TC12",
+      "title": "Rejecting without a reason is blocked",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.\n'SPM28 Nusantara Product Launch' review page is open.",
+      "steps": [
+        "Select 'Reject this request'",
+        "Click 'Reject request' without typing a reason",
+        "Click 'Review Queue' in the sidebar"
+      ],
+      "test_data": "Reason for rejection: (empty)",
+      "expected_result": "Step 1: The 'Reason for rejection' field appears, empty.\nStep 2: The 'Reason for rejection' field is outlined in red with the error 'A reason is required when rejecting. The organiser sees this message.' The status badge still shows 'Under review'.\nStep 3: 'SPM28 Nusantara Product Launch' is still listed."
+    },
+    {
+      "id": "SPM-28-TC13",
+      "title": "A reason made only of spaces is treated as empty",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.\n'SPM28 Nusantara Product Launch' review page is open.",
+      "steps": [
+        "Select 'Reject this request'",
+        "Type three spaces into 'Reason for rejection'",
+        "Click 'Reject request'"
+      ],
+      "test_data": "Reason for rejection: '   ' (3 spaces)",
+      "expected_result": "Step 1: The 'Reason for rejection' field appears, empty.\nStep 3: The same error as SPM-28-TC12 is shown: 'A reason is required when rejecting. The organiser sees this message.' The status badge still shows 'Under review'."
+    },
+    {
+      "id": "SPM-28-TC14",
+      "title": "Cancelling a rejection leaves the request unchanged",
+      "linked_ac": [
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), Event Coordinator.\n'SPM28 Nusantara Product Launch' review page is open.",
+      "steps": [
+        "Select 'Reject this request'",
+        "Type 'Test reason' into 'Reason for rejection'",
+        "Click 'Cancel'",
+        "Select 'Reject this request' again",
+        "Click 'Review Queue' in the sidebar"
+      ],
+      "test_data": "Reason for rejection: Test reason (then cancelled)",
+      "expected_result": "Step 1: The 'Reason for rejection' field appears.\nStep 3: The reason field closes and neither option is selected. The status badge still shows 'Under review'.\nStep 4: The 'Reason for rejection' field is empty (the cancelled text was discarded).\nStep 5: 'SPM28 Nusantara Product Launch' is still listed."
+    },
+    {
+      "id": "SPM-28-TC15",
+      "title": "An already rejected event offers no review actions",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm28` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM28 …' events, EVT-000124 to EVT-000130, never anyone else's data).\nLogged in as Priya Raj (priya.raj@connectsphere.com / password123), coordinator of 'SPM28 Overnight Hackathon' (status Rejected, reason 'No ConnectSphere venue is licensed for overnight occupancy.').",
+      "steps": [
+        "Click 'Review Queue' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM28 Overnight Hackathon'",
+        "Type /events/EVT-000130/review after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000130/review) and press Enter"
+      ],
+      "test_data": "Event: SPM28 Overnight Hackathon (EVT-000130, Rejected)",
+      "expected_result": "Step 1: 'SPM28 Overnight Hackathon' is not listed.\nStep 2: The event page shows EVT-000130 and the 'Rejected' badge, and a red 'This request was rejected' alert with 'No ConnectSphere venue is licensed for overnight occupancy.' No 'Review request' button is offered.\nStep 3: The browser goes straight to the event page for 'SPM28 Overnight Hackathon' (the address changes to /events/EVT-000130), showing the 'Rejected' badge and the rejection banner. No 'Review request' page, 'Your decision' card or Approve/Reject options are shown."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-09-30: The review page shows 'Under review' (SPM-30 behaviour), not 'Submitted' as in the EventReview mockup. The mockup needs updating.",
+    "RESOLVED 2026-09-30: Approving moves the event to 'Approved'. SPM-54 moves it on to 'Planning'.",
+    "RESOLVED 2026-09-30: Incomplete information is flagged only ('Not provided' markers and a summary alert) and never blocks Approve. Per discussion #80, approval means there is sufficient information for planning, and that is the coordinator's judgment; per #72, mandatory fields are not defined.",
+    "RESOLVED 2026-09-30: Clarifications are out of scope for SPM-28 - neither raising them ('Ask the organiser for clarification' in the mockup) nor showing existing ones. AC3 is met by flagging fields that were not provided.",
+    "RESOLVED 2026-09-30: No organiser notification on approve/reject in SPM-28.",
+    "RESOLVED 2026-09-30: The organiser sees the rejection reason in a red banner at the top of the event Overview ('This request was rejected' + reason).",
+    "RESOLVED 2026-09-30: Approve requires a confirmation dialog (tested in TC08 and TC09).",
+    "RESOLVED 2026-09-30: The server will only allow approve/reject from 'Under review'. Not reachable from the UI, so no manual test case; cover it with a unit test.",
+    "RESOLVED 2026-09-30: Test data. Every case uses the 'SPM28 …' events from `npm run fixtures:spm28` (scripts/seed-spm28.ts), which deletes and recreates only those events - never a full `npx prisma db seed`. TC08 and TC10 change data; their preconditions say to run it before and after. The same events are in prisma/seed.ts, so a full reseed also includes them.",
+    "RESOLVED 2026-09-30: Opening the review page of a request that is no longer Under review redirects to the event page (TC15), instead of showing a 'Nothing to review' message. A coordinator who is not assigned still sees 'You can't review this request' (TC03)."
+  ],
+  "code_references": [
+    "scripts/seed-spm28.ts",
+    "design/mockups/EventReview.dc.html",
+    "src/app/queue/page.tsx",
+    "src/app/api/queue/route.ts",
+    "src/app/events/[id]/review/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/api/events/[id]/route.ts",
+    "src/lib/eventReview.ts",
+    "src/lib/permissions.ts",
+    "src/lib/statuses.ts",
+    "prisma/schema.prisma",
+    "prisma/seed.ts",
+    "DOCUMENTATION.md",
+    "docs/discussions/20260916 - IS212-2026-discussions.md"
+  ]
+}

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import {
   Alert,
   Button,
+  ButtonLink,
   Card,
   CardBody,
   CardHeader,
@@ -20,7 +21,7 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
-import { can, canAssignCoordinator } from "@/lib/permissions";
+import { can, canAssignCoordinator, canReviewEvent } from "@/lib/permissions";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -68,6 +69,8 @@ interface EventDetail {
   organiserId?: string;
   organisationId?: string | null;
   facilityRequirements?: FacilityRequirement[];
+  // SPM-28: shown as a banner on a rejected event. Absent for an Attendee.
+  rejectionReason?: string | null;
   // Present for an Attendee too - which company is running the event is
   // public, even though who personally organised it (above) is not.
   organisation?: { name: string } | null;
@@ -166,6 +169,22 @@ export default function EventOverviewPage() {
     )
   );
 
+  const showReview = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canReviewEvent(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
   }
@@ -210,6 +229,32 @@ export default function EventOverviewPage() {
       ) : (
         <div className="flex flex-col gap-6">
           {notice && <Alert variant="success">{notice}</Alert>}
+
+          {/* SPM-28: the decision and its reason stay on the event record, and
+              the organiser sees why (confirmed 2026-09-30). An Attendee never
+              gets here - a rejected event is not visible to them at all. */}
+          {event.status === "rejected" && event.rejectionReason && (
+            <Alert variant="error" title="This request was rejected">
+              {event.rejectionReason}
+            </Alert>
+          )}
+
+          {/* SPM-28: the way in to the review from the event itself, as well
+              as from the Review Queue. Only for the assigned coordinator,
+              while the request is under review. */}
+          {showReview && (
+            <Alert
+              variant="info"
+              title="This request is waiting for your review"
+              action={
+                <ButtonLink href={`/events/${eventId}/review`} size="sm">
+                  Review request
+                </ButtonLink>
+              }
+            >
+              Approve it for planning, or reject it with a reason.
+            </Alert>
+          )}
 
           {/* SPM-30: the Ops Manager assigns or changes the coordinator here as
               well as from the Assignments screen. Absent for every other

@@ -4,9 +4,12 @@ import {
   ACTIONS,
   ROLE_PERMISSIONS,
   REASSIGNABLE_STATUSES,
+  REVIEWABLE_STATUSES,
+  REVIEW_OUTCOMES,
   STATUS_TRANSITION_ROLES,
   can,
   canAssignCoordinator,
+  canReviewEvent,
   canCheckEquipmentAvailability,
   canReserveEquipment,
   canEditEventContent,
@@ -318,6 +321,38 @@ describe("canAssignCoordinator (SPM-30)", () => {
     for (const other of [coordinator, otherCoordinator, organiserA, venueStaff, techSupport, attendee]) {
       expect(canAssignCoordinator(other, submitted)).toBe(false);
       expect(canAssignCoordinator(other, live)).toBe(false);
+    }
+  });
+});
+
+describe("canReviewEvent (SPM-28)", () => {
+  const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+
+  it("lets the assigned coordinator review a request that is under review", () => {
+    expect(canReviewEvent(coordinator, underReview)).toBe(true);
+  });
+
+  it("stops a coordinator the request is not assigned to", () => {
+    expect(canReviewEvent(otherCoordinator, underReview)).toBe(false);
+  });
+
+  it("stops every other role, including the owning organiser", () => {
+    for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canReviewEvent(other, underReview)).toBe(false);
+    }
+  });
+
+  it("only while under review - a decided or earlier request has nothing to review", () => {
+    for (const status of ["draft", "submitted", "approved", "planning", "confirmed", "rejected", "cancelled"]) {
+      expect(canReviewEvent(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+    expect(REVIEWABLE_STATUSES).toEqual(["under_review"]);
+  });
+
+  it("review outcomes are exactly approve and reject, both the coordinator's", () => {
+    expect(REVIEW_OUTCOMES).toEqual(["approved", "rejected"]);
+    for (const outcome of REVIEW_OUTCOMES) {
+      expect(STATUS_TRANSITION_ROLES[outcome]).toEqual(["coordinator"]);
     }
   });
 });
