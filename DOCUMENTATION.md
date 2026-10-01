@@ -241,6 +241,8 @@ IS212/
         │                                   venues passing every filter (AC7).
         ├── venueSearchForm.ts             # SPM-40 form values: pre-fill from an event,
         │                                   query string, client-side checks
+        ├── venueBookingRequest.ts         # SPM-42 request rules, pure: chosen slots ->
+        │                                   booking window, does it cover the schedule
         ├── equipment.ts                  # equipmentWindowFor() (pre-SPM-47) + checkOutOfService()/
         │                                  outOfServiceReasonFor() (SPM-48 AC7)
         ├── equipmentAvailability.ts       # SPM-48 rules, pure — no Prisma. D-1 → Return Day+1
@@ -746,6 +748,44 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-01 — Sammi Chua
+- **SPM-42 (Request Venue Booking), slice 1: test cases and slot rules.**
+  - `src/lib/venueBookingRequest.ts`: `requestedWindow()` and
+    `coversSchedule()`, built on SPM-46's `venueSlots.ts`.
+    `canRequestVenueBooking()` in `permissions.ts`.
+  - Test cases: `docs/test-cases/SPM-42_Test_Cases.xlsx` (17 cases, all 8 ACs;
+    open questions in the JSON).
+  - No migration: `VenueBooking` already has every field needed.
+- **SPM-42 decisions** (customer clarification numbers in brackets):
+  - A request is one date plus one or more **contiguous** AM/PM/Night slots
+    (#50) that cover every slot the event's, or the session's, own time
+    touches (#107). Extra slots are allowed.
+  - Setup and turnaround come from the venue and take one adjacent slot each,
+    across days (#108, #123). They are **shown but not stored**:
+    `startsAt`/`endsAt` hold the chosen slots only, and `occupiedCells()` adds
+    the rest, so the calendar never counts setup twice.
+  - Only the **assigned coordinator** can request, and only while the event is
+    **Approved or Planning**.
+  - **Clashes are blocked** at submission through `occupancyConflict()`
+    (#35, #41): unavailability, an approved booking (setup and turnaround
+    included), or another event's pending hold. Cancelled and rejected bookings
+    never block.
+  - An **unsuitable venue is refused**. SPM-41's greyed list is unchanged, and
+    an incomplete check (no attendance or layout yet) does not block.
+  - **One active (Pending/Approved) request per event**, or per session for a
+    multi-session event (#109).
+  - A session request uses the session's date, time, attendance and layout,
+    and the event's facilities. 'Venue requirements' is free text in
+    `requirementsNote`.
+  - Venue Staff will see requests in a **read-only `/bookings` list**, which
+    replaces the S-22 placeholder. Approve and Reject stay with the Venue
+    Booking Approval story.
+  - Test cases that create requests use `spm42_` fixture events
+    (`npm run fixtures:spm42`, not built yet), so a test pass can be repeated
+    without a reseed.
 
 ---
 
