@@ -5,11 +5,8 @@ import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
 import { parseEventReference } from "@/lib/format";
 import { createVenueBookingSchema } from "@/lib/validation";
-import {
-  NOT_REQUESTABLE_MESSAGE,
-  REQUESTABLE_EVENT_STATUSES,
-  checkVenueBookingRequest,
-} from "@/lib/venueBookingRequest";
+import { isTerminalEventStatus } from "@/lib/statuses";
+import { CLOSED_EVENT_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
 
 // SPM-42, Request Venue Booking. GET is what the Venue tab needs to offer a
 // request: the event's sessions, its existing requests, and whether this user
@@ -17,7 +14,6 @@ import {
 // checkVenueBookingRequest() (src/lib/venueBookingRequest.ts).
 
 const ONLY_ASSIGNED = "Only the assigned Coordinator can request a venue booking.";
-const ACTIVE = ["pending", "approved"];
 
 const BOOKING_FIELDS = {
   id: true,
@@ -67,8 +63,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // Why the Request booking button is missing, if it is (TC12, TC13).
   const cannotRequest = !canRequestVenueBooking(actor, event)
     ? ONLY_ASSIGNED
-    : !REQUESTABLE_EVENT_STATUSES.includes(event.status)
-      ? NOT_REQUESTABLE_MESSAGE
+    : isTerminalEventStatus(event.status)
+      ? CLOSED_EVENT_MESSAGE
       : null;
 
   return NextResponse.json({
@@ -124,7 +120,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       include: {
         layouts: true,
         facilities: true,
-        bookings: { where: { status: { in: ACTIVE } } },
+        bookings: { where: { status: { in: ["pending", "approved"] } } },
         unavailability: true,
       },
     });
@@ -132,11 +128,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (!venue || !venue.isActive) {
       return NextResponse.json({ error: "Venue not found" }, { status: 400 });
     }
-
-    const active = await prisma.venueBooking.findFirst({
-      where: { eventId: event.id, sessionId: session?.id ?? null, status: { in: ACTIVE } },
-      select: { status: true, venue: { select: { name: true } } },
-    });
 
     // D11: a session's own attendance and layout, the event's facilities.
     const preferredLayout = session ? session.preferredLayout : event.preferredLayout;
@@ -147,7 +138,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         ? { kind: "session", name: session.label ?? "This session" }
         : { kind: "event", name: event.title ?? "This event" },
       schedule,
-      activeRequest: active && { venueName: active.venue.name, status: active.status },
       needs: {
         expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
         preferredLayout,

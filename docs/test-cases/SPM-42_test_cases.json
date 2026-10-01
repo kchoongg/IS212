@@ -47,16 +47,20 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123), assigned to spm42_symposium 'SPM42 Research Symposium' (status Planning, 4 Mar 2027 (2026-09-26 + 159) 09:00-18:00, expects 200, layout Theatre, no sessions).\nChangi Conference Centre (CBP-CONF) has Theatre capacity 260.",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123), assigned to spm42_symposium 'SPM42 Research Symposium' (status Planning, 4 Mar 2027 (2026-09-26 + 159) 09:00-18:00, expects 200, layout Theatre, no sessions).\nChangi Conference Centre (CBP-CONF) has Theatre capacity 260.",
       "steps": [
-        "Open the event 'SPM42 Research Symposium'",
-        "Open the Venue tab (Find a venue)",
-        "Find 'Changi Conference Centre (CBP-CONF)' in the results",
-        "Click 'Request booking' on it",
-        "Tick 'AM (07:00–12:00)' and 'PM (13:00–18:00)' for 4 Mar 2027",
-        "Type the text below into 'Venue requirements'",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Research Symposium' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Changi Conference Centre (CBP-CONF)' in the venue list and check the badge next to it",
+        "Click 'Request booking' on Changi Conference Centre",
+        "Check the Date shows 4 Mar 2027 and only 'AM (07:00–12:00)' and 'PM (13:00–18:00)' are ticked",
+        "Click in the 'Venue requirements' box and type: Lectern and stage riser at the front; two wireless microphones; doors open 08:30.",
         "Click 'Submit request'",
-        "Log out, log in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123) and click 'Booking Requests' in the sidebar"
+        "Log out, then log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the row for SPM42 Research Symposium and read its Layout and Requirements"
       ],
       "test_data": "Event: SPM42 Research Symposium\nVenue: Changi Conference Centre (CBP-CONF)\nDate: 4 Mar 2027 (2026-09-26 + 159)\nSlots: AM, PM\nVenue requirements: Lectern and stage riser at the front; two wireless microphones; doors open 08:30.",
       "expected_result": "Changi Conference Centre is shown as Suitable.\nThe booking request screen opens for 'SPM42 Research Symposium' at 'Changi Conference Centre (CBP-CONF)'.\nAfter submitting, 'Booking request sent to Venue Staff.' is shown.\nMarcus Wong sees the request with Layout 'Theatre' and the requirements exactly as typed."
@@ -69,11 +73,15 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to 'SPM42 Research Symposium' (expects 200, Theatre).\nOne-North Auditorium (ONE-AUD) has Theatre capacity 180.",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Daniel Tan, assigned to 'SPM42 Research Symposium' (expects 200, Theatre).\nOne-North Auditorium (ONE-AUD) has Theatre capacity 180.",
       "steps": [
-        "Open the event 'SPM42 Research Symposium'",
-        "Open the Venue tab (Find a venue)",
-        "Find 'One-North Auditorium (ONE-AUD)' in the results"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Research Symposium' in the list",
+        "Click the 'Venue' tab",
+        "Find 'One-North Auditorium (ONE-AUD)' in the venue list",
+        "Read the badge and the reason shown under it",
+        "Look for a 'Request booking' button on it"
       ],
       "test_data": "Venue: One-North Auditorium, Theatre capacity 180\nExpected attendance: 200",
       "expected_result": "One-North Auditorium is shown greyed as not suitable with the reason 'Theatre capacity is 180 - your event expects 200.'\nIt has no 'Request booking' button."
@@ -87,17 +95,23 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_morning_talk 'SPM42 Morning Talk' (status Planning, 5 Mar 2027 (2026-09-26 + 160) 10:00-12:00, no sessions).",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Daniel Tan, assigned to spm42_morning_talk 'SPM42 Morning Talk' (status Planning, 5 Mar 2027 (2026-09-26 + 160) 10:00-12:00, no sessions).",
       "steps": [
-        "Open the event 'SPM42 Morning Talk'",
-        "Open the Venue tab (Find a venue)",
-        "Click 'Request booking' on 'Orchard Seminar Room (ORC-SEM)'",
-        "Tick only 'AM (07:00–12:00)' for 5 Mar 2027",
-        "Leave 'Venue requirements' empty",
-        "Click 'Submit request'"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Morning Talk' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Check the Date shows 5 Mar 2027 and only 'AM (07:00–12:00)' is ticked",
+        "Leave the 'Venue requirements' box empty",
+        "Click 'Submit request'",
+        "Click 'Back to Venue' and read the request under 'Booking requests'",
+        "Log out, then log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the row for SPM42 Morning Talk and read its Requirements"
       ],
       "test_data": "Date: 5 Mar 2027 (2026-09-26 + 160)\nSlots: AM\nVenue requirements: (empty)",
-      "expected_result": "'Booking request sent to Venue Staff.' is shown.\nThe request shows 5 Mar 2027, AM (07:00–12:00) — the whole slot, not the event's own 10:00–12:00 — and Requirements 'None given'."
+      "expected_result": "'Booking request sent to Venue Staff.' is shown.\nUnder 'Booking requests' the request reads '5 Mar 2027 · AM (07:00–12:00)' — the whole slot, not the event's own 10:00–12:00.\nMarcus Wong's Booking Requests row shows Requirements 'None given'."
     },
     {
       "id": "SPM-42-TC04",
@@ -108,16 +122,20 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_town_hall 'SPM42 Town Hall' (status Planning, 6 Mar 2027 (2026-09-26 + 161) 09:00-17:00, no sessions).",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Daniel Tan, assigned to spm42_town_hall 'SPM42 Town Hall' (status Planning, 6 Mar 2027 (2026-09-26 + 161) 09:00-17:00, no sessions).",
       "steps": [
-        "Open the event 'SPM42 Town Hall'",
-        "Open the Venue tab (Find a venue)",
-        "Click 'Request booking' on 'Orchard Seminar Room (ORC-SEM)'",
-        "Check the date and slots already filled in",
-        "Click 'Submit request'"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Town Hall' in the list",
+        "Click the 'Venue' tab",
+        "Check there is no 'Session' drop-down above the venue list",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Check the Date shows 6 Mar 2027 and 'AM (07:00–12:00)' and 'PM (13:00–18:00)' are already ticked",
+        "Click 'Submit request'",
+        "Click 'Back to Venue' and read the request under 'Booking requests'"
       ],
       "test_data": "Event: SPM42 Town Hall (no sessions)\nDate: 6 Mar 2027 (2026-09-26 + 161)\nSlots: AM, PM",
-      "expected_result": "No Session field is shown. The date is 6 Mar 2027 with AM and PM already ticked (the event's own time).\n'Booking request sent to Venue Staff.' is shown.\nThe request shows 6 Mar 2027, AM and PM, 07:00–18:00."
+      "expected_result": "No Session drop-down is shown. The Date is 6 Mar 2027 with AM and PM already ticked (the event's own time).\n'Booking request sent to Venue Staff.' is shown.\nUnder 'Booking requests' the request reads '6 Mar 2027 · AM, PM (07:00–18:00)'."
     },
     {
       "id": "SPM-42-TC05",
@@ -127,12 +145,18 @@
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_refusals 'SPM42 Refusal Checks' (status Planning, 7 Mar 2027 (2026-09-26 + 162) 09:00-17:00, no sessions).\nBooking request screen open for it at 'Orchard Seminar Room (ORC-SEM)'.",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Daniel Tan, assigned to spm42_refusals 'SPM42 Refusal Checks' (status Planning, 7 Mar 2027 (2026-09-26 + 162) 09:00-17:00, no sessions).\nBooking request screen open for it at 'Orchard Seminar Room (ORC-SEM)'.",
       "steps": [
-        "Untick every slot",
-        "Click 'Submit request'",
-        "Tick 'AM (07:00–12:00)' and 'Night (19:00–24:00)', leave PM unticked",
-        "Click 'Submit request'"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Refusal Checks' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Untick 'AM (07:00–12:00)' and 'PM (13:00–18:00)' so no slot is ticked",
+        "Click 'Submit request' and read the message",
+        "Tick 'AM (07:00–12:00)' and 'Night (19:00–24:00)'; leave 'PM (13:00–18:00)' unticked",
+        "Click 'Submit request' and read the message",
+        "Click 'Cancel' and check 'Booking requests' on the Venue tab"
       ],
       "test_data": "Date: 7 Mar 2027 (2026-09-26 + 162)\nAttempt 1: no slots\nAttempt 2: AM, Night",
       "expected_result": "Attempt 1 shows 'Choose at least one slot.'\nAttempt 2 shows 'Choose slots that are next to each other — AM and Night cannot be booked without PM.'\nNo request is created for 'SPM42 Refusal Checks'."
@@ -146,15 +170,24 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to the three events in Test data (all status Planning, no sessions).\nOrchard Seminar Room (ORC-SEM): setup 60 min, teardown 30 min. Changi Conference Centre (CBP-CONF): setup 120 min, teardown 90 min.",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Daniel Tan, assigned to the three events in Test data (all status Planning, no sessions).\nOrchard Seminar Room (ORC-SEM): setup 60 min, teardown 30 min. Changi Conference Centre (CBP-CONF): setup 120 min, teardown 90 min.",
       "steps": [
-        "Open the event",
-        "Open the Venue tab (Find a venue)",
-        "Click 'Request booking' on the venue",
-        "Tick the slots for the date",
-        "Read the setup and turnaround lines",
-        "Click 'Submit request'",
-        "Repeat for the next event"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Early Briefing' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Check only 'AM (07:00–12:00)' is ticked for 8 Mar 2027, read the 'Setup:' and 'Turnaround:' lines, then click 'Submit request'",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Late Show' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Check only 'Night (19:00–24:00)' is ticked for 9 Mar 2027, read the 'Setup:' and 'Turnaround:' lines, then click 'Submit request'",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Networking Evening' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Changi Conference Centre (CBP-CONF)' in the venue list and click its 'Request booking' button",
+        "Check only 'PM (13:00–18:00)' and 'Night (19:00–24:00)' are ticked for 11 Mar 2027, read the 'Setup:' and 'Turnaround:' lines, then click 'Submit request'"
       ],
       "test_data": "1. spm42_early_briefing 'SPM42 Early Briefing', 8 Mar 2027 (2026-09-26 + 163) 09:00-12:00, Orchard Seminar Room, AM\n2. spm42_late_show 'SPM42 Late Show', 9 Mar 2027 (2026-09-26 + 164) 19:00-22:00, Orchard Seminar Room, Night\n3. spm42_networking 'SPM42 Networking Evening', 11 Mar 2027 (2026-09-26 + 166) 17:00-22:00, expects 120, Banquet, Changi Conference Centre, PM + Night",
       "expected_result": "1. 'Setup: 7 Mar 2027 Night (19:00–24:00)' and 'Turnaround: 8 Mar 2027 PM (13:00–18:00)'.\n2. 'Setup: 9 Mar 2027 PM (13:00–18:00)' and 'Turnaround: 10 Mar 2027 AM (07:00–12:00)'.\n3. 'Setup: 11 Mar 2027 AM (07:00–12:00)' and 'Turnaround: 12 Mar 2027 AM (07:00–12:00)' — one slot each end for a two-slot event, and 120 minutes of setup still takes only one slot.\nEach request is sent and holds exactly its chosen slots plus those two."
@@ -168,16 +201,21 @@
       ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_plain_pm 'SPM42 Plain Afternoon' (status Planning, 10 Mar 2027 (2026-09-26 + 165) 14:00-17:00, expects 30, Classroom, no sessions).\nFixture venue 'SPM42 Plain Room' (SPM42-PLN) has setup 0 min and teardown 0 min.",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Daniel Tan, assigned to spm42_plain_pm 'SPM42 Plain Afternoon' (status Planning, 10 Mar 2027 (2026-09-26 + 165) 14:00-17:00, expects 30, Classroom, no sessions).\nFixture venue 'SPM42 Plain Room' (SPM42-PLN) has setup 0 min and teardown 0 min.",
       "steps": [
-        "Open the event 'SPM42 Plain Afternoon'",
-        "Open the Venue tab (Find a venue)",
-        "Click 'Request booking' on 'SPM42 Plain Room (SPM42-PLN)'",
-        "Tick 'PM (13:00–18:00)' and 'Night (19:00–24:00)' for 10 Mar 2027",
-        "Click 'Submit request'"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Plain Afternoon' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM42 Plain Room (SPM42-PLN)' in the venue list and click its 'Request booking' button",
+        "Read the line under the slots",
+        "Tick 'Night (19:00–24:00)' as well, so 'PM (13:00–18:00)' and 'Night (19:00–24:00)' are both ticked for 10 Mar 2027",
+        "Check the line under the slots has not changed",
+        "Click 'Submit request'",
+        "Click 'Back to Venue' and read the request under 'Booking requests'"
       ],
       "test_data": "Venue: SPM42 Plain Room, setup 0 min, teardown 0 min\nDate: 10 Mar 2027 (2026-09-26 + 165)\nSlots: PM, Night (the event only needs PM)",
-      "expected_result": "The screen shows 'No setup or turnaround needed at this venue.'\n'Booking request sent to Venue Staff.' is shown.\nThe request holds 10 Mar 2027 PM and Night — nothing before or after."
+      "expected_result": "Before and after ticking Night, the line under the slots reads 'No setup or turnaround needed at this venue.'\n'Booking request sent to Venue Staff.' is shown.\nUnder 'Booking requests' the request reads '10 Mar 2027 · PM, Night (13:00–24:00)' — nothing before or after."
     },
     {
       "id": "SPM-42-TC08",
@@ -188,13 +226,21 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42 (so Day 2 has no request yet).\nLogged in as Daniel Tan, assigned to spm42_three_sessions 'SPM42 Three-Session Forum' (Day 2: 2 Mar 2027 (2026-09-26 + 157) 14:00-17:00) and to 'SPM42 Refusal Checks' (7 Mar 2027 09:00-17:00, no sessions).",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones). Run this case before TC09, so Day 2 has no request yet.\nLogged in as Daniel Tan, assigned to spm42_three_sessions 'SPM42 Three-Session Forum' (Day 2: 2 Mar 2027 (2026-09-26 + 157) 14:00-17:00) and to 'SPM42 Refusal Checks' (7 Mar 2027 09:00-17:00, no sessions).",
       "steps": [
-        "Open 'SPM42 Three-Session Forum', open the Venue tab, choose Session 'Day 2' and click 'Request booking' on 'Orchard Studio (ORC-STU)'",
-        "Tick only 'AM (07:00–12:00)' for 2 Mar 2027 and click 'Submit request'",
-        "Change the date to 1 Mar 2027, tick only 'PM (13:00–18:00)' and click 'Submit request'",
-        "Open 'SPM42 Refusal Checks', open the Venue tab and click 'Request booking' on 'Orchard Seminar Room (ORC-SEM)'",
-        "Tick only 'AM (07:00–12:00)' for 7 Mar 2027 and click 'Submit request'"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Three-Session Forum' in the list",
+        "Click the 'Venue' tab",
+        "In the 'Session' drop-down, choose 'Day 2'",
+        "Find 'Orchard Studio (ORC-STU)' in the venue list and click its 'Request booking' button",
+        "Untick 'PM (13:00–18:00)', tick only 'AM (07:00–12:00)', then click 'Submit request' and read the message",
+        "Change the Date to 1 Mar 2027, tick only 'PM (13:00–18:00)', then click 'Submit request' and read the message",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Refusal Checks' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Untick 'PM (13:00–18:00)' so only 'AM (07:00–12:00)' is ticked for 7 Mar 2027, then click 'Submit request' and read the message"
       ],
       "test_data": "Attempt 1: Day 2, 2 Mar 2027 AM (session runs in PM)\nAttempt 2: Day 2, 1 Mar 2027 PM (Day 1's date)\nAttempt 3: SPM42 Refusal Checks, 7 Mar 2027 AM only (event runs into PM)",
       "expected_result": "Attempts 1 and 2 show 'The chosen slots do not cover the session's time (2 Mar 2027, 14:00–17:00).'\nAttempt 3 shows 'The chosen slots do not cover the event's time (7 Mar 2027, 09:00–17:00).'\nNo request is created."
@@ -208,14 +254,22 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_three_sessions 'SPM42 Three-Session Forum' (status Approved; opening the Venue tab moves it to Planning, SPM-40). Sessions: 'Day 1' 1 Mar 2027 (2026-09-26 + 156) 09:00-12:00, expects 80, Theatre; 'Day 2' 2 Mar 2027 (2026-09-26 + 157) 14:00-17:00, expects 30, Classroom; 'Day 3' 3 Mar 2027 (2026-09-26 + 158) 19:00-22:00, expects 60, Banquet.",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones).\nLogged in as Daniel Tan, assigned to spm42_three_sessions 'SPM42 Three-Session Forum' (status Approved). Sessions: 'Day 1' 1 Mar 2027 (2026-09-26 + 156) 09:00-12:00, expects 80, Theatre; 'Day 2' 2 Mar 2027 (2026-09-26 + 157) 14:00-17:00, expects 30, Classroom; 'Day 3' 3 Mar 2027 (2026-09-26 + 158) 19:00-22:00, expects 60, Banquet.",
       "steps": [
-        "Open the event 'SPM42 Three-Session Forum'",
-        "Open the Venue tab (Find a venue)",
-        "Choose Session 'Day 1', click 'Request booking' on 'Orchard Seminar Room (ORC-SEM)', check the date and slot shown, click 'Submit request'",
-        "Choose Session 'Day 2', click 'Request booking' on 'Orchard Studio (ORC-STU)', check the date and slot shown, click 'Submit request'",
-        "Choose Session 'Day 3', click 'Request booking' on 'Orchard Gallery (ORC-GAL)', check the date and slot shown, click 'Submit request'",
-        "Look at the event's booking requests"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Three-Session Forum' in the list",
+        "Click the 'Venue' tab",
+        "In the 'Session' drop-down, choose 'Day 1'",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Check the Session, Date, ticked slot and Layout shown, then click 'Submit request' and click 'Back to Venue'",
+        "In the 'Session' drop-down, choose 'Day 2'",
+        "Find 'Orchard Studio (ORC-STU)' in the venue list and click its 'Request booking' button",
+        "Check the Session, Date, ticked slot and Layout shown, then click 'Submit request' and click 'Back to Venue'",
+        "In the 'Session' drop-down, choose 'Day 3'",
+        "Find 'Orchard Gallery (ORC-GAL)' in the venue list and click its 'Request booking' button",
+        "Check the Session, Date, ticked slot and Layout shown, then click 'Submit request' and click 'Back to Venue'",
+        "Read the three requests under 'Booking requests'"
       ],
       "test_data": "Day 1: Orchard Seminar Room, 1 Mar 2027, AM\nDay 2: Orchard Studio, 2 Mar 2027, PM\nDay 3: Orchard Gallery, 3 Mar 2027, Night",
       "expected_result": "Each screen opens on its own session's date with its slot already ticked: Day 1 → 1 Mar 2027 AM; Day 2 → 2 Mar 2027 PM; Day 3 → 3 Mar 2027 Night.\nThree separate requests are listed, each labelled with its session and showing that session's layout: Day 1 Theatre, Day 2 Classroom, Day 3 Banquet."
@@ -230,10 +284,11 @@
       "source": "Acceptance Criteria",
       "preconditions": "TC04 and TC09 have been run.\nLogged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).",
       "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
         "Click 'Booking Requests' in the sidebar",
-        "Find the request for Orchard Seminar Room on 6 Mar 2027",
-        "Find the request for Orchard Studio on 2 Mar 2027",
-        "Click the event reference on one of them"
+        "Find the row for Orchard Seminar Room on 6 Mar 2027 and read its Event column",
+        "Find the row for Orchard Studio on 2 Mar 2027 and read its Event column",
+        "Click the EVT- reference in the 2 Mar row"
       ],
       "test_data": "Requests: SPM42 Town Hall (no sessions); SPM42 Three-Session Forum, Day 2",
       "expected_result": "The 6 Mar request shows the event reference (EVT-…) and title 'SPM42 Town Hall', with no session.\nThe 2 Mar request shows 'SPM42 Three-Session Forum' and session 'Day 2'.\nClicking an event reference opens that event."
@@ -249,11 +304,17 @@
       "source": "Acceptance Criteria",
       "preconditions": "TC04 has been run.",
       "steps": [
-        "As Daniel Tan, open 'SPM42 Town Hall', open the Venue tab and look at its booking requests",
-        "Log in as Venue Staff Marcus Wong and click 'Booking Requests' in the sidebar"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Town Hall' in the list",
+        "Click the 'Venue' tab",
+        "Read the status badge of the request under 'Booking requests'",
+        "Log out, then log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the row for SPM42 Town Hall and read every column"
       ],
       "test_data": "Request: SPM42 Town Hall, Orchard Seminar Room, 6 Mar 2027, AM + PM",
-      "expected_result": "Both screens show the request with the status badge 'Pending'.\nMarcus Wong's list shows venue Orchard Seminar Room, 6 Mar 2027, AM and PM, setup 5 Mar 2027 Night, turnaround 6 Mar 2027 Night, requested by Daniel Tan."
+      "expected_result": "Both screens show the request with the status badge 'Pending'.\nMarcus Wong's row shows Orchard Seminar Room, '6 Mar 2027 · AM, PM (07:00–18:00)', 'Setup: 5 Mar 2027 Night (19:00–24:00)', 'Turnaround: 6 Mar 2027 Night (19:00–24:00)', and Requested by Daniel Tan."
     },
     {
       "id": "SPM-42-TC12",
@@ -266,28 +327,37 @@
       "source": "Code",
       "preconditions": "Seeded data: 'Town Hall Q4' (status Planning) is assigned to Daniel Tan.\nAccounts (password123): Coordinator Priya Raj (priya.raj@connectsphere.com), Organiser Rachel Ng (rachel.ng@meridianfina.com, organiser of 'Town Hall Q4'), Ops Manager Grace Lim (grace.lim@connectsphere.com), Venue Staff Marcus Wong (marcus.wong@connectsphere.com), Technical Support Kenji Sato (kenji.sato@connectsphere.com).",
       "steps": [
-        "Log in as each account in turn",
-        "Open the event 'Town Hall Q4'",
-        "Open the Venue tab if it is shown"
+        "Log in as priya.raj@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'Town Hall Q4' in the list",
+        "Click the 'Venue' tab",
+        "Read the message above the venue list and look for any 'Request booking' button",
+        "Log out, log in as rachel.ng@meridianfina.com / password123, click 'My Events', click 'Town Hall Q4' and look for a 'Venue' tab",
+        "Log out, log in as grace.lim@connectsphere.com / password123, click 'All Events', click 'Town Hall Q4' and look for a 'Venue' tab",
+        "Log out, log in as marcus.wong@connectsphere.com / password123, click 'Booking Requests' and look for any 'Request booking' button",
+        "Log out, log in as kenji.sato@connectsphere.com / password123 and look through the sidebar for anywhere to request a venue"
       ],
       "test_data": "Accounts: Priya Raj (Coordinator, not assigned), Rachel Ng (Organiser), Grace Lim (Ops Manager), Marcus Wong (Venue Staff), Kenji Sato (Technical Support)",
       "expected_result": "None of the five sees a 'Request booking' button anywhere for this event.\nPriya Raj's Venue tab says 'Only the assigned Coordinator can request a venue booking.'"
     },
     {
       "id": "SPM-42-TC13",
-      "title": "A booking can only be requested once the event is Approved or in Planning (team decision)",
+      "title": "A venue cannot be requested for a completed, cancelled or rejected event (existing SPM-47 rule)",
       "linked_ac": [
         "AC7"
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Seeded data.\nLogged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), assigned to 'Kirana Regional Managers Offsite' (status Under review, 22 Nov 2026 (2026-09-26 + 57) 09:00-17:00).",
+      "preconditions": "Seeded data.\nLogged in as Coordinator Joel Fernandez (joel.fernandez@connectsphere.com / password123), assigned to 'Pearl Delta Supplier Forum' (status Cancelled, 29 Oct 2026 (2026-09-26 + 33) 09:00-14:00).",
       "steps": [
-        "Open the event 'Kirana Regional Managers Offsite'",
-        "Open the Venue tab (Find a venue)"
+        "Log in as joel.fernandez@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'Pearl Delta Supplier Forum' in the list",
+        "Click the 'Venue' tab",
+        "Read the message above the venue list and look for any 'Request booking' button"
       ],
-      "test_data": "Event status: Under review",
-      "expected_result": "No 'Request booking' button is shown.\nThe page says 'A venue booking can only be requested once the event is Approved or in Planning.'"
+      "test_data": "Event status: Cancelled",
+      "expected_result": "No 'Request booking' button is shown.\nThe page says 'A venue cannot be requested for a completed, cancelled or rejected event.'"
     },
     {
       "id": "SPM-42-TC14",
@@ -297,14 +367,24 @@
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Run npm run fixtures:spm42. Seeded data, unchanged:\n- 'Product Showcase' has an Approved booking at Marina Auditorium (MAR-AUD), 21 Oct 2026 (2026-09-26 + 25) 11:00-15:00.\n- 'Pearl Delta Safety Conference' has a Pending booking at Changi Conference Centre (CBP-CONF), 14 Dec 2026 (2026-09-26 + 79) 09:00-17:00.\n- Marina Auditorium is unavailable for maintenance 20-21 Nov 2026 (2026-09-26 + 55 to + 56).\nLogged in as Daniel Tan, assigned to the three events in Test data (status Planning, no sessions, no booking).",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones). Seeded data, unchanged:\n- 'Product Showcase' has an Approved booking at Marina Auditorium (MAR-AUD), 21 Oct 2026 (2026-09-26 + 25) 11:00-15:00.\n- 'Pearl Delta Safety Conference' has a Pending booking at Changi Conference Centre (CBP-CONF), 14 Dec 2026 (2026-09-26 + 79) 09:00-17:00.\n- Marina Auditorium is unavailable for maintenance 20-21 Nov 2026 (2026-09-26 + 55 to + 56).\nLogged in as Daniel Tan, assigned to the three events in Test data (status Planning, no sessions, no booking).",
       "steps": [
-        "Open the event",
-        "Open the Venue tab (Find a venue)",
-        "Click 'Request booking' on the venue",
-        "Tick 'AM (07:00–12:00)' and 'PM (13:00–18:00)' for the date",
-        "Click 'Submit request'",
-        "Repeat for the next event"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 Clash Check' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Marina Auditorium (MAR-AUD)' in the venue list and click its 'Request booking' button",
+        "Make sure 'AM (07:00–12:00)' and 'PM (13:00–18:00)' are ticked for 21 Oct 2026, click 'Submit request' and read the message",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'Staff Retreat' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Changi Conference Centre (CBP-CONF)' in the venue list and click its 'Request booking' button",
+        "Make sure 'AM (07:00–12:00)' and 'PM (13:00–18:00)' are ticked for 14 Dec 2026, click 'Submit request' and read the message",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'Sports Meet' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Marina Auditorium (MAR-AUD)' in the venue list and click its 'Request booking' button",
+        "Make sure 'AM (07:00–12:00)' and 'PM (13:00–18:00)' are ticked for 20 Nov 2026, click 'Submit request' and read the message"
       ],
       "test_data": "1. spm42_clash_check 'SPM42 Clash Check', 21 Oct 2026 11:00-15:00, Marina Auditorium (Approved booking)\n2. 'Staff Retreat', 14 Dec 2026 09:00-17:00, Changi Conference Centre (Pending hold)\n3. 'Sports Meet', 20 Nov 2026 09:00-17:00, Marina Auditorium (maintenance)",
       "expected_result": "1. 'Marina Auditorium is already booked for this time.'\n2. 'Changi Conference Centre is on hold for another event at this time.'\n3. 'Marina Auditorium is unavailable at this time.'\nNo request is created for any of the three."
@@ -320,11 +400,13 @@
       "source": "Code",
       "preconditions": "Seeded data: 'Product Showcase' has an Approved booking at Marina Auditorium (MAR-AUD, setup 60 min, teardown 30 min) on 21 Oct 2026 AM + PM, so its setup holds 20 Oct 2026 Night.\nLogged in as Daniel Tan, assigned to 'Keynote Rehearsal' (status Planning, 20 Oct 2026 (2026-09-26 + 24) 14:00-16:00, no sessions).",
       "steps": [
-        "Open the event 'Keynote Rehearsal'",
-        "Open the Venue tab (Find a venue)",
-        "Click 'Request booking' on 'Marina Auditorium (MAR-AUD)'",
-        "Tick only 'PM (13:00–18:00)' for 20 Oct 2026",
-        "Click 'Submit request'"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'Keynote Rehearsal' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Marina Auditorium (MAR-AUD)' in the venue list and click its 'Request booking' button",
+        "Make sure only 'PM (13:00–18:00)' is ticked for 20 Oct 2026",
+        "Click 'Submit request' and read the message"
       ],
       "test_data": "Requested: 20 Oct 2026 PM (its turnaround takes 20 Oct Night)\nExisting: Product Showcase, 21 Oct AM + PM (its setup takes 20 Oct Night)",
       "expected_result": "Error 'Marina Auditorium is already booked for this time.' is shown, although the two events' own slots (20 Oct PM and 21 Oct AM + PM) do not overlap.\nNo request is created."
@@ -338,37 +420,24 @@
       ],
       "type": "Boundary",
       "source": "Code",
-      "preconditions": "Run npm run fixtures:spm42. It creates:\n- 'SPM42 Cancelled Hold' with a Cancelled booking at Orchard Gallery (ORC-GAL), 15 Mar 2027 (2026-09-26 + 170) 09:00-17:00.\n- 'SPM42 Rejected Hold' with a Rejected booking at Marina Auditorium (MAR-AUD), 16 Mar 2027 (2026-09-26 + 171) 09:00-18:00 — had it been approved, its turnaround would hold 16 Mar Night.\nLogged in as Daniel Tan, assigned to the two events in Test data (status Planning, no sessions).",
+      "preconditions": "npm run fixtures:spm42 has been run once at the start of this test pass (do not re-run it between cases - later cases use requests made in earlier ones). It creates:\n- 'SPM42 Cancelled Hold' with a Cancelled booking at Orchard Gallery (ORC-GAL), 15 Mar 2027 (2026-09-26 + 170) 09:00-17:00.\n- 'SPM42 Rejected Hold' with a Rejected booking at Marina Auditorium (MAR-AUD), 16 Mar 2027 (2026-09-26 + 171) 09:00-18:00 — had it been approved, its turnaround would hold 16 Mar Night.\nLogged in as Daniel Tan, assigned to the two events in Test data (status Planning, no sessions).",
       "steps": [
-        "Open the event",
-        "Open the Venue tab (Find a venue)",
-        "Click 'Request booking' on the venue",
-        "Tick 'AM (07:00–12:00)' and 'PM (13:00–18:00)' for the date",
-        "Click 'Submit request'",
-        "Repeat for the next event"
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 After Cancellation' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Gallery (ORC-GAL)' in the venue list and click its 'Request booking' button",
+        "Make sure 'AM (07:00–12:00)' and 'PM (13:00–18:00)' are ticked for 15 Mar 2027, click 'Submit request' and read the message",
+        "Click 'Back to Venue' and read the status under 'Booking requests'",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM42 After Rejection' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Marina Auditorium (MAR-AUD)' in the venue list and click its 'Request booking' button",
+        "Make sure 'AM (07:00–12:00)' and 'PM (13:00–18:00)' are ticked for 17 Mar 2027, click 'Submit request' and read the message",
+        "Click 'Back to Venue' and read the status under 'Booking requests'"
       ],
       "test_data": "1. spm42_after_cancel 'SPM42 After Cancellation', 15 Mar 2027 10:00-16:00, Orchard Gallery (same slots as the cancelled booking)\n2. spm42_after_reject 'SPM42 After Rejection', 17 Mar 2027 (2026-09-26 + 172) 10:00-16:00, Marina Auditorium (its setup takes 16 Mar Night)",
       "expected_result": "Both show 'Booking request sent to Venue Staff.' and the request is Pending."
-    },
-    {
-      "id": "SPM-42-TC17",
-      "title": "An event or session with an active request cannot request a second venue (#109)",
-      "linked_ac": [
-        "AC4",
-        "AC5"
-      ],
-      "type": "Negative",
-      "source": "Code",
-      "preconditions": "TC04 and TC09 have been run (SPM42 Town Hall and Session 'Day 1' each have a Pending request).\nLogged in as Daniel Tan.",
-      "steps": [
-        "Open the event",
-        "Open the Venue tab (Find a venue), choosing the session where there is one",
-        "Click 'Request booking' on the venue",
-        "Click 'Submit request' with the date and slots already filled in",
-        "Repeat for the next attempt"
-      ],
-      "test_data": "1. SPM42 Town Hall, Orchard Studio (ORC-STU), 6 Mar 2027 AM + PM\n2. SPM42 Three-Session Forum, Session 'Day 1', Orchard Gallery (ORC-GAL), 1 Mar 2027 AM",
-      "expected_result": "1. 'SPM42 Town Hall already has a venue booking request (Orchard Seminar Room, Pending).'\n2. 'Day 1 already has a venue booking request (Orchard Seminar Room, Pending).'\nNo new request is created; Session 'Day 2' and 'Day 3' are unaffected."
     }
   ],
   "open_questions": [],

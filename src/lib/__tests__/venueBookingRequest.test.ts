@@ -4,6 +4,7 @@ import {
   coversSchedule,
   defaultSlots,
   requestedWindow,
+  requestSlotsLabel,
   setupAndTurnaround,
   slotCellLabel,
   type BookingRequestInput,
@@ -140,7 +141,6 @@ describe("checkVenueBookingRequest", () => {
     eventStatus: "planning",
     holder: { kind: "event", name: "SPM42 Town Hall" },
     schedule: { startsAt: sgt("2027-03-06T09:00:00"), endsAt: sgt("2027-03-06T17:00:00") },
-    activeRequest: null,
     needs: { expectedAttendance: 100, preferredLayout: "theatre", requirements: [] },
     venue: {
       name: "Orchard Seminar Room",
@@ -217,14 +217,16 @@ describe("checkVenueBookingRequest", () => {
     });
   });
 
-  it("SPM-42-TC13: an event that is not Approved or Planning is refused", () => {
-    for (const status of ["draft", "submitted", "under_review", "confirmed", "cancelled"]) {
+  it("SPM-42-TC13: a completed, cancelled or rejected event is refused", () => {
+    for (const status of ["completed", "cancelled", "rejected"]) {
       expect(checkVenueBookingRequest({ ...base, eventStatus: status })).toEqual({
         ok: false,
-        error: "A venue booking can only be requested once the event is Approved or in Planning.",
+        error: "A venue cannot be requested for a completed, cancelled or rejected event.",
       });
     }
-    expect(checkVenueBookingRequest({ ...base, eventStatus: "approved" }).ok).toBe(true);
+    for (const status of ["under_review", "approved", "planning", "confirmed"]) {
+      expect(checkVenueBookingRequest({ ...base, eventStatus: status }).ok).toBe(true);
+    }
   });
 
   it("SPM-42-TC14: a slot with another event's approved booking is refused", () => {
@@ -267,21 +269,6 @@ describe("checkVenueBookingRequest", () => {
     }
   });
 
-  it("SPM-42-TC17: an event or session with an active request cannot request again", () => {
-    expect(
-      checkVenueBookingRequest({ ...base, activeRequest: { venueName: "Orchard Seminar Room", status: "pending" } })
-    ).toEqual({
-      ok: false,
-      error: "SPM42 Town Hall already has a venue booking request (Orchard Seminar Room, Pending).",
-    });
-    expect(
-      checkVenueBookingRequest({
-        ...base,
-        holder: { kind: "session", name: "Day 1" },
-        activeRequest: { venueName: "Orchard Seminar Room", status: "approved" },
-      })
-    ).toEqual({ ok: false, error: "Day 1 already has a venue booking request (Orchard Seminar Room, Approved)." });
-  });
 });
 
 // AC3 on screen: the request form and Venue Staff's list name the extra slots.
@@ -305,5 +292,21 @@ describe("setupAndTurnaround", () => {
       setup: null,
       turnaround: null,
     });
+  });
+});
+
+// How a stored request is shown: its date and slots, never a raw end time -
+// Night ends at 24:00, which is stored as the next day's midnight.
+describe("requestSlotsLabel", () => {
+  it("SPM-42-TC03: one slot", () => {
+    expect(requestSlotsLabel(requestedWindow("2027-03-05", ["AM"])!)).toBe("5 Mar 2027 · AM (07:00–12:00)");
+  });
+
+  it("SPM-42-TC04: two slots", () => {
+    expect(requestSlotsLabel(requestedWindow("2027-03-06", ["AM", "PM"])!)).toBe("6 Mar 2027 · AM, PM (07:00–18:00)");
+  });
+
+  it("SPM-42-TC07: a request ending with Night stays on its own date", () => {
+    expect(requestSlotsLabel(requestedWindow("2027-03-10", ["PM", "Night"])!)).toBe("10 Mar 2027 · PM, Night (13:00–24:00)");
   });
 });

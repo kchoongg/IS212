@@ -11,7 +11,7 @@
 // Pure functions over plain data, like the rest of src/lib.
 
 import { formatDate, formatDateTimeRange } from "@/lib/format";
-import { statusLabel } from "@/lib/statuses";
+import { isTerminalEventStatus } from "@/lib/statuses";
 import { occupancyConflict, type SearchableVenue } from "@/lib/venueSearch";
 import {
   SLOTS,
@@ -60,12 +60,8 @@ export function defaultSlots(schedule: Interval): { day: string; slots: Slot[] }
   return { day: cells[0].day, slots: cells.map((c) => c.slot) };
 }
 
-/// Only these event statuses may request a venue (team decision, 2026-10-01):
-/// before approval there is nothing to plan; after confirmation the venue is
-/// already settled (#80).
-export const REQUESTABLE_EVENT_STATUSES = ["approved", "planning"];
-export const NOT_REQUESTABLE_MESSAGE =
-  "A venue booking can only be requested once the event is Approved or in Planning.";
+/// Same rule as recording equipment (SPM-47): a closed event takes no new requests.
+export const CLOSED_EVENT_MESSAGE = "A venue cannot be requested for a completed, cancelled or rejected event.";
 
 export interface BookingRequestInput {
   eventId: string;
@@ -74,8 +70,6 @@ export interface BookingRequestInput {
   holder: { kind: "event" | "session"; name: string };
   /// The holder's own times.
   schedule: Interval;
-  /// The holder's existing pending or approved request, if any (#109).
-  activeRequest: { venueName: string; status: string } | null;
   /// Session attendance and layout where there is a session; facilities are
   /// always the event's.
   needs: EventNeeds;
@@ -93,13 +87,7 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
   const refuse = (error: string): BookingRequestCheck => ({ ok: false, error });
   const { venue, holder } = input;
 
-  if (!REQUESTABLE_EVENT_STATUSES.includes(input.eventStatus)) {
-    return refuse(NOT_REQUESTABLE_MESSAGE);
-  }
-  if (input.activeRequest) {
-    const { venueName, status } = input.activeRequest;
-    return refuse(`${holder.name} already has a venue booking request (${venueName}, ${statusLabel(status)}).`);
-  }
+  if (isTerminalEventStatus(input.eventStatus)) return refuse(CLOSED_EVENT_MESSAGE);
 
   if (input.slots.length === 0) return refuse("Choose at least one slot.");
   const window = requestedWindow(input.day, input.slots);
@@ -147,4 +135,17 @@ export function setupAndTurnaround(
 /// "7 Mar 2027 Night (19:00–24:00)"
 export function slotCellLabel(cell: SlotCell): string {
   return `${formatDate(localDayStart(cell.day))} ${cell.slot} (${slotRangeLabel(cell.slot)})`;
+}
+
+/// "10 Mar 2027 · PM, Night (13:00–24:00)" - a request as its date and slots.
+/// The raw end time would read "11 Mar 2027, 00:00" for anything ending with
+/// Night. Falls back to the times for a booking that is not one day's slots.
+export function requestSlotsLabel(window: Interval): string {
+  const cells = slotsCovered(window);
+  if (cells.length === 0 || cells.some((c) => c.day !== cells[0].day)) {
+    return formatDateTimeRange(window.startsAt, window.endsAt);
+  }
+  const first = slotRangeLabel(cells[0].slot).split("–")[0];
+  const last = slotRangeLabel(cells[cells.length - 1].slot).split("–")[1];
+  return `${formatDate(localDayStart(cells[0].day))} · ${cells.map((c) => c.slot).join(", ")} (${first}–${last})`;
 }

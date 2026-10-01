@@ -784,7 +784,10 @@ what changed, why, and the migration name if there is one.
   "Request booking" button on suitable venues and the event's requests with
   their status. S-15 (`/events/[id]/booking/new`) is the request form. S-22
   (`/bookings`) is now a read-only list of pending requests for Venue Staff.
-  UI_DESIGN.md S-15 and §7.4 updated to match.
+  UI_DESIGN.md S-15 and §7.4 updated to match. Requests are shown as their
+  date and slots (`requestSlotsLabel()`), e.g. "10 Mar 2027 · PM, Night
+  (13:00–24:00)", not raw times: Night ends at 24:00, stored as the next
+  day's midnight.
 - **SPM-42 decisions** (customer clarification numbers in brackets):
   - A request is one date plus one or more **contiguous** AM/PM/Night slots
     (#50) that cover every slot the event's, or the session's, own time
@@ -793,16 +796,16 @@ what changed, why, and the migration name if there is one.
     across days (#108, #123). They are **shown but not stored**:
     `startsAt`/`endsAt` hold the chosen slots only, and `occupiedCells()` adds
     the rest, so the calendar never counts setup twice.
-  - Only the **assigned coordinator** can request, and only while the event is
-    **Approved or Planning**.
+  - Only the **assigned coordinator** can request (existing SPM-30 rule), and
+    not for a completed, cancelled or rejected event (existing SPM-47 rule,
+    `isTerminalEventStatus()`). Nothing beyond the AC was added: no extra
+    status restriction and no limit on requests per event.
   - **Clashes are blocked** at submission through `occupancyConflict()`
     (#35, #41): unavailability, an approved booking (setup and turnaround
     included), or another event's pending hold. Cancelled and rejected bookings
     never block.
   - An **unsuitable venue is refused**. SPM-41's greyed list is unchanged, and
     an incomplete check (no attendance or layout yet) does not block.
-  - **One active (Pending/Approved) request per event**, or per session for a
-    multi-session event (#109).
   - A session request uses the session's date, time, attendance and layout,
     and the event's facilities. 'Venue requirements' is free text in
     `requirementsNote`.

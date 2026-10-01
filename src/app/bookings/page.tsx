@@ -7,9 +7,9 @@ import { DataState, PageHeader, StatusBadge, Table, type Column } from "@/compon
 import { RequirePermission } from "@/components/RequirePermission";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor } from "@/lib/useCurrentUser";
-import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { formatVenue } from "@/lib/format";
 import { layoutLabel } from "@/lib/venueSuitability";
-import { setupAndTurnaround, slotCellLabel } from "@/lib/venueBookingRequest";
+import { requestSlotsLabel, setupAndTurnaround, slotCellLabel } from "@/lib/venueBookingRequest";
 
 // S-22, Booking Requests. SPM-42 AC7: the pending venue booking requests
 // coordinators have submitted, for Venue Staff to review. Read-only for now -
@@ -83,11 +83,12 @@ function BookingRequests() {
       key: "venue",
       header: "Venue and slots",
       render: (r) => {
-        const holds = setupAndTurnaround({ startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) }, r.venue);
+        const window = { startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) };
+        const holds = setupAndTurnaround(window, r.venue);
         return (
           <div>
             <p>{formatVenue(r.venue.name, r.venue.code)}</p>
-            <p className="text-ink-2">{formatDateTimeRange(r.startsAt, r.endsAt)}</p>
+            <p className="text-ink-2">{requestSlotsLabel(window)}</p>
             {holds.setup && <p className="text-xs text-ink-3">Setup: {slotCellLabel(holds.setup)}</p>}
             {holds.turnaround && <p className="text-xs text-ink-3">Turnaround: {slotCellLabel(holds.turnaround)}</p>}
           </div>

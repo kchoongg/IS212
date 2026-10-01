@@ -78,7 +78,7 @@ const FIXTURES: Fixture[] = [
     date: "2027-03-05", startHour: 10, durationHours: 2, attendance: 40, layout: "theatre", testCases: "TC03" },
   { key: "spm42_town_hall", title: "SPM42 Town Hall", status: "planning", coordinator: DANIEL,
     date: "2027-03-06", startHour: 9, durationHours: 8, attendance: 100, layout: "theatre",
-    testCases: "TC04 TC10 TC11 TC17" },
+    testCases: "TC04 TC10 TC11" },
   { key: "spm42_refusals", title: "SPM42 Refusal Checks", status: "planning", coordinator: DANIEL,
     date: "2027-03-07", startHour: 9, durationHours: 8, attendance: 50, layout: "theatre", testCases: "TC05 TC08" },
   { key: "spm42_early_briefing", title: "SPM42 Early Briefing", status: "planning", coordinator: DANIEL,
@@ -97,7 +97,7 @@ const FIXTURES: Fixture[] = [
       { label: "Day 2", date: "2027-03-02", startHour: 14, durationHours: 3, attendance: 30, layout: "classroom" },
       { label: "Day 3", date: "2027-03-03", startHour: 19, durationHours: 3, attendance: 60, layout: "banquet" },
     ],
-    testCases: "TC08 TC09 TC10 TC17" },
+    testCases: "TC08 TC09 TC10" },
   // Same day and time as Product Showcase's approved booking at Marina Auditorium.
   { key: "spm42_clash_check", title: "SPM42 Clash Check", status: "planning", coordinator: DANIEL,
     date: "2026-10-21", startHour: 11, durationHours: 4, testCases: "TC14" },
