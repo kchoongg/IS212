@@ -759,6 +759,11 @@ what changed, why, and the migration name if there is one.
   - Test cases: `docs/test-cases/SPM-42_Test_Cases.xlsx` (17 cases, all 8 ACs;
     open questions in the JSON).
   - No migration: `VenueBooking` already has every field needed.
+- **SPM-42 slices 2–3: request rules and schema.**
+  `checkVenueBookingRequest()` applies every decision below in one pure
+  function and returns the window to store or the refusal message;
+  `defaultSlots()` pre-fills the form. `createVenueBookingSchema` in
+  `src/lib/validation/venues.ts`.
 - **SPM-42 decisions** (customer clarification numbers in brackets):
   - A request is one date plus one or more **contiguous** AM/PM/Night slots
     (#50) that cover every slot the event's, or the session's, own time
