@@ -363,6 +363,13 @@ async function main() {
       layouts: [["exhibition", 100], ["banquet", 60]],
       facilities: ["High-density WiFi", "Built-in PA system", "Catering pantry", "Natural light",
         "Step-free access", "Wheelchair spaces", "Accessible toilet", "Assistance animal friendly"] },
+    // SPM-42 fixture (scripts/seed-spm42.ts): the only venue with no setup or
+    // turnaround, for SPM-42-TC07.
+    { code: "SPM42-PLN", name: "SPM42 Plain Room", description: "SPM-42 test venue: needs no setup or turnaround",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -924,6 +931,38 @@ async function main() {
       regEnabled: true, regCapacity: 150 },
   );
 
+  // -----------------------------------------------------------------
+  // SPM-42 QA fixtures (Request Venue Booking). The SAME events as
+  // scripts/seed-spm42.ts (`npm run fixtures:spm42`) - keep the two in step.
+  // Sessions and the two blocker bookings are created further down.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm42 = (
+    key: string, title: string, date: string, startHour: number, durationHours: number,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-42 venue booking request test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, ...options,
+  });
+  eventData.push(
+    spm42("spm42_symposium", "SPM42 Research Symposium", "2027-03-04", 9, 9, { attendance: 200, layout: "theatre" }),
+    spm42("spm42_morning_talk", "SPM42 Morning Talk", "2027-03-05", 10, 2, { attendance: 40, layout: "theatre" }),
+    spm42("spm42_town_hall", "SPM42 Town Hall", "2027-03-06", 9, 8, { attendance: 100, layout: "theatre" }),
+    spm42("spm42_refusals", "SPM42 Refusal Checks", "2027-03-07", 9, 8, { attendance: 50, layout: "theatre" }),
+    spm42("spm42_early_briefing", "SPM42 Early Briefing", "2027-03-08", 9, 3, { attendance: 40, layout: "theatre" }),
+    spm42("spm42_late_show", "SPM42 Late Show", "2027-03-09", 19, 3, { attendance: 40, layout: "theatre" }),
+    spm42("spm42_plain_pm", "SPM42 Plain Afternoon", "2027-03-10", 14, 3, { attendance: 30, layout: "classroom" }),
+    spm42("spm42_networking", "SPM42 Networking Evening", "2027-03-11", 17, 5, { attendance: 120, layout: "banquet" }),
+    spm42("spm42_three_sessions", "SPM42 Three-Session Forum", "2027-03-01", 9, 61,
+      { status: "approved", attendance: 80, layout: "theatre" }),
+    spm42("spm42_clash_check", "SPM42 Clash Check", "2026-10-21", 11, 4),
+    spm42("spm42_cancelled_hold", "SPM42 Cancelled Hold", "2027-03-15", 9, 8, { coordinator: "priya.raj@connectsphere.com" }),
+    spm42("spm42_rejected_hold", "SPM42 Rejected Hold", "2027-03-16", 9, 9, { coordinator: "priya.raj@connectsphere.com" }),
+    spm42("spm42_after_cancel", "SPM42 After Cancellation", "2027-03-15", 10, 6),
+    spm42("spm42_after_reject", "SPM42 After Rejection", "2027-03-17", 10, 6),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -1123,6 +1162,9 @@ async function main() {
     ["completed_retreat", "MAR-BR1", "approved"],
     ["completed_roadshow", "ORC-GAL", "approved"],
     ["cancelled", "CBP-MTG2", "cancelled", "Released after the client cancelled the event."],
+    // SPM-42-TC16: decided bookings that must NOT block a new request.
+    ["spm42_cancelled_hold", "ORC-GAL", "cancelled", "Released by the coordinator."],
+    ["spm42_rejected_hold", "MAR-AUD", "rejected", "Auditorium needed for internal rigging work."],
   ];
   for (let i = 0; i < bookings.length; i++) {
     const [eventKey, venueCode, status, reason] = bookings[i];
@@ -1449,6 +1491,23 @@ async function main() {
       requestedAt: day(safety.days - 20),
     },
   });
+
+  // SPM-42 (TC08, TC09): one venue booking request per session, each on its
+  // own date, time, attendance and layout. Same as scripts/seed-spm42.ts.
+  const spm42Forum = events["spm42_three_sessions"];
+  for (const [label, date, from, attendance, layout] of [
+    ["Day 1", "2027-03-01", 9, 80, "theatre"],
+    ["Day 2", "2027-03-02", 14, 30, "classroom"],
+    ["Day 3", "2027-03-03", 19, 60, "banquet"],
+  ] as const) {
+    await prisma.eventSession.create({
+      data: {
+        eventId: spm42Forum.id, label,
+        startsAt: day(daysUntil(date), from), endsAt: day(daysUntil(date), from + 3),
+        expectedAttendance: attendance, preferredLayout: layout,
+      },
+    });
+  }
 
   // -------------------------------------------------------------------
   // REGISTRATIONS

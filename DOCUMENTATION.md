@@ -145,7 +145,8 @@ IS212/
 ├── scripts/
 │   ├── verify-permissions.ts    # `npm run verify:permissions` — see Everyday Commands
 │   ├── verify-login.ts          # `npm run verify:login`
-│   └── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
+│   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
+│   └── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
 │
 └── src/
     ├── app/
@@ -601,6 +602,7 @@ traceability the module asks for.
 | `npm test` | Run tests once |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
+| `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -764,6 +766,9 @@ what changed, why, and the migration name if there is one.
   function and returns the window to store or the refusal message;
   `defaultSlots()` pre-fills the form. `createVenueBookingSchema` in
   `src/lib/validation/venues.ts`.
+- **SPM-42 slice 4: test data.** `npm run fixtures:spm42`
+  (`scripts/seed-spm42.ts`), mirrored at the end of `prisma/seed.ts`. Adds one
+  venue, SPM42-PLN, because no seeded venue has zero setup and zero teardown.
 - **SPM-42 decisions** (customer clarification numbers in brackets):
   - A request is one date plus one or more **contiguous** AM/PM/Night slots
     (#50) that cover every slot the event's, or the session's, own time
