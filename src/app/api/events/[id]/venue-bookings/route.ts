@@ -72,6 +72,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       : null;
 
   return NextResponse.json({
+    event: { title: event.title, preferredLayout: event.preferredLayout },
     schedule: { startsAt: event.startsAt, endsAt: event.endsAt },
     sessions: event.sessions.map((s) => ({
       id: s.id,

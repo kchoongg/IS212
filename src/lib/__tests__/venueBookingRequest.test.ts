@@ -4,6 +4,8 @@ import {
   coversSchedule,
   defaultSlots,
   requestedWindow,
+  setupAndTurnaround,
+  slotCellLabel,
   type BookingRequestInput,
 } from "../venueBookingRequest";
 import { occupiedCells } from "../venueSlots";
@@ -279,5 +281,29 @@ describe("checkVenueBookingRequest", () => {
         activeRequest: { venueName: "Orchard Seminar Room", status: "approved" },
       })
     ).toEqual({ ok: false, error: "Day 1 already has a venue booking request (Orchard Seminar Room, Approved)." });
+  });
+});
+
+// AC3 on screen: the request form and Venue Staff's list name the extra slots.
+describe("setupAndTurnaround", () => {
+  const ORC_SEM = { setupMinutes: 60, teardownMinutes: 30 };
+
+  it("SPM-42-TC06: an AM request's setup is the previous day's Night", () => {
+    const holds = setupAndTurnaround(requestedWindow("2027-03-08", ["AM"])!, ORC_SEM);
+    expect(holds.setup && slotCellLabel(holds.setup)).toBe("7 Mar 2027 Night (19:00–24:00)");
+    expect(holds.turnaround && slotCellLabel(holds.turnaround)).toBe("8 Mar 2027 PM (13:00–18:00)");
+  });
+
+  it("SPM-42-TC06: a Night request's turnaround is the next day's AM", () => {
+    const holds = setupAndTurnaround(requestedWindow("2027-03-09", ["Night"])!, ORC_SEM);
+    expect(holds.setup && slotCellLabel(holds.setup)).toBe("9 Mar 2027 PM (13:00–18:00)");
+    expect(holds.turnaround && slotCellLabel(holds.turnaround)).toBe("10 Mar 2027 AM (07:00–12:00)");
+  });
+
+  it("SPM-42-TC07: a venue with no setup or turnaround holds neither", () => {
+    expect(setupAndTurnaround(requestedWindow("2027-03-10", ["PM", "Night"])!, { setupMinutes: 0, teardownMinutes: 0 })).toEqual({
+      setup: null,
+      turnaround: null,
+    });
   });
 });

@@ -182,6 +182,10 @@ IS212/
     │   │                                coordinator" / "Change coordinator" card
     │   │                                here (SPM-30).
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
+    │   ├── events/[id]/booking/new/page.tsx # S-15 Venue booking request (SPM-42), from
+    │   │                                "Request booking" on the Venue tab
+    │   ├── bookings/page.tsx            # S-22 Booking Requests, Venue Staff. SPM-42:
+    │   │                                read-only pending list; no Approve/Reject yet
     │   ├── venues/search/page.tsx       # S-14 "Find a venue" (SPM-40): filters on the
     │   │                                left, ONLY matching venues on the right.
     │   │                                ?event=EVT-000123 pre-fills it from that
@@ -720,7 +724,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
 | **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
-| **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
+| **Venue booking approval not built** | SPM-42 creates Pending requests and lists them on `/bookings`, but nothing approves or rejects one, so `venue_booking:decide` only guards that read-only list. Two requests submitted at the same moment can both pass the clash check (no database lock). | venues |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC09 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
 | **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
@@ -776,6 +780,11 @@ what changed, why, and the migration name if there is one.
   (pending requests, Venue Staff). `GET .../venue-suitability` takes an
   optional `?session=<id>` so a session is judged on its own attendance and
   layout; without it, unchanged.
+- **SPM-42 slice 6: screens.** The Venue tab gets a session picker, a
+  "Request booking" button on suitable venues and the event's requests with
+  their status. S-15 (`/events/[id]/booking/new`) is the request form. S-22
+  (`/bookings`) is now a read-only list of pending requests for Venue Staff.
+  UI_DESIGN.md S-15 and §7.4 updated to match.
 - **SPM-42 decisions** (customer clarification numbers in brackets):
   - A request is one date plus one or more **contiguous** AM/PM/Night slots
     (#50) that cover every slot the event's, or the session's, own time

@@ -10,10 +10,21 @@
 //
 // Pure functions over plain data, like the rest of src/lib.
 
-import { formatDateTimeRange } from "@/lib/format";
+import { formatDate, formatDateTimeRange } from "@/lib/format";
 import { statusLabel } from "@/lib/statuses";
 import { occupancyConflict, type SearchableVenue } from "@/lib/venueSearch";
-import { SLOTS, SLOT_BOUNDARIES, localDayStart, slotsCovered, type Interval, type Slot } from "@/lib/venueSlots";
+import {
+  SLOTS,
+  SLOT_BOUNDARIES,
+  localDayStart,
+  occupiedCells,
+  slotRangeLabel,
+  slotsCovered,
+  type Interval,
+  type Slot,
+  type SlotCell,
+  type Turnaround,
+} from "@/lib/venueSlots";
 import { checkVenueSuitability, describeUnmet, type EventNeeds } from "@/lib/venueSuitability";
 
 /// The start of the first chosen slot to the end of the last, on `day`
@@ -116,4 +127,24 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
   }
 
   return { ok: true, window };
+}
+
+/// AC3 as the screens show it: the slot this request's setup takes before it
+/// and its turnaround takes after, from occupiedCells() - never stored.
+export function setupAndTurnaround(
+  window: Interval,
+  venue: Turnaround
+): { setup: SlotCell | null; turnaround: SlotCell | null } {
+  const cells = occupiedCells(window, venue);
+  const first = cells[0];
+  const last = cells[cells.length - 1];
+  return {
+    setup: first?.via === "turnaround" ? { day: first.day, slot: first.slot } : null,
+    turnaround: cells.length > 1 && last.via === "turnaround" ? { day: last.day, slot: last.slot } : null,
+  };
+}
+
+/// "7 Mar 2027 Night (19:00–24:00)"
+export function slotCellLabel(cell: SlotCell): string {
+  return `${formatDate(localDayStart(cell.day))} ${cell.slot} (${slotRangeLabel(cell.slot)})`;
 }

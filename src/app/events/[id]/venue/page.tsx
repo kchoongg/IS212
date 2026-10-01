@@ -8,21 +8,28 @@ import {
   ButtonLink,
   Card,
   CardBody,
+  CardHeader,
+  Field,
   PageHeader,
+  Select,
   SkeletonRows,
+  StatusBadge,
   Tabs,
 } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { cn } from "@/lib/cn";
-import { formatVenue } from "@/lib/format";
+import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { describeUnmet, layoutLabel, type UnmetRequirement } from "@/lib/venueSuitability";
 
 // SPM-41, "Find a venue" (design/mockups/VenueSearch.dc.html). Every active
 // venue is judged against the event's attendance, layout, facilities and
-// accessibility needs. Unsuitable venues stay visible, greyed, with the reason:
-// a coordinator may still want to ask about one.
+// accessibility needs. Unsuitable venues stay visible, greyed, with the reason.
+//
+// SPM-42: a suitable venue gets "Request booking" (S-15); an unsuitable one
+// does not (team decision, 2026-10-01). A multi-session event picks a session
+// first, and venues are then judged on that session's attendance and layout.
 
 interface Result {
   venue: {
@@ -49,6 +56,19 @@ interface Payload {
   results: Result[];
 }
 
+interface BookingInfo {
+  sessions: { id: string; label: string | null; startsAt: string; endsAt: string }[];
+  cannotRequest: string | null;
+  bookings: {
+    id: string;
+    status: string;
+    startsAt: string;
+    endsAt: string;
+    session: { id: string; label: string | null } | null;
+    venue: { code: string; name: string };
+  }[];
+}
+
 const MISSING_LABEL = {
   expectedAttendance: "expected attendance",
   preferredLayout: "preferred layout",
@@ -61,12 +81,31 @@ export default function EventVenuePage() {
   const { user, state } = useCurrentUser();
 
   const [data, setData] = useState<Payload | null>(null);
+  const [booking, setBooking] = useState<BookingInfo | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
     try {
-      const res = await authedFetch(`/api/events/${eventId}/venue-suitability`);
+      const info = await authedFetch(`/api/events/${eventId}/venue-bookings`);
+      if (info.status === 401) {
+        router.push(loginUrlFor(`/events/${eventId}/venue`));
+        return;
+      }
+      if (info.status === 404) {
+        setError("This event doesn't exist, or you don't have access to it.");
+        return;
+      }
+      if (!info.ok) throw new Error("Could not load this event's booking requests.");
+      const bookingInfo: BookingInfo = await info.json();
+      setBooking(bookingInfo);
+      // AC4: a multi-session event is booked per session - judge venues for one.
+      const session = sessionId ?? bookingInfo.sessions[0]?.id ?? null;
+      setSessionId(session);
+
+      const query = session ? `?session=${session}` : "";
+      const res = await authedFetch(`/api/events/${eventId}/venue-suitability${query}`);
       if (res.status === 401) {
         router.push(loginUrlFor(`/events/${eventId}/venue`));
         return;
@@ -85,7 +124,7 @@ export default function EventVenuePage() {
       setData(null);
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [eventId, router]);
+  }, [eventId, router, sessionId]);
 
   useEffect(() => {
     if (state === "anonymous") {
@@ -142,6 +181,23 @@ export default function EventVenuePage() {
         <SkeletonRows rows={4} />
       ) : (
         <div className="flex flex-col gap-4">
+          {booking && booking.sessions.length > 0 && (
+            <Field label="Session">
+              <Select
+                value={sessionId ?? ""}
+                onChange={(e) => setSessionId(e.target.value)}
+                options={booking.sessions.map((s) => ({
+                  value: s.id,
+                  label: `${s.label ?? "Session"} — ${formatDateTimeRange(s.startsAt, s.endsAt)}`,
+                }))}
+              />
+            </Field>
+          )}
+
+          {booking?.cannotRequest && <Alert variant="info">{booking.cannotRequest}</Alert>}
+
+          {booking && booking.bookings.length > 0 && <BookingRequests bookings={booking.bookings} />}
+
           {data.event.missing.length > 0 && (
             <Alert variant="info" title="This check is incomplete">
               The event has no {data.event.missing.map((m) => MISSING_LABEL[m]).join(" or ")} yet, so
@@ -154,7 +210,15 @@ export default function EventVenuePage() {
           </p>
 
           {data.results.map((result) => (
-            <VenueResult key={result.venue.id} result={result} />
+            <VenueResult
+              key={result.venue.id}
+              result={result}
+              requestHref={
+                booking && !booking.cannotRequest && result.suitable
+                  ? `/events/${eventId}/booking/new?venue=${result.venue.id}${sessionId ? `&session=${sessionId}` : ""}`
+                  : null
+              }
+            />
           ))}
         </div>
       )}
@@ -162,7 +226,30 @@ export default function EventVenuePage() {
   );
 }
 
-function VenueResult({ result }: { result: Result }) {
+/// SPM-42 AC5, AC8: this event's requests, each with its session and status.
+function BookingRequests({ bookings }: { bookings: BookingInfo["bookings"] }) {
+  return (
+    <Card>
+      <CardHeader title="Booking requests" />
+      <CardBody className="flex flex-col gap-3">
+        {bookings.map((b) => (
+          <div key={b.id} className="flex items-start justify-between gap-4 text-sm">
+            <div>
+              <p className="font-medium text-ink">{formatVenue(b.venue.name, b.venue.code)}</p>
+              <p className="text-xs text-ink-3">
+                {b.session && `${b.session.label ?? "Session"} · `}
+                {formatDateTimeRange(b.startsAt, b.endsAt)}
+              </p>
+            </div>
+            <StatusBadge status={b.status} />
+          </div>
+        ))}
+      </CardBody>
+    </Card>
+  );
+}
+
+function VenueResult({ result, requestHref }: { result: Result; requestHref: string | null }) {
   const { venue, suitable, unmet, optionalMissing } = result;
   return (
     <Card className={cn(!suitable && "bg-surface-2")}>
@@ -196,7 +283,7 @@ function VenueResult({ result }: { result: Result }) {
           )}
         </div>
 
-        <div className="shrink-0">
+        <div className="flex shrink-0 flex-col items-end gap-2">
           <span
             className={cn(
               "inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset",
@@ -207,6 +294,11 @@ function VenueResult({ result }: { result: Result }) {
           >
             {suitable ? "Suitable" : "Not suitable"}
           </span>
+          {requestHref && (
+            <ButtonLink href={requestHref} size="sm">
+              Request booking
+            </ButtonLink>
+          )}
         </div>
       </CardBody>
     </Card>
