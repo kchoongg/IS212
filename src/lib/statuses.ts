@@ -67,8 +67,30 @@ export function humanise(value: string): string {
 
 /// Statuses that mean the event is finished or abandoned. Used to decide
 /// whether to offer actions such as Cancel or Request change.
-export const TERMINAL_EVENT_STATUSES = ["completed", "cancelled", "rejected"];
+export const TERMINAL_EVENT_STATUSES = ["completed", "cancelled", "rejected", "withdrawn"];
 
 export function isTerminalEventStatus(status: string): boolean {
   return TERMINAL_EVENT_STATUSES.includes(status);
+}
+
+/// SPM-27: which from -> to moves the event lifecycle allows
+/// (docs/ConnectSphere_Status_Lifecycle.drawio). Who may make each move is
+/// STATUS_TRANSITION_ROLES in permissions.ts. A terminal status has no entry,
+/// so nothing moves out of it.
+const EVENT_TRANSITIONS: Record<string, readonly string[]> = {
+  draft: ["submitted"],
+  submitted: ["under_review", "withdrawn"],
+  under_review: ["approved", "rejected", "withdrawn"],
+  approved: ["planning", "cancelled"],
+  planning: ["confirmed", "postponed", "cancelled"],
+  confirmed: ["completed", "postponed", "cancelled"],
+  postponed: ["planning", "cancelled"],
+};
+
+export function canTransition(from: string, to: string): boolean {
+  return EVENT_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+export function transitionError(from: string, to: string): string {
+  return `This event is ${statusLabel(from)} and can't be moved to ${statusLabel(to)}.`;
 }

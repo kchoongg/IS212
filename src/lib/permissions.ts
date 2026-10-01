@@ -278,18 +278,23 @@ export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields)
 /// Venue Staff and Technical Support appear nowhere here on purpose: they
 /// decide their own bookings and equipment requests, not the event's status.
 ///
-/// This says WHO may set a status, not which from->to moves are legal - the
-/// lifecycle graph belongs to Event Status Management, a separate story.
+/// SPM-27 AC4, "the Event Organiser cannot manually change the event status":
+/// the organiser only submits or withdraws their own request. Postponing is
+/// the coordinator's, like cancelling - an organiser asks through a change
+/// request. Nothing moves an event back to draft. Decisions 2026-10-01.
+///
+/// This says WHO may set a status, not which from->to moves are legal - that
+/// is canTransition() in statuses.ts.
 export const STATUS_TRANSITION_ROLES: Record<string, readonly Role[]> = {
-  draft: ["organiser"],
   submitted: ["organiser"],
+  withdrawn: ["organiser"],
   under_review: ["ops_manager", "coordinator"],
   approved: ["coordinator"],
   rejected: ["coordinator"],
   planning: ["coordinator"],
   confirmed: ["coordinator"],
   completed: ["coordinator"],
-  postponed: ["coordinator", "organiser"],
+  postponed: ["coordinator"],
   cancelled: ["coordinator"],
 };
 

@@ -374,15 +374,30 @@ describe("canSetEventStatus", () => {
     expect(canSetEventStatus(attendee, confirmed, "cancelled")).toBe(false);
   });
 
-  // Postponement was NOT narrowed by that clarification - the organiser may
-  // still postpone their own event. Kept as its own test so a future change to
-  // one rule cannot silently take the other with it.
-  it("still lets the owning organiser postpone, unlike cancelling", () => {
+  // SPM-27 AC4: the organiser cannot change the status themselves, so
+  // postponing is the coordinator's too. An organiser asks through a change
+  // request instead (decision 2026-10-01).
+  it("SPM-27-TC05: lets ONLY the assigned coordinator postpone an event", () => {
     const confirmed = event({ status: "confirmed", coordinatorId: "coordinator-1" });
-    expect(canSetEventStatus(organiserA, confirmed, "postponed")).toBe(true);
     expect(canSetEventStatus(coordinator, confirmed, "postponed")).toBe(true);
+    expect(canSetEventStatus(organiserA, confirmed, "postponed")).toBe(false);
     expect(canSetEventStatus(organiserB, confirmed, "postponed")).toBe(false);
     expect(canSetEventStatus(opsManager, confirmed, "postponed")).toBe(false);
+  });
+
+  it("SPM-27-TC05: no role can move an event back to draft", () => {
+    const submitted = event({ status: "submitted" });
+    expect(canSetEventStatus(organiserA, submitted, "draft")).toBe(false);
+  });
+
+  it("SPM-27-TC06: lets ONLY the owning organiser withdraw their request", () => {
+    const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    expect(canSetEventStatus(organiserA, underReview, "withdrawn")).toBe(true);
+    expect(canSetEventStatus(colleagueA, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(organiserB, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(coordinator, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(opsManager, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(attendee, underReview, "withdrawn")).toBe(false);
   });
 
   it("keeps event:cancel and the cancelled transition in step", () => {
