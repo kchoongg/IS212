@@ -367,6 +367,18 @@
         <mxCell id="eEcTdqa8TJ8JkxFa5K_O-191" edge="1" parent="1" source="eEcTdqa8TJ8JkxFa5K_O-140" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="eEcTdqa8TJ8JkxFa5K_O-141" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
+        <mxCell id="spm27-withdraw" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Withdraw&#xa;request" vertex="1">
+          <mxGeometry height="44" width="150" x="4985" y="2758" as="geometry" />
+        </mxCell>
+        <mxCell id="spm27-withdrawn" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Request&#xa;withdrawn" vertex="1">
+          <mxGeometry height="48" width="48" x="5170" y="2756" as="geometry" />
+        </mxCell>
+        <mxCell id="spm27-to-withdraw" edge="1" parent="1" source="eEcTdqa8TJ8JkxFa5K_O-121" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11.5;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="spm27-withdraw" value="before approval">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="spm27-to-withdrawn" edge="1" parent="1" source="spm27-withdraw" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="spm27-withdrawn" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

@@ -8,6 +8,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   DetailList,
   PageHeader,
   SkeletonRows,
@@ -20,7 +21,7 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
-import { can, canAssignCoordinator } from "@/lib/permissions";
+import { can, canAssignCoordinator, canWithdrawEvent } from "@/lib/permissions";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -85,6 +86,10 @@ export default function EventOverviewPage() {
   const [coordinators, setCoordinators] = useState<CoordinatorOption[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const mayAssign = user ? can(user.role, "event:assign_coordinator") : false;
+  // SPM-27: the organiser withdrawing their own request.
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -149,6 +154,47 @@ export default function EventOverviewPage() {
     void load();
   }
 
+  async function withdraw() {
+    setWithdrawing(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "withdrawn" }),
+      });
+      if (!res.ok) {
+        setActionError((await res.json()).error ?? "Could not withdraw this request.");
+        return;
+      }
+      setNotice("Your request has been withdrawn.");
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setWithdrawing(false);
+      setWithdrawOpen(false);
+    }
+  }
+
+  // Same fields and checks as the PATCH route, so the button only appears
+  // when withdrawing would succeed.
+  const showWithdraw = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canWithdrawEvent(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   const showAssign = Boolean(
     user &&
     event &&
@@ -189,6 +235,13 @@ export default function EventOverviewPage() {
           { label: user?.role === "organiser" ? "My Events" : "Events", href: "/events" },
           { label: event?.title || "Event" },
         ]}
+        actions={
+          showWithdraw && (
+            <Button variant="secondary" onClick={() => setWithdrawOpen(true)}>
+              Withdraw request
+            </Button>
+          )
+        }
       />
 
       {tabs.length > 0 && <Tabs items={tabs} activeKey="overview" className="mb-6" />}
@@ -210,6 +263,7 @@ export default function EventOverviewPage() {
       ) : (
         <div className="flex flex-col gap-6">
           {notice && <Alert variant="success">{notice}</Alert>}
+          {actionError && <Alert variant="error">{actionError}</Alert>}
 
           {/* SPM-30: the Ops Manager assigns or changes the coordinator here as
               well as from the Assignments screen. Absent for every other
@@ -339,6 +393,19 @@ export default function EventOverviewPage() {
           </Card>
         </div>
       )}
+
+      <ConfirmDialog
+        open={withdrawOpen}
+        title="Withdraw this request?"
+        confirmLabel="Withdraw request"
+        cancelLabel="Keep request"
+        loading={withdrawing}
+        onConfirm={() => void withdraw()}
+        onCancel={() => setWithdrawOpen(false)}
+      >
+        {event?.title || "This request"} will be marked Withdrawn and can&apos;t be reopened.
+        To go ahead later, submit a new request.
+      </ConfirmDialog>
     </div>
   );
 }

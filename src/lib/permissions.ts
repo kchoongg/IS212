@@ -21,6 +21,7 @@
 
 import type { Role } from "./roles";
 import { isRole } from "./roles";
+import { canTransition } from "./statuses";
 
 /// Every distinct thing a user can try to do. Keep the `domain:verb` shape -
 /// it groups the matrix by the domain that owns the route (DOCUMENTATION.md
@@ -374,6 +375,12 @@ export function canSetEventStatus(
   if (actor.role === "coordinator") return isAssignedCoordinator(actor, event);
   // ops_manager is the internal admin role: no per-event relationship.
   return true;
+}
+
+/// SPM-27: does the event page offer this user "Withdraw request"? The same
+/// two checks the PATCH route makes, so the button never offers a refusal.
+export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolean {
+  return canSetEventStatus(actor, event, "withdrawn") && canTransition(event.status, "withdrawn");
 }
 
 // ---------------------------------------------------------------------------

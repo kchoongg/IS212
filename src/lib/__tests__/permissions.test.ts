@@ -14,6 +14,7 @@ import {
   canManageEquipmentRequests,
   canSetEventStatus,
   canViewEquipmentRequests,
+  canWithdrawEvent,
   canViewEvent,
   eventListWhere,
   isAssignedCoordinator,
@@ -496,6 +497,33 @@ describe("canSetEventStatus", () => {
   it("refuses a status nobody owns rather than defaulting to allow", () => {
     expect(canSetEventStatus(coordinator, event(), "deleted")).toBe(false);
     expect(canSetEventStatus(coordinator, event(), "")).toBe(false);
+  });
+});
+
+// SPM-27: whether the event page offers "Withdraw request" - the owning
+// organiser, and only while the lifecycle still allows it.
+describe("canWithdrawEvent", () => {
+  it("SPM-27-TC04: offers it to the owning organiser while Submitted or Under review", () => {
+    expect(canWithdrawEvent(organiserA, event({ status: "submitted" }))).toBe(true);
+    expect(
+      canWithdrawEvent(organiserA, event({ status: "under_review", coordinatorId: "coordinator-1" }))
+    ).toBe(true);
+  });
+
+  it("SPM-27-TC05: does not offer it from Approved onwards", () => {
+    for (const status of [
+      "approved", "planning", "confirmed", "postponed",
+      "completed", "rejected", "cancelled", "withdrawn",
+    ]) {
+      expect(canWithdrawEvent(organiserA, event({ status })), status).toBe(false);
+    }
+  });
+
+  it("SPM-27-TC06: does not offer it to anyone but the owning organiser", () => {
+    const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    for (const actor of [colleagueA, organiserB, coordinator, opsManager, attendee]) {
+      expect(canWithdrawEvent(actor, underReview), actor.id).toBe(false);
+    }
   });
 });
 

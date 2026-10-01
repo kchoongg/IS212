@@ -290,6 +290,7 @@ maps the database string to a human label and a fixed tone:
 | `postponed` | Postponed | warning (amber) |
 | `rejected` | Rejected | danger (red) |
 | `cancelled` | Cancelled | danger (red) |
+| `withdrawn` | Withdrawn | neutral (grey) |
 
 Booking (`pending` / `approved` / `rejected` / `cancelled`), equipment
 (`requested` / `under_review` / `reserved` / `partially_fulfilled` /
@@ -474,7 +475,8 @@ getting right.
 
 ### 7.5 Destructive and irreversible actions
 
-Cancel event, withdraw registration, reject booking, and delete venue all go
+Cancel event, withdraw an event request, withdraw registration, reject
+booking, and delete venue all go
 through `ConfirmDialog`, which names the specific consequence ("This releases
 Marina Grand Hall on 3 Oct and cancels 42 registrations"). A generic "Are you
 sure?" is not acceptable.
