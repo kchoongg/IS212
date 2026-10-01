@@ -1,0 +1,163 @@
+{
+  "story_key": "SPM-27",
+  "story_title": "As an Event Organiser, I want to view the current status of my event request so that I know how far it has progressed",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-10-01",
+  "acceptance_criteria": [
+    { "id": "AC1", "text": "The Event Organiser can view the current status of their event." },
+    { "id": "AC2", "text": "The status reflects the latest action performed on the event." },
+    { "id": "AC3", "text": "The system displays appropriate statuses such as Submitted, Under Review, Approved, Planning, Confirmed, Completed, Rejected, Postponed, Withdrawn or Cancelled." },
+    { "id": "AC4", "text": "The Event Organiser cannot manually change the event status." }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-27-TC01",
+      "title": "My Events shows each of the organiser's events with its current status badge",
+      "linked_ac": ["AC1", "AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case.\nLogged in as Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123), Event Organiser, Bayu Energy Partners.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Find each SPM27 event in the list and read its Status column"
+      ],
+      "test_data": "SPM27 Bayu Safety Briefing: Submitted | SPM27 Bayu Grid Workshop: Under review | SPM27 Bayu Supplier Day: Approved | SPM27 Bayu Leadership Retreat: Planning | SPM27 Bayu Annual Conference: Confirmed | SPM27 Bayu Graduate Induction: Completed | SPM27 Bayu Overnight Site Visit: Rejected | SPM27 Bayu Community Fair: Postponed | SPM27 Bayu Partner Lunch: Withdrawn | SPM27 Bayu Product Showcase: Cancelled",
+      "expected_result": "Each SPM27 event shows a coloured status badge with exactly the label listed in Test data.\nNo status is shown as a raw value such as 'under_review'.\nOnly Bayu Energy Partners events are listed; no other company's events appear."
+    },
+    {
+      "id": "SPM-27-TC02",
+      "title": "Event page status changes after another role acts on the event",
+      "linked_ac": ["AC1", "AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case.\n'SPM27 Bayu Investor Day' is Submitted with no coordinator.\nAccounts: Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123), Event Organiser; Grace Lim (grace.lim@connectsphere.com / password123), Event Operations Manager.",
+      "steps": [
+        "Log in as Hakim Zulkifli and open 'SPM27 Bayu Investor Day' from 'My Events'",
+        "Read the badge under the title and the 'Status' row in the 'Details' card",
+        "Log out and log in as Grace Lim",
+        "Click 'Assignments' in the sidebar",
+        "On the 'SPM27 Bayu Investor Day' row, choose 'Hui Shan Neo' in 'Assign to' and click 'Assign'",
+        "Log out and log in as Hakim Zulkifli",
+        "Click 'My Events' and open 'SPM27 Bayu Investor Day'"
+      ],
+      "test_data": "Event: SPM27 Bayu Investor Day | Coordinator: Hui Shan Neo",
+      "expected_result": "Before the assignment, the header badge and the Details 'Status' row both read 'Submitted'.\nAfter the assignment, both read 'Under review'."
+    },
+    {
+      "id": "SPM-27-TC03",
+      "title": "Choosing 'Keep request' in the withdraw dialog leaves the status unchanged",
+      "linked_ac": ["AC2"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case.\n'SPM27 Bayu Safety Briefing' is Submitted.\nLogged in as Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123).\nWithdrawal is a team decision (Sammi Chua, 2026-10-01): the organiser may withdraw their own request only while it is Submitted or Under review, and Withdrawn is final.",
+      "steps": [
+        "Click 'My Events' and open 'SPM27 Bayu Safety Briefing'",
+        "Click 'Withdraw request'",
+        "In the dialog 'Withdraw this request?', click 'Keep request'",
+        "Reload the page"
+      ],
+      "test_data": "Event: SPM27 Bayu Safety Briefing (Submitted)",
+      "expected_result": "The dialog closes.\nAfter reloading, the badge still reads 'Submitted' and the 'Withdraw request' button is still shown."
+    },
+    {
+      "id": "SPM-27-TC04",
+      "title": "Organiser withdraws a Submitted or Under review request",
+      "linked_ac": ["AC2", "AC3"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder (TC03 does not change the data, so it can run straight after TC03).\n'SPM27 Bayu Safety Briefing' is Submitted; 'SPM27 Bayu Grid Workshop' is Under review (coordinator Hui Shan Neo).\nLogged in as Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123).\nTeam decision: see TC03.",
+      "steps": [
+        "Click 'My Events' and open 'SPM27 Bayu Safety Briefing'",
+        "Click 'Withdraw request'",
+        "In the dialog 'Withdraw this request?', click 'Withdraw request'",
+        "Repeat steps 1-3 for 'SPM27 Bayu Grid Workshop'"
+      ],
+      "test_data": "Submitted: SPM27 Bayu Safety Briefing | Under review: SPM27 Bayu Grid Workshop",
+      "expected_result": "For each event, the success message 'Your request has been withdrawn.' is shown and the status badge changes to 'Withdrawn'."
+    },
+    {
+      "id": "SPM-27-TC05",
+      "title": "Organiser has no way to change the status of an event from Approved onwards",
+      "linked_ac": ["AC4"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: run `npm run fixtures:spm27` from the project folder if it has not been run for this test pass.\nLogged in as Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123).",
+      "steps": [
+        "Click 'My Events' and open 'SPM27 Bayu Supplier Day'",
+        "Look for 'Withdraw request' or any button, dropdown or field that changes the status",
+        "Repeat for every other event in Test data"
+      ],
+      "test_data": "Approved (first status after the withdraw window closes): SPM27 Bayu Supplier Day | Planning: SPM27 Bayu Leadership Retreat | Confirmed: SPM27 Bayu Annual Conference | Postponed: SPM27 Bayu Community Fair | Completed: SPM27 Bayu Graduate Induction | Rejected: SPM27 Bayu Overnight Site Visit | Cancelled: SPM27 Bayu Product Showcase | Withdrawn: SPM27 Bayu Partner Lunch",
+      "expected_result": "On every event the status is shown only as the badge and the read-only Details 'Status' row.\nNo 'Withdraw request' button is shown, and there is no button, dropdown or field that changes the status."
+    },
+    {
+      "id": "SPM-27-TC06",
+      "title": "Only the event's organiser is offered 'Withdraw request'",
+      "linked_ac": ["AC3"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case.\n'SPM27 Bayu Town Hall' is Submitted with no coordinator; 'SPM27 Bayu Contractor Briefing' is Under review with coordinator Hui Shan Neo.\nTeam decision: see TC03.",
+      "steps": [
+        "Log in as Grace Lim (grace.lim@connectsphere.com / password123)",
+        "Click 'All Events' and open 'SPM27 Bayu Town Hall'",
+        "Look for a 'Withdraw request' button",
+        "Log out and log in as Hui Shan Neo (huishan.neo@connectsphere.com / password123)",
+        "Click 'All Events' and open 'SPM27 Bayu Contractor Briefing'",
+        "Look for a 'Withdraw request' button"
+      ],
+      "test_data": "Event Operations Manager: grace.lim@connectsphere.com / password123 | Event Coordinator: huishan.neo@connectsphere.com / password123",
+      "expected_result": "Neither user sees a 'Withdraw request' button."
+    },
+    {
+      "id": "SPM-27-TC07",
+      "title": "A request already withdrawn in another tab cannot be withdrawn again",
+      "linked_ac": ["AC2"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case (TC06 does not change the data, so it can run straight after TC06).\n'SPM27 Bayu Town Hall' is Submitted.\nLogged in as Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123).\nTeam decision: see TC03.",
+      "steps": [
+        "Open 'SPM27 Bayu Town Hall' from 'My Events' in browser tab A",
+        "Open the same event in a second browser tab B",
+        "In tab A, click 'Withdraw request' and confirm with 'Withdraw request'",
+        "In tab B (still showing 'Submitted'), click 'Withdraw request' and confirm with 'Withdraw request'"
+      ],
+      "test_data": "Event: SPM27 Bayu Town Hall (Submitted)",
+      "expected_result": "Tab B shows the error 'This event is Withdrawn and can't be moved to Withdrawn.' and no success message."
+    },
+    {
+      "id": "SPM-27-TC08",
+      "title": "A withdrawn request is closed for the Operations Manager and the coordinator",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Test data loaded: run `npm run fixtures:spm27` from the project folder if it has not been run for this test pass.\n'SPM27 Bayu Partner Lunch' was withdrawn while Submitted (no coordinator); 'SPM27 Bayu Wind Farm Tour' was withdrawn while Under review (coordinator Hui Shan Neo).",
+      "steps": [
+        "Log in as Grace Lim (grace.lim@connectsphere.com / password123)",
+        "Click 'Assignments' in the sidebar and look for 'SPM27 Bayu Partner Lunch' in 'Awaiting assignment'",
+        "Click 'All Events' and open 'SPM27 Bayu Partner Lunch'",
+        "Log out and log in as Hui Shan Neo (huishan.neo@connectsphere.com / password123)",
+        "Click 'All Events' and open 'SPM27 Bayu Wind Farm Tour'",
+        "Open the 'Equipment' tab"
+      ],
+      "test_data": "Withdrawn from Submitted: SPM27 Bayu Partner Lunch | Withdrawn from Under review: SPM27 Bayu Wind Farm Tour",
+      "expected_result": "'SPM27 Bayu Partner Lunch' is not in the 'Awaiting assignment' list, and its event page has no 'Assign a coordinator' card.\nThe Equipment tab of 'SPM27 Bayu Wind Farm Tour' shows 'This event is withdrawn — equipment requirements can no longer be changed.' with no add, edit or remove controls."
+    }
+  ],
+  "open_questions": [],
+  "code_references": [
+    "src/lib/statuses.ts",
+    "src/lib/permissions.ts",
+    "src/lib/validation/events.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/events/[id]/coordinator/route.ts",
+    "src/app/api/assignments/route.ts",
+    "src/app/events/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/venues/search/page.tsx",
+    "docs/ConnectSphere_Status_Lifecycle.drawio",
+    "docs/PERMISSIONS.md",
+    "scripts/seed-spm30.ts",
+    "prisma/seed.ts"
+  ]
+}
