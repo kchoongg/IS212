@@ -809,6 +809,15 @@ what changed, why, and the migration name if there is one.
   - Venue Staff will see requests in a **read-only `/bookings` list**, which
     replaces the S-22 placeholder. Approve and Reject stay with the Venue
     Booking Approval story.
+  - 'Venue requirements' is optional; layout is always sent.
+  - Opening hours are not checked on a request. Night (19:00–24:00) runs past
+    most venues' closing time, so checking would make Night unbookable almost
+    everywhere; Venue Staff see the slots and judge it when they review (AC7).
+  - A single-session event spanning several days cannot be booked in one
+    request: the form pre-fills nothing and submitting says the slots do not
+    cover the event's time. Such an event needs sessions (AC4).
+  - A Pending request is not re-checked when the event's attendance or layout
+    changes later. Not in the AC; Venue Staff review it before approving.
   - Test cases that create requests use `spm42_` fixture events
     (`npm run fixtures:spm42`, not built yet), so a test pass can be repeated
     without a reseed.

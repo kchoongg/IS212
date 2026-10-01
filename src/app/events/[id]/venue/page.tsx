@@ -64,6 +64,7 @@ interface BookingInfo {
     status: string;
     startsAt: string;
     endsAt: string;
+    layoutName: string | null;
     session: { id: string; label: string | null } | null;
     venue: { code: string; name: string };
   }[];
@@ -239,6 +240,7 @@ function BookingRequests({ bookings }: { bookings: BookingInfo["bookings"] }) {
               <p className="text-xs text-ink-3">
                 {b.session && `${b.session.label ?? "Session"} · `}
                 {formatDateTimeRange(b.startsAt, b.endsAt)}
+                {b.layoutName && ` · ${layoutLabel(b.layoutName)}`}
               </p>
             </div>
             <StatusBadge status={b.status} />

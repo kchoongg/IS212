@@ -4,20 +4,47 @@
   "created_by": "Sammi Chua",
   "creation_date": "2026-10-01",
   "acceptance_criteria": [
-    { "id": "AC1", "text": "The Event Coordinator can select a suitable venue." },
-    { "id": "AC2", "text": "The request specifies one or more of the venue's fixed AM, PM or Night slots for the required date; an event spanning multiple slots consumes each of them in full." },
-    { "id": "AC3", "text": "Where setup or turnaround time is required, the immediately adjacent slot (before the event for setup, after for turnaround, including the previous or following day where applicable) is included in the request." },
-    { "id": "AC4", "text": "For a multi-session event, a booking request is made per session, using that session's own date, time and requirements rather than the event's." },
-    { "id": "AC5", "text": "The request is associated with the relevant event (and session, where applicable)." },
-    { "id": "AC6", "text": "Venue requirements are included in the request." },
-    { "id": "AC7", "text": "The request is submitted to Venue Staff for review." },
-    { "id": "AC8", "text": "The venue booking request has a pending status." }
+    {
+      "id": "AC1",
+      "text": "The Event Coordinator can select a suitable venue."
+    },
+    {
+      "id": "AC2",
+      "text": "The request specifies one or more of the venue's fixed AM, PM or Night slots for the required date; an event spanning multiple slots consumes each of them in full."
+    },
+    {
+      "id": "AC3",
+      "text": "Where setup or turnaround time is required, the immediately adjacent slot (before the event for setup, after for turnaround, including the previous or following day where applicable) is included in the request."
+    },
+    {
+      "id": "AC4",
+      "text": "For a multi-session event, a booking request is made per session, using that session's own date, time and requirements rather than the event's."
+    },
+    {
+      "id": "AC5",
+      "text": "The request is associated with the relevant event (and session, where applicable)."
+    },
+    {
+      "id": "AC6",
+      "text": "Venue requirements are included in the request."
+    },
+    {
+      "id": "AC7",
+      "text": "The request is submitted to Venue Staff for review."
+    },
+    {
+      "id": "AC8",
+      "text": "The venue booking request has a pending status."
+    }
   ],
   "test_cases": [
     {
       "id": "SPM-42-TC01",
       "title": "Coordinator requests a suitable venue, with venue requirements and layout",
-      "linked_ac": ["AC1", "AC6"],
+      "linked_ac": [
+        "AC1",
+        "AC6"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123), assigned to spm42_symposium 'SPM42 Research Symposium' (status Planning, 4 Mar 2027 (2026-09-26 + 159) 09:00-18:00, expects 200, layout Theatre, no sessions).\nChangi Conference Centre (CBP-CONF) has Theatre capacity 260.",
@@ -37,7 +64,9 @@
     {
       "id": "SPM-42-TC02",
       "title": "Coordinator cannot request an unsuitable venue, and sees why",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to 'SPM42 Research Symposium' (expects 200, Theatre).\nOne-North Auditorium (ONE-AUD) has Theatre capacity 180.",
@@ -52,7 +81,10 @@
     {
       "id": "SPM-42-TC03",
       "title": "A request for one slot books that whole slot; venue requirements may be left empty",
-      "linked_ac": ["AC2", "AC6"],
+      "linked_ac": [
+        "AC2",
+        "AC6"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_morning_talk 'SPM42 Morning Talk' (status Planning, 5 Mar 2027 (2026-09-26 + 160) 10:00-12:00, no sessions).",
@@ -70,7 +102,10 @@
     {
       "id": "SPM-42-TC04",
       "title": "An event with no sessions spanning AM and PM is requested on its own date and consumes both slots in full",
-      "linked_ac": ["AC2", "AC4"],
+      "linked_ac": [
+        "AC2",
+        "AC4"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_town_hall 'SPM42 Town Hall' (status Planning, 6 Mar 2027 (2026-09-26 + 161) 09:00-17:00, no sessions).",
@@ -87,7 +122,9 @@
     {
       "id": "SPM-42-TC05",
       "title": "Slot choices that are empty, or not next to each other, are refused (team decision: contiguous slots)",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_refusals 'SPM42 Refusal Checks' (status Planning, 7 Mar 2027 (2026-09-26 + 162) 09:00-17:00, no sessions).\nBooking request screen open for it at 'Orchard Seminar Room (ORC-SEM)'.",
@@ -103,7 +140,10 @@
     {
       "id": "SPM-42-TC06",
       "title": "Setup and turnaround each take exactly one adjacent slot, including the previous or following day",
-      "linked_ac": ["AC3", "AC2"],
+      "linked_ac": [
+        "AC3",
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to the three events in Test data (all status Planning, no sessions).\nOrchard Seminar Room (ORC-SEM): setup 60 min, teardown 30 min. Changi Conference Centre (CBP-CONF): setup 120 min, teardown 90 min.",
@@ -122,7 +162,10 @@
     {
       "id": "SPM-42-TC07",
       "title": "A venue with no setup or turnaround holds only the chosen slots, even one more than the event needs",
-      "linked_ac": ["AC3", "AC2"],
+      "linked_ac": [
+        "AC3",
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_plain_pm 'SPM42 Plain Afternoon' (status Planning, 10 Mar 2027 (2026-09-26 + 165) 14:00-17:00, expects 30, Classroom, no sessions).\nFixture venue 'SPM42 Plain Room' (SPM42-PLN) has setup 0 min and teardown 0 min.",
@@ -139,7 +182,10 @@
     {
       "id": "SPM-42-TC08",
       "title": "Slots that do not cover the session's (or event's) own time are refused",
-      "linked_ac": ["AC4", "AC2"],
+      "linked_ac": [
+        "AC4",
+        "AC2"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42 (so Day 2 has no request yet).\nLogged in as Daniel Tan, assigned to spm42_three_sessions 'SPM42 Three-Session Forum' (Day 2: 2 Mar 2027 (2026-09-26 + 157) 14:00-17:00) and to 'SPM42 Refusal Checks' (7 Mar 2027 09:00-17:00, no sessions).",
@@ -156,7 +202,10 @@
     {
       "id": "SPM-42-TC09",
       "title": "A 3-session event gets one request per session, each using its session's date, time and layout",
-      "linked_ac": ["AC4", "AC5"],
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm42.\nLogged in as Daniel Tan, assigned to spm42_three_sessions 'SPM42 Three-Session Forum' (status Approved; opening the Venue tab moves it to Planning, SPM-40). Sessions: 'Day 1' 1 Mar 2027 (2026-09-26 + 156) 09:00-12:00, expects 80, Theatre; 'Day 2' 2 Mar 2027 (2026-09-26 + 157) 14:00-17:00, expects 30, Classroom; 'Day 3' 3 Mar 2027 (2026-09-26 + 158) 19:00-22:00, expects 60, Banquet.",
@@ -174,7 +223,9 @@
     {
       "id": "SPM-42-TC10",
       "title": "Venue Staff see which event, and which session, each request belongs to",
-      "linked_ac": ["AC5"],
+      "linked_ac": [
+        "AC5"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "TC04 and TC09 have been run.\nLogged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).",
@@ -190,7 +241,10 @@
     {
       "id": "SPM-42-TC11",
       "title": "The request reaches Venue Staff and shows Pending",
-      "linked_ac": ["AC7", "AC8"],
+      "linked_ac": [
+        "AC7",
+        "AC8"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "TC04 has been run.",
@@ -204,7 +258,10 @@
     {
       "id": "SPM-42-TC12",
       "title": "Only the event's assigned Coordinator can request a booking (SPM-30 assignment rule)",
-      "linked_ac": ["AC7", "AC1"],
+      "linked_ac": [
+        "AC7",
+        "AC1"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Seeded data: 'Town Hall Q4' (status Planning) is assigned to Daniel Tan.\nAccounts (password123): Coordinator Priya Raj (priya.raj@connectsphere.com), Organiser Rachel Ng (rachel.ng@meridianfina.com, organiser of 'Town Hall Q4'), Ops Manager Grace Lim (grace.lim@connectsphere.com), Venue Staff Marcus Wong (marcus.wong@connectsphere.com), Technical Support Kenji Sato (kenji.sato@connectsphere.com).",
@@ -219,7 +276,9 @@
     {
       "id": "SPM-42-TC13",
       "title": "A booking can only be requested once the event is Approved or in Planning (team decision)",
-      "linked_ac": ["AC7"],
+      "linked_ac": [
+        "AC7"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Seeded data.\nLogged in as Coordinator Priya Raj (priya.raj@connectsphere.com / password123), assigned to 'Kirana Regional Managers Offsite' (status Under review, 22 Nov 2026 (2026-09-26 + 57) 09:00-17:00).",
@@ -233,7 +292,9 @@
     {
       "id": "SPM-42-TC14",
       "title": "A slot that is booked, on hold, or unavailable is refused (#35, #41)",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "Run npm run fixtures:spm42. Seeded data, unchanged:\n- 'Product Showcase' has an Approved booking at Marina Auditorium (MAR-AUD), 21 Oct 2026 (2026-09-26 + 25) 11:00-15:00.\n- 'Pearl Delta Safety Conference' has a Pending booking at Changi Conference Centre (CBP-CONF), 14 Dec 2026 (2026-09-26 + 79) 09:00-17:00.\n- Marina Auditorium is unavailable for maintenance 20-21 Nov 2026 (2026-09-26 + 55 to + 56).\nLogged in as Daniel Tan, assigned to the three events in Test data (status Planning, no sessions, no booking).",
@@ -251,7 +312,10 @@
     {
       "id": "SPM-42-TC15",
       "title": "A clash only through setup or turnaround slots is refused (#123, #35)",
-      "linked_ac": ["AC2", "AC3"],
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
       "type": "Boundary",
       "source": "Code",
       "preconditions": "Seeded data: 'Product Showcase' has an Approved booking at Marina Auditorium (MAR-AUD, setup 60 min, teardown 30 min) on 21 Oct 2026 AM + PM, so its setup holds 20 Oct 2026 Night.\nLogged in as Daniel Tan, assigned to 'Keynote Rehearsal' (status Planning, 20 Oct 2026 (2026-09-26 + 24) 14:00-16:00, no sessions).",
@@ -268,7 +332,10 @@
     {
       "id": "SPM-42-TC16",
       "title": "Cancelled and rejected bookings do not block a request (#41)",
-      "linked_ac": ["AC2", "AC3"],
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
       "type": "Boundary",
       "source": "Code",
       "preconditions": "Run npm run fixtures:spm42. It creates:\n- 'SPM42 Cancelled Hold' with a Cancelled booking at Orchard Gallery (ORC-GAL), 15 Mar 2027 (2026-09-26 + 170) 09:00-17:00.\n- 'SPM42 Rejected Hold' with a Rejected booking at Marina Auditorium (MAR-AUD), 16 Mar 2027 (2026-09-26 + 171) 09:00-18:00 — had it been approved, its turnaround would hold 16 Mar Night.\nLogged in as Daniel Tan, assigned to the two events in Test data (status Planning, no sessions).",
@@ -286,7 +353,10 @@
     {
       "id": "SPM-42-TC17",
       "title": "An event or session with an active request cannot request a second venue (#109)",
-      "linked_ac": ["AC4", "AC5"],
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "TC04 and TC09 have been run (SPM42 Town Hall and Session 'Day 1' each have a Pending request).\nLogged in as Daniel Tan.",
@@ -301,15 +371,7 @@
       "expected_result": "1. 'SPM42 Town Hall already has a venue booking request (Orchard Seminar Room, Pending).'\n2. 'Day 1 already has a venue booking request (Orchard Seminar Room, Pending).'\nNo new request is created; Session 'Day 2' and 'Day 3' are unaffected."
     }
   ],
-  "open_questions": [
-    "The Jira issue was not fetched (the Atlassian connector is not authenticated). Story and AC1-AC8 were copied from Jira by hand on 2026-10-01.",
-    "The booking request screen is not built yet. Every label ('Request booking', 'Submit request', 'Session', 'Venue requirements'), the setup/turnaround lines and every quoted message are proposed wording. Build to these strings, or update the cases.",
-    "Is 'Venue requirements' optional? TC03 assumes it is.",
-    "Opening hours are not checked: a Night slot or a setup/turnaround slot can fall when the venue is closed (Orchard Seminar Room closes 22:00, Night runs to 24:00 - TC06 attempt 2). Should a request be refused or warned? Cases assume it is accepted.",
-    "A single-session event that runs over more than one day cannot be covered by a one-date request (the team says such an event needs sessions). What should the coordinator see? No case written.",
-    "Suitability is checked when the request is submitted. If the event's attendance or layout changes afterwards, nothing re-checks the Pending request. Should it be flagged like SPM-39's needsReview? No case written.",
-    "Cases that submit requests use spm42_ fixture events, so npm run fixtures:spm42 resets them for a repeat pass. Never reseed the shared database for these cases."
-  ],
+  "open_questions": [],
   "code_references": [
     "src/lib/venueBookingRequest.ts",
     "src/lib/__tests__/venueBookingRequest.test.ts",
