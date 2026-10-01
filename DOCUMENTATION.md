@@ -145,6 +145,7 @@ IS212/
 ├── scripts/
 │   ├── verify-permissions.ts    # `npm run verify:permissions` — see Everyday Commands
 │   ├── verify-login.ts          # `npm run verify:login`
+│   ├── seed-spm27.ts            # `npm run fixtures:spm27` — SPM-27 test data, no reseed
 │   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
 │   └── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
 │
@@ -607,6 +608,7 @@ traceability the module asks for.
 | `npm run lint` | Check code style/common mistakes (runs `eslint .` over the whole repo) |
 | `npm test` | Run tests once |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
+| `npm run fixtures:spm27` | Adds or resets SPM-27's 14 test events ("SPM27 Bayu …", one per status, organiser Hakim Zulkifli) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm27_`. Re-run before each SPM-27 test pass |
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
@@ -755,6 +757,32 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-01 — Sammi Chua (SPM-27, test data)
+- **`npm run fixtures:spm27`** (`scripts/seed-spm27.ts`): 14 "SPM27 Bayu …"
+  events for Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com), one per
+  status plus spares for the withdraw cases; Hui Shan Neo coordinates from
+  Under review on. Dates are seed anchor + n days. Only touches `spm27_`
+  events; re-run to reset after a test pass.
+- `prisma/seed.ts` mirrors them, appended last. `EventSeed` gains an
+  optional `chain` (a withdrawn event's history depends on where it was
+  withdrawn from) and the history loop credits `withdrawn` to the organiser.
+
+---
+
+### 2026-10-01 — Sammi Chua (SPM-27, withdraw request)
+- **"Withdraw request" on the event page (S-06).** Shown in the page header
+  only to the owning organiser while the event is Submitted or Under review,
+  decided by the new pure `canWithdrawEvent()` in `permissions.ts` (the
+  route's own two checks, `canSetEventStatus` + `canTransition`). Goes through
+  `ConfirmDialog` ("Keep request" / "Withdraw request"); success shows "Your
+  request has been withdrawn.", a refusal shows the route's message.
+- `UI_DESIGN.md` §5.2 gains the `withdrawn` event badge (neutral) and §7.5
+  lists withdrawing a request as a confirm-first action.
+  `docs/ConnectSphere_BPMN.drawio`: Organiser lane gains "Withdraw request"
+  → "Request withdrawn", from Submit, before approval.
 
 ---
 
