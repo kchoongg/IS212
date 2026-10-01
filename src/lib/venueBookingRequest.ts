@@ -53,6 +53,8 @@ export function defaultSlots(schedule: Interval): { day: string; slots: Slot[] }
 /// before approval there is nothing to plan; after confirmation the venue is
 /// already settled (#80).
 export const REQUESTABLE_EVENT_STATUSES = ["approved", "planning"];
+export const NOT_REQUESTABLE_MESSAGE =
+  "A venue booking can only be requested once the event is Approved or in Planning.";
 
 export interface BookingRequestInput {
   eventId: string;
@@ -81,7 +83,7 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
   const { venue, holder } = input;
 
   if (!REQUESTABLE_EVENT_STATUSES.includes(input.eventStatus)) {
-    return refuse("A venue booking can only be requested once the event is Approved or in Planning.");
+    return refuse(NOT_REQUESTABLE_MESSAGE);
   }
   if (input.activeRequest) {
     const { venueName, status } = input.activeRequest;

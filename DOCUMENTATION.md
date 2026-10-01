@@ -202,6 +202,8 @@ IS212/
     │       │                                (PUT: assign/reassign, SPM-30)
     │       ├── assignments/              (Kristen) — the S-28 queue's data (SPM-30)
     │       ├── venues/                   (Kayal)
+    │       ├── venue-bookings/            (Sammi) — pending requests for Venue Staff (SPM-42);
+    │       │                                an event's own are under events/[id]/venue-bookings
     │       ├── facilities/                (Kayal — reference data for forms + venue search)
     │       ├── equipment/                  (Janelle)
     │       └── registrations/               (Sammi)
@@ -769,6 +771,11 @@ what changed, why, and the migration name if there is one.
 - **SPM-42 slice 4: test data.** `npm run fixtures:spm42`
   (`scripts/seed-spm42.ts`), mirrored at the end of `prisma/seed.ts`. Adds one
   venue, SPM42-PLN, because no seeded venue has zero setup and zero teardown.
+- **SPM-42 slice 5: routes.** `GET`/`POST /api/events/[id]/venue-bookings`
+  (the event's requests; create a pending one) and `GET /api/venue-bookings`
+  (pending requests, Venue Staff). `GET .../venue-suitability` takes an
+  optional `?session=<id>` so a session is judged on its own attendance and
+  layout; without it, unchanged.
 - **SPM-42 decisions** (customer clarification numbers in brackets):
   - A request is one date plus one or more **contiguous** AM/PM/Night slots
     (#50) that cover every slot the event's, or the session's, own time
