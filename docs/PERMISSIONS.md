@@ -130,16 +130,30 @@ specific event, the user must also be related to it.
 | --- | --- |
 | **Owns** | `event.organiserId === user.id` — the organiser who raised the request |
 | **Same client** | `event.organisationId === user.organisationId`, both non-null |
-| **Assigned** | `event.coordinatorId === user.id`, **or** the event has no coordinator yet |
+| **Assigned** | `event.coordinatorId === user.id` — and only that; an event with no coordinator is nobody's (SPM-30) |
 
 The user's `organisationId` is not in the JWT. `getActor()` in
 [`src/lib/apiAuth.ts`](../src/lib/apiAuth.ts) loads it (and the current role,
 and `isActive`) per request, so a role change or a deactivated account takes
 effect immediately rather than when the eight-hour token expires.
 
-The "or unassigned" clause on **Assigned** lets any coordinator pick work off
-the review queue before Coordinator Assignment is built. Once it exists, decide
-whether to keep that clause.
+**Assigned** used to have an "or the event has no coordinator yet" clause, so
+any coordinator could pick work off the review queue before Coordinator
+Assignment existed. SPM-30 removed it (confirmed 2026-09-28): the Event
+Operations Manager assigns every submitted event (clarifications #94, #101),
+so an unassigned event is visible to every coordinator but managed by none.
+
+**Who may assign.** `canAssignCoordinator()` — the Ops Manager only
+(`event:assign_coordinator`), and only while there is something to coordinate:
+
+| Event | Allowed | Effect |
+| --- | --- | --- |
+| `submitted`, no coordinator | Assign | Coordinator recorded; status → `under_review` in the same transaction |
+| `under_review`, `approved`, `planning`, `confirmed`, `postponed` | Reassign | Coordinator replaced; status unchanged |
+| `completed`, `cancelled`, `rejected`, `draft` | Neither | 400 |
+
+The new coordinator is notified; on reassignment the previous one is too. The
+organiser is not.
 
 ### Who can see which event
 
@@ -165,12 +179,24 @@ to.
 Hiding a tab in the UI is not access control — the record is one request away.
 So the API narrows the record itself. An attendee receives only:
 
-`id · title · description · category · startsAt · endsAt · status ·
-registrationEnabled · registrationCapacity · registrationOpensAt ·
-registrationClosesAt`
+`id · sequenceNumber · title · description · category · startsAt · endsAt ·
+status · registrationEnabled · registrationCapacity · registrationOpensAt ·
+registrationClosesAt · organisation`
+
+The last two entries are exceptions worth naming, because both were added after
+this section was first written:
+
+- **`sequenceNumber`** is the event's public reference (EVT-000123). It is
+  deliberately visible to every role — an attendee quoting a reference number
+  is the point of having one (SPM-31).
+- **`organisation`** is the **name only** of the client running the event, so an
+  attendee can see whose event they are registering for (SPM-31, confirmed
+  2026-09-28). The organiser's own name is a different question and stays
+  withheld: `organiser` is not on the list, and neither is the raw
+  `organisationId`.
 
 Everything else is internal planning information and is withheld: the assigned
-coordinator, the organiser and client identity, expected attendance, special
+coordinator, the organiser's personal name, expected attendance, special
 requirements, accessibility notes, rejection and cancellation reasons, facility
 requirements, equipment requests, sessions (a multi-session event's per-session
 times, attendance, layout and equipment), and status history. The event's own
@@ -234,8 +260,11 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]` | `canViewEvent()` → 404; `visibleEventFor()` narrows the fields |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403 |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
+| `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
+| `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
 | `GET /api/venues` | `venue:view` — Coordinator, Ops Manager, Venue Staff |
 | `POST /api/venues` | `venue:manage` — Venue Staff |
+| `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
 | `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support, the assigned Coordinator, or the owning Organiser read-only) |
@@ -272,9 +301,9 @@ precisely how four routes shipped without authorisation. So there is a second
 layer: `npm run verify:permissions`
 ([`scripts/verify-permissions.ts`](../scripts/verify-permissions.ts)) signs in
 as all six seeded roles against a running server and asserts the real HTTP
-status of 45 refusals and permitted actions, each labelled with the acceptance
+status of 47 refusals and permitted actions, each labelled with the acceptance
 criterion it belongs to (including an `SPM-47` group covering the equipment
-request routes added there). Start `npm run dev` first. It creates its own
+request routes added there, and an `SPM-30` group for coordinator assignment). Start `npm run dev` first. It creates its own
 event through the API and deletes everything it made, so it is safe to re-run.
 
 Note that two refusals answer 404 where you might expect 403: an attendee
@@ -286,8 +315,12 @@ allowed to see.
 
 ## 8. Open items
 
-- **Coordinator Assignment** has no endpoint yet, which is why any coordinator
-  may pick up an unassigned event.
+- **`under_review` via the status PATCH.** `STATUS_TRANSITION_ROLES` still
+  lets the Ops Manager set `under_review` directly, which would leave an event
+  under review with no coordinator. The UI never does this (it assigns through
+  `PUT /api/events/[id]/coordinator`); `canTransition()` (SPM-27) allows
+  submitted → under_review, so only removing `ops_manager` from
+  `STATUS_TRANSITION_ROLES.under_review` would close it.
 - **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
   ready for whoever builds them.
 - **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)

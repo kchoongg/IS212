@@ -255,3 +255,10 @@ export const updateEventDraftSchema = z
     path: ["sessions"],
   });
 export type UpdateEventDraftInput = z.infer<typeof updateEventDraftSchema>;
+
+// SPM-30: assign or reassign an event's coordinator. The route checks the
+// person is an active Event Coordinator; this only checks the shape.
+export const assignCoordinatorSchema = z.object({
+  coordinatorId: z.string().uuid("Choose a coordinator."),
+});
+export type AssignCoordinatorInput = z.infer<typeof assignCoordinatorSchema>;

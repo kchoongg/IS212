@@ -30,11 +30,22 @@ interface EventSummary {
   startsAt: string | null;
   endsAt: string | null;
   expectedAttendance: number | null;
+  // Absent for an Attendee (internal planning information).
+  coordinatorId?: string | null;
 }
+
+/// Which events a role's list is about, beyond their status:
+///   mine       - the coordinator's own events (SPM-30: an event assigned to
+///                a colleague, or to nobody yet, is not theirs to review)
+///   unassigned - no coordinator yet (the Ops Manager's queue)
+type Scope = "mine" | "unassigned";
 
 /// What "needs attention" means for each role. Kept as data so the dashboard
 /// does not become a chain of role conditionals.
-const ATTENTION_BY_ROLE: Record<string, { heading: string; statuses: string[]; blurb: string }> = {
+const ATTENTION_BY_ROLE: Record<
+  string,
+  { heading: string; statuses: string[]; blurb: string; scope?: Scope }
+> = {
   organiser: {
     heading: "Needs your attention",
     statuses: ["draft", "under_review"],
@@ -44,11 +55,13 @@ const ATTENTION_BY_ROLE: Record<string, { heading: string; statuses: string[]; b
     heading: "Awaiting your review",
     statuses: ["submitted", "under_review", "approved", "planning"],
     blurb: "Events assigned to you that are not yet confirmed.",
+    scope: "mine",
   },
   ops_manager: {
     heading: "Awaiting assignment",
     statuses: ["submitted"],
     blurb: "Submitted events with no coordinator yet.",
+    scope: "unassigned",
   },
   venue_staff: {
     heading: "Upcoming events",
@@ -101,7 +114,13 @@ export default function DashboardPage() {
   }, [state, load, router]);
 
   const config = ATTENTION_BY_ROLE[user?.role ?? ""] ?? ATTENTION_BY_ROLE.organiser;
-  const attention = events?.filter((event) => config.statuses.includes(event.status)) ?? null;
+  const attention =
+    events?.filter((event) => {
+      if (!config.statuses.includes(event.status)) return false;
+      if (config.scope === "mine") return event.coordinatorId === user?.id;
+      if (config.scope === "unassigned") return !event.coordinatorId;
+      return true;
+    }) ?? null;
   const links = user ? navFor(user.role).filter((item) => item.href !== "/dashboard") : [];
 
   return (

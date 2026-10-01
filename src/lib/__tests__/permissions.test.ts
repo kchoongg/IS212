@@ -3,8 +3,13 @@ import { ROLES } from "../roles";
 import {
   ACTIONS,
   ROLE_PERMISSIONS,
+  REASSIGNABLE_STATUSES,
   STATUS_TRANSITION_ROLES,
   can,
+  canAssignCoordinator,
+  canCheckEquipmentAvailability,
+  canReserveEquipment,
+  canRequestVenueBooking,
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
@@ -148,12 +153,18 @@ describe("relationship to an event", () => {
     expect(sharesOrganisation(coordinator, event({ organisationId: null }))).toBe(false);
   });
 
-  it("lets the assigned coordinator act, and lets any coordinator pick up an unassigned event", () => {
+  it("lets only the assigned coordinator act", () => {
     expect(isAssignedCoordinator(coordinator, event({ coordinatorId: "coordinator-1" }))).toBe(true);
     expect(isAssignedCoordinator(otherCoordinator, event({ coordinatorId: "coordinator-1" }))).toBe(
       false
     );
-    expect(isAssignedCoordinator(coordinator, event({ coordinatorId: null }))).toBe(true);
+  });
+
+  // SPM-30 (confirmed 2026-09-28): the "any coordinator may pick up an
+  // unassigned event" allowance is gone now that the Ops Manager assigns.
+  it("gives no coordinator an event nobody has been assigned to yet", () => {
+    expect(isAssignedCoordinator(coordinator, event({ coordinatorId: null }))).toBe(false);
+    expect(isAssignedCoordinator(otherCoordinator, event({ coordinatorId: null }))).toBe(false);
   });
 });
 
@@ -255,8 +266,8 @@ describe("canManageEquipmentRequests", () => {
     expect(canManageEquipmentRequests(coordinator, mine)).toBe(true);
   });
 
-  it("lets any coordinator pick up an event with no coordinator yet", () => {
-    expect(canManageEquipmentRequests(coordinator, event({ coordinatorId: null }))).toBe(true);
+  it("stops every coordinator on an event with no coordinator yet (SPM-30)", () => {
+    expect(canManageEquipmentRequests(coordinator, event({ coordinatorId: null }))).toBe(false);
   });
 
   it("stops a coordinator managing equipment on a colleague's event", () => {
@@ -276,6 +287,78 @@ describe("canManageEquipmentRequests", () => {
     const draft = event({ status: "draft" });
     for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
       expect(canManageEquipmentRequests(other, draft)).toBe(false);
+    }
+  });
+});
+
+describe("canAssignCoordinator (SPM-30)", () => {
+  it("lets the Ops Manager assign a submitted event that has no coordinator", () => {
+    expect(canAssignCoordinator(opsManager, event({ status: "submitted", coordinatorId: null }))).toBe(true);
+  });
+
+  it("lets the Ops Manager reassign a live event", () => {
+    for (const status of REASSIGNABLE_STATUSES) {
+      expect(canAssignCoordinator(opsManager, event({ status, coordinatorId: "coordinator-1" }))).toBe(true);
+    }
+  });
+
+  it("does not reassign a completed, cancelled or rejected event", () => {
+    for (const status of ["completed", "cancelled", "rejected"]) {
+      expect(canAssignCoordinator(opsManager, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  });
+
+  it("does not assign a draft, or a live event somehow left without one", () => {
+    expect(canAssignCoordinator(opsManager, event({ status: "draft" }))).toBe(false);
+    expect(canAssignCoordinator(opsManager, event({ status: "planning", coordinatorId: null }))).toBe(false);
+  });
+
+  it("stops every other role, including coordinators and the owning organiser (#94, #101)", () => {
+    const submitted = event({ status: "submitted" });
+    const live = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    for (const other of [coordinator, otherCoordinator, organiserA, venueStaff, techSupport, attendee]) {
+      expect(canAssignCoordinator(other, submitted)).toBe(false);
+      expect(canAssignCoordinator(other, live)).toBe(false);
+    }
+  });
+});
+
+describe("canCheckEquipmentAvailability (SPM-48)", () => {
+  it("lets Technical Support check equipment availability", () => {
+    expect(canCheckEquipmentAvailability(techSupport)).toBe(true);
+  });
+
+  it("stops everyone else - the result names other events' bookings", () => {
+    expect(canCheckEquipmentAvailability(coordinator)).toBe(false);
+    expect(canCheckEquipmentAvailability(organiserA)).toBe(false);
+  });
+});
+
+describe("canReserveEquipment (SPM-49)", () => {
+  it("lets Technical Support reserve equipment", () => {
+    expect(canReserveEquipment(techSupport)).toBe(true);
+  });
+
+  it("stops a Coordinator or Organiser from reserving", () => {
+    expect(canReserveEquipment(coordinator)).toBe(false);
+    expect(canReserveEquipment(organiserA)).toBe(false);
+  });
+});
+
+describe("canRequestVenueBooking (SPM-42)", () => {
+  it("SPM-42-TC01: the assigned coordinator can request a venue booking", () => {
+    expect(canRequestVenueBooking(coordinator, event({ status: "approved", coordinatorId: "coordinator-1" }))).toBe(true);
+  });
+
+  it("SPM-42-TC12: a coordinator cannot request a booking for an event not assigned to them", () => {
+    expect(canRequestVenueBooking(otherCoordinator, event({ coordinatorId: "coordinator-1" }))).toBe(false);
+    expect(canRequestVenueBooking(coordinator, event({ coordinatorId: null }))).toBe(false);
+  });
+
+  it("SPM-42-TC12: no other role can request a venue booking", () => {
+    const assigned = event({ status: "approved", coordinatorId: "coordinator-1" });
+    for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canRequestVenueBooking(other, assigned)).toBe(false);
     }
   });
 });
@@ -440,6 +523,11 @@ describe("visibleEventFor", () => {
     cancellationReason: null,
     equipmentRequests: [{ id: "eq1" }],
     facilityRequirements: [{ facilityId: "f1" }],
+    // Shown to an attendee by name (§4). Present here so the pair of tests
+    // below pin BOTH halves of the rule: the client's name goes out, the
+    // organiser's personal name and the raw organisationId do not.
+    organisation: { name: "Tanjong Legal Chambers" },
+    organiser: { fullName: "Aaron Sim" },
   };
 
   it("withholds internal planning information from an attendee (§8b, second example)", () => {
@@ -455,9 +543,23 @@ describe("visibleEventFor", () => {
       "cancellationReason",
       "equipmentRequests",
       "facilityRequirements",
+      // The organiser's personal name is withheld even though the client's
+      // company name is not - see the note on ATTENDEE_EVENT_FIELDS.
+      "organiser",
     ]) {
       expect(visible).not.toHaveProperty(hidden);
     }
+  });
+
+  // SPM-31 decided an attendee may see whose event it is; docs/PERMISSIONS.md §4
+  // records it. Asserted here so the exception cannot be dropped or widened by
+  // accident - nothing exercised it before, which is how it drifted from §4 in
+  // the first place (SPM-22 TC17).
+  it("shows an attendee the client's company name, but not the organiser's own", () => {
+    const visible = visibleEventFor(attendee, full);
+    expect(visible.organisation).toEqual({ name: "Tanjong Legal Chambers" });
+    expect(visible).not.toHaveProperty("organiser");
+    expect(visible).not.toHaveProperty("organisationId");
   });
 
   it("still tells an attendee what they need in order to register", () => {

@@ -8,9 +8,15 @@ import {
   updateEventStatusSchema,
   updateEventDraftSchema,
   updateVenueSchema,
+  venueAvailabilityQuerySchema,
   addEquipmentRequestSchema,
   updateEquipmentRequestSchema,
+  recordOutOfServiceSchema,
 } from "../validation";
+// SPM-40 - its own import so the shared list above stays conflict-free.
+import { venueSearchQuerySchema } from "../validation";
+// SPM-42 - likewise.
+import { createVenueBookingSchema } from "../validation";
 
 import { SELF_REGISTERABLE_ROLES } from "../roles";
 
@@ -695,6 +701,48 @@ describe("updateVenueSchema", () => {
 
 // ---- Equipment requirements recorded after the event exists (SPM-47, S-16) ----
 
+// SPM-40: GET /api/venues/search query string.
+describe("venueSearchQuerySchema", () => {
+  const UUID = "3f2b8c1e-4a5d-4e6f-9a0b-1c2d3e4f5a6b";
+
+  it("accepts no filters at all", () => {
+    expect(venueSearchQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it("treats blank values as filters not set", () => {
+    const parsed = venueSearchQuerySchema.parse({ from: "", to: "", attendance: "", building: "" });
+    expect(parsed).toEqual({});
+  });
+
+  it("coerces attendance and splits facilityIds", () => {
+    const parsed = venueSearchQuerySchema.parse({ attendance: "120", facilityIds: `${UUID}, ${UUID}` });
+    expect(parsed.attendance).toBe(120);
+    expect(parsed.facilityIds).toEqual([UUID, UUID]);
+  });
+
+  it("rejects a start without an end", () => {
+    expect(venueSearchQuerySchema.safeParse({ from: "2026-12-09T09:00" }).success).toBe(false);
+  });
+
+  it("rejects an end at or before the start", () => {
+    expect(
+      venueSearchQuerySchema.safeParse({ from: "2026-12-09T09:00", to: "2026-12-09T09:00" }).success
+    ).toBe(false);
+  });
+
+  it("rejects a non-positive or fractional attendance, and a malformed facility id", () => {
+    expect(venueSearchQuerySchema.safeParse({ attendance: "0" }).success).toBe(false);
+    expect(venueSearchQuerySchema.safeParse({ attendance: "2.5" }).success).toBe(false);
+    expect(venueSearchQuerySchema.safeParse({ facilityIds: "not-a-uuid" }).success).toBe(false);
+  });
+
+  it("rejects a time that is not YYYY-MM-DDTHH:MM", () => {
+    expect(
+      venueSearchQuerySchema.safeParse({ from: "9 Dec 2026", to: "10 Dec 2026" }).success
+    ).toBe(false);
+  });
+});
+
 describe("addEquipmentRequestSchema", () => {
   const projector = "8f14e45f-ceea-4e7c-9c2f-1f6a8e4f1f10";
 
@@ -772,5 +820,95 @@ describe("updateEquipmentRequestSchema", () => {
 
   it("rejects a quantity below one", () => {
     expect(updateEquipmentRequestSchema.safeParse({ quantityRequested: 0 }).success).toBe(false);
+  });
+});
+
+describe("venueAvailabilityQuerySchema", () => {
+  it("accepts no range at all - the route defaults to a week from today", () => {
+    expect(venueAvailabilityQuerySchema.safeParse({}).success).toBe(true);
+  });
+
+  it("accepts a real start and end date", () => {
+    const result = venueAvailabilityQuerySchema.safeParse({ from: "2026-09-28", to: "2026-10-04" });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a date that does not exist", () => {
+    // Caught by round-tripping, not the format: 31 Feb must not become 3 March.
+    const result = venueAvailabilityQuerySchema.safeParse({ from: "2026-02-31" });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.issues[0].message).toMatch(/YYYY-MM-DD/);
+    }
+  });
+
+  it("rejects a date written in another format", () => {
+    expect(venueAvailabilityQuerySchema.safeParse({ to: "28/09/2026" }).success).toBe(false);
+  });
+});
+
+describe("recordOutOfServiceSchema (SPM-48 AC7)", () => {
+  it("accepts a number of units and a reason", () => {
+    const parsed = recordOutOfServiceSchema.parse({ quantityOutOfService: 2, reason: "  Cracked lens  " });
+    expect(parsed).toEqual({ quantityOutOfService: 2, reason: "Cracked lens" });
+  });
+
+  it("accepts zero units, to record that everything is back in service", () => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 0 }).success).toBe(true);
+  });
+
+  it("does not need a reason", () => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1 }).success).toBe(true);
+  });
+
+  it.each([-1, 1.5, "2", null])("rejects %s as the number of units", (value) => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: value }).success).toBe(false);
+  });
+
+  it("rejects a missing number of units", () => {
+    expect(recordOutOfServiceSchema.safeParse({ reason: "Broken" }).success).toBe(false);
+  });
+
+  it("rejects a reason longer than 500 characters", () => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, reason: "x".repeat(501) }).success).toBe(false);
+  });
+});
+
+describe("createVenueBookingSchema (SPM-42)", () => {
+  const VENUE = "11111111-1111-4111-8111-111111111111";
+  const SESSION = "22222222-2222-4222-8222-222222222222";
+
+  it("SPM-42-TC01: accepts a venue, a date, slots and venue requirements", () => {
+    const parsed = createVenueBookingSchema.parse({
+      venueId: VENUE,
+      day: "2027-03-04",
+      slots: ["AM", "PM"],
+      requirementsNote: "  Lectern and stage riser at the front.  ",
+    });
+    expect(parsed.requirementsNote).toBe("Lectern and stage riser at the front.");
+    expect(parsed.sessionId).toBeUndefined();
+  });
+
+  it("SPM-42-TC09: accepts a session", () => {
+    expect(createVenueBookingSchema.parse({ venueId: VENUE, sessionId: SESSION, day: "2027-03-01", slots: ["AM"] }).sessionId).toBe(SESSION);
+  });
+
+  it("SPM-42-TC03: empty venue requirements become absent", () => {
+    expect(createVenueBookingSchema.parse({ venueId: VENUE, day: "2027-03-05", slots: ["AM"], requirementsNote: "   " }).requirementsNote).toBeUndefined();
+  });
+
+  it("SPM-42-TC05: leaves an empty slot list to the business rule, which has the clearer message", () => {
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: [] }).success).toBe(true);
+  });
+
+  it("rejects an unknown slot, a duplicate slot, an impossible date and a missing venue", () => {
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["Evening"] }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["AM", "AM"] }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-02-31", slots: ["AM"] }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ day: "2027-03-07", slots: ["AM"] }).success).toBe(false);
+  });
+
+  it("rejects venue requirements over 2000 characters", () => {
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["AM"], requirementsNote: "x".repeat(2001) }).success).toBe(false);
   });
 });

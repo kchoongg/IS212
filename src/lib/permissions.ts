@@ -160,13 +160,17 @@ export function sharesOrganisation(actor: Actor, event: EventAccessFields): bool
   return actor.organisationId != null && event.organisationId === actor.organisationId;
 }
 
-/// A coordinator acts on the events assigned to them. An event nobody is
-/// assigned to yet may be picked up by any coordinator - the review queue has
-/// to be reachable before Coordinator Assignment is built, and an unassigned
-/// event has no coordinator whose work would be trodden on.
+/// A coordinator acts on the events assigned to them, and only those.
+///
+/// CHANGED (SPM-30): this used to let any coordinator pick up an event with no
+/// coordinator yet, so the review queue was reachable before Coordinator
+/// Assignment existed. Now that the Ops Manager assigns every submitted event
+/// (customer clarifications #94, #101), an unassigned event is nobody's to
+/// manage - confirmed 2026-09-28, and already anticipated in DOCUMENTATION.md
+/// under SPM-31's decisions.
 export function isAssignedCoordinator(actor: Actor, event: EventAccessFields): boolean {
   if (actor.role !== "coordinator") return false;
-  return event.coordinatorId === null || event.coordinatorId === actor.id;
+  return event.coordinatorId !== null && event.coordinatorId === actor.id;
 }
 
 /// Can this user see this event at all? Separate from *which fields* they see
@@ -226,9 +230,8 @@ export function canEditEventContent(actor: Actor, event: EventAccessFields): boo
 }
 
 /// SPM-47: equipment requirements are recorded and revised by the coordinator
-/// assigned to the event (or any coordinator, while it has none yet — same
-/// "pick up unassigned work" allowance as isAssignedCoordinator elsewhere).
-/// Unlike canEditEventContent this is not restricted to draft: equipment
+/// assigned to the event (SPM-30 removed the "any coordinator while it has
+/// none yet" allowance - see isAssignedCoordinator). Unlike canEditEventContent this is not restricted to draft: equipment
 /// planning is explicitly a during-planning activity, well past draft.
 export function canManageEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
   if (!can(actor.role, "equipment_request:manage")) return false;
@@ -248,6 +251,63 @@ export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields)
   if (actor.role === "tech_support") return true;
   if (actor.role === "organiser") return ownsEvent(actor, event);
   return canManageEquipmentRequests(actor, event);
+}
+
+/// SPM-48: "As Technical Support Staff, I want to check whether sufficient
+/// suitable equipment is available". Deliberately narrower than
+/// canViewEquipmentRequests - a result names the OTHER events holding the
+/// equipment ("Held by Gala Dinner until 13 Oct"), which would show an
+/// Organiser another client's events (briefing §8b).
+export function canCheckEquipmentAvailability(actor: Actor): boolean {
+  return actor.role === "tech_support";
+}
+
+/// SPM-49: "As Technical Support Staff, I want to reserve available equipment
+/// for an event." Uses the `equipment_request:review` action that was already
+/// in the permission model (ROLE_PERMISSIONS, tech_support) but unused until
+/// now - see DOCUMENTATION.md Known Gaps. Same set of people as
+/// canCheckEquipmentAvailability() in practice (only tech_support holds this
+/// action), kept as its own function because reserving is a distinct action
+/// from viewing, not just a stricter view.
+export function canReserveEquipment(actor: Actor): boolean {
+  return can(actor.role, "equipment_request:review");
+}
+
+/// SPM-42: a venue booking is requested by the coordinator assigned to the
+/// event, the same relationship rule as equipment (canManageEquipmentRequests).
+export function canRequestVenueBooking(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "venue_booking:request")) return false;
+  return isAssignedCoordinator(actor, event);
+}
+
+// ---------------------------------------------------------------------------
+// COORDINATOR ASSIGNMENT (SPM-30)
+// ---------------------------------------------------------------------------
+
+/// A submitted event is waiting for its first coordinator. Assigning one moves
+/// it to under_review in the same action (confirmed 2026-09-28; recorded
+/// earlier under SPM-31's decisions in DOCUMENTATION.md).
+export const ASSIGNABLE_STATUSES: readonly string[] = ["submitted"];
+
+/// An event that already has a coordinator can be handed to another while it
+/// is still live - "reassignment may be required when staff responsibilities
+/// or availability change" (briefing p.5, clarification #94). Not once it is
+/// completed, cancelled or rejected: there is nothing left to coordinate.
+export const REASSIGNABLE_STATUSES: readonly string[] = [
+  "under_review",
+  "approved",
+  "planning",
+  "confirmed",
+  "postponed",
+];
+
+/// May this user assign (or reassign) this event's coordinator? Only the
+/// Event Operations Manager (clarifications #94, #101), and only while the
+/// event is waiting for one or still live.
+export function canAssignCoordinator(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "event:assign_coordinator")) return false;
+  if (event.coordinatorId === null) return ASSIGNABLE_STATUSES.includes(event.status);
+  return REASSIGNABLE_STATUSES.includes(event.status);
 }
 
 // ---------------------------------------------------------------------------

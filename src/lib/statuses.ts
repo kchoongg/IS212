@@ -34,6 +34,10 @@ const STATUS_META: Record<string, StatusMeta> = {
   reserved: { label: "Reserved", tone: "success" },
   partially_fulfilled: { label: "Partially fulfilled", tone: "warning" },
   unavailable: { label: "Unavailable", tone: "danger" },
+  // SPM-48: the availability result on an equipment line (S-25 mockup chips).
+  // Not stored anywhere - computed from stock, so they are not request statuses.
+  available: { label: "Available", tone: "success" },
+  partial: { label: "Partial", tone: "warning" },
 
   // --- Registration ---
   registered: { label: "Registered", tone: "success" },

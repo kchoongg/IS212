@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ButtonLink,
@@ -10,6 +11,7 @@ import {
   Table,
   type Column,
 } from "@/components/ui";
+import { RequirePermission } from "@/components/RequirePermission";
 import { orEmpty } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
@@ -22,8 +24,9 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 //   - Venue Staff hold venue:manage (briefing §3, "responsible for venue
 //     information"), so they get Add venue and can open a room to edit it.
 //   - A coordinator holds venue:view only. They get the same list, read-only:
-//     no Add button, and rows do not navigate, because the only venue screen
-//     built so far is the editor and sending them there would be a dead end.
+//     no Add button, and rows do not navigate, because a row opens the editor
+//     and sending them there would be a dead end. What they CAN open is each
+//     room's availability calendar (SPM-46), through the link in its row.
 //
 // The gate is can(), the same function the API routes use, so the interface and
 // the server cannot disagree about who may do what. Hiding a button is not
@@ -42,7 +45,22 @@ interface VenueRow {
   layouts: { layoutName: string; capacity: number }[];
 }
 
+// SPM-22: the catalogue is venue:view, which an Organiser and an Attendee do
+// not hold. They used to reach the screen and be told by a 403 handler that the
+// list had failed to load, which reads as a broken page rather than a refusal.
 export default function VenuesPage() {
+  return (
+    <RequirePermission
+      action="venue:view"
+      title="Venues"
+      reason="The venue catalogue is for ConnectSphere staff. Your venue is confirmed with your event once a coordinator has booked it."
+    >
+      <VenuesCatalogue />
+    </RequirePermission>
+  );
+}
+
+function VenuesCatalogue() {
   const router = useRouter();
   const { user, state } = useCurrentUser();
   const [venues, setVenues] = useState<VenueRow[] | null>(null);
@@ -178,6 +196,28 @@ export default function VenuesPage() {
           },
         ]
       : []),
+    // SPM-46: every row links to that room's availability calendar. This is
+    // the way in for coordinators, who hold venue:view and are who the calendar
+    // is for, but whose rows do not click and who cannot open the editor. Venue
+    // Staff also get a "View availability" button on the edit page.
+    {
+      key: "availability",
+      header: "Availability",
+      render: (row) => (
+        <Link
+          href={`/venues/${row.id}/availability`}
+          // A Venue Staff row is itself clickable and opens the editor. Stop the
+          // event here, or following this link would ALSO trigger the row and
+          // race it to a different page. The mobile card view listens for
+          // Enter/Space, so the keypress is stopped too.
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="text-sm font-medium text-brand-700 hover:underline"
+        >
+          View availability
+        </Link>
+      ),
+    },
   ];
 
   return (
@@ -190,11 +230,18 @@ export default function VenuesPage() {
             : "The rooms ConnectSphere can offer. Venue Staff maintain these details."
         }
         actions={
-          canManage ? (
-            <ButtonLink href="/venues/new" variant="accent">
-              Add venue
+          <>
+            {/* SPM-40: S-14 filters this same catalogue against a date,
+                attendance, location, layout and facilities. */}
+            <ButtonLink href="/venues/search" variant={canManage ? "secondary" : "accent"}>
+              Find a venue
             </ButtonLink>
-          ) : undefined
+            {canManage && (
+              <ButtonLink href="/venues/new" variant="accent">
+                Add venue
+              </ButtonLink>
+            )}
+          </>
         }
       />
 

@@ -93,7 +93,7 @@ cite.
 | --- | --- | --- | --- |
 | S-12 | Review queue | `/queue` | Events assigned to me, grouped by what they need. |
 | S-13 | Event review | `/events/[id]/review` | Approve, reject, or request clarification. |
-| S-14 | Venue search | `/venues/search?eventId=` | Filter venues against this event's requirements. |
+| S-14 | Venue search | `/venues/search?event=EVT-000123` | Filter venues against this event's requirements. Built (SPM-40): shows only matching venues; the greyed "not suitable, and why" view is the event's Venue tab (SPM-41). |
 | S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
@@ -106,7 +106,7 @@ cite.
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/calendar` | Bookings, holds, and blocks over time. |
-| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject. |
+| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject. SPM-42 built the read-only list; Approve/Reject are not built yet. |
 | S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
 
 ### 3.5 Technical Support
@@ -402,7 +402,7 @@ every session has one.
 | S-01 Login | Email, Password | |
 | S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
 | S-13 Event review | Decision (approve / reject / request clarification), Message or Reason | Reason **required** when rejecting — enforced server-side in `events/[id]/route.ts`. |
-| S-15 Venue booking request | Venue (prefilled from search), Layout, Start, End, Requirements note | Start/End default to the event's times and are editable to cover setup. |
+| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), Layout (shown), Date, Slots (AM / PM / Night), Venue requirements | Built (SPM-42). Date and slots default to the event's or session's own. Slots must be next to each other and cover that time. Setup and turnaround slots are shown, not chosen (#123). |
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
 | S-10 Change request | Reason *, Proposed start, Proposed end, Proposed attendance, Other changes | At least one proposed change required. Significant-change warning shown live — see §7.4. |
 | S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup/Teardown minutes, Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. |
@@ -456,11 +456,11 @@ getting right.
 
 | Situation | Where | What the user sees |
 | --- | --- | --- |
-| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Capacity 200 — your event expects 250". Not hidden; the coordinator may still want to ask. |
+| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Capacity 200 — your event expects 250". Not hidden, but it has no "Request booking" button (SPM-42). |
 | Required facility missing | S-14 | "Missing: hearing loop" listed on the venue card; venue ranked below full matches. |
 | Venue double-booking | S-15 submit, S-22 approve | Blocking error naming the conflicting event and its times, with a link to the S-21 calendar. |
-| Booking overlaps setup/teardown | S-15 | Warning, not a block: "This starts 20 min after the previous event ends; this venue needs 30 min turnaround." |
-| Venue blocked for maintenance | S-14, S-15 | Venue excluded from results with the reason shown on expand. |
+| Booking overlaps setup/teardown | S-15 | Blocked, like any clash: setup and turnaround take a whole adjacent slot (#108, #123), so overlapping one is a double-booking (#35). |
+| Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
 | Equipment in maintenance | S-24, S-25 | Availability shown as `total − maintenance − reserved`; the breakdown is visible, not just the result. |
 | Registration full | S-26 | Register button becomes "Join waiting list" with the current waiting-list position. |
@@ -543,6 +543,7 @@ This document specifies the whole first release. What is built so far:
 | S-08 Sessions section (multi-session events) | `src/components/SessionFields.tsx`, `src/lib/eventSessions.ts` |
 | Facility and accessibility requirements as rows (§6.2) | `src/app/api/facilities/route.ts`, `createEventSchema.facilityIds` |
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
+| S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
 
 Specified but not yet built, and why:
 
