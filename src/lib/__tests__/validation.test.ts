@@ -15,6 +15,8 @@ import {
 } from "../validation";
 // SPM-40 - its own import so the shared list above stays conflict-free.
 import { venueSearchQuerySchema } from "../validation";
+// SPM-42 - likewise.
+import { createVenueBookingSchema } from "../validation";
 
 import { SELF_REGISTERABLE_ROLES } from "../roles";
 
@@ -865,5 +867,44 @@ describe("recordOutOfServiceSchema (SPM-48 AC7)", () => {
 
   it("rejects a reason longer than 500 characters", () => {
     expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, reason: "x".repeat(501) }).success).toBe(false);
+  });
+});
+
+describe("createVenueBookingSchema (SPM-42)", () => {
+  const VENUE = "11111111-1111-4111-8111-111111111111";
+  const SESSION = "22222222-2222-4222-8222-222222222222";
+
+  it("SPM-42-TC01: accepts a venue, a date, slots and venue requirements", () => {
+    const parsed = createVenueBookingSchema.parse({
+      venueId: VENUE,
+      day: "2027-03-04",
+      slots: ["AM", "PM"],
+      requirementsNote: "  Lectern and stage riser at the front.  ",
+    });
+    expect(parsed.requirementsNote).toBe("Lectern and stage riser at the front.");
+    expect(parsed.sessionId).toBeUndefined();
+  });
+
+  it("SPM-42-TC09: accepts a session", () => {
+    expect(createVenueBookingSchema.parse({ venueId: VENUE, sessionId: SESSION, day: "2027-03-01", slots: ["AM"] }).sessionId).toBe(SESSION);
+  });
+
+  it("SPM-42-TC03: empty venue requirements become absent", () => {
+    expect(createVenueBookingSchema.parse({ venueId: VENUE, day: "2027-03-05", slots: ["AM"], requirementsNote: "   " }).requirementsNote).toBeUndefined();
+  });
+
+  it("SPM-42-TC05: leaves an empty slot list to the business rule, which has the clearer message", () => {
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: [] }).success).toBe(true);
+  });
+
+  it("rejects an unknown slot, a duplicate slot, an impossible date and a missing venue", () => {
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["Evening"] }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["AM", "AM"] }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-02-31", slots: ["AM"] }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ day: "2027-03-07", slots: ["AM"] }).success).toBe(false);
+  });
+
+  it("rejects venue requirements over 2000 characters", () => {
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["AM"], requirementsNote: "x".repeat(2001) }).success).toBe(false);
   });
 });

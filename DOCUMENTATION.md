@@ -145,7 +145,8 @@ IS212/
 ├── scripts/
 │   ├── verify-permissions.ts    # `npm run verify:permissions` — see Everyday Commands
 │   ├── verify-login.ts          # `npm run verify:login`
-│   └── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
+│   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
+│   └── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
 │
 └── src/
     ├── app/
@@ -181,6 +182,10 @@ IS212/
     │   │                                coordinator" / "Change coordinator" card
     │   │                                here (SPM-30).
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
+    │   ├── events/[id]/booking/new/page.tsx # S-15 Venue booking request (SPM-42), from
+    │   │                                "Request booking" on the Venue tab
+    │   ├── bookings/page.tsx            # S-22 Booking Requests, Venue Staff. SPM-42:
+    │   │                                read-only pending list; no Approve/Reject yet
     │   ├── venues/search/page.tsx       # S-14 "Find a venue" (SPM-40): filters on the
     │   │                                left, ONLY matching venues on the right.
     │   │                                ?event=EVT-000123 pre-fills it from that
@@ -201,6 +206,8 @@ IS212/
     │       │                                (PUT: assign/reassign, SPM-30)
     │       ├── assignments/              (Kristen) — the S-28 queue's data (SPM-30)
     │       ├── venues/                   (Kayal)
+    │       ├── venue-bookings/            (Sammi) — pending requests for Venue Staff (SPM-42);
+    │       │                                an event's own are under events/[id]/venue-bookings
     │       ├── facilities/                (Kayal — reference data for forms + venue search)
     │       ├── equipment/                  (Janelle)
     │       └── registrations/               (Sammi)
@@ -241,6 +248,8 @@ IS212/
         │                                   venues passing every filter (AC7).
         ├── venueSearchForm.ts             # SPM-40 form values: pre-fill from an event,
         │                                   query string, client-side checks
+        ├── venueBookingRequest.ts         # SPM-42 request rules, pure: chosen slots ->
+        │                                   booking window, does it cover the schedule
         ├── equipment.ts                  # equipmentWindowFor() (pre-SPM-47) + checkOutOfService()/
         │                                  outOfServiceReasonFor() (SPM-48 AC7)
         ├── equipmentAvailability.ts       # SPM-48 rules, pure — no Prisma. D-1 → Return Day+1
@@ -599,6 +608,7 @@ traceability the module asks for.
 | `npm test` | Run tests once |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
+| `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -714,7 +724,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
 | **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
-| **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
+| **Venue booking approval not built** | SPM-42 creates Pending requests and lists them on `/bookings`, but nothing approves or rejects one, so `venue_booking:decide` only guards that read-only list. Two requests submitted at the same moment can both pass the clash check (no database lock). | venues |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC09 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
 | **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. | venues |
@@ -746,6 +756,74 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-01 — Sammi Chua
+- **SPM-42 (Request Venue Booking), slice 1: test cases and slot rules.**
+  - `src/lib/venueBookingRequest.ts`: `requestedWindow()` and
+    `coversSchedule()`, built on SPM-46's `venueSlots.ts`.
+    `canRequestVenueBooking()` in `permissions.ts`.
+  - Test cases: `docs/test-cases/SPM-42_Test_Cases.xlsx` (17 cases, all 8 ACs;
+    open questions in the JSON).
+  - No migration: `VenueBooking` already has every field needed.
+- **SPM-42 slices 2–3: request rules and schema.**
+  `checkVenueBookingRequest()` applies every decision below in one pure
+  function and returns the window to store or the refusal message;
+  `defaultSlots()` pre-fills the form. `createVenueBookingSchema` in
+  `src/lib/validation/venues.ts`.
+- **SPM-42 slice 4: test data.** `npm run fixtures:spm42`
+  (`scripts/seed-spm42.ts`), mirrored at the end of `prisma/seed.ts`. Adds one
+  venue, SPM42-PLN, because no seeded venue has zero setup and zero teardown.
+- **SPM-42 slice 5: routes.** `GET`/`POST /api/events/[id]/venue-bookings`
+  (the event's requests; create a pending one) and `GET /api/venue-bookings`
+  (pending requests, Venue Staff). `GET .../venue-suitability` takes an
+  optional `?session=<id>` so a session is judged on its own attendance and
+  layout; without it, unchanged.
+- **SPM-42 slice 6: screens.** The Venue tab gets a session picker, a
+  "Request booking" button on suitable venues and the event's requests with
+  their status. S-15 (`/events/[id]/booking/new`) is the request form. S-22
+  (`/bookings`) is now a read-only list of pending requests for Venue Staff.
+  UI_DESIGN.md S-15 and §7.4 updated to match. Requests are shown as their
+  date and slots (`requestSlotsLabel()`), e.g. "10 Mar 2027 · PM, Night
+  (13:00–24:00)", not raw times: Night ends at 24:00, stored as the next
+  day's midnight.
+- **SPM-42 decisions** (customer clarification numbers in brackets):
+  - A request is one date plus one or more **contiguous** AM/PM/Night slots
+    (#50) that cover every slot the event's, or the session's, own time
+    touches (#107). Extra slots are allowed.
+  - Setup and turnaround come from the venue and take one adjacent slot each,
+    across days (#108, #123). They are **shown but not stored**:
+    `startsAt`/`endsAt` hold the chosen slots only, and `occupiedCells()` adds
+    the rest, so the calendar never counts setup twice.
+  - Only the **assigned coordinator** can request (existing SPM-30 rule), and
+    not for a completed, cancelled or rejected event (existing SPM-47 rule,
+    `isTerminalEventStatus()`). Nothing beyond the AC was added: no extra
+    status restriction and no limit on requests per event.
+  - **Clashes are blocked** at submission through `occupancyConflict()`
+    (#35, #41): unavailability, an approved booking (setup and turnaround
+    included), or another event's pending hold. Cancelled and rejected bookings
+    never block.
+  - An **unsuitable venue is refused**. SPM-41's greyed list is unchanged, and
+    an incomplete check (no attendance or layout yet) does not block.
+  - A session request uses the session's date, time, attendance and layout,
+    and the event's facilities. 'Venue requirements' is free text in
+    `requirementsNote`.
+  - Venue Staff will see requests in a **read-only `/bookings` list**, which
+    replaces the S-22 placeholder. Approve and Reject stay with the Venue
+    Booking Approval story.
+  - 'Venue requirements' is optional; layout is always sent.
+  - Opening hours are not checked on a request. Night (19:00–24:00) runs past
+    most venues' closing time, so checking would make Night unbookable almost
+    everywhere; Venue Staff see the slots and judge it when they review (AC7).
+  - A single-session event spanning several days cannot be booked in one
+    request: the form pre-fills nothing and submitting says the slots do not
+    cover the event's time. Such an event needs sessions (AC4).
+  - A Pending request is not re-checked when the event's attendance or layout
+    changes later. Not in the AC; Venue Staff review it before approving.
+  - Test cases that create requests use `spm42_` fixture events
+    (`npm run fixtures:spm42`, not built yet), so a test pass can be repeated
+    without a reseed.
 
 ---
 

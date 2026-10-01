@@ -34,12 +34,20 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       ? null
       : await prisma.event.findUnique({
           where: { sequenceNumber },
-          include: { facilityRequirements: { include: { facility: true } } },
+          include: { facilityRequirements: { include: { facility: true } }, sessions: true },
         });
   // Same rule as GET /api/events/[id]: an event the user may not see is 404,
   // not 403, so its existence is not confirmed.
   if (!event || !canViewEvent(actor, event)) {
     return hidden();
+  }
+
+  // ADDED (SPM-42, D11): ?session=<id> judges venues by that session's own
+  // attendance and layout instead of the event's; facilities stay the event's.
+  const sessionId = req.nextUrl.searchParams.get("session");
+  const session = sessionId ? event.sessions.find((s) => s.id === sessionId) : null;
+  if (sessionId && !session) {
+    return NextResponse.json({ error: "Session not found for this event" }, { status: 400 });
   }
 
   // Retired venues are out of the catalogue, so they are not offered here
@@ -50,8 +58,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   });
 
   const needs: EventNeeds = {
-    expectedAttendance: event.expectedAttendance,
-    preferredLayout: event.preferredLayout,
+    expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
+    preferredLayout: session ? session.preferredLayout : event.preferredLayout,
     requirements: event.facilityRequirements.map((r) => ({
       facilityId: r.facilityId,
       name: r.facility.name,
