@@ -311,6 +311,28 @@ export function canAssignCoordinator(actor: Actor, event: EventAccessFields): bo
 }
 
 // ---------------------------------------------------------------------------
+// EVENT REVIEW (SPM-28)
+// ---------------------------------------------------------------------------
+
+/// A request can be reviewed only while it is under review. Assignment moves
+/// it there (SPM-30), and an approve or reject moves it out, so a request is
+/// decided once. A clarification keeps it here (DOCUMENTATION.md 2026-09-22).
+export const REVIEWABLE_STATUSES: readonly string[] = ["under_review"];
+
+/// The two outcomes of a review. Nothing else moves an event into these, so
+/// the route can hold them to REVIEWABLE_STATUSES (confirmed 2026-09-30):
+/// without that, the assigned coordinator could reject an event already in
+/// Planning, which STATUS_TRANSITION_ROLES alone does not prevent.
+export const REVIEW_OUTCOMES: readonly string[] = ["approved", "rejected"];
+
+/// May this user review (approve or reject) this request right now? Only the
+/// coordinator assigned to it, and only while it is under review.
+export function canReviewEvent(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "event:review")) return false;
+  return isAssignedCoordinator(actor, event) && REVIEWABLE_STATUSES.includes(event.status);
+}
+
+// ---------------------------------------------------------------------------
 // STATUS TRANSITIONS
 // ---------------------------------------------------------------------------
 

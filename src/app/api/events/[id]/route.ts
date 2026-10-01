@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import {
+  REVIEWABLE_STATUSES,
+  REVIEW_OUTCOMES,
   canEditEventContent,
   canSetEventStatus,
   canViewEvent,
@@ -49,7 +51,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             organisation: { select: { name: true } },
             // Each row carries its sessionId (null = the whole event), which is how
             // the edit form tells event-wide equipment from a session's own.
-            equipmentRequests: true,
+            // CHANGED (SPM-28): with the item's name, so the review page can
+            // list what was requested. Additive - toFormValues() maps the
+            // columns it needs and ignores the rest.
+            equipmentRequests: { include: { equipment: { select: { name: true } } } },
             // ADDED (SPM-23, multi-session events): empty for an ordinary
             // single-session event. SESSION_SELECT (src/lib/sessionWrites.ts) is a
             // superset of what SPM-47's per-session equipment picker needs
@@ -193,6 +198,15 @@ async function handleStatusChange(
     }
   }
 
+  // ADDED (SPM-28): approve and reject are review outcomes, decided once,
+  // from Under review. See REVIEW_OUTCOMES in src/lib/permissions.ts.
+  if (REVIEW_OUTCOMES.includes(data.status) && !REVIEWABLE_STATUSES.includes(event.status)) {
+    return NextResponse.json(
+      { error: "Only a request that is under review can be approved or rejected" },
+      { status: 400 }
+    );
+  }
+
   // ADDED: the brief requires a rejected request to retain the decision reason.
   if (data.status === "rejected" && !data.reason?.trim()) {
     return NextResponse.json(
@@ -207,7 +221,7 @@ async function handleStatusChange(
       data: {
         status: data.status,
         // Keep the decision record on the event itself as well as in history.
-        ...(data.status === "rejected" ? { rejectionReason: data.reason } : {}),
+        ...(data.status === "rejected" ? { rejectionReason: data.reason?.trim() } : {}),
         ...(data.status === "cancelled" ? { cancellationReason: data.reason } : {}),
         ...(data.status === "submitted" ? { submittedAt: new Date() } : {}),
         ...(data.status === "confirmed" ? { confirmedAt: new Date() } : {}),

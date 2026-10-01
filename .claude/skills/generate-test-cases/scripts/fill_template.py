@@ -3,7 +3,13 @@
 Fill the team's Excel test case template from a JSON file.
 
 Usage:
-    python fill_template.py <test_cases.json> <output.xlsx>
+    python fill_template.py <test_cases.json> <output.xlsx> [--legacy]
+
+Checks the JSON first, including the team's writing rules (every expected
+result tied to a "Step N:", no hand-numbered, filler or "Repeat" steps, case
+references that exist, dependent cases placed right after what they depend
+on, no full reseed as a reset). --legacy downgrades the writing rules to a
+warning, for rebuilding a file written before 2026-09-30 without changing it.
 
 The layout of each test case sheet comes from Test_Case_Template.xlsx (sheet "TC01").
 This script copies that sheet once per test case, so the format never drifts.
@@ -13,6 +19,7 @@ Requires: pip install openpyxl
 """
 import json
 import math
+import re
 import sys
 from datetime import date, datetime
 from pathlib import Path
@@ -79,6 +86,72 @@ def validate(data):
     for ac in ac_ids:
         if ac not in covered:
             problems.append(f"{ac} has no test case covering it")
+    return problems
+
+
+# The team's rules for how a test case is written (SKILL.md, Step 3). Checked
+# here so a case that breaks one cannot be built, whoever generated it.
+STEP_LINE = re.compile(r"^Step (\d+): \S")
+PRE_NUMBERED = re.compile(r"^\s*\d+[.)]\s")
+FILLER_STEP = re.compile(r"^(Read|Look at|Review|Check) the (list|page|screen|results?)\b", re.I)
+REPEAT_STEP = re.compile(r"^Repeat\b", re.I)
+# A full reseed wipes every table on the shared database. Mentioning it is fine
+# ("do NOT run `npx prisma db seed`"); telling the tester to run it is not.
+RESEED = re.compile(r"(?<!not )(?<!NOT )(?<!never )\brun `?npx prisma db seed`?", re.I)
+
+
+def check_writing_rules(data):
+    problems = []
+    key = data["story_key"]
+    tcs = data["test_cases"]
+    ids = [tc.get("id") for tc in tcs]
+    ref_pattern = re.compile(rf"\b{re.escape(key)}-TC\d+\b")
+
+    for i, tc in enumerate(tcs):
+        label = tc.get("id") or f"test case #{i + 1}"
+        steps = tc.get("steps") or []
+        if not isinstance(steps, list):
+            problems.append(f"{label}: 'steps' must be a list (the script numbers them)")
+            steps = []
+
+        for n, step in enumerate(steps, start=1):
+            if PRE_NUMBERED.match(step):
+                problems.append(f"{label} step {n}: don't number steps yourself - the script does")
+            if FILLER_STEP.match(step):
+                problems.append(f"{label} step {n}: '{step[:40]}' is a filler step - put its result on the click that shows it")
+            if REPEAT_STEP.match(step):
+                problems.append(f"{label} step {n}: write the repeated steps out, so each has its own result")
+
+        # Every expected result is tied to the step that produces it.
+        last = 0
+        for line in str(tc.get("expected_result", "")).split("\n"):
+            if not line.strip():
+                continue
+            m = STEP_LINE.match(line)
+            if not m:
+                problems.append(f"{label}: expected result line must start 'Step N: ' - got '{line[:50]}'")
+                continue
+            n = int(m.group(1))
+            if not 1 <= n <= len(steps):
+                problems.append(f"{label}: 'Step {n}' but the case has {len(steps)} step(s)")
+            elif n <= last:
+                problems.append(f"{label}: 'Step {n}' is out of order or repeated - one line per step, in step order")
+            last = max(last, n)
+
+        text = " ".join([str(tc.get("preconditions", "")), str(tc.get("expected_result", "")),
+                         str(tc.get("test_data", ""))] + [str(s) for s in steps])
+        for ref in ref_pattern.findall(text):
+            if ref not in ids:
+                problems.append(f"{label}: refers to {ref}, which doesn't exist")
+
+        # A case that needs another run first comes straight after it.
+        for m in re.finditer(rf"({re.escape(key)}-TC\d+) has just been run", str(tc.get("preconditions", ""))):
+            if i == 0 or ids[i - 1] != m.group(1):
+                problems.append(f"{label}: depends on {m.group(1)}, so it must come immediately after it")
+
+        if RESEED.search(str(tc.get("preconditions", ""))):
+            problems.append(f"{label}: don't reset data with a full reseed - use the story's fixture script "
+                            "(e.g. `npm run fixtures:spm28`), which only touches its own test events")
     return problems
 
 
@@ -213,9 +286,16 @@ def build(data, out_path):
 
 
 def main():
-    if len(sys.argv) != 3:
+    # Test cases quote on-screen text ("−", "—", "…"); a Windows console's
+    # default code page can't print them, which would crash the report.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    legacy = "--legacy" in sys.argv[1:]
+    if len(args) != 2:
         sys.exit(__doc__)
-    json_path, out_path = Path(sys.argv[1]), Path(sys.argv[2])
+    json_path, out_path = Path(args[0]), Path(args[1])
     data = json.loads(json_path.read_text(encoding="utf-8"))
 
     problems = validate(data)
@@ -224,6 +304,20 @@ def main():
         for p in problems:
             print(f"  - {p}")
         sys.exit(1)
+
+    # The writing rules (SKILL.md Step 3) are enforced for every new or revised
+    # file. --legacy only exists so test cases written before 2026-09-30 can
+    # still be rebuilt unchanged; it reports the problems instead of refusing.
+    rule_problems = check_writing_rules(data)
+    if rule_problems and not legacy:
+        print("VALIDATION FAILED - the test cases break the writing rules in SKILL.md Step 3:")
+        for p in rule_problems:
+            print(f"  - {p}")
+        print("(Rebuilding an unchanged file written before 2026-09-30? Add --legacy.)")
+        sys.exit(1)
+    if rule_problems:
+        print(f"WARNING (--legacy): {len(rule_problems)} writing-rule problem(s) left in - "
+              "fix them next time these test cases are revised.")
 
     build(data, out_path)
     print(f"OK: wrote {len(data['test_cases'])} test cases for "
