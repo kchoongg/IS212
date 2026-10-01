@@ -203,7 +203,7 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 export const updateEventStatusSchema = z.object({
   status: z.enum([
     "draft", "submitted", "under_review", "rejected", "approved",
-    "planning", "postponed", "confirmed", "completed", "cancelled",
+    "planning", "postponed", "confirmed", "completed", "cancelled", "withdrawn",
   ]),
   reason: z.string().optional(),
 });

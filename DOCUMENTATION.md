@@ -464,7 +464,7 @@ defend under questioning.
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
 | Booking conflict detection | venues domain | ❌ to write |
 | Equipment availability | equipment domain | ❌ to write |
-| Event status lifecycle — which `from → to` moves are legal at all (who may make them is done; see below) | events domain | ❌ to write |
+| Event status lifecycle — which `from → to` moves are legal at all (who may make them is done; see below) | `canTransition()` in `statuses.ts`, checked by `api/events/[id]` PATCH | ✅ done (SPM-27) |
 
 ### Access rules are business rules too
 
@@ -653,7 +653,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | Gap | Impact | Owner |
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
-| **Status lifecycle is not validated** | Who may set a status is enforced; which `from → to` moves are legal is not, so `draft → confirmed` in one step is possible for a coordinator. | events |
 | **Coordinator Assignment has no endpoint** | `Event.coordinatorId` is never set by the app, so any coordinator may pick up any unassigned event (deliberate interim rule — see `docs/PERMISSIONS.md` §3). | events |
 | **Venue booking + equipment request routes not built** | `venue_booking:decide` and `equipment_request:review` are defined in the permission model and unused. | venues / equipment |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
@@ -681,6 +680,62 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-01 — Sammi Chua (SPM-27, lifecycle enforced)
+- **The events `PATCH` route now refuses illegal status moves.**
+  `handleStatusChange` calls `canTransition()` after the role check and
+  returns 400 with `transitionError()`'s message, e.g. "This event is
+  Withdrawn and can't be moved to Withdrawn." `withdrawn` added to
+  `updateEventStatusSchema`. Closes the "Status lifecycle is not validated"
+  Known Gap.
+- `docs/ConnectSphere_Status_Lifecycle.drawio`: new Withdrawn box with
+  "withdraw" from Submitted and Under review, a new Approved → Cancelled
+  arrow, and the Planning → Cancelled arrow is now attached to Planning (it
+  had no source).
+
+---
+
+### 2026-10-01 — Sammi Chua (SPM-27, transition rules)
+- **The lifecycle as code, not yet enforced.** `canTransition(from, to)` and
+  `transitionError()` in `src/lib/statuses.ts` hold the moves listed in the
+  entry below; `withdrawn` joins `TERMINAL_EVENT_STATUSES`.
+  `STATUS_TRANSITION_ROLES` (`src/lib/permissions.ts`) gains `withdrawn`
+  (organiser), loses `draft`, and `postponed` is coordinator-only — the old
+  test "still lets the owning organiser postpone" now asserts the opposite.
+  The events `PATCH` route does not call `canTransition()` yet (next slice),
+  and `withdrawn` is not yet in its Zod enum. `docs/PERMISSIONS.md` §5
+  updated.
+
+---
+
+### 2026-10-01 — Sammi Chua
+- **SPM-27 (View Event Status): test cases and lifecycle decisions.**
+  `docs/test-cases/SPM-27_Test_Cases.xlsx` (8 cases). No code yet. Decisions agreed with Sammi Chua, 2026-10-01,
+  to be built in the next slices:
+  - **Legal moves only.** A pure transition table in `src/lib/statuses.ts`,
+    checked by the events `PATCH` route on top of the existing role check.
+    Allowed: draft → submitted; submitted → under_review, withdrawn;
+    under_review → approved, rejected, withdrawn; approved → planning,
+    cancelled; planning → confirmed, postponed, cancelled; confirmed →
+    completed, postponed, cancelled; postponed → planning, cancelled.
+    Completed, rejected, cancelled and withdrawn are final. Closes the
+    "Status lifecycle is not validated" Known Gap once built.
+  - **New `withdrawn` event status** (AC3 lists it, nothing had it). The
+    owning organiser may withdraw their own request while it is Submitted or
+    Under review, via a "Withdraw request" button on the event page. Final,
+    so it joins `TERMINAL_EVENT_STATUSES`.
+  - **Approved → Cancelled added** (not on the original lifecycle diagram).
+  - **Organiser can no longer postpone** (AC4: the organiser cannot manually
+    change the status). `STATUS_TRANSITION_ROLES.postponed` becomes
+    coordinator-only, and the `draft` entry goes (nothing moves an event back
+    to draft). An organiser asks for a postponement or cancellation through a
+    change request (`EventChangeRequest`), not built yet.
+  - **Rules only.** Confirm, Complete, Postpone, Resume and Cancel actions
+    stay with their own stories (SPM-37 Cancel, SPM-38 Postpone, …); they only
+    need to send the status once the rules are in. Auto-complete after 7 days
+    (clarification #71) is not built here.
 
 ---
 

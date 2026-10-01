@@ -269,6 +269,10 @@ describe("updateEventStatusSchema", () => {
     expect(updateEventStatusSchema.safeParse({ status: "confirmed" }).success).toBe(true);
     expect(updateEventStatusSchema.safeParse({ status: "made_up_status" }).success).toBe(false);
   });
+
+  it("SPM-27-TC04: accepts withdrawn", () => {
+    expect(updateEventStatusSchema.safeParse({ status: "withdrawn" }).success).toBe(true);
+  });
 });
 
 // ---- SPM-24: editing a saved draft. Every field is optional here, unlike

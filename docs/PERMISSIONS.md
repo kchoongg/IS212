@@ -190,31 +190,36 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 
 | Target status | Roles | Briefing |
 | --- | --- | --- |
-| `draft` | Organiser (owner) | Step 1 |
 | `submitted` | Organiser (owner) | Step 2 |
+| `withdrawn` | Organiser (owner) | SPM-27, decision 2026-10-01 |
 | `under_review` | Ops Manager, Coordinator | Step 3 |
 | `approved` / `rejected` | Coordinator (assigned) | Step 5 |
 | `planning` | Coordinator (assigned) | Step 6 |
 | `confirmed` | Coordinator (assigned) | Step 10 |
 | `completed` | Coordinator (assigned) | Step 14 |
-| `postponed` | Coordinator (assigned), Organiser (owner) | §4 Rescheduling |
+| `postponed` | Coordinator (assigned) | §4 Rescheduling; SPM-27 AC4 |
 | `cancelled` | Coordinator (assigned) only | §4 Cancellation, customer clarification #68 |
 
 Venue Staff and Technical Support appear nowhere: they decide their own bookings
 and equipment requests, not the event's status.
 
 **Cancellation is the Event Coordinator's alone** (customer clarification,
-2026-09-18). It is deliberately narrower than every other rule in this table,
-including postponement, which the owning Organiser may still do. Cancelling an
+2026-09-18). Cancelling an
 event releases its venue booking, frees its equipment reservations and drops the
 attendee list (briefing §4, "Cancellation Management"), so it is a ConnectSphere
 operational decision rather than a client-side one. An Organiser who wants their
 event called off raises an Event Change Request and the assigned coordinator
 acts on it; the Ops Manager assigns coordinators and does not cancel either.
 
-This table says **who**, not **which from → to moves are legal**. The lifecycle
-graph (you cannot jump `draft` → `confirmed`) belongs to Event Status
-Management and is not implemented yet — see Open items.
+**The Organiser only submits or withdraws** (SPM-27 AC4, "the Event Organiser
+cannot manually change the event status"). Postponing is the coordinator's too;
+an Organiser who wants to postpone asks through an Event Change Request, as for
+cancelling. Nothing moves an event back to `draft` — a new event is created as
+one.
+
+This table says **who**, not **which from → to moves are legal**. That is
+`canTransition()` in `src/lib/statuses.ts` (you cannot jump `draft` →
+`confirmed`), checked by the events `PATCH` route after this role check.
 
 ---
 
@@ -281,9 +286,6 @@ allowed to see.
 
 ## 8. Open items
 
-- **Lifecycle validation.** Who may set a status is enforced; which transitions
-  are legal is not. `draft → confirmed` in one step is currently possible for a
-  coordinator.
 - **Coordinator Assignment** has no endpoint yet, which is why any coordinator
   may pick up an unassigned event.
 - **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
