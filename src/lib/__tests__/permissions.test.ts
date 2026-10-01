@@ -12,6 +12,7 @@ import {
   canReviewEvent,
   canCheckEquipmentAvailability,
   canReserveEquipment,
+  canRequestVenueBooking,
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
@@ -376,6 +377,24 @@ describe("canReserveEquipment (SPM-49)", () => {
   it("stops a Coordinator or Organiser from reserving", () => {
     expect(canReserveEquipment(coordinator)).toBe(false);
     expect(canReserveEquipment(organiserA)).toBe(false);
+  });
+});
+
+describe("canRequestVenueBooking (SPM-42)", () => {
+  it("SPM-42-TC01: the assigned coordinator can request a venue booking", () => {
+    expect(canRequestVenueBooking(coordinator, event({ status: "approved", coordinatorId: "coordinator-1" }))).toBe(true);
+  });
+
+  it("SPM-42-TC12: a coordinator cannot request a booking for an event not assigned to them", () => {
+    expect(canRequestVenueBooking(otherCoordinator, event({ coordinatorId: "coordinator-1" }))).toBe(false);
+    expect(canRequestVenueBooking(coordinator, event({ coordinatorId: null }))).toBe(false);
+  });
+
+  it("SPM-42-TC12: no other role can request a venue booking", () => {
+    const assigned = event({ status: "approved", coordinatorId: "coordinator-1" });
+    for (const other of [organiserA, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canRequestVenueBooking(other, assigned)).toBe(false);
+    }
   });
 });
 

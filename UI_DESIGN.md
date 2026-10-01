@@ -106,7 +106,7 @@ cite.
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/calendar` | Bookings, holds, and blocks over time. |
-| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject. |
+| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject. SPM-42 built the read-only list; Approve/Reject are not built yet. |
 | S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
 
 ### 3.5 Technical Support
@@ -402,7 +402,7 @@ every session has one.
 | S-01 Login | Email, Password | |
 | S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
 | S-13 Event review | Decision (approve / reject / request clarification), Message or Reason | Reason **required** when rejecting — enforced server-side in `events/[id]/route.ts`. |
-| S-15 Venue booking request | Venue (prefilled from search), Layout, Start, End, Requirements note | Start/End default to the event's times and are editable to cover setup. |
+| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), Layout (shown), Date, Slots (AM / PM / Night), Venue requirements | Built (SPM-42). Date and slots default to the event's or session's own. Slots must be next to each other and cover that time. Setup and turnaround slots are shown, not chosen (#123). |
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
 | S-10 Change request | Reason *, Proposed start, Proposed end, Proposed attendance, Other changes | At least one proposed change required. Significant-change warning shown live — see §7.4. |
 | S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup/Teardown minutes, Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. |
@@ -456,10 +456,10 @@ getting right.
 
 | Situation | Where | What the user sees |
 | --- | --- | --- |
-| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Capacity 200 — your event expects 250". Not hidden; the coordinator may still want to ask. |
+| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Capacity 200 — your event expects 250". Not hidden, but it has no "Request booking" button (SPM-42). |
 | Required facility missing | S-14 | "Missing: hearing loop" listed on the venue card; venue ranked below full matches. |
 | Venue double-booking | S-15 submit, S-22 approve | Blocking error naming the conflicting event and its times, with a link to the S-21 calendar. |
-| Booking overlaps setup/teardown | S-15 | Warning, not a block: "This starts 20 min after the previous event ends; this venue needs 30 min turnaround." |
+| Booking overlaps setup/teardown | S-15 | Blocked, like any clash: setup and turnaround take a whole adjacent slot (#108, #123), so overlapping one is a double-booking (#35). |
 | Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
 | Equipment in maintenance | S-24, S-25 | Availability shown as `total − maintenance − reserved`; the breakdown is visible, not just the result. |
