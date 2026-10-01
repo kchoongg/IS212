@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isDayKey } from "@/lib/venueSlots";
+import { SLOTS, isDayKey } from "@/lib/venueSlots";
 
 // ---- Venues ----
 
@@ -123,3 +123,20 @@ export const venueAvailabilityQuerySchema = z.object({
   to: availabilityDay.optional(),
 });
 export type VenueAvailabilityQuery = z.infer<typeof venueAvailabilityQuerySchema>;
+
+// ADDED (SPM-42): POST /api/events/[id]/venue-bookings. An empty `slots` list
+// is allowed through on purpose - checkVenueBookingRequest()
+// (src/lib/venueBookingRequest.ts) refuses it with the message the screen shows.
+export const createVenueBookingSchema = z.object({
+  venueId: z.string().uuid(),
+  /// Required by the route when the event has sessions (AC4).
+  sessionId: z.string().uuid().optional(),
+  day: availabilityDay,
+  slots: z
+    .array(z.enum(SLOTS))
+    .max(SLOTS.length)
+    .refine((slots) => new Set(slots).size === slots.length, { message: "Each slot may appear only once" }),
+  /// 'Venue requirements' (AC6). Optional; blank means none given.
+  requirementsNote: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+});
+export type CreateVenueBookingInput = z.infer<typeof createVenueBookingSchema>;
