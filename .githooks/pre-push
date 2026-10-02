@@ -11,16 +11,34 @@
 # type-check, tests, build and migrations - and that is where failing tests
 # stop a merge.
 #
+# ESLint and Vitest are started with `node` directly rather than through
+# `npm run`: GitHub Desktop and other Windows Git apps cannot run the `npm`
+# launcher from a hook ("npm: No such file or directory"). These two lines
+# are the same as the "lint" and "test" scripts in package.json - keep them
+# in step.
+#
 # To push without it in an emergency: git push --no-verify
 
+ESLINT=node_modules/eslint/bin/eslint.js
+VITEST=node_modules/vitest/vitest.mjs
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-push: Node.js was not found, so lint and tests were skipped. CI will still run them."
+  exit 0
+fi
+if [ ! -f "$ESLINT" ] || [ ! -f "$VITEST" ]; then
+  echo "pre-push: dependencies are not installed, so lint and tests were skipped. Run 'npm install'. CI will still run them."
+  exit 0
+fi
+
 echo "pre-push: lint"
-npm run lint --silent || {
+node "$ESLINT" . || {
   echo "pre-push: lint failed - push cancelled. Fix the errors above, or see .githooks/pre-push."
   exit 1
 }
 
 echo "pre-push: tests"
-if npm test --silent; then
+if node "$VITEST" run; then
   echo "pre-push: all tests pass."
 else
   echo ""
