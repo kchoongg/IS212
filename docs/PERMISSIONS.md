@@ -334,9 +334,16 @@ allowed to see.
 - **Lifecycle validation.** Who may set a status is enforced; which transitions
   are legal is enforced for approve/reject (from `under_review`, SPM-28) and
   for planning (from `approved`, SPM-54) only. `approved → confirmed` in one
-  step is still possible for a coordinator. `PLANNING_FROM_STATUSES` is
-  `approved` alone, so a postponed event cannot return to planning yet — the
-  reschedule story will need to widen it.
+  step is still possible for a coordinator.
+- **Resuming a postponed event** (decided 2026-10-02, not built). It goes
+  `postponed` → `approved`, not straight to `planning`: the coordinator's next
+  venue or equipment action then begins planning again, so
+  `PLANNING_FROM_STATUSES` stays `approved` alone. Customer answer #69 backs
+  this — postponing without a date releases the bookings. SPM-38 (Postpone
+  Event) needs its own resume action, because a move to `approved` is
+  otherwise allowed only from `under_review` (`REVIEWABLE_STATUSES`), and has
+  to decide the case where the new date is already known (#69: a rescheduling
+  request, arrangements reviewed rather than released).
 - **`under_review` via the status PATCH.** `STATUS_TRANSITION_ROLES` still
   lets the Ops Manager set `under_review` directly, which would leave an event
   under review with no coordinator. The UI never does this (it assigns through

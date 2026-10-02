@@ -753,7 +753,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | Gap | Impact | Owner |
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
-| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator, and nothing returns a Postponed event to Planning — `PLANNING_FROM_STATUSES` is Approved only, which the reschedule story will need to revisit. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
+| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Venue booking approval not built** | SPM-42 creates Pending requests and lists them on `/bookings`, but nothing approves or rejects one, so `venue_booking:decide` only guards that read-only list. Two requests submitted at the same moment can both pass the clash check (no database lock). | venues |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC09 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
@@ -873,7 +873,14 @@ what changed, why, and the migration name if there is one.
   Management and linked to SPM-40 and SPM-54; comments on all three explain
   the links.
 - `docs/ConnectSphere_Status_Lifecycle.drawio`: the Approved → Planning edge
-  is relabelled from "search" to "first venue / equipment action".
+  is relabelled from "search" to "first venue / equipment action", and the
+  "resume" edge now runs **Postponed → Approved** instead of Postponed →
+  Planning.
+- **Decision for SPM-38 (Postpone Event), 2026-10-02**: a resumed event goes
+  back to **Approved**; planning then begins again with the coordinator's next
+  venue or equipment action. Planning keeps its single way in. No code for
+  this yet — the points SPM-38 has to settle are in the "Status lifecycle is
+  only partly validated" Known Gap.
 ### 2026-09-30 — Kristen
 - **SPM-28 (Review Event Request): built end to end.** The assigned Event
   Coordinator reviews a request and approves it for planning or rejects it.
