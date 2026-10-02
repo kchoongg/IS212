@@ -106,7 +106,7 @@ cite.
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/calendar` | Bookings, holds, and blocks over time. |
-| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject. SPM-42 built the read-only list; Approve/Reject are not built yet. |
+| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
 | S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
 
 ### 3.5 Technical Support

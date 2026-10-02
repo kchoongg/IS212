@@ -318,8 +318,11 @@ allowed to see.
   under review with no coordinator. The UI never does this (it assigns through
   `PUT /api/events/[id]/coordinator`); removing it belongs with Lifecycle
   validation above.
-- **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
-  ready for whoever builds them.
+- ~~**Venue bookings** have no routes yet.~~ Closed by SPM-42 and SPM-43:
+  `venue_booking:decide` guards the Booking Requests list
+  (`GET /api/venue-bookings`) and the decision itself
+  (`PATCH /api/venue-bookings/[id]`). It is a role check only — Venue Staff
+  are not scoped by venue (#66), so any of them may decide any request.
 - **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)
   but not yet reviewed. `equipment_request:review` is still defined and ready
   for whoever builds the Technical Support side (SPM-48/49/50).

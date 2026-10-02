@@ -23,6 +23,10 @@ const BOOKING_FIELDS = {
   layoutName: true,
   requirementsNote: true,
   requestedAt: true,
+  // SPM-43: Venue Staff's decision, for the coordinator to act on (AC6).
+  decisionReason: true,
+  suggestedAlternative: true,
+  suggestedVenue: { select: { id: true, code: true, name: true, isActive: true } },
   session: { select: { id: true, label: true } },
   venue: { select: { id: true, code: true, name: true, setupMinutes: true, teardownMinutes: true } },
 } as const;
