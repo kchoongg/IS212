@@ -16,10 +16,11 @@
     "fixtures:spm42": "tsx scripts/seed-spm42.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "fixtures:spm44": "tsx scripts/seed-spm44.ts"
   },
   "prisma": {
-  "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@neon/config": "^1.3.2",

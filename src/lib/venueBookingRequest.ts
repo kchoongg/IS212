@@ -12,7 +12,8 @@
 
 import { formatDate, formatDateTimeRange } from "@/lib/format";
 import { isTerminalEventStatus } from "@/lib/statuses";
-import { occupancyConflict, type SearchableVenue } from "@/lib/venueSearch";
+import { describeVenueConflict, findVenueConflict } from "@/lib/venueConflict";
+import { type SearchableVenue } from "@/lib/venueSearch";
 import {
   SLOTS,
   SLOT_BOUNDARIES,
@@ -104,15 +105,11 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
     return refuse(`${venue.name} is not suitable for this event: ${unmet.map(describeUnmet).join(" ")}`);
   }
 
-  // #35, #41: a clash is blocked, not warned about.
-  switch (occupancyConflict(venue, window, input.eventId)) {
-    case "unavailable":
-      return refuse(`${venue.name} is unavailable at this time.`);
-    case "booked":
-      return refuse(`${venue.name} is already booked for this time.`);
-    case "on_hold":
-      return refuse(`${venue.name} is on hold for another event at this time.`);
-  }
+  // #35, #41: a clash is blocked, not warned about. SPM-44 (AC9) also says
+  // WHAT it clashes with, so the coordinator can go and look at that event or
+  // period instead of guessing from an empty calendar.
+  const conflict = findVenueConflict(venue, window, { eventId: input.eventId });
+  if (conflict) return refuse(describeVenueConflict(venue.name, conflict));
 
   return { ok: true, window };
 }

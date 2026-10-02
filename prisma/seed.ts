@@ -979,6 +979,9 @@ async function main() {
       category: "workshop", organiser: "Budi Santoso", coordinator: "priya.raj@connectsphere.com",
       days: daysUntil("2027-02-18"), startHour: 20, durationHours: 24, attendance: 90, layout: "exhibition",
       rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+  );
+
+  // -----------------------------------------------------------------
   // SPM-42 QA fixtures (Request Venue Booking). The SAME events as
   // scripts/seed-spm42.ts (`npm run fixtures:spm42`) - keep the two in step.
   // Sessions and the two blocker bookings are created further down.
@@ -1008,6 +1011,45 @@ async function main() {
     spm42("spm42_rejected_hold", "SPM42 Rejected Hold", "2027-03-16", 9, 9, { coordinator: "priya.raj@connectsphere.com" }),
     spm42("spm42_after_cancel", "SPM42 After Cancellation", "2027-03-15", 10, 6),
     spm42("spm42_after_reject", "SPM42 After Rejection", "2027-03-17", 10, 6),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-44 QA fixtures (Booking Conflict Detection). The SAME events as
+  // scripts/seed-spm44.ts (`npm run fixtures:spm44`) - keep the two in step.
+  //
+  // The events only. The bookings they hold (approved, pending, rejected,
+  // cancelled), the SPM44-PLN room and the unavailability period AC8 needs are
+  // created by that script alone, so run it once after a full reseed or the
+  // conflict cases have nothing to collide with.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm44 = (
+    key: string, title: string, date: string, startHour: number, durationHours: number,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-44 booking conflict test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "classroom", ...options,
+  });
+  const PRIYA = "priya.raj@connectsphere.com";
+  eventData.push(
+    spm44("spm44_holder_approved", "SPM44 Approved Holder", "2027-04-05", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_clash_approved", "SPM44 Clash With Approved", "2027-04-05", 14, 2),
+    spm44("spm44_adjacent", "SPM44 Adjacent Slot", "2027-04-05", 9, 2),
+    spm44("spm44_holder_pending", "SPM44 Pending Holder", "2027-04-06", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_clash_pending", "SPM44 Clash With Pending", "2027-04-06", 14, 2),
+    spm44("spm44_holder_rejected", "SPM44 Rejected Holder", "2027-04-07", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_after_rejected", "SPM44 After Rejected", "2027-04-07", 14, 2),
+    spm44("spm44_holder_cancelled", "SPM44 Cancelled Holder", "2027-04-08", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_after_cancelled", "SPM44 After Cancelled", "2027-04-08", 14, 2),
+    spm44("spm44_setup_holder", "SPM44 Setup Holder", "2027-04-09", 14, 2,
+      { coordinator: PRIYA, attendance: 40, layout: "theatre" }),
+    spm44("spm44_setup_clash", "SPM44 Setup Clash", "2027-04-09", 9, 2, { attendance: 40, layout: "theatre" }),
+    spm44("spm44_midnight_holder", "SPM44 Midnight Holder", "2027-04-12", 20, 2,
+      { coordinator: PRIYA, attendance: 40, layout: "theatre" }),
+    spm44("spm44_midnight_clash", "SPM44 Midnight Clash", "2027-04-13", 9, 2,
+      { attendance: 40, layout: "theatre" }),
+    spm44("spm44_blocked", "SPM44 Blocked Room", "2027-04-20", 9, 2),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

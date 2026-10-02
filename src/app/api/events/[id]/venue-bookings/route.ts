@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
-import { parseEventReference } from "@/lib/format";
+import { eventReference, parseEventReference } from "@/lib/format";
 import { createVenueBookingSchema } from "@/lib/validation";
 import { isTerminalEventStatus } from "@/lib/statuses";
 import { CLOSED_EVENT_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
@@ -120,7 +120,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       include: {
         layouts: true,
         facilities: true,
-        bookings: { where: { status: { in: ["pending", "approved"] } } },
+        // SPM-44 (AC9): the refusal names the booking in the way, so the
+        // event behind each one is loaded with it. Only active bookings are
+        // read - a rejected or cancelled one holds nothing (AC7).
+        bookings: {
+          where: { status: { in: ["pending", "approved"] } },
+          include: { event: { select: { sequenceNumber: true, title: true } } },
+        },
         unavailability: true,
       },
     });
@@ -151,6 +157,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       venue: {
         ...venue,
         facilityIds: venue.facilities.map((f) => f.facilityId),
+        bookings: venue.bookings.map((b) => ({
+          ...b,
+          eventReference: eventReference(b.event.sequenceNumber),
+          eventTitle: b.event.title,
+        })),
       },
       day: data.day,
       slots: data.slots,

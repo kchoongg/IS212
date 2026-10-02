@@ -1,0 +1,295 @@
+{
+  "story_key": "SPM-44",
+  "story_title": "As the system, I want to detect overlapping venue bookings so that a venue cannot be double-booked for incompatible events",
+  "created_by": "TAN JORDAN",
+  "creation_date": "2026-10-02",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The system checks existing bookings when a venue booking is requested."
+    },
+    {
+      "id": "AC2",
+      "text": "Conflict checking is performed per fixed slot (AM, PM, Night); two bookings in different slots on the same day for the same venue do not conflict unless one's setup or turnaround requirement occupies the other's slot."
+    },
+    {
+      "id": "AC3",
+      "text": "An overlapping confirmed booking is detected."
+    },
+    {
+      "id": "AC4",
+      "text": "An overlapping pending booking request is detected: only one active pending request or confirmed booking may exist for the same venue and slot."
+    },
+    {
+      "id": "AC5",
+      "text": "A booking request cannot be submitted if it conflicts with an existing pending request or confirmed booking."
+    },
+    {
+      "id": "AC6",
+      "text": "A booking request cannot be confirmed if it conflicts with an existing confirmed booking."
+    },
+    {
+      "id": "AC7",
+      "text": "A rejected, withdrawn or released booking does not count as a conflict."
+    },
+    {
+      "id": "AC8",
+      "text": "Venue unavailability is treated as a conflict."
+    },
+    {
+      "id": "AC9",
+      "text": "The conflicting booking or unavailable period is identified to the authorised user."
+    },
+    {
+      "id": "AC10",
+      "text": "Non-overlapping bookings are allowed."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-44-TC01",
+      "title": "A slot already held by an approved booking is refused, and the booking is named",
+      "linked_ac": [
+        "AC1",
+        "AC3",
+        "AC5",
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. 'SPM44 Approved Holder' holds an APPROVED booking at SPM44 Conflict Room (SPM44-PLN) on 5 Apr 2027, PM. 'SPM44 Clash With Approved' runs 5 Apr 2027 14:00-16:00 and has no booking. SPM44-PLN needs no setup or turnaround time. Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123), assigned to 'SPM44 Clash With Approved'. This case changes no data, but run the fixtures again afterwards if a later case has already run.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Clash With Approved' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Event: SPM44 Clash With Approved (5 Apr 2027, 14:00-16:00)\nVenue: SPM44 Conflict Room (SPM44-PLN)\nSlot offered: PM (13:00-18:00), already ticked\nIn the way: SPM44 Approved Holder, approved, same room and slot",
+      "expected_result": "Step 4: The booking request screen opens with the Date 5 Apr 2027 and only 'PM (13:00–18:00)' ticked.\nStep 5: The request is refused with 'SPM44 Conflict Room is already booked for EVT-… SPM44 Approved Holder on 5 Apr 2027, PM.' — naming the event in the way, not just the fact of it. No request is created, and no new row appears under 'Booking requests'."
+    },
+    {
+      "id": "SPM-44-TC02",
+      "title": "A different slot on the same day at the same venue is allowed",
+      "linked_ac": [
+        "AC2",
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. 'SPM44 Approved Holder' holds an APPROVED booking at SPM44 Conflict Room on 5 Apr 2027, PM. 'SPM44 Adjacent Slot' runs 5 Apr 2027 09:00-11:00 (AM) and has no booking. SPM44-PLN needs no setup or turnaround time, so the PM booking holds PM alone. Logged in as Daniel Tan, assigned to 'SPM44 Adjacent Slot'. This case creates a booking request — run npm run fixtures:spm44 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Adjacent Slot' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM44 Adjacent Slot (5 Apr 2027, 09:00-11:00)\nVenue: SPM44 Conflict Room (SPM44-PLN)\nSlot: AM (07:00-12:00)\nSame room and day as the approved PM booking",
+      "expected_result": "Step 4: The booking request screen opens with the Date 5 Apr 2027 and only 'AM (07:00–12:00)' ticked.\nStep 5: 'Booking request sent to Venue Staff.' is shown — the approved PM booking does not block AM at a venue with no setup or turnaround time.\nStep 6: The request is listed under 'Booking requests' as '5 Apr 2027 · AM (07:00–12:00) · Classroom' with the status badge 'Pending'."
+    },
+    {
+      "id": "SPM-44-TC03",
+      "title": "An event's own booking does not conflict with itself",
+      "linked_ac": [
+        "AC1",
+        "AC10"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "SPM-44-TC02 has just been run (so 'SPM44 Adjacent Slot' now holds a pending request at SPM44 Conflict Room on 5 Apr 2027, AM) and the fixtures have NOT been reset since. Logged in as Daniel Tan, assigned to 'SPM44 Adjacent Slot'. Run npm run fixtures:spm44 after this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Adjacent Slot' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and read its status chip"
+      ],
+      "test_data": "Event: SPM44 Adjacent Slot, which already holds a pending AM request at this room",
+      "expected_result": "Step 4: SPM44 Conflict Room is still shown as 'Suitable' with a 'Request booking' button — an event's own pending request is not reported as a conflict with itself. The pending request it already holds is listed under 'Booking requests' above."
+    },
+    {
+      "id": "SPM-44-TC04",
+      "title": "A slot already held by another event's pending request is refused",
+      "linked_ac": [
+        "AC4",
+        "AC5",
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. 'SPM44 Pending Holder' holds a PENDING booking request at SPM44 Conflict Room on 6 Apr 2027, PM. 'SPM44 Clash With Pending' runs 6 Apr 2027 14:00-16:00 and has no booking. Logged in as Daniel Tan, assigned to 'SPM44 Clash With Pending'.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Clash With Pending' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Event: SPM44 Clash With Pending (6 Apr 2027, 14:00-16:00)\nVenue: SPM44 Conflict Room (SPM44-PLN)\nSlot: PM (13:00-18:00)\nIn the way: SPM44 Pending Holder, pending, same room and slot",
+      "expected_result": "Step 5: The request is refused with 'SPM44 Conflict Room is on hold for EVT-… SPM44 Pending Holder on 6 Apr 2027, PM.' — a hold is named as a hold, not as a booking, so the coordinator knows it may still be released. No request is created."
+    },
+    {
+      "id": "SPM-44-TC05",
+      "title": "A rejected booking does not hold the slot",
+      "linked_ac": [
+        "AC7",
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. 'SPM44 Rejected Holder' has a REJECTED booking at SPM44 Conflict Room on 7 Apr 2027, PM. 'SPM44 After Rejected' runs 7 Apr 2027 14:00-16:00 — the same room and slot. Logged in as Daniel Tan, assigned to 'SPM44 After Rejected'. This case creates a booking request — run npm run fixtures:spm44 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 After Rejected' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM44 After Rejected (7 Apr 2027, 14:00-16:00)\nVenue: SPM44 Conflict Room (SPM44-PLN)\nIn the way: nothing — SPM44 Rejected Holder's booking for the same slot was rejected",
+      "expected_result": "Step 5: 'Booking request sent to Venue Staff.' is shown — a rejected booking holds nothing.\nStep 6: The request is listed under 'Booking requests' as '7 Apr 2027 · PM (13:00–18:00) · Classroom' with the status badge 'Pending'."
+    },
+    {
+      "id": "SPM-44-TC06",
+      "title": "A cancelled (withdrawn or released) booking does not hold the slot",
+      "linked_ac": [
+        "AC7",
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. 'SPM44 Cancelled Holder' has a CANCELLED booking at SPM44 Conflict Room on 8 Apr 2027, PM — the status the system stores for a withdrawn or released booking. 'SPM44 After Cancelled' runs 8 Apr 2027 14:00-16:00. Logged in as Daniel Tan, assigned to 'SPM44 After Cancelled'. This case creates a booking request — run npm run fixtures:spm44 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 After Cancelled' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM44 After Cancelled (8 Apr 2027, 14:00-16:00)\nVenue: SPM44 Conflict Room (SPM44-PLN)\nIn the way: nothing — SPM44 Cancelled Holder's booking for the same slot was cancelled",
+      "expected_result": "Step 5: 'Booking request sent to Venue Staff.' is shown.\nStep 6: The request is listed under 'Booking requests' as '8 Apr 2027 · PM (13:00–18:00) · Classroom' with the status badge 'Pending'."
+    },
+    {
+      "id": "SPM-44-TC07",
+      "title": "A different slot IS refused when the other booking's setup occupies it",
+      "linked_ac": [
+        "AC2",
+        "AC5",
+        "AC9"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. Orchard Seminar Room (ORC-SEM) records 60 minutes of setup and 30 of teardown, so a booking there also takes one whole adjacent slot either side. 'SPM44 Setup Holder' holds an APPROVED booking at ORC-SEM on 9 Apr 2027, PM — whose setup therefore takes that morning's AM. 'SPM44 Setup Clash' runs 9 Apr 2027 09:00-11:00 (AM). Logged in as Daniel Tan, assigned to 'SPM44 Setup Clash'.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Setup Clash' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Event: SPM44 Setup Clash (9 Apr 2027, 09:00-11:00, AM)\nVenue: Orchard Seminar Room (ORC-SEM), setup 60 min, teardown 30 min\nIn the way: SPM44 Setup Holder's approved PM booking, whose setup takes AM",
+      "expected_result": "Step 5: The request is refused with 'Orchard Seminar Room is already booked for EVT-… SPM44 Setup Holder on 9 Apr 2027, AM–PM.' — AM and PM are different slots, so this is the exception in AC2: at a venue with preparation time the two requests reach into each other's slots. Both are named, because both are genuinely contested — the holder's setup takes AM, and this request's own turnaround takes PM. No request is created."
+    },
+    {
+      "id": "SPM-44-TC08",
+      "title": "A recorded unavailable period blocks a request, and its reason and dates are shown",
+      "linked_ac": [
+        "AC8",
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. SPM44 Conflict Room is recorded unavailable for maintenance from 20 Apr 2027 to 21 Apr 2027 inclusive. 'SPM44 Blocked Room' runs 20 Apr 2027 09:00-11:00 (AM) and has no booking. Logged in as Daniel Tan, assigned to 'SPM44 Blocked Room'.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Blocked Room' in the list",
+        "Click the 'Venue' tab",
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Event: SPM44 Blocked Room (20 Apr 2027, 09:00-11:00)\nVenue: SPM44 Conflict Room (SPM44-PLN)\nIn the way: maintenance, 20-21 Apr 2027",
+      "expected_result": "Step 5: The request is refused with 'SPM44 Conflict Room is unavailable at this time (maintenance, 20 Apr 2027 AM – 21 Apr 2027 Night).' — the reason and the WHOLE closure, not only the slot asked for, so the coordinator can see the room is out for two days and pick another date. No request is created."
+    },
+    {
+      "id": "SPM-44-TC09",
+      "title": "The venue search screen hides a venue whose slot is taken",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "npm run fixtures:spm44 has been run. 'SPM44 Approved Holder' holds an APPROVED booking at SPM44 Conflict Room on 5 Apr 2027, PM. Logged in as Daniel Tan, assigned to 'SPM44 Clash With Approved' (5 Apr 2027, 14:00-16:00).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Clash With Approved' in the list",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Set the date and time filters to 5 Apr 2027, 14:00 to 16:00, then apply the filters"
+      ],
+      "test_data": "Event: SPM44 Clash With Approved\nFilter window: 5 Apr 2027, 14:00-16:00",
+      "expected_result": "Step 5: 'SPM44 Conflict Room (SPM44-PLN)' is not among the results — the same conflict that refuses the request also keeps the room out of the search, so a coordinator is not offered a room they cannot have."
+    },
+    {
+      "id": "SPM-44-TC10",
+      "title": "A confirmed booking cannot be approved over another confirmed booking",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "BLOCKED — there is no way to confirm a booking in the application. Venue Staff's 'Booking Requests' screen lists pending requests but has no Approve or Reject action; that belongs to Venue Booking Approval (SPM-43), which has no endpoint and no branch. The rule itself is implemented and unit tested in src/lib/venueConflict.ts (checkVenueBookingApproval, scope 'approved') — see open question 1.",
+      "steps": [
+        "Log in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123)",
+        "Click 'Booking Requests' in the sidebar",
+        "Look for an Approve action on a pending request whose slot another approved booking already holds"
+      ],
+      "test_data": "Blocked pending SPM-43 (Venue Booking Approval)",
+      "expected_result": "Step 3: No Approve action exists on the screen, so this criterion cannot be exercised through the application. When SPM-43 builds it, approving must be refused with the conflicting booking named, and the unit tests in src/lib/__tests__/venueConflict.test.ts already pin that behaviour."
+    },
+    {
+      "id": "SPM-44-TC11",
+      "title": "A Night booking's turnaround blocks the NEXT morning's AM slot",
+      "linked_ac": [
+        "AC2",
+        "AC3",
+        "AC5",
+        "AC9"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm44 has been run. Orchard Seminar Room (ORC-SEM) records 60 minutes of setup and 30 of teardown, so a booking there takes one whole adjacent slot either side. 'SPM44 Midnight Holder' holds an APPROVED booking at ORC-SEM on 12 Apr 2027, Night (20:00-22:00) - Night is the last slot of its day, so its turnaround falls on the NEXT day's AM. 'SPM44 Midnight Clash' runs 13 Apr 2027 09:00-11:00 (AM). Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123), assigned to 'SPM44 Midnight Clash'.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM44 Midnight Clash' in the list",
+        "Click the 'Venue' tab",
+        "Find 'Orchard Seminar Room (ORC-SEM)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Event: SPM44 Midnight Clash (13 Apr 2027, 09:00-11:00, AM)\nVenue: Orchard Seminar Room (ORC-SEM), setup 60 min, teardown 30 min\nIn the way: SPM44 Midnight Holder's approved booking the PREVIOUS evening (12 Apr 2027, Night), whose turnaround runs into 13 Apr AM",
+      "expected_result": "Step 4: The booking request screen opens with the Date 13 Apr 2027 and only 'AM (07:00–12:00)' ticked.\nStep 5: The request is refused, naming the booking from the previous evening and the 13 Apr AM slot it reaches into — the two events are on different calendar days and neither occupies the other's own slot, so this is the day-crossing half of AC2 (#123). No request is created."
+    }
+  ],
+  "open_questions": [
+    "AC6 cannot be tested through the application: nothing can confirm a booking. Venue Staff's Booking Requests screen is read-only and bookings/page.tsx says in a comment that Approve and Reject belong to Venue Booking Approval (SPM-43), which has no endpoint and no branch. SPM-44 implements and unit tests the rule (checkVenueBookingApproval in src/lib/venueConflict.ts, 5 tests), including the part that differs from request time: at confirm time a rival PENDING request must NOT block, because approving one request is exactly how Venue Staff choose between two. Whoever builds SPM-43 should call that function rather than write the rule again. Confirm this split is what you want.",
+    "AC4 says 'only one active pending request or confirmed booking may exist for the same venue and slot'. The system enforces this at request time, so a second pending request can never be created through the application. It does NOT retroactively police rows that already exist: if two pending requests somehow end up in the database for one slot, nothing flags them. Is enforcement at the point of writing sufficient, or should the system also report existing duplicates?",
+    "SPM-44 made the refusal messages more specific (AC9), which changed the wording SPM-42's recorded test cases assert. SPM-42-TC14 and SPM-42-TC15 in docs/test-cases/SPM-42_Test_Cases.xlsx still expect 'Marina Auditorium is already booked for this time.' and will now read '… is already booked for EVT-… Product Showcase on 21 Oct 2026, AM–PM.' The unit tests have been updated; the SPM-42 workbook has not, because changing another story's recorded expectations is the author's call. Decide whether to update those two expected results or re-run SPM-42 and record the new wording.",
+    "RESOLVED 2026-10-02: AC2's first half (different slots do not conflict) is only observable at a venue with no setup or turnaround time — at every seeded venue the preparation slot makes neighbouring slots clash. SPM-44's fixture script therefore creates its own room, SPM44 Conflict Room (SPM44-PLN, setup 0, teardown 0), rather than reusing SPM-42's SPM42 Plain Room.",
+    "Raised while validating SPM-44-TC01. A venue whose slot is already taken is still shown as 'Suitable' with a 'Request booking' button on the event's Venue tab; the conflict is only reported when the request is submitted. That is consistent with SPM-41, where suitability means capacity, layout and facilities rather than occupancy, and the search screen (SPM-44-TC09) does drop the room once a time window is given. It still means a coordinator can open the booking screen for a room they cannot have. Should the Venue tab mark an occupied room, or is finding out on submit acceptable?"
+  ],
+  "code_references": [
+    "src/lib/venueConflict.ts",
+    "src/lib/__tests__/venueConflict.test.ts",
+    "src/lib/venueBookingRequest.ts",
+    "src/lib/venueSearch.ts",
+    "src/lib/venueSlots.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "scripts/seed-spm44.ts",
+    "prisma/seed.ts",
+    "docs/CUSTOMER_CLARIFICATIONS.md"
+  ]
+}

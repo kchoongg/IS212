@@ -232,14 +232,14 @@ describe("checkVenueBookingRequest", () => {
   it("SPM-42-TC14: a slot with another event's approved booking is refused", () => {
     expect(checkVenueBookingRequest(withBooking("approved", "2027-03-06T11:00:00", "2027-03-06T15:00:00"))).toEqual({
       ok: false,
-      error: "Orchard Seminar Room is already booked for this time.",
+      error: "Orchard Seminar Room is already booked on 5 Mar 2027 Night – 6 Mar 2027 Night.",
     });
   });
 
   it("SPM-42-TC14: a slot on hold for another event's pending request is refused", () => {
     expect(checkVenueBookingRequest(withBooking("pending", "2027-03-06T09:00:00", "2027-03-06T17:00:00"))).toEqual({
       ok: false,
-      error: "Orchard Seminar Room is on hold for another event at this time.",
+      error: "Orchard Seminar Room is on hold for another event on 6 Mar 2027, AM–PM.",
     });
   });
 
@@ -251,7 +251,10 @@ describe("checkVenueBookingRequest", () => {
         unavailability: [{ reason: "maintenance", startsAt: sgt("2027-03-06T00:00:00"), endsAt: sgt("2027-03-06T23:59:00") }],
       },
     });
-    expect(result).toEqual({ ok: false, error: "Orchard Seminar Room is unavailable at this time." });
+    expect(result).toEqual({
+      ok: false,
+      error: "Orchard Seminar Room is unavailable at this time (maintenance, 6 Mar 2027, AM–Night).",
+    });
   });
 
   it("SPM-42-TC15: a clash only through setup or turnaround slots is refused", () => {
@@ -259,7 +262,7 @@ describe("checkVenueBookingRequest", () => {
     // same slot this request's turnaround needs.
     expect(checkVenueBookingRequest(withBooking("approved", "2027-03-07T09:00:00", "2027-03-07T11:00:00"))).toEqual({
       ok: false,
-      error: "Orchard Seminar Room is already booked for this time.",
+      error: "Orchard Seminar Room is already booked on 6 Mar 2027, Night.",
     });
   });
 

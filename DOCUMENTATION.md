@@ -147,7 +147,8 @@ IS212/
 │   ├── verify-login.ts          # `npm run verify:login`
 │   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
 │   └── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
-│   └── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
+│   ├── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
+│   └── seed-spm44.ts            # `npm run fixtures:spm44` — SPM-44 test data, no reseed
 │
 └── src/
     ├── app/
@@ -542,7 +543,7 @@ defend under questioning.
 | **Approve and reject only from Under review** — a request is decided once; approving or rejecting an event in any other status is refused (400) | `REVIEW_OUTCOMES` / `REVIEWABLE_STATUSES`, `api/events/[id]` PATCH | ✅ done (SPM-28) |
 | Registration: confirmed, in window, no duplicate, seats left | `api/registrations` POST | ✅ done |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
-| Booking conflict detection | venues domain | ❌ to write |
+| Booking conflict detection | `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` | ✅ done (SPM-44) — at request time. Confirm time is written and unit tested (`checkVenueBookingApproval`) but has no caller until SPM-43 builds an approval route |
 | Equipment availability | equipment domain | ❌ to write |
 | Event status lifecycle — which `from → to` moves are legal at all (who may make them is done; see below) | events domain | ❌ to write |
 
@@ -631,6 +632,7 @@ traceability the module asks for.
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
 | `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
+| `npm run fixtures:spm44` | Adds or resets SPM-44's 14 test events ("SPM44 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm44_` (with the bookings they hold, so every request a test pass submitted goes too), upserts the test venue "SPM44 Conflict Room" (SPM44-PLN, no setup or turnaround so neighbouring slots do not clash), and replaces the one unavailability period AC8 needs. Re-run before and after each SPM-44 test pass |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -782,6 +784,42 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-02 — Jordan
+- **SPM-44 (Booking Conflict Detection): the conflict rules moved into one
+  module, `src/lib/venueConflict.ts`, and now say WHAT is in the way.**
+  `findVenueConflict()` returns the clashing booking or unavailability period
+  and the slots actually contested, and `describeVenueConflict()` turns that
+  into the message a coordinator reads. `occupancyConflict()` in
+  `venueSearch.ts` now delegates to it, so the search screen and the booking
+  check can no longer disagree about whether a room is free.
+- **Refusal wording changed (AC9).** "Marina Auditorium is already booked for
+  this time." is now "… is already booked for EVT-000042 Product Showcase on
+  21 Oct 2026, AM–PM." Unavailability gives its reason and the whole closure,
+  not just the slot asked for. **SPM-42's recorded test cases (TC14, TC15)
+  still quote the old wording** — their unit tests were updated, the workbook
+  was not, because that is Sammi's to re-record.
+- **Confirm-time checking is written but has no caller.**
+  `checkVenueBookingApproval()` enforces AC6 and differs from request time in
+  one way that matters: a rival *pending* request must not block a
+  confirmation, because approving one request is how Venue Staff choose
+  between two. Whoever builds SPM-43 should call it rather than write the rule
+  again. SPM-44-TC10 is recorded Blocked until then.
+- `overlapping()` and `NO_TURNAROUND` moved from `venueSearch.ts` to
+  `venueSlots.ts`, where `Interval` and `Turnaround` already live, so two
+  modules can share them without a cycle.
+- **Fixed a merge artefact in `prisma/seed.ts`:** the `eventData.push(` opened
+  for the SPM-28 fixtures was never closed, so the file did not compile and
+  `npx prisma db seed` would have failed. One `);` added; no data changed.
+- **Boundary coverage.** Two unit tests pin the half-open overlap rule at a
+  slot edge (a block filling AM exactly does not reach PM) and the dead time
+  between slots (12:00-13:00 belongs to no slot, so a booking inside one blocks
+  nothing). SPM-44-TC11 walks the day-crossing case by hand: a Night booking's
+  turnaround takes the NEXT morning's AM (#123), and the refusal spans both
+  days.
+- `npm run fixtures:spm44` adds SPM-44's 14 events, the SPM44-PLN test room
+  and one unavailability period, without reseeding.
+- Migration: none.
 
 ### 2026-09-30 — Kristen
 - **SPM-28 (Review Event Request): built end to end.** The assigned Event

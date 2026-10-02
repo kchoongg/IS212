@@ -260,6 +260,17 @@ function slotStart(cell: SlotCell, edge: "start" | "end" = "start"): Date {
   return new Date(localDayStart(cell.day).getTime() + minutes * 60_000);
 }
 
+/// Half-open overlap - each starts before the other ends. The test used
+/// everywhere in the venues domain (SCHEMA_REFERENCE.md), so back-to-back is
+/// not a clash. Lived in venueSearch.ts until SPM-44 needed it in two modules.
+export function overlapping(a: Interval, b: Interval): boolean {
+  return a.startsAt.getTime() < b.endsAt.getTime() && a.endsAt.getTime() > b.startsAt.getTime();
+}
+
+/// A venue that needs no preparation time, for reading a window as its own
+/// slots only - what a pending request holds (#41).
+export const NO_TURNAROUND: Turnaround = { setupMinutes: 0, teardownMinutes: 0 };
+
 export interface SlotCell {
   /// Local calendar day, "YYYY-MM-DD".
   day: string;
