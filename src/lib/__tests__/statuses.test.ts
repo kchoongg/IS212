@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { isTerminalEventStatus, statusLabel, statusTone } from "../statuses";
+import { isBeforeApproval, isTerminalEventStatus, statusLabel, statusTone } from "../statuses";
 
 // Traces to SPM-7: a consistent interface. Every status in the system resolves
 // through this map, so these tests are what stop "under_review" reaching a
@@ -72,5 +72,17 @@ describe("isTerminalEventStatus", () => {
     expect(isTerminalEventStatus("draft")).toBe(false);
     expect(isTerminalEventStatus("confirmed")).toBe(false);
     expect(isTerminalEventStatus("postponed")).toBe(false);
+  });
+});
+
+describe("isBeforeApproval", () => {
+  // SPM-54: venue and equipment arrangements wait for approval.
+  it("is true only for the statuses a request passes through before approval", () => {
+    for (const status of ["draft", "submitted", "under_review"]) {
+      expect(isBeforeApproval(status)).toBe(true);
+    }
+    for (const status of ["approved", "planning", "confirmed", "postponed", "completed", "rejected", "cancelled"]) {
+      expect(isBeforeApproval(status)).toBe(false);
+    }
   });
 });

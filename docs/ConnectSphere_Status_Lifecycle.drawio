@@ -54,7 +54,7 @@
         <mxCell id="id105" edge="1" parent="1" source="n_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_approved" value="approve">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="id106" edge="1" parent="1" source="n_approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_planning" value="search">
+        <mxCell id="id106" edge="1" parent="1" source="n_approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_planning" value="first venue / equipment action">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="id107" edge="1" parent="1" source="n_planning" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_confirmed" value="ready">

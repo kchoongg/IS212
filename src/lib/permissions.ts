@@ -394,6 +394,22 @@ export function canSetEventStatus(
 }
 
 // ---------------------------------------------------------------------------
+// BEGIN PLANNING (SPM-54)
+// ---------------------------------------------------------------------------
+
+/// "An event can only move to Planning from an Approved status" (SPM-54 AC2).
+/// The status route holds a move to Planning to this, the same way it holds
+/// approve and reject to REVIEWABLE_STATUSES: without it the assigned
+/// coordinator could pull a Confirmed event back to Planning.
+export const PLANNING_FROM_STATUSES: readonly string[] = ["approved"];
+
+/// May this user begin planning this event right now? Only the coordinator
+/// assigned to it, and only while it is Approved.
+export function canBeginPlanning(actor: Actor, event: EventAccessFields): boolean {
+  return PLANNING_FROM_STATUSES.includes(event.status) && canSetEventStatus(actor, event, "planning");
+}
+
+// ---------------------------------------------------------------------------
 // FIELD VISIBILITY
 // ---------------------------------------------------------------------------
 

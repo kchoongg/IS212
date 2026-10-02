@@ -979,6 +979,9 @@ async function main() {
       category: "workshop", organiser: "Budi Santoso", coordinator: "priya.raj@connectsphere.com",
       days: daysUntil("2027-02-18"), startHour: 20, durationHours: 24, attendance: 90, layout: "exhibition",
       rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+  );
+
+  // -----------------------------------------------------------------
   // SPM-42 QA fixtures (Request Venue Booking). The SAME events as
   // scripts/seed-spm42.ts (`npm run fixtures:spm42`) - keep the two in step.
   // Sessions and the two blocker bookings are created further down.
@@ -1008,6 +1011,61 @@ async function main() {
     spm42("spm42_rejected_hold", "SPM42 Rejected Hold", "2027-03-16", 9, 9, { coordinator: "priya.raj@connectsphere.com" }),
     spm42("spm42_after_cancel", "SPM42 After Cancellation", "2027-03-15", 10, 6),
     spm42("spm42_after_reject", "SPM42 After Rejection", "2027-03-17", 10, 6),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-54 QA fixtures (Begin Event Planning) - the events
+  // docs/test-cases/SPM-54_test_cases.json uses. The SAME events as
+  // scripts/seed-spm54.ts (`npm run fixtures:spm54`), which resets them on
+  // the shared database without a reseed after a test case moves one to
+  // Planning - keep the two in step.
+  // Pushed LAST so no earlier event's EVT- reference number shifts. They are
+  // events 145-154, so they get EVT-000145 to EVT-000154 - the numbers the
+  // fixture script pins and the SPM-54 test cases quote. Add new events AFTER
+  // this block, or those numbers move.
+  // -----------------------------------------------------------------
+  eventData.push(
+    { key: "spm54_begin", title: "SPM54 Straits Clinical Forum", status: "approved",
+      purpose: "Share the 2027 clinical audit results",
+      category: "seminar", organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-04"), startHour: 9, durationHours: 4, attendance: 120, layout: "theatre" },
+    { key: "spm54_approved", title: "SPM54 Meridian Budget Briefing", status: "approved",
+      purpose: "Brief department heads on the 2028 budget",
+      category: "meeting", organiser: "James Koh", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-05"), startHour: 14, durationHours: 3, attendance: 20, layout: "boardroom" },
+    { key: "spm54_under_review", title: "SPM54 Harbourline Agents Seminar", status: "under_review",
+      purpose: "Product update for insurance agents",
+      category: "seminar", organiser: "Preeti Sharma", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-10"), startHour: 9, durationHours: 3, attendance: 60, layout: "theatre" },
+    { key: "spm54_confirmed", title: "SPM54 Anchorpoint Fleet Briefing", status: "confirmed",
+      purpose: "Annual fleet safety briefing",
+      category: "seminar", organiser: "Melissa Yap", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-11"), startHour: 9, durationHours: 3, attendance: 90, layout: "theatre" },
+    { key: "spm54_rejected", title: "SPM54 Nusantara Overnight Sprint", status: "rejected",
+      purpose: "Overnight product sprint",
+      category: "workshop", organiser: "Budi Santoso", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-12"), startHour: 20, durationHours: 24, attendance: 70, layout: "exhibition",
+      rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+    { key: "spm54_planning", title: "SPM54 Kirana Store Managers Workshop", status: "planning",
+      purpose: "Store operations workshop",
+      category: "workshop", organiser: "Faridah Aziz", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-18"), startHour: 9, durationHours: 3, attendance: 40, layout: "classroom" },
+    { key: "spm54_begin_booking", title: "SPM54 Pearl Delta Supplier Briefing", status: "approved",
+      purpose: "Brief suppliers on the 2028 sourcing plan",
+      category: "seminar", organiser: "Samuel Ong", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-25"), startHour: 9, durationHours: 3, attendance: 50, layout: "theatre" },
+    { key: "spm54_begin_equipment", title: "SPM54 Sundara Service Workshop", status: "approved",
+      purpose: "Front-of-house service workshop",
+      category: "workshop", organiser: "Dewi Kartika", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-26"), startHour: 14, durationHours: 3, attendance: 30, layout: "classroom" },
+    { key: "spm54_begin_save", title: "SPM54 Tanjong Legal Seminar", status: "approved",
+      purpose: "Client seminar on the 2027 employment law changes",
+      category: "seminar", organiser: "Aaron Sim", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-27"), startHour: 9, durationHours: 3, attendance: 45, layout: "theatre" },
+    { key: "spm54_begin_remove", title: "SPM54 Civic Trust Teachers Briefing", status: "approved",
+      purpose: "Briefing for teachers on the 2028 curriculum",
+      category: "seminar", organiser: "Grace Abdullah", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-31"), startHour: 9, durationHours: 3, attendance: 35, layout: "classroom" },
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -1439,6 +1497,11 @@ async function main() {
     ["spm28_launch", "Streaming Encoder", 1, null, "requested"],
     ["spm28_approve", "Handheld Wireless Mic", 2, null, "requested"],
   );
+  // SPM-54 fixtures - same as scripts/seed-spm54.ts. Requested by the organiser.
+  eqReqs.push(
+    ["spm54_begin_save", "Handheld Wireless Mic", 2, null, "requested"],
+    ["spm54_begin_remove", "Handheld Wireless Mic", 1, null, "requested"],
+  );
   for (let i = 0; i < eqReqs.length; i++) {
     const [eventKey, eqName, requested, reserved, status, note] = eqReqs[i];
     const ev = events[eventKey];
@@ -1455,7 +1518,12 @@ async function main() {
         startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
         endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
         status,
-        requestedBy: seed.coordinator ? users[seed.coordinator] : users["daniel.tan@connectsphere.com"],
+        // SPM-54's items stand for what the organiser asked for on the request
+        // form: on an Approved event the coordinator cannot have recorded
+        // anything yet, since their first equipment action begins planning.
+        requestedBy: eventKey.startsWith("spm54_")
+          ? users[`organiser:${seed.organiser}`]
+          : seed.coordinator ? users[seed.coordinator] : users["daniel.tan@connectsphere.com"],
         requestedAt: day(seed.days - 27),
         // SPM-49-TC20 is run as chloe.teo and needs a reservation someone
         // else made, so that one reviewer is fixed rather than rotated.

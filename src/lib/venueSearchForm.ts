@@ -112,15 +112,12 @@ export function searchFormErrors(values: SearchFormValues): Partial<Record<"to" 
 /// seed's history reason for Planning is "Venue search started" - so the team
 /// has already decided that starting the venue search is what begins planning.
 /// Only the ASSIGNED coordinator may make that move (STATUS_TRANSITION_ROLES,
-/// canSetEventStatus), and only from Approved: the status route does not check
-/// the from-status, so this guard is what stops a Confirmed event being pulled
-/// back to Planning just because someone searched for it again.
+/// canSetEventStatus), and only from Approved. The server decides for itself
+/// (SPM-54, POST /api/events/[id]/begin-planning); this guard is what keeps
+/// the page from asking at all for anyone else or any other status.
 export function shouldStartPlanning(
   event: { status: string; coordinatorId: string | null },
   user: { id: string; role: string }
 ): boolean {
   return event.status === "approved" && user.role === "coordinator" && event.coordinatorId === user.id;
 }
-
-/// The status history reason - the seed's own wording for this move.
-export const START_PLANNING_REASON = "Venue search started";
