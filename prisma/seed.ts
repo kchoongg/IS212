@@ -516,6 +516,7 @@ async function main() {
     days: number; startHour?: number; durationHours?: number;
     attendance?: number; layout?: string; regEnabled?: boolean; regCapacity?: number;
     accessibilityNotes?: string; rejectionReason?: string; cancellationReason?: string;
+    specialRequirements?: string;
     /// Overrides CHAIN[status] - SPM-27's withdrawn events, which can come
     /// from Submitted or Under review.
     chain?: string[];
@@ -935,6 +936,55 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-28 QA fixtures (Review Event Request) - the events
+  // docs/test-cases/SPM-28_test_cases.json uses. The SAME events as
+  // scripts/seed-spm28.ts (`npm run fixtures:spm28`), which resets them on
+  // the shared database without a reseed after a test case approves or
+  // rejects one - keep the two in step, including their facility and
+  // equipment requirements below.
+  // Pushed LAST so no earlier event's EVT- reference number shifts. They are
+  // events 124-130, so they get EVT-000124 to EVT-000130 - the numbers the
+  // fixture script pins and the SPM-28 test cases quote. Add new events AFTER
+  // this block, or those numbers move.
+  // -----------------------------------------------------------------
+  eventData.push(
+    { key: "spm28_launch", title: "SPM28 Nusantara Product Launch", status: "under_review",
+      purpose: "Regional product launch and press event",
+      description: "Press event with livestream and product demonstration area.",
+      category: "exhibition", organiser: "Sari Widodo", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-03-17"), startHour: 15, durationHours: 4, attendance: 200, layout: "theatre" },
+    { key: "spm28_approve", title: "SPM28 Harbourline Client Seminar", status: "under_review",
+      purpose: "Client briefing on the 2027 policy changes",
+      description: "Morning seminar with a Q&A panel.",
+      category: "seminar", organiser: "Preeti Sharma", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-03-24"), startHour: 9, durationHours: 4, attendance: 80, layout: "theatre",
+      accessibilityNotes: "Step-free access to the room.",
+      specialRequirements: "Reserved front row for panellists." },
+    { key: "spm28_reject", title: "SPM28 Kirana Regional Offsite", status: "under_review",
+      purpose: "Half-year strategy alignment",
+      description: "Asked for a large room but has not confirmed headcount.",
+      category: "meeting", organiser: "Faridah Aziz", coordinator: "priya.raj@connectsphere.com",
+      days: daysUntil("2027-03-10"), startHour: 9, durationHours: 8, attendance: 45, layout: "u_shape" },
+    { key: "spm28_sparse", title: "SPM28 Straits Journal Club", status: "under_review",
+      purpose: "Monthly journal club",
+      category: "seminar", organiser: "Raj Kumar", coordinator: "joel.fernandez@connectsphere.com",
+      days: daysUntil("2027-02-25"), startHour: 12, durationHours: 2, attendance: 30, layout: "boardroom" },
+    { key: "spm28_planning", title: "SPM28 Straits Research Symposium", status: "planning",
+      purpose: "Present findings from the 2026 cohort study",
+      category: "seminar", organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-04-07"), startHour: 9, durationHours: 9, attendance: 200, layout: "theatre" },
+    { key: "spm28_approved", title: "SPM28 Meridian Wealth Forum", status: "approved",
+      purpose: "Client-facing forum on the 2027 market outlook",
+      category: "conference", organiser: "James Koh", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-04-14"), startHour: 13, durationHours: 5, attendance: 150, layout: "theatre" },
+    { key: "spm28_rejected", title: "SPM28 Overnight Hackathon", status: "rejected",
+      purpose: "24-hour continuous hackathon",
+      category: "workshop", organiser: "Budi Santoso", coordinator: "priya.raj@connectsphere.com",
+      days: daysUntil("2027-02-18"), startHour: 20, durationHours: 24, attendance: 90, layout: "exhibition",
+      rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+  );
+
+  // -----------------------------------------------------------------
   // SPM-42 QA fixtures (Request Venue Booking). The SAME events as
   // scripts/seed-spm42.ts (`npm run fixtures:spm42`) - keep the two in step.
   // Sessions and the two blocker bookings are created further down.
@@ -1034,6 +1084,7 @@ async function main() {
         expectedAttendance: e.attendance,
         preferredLayout: e.layout,
         accessibilityNotes: e.accessibilityNotes,
+        specialRequirements: e.specialRequirements,
         registrationEnabled: e.regEnabled ?? false,
         registrationCapacity: e.regCapacity,
         registrationOpensAt: e.regEnabled ? day(e.days - 30) : undefined,
@@ -1077,6 +1128,12 @@ async function main() {
     ["spm41_lecture_200", [["Hearing induction loop", true], ["Wheelchair spaces", true]]],
     ["spm41_lecture_100", [["Hearing induction loop", true]]],
   ];
+  // SPM-28 fixtures - same as scripts/seed-spm28.ts.
+  facReqs.push(
+    ["spm28_launch", [["High-density WiFi", true], ["Raised stage", true],
+      ["Livestream capability", true], ["Green room", false]]],
+    ["spm28_approve", [["Built-in PA system", true], ["Fixed ceiling projector", true]]],
+  );
   for (const [eventKey, reqs] of facReqs) {
     for (const [facilityName, isMandatory] of reqs) {
       await prisma.eventFacilityRequirement.create({
@@ -1418,6 +1475,13 @@ async function main() {
     ["fx49_product_expo", "Ring Light", 4, null, "under_review"],
     ["fx49_product_expo", "Mobile Charging Cart", 1, null, "under_review"],
     ["fx49_reserved_showcase", "Portable Stage", 3, 3, "reserved"],
+  );
+  // SPM-28 fixtures - same as scripts/seed-spm28.ts. "requested" never counts
+  // against stock, so these change no other story's availability results.
+  eqReqs.push(
+    ["spm28_launch", "LED Video Wall Panel", 4, null, "requested"],
+    ["spm28_launch", "Streaming Encoder", 1, null, "requested"],
+    ["spm28_approve", "Handheld Wireless Mic", 2, null, "requested"],
   );
   for (let i = 0; i < eqReqs.length; i++) {
     const [eventKey, eqName, requested, reserved, status, note] = eqReqs[i];

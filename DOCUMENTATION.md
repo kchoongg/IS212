@@ -147,6 +147,7 @@ IS212/
 │   ├── verify-login.ts          # `npm run verify:login`
 │   ├── seed-spm27.ts            # `npm run fixtures:spm27` — SPM-27 test data, no reseed
 │   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
+│   └── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
 │   └── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
 │
 └── src/
@@ -160,6 +161,17 @@ IS212/
     │   ├── events/page.tsx             # S-07. The Ops Manager also gets a
     │   │                                "Coordinator" filter (Not yet assigned /
     │   │                                Assigned) here (SPM-30 AC2).
+    │   ├── queue/page.tsx               # S-12 Review Queue (SPM-28), coordinator only:
+    │   │                                the requests assigned to you that are Under
+    │   │                                review. Each opens its review page.
+    │   ├── events/[id]/review/page.tsx  # S-13 Event review (SPM-28): what was
+    │   │                                requested, "Not provided" flags, then
+    │   │                                Approve (with a confirm dialog) or Reject
+    │   │                                (reason required). A task screen of its own,
+    │   │                                NOT a tab of the event hub. Only the assigned
+    │   │                                coordinator can use it; opened for a request
+    │   │                                that's already decided, it redirects to the
+    │   │                                event page.
     │   ├── assignments/page.tsx         # S-28 Coordinator Assignment (SPM-30), Ops
     │   │                                Manager only. Tabs: "Awaiting assignment"
     │   │                                (submitted, no coordinator) and "Assigned"
@@ -181,7 +193,10 @@ IS212/
     │   │                                every other role sees the full record.
     │   │                                The Ops Manager also gets an "Assign a
     │   │                                coordinator" / "Change coordinator" card
-    │   │                                here (SPM-30).
+    │   │                                here (SPM-30). SPM-28 adds a red "This
+    │   │                                request was rejected" banner with the
+    │   │                                reason, and a "Review request" button for
+    │   │                                the assigned coordinator while Under review.
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
     │   ├── events/[id]/booking/new/page.tsx # S-15 Venue booking request (SPM-42), from
     │   │                                "Request booking" on the Venue tab
@@ -206,6 +221,7 @@ IS212/
     │       ├── events/                  (Kristen) — incl. events/[id]/coordinator
     │       │                                (PUT: assign/reassign, SPM-30)
     │       ├── assignments/              (Kristen) — the S-28 queue's data (SPM-30)
+    │       ├── queue/                    (Kristen) — the S-12 Review Queue's data (SPM-28)
     │       ├── venues/                   (Kayal)
     │       ├── venue-bookings/            (Sammi) — pending requests for Venue Staff (SPM-42);
     │       │                                an event's own are under events/[id]/venue-bookings
@@ -238,6 +254,9 @@ IS212/
         ├── formErrors.ts              # Client validation + mapping server errors to fields
         ├── eventForm.ts                # Shared by events/new and events/[id]/edit (S-08): fields, validateForm, toFormValues, sessionsPayload
         ├── eventSessions.ts             # Multi-session events (pure): deriveEventFromSessions, equipmentWindow
+        ├── eventReview.ts               # SPM-28 (pure): missingRequestFields() - what the
+        │                                 review page flags "Not provided" - and the
+        │                                 rejection-reason rule
         ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
         ├── venueSlots.ts                  # AM/PM/Night slots, setup/turnaround as whole
         │                                   adjacent slots (#50/#107/#108/#123). Written
@@ -520,7 +539,8 @@ defend under questioning.
 | Rule | Where | Status |
 |---|---|---|
 | Draft completeness before submitting | `api/events/[id]` PATCH | ✅ done |
-| Reason required when rejecting | `api/events/[id]` PATCH | ✅ done |
+| Reason required when rejecting — blank or spaces-only is refused, and the reason is saved trimmed | `api/events/[id]` PATCH, `isBlankReason()` | ✅ done (trim added SPM-28) |
+| **Approve and reject only from Under review** — a request is decided once; approving or rejecting an event in any other status is refused (400) | `REVIEW_OUTCOMES` / `REVIEWABLE_STATUSES`, `api/events/[id]` PATCH | ✅ done (SPM-28) |
 | Registration: confirmed, in window, no duplicate, seats left | `api/registrations` POST | ✅ done |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
 | Booking conflict detection | venues domain | ❌ to write |
@@ -544,6 +564,7 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | Catalogue writes belong to their owner — venues to Venue Staff, equipment to Technical Support | `api/venues` POST, `api/equipment` POST | ✅ done |
 | **Only the Event Operations Manager assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
 | **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
+| **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
 | **A role cannot be self-assigned** — public registration offers the two external roles only; staff accounts are created internally | `registerSchema`, `SELF_REGISTERABLE_ROLES` | ✅ done |
 | A deactivated account cannot authenticate at all, and is refused at login rather than at the first API call | `api/auth/login`, `getActor()` | ✅ done |
@@ -610,6 +631,7 @@ traceability the module asks for.
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run fixtures:spm27` | Adds or resets SPM-27's 14 test events ("SPM27 Bayu …", one per status, organiser Hakim Zulkifli) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm27_`. Re-run before each SPM-27 test pass |
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
+| `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -737,6 +759,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No route-level tests outside auth/permissions** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
+| **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
+| **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 | **No equipment catalogue screen** | The sidebar's "Equipment" link (Coordinator + Technical Support) points at `/equipment`, which doesn't exist — no story in the backlog builds it, so it 404s. The catalogue exists as data (`prisma/seed.ts`) and is read by every equipment picker; only *editing* it (or an item's location/status) has no screen. Candidate owner is SPM-55 (Record Equipment Unavailability), whose ACs need a status screen anyway. Flagged 2026-09-27. | unclaimed |
 | **Check Equipment Availability is read-only** | SPM-48 built the check (`GET /api/events/[id]/equipment/availability`, the `/equipment/requests` screens) and `PATCH /api/equipment/[id]/out-of-service` for AC7, but nothing *reserves* what the check finds available — that's SPM-49, not built. The mockup's "Reserve what is available" button is intentionally absent. | equipment |
@@ -842,6 +866,52 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+---
+
+### 2026-09-30 — Kristen
+- **SPM-28 (Review Event Request): built end to end.** The assigned Event
+  Coordinator reviews a request and approves it for planning or rejects it.
+  - **Review Queue** (`/queue`, S-12): the requests assigned to you that are
+    Under review, longest-waiting first. Fed by the new `GET /api/queue`
+    (coordinators only).
+  - **Review page** (`/events/[id]/review`, S-13): everything that was
+    requested, with a "Not provided" marker on each empty field and a yellow
+    summary of what's missing (`missingRequestFields()` in
+    `src/lib/eventReview.ts`). Then **Approve** (confirm dialog, → Approved)
+    or **Reject** (reason required, → Rejected). A coordinator who isn't
+    assigned gets "You can't review this request"; a request that's already
+    decided redirects to its event page.
+  - **Event page**: a red "This request was rejected" banner with the reason,
+    and a "Review request" button for the assigned coordinator.
+  - **Server**: approve/reject only from Under review (`canReviewEvent()`,
+    `REVIEW_OUTCOMES`); rejection reasons saved trimmed. `GET /api/events/[id]`
+    now includes each equipment request's item name.
+- **Decisions confirmed 2026-09-30** (Q&A in `docs/discussions/`: #72, #80):
+  - The review page shows **Under review**, not the mockup's "Submitted"
+    (SPM-30 moves an event there on assignment).
+  - Approving moves the event to **Approved**; SPM-54 moves it on to Planning.
+  - Missing information is **flagged, never blocking** — approval means
+    "sufficient information for planning" and that's the coordinator's call
+    (#80); no mandatory field list exists (#72).
+  - **Clarifications are out of scope** — no "Ask the organiser" option and
+    no list of existing ones. **No notification** to the organiser on either
+    outcome. Both are new Known Gaps rows.
+  - The organiser sees the rejection reason as a **banner on the event page**.
+  - Approve has a **confirm dialog**; Reject has the reason step instead.
+  - The review page stays a **separate task screen**, not an event tab (S-13).
+- `design/mockups/EventReview.dc.html` is now out of date: it still shows a
+  "Submitted" badge and the clarification option.
+- Test cases: `docs/test-cases/SPM-28_Test_Cases.xlsx` (15 cases, all 6 ACs).
+  Test data comes from **`npm run fixtures:spm28`** (`scripts/seed-spm28.ts`):
+  7 "SPM28 …" events, deleted and recreated on each run so it doubles as the
+  reset — **run it after TC08 (approve) and TC10/TC11 (reject), never
+  `npx prisma db seed`**. They're recreated at **fixed references
+  EVT-000124 to EVT-000130** with fixed dates, so test cases quote exact
+  addresses. The same events are in `prisma/seed.ts`, appended after SPM-30's —
+  **add new seed events after them**, or their numbers move.
+- `generate-test-cases` skill: new rules for test steps (results tied to step
+  numbers, typed addresses written out, sidebar labels per role, fixture-based
+  test data), now also checked by `fill_template.py`.
 ### 2026-10-01 — Sammi Chua
 - **SPM-42 (Request Venue Booking), slice 1: test cases and slot rules.**
   - `src/lib/venueBookingRequest.ts`: `requestedWindow()` and

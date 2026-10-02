@@ -13,6 +13,7 @@
     "verify:login": "tsx scripts/verify-login.ts",
     "fixtures:spm27": "tsx scripts/seed-spm27.ts",
     "fixtures:spm30": "tsx scripts/seed-spm30.ts",
+    "fixtures:spm28": "tsx scripts/seed-spm28.ts",
     "fixtures:spm42": "tsx scripts/seed-spm42.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",

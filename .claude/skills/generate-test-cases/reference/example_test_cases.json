@@ -4,15 +4,26 @@
   "created_by": "Jane Tan",
   "creation_date": "2026-09-16",
   "acceptance_criteria": [
-    { "id": "AC1", "text": "Given I am on the login page, when I click 'Forgot password' and enter my registered email, then I receive a reset link by email." },
-    { "id": "AC2", "text": "The reset link expires after 30 minutes." },
-    { "id": "AC3", "text": "The new password must be at least 8 characters and contain a number." }
+    {
+      "id": "AC1",
+      "text": "Given I am on the login page, when I click 'Forgot password' and enter my registered email, then I receive a reset link by email."
+    },
+    {
+      "id": "AC2",
+      "text": "The reset link expires after 30 minutes."
+    },
+    {
+      "id": "AC3",
+      "text": "The new password must be at least 8 characters and contain a number."
+    }
   ],
   "test_cases": [
     {
       "id": "PROJ-101-TC01",
       "title": "Reset link is sent to a registered email",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "User account exists for test.user@example.com and is active.\nUser is logged out.",
@@ -24,12 +35,14 @@
         "Open the inbox for test.user@example.com"
       ],
       "test_data": "Email: test.user@example.com",
-      "expected_result": "Confirmation message 'If this email is registered, a reset link has been sent' is shown.\nA reset email arrives within 2 minutes containing a single-use reset link."
+      "expected_result": "Step 2: The 'Forgot password' page opens with an email field.\nStep 4: Confirmation message 'If this email is registered, a reset link has been sent' is shown.\nStep 5: A reset email arrives within 2 minutes containing a single-use reset link."
     },
     {
       "id": "PROJ-101-TC02",
       "title": "Unregistered email shows the same message and sends no email",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Negative",
       "source": "Code",
       "preconditions": "No account exists for nobody@example.com.",
@@ -40,12 +53,14 @@
         "Click 'Send reset link'"
       ],
       "test_data": "Email: nobody@example.com",
-      "expected_result": "The same confirmation message as TC01 is shown (no hint that the account does not exist).\nNo email is sent."
+      "expected_result": "Step 4: The same confirmation message as TC01 is shown (no hint that the account does not exist). No email is sent."
     },
     {
       "id": "PROJ-101-TC03",
       "title": "Reset link works at 29 minutes",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
       "preconditions": "A reset link was requested for test.user@example.com 29 minutes ago (or token created_at set to now minus 29 min in the test DB).",
@@ -55,12 +70,14 @@
         "Click 'Reset password'"
       ],
       "test_data": "New password: Passw0rd1",
-      "expected_result": "Password is updated and the user is redirected to the login page with a success message."
+      "expected_result": "Step 1: The reset page opens with two password fields.\nStep 3: Password is updated and the user is redirected to the login page with a success message."
     },
     {
       "id": "PROJ-101-TC04",
       "title": "Reset link is rejected after 30 minutes",
-      "linked_ac": ["AC2"],
+      "linked_ac": [
+        "AC2"
+      ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
       "preconditions": "A reset link was requested 31 minutes ago (or token created_at set to now minus 31 min).",
@@ -68,12 +85,14 @@
         "Open the reset link from the email"
       ],
       "test_data": "Token age: 31 minutes",
-      "expected_result": "Page shows 'This reset link has expired' with a button to request a new link.\nPassword fields are not shown."
+      "expected_result": "Step 1: Page shows 'This reset link has expired' with a button to request a new link. Password fields are not shown."
     },
     {
       "id": "PROJ-101-TC05",
       "title": "Password with 7 characters is rejected",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
       "preconditions": "User has opened a valid, unexpired reset link.",
@@ -82,12 +101,14 @@
         "Click 'Reset password'"
       ],
       "test_data": "New password: Pass0rd (7 characters)",
-      "expected_result": "Validation error 'Password must be at least 8 characters and contain a number' is shown.\nPassword is not changed."
+      "expected_result": "Step 2: Validation error 'Password must be at least 8 characters and contain a number' is shown. Password is not changed."
     },
     {
       "id": "PROJ-101-TC06",
       "title": "Password without a number is rejected",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "User has opened a valid, unexpired reset link.",
@@ -96,7 +117,7 @@
         "Click 'Reset password'"
       ],
       "test_data": "New password: Password",
-      "expected_result": "Validation error 'Password must be at least 8 characters and contain a number' is shown.\nPassword is not changed."
+      "expected_result": "Step 2: Validation error 'Password must be at least 8 characters and contain a number' is shown. Password is not changed."
     }
   ],
   "open_questions": [
