@@ -265,6 +265,10 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |
 | `PATCH`/`DELETE /api/events/[id]/equipment/[requestId]` | Same as `POST` above, resolved from the request's own event |
+| `GET /api/equipment/requests` | `canCheckEquipmentAvailability()` — Technical Support (SPM-48 queue) |
+| `GET /api/events/[id]/equipment/availability` | `canViewEvent()` → 404, then `canCheckEquipmentAvailability()` → 403 — Technical Support (SPM-48) |
+| `POST /api/events/[id]/equipment/[requestId]/reserve` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403 — Technical Support (SPM-49) |
+| `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | `canViewEvent()` → 404, then `canUpdateEquipmentFulfilment()` (`equipment_request:review`) → 403 — Technical Support, and only once the event is Approved (SPM-50) |
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event |
 
@@ -320,9 +324,10 @@ allowed to see.
   validation above.
 - **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
   ready for whoever builds them.
-- **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)
-  but not yet reviewed. `equipment_request:review` is still defined and ready
-  for whoever builds the Technical Support side (SPM-48/49/50).
+- **Equipment requests are recorded** by the assigned Coordinator (SPM-47,
+  `equipment_request:manage`) and **reviewed** by Technical Support with
+  `equipment_request:review`: reserving (SPM-49) and setting fulfilment status /
+  technical notes (SPM-50).
 - **`registration:view_list`** is defined but unused — the attendee list screen
   is not built.
 - **`users.role` has no database constraint.** `registerSchema` guards the

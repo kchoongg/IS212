@@ -2,11 +2,30 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Alert, Button, Card, CardHeader, DataState, PageHeader, StatusBadge } from "@/components/ui";
+import {
+  Alert,
+  Button,
+  Card,
+  CardHeader,
+  DataState,
+  Field,
+  PageHeader,
+  Select,
+  StatusBadge,
+  Textarea,
+} from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDate, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { eventAllowsReserving, reservingClosedMessage } from "@/lib/equipmentAvailability";
+import {
+  type FulfilmentRefusal,
+  checkFulfilmentUpdate,
+  eventAllowsFulfilmentUpdate,
+  fulfilmentOptionsFor,
+  fulfilmentUpdateClosedMessage,
+} from "@/lib/equipmentFulfilment";
+import { statusLabel } from "@/lib/statuses";
 
 // S-25 (detail). SPM-48: for each equipment line an event has requested, is
 // there enough suitable stock free for its dates? Shown automatically on load -
@@ -16,6 +35,12 @@ import { eventAllowsReserving, reservingClosedMessage } from "@/lib/equipmentAva
 // with one click - no quantity to type in, see the Reserve button below and
 // POST .../reserve. Reserving is its own permission (canReserveEquipment),
 // checked server-side; this page only decides whether to show the button.
+//
+// SPM-50 (review and update): each line also shows the Coordinator's
+// technical requirements (AC1) and Technical Support's own update - an
+// "Update" panel per line to set the fulfilment status and record technical
+// notes (AC2-AC4). The rules are in src/lib/equipmentFulfilment.ts, shared
+// with PATCH .../fulfilment.
 
 interface EventInfo {
   sequenceNumber: number;
@@ -53,6 +78,15 @@ interface Line {
   venueChosen: boolean;
   transferMinutes: number;
   result: AvailabilityResult | null;
+  technicalRequirements: string | null;
+  staffNotes: string | null;
+  reviewedByName: string | null;
+  reviewedAt: string | null;
+}
+
+interface UpdateDraft {
+  status: string;
+  staffNotes: string;
 }
 
 interface Availability {
@@ -87,6 +121,11 @@ export default function EquipmentRequestDetailPage() {
   // The confirmation after a reservation saves, per line - kept across the
   // reload that follows, so the tester sees both it and the new numbers.
   const [reserveNotices, setReserveNotices] = useState<Record<string, string>>({});
+  // SPM-50: the one line whose Update panel is open, and what is typed in it.
+  const [editing, setEditing] = useState<{ requestId: string; draft: UpdateDraft } | null>(null);
+  const [updateError, setUpdateError] = useState<FulfilmentRefusal | null>(null);
+  const [savingUpdate, setSavingUpdate] = useState(false);
+  const [updateNotices, setUpdateNotices] = useState<Record<string, string>>({});
 
   const path = `/equipment/requests/${eventId}`;
 
@@ -167,6 +206,59 @@ export default function EquipmentRequestDetailPage() {
     }
   }
 
+  function startUpdate(line: Line) {
+    setEditing({ requestId: line.requestId, draft: { status: line.requestStatus, staffNotes: line.staffNotes ?? "" } });
+    setUpdateError(null);
+    setUpdateNotices((current) => ({ ...current, [line.requestId]: "" }));
+  }
+
+  function cancelUpdate() {
+    setEditing(null);
+    setUpdateError(null);
+  }
+
+  async function saveUpdate(line: Line) {
+    if (!editing) return;
+    const { draft } = editing;
+    // Same rules the route enforces - checked here first so the message
+    // appears without a round trip.
+    const refusal = checkFulfilmentUpdate(line.requestStatus, draft.status, draft.staffNotes);
+    if (refusal) {
+      setUpdateError(refusal);
+      return;
+    }
+
+    setSavingUpdate(true);
+    setUpdateError(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/equipment/${line.requestId}/fulfilment`, {
+        method: "PATCH",
+        body: JSON.stringify(draft),
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor(path));
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setUpdateError({
+          message: body?.error ?? "Could not save this update.",
+          field: body?.field === "staffNotes" ? "staffNotes" : null,
+        });
+        return;
+      }
+      setEditing(null);
+      setUpdateNotices((current) => ({ ...current, [line.requestId]: "Update saved." }));
+      // Marking a reserved line Unavailable frees its units, which changes
+      // what every other line on the page shows - re-read the whole request.
+      await load();
+    } catch {
+      setUpdateError({ message: "Could not reach the server.", field: null });
+    } finally {
+      setSavingUpdate(false);
+    }
+  }
+
   // One chip for the whole request when every line is at the same stage (the
   // mockup shows "Under review" beside "Requested items"); nothing if mixed.
   const stages = new Set(availability?.lines.map((l) => l.requestStatus));
@@ -177,6 +269,8 @@ export default function EquipmentRequestDetailPage() {
   // says why rather than letting a click fail.
   const reservingOpen = event ? eventAllowsReserving(event.status) : false;
   const isTechSupport = user?.role === "tech_support";
+  // SPM-50: Technical Support's work starts once the event is approved.
+  const updatingOpen = event ? eventAllowsFulfilmentUpdate(event.status) : false;
 
   return (
     <div>
@@ -202,6 +296,12 @@ export default function EquipmentRequestDetailPage() {
       {isTechSupport && event && !reservingOpen && (
         <Alert variant="info" className="mb-5">
           {reservingClosedMessage(event.status)}
+        </Alert>
+      )}
+
+      {isTechSupport && event && reservingOpen && !updatingOpen && (
+        <Alert variant="info" className="mb-5">
+          {fulfilmentUpdateClosedMessage(event.status)}
         </Alert>
       )}
 
@@ -236,6 +336,18 @@ export default function EquipmentRequestDetailPage() {
                   reserveError={reserveErrors[line.requestId]}
                   reserveNotice={reserveNotices[line.requestId]}
                   onReserve={() => reserve(line.requestId)}
+                  canUpdate={isTechSupport && updatingOpen}
+                  draft={editing?.requestId === line.requestId ? editing.draft : null}
+                  updateError={editing?.requestId === line.requestId ? updateError : null}
+                  savingUpdate={savingUpdate}
+                  updateNotice={updateNotices[line.requestId]}
+                  onStartUpdate={() => startUpdate(line)}
+                  onChangeDraft={(draft) => {
+                    setEditing({ requestId: line.requestId, draft });
+                    setUpdateError(null);
+                  }}
+                  onCancelUpdate={cancelUpdate}
+                  onSaveUpdate={() => saveUpdate(line)}
                 />
               ))}
             </ul>
@@ -266,10 +378,41 @@ interface LineRowProps {
   reserveError?: string;
   reserveNotice?: string;
   onReserve: () => void;
+  canUpdate: boolean;
+  /// Non-null while this line's Update panel is open.
+  draft: UpdateDraft | null;
+  updateError: FulfilmentRefusal | null;
+  savingUpdate: boolean;
+  updateNotice?: string;
+  onStartUpdate: () => void;
+  onChangeDraft: (draft: UpdateDraft) => void;
+  onCancelUpdate: () => void;
+  onSaveUpdate: () => void;
 }
 
-function LineRow({ line, canReserve, reserving, reserveError, reserveNotice, onReserve }: LineRowProps) {
+function LineRow({
+  line,
+  canReserve,
+  reserving,
+  reserveError,
+  reserveNotice,
+  onReserve,
+  canUpdate,
+  draft,
+  updateError,
+  savingUpdate,
+  updateNotice,
+  onStartUpdate,
+  onChangeDraft,
+  onCancelUpdate,
+  onSaveUpdate,
+}: LineRowProps) {
   const { result } = line;
+  const statusOptions = fulfilmentOptionsFor(line.requestStatus);
+  // Errors about the notes go under the notes field; anything else (a lost
+  // race, a closed event) goes above the panel.
+  const notesError = updateError?.field === "staffNotes" ? updateError.message : null;
+  const panelError = updateError && updateError.field !== "staffNotes" ? updateError.message : null;
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
@@ -306,17 +449,77 @@ function LineRow({ line, canReserve, reserving, reserveError, reserveNotice, onR
         ) : (
           <p className="text-xs text-ink-3">Cannot be checked yet — the event has no dates.</p>
         )}
+
+        <LineDetail label="Technical requirements" value={line.technicalRequirements} />
+        <LineDetail label="Technical Support notes" value={line.staffNotes} />
+        {line.reviewedByName && line.reviewedAt && (
+          <p className="text-xs text-ink-3">
+            Last updated by {line.reviewedByName}, {formatDateTime(line.reviewedAt)}
+          </p>
+        )}
+        {updateNotice && <p className="text-xs text-tone-success-fg">{updateNotice}</p>}
+
+        {draft && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSaveUpdate();
+            }}
+            className="mt-2 flex max-w-xl flex-col gap-3 rounded-md border border-line bg-surface-2 p-3"
+            noValidate
+          >
+            {panelError && <Alert variant="error">{panelError}</Alert>}
+            <Field label="Fulfilment status">
+              <Select
+                options={statusOptions.map((s) => ({ value: s, label: statusLabel(s) }))}
+                value={draft.status}
+                onChange={(e) => onChangeDraft({ ...draft, status: e.target.value })}
+              />
+            </Field>
+            <Field
+              label="Technical notes"
+              hint={
+                draft.status === "unavailable"
+                  ? "Required: why it cannot be provided, and any alternative you can suggest."
+                  : "Anything the Coordinator or the team should know - setup, alternatives, constraints."
+              }
+              error={notesError}
+            >
+              <Textarea
+                value={draft.staffNotes}
+                onChange={(e) => onChangeDraft({ ...draft, staffNotes: e.target.value })}
+              />
+            </Field>
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" loading={savingUpdate} loadingText="Saving…">
+                Save
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={onCancelUpdate} disabled={savingUpdate}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-2">
-        {/* Three fixed-width columns, so Requested, Reserved and the chip line up
-            from one row to the next whatever the chip says. */}
-        <div className="grid grid-cols-[4rem_4rem_7rem] gap-4 text-center text-sm">
+        {/* Fixed-width columns, so Requested, Reserved and the chips line up
+            from one row to the next whatever the chips say. Two by two on a
+            phone - four fixed columns are wider than its screen. */}
+        <div className="grid grid-cols-2 gap-4 text-center text-sm sm:grid-cols-[4rem_4rem_9.5rem_7rem]">
           <Column label="Requested">
             <NumberBox value={line.quantityRequested} />
           </Column>
           <Column label="Reserved">
             <NumberBox value={line.quantityReserved} />
+          </Column>
+          {/* SPM-50: the line's own fulfilment status - what Technical Support
+              has decided - kept apart from Availability, which is worked out
+              from stock (both can read "Unavailable"). */}
+          <Column label="Status">
+            <div className="flex h-9 items-center justify-center">
+              <StatusBadge status={line.requestStatus} />
+            </div>
           </Column>
           <Column label="Availability">
             <div className="flex h-9 items-center justify-center">
@@ -324,11 +527,18 @@ function LineRow({ line, canReserve, reserving, reserveError, reserveNotice, onR
             </div>
           </Column>
         </div>
-        {canReserve && canOfferReserve(line) && (
-          <Button variant="secondary" size="sm" onClick={onReserve} disabled={reserving}>
-            {reserving ? "Reserving…" : "Reserve"}
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {canUpdate && !draft && statusOptions.length > 0 && (
+            <Button variant="secondary" size="sm" onClick={onStartUpdate}>
+              Update
+            </Button>
+          )}
+          {canReserve && canOfferReserve(line) && (
+            <Button variant="secondary" size="sm" onClick={onReserve} disabled={reserving}>
+              {reserving ? "Reserving…" : "Reserve"}
+            </Button>
+          )}
+        </div>
       </div>
     </li>
   );
@@ -341,6 +551,15 @@ function transferNote(line: Line, result: AvailabilityResult): string {
     return `Leaves ${formatDateTime(result.leavesAt)} — ${formatHours(line.transferMinutes)} before the event for transfer and preparation.`;
   }
   return `Already at the venue: needed from ${formatDateTime(result.leavesAt)}.`;
+}
+
+/// A labelled line of text under the availability figures; "—" when empty.
+function LineDetail({ label, value }: { label: string; value: string | null }) {
+  return (
+    <p className="text-xs text-ink-2">
+      <span className="font-medium text-ink">{label}:</span> {orEmpty(value)}
+    </p>
+  );
 }
 
 function Column({ label, children }: { label: string; children: React.ReactNode }) {
@@ -356,7 +575,7 @@ function Column({ label, children }: { label: string; children: React.ReactNode 
 /// is no number yet (nothing reserved so far).
 function NumberBox({ value }: { value: number | null }) {
   return (
-    <div className="flex h-9 w-16 items-center justify-center rounded-md border border-line-strong bg-surface text-base text-ink">
+    <div className="mx-auto flex h-9 w-16 items-center justify-center rounded-md border border-line-strong bg-surface text-base text-ink">
       {value ?? "—"}
     </div>
   );

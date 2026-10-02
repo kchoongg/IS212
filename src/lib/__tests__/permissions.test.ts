@@ -12,6 +12,7 @@ import {
   canReviewEvent,
   canCheckEquipmentAvailability,
   canReserveEquipment,
+  canUpdateEquipmentFulfilment,
   canRequestVenueBooking,
   canEditEventContent,
   canManageEquipmentRequests,
@@ -377,6 +378,17 @@ describe("canReserveEquipment (SPM-49)", () => {
   it("stops a Coordinator or Organiser from reserving", () => {
     expect(canReserveEquipment(coordinator)).toBe(false);
     expect(canReserveEquipment(organiserA)).toBe(false);
+  });
+});
+
+describe("canUpdateEquipmentFulfilment (SPM-50)", () => {
+  it("lets Technical Support update fulfilment status and technical notes", () => {
+    expect(canUpdateEquipmentFulfilment(techSupport)).toBe(true);
+  });
+
+  it("SPM-50-TC12: stops a Coordinator or Organiser from updating them", () => {
+    expect(canUpdateEquipmentFulfilment(coordinator)).toBe(false);
+    expect(canUpdateEquipmentFulfilment(organiserA)).toBe(false);
   });
 });
 

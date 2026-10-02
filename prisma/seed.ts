@@ -979,6 +979,9 @@ async function main() {
       category: "workshop", organiser: "Budi Santoso", coordinator: "priya.raj@connectsphere.com",
       days: daysUntil("2027-02-18"), startHour: 20, durationHours: 24, attendance: 90, layout: "exhibition",
       rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+  );
+
+  // -----------------------------------------------------------------
   // SPM-42 QA fixtures (Request Venue Booking). The SAME events as
   // scripts/seed-spm42.ts (`npm run fixtures:spm42`) - keep the two in step.
   // Sessions and the two blocker bookings are created further down.
@@ -1008,6 +1011,25 @@ async function main() {
     spm42("spm42_rejected_hold", "SPM42 Rejected Hold", "2027-03-16", 9, 9, { coordinator: "priya.raj@connectsphere.com" }),
     spm42("spm42_after_cancel", "SPM42 After Cancellation", "2027-03-15", 10, 6),
     spm42("spm42_after_reject", "SPM42 After Rejection", "2027-03-17", 10, 6),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-50 QA fixtures (Review and Update Equipment Request). The SAME events
+  // and equipment lines as scripts/seed-spm50.ts (`npm run fixtures:spm50`) -
+  // keep the two in step. In August 2027, clear of every SPM-49 event, so
+  // their SPM-49 equipment items show the numbers the SPM-50 cases expect.
+  // Their equipment lines are created further down (SPM50_REQUESTS).
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  eventData.push(
+    fixture("spm50_robotics_expo", "Robotics Expo", "2027-08-02", 9, 6, "Rachel Ng"),
+    fixture("spm50_design_week", "Design Week", "2027-08-16", 9, 6, "Melissa Yap"),
+    fixture("spm50_charity_briefing", "Charity Briefing", "2027-08-23", 9, 3, "Evelyn Chen"),
+    fixture("spm50_charity_gala", "Charity Gala", "2027-08-23", 10, 4, "Hakim Zulkifli"),
+    fixture("spm50_cancelled_hackathon", "Cancelled Hackathon", "2027-08-30", 9, 6, "Budi Santoso",
+      { status: "cancelled", cancellationReason: "Client withdrew the request." }),
+    // Not approved yet, so Technical Support cannot update its equipment.
+    fixture("spm50_pending_showcase", "Pending Showcase", "2027-09-06", 9, 6, "Samuel Ong", { status: "under_review" }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -1463,6 +1485,41 @@ async function main() {
           ? users[eventKey === "fx49_reserved_showcase" ? "kenji.sato@connectsphere.com" : techStaff[i % techStaff.length]]
           : undefined,
         reviewedAt: reviewed ? day(seed.days - 25) : undefined,
+      },
+    });
+  }
+
+  // SPM-50 test-case requests - same rows as scripts/seed-spm50.ts. Kept out
+  // of eqReqs because some already carry Technical Support's notes, and the
+  // reviewer is fixed rather than rotated, so the names the cases see are stable.
+  // [eventKey, equipment, requested, reserved|null, status, technical requirements, staff notes, reviewer]
+  const spm50Requests: [string, string, number, number | null, string, string | null, string | null, string | null][] = [
+    ["spm50_robotics_expo", "Wireless Presenter", 2, null, "requested", "Must pair with the stage laptop over USB-C", null, null],
+    ["spm50_robotics_expo", "Confidence Monitor", 3, null, "requested", "Floor wedges facing the speaker, HDMI from the lectern", null, null],
+    ["spm50_design_week", "Ring Light", 2, null, "unavailable", null, "Both units out for repair", "aisha.omar@connectsphere.com"],
+    ["spm50_design_week", "Confidence Monitor", 1, null, "requested", null, null, null],
+    ["spm50_charity_briefing", "Mobile Charging Cart", 1, 1, "reserved", null, null, "kenji.sato@connectsphere.com"],
+    ["spm50_charity_gala", "Mobile Charging Cart", 1, null, "requested", null, null, null],
+    ["spm50_cancelled_hackathon", "Wireless Presenter", 2, null, "requested", null, null, null],
+    ["spm50_pending_showcase", "Wireless Presenter", 1, null, "requested", null, null, null],
+  ];
+  for (const [eventKey, eqName, requested, reserved, status, requirements, staffNotes, reviewer] of spm50Requests) {
+    const ev = events[eventKey];
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: ev.id,
+        equipmentId: equip[eqName],
+        quantityRequested: requested,
+        quantityReserved: reserved ?? undefined,
+        technicalRequirements: requirements ?? undefined,
+        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
+        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(ev.days - 27),
+        reviewedBy: reviewer ? users[reviewer] : undefined,
+        reviewedAt: reviewer ? day(ev.days - 25) : undefined,
+        staffNotes: staffNotes ?? undefined,
       },
     });
   }

@@ -273,6 +273,14 @@ export function canReserveEquipment(actor: Actor): boolean {
   return can(actor.role, "equipment_request:review");
 }
 
+/// SPM-50: "As Technical Support Staff, I want to review and update equipment
+/// requests." Updating a line's fulfilment status and technical notes is the
+/// same `equipment_request:review` action as reserving - the other half of
+/// Technical Support's review of a request.
+export function canUpdateEquipmentFulfilment(actor: Actor): boolean {
+  return can(actor.role, "equipment_request:review");
+}
+
 /// SPM-42: a venue booking is requested by the coordinator assigned to the
 /// event, the same relationship rule as equipment (canManageEquipmentRequests).
 export function canRequestVenueBooking(actor: Actor, event: EventAccessFields): boolean {

@@ -73,6 +73,8 @@ interface EquipmentRequestRow {
   quantityReserved: number | null;
   technicalRequirements: string | null;
   status: string;
+  /// SPM-50: Technical Support's notes on this line - read-only here.
+  staffNotes: string | null;
   equipment: { id: string; name: string; category: string | null };
   session: EventSessionInfo | null;
 }
@@ -454,6 +456,15 @@ export default function EventEquipmentPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* SPM-50 AC5: Technical Support's update shows on the
+                            event it belongs to - read-only for everyone here;
+                            it is written on the Equipment request page. */}
+                        {row.staffNotes && (
+                          <p className="mt-2 text-sm text-ink-2">
+                            <span className="font-medium text-ink">Technical Support notes:</span> {row.staffNotes}
+                          </p>
+                        )}
 
                         {rowError[row.id] && (
                           <Alert variant="error" className="mt-3">
