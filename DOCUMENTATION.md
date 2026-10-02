@@ -784,6 +784,32 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-02 — Sammi Chua (SPM-27, withdrawal per clarification #103)
+- **Withdrawing is now the assigned coordinator's, from Under review only.**
+  Customer clarification #103: the organiser asks the coordinator outside the
+  system and the coordinator records it. Replaces the organiser
+  self-withdraw from the entries below.
+  - `STATUS_TRANSITION_ROLES.withdrawn` is `coordinator`; `canTransition()`
+    drops Submitted → Withdrawn.
+  - Event page (S-06): the header button is "Record withdrawal", shown to the
+    assigned coordinator while the event is Under review; the dialog is
+    "Record this withdrawal?", success says "The withdrawal has been
+    recorded."
+  - Fixtures: both withdrawn events now come from Under review, and the
+    history credits `withdrawn` to the coordinator. SPM-27 test cases
+    TC03–TC07 rewritten for the coordinator.
+  - Diagrams: main's redrawn BPMN and lifecycle (Kayal, below) already show
+    this, so this branch's own diagram edits were dropped in the merge.
+    main's lifecycle also has Confirmed → Planning ("significant change"),
+    which `canTransition()` does not allow yet; not part of SPM-27.
+- **Resuming a postponed event goes back to Approved, not Planning**
+  (decision Sammi Chua, 2026-10-02): Postponed → Approved → Planning, so
+  Planning is only ever entered from Approved. `canTransition()` and
+  `docs/ConnectSphere_Status_Lifecycle.drawio` ("resume" now points at
+  Approved) updated.
+
+---
+
 ### 2026-10-01 — Sammi Chua (SPM-27, test data)
 - **`npm run fixtures:spm27`** (`scripts/seed-spm27.ts`): 14 "SPM27 Bayu …"
   events for Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com), one per

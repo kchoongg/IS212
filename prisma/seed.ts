@@ -517,8 +517,7 @@ async function main() {
     attendance?: number; layout?: string; regEnabled?: boolean; regCapacity?: number;
     accessibilityNotes?: string; rejectionReason?: string; cancellationReason?: string;
     specialRequirements?: string;
-    /// Overrides CHAIN[status] - SPM-27's withdrawn events, which can come
-    /// from Submitted or Under review.
+    /// Overrides CHAIN[status] - SPM-27's events carry their own history.
     chain?: string[];
   };
 
@@ -1047,7 +1046,7 @@ async function main() {
     spm27("spm27_overnight_site_visit", "SPM27 Bayu Overnight Site Visit", "rejected", [...spm27Review, "rejected"], 86, 20, 14, "workshop", 60, "exhibition",
       { rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." }),
     spm27("spm27_community_fair", "SPM27 Bayu Community Fair", "postponed", [...spm27Planning, "postponed"], 88, 10, 6, "exhibition", 300, "exhibition"),
-    spm27("spm27_partner_lunch", "SPM27 Bayu Partner Lunch", "withdrawn", ["submitted", "withdrawn"], 90, 12, 2, "networking", 40, "banquet"),
+    spm27("spm27_partner_lunch", "SPM27 Bayu Partner Lunch", "withdrawn", [...spm27Review, "withdrawn"], 90, 12, 2, "networking", 40, "banquet"),
     spm27("spm27_wind_farm_tour", "SPM27 Bayu Wind Farm Tour", "withdrawn", [...spm27Review, "withdrawn"], 92, 9, 4, "seminar", 30, "theatre"),
     spm27("spm27_product_showcase", "SPM27 Bayu Product Showcase", "cancelled", [...spm27Planning, "cancelled"], 94, 14, 4, "exhibition", 150, "exhibition",
       { cancellationReason: "Product launch moved to next financial year." }),
@@ -1168,7 +1167,7 @@ async function main() {
     rejected: "Overnight occupancy not licensed",
     cancelled: "Client withdrew the request",
     postponed: "Client requested a later date",
-    withdrawn: "Organiser withdrew the request",
+    withdrawn: "Organiser asked to withdraw; coordinator recorded it",
   };
   for (const e of eventData) {
     const chain = e.chain ?? CHAIN[e.status];
@@ -1180,7 +1179,7 @@ async function main() {
           eventId: events[e.key].id,
           fromStatus: prev,
           toStatus: to,
-          changedBy: to === "submitted" || to === "withdrawn"
+          changedBy: to === "submitted"
             ? users[`organiser:${e.organiser}`]
             : e.coordinator ? users[e.coordinator] : users["grace.lim@connectsphere.com"],
           changedAt: day(e.days - 40 + i * 5),

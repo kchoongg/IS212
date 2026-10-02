@@ -509,12 +509,15 @@ describe("canSetEventStatus", () => {
     expect(canSetEventStatus(organiserA, submitted, "draft")).toBe(false);
   });
 
-  it("SPM-27-TC06: lets ONLY the owning organiser withdraw their request", () => {
+  // Clarification #103: the organiser asks outside the system and the
+  // coordinator records the withdrawal.
+  it("SPM-27-TC06: lets ONLY the assigned coordinator record a withdrawal", () => {
     const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
-    expect(canSetEventStatus(organiserA, underReview, "withdrawn")).toBe(true);
+    expect(canSetEventStatus(coordinator, underReview, "withdrawn")).toBe(true);
+    expect(canSetEventStatus(otherCoordinator, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(organiserA, underReview, "withdrawn")).toBe(false);
     expect(canSetEventStatus(colleagueA, underReview, "withdrawn")).toBe(false);
     expect(canSetEventStatus(organiserB, underReview, "withdrawn")).toBe(false);
-    expect(canSetEventStatus(coordinator, underReview, "withdrawn")).toBe(false);
     expect(canSetEventStatus(opsManager, underReview, "withdrawn")).toBe(false);
     expect(canSetEventStatus(attendee, underReview, "withdrawn")).toBe(false);
   });
@@ -535,28 +538,30 @@ describe("canSetEventStatus", () => {
   });
 });
 
-// SPM-27: whether the event page offers "Withdraw request" - the owning
-// organiser, and only while the lifecycle still allows it.
+// SPM-27: whether the event page offers "Record withdrawal" - the assigned
+// coordinator, and only while the request is Under review (#103).
 describe("canWithdrawEvent", () => {
-  it("SPM-27-TC04: offers it to the owning organiser while Submitted or Under review", () => {
-    expect(canWithdrawEvent(organiserA, event({ status: "submitted" }))).toBe(true);
+  it("SPM-27-TC04: offers it to the assigned coordinator while Under review", () => {
     expect(
-      canWithdrawEvent(organiserA, event({ status: "under_review", coordinatorId: "coordinator-1" }))
+      canWithdrawEvent(coordinator, event({ status: "under_review", coordinatorId: "coordinator-1" }))
     ).toBe(true);
   });
 
-  it("SPM-27-TC05: does not offer it from Approved onwards", () => {
+  it("SPM-27-TC05: does not offer it before review or from Approved onwards", () => {
     for (const status of [
-      "approved", "planning", "confirmed", "postponed",
+      "submitted", "approved", "planning", "confirmed", "postponed",
       "completed", "rejected", "cancelled", "withdrawn",
     ]) {
-      expect(canWithdrawEvent(organiserA, event({ status })), status).toBe(false);
+      expect(
+        canWithdrawEvent(coordinator, event({ status, coordinatorId: "coordinator-1" })),
+        status
+      ).toBe(false);
     }
   });
 
-  it("SPM-27-TC06: does not offer it to anyone but the owning organiser", () => {
+  it("SPM-27-TC06: does not offer it to anyone but the assigned coordinator", () => {
     const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
-    for (const actor of [colleagueA, organiserB, coordinator, opsManager, attendee]) {
+    for (const actor of [organiserA, colleagueA, organiserB, otherCoordinator, opsManager, attendee]) {
       expect(canWithdrawEvent(actor, underReview), actor.id).toBe(false);
     }
   });

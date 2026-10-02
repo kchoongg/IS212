@@ -9,7 +9,7 @@
  * starting state. Nothing else in the database is changed.
  *
  * Re-run before each pass through docs/test-cases/SPM-27_Test_Cases.xlsx:
- * withdrawing and assigning are exactly what the cases do to these events.
+ * recording a withdrawal and assigning are exactly what the cases do to these events.
  *
  * One event per status for one organiser, Hakim Zulkifli (Bayu Energy
  * Partners), coordinated by Hui Shan Neo from Under review onwards. Needs the
@@ -44,8 +44,7 @@ type Fixture = {
   key: string;
   title: string;
   status: string;
-  /// Status history, oldest first. Withdrawn needs it: it can come from
-  /// Submitted or Under review.
+  /// Status history, oldest first.
   chain: string[];
   days: number; // from SEED_ANCHOR
   startHour: number;
@@ -64,22 +63,22 @@ const TO_PLANNING = [...TO_REVIEW, "approved", "planning"];
 const SPM27_FIXTURES: Fixture[] = [
   { key: "spm27_safety_briefing", title: "SPM27 Bayu Safety Briefing", status: "submitted",
     chain: ["submitted"], days: 70, startHour: 9, durationHours: 3,
-    category: "training", attendance: 40, layout: "classroom", testCases: "TC01 TC03 TC04" },
+    category: "training", attendance: 40, layout: "classroom", testCases: "TC01 TC05" },
   { key: "spm27_grid_workshop", title: "SPM27 Bayu Grid Workshop", status: "under_review",
     chain: TO_REVIEW, days: 72, startHour: 9, durationHours: 6,
-    category: "workshop", attendance: 30, layout: "u_shape", testCases: "TC01 TC04" },
+    category: "workshop", attendance: 30, layout: "u_shape", testCases: "TC01 TC03 TC04" },
   { key: "spm27_investor_day", title: "SPM27 Bayu Investor Day", status: "submitted",
     chain: ["submitted"], days: 74, startHour: 10, durationHours: 5,
     category: "conference", attendance: 120, layout: "theatre", testCases: "TC02" },
   { key: "spm27_town_hall", title: "SPM27 Bayu Town Hall", status: "submitted",
     chain: ["submitted"], days: 76, startHour: 15, durationHours: 2,
-    category: "meeting", attendance: 150, layout: "theatre", testCases: "TC06" },
+    category: "meeting", attendance: 150, layout: "theatre", testCases: "TC01" },
   { key: "spm27_contractor_briefing", title: "SPM27 Bayu Contractor Briefing", status: "under_review",
     chain: TO_REVIEW, days: 78, startHour: 9, durationHours: 3,
-    category: "seminar", attendance: 50, layout: "theatre", testCases: "TC06" },
+    category: "seminar", attendance: 50, layout: "theatre", testCases: "TC05 TC06" },
   { key: "spm27_supplier_day", title: "SPM27 Bayu Supplier Day", status: "approved",
     chain: [...TO_REVIEW, "approved"], days: 80, startHour: 9, durationHours: 7,
-    category: "exhibition", attendance: 90, layout: "exhibition", testCases: "TC01 TC05" },
+    category: "exhibition", attendance: 90, layout: "exhibition", testCases: "TC01 TC05 TC06" },
   { key: "spm27_leadership_retreat", title: "SPM27 Bayu Leadership Retreat", status: "planning",
     chain: TO_PLANNING, days: 82, startHour: 9, durationHours: 8,
     category: "meeting", attendance: 25, layout: "boardroom", testCases: "TC01 TC05" },
@@ -97,7 +96,7 @@ const SPM27_FIXTURES: Fixture[] = [
     chain: [...TO_PLANNING, "postponed"], days: 88, startHour: 10, durationHours: 6,
     category: "exhibition", attendance: 300, layout: "exhibition", testCases: "TC01 TC05" },
   { key: "spm27_partner_lunch", title: "SPM27 Bayu Partner Lunch", status: "withdrawn",
-    chain: ["submitted", "withdrawn"], days: 90, startHour: 12, durationHours: 2,
+    chain: [...TO_REVIEW, "withdrawn"], days: 90, startHour: 12, durationHours: 2,
     category: "networking", attendance: 40, layout: "banquet", testCases: "TC01 TC05 TC07" },
   { key: "spm27_wind_farm_tour", title: "SPM27 Bayu Wind Farm Tour", status: "withdrawn",
     chain: [...TO_REVIEW, "withdrawn"], days: 92, startHour: 9, durationHours: 4,
@@ -117,7 +116,7 @@ const REASONS: Record<string, string> = {
   rejected: "Overnight occupancy not licensed",
   cancelled: "Product launch moved",
   postponed: "Client requested a later date",
-  withdrawn: "Organiser withdrew the request",
+  withdrawn: "Organiser asked to withdraw; coordinator recorded it",
 };
 
 async function main() {
@@ -169,7 +168,7 @@ async function main() {
           create: f.chain.map((to, i) => ({
             fromStatus: i === 0 ? "draft" : f.chain[i - 1],
             toStatus: to,
-            changedBy: to === "submitted" || to === "withdrawn" ? organiser.id
+            changedBy: to === "submitted" ? organiser.id
               : to === "under_review" ? opsManager.id
               : coordinator.id,
             changedAt: addDays(historyStart, i * 5),

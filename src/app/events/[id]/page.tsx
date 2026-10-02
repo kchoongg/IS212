@@ -89,7 +89,8 @@ export default function EventOverviewPage() {
   const [coordinators, setCoordinators] = useState<CoordinatorOption[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const mayAssign = user ? can(user.role, "event:assign_coordinator") : false;
-  // SPM-27: the organiser withdrawing their own request.
+  // SPM-27: the assigned coordinator recording a withdrawal the organiser
+  // asked for outside the system (clarification #103).
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -170,7 +171,7 @@ export default function EventOverviewPage() {
         setActionError((await res.json()).error ?? "Could not withdraw this request.");
         return;
       }
-      setNotice("Your request has been withdrawn.");
+      setNotice("The withdrawal has been recorded.");
       void load();
     } catch {
       setActionError("Could not reach the server. Check your connection and try again.");
@@ -257,7 +258,7 @@ export default function EventOverviewPage() {
         actions={
           showWithdraw && (
             <Button variant="secondary" onClick={() => setWithdrawOpen(true)}>
-              Withdraw request
+              Record withdrawal
             </Button>
           )
         }
@@ -441,15 +442,16 @@ export default function EventOverviewPage() {
 
       <ConfirmDialog
         open={withdrawOpen}
-        title="Withdraw this request?"
-        confirmLabel="Withdraw request"
+        title="Record this withdrawal?"
+        confirmLabel="Record withdrawal"
         cancelLabel="Keep request"
         loading={withdrawing}
         onConfirm={() => void withdraw()}
         onCancel={() => setWithdrawOpen(false)}
       >
+        Only do this when the organiser has asked to withdraw.{" "}
         {event?.title || "This request"} will be marked Withdrawn and can&apos;t be reopened.
-        To go ahead later, submit a new request.
+        To go ahead later, the organiser submits a new request.
       </ConfirmDialog>
     </div>
   );

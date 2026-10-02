@@ -83,12 +83,14 @@ export function isTerminalEventStatus(status: string): boolean {
 /// so nothing moves out of it.
 const EVENT_TRANSITIONS: Record<string, readonly string[]> = {
   draft: ["submitted"],
-  submitted: ["under_review", "withdrawn"],
+  submitted: ["under_review"],
   under_review: ["approved", "rejected", "withdrawn"],
   approved: ["planning", "cancelled"],
   planning: ["confirmed", "postponed", "cancelled"],
   confirmed: ["completed", "postponed", "cancelled"],
-  postponed: ["planning", "cancelled"],
+  // Resuming goes back through Approved, so Planning is only ever entered
+  // from Approved.
+  postponed: ["approved", "cancelled"],
 };
 
 export function canTransition(from: string, to: string): boolean {

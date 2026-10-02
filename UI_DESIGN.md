@@ -475,7 +475,7 @@ getting right.
 
 ### 7.5 Destructive and irreversible actions
 
-Cancel event, withdraw an event request, withdraw registration, reject
+Cancel event, record an event request's withdrawal, withdraw registration, reject
 booking, and delete venue all go
 through `ConfirmDialog`, which names the specific consequence ("This releases
 Marina Grand Hall on 3 Oct and cancels 42 registrations"). A generic "Are you

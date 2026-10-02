@@ -362,15 +362,17 @@ export function canReviewEvent(actor: Actor, event: EventAccessFields): boolean 
 /// decide their own bookings and equipment requests, not the event's status.
 ///
 /// SPM-27 AC4, "the Event Organiser cannot manually change the event status":
-/// the organiser only submits or withdraws their own request. Postponing is
-/// the coordinator's, like cancelling - an organiser asks through a change
+/// the organiser only submits their own request. Postponing is the
+/// coordinator's, like cancelling - an organiser asks through a change
 /// request. Nothing moves an event back to draft. Decisions 2026-10-01.
+/// Withdrawing is the assigned coordinator's too: the organiser asks outside
+/// the system and the coordinator records it (customer clarification #103).
 ///
 /// This says WHO may set a status, not which from->to moves are legal - that
 /// is canTransition() in statuses.ts.
 export const STATUS_TRANSITION_ROLES: Record<string, readonly Role[]> = {
   submitted: ["organiser"],
-  withdrawn: ["organiser"],
+  withdrawn: ["coordinator"],
   under_review: ["ops_manager", "coordinator"],
   approved: ["coordinator"],
   rejected: ["coordinator"],
@@ -399,7 +401,7 @@ export function canSetEventStatus(
   return true;
 }
 
-/// SPM-27: does the event page offer this user "Withdraw request"? The same
+/// SPM-27: does the event page offer this user "Record withdrawal"? The same
 /// two checks the PATCH route makes, so the button never offers a refusal.
 export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolean {
   return canSetEventStatus(actor, event, "withdrawn") && canTransition(event.status, "withdrawn");

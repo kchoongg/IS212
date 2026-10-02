@@ -217,7 +217,7 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 | Target status | Roles | Briefing |
 | --- | --- | --- |
 | `submitted` | Organiser (owner) | Step 2 |
-| `withdrawn` | Organiser (owner) | SPM-27, decision 2026-10-01 |
+| `withdrawn` | Coordinator (assigned) | SPM-27; customer clarification #103 |
 | `under_review` | Ops Manager, Coordinator | Step 3 |
 | `approved` / `rejected` | Coordinator (assigned) | Step 5 |
 | `planning` | Coordinator (assigned) | Step 6 |
@@ -237,11 +237,15 @@ operational decision rather than a client-side one. An Organiser who wants their
 event called off raises an Event Change Request and the assigned coordinator
 acts on it; the Ops Manager assigns coordinators and does not cancel either.
 
-**The Organiser only submits or withdraws** (SPM-27 AC4, "the Event Organiser
+**The Organiser only submits** (SPM-27 AC4, "the Event Organiser
 cannot manually change the event status"). Postponing is the coordinator's too;
 an Organiser who wants to postpone asks through an Event Change Request, as for
 cancelling. Nothing moves an event back to `draft` — a new event is created as
 one.
+
+**A withdrawal is recorded by the coordinator** (customer clarification #103).
+The Organiser asks the assigned coordinator outside the system, and the
+coordinator records it while the request is Under review.
 
 This table says **who**, not **which from → to moves are legal**. That is
 `canTransition()` in `src/lib/statuses.ts` (you cannot jump `draft` →

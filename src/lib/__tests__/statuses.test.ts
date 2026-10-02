@@ -91,7 +91,6 @@ describe("canTransition", () => {
   const LEGAL: [string, string][] = [
     ["draft", "submitted"],
     ["submitted", "under_review"],
-    ["submitted", "withdrawn"],
     ["under_review", "approved"],
     ["under_review", "rejected"],
     ["under_review", "withdrawn"],
@@ -103,7 +102,7 @@ describe("canTransition", () => {
     ["confirmed", "completed"],
     ["confirmed", "postponed"],
     ["confirmed", "cancelled"],
-    ["postponed", "planning"],
+    ["postponed", "approved"],
     ["postponed", "cancelled"],
   ];
 
@@ -128,6 +127,10 @@ describe("canTransition", () => {
     expect(canTransition("submitted", "approved")).toBe(false);
     expect(canTransition("submitted", "draft")).toBe(false);
     expect(canTransition("approved", "withdrawn")).toBe(false);
+    // #103: a withdrawal is recorded while the request is under review.
+    expect(canTransition("submitted", "withdrawn")).toBe(false);
+    // Resuming a postponed event goes back through Approved.
+    expect(canTransition("postponed", "planning")).toBe(false);
   });
 
   it("SPM-27-TC05: nothing moves out of a final status, including to itself", () => {
