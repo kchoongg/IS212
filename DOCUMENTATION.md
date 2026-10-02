@@ -815,7 +815,7 @@ what changed, why, and the migration name if there is one.
 
 ### 2026-10-01 — Sammi Chua
 - **SPM-27 (View Event Status): test cases and lifecycle decisions.**
-  `docs/test-cases/SPM-27_Test_Cases.xlsx` (8 cases). No code yet. Decisions agreed with Sammi Chua, 2026-10-01,
+  `docs/test-cases/SPM-27_Test_Cases.xlsx` (7 cases). No code yet. Decisions agreed with Sammi Chua, 2026-10-01,
   to be built in the next slices:
   - **Legal moves only.** A pure transition table in `src/lib/statuses.ts`,
     checked by the events `PATCH` route on top of the existing role check.
