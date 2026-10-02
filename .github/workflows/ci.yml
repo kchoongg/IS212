@@ -1,0 +1,117 @@
+name: CI
+
+# Runs on every pull request, and on main after a merge so main's own status is
+# visible and its caches are there for the next PR to restore.
+# Checks and builds only - there is no deploy step, the app is not hosted.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same PR cancels the run still in flight for the old commit.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: 24
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  checks:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      # Report lint, type and test failures together rather than one per push.
+      fail-fast: false
+      matrix:
+        include:
+          - name: Lint
+            run: npm run lint
+          - name: Type-check
+            run: npx tsc --noEmit
+          - name: Unit tests
+            # Prints the coverage table in the log, and fails if coverage is
+            # below the minimums in vitest.config.mts - which is how code
+            # added without tests gets noticed.
+            run: npm run test:coverage
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      # The typed client is generated, not committed; tsc fails without it.
+      - run: npx prisma generate
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
+      # The browsable line-by-line report, downloadable from the run's page.
+      - if: ${{ !cancelled() && matrix.name == 'Unit tests' }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: coverage/
+          if-no-files-found: ignore
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # src/lib/auth.ts throws at import time without this, which fails
+      # `next build` while it collects route config. Placeholder only - the
+      # build never signs a token and never connects to a database.
+      JWT_SECRET: ci-placeholder-not-a-real-secret
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - uses: actions/cache@v6
+        with:
+          path: .next/cache
+          key: nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-${{ hashFiles('src/**', 'next.config.mjs', 'tailwind.config.ts') }}
+          restore-keys: |
+            nextjs-${{ runner.os }}-${{ hashFiles('package-lock.json') }}-
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run build
+
+  migrations:
+    name: Migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # A throwaway Postgres that lives for this job only. The shared Neon
+    # database is never touched, so CI needs no secrets.
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: connectsphere_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d connectsphere_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/connectsphere_ci
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma validate
+      # Replays every migration in prisma/migrations against an empty database.
+      - run: npx prisma migrate deploy

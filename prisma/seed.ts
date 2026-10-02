@@ -979,6 +979,9 @@ async function main() {
       category: "workshop", organiser: "Budi Santoso", coordinator: "priya.raj@connectsphere.com",
       days: daysUntil("2027-02-18"), startHour: 20, durationHours: 24, attendance: 90, layout: "exhibition",
       rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+  );
+
+  // -----------------------------------------------------------------
   // SPM-42 QA fixtures (Request Venue Booking). The SAME events as
   // scripts/seed-spm42.ts (`npm run fixtures:spm42`) - keep the two in step.
   // Sessions and the two blocker bookings are created further down.

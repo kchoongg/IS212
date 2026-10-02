@@ -1,0 +1,31 @@
+#!/bin/sh
+# Runs before every `git push`.
+#
+#   lint  - must pass. A failure cancels the push.
+#   tests - reported, never blocking. The team works test-first, so a branch
+#           with failing tests is normal until its code is written; the push
+#           goes through and the failures are listed so nobody is surprised.
+#
+# Switched on by `npm install` (the "prepare" script in package.json points
+# Git at this folder). CI runs everything again on the pull request - lint,
+# type-check, tests, build and migrations - and that is where failing tests
+# stop a merge.
+#
+# To push without it in an emergency: git push --no-verify
+
+echo "pre-push: lint"
+npm run lint --silent || {
+  echo "pre-push: lint failed - push cancelled. Fix the errors above, or see .githooks/pre-push."
+  exit 1
+}
+
+echo "pre-push: tests"
+if npm test --silent; then
+  echo "pre-push: all tests pass."
+else
+  echo ""
+  echo "pre-push: WARNING - some tests are failing (listed above). Pushing anyway."
+  echo "pre-push: expected while a ticket's code is still being written; CI will stay red until they pass."
+fi
+
+exit 0

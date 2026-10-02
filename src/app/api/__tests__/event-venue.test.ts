@@ -1,0 +1,548 @@
+// SPM-41 (venue suitability) and SPM-42 (request a venue booking). Times are
+// written in UTC; Singapore is UTC+8, so 05:00Z is 13:00 local - the PM slot.
+
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/lib/prisma");
+
+import { GET as listBookings, POST as requestBooking } from "@/app/api/events/[id]/venue-bookings/route";
+import { GET as suitability } from "@/app/api/events/[id]/venue-suitability/route";
+import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+
+const REF = "EVT-000007";
+const DAY = "2027-03-04";
+const PM_STARTS = new Date("2027-03-04T05:00:00.000Z");
+const PM_ENDS = new Date("2027-03-04T10:00:00.000Z");
+
+const hearingLoop = { facilityId: ID.facility, isMandatory: true, facility: { name: "Hearing loop", category: "accessibility" } };
+
+const assignedCoordinator = () => user("coordinator", { id: ID.user });
+
+/// A single-session event on the afternoon of DAY: 100 people, theatre layout.
+function event(overrides: Record<string, unknown> = {}) {
+  return {
+    id: ID.event,
+    sequenceNumber: 7,
+    title: "Town Hall",
+    status: "planning",
+    organiserId: "organiser-id",
+    organisationId: ID.org,
+    coordinatorId: ID.user,
+    startsAt: new Date("2027-03-04T05:30:00.000Z"),
+    endsAt: new Date("2027-03-04T09:00:00.000Z"),
+    expectedAttendance: 100,
+    preferredLayout: "theatre",
+    facilityRequirements: [],
+    sessions: [],
+    ...overrides,
+  };
+}
+
+function session(overrides: Record<string, unknown> = {}) {
+  return {
+    id: ID.session,
+    label: "Day 1",
+    startsAt: new Date("2027-03-04T05:30:00.000Z"),
+    endsAt: new Date("2027-03-04T09:00:00.000Z"),
+    expectedAttendance: 40,
+    preferredLayout: "boardroom",
+    ...overrides,
+  };
+}
+
+/// An active venue that suits event(): theatre for 300, free all day.
+function venue(overrides: Record<string, unknown> = {}) {
+  return {
+    id: ID.venue,
+    code: "HALL-A",
+    name: "Hall A",
+    building: "Tower 1",
+    floor: "3",
+    isActive: true,
+    maxCapacity: 300,
+    opensAt: "07:00",
+    closesAt: "23:59",
+    setupMinutes: 0,
+    teardownMinutes: 0,
+    layouts: [{ layoutName: "theatre", capacity: 300 }],
+    facilities: [],
+    bookings: [],
+    unavailability: [],
+    ...overrides,
+  };
+}
+
+describe("GET /api/events/[id]/venue-bookings", () => {
+  function get(token?: string, reference = REF) {
+    return listBookings(req("GET", `/api/events/${reference}/venue-bookings`, { token }), params({ id: reference }));
+  }
+
+  it("is 401 without a session", async () => {
+    expect((await get()).status).toBe(401);
+  });
+
+  it.each(["organiser", "attendee", "tech_support"])("is 403 for %s, before the event is looked up", async (role) => {
+    const res = await get(signIn(user(role)));
+
+    expect(res.status).toBe(403);
+    expect(db.event.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("is 404 for a malformed reference", async () => {
+    expect((await get(signIn(assignedCoordinator()), "nope")).status).toBe(404);
+  });
+
+  it("is 404 for a draft", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "draft" }));
+
+    expect((await get(token)).status).toBe(404);
+  });
+
+  it("gives the assigned coordinator the schedule, sessions and existing requests, and lets them request", async () => {
+    const token = signIn(assignedCoordinator());
+    const bookings = [{ id: ID.booking, status: "pending", venue: { id: ID.venue, name: "Hall A" } }];
+    db.event.findUnique.mockResolvedValue(event({ sessions: [{ ...session(), eventId: ID.event, createdAt: "x" }] }));
+    db.venueBooking.findMany.mockResolvedValue(bookings);
+
+    const res = await get(token);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      event: { title: "Town Hall", preferredLayout: "theatre" },
+      schedule: { startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-04T09:00:00.000Z" },
+      sessions: [
+        {
+          id: ID.session,
+          label: "Day 1",
+          startsAt: "2027-03-04T05:30:00.000Z",
+          endsAt: "2027-03-04T09:00:00.000Z",
+          expectedAttendance: 40,
+          preferredLayout: "boardroom",
+        },
+      ],
+      cannotRequest: null,
+      bookings,
+    });
+    expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
+  });
+
+  it.each([
+    ["a coordinator who is not assigned", () => user("coordinator", { id: ID.otherUser })],
+    ["the Ops Manager", () => user("ops_manager", { id: ID.otherUser })],
+    ["Venue Staff", () => user("venue_staff", { id: ID.otherUser })],
+  ])("shows the bookings to %s but says why they cannot request", async (_who, actor) => {
+    const token = signIn(actor());
+    db.event.findUnique.mockResolvedValue(event());
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    const res = await get(token);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).cannotRequest).toBe("Only the assigned Coordinator can request a venue booking.");
+  });
+
+  it.each(["completed", "cancelled", "rejected"])(
+    "tells the assigned coordinator a %s event takes no new requests",
+    async (status) => {
+      const token = signIn(assignedCoordinator());
+      db.event.findUnique.mockResolvedValue(event({ status }));
+      db.venueBooking.findMany.mockResolvedValue([]);
+
+      const body = await (await get(token)).json();
+
+      expect(body.cannotRequest).toBe("A venue cannot be requested for a completed, cancelled or rejected event.");
+    }
+  );
+});
+
+describe("POST /api/events/[id]/venue-bookings", () => {
+  const valid = { venueId: ID.venue, day: DAY, slots: ["PM"] };
+
+  function post(token: string | undefined, body: unknown, reference = REF) {
+    return requestBooking(
+      req("POST", `/api/events/${reference}/venue-bookings`, { token, body }),
+      params({ id: reference })
+    );
+  }
+
+  function given(eventRow: object | null = event(), venueRow: object | null = venue()) {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(eventRow);
+    db.venue.findUnique.mockResolvedValue(venueRow);
+    db.venueBooking.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.booking, ...data }));
+    return token;
+  }
+
+  async function refusal(token: string, body: unknown = valid) {
+    const res = await post(token, body);
+    expect(res.status).toBe(400);
+    expect(db.venueBooking.create).not.toHaveBeenCalled();
+    return (await res.json()).error as string;
+  }
+
+  it("is 401 without a session", async () => {
+    expect((await post(undefined, valid)).status).toBe(401);
+  });
+
+  it("is 404 for an event the user cannot see", async () => {
+    expect((await post(given(event({ status: "draft" })), valid)).status).toBe(404);
+  });
+
+  it.each([
+    ["a coordinator who is not assigned", () => user("coordinator", { id: ID.otherUser })],
+    ["the Ops Manager", () => user("ops_manager", { id: ID.otherUser })],
+    ["Venue Staff", () => user("venue_staff", { id: ID.otherUser })],
+    ["the organiser who owns the event", () => user("organiser", { id: "organiser-id" })],
+  ])("is 403 for %s", async (_who, actor) => {
+    const token = signIn(actor());
+    db.event.findUnique.mockResolvedValue(event());
+
+    const res = await post(token, valid);
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "Only the assigned Coordinator can request a venue booking." });
+    expect(db.venueBooking.create).not.toHaveBeenCalled();
+  });
+
+  it("creates a pending request for exactly the chosen slots", async () => {
+    const token = given();
+
+    const res = await post(token, { ...valid, requirementsNote: "  Stage at the north end " });
+
+    expect(res.status).toBe(201);
+    expect(callArg(db.venueBooking.create).data).toEqual({
+      eventId: ID.event,
+      sessionId: undefined,
+      venueId: ID.venue,
+      layoutName: "theatre",
+      startsAt: PM_STARTS,
+      endsAt: PM_ENDS,
+      status: "pending",
+      requestedBy: ID.user,
+      requirementsNote: "Stage at the north end",
+    });
+  });
+
+  it("stores a blank requirements note as none", async () => {
+    const token = given();
+
+    await post(token, { ...valid, requirementsNote: "   " });
+
+    expect(callArg(db.venueBooking.create).data.requirementsNote).toBeUndefined();
+  });
+
+  it("only counts pending and approved bookings as holding the venue", async () => {
+    const token = given();
+
+    await post(token, valid);
+
+    expect(callArg(db.venue.findUnique).include.bookings).toEqual({
+      where: { status: { in: ["pending", "approved"] } },
+    });
+  });
+
+  it.each([
+    ["a venue id that is not a UUID", { ...valid, venueId: "hall-a" }, "venueId"],
+    ["a day that is not a real date", { ...valid, day: "2027-02-30" }, "day"],
+    ["a slot that does not exist", { ...valid, slots: ["Evening"] }, "slots"],
+    ["the same slot twice", { ...valid, slots: ["PM", "PM"] }, "slots"],
+  ])("rejects %s", async (_case, body, field) => {
+    const res = await post(given(), body);
+    const json = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(json.error).toBe("Validation failed");
+    expect(json.details.fieldErrors).toHaveProperty(field);
+  });
+
+  describe("what is refused", () => {
+    it("an event with no dates", async () => {
+      expect(await refusal(given(event({ startsAt: null, endsAt: null })))).toBe(
+        "Set the event date and time before requesting a venue."
+      );
+    });
+
+    it.each([
+      ["does not exist", null],
+      ["has been retired", venue({ isActive: false })],
+    ])("a venue that %s", async (_case, venueRow) => {
+      expect(await refusal(given(event(), venueRow))).toBe("Venue not found");
+    });
+
+    it.each(["completed", "cancelled", "rejected"])("an event that is %s", async (status) => {
+      expect(await refusal(given(event({ status })))).toBe(
+        "A venue cannot be requested for a completed, cancelled or rejected event."
+      );
+    });
+
+    it("no slots chosen", async () => {
+      expect(await refusal(given(), { ...valid, slots: [] })).toBe("Choose at least one slot.");
+    });
+
+    it("slots that are not next to each other", async () => {
+      expect(await refusal(given(), { ...valid, slots: ["AM", "Night"] })).toMatch(
+        /^Choose slots that are next to each other/
+      );
+    });
+
+    it("slots that do not cover the event's own time", async () => {
+      expect(await refusal(given(), { ...valid, slots: ["AM"] })).toMatch(
+        /^The chosen slots do not cover the event's time \(/
+      );
+    });
+
+    it("a venue that does not offer the event's layout", async () => {
+      const token = given(event(), venue({ layouts: [{ layoutName: "banquet", capacity: 300 }] }));
+
+      expect(await refusal(token)).toBe("Hall A is not suitable for this event: Theatre layout is not offered.");
+    });
+
+    it("a venue whose layout seats fewer than the attendance", async () => {
+      const token = given(event(), venue({ layouts: [{ layoutName: "theatre", capacity: 60 }] }));
+
+      expect(await refusal(token)).toBe(
+        "Hall A is not suitable for this event: Theatre capacity is 60 - your event expects 100."
+      );
+    });
+
+    it("a venue missing a facility the event requires", async () => {
+      const token = given(event({ facilityRequirements: [hearingLoop] }));
+
+      expect(await refusal(token)).toBe(
+        "Hall A is not suitable for this event: Missing accessibility feature: Hearing loop."
+      );
+    });
+
+    it("a venue with an approved booking for another event in that slot", async () => {
+      const token = given(
+        event(),
+        venue({ bookings: [{ eventId: "another-event", status: "approved", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+      );
+
+      expect(await refusal(token)).toBe("Hall A is already booked for this time.");
+    });
+
+    it("a venue with another event's pending request in that slot", async () => {
+      const token = given(
+        event(),
+        venue({ bookings: [{ eventId: "another-event", status: "pending", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+      );
+
+      expect(await refusal(token)).toBe("Hall A is on hold for another event at this time.");
+    });
+
+    it("a venue recorded as unavailable in that slot", async () => {
+      const token = given(event(), venue({ unavailability: [{ startsAt: PM_STARTS, endsAt: PM_ENDS }] }));
+
+      expect(await refusal(token)).toBe("Hall A is unavailable at this time.");
+    });
+  });
+
+  it("is not blocked by the event's own earlier request for the same slot", async () => {
+    const token = given(
+      event(),
+      venue({ bookings: [{ eventId: ID.event, status: "pending", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+    );
+
+    expect((await post(token, valid)).status).toBe(201);
+  });
+
+  it("accepts a venue that has the facility the event requires", async () => {
+    const token = given(
+      event({ facilityRequirements: [hearingLoop] }),
+      venue({ facilities: [{ facilityId: ID.facility }] })
+    );
+
+    expect((await post(token, valid)).status).toBe(201);
+  });
+
+  describe("multi-session events", () => {
+    const multiSession = () => event({ sessions: [session(), session({ id: ID.otherSession, label: "Day 2" })] });
+    const boardroomVenue = () => venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }] });
+
+    it("books the session, judged by the session's own attendance and layout", async () => {
+      // Suits the 40-person boardroom session; would not suit the 100-person
+      // theatre event.
+      const token = given(multiSession(), boardroomVenue());
+
+      const res = await post(token, { ...valid, sessionId: ID.session });
+
+      expect(res.status).toBe(201);
+      expect(callArg(db.venueBooking.create).data).toMatchObject({
+        sessionId: ID.session,
+        layoutName: "boardroom",
+      });
+    });
+
+    it.each([
+      ["no session is chosen", valid],
+      ["the session belongs to another event", { ...valid, sessionId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd" }],
+    ])("refuses when %s", async (_case, body) => {
+      expect(await refusal(given(multiSession(), boardroomVenue()), body)).toBe("Choose a session.");
+    });
+
+    it("names the session, not the event, when the slots miss its time", async () => {
+      const token = given(multiSession(), boardroomVenue());
+
+      expect(await refusal(token, { ...valid, sessionId: ID.session, slots: ["AM"] })).toMatch(
+        /^The chosen slots do not cover the session's time \(/
+      );
+    });
+  });
+
+  it("accepts a request for an event with no title", async () => {
+    expect((await post(given(event({ title: null })), valid)).status).toBe(201);
+  });
+
+  it("accepts a request for a session with no label", async () => {
+    const token = given(
+      event({ sessions: [session({ label: null }), session({ id: ID.otherSession })] }),
+      venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }] })
+    );
+
+    expect((await post(token, { ...valid, sessionId: ID.session })).status).toBe(201);
+  });
+
+  it("refuses a session id on an event that has no sessions", async () => {
+    expect(await refusal(given(), { ...valid, sessionId: ID.session })).toBe("Session not found for this event");
+  });
+
+  it("answers 500 when the database fails", async () => {
+    const token = given();
+    db.venue.findUnique.mockRejectedValue(new Error("connection lost"));
+
+    expect((await post(token, valid)).status).toBe(500);
+  });
+});
+
+describe("GET /api/events/[id]/venue-suitability", () => {
+  function get(token?: string, query = "", reference = REF) {
+    return suitability(
+      req("GET", `/api/events/${reference}/venue-suitability${query}`, { token }),
+      params({ id: reference })
+    );
+  }
+
+  const small = () => venue({ id: ID.otherVenue, code: "ROOM-B", name: "Room B", layouts: [{ layoutName: "theatre", capacity: 40 }] });
+
+  it("is 401 without a session", async () => {
+    expect((await get()).status).toBe(401);
+  });
+
+  it.each(["organiser", "attendee", "tech_support"])("is 403 for %s", async (role) => {
+    expect((await get(signIn(user(role)))).status).toBe(403);
+  });
+
+  it("is 404 for a malformed reference", async () => {
+    expect((await get(signIn(assignedCoordinator()), "", "nope")).status).toBe(404);
+  });
+
+  it("is 404 for a draft", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "draft" }));
+
+    expect((await get(token)).status).toBe(404);
+  });
+
+  it("judges every active venue against the event, suitable ones first", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event());
+    db.venue.findMany.mockResolvedValue([small(), venue()]);
+
+    const res = await get(token);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.venue.findMany).where).toEqual({ isActive: true });
+    expect(body.event).toEqual({ expectedAttendance: 100, preferredLayout: "theatre", requirements: [], missing: [] });
+    expect(body.results).toEqual([
+      {
+        venue: {
+          id: ID.venue,
+          code: "HALL-A",
+          name: "Hall A",
+          building: "Tower 1",
+          floor: "3",
+          maxCapacity: 300,
+          layouts: [{ layoutName: "theatre", capacity: 300 }],
+        },
+        suitable: true,
+        unmet: [],
+        optionalMissing: [],
+      },
+      {
+        venue: expect.objectContaining({ id: ID.otherVenue, name: "Room B" }),
+        suitable: false,
+        unmet: [{ kind: "capacity", layoutName: "theatre", layoutCapacity: 40, expectedAttendance: 100 }],
+        optionalMissing: [],
+      },
+    ]);
+  });
+
+  it("marks a venue unsuitable for a missing mandatory facility, but only notes an optional one", async () => {
+    const token = signIn(assignedCoordinator());
+    const optional = { facilityId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", isMandatory: false, facility: { name: "Stage", category: "facility" } };
+    db.event.findUnique.mockResolvedValue(event({ facilityRequirements: [optional] }));
+    db.venue.findMany.mockResolvedValue([venue()]);
+
+    const optionalOnly = (await (await get(token)).json()).results[0];
+    db.event.findUnique.mockResolvedValue(event({ facilityRequirements: [hearingLoop] }));
+    const mandatory = (await (await get(token)).json()).results[0];
+
+    expect(optionalOnly.suitable).toBe(true);
+    expect(optionalOnly.optionalMissing).toEqual([
+      { kind: "facility", facilityId: optional.facilityId, name: "Stage", category: "facility" },
+    ]);
+    expect(mandatory.suitable).toBe(false);
+    expect(mandatory.unmet).toEqual([
+      { kind: "facility", facilityId: ID.facility, name: "Hearing loop", category: "accessibility" },
+    ]);
+  });
+
+  it("counts a venue as suitable when it has the mandatory facility", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ facilityRequirements: [hearingLoop] }));
+    db.venue.findMany.mockResolvedValue([venue({ facilities: [{ facilityId: ID.facility }] })]);
+
+    const body = await (await get(token)).json();
+
+    expect(body.results[0]).toMatchObject({ suitable: true, unmet: [] });
+    expect(body.event.requirements).toEqual([
+      { facilityId: ID.facility, name: "Hearing loop", category: "accessibility", isMandatory: true },
+    ]);
+  });
+
+  it("says what the event has not specified yet", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ expectedAttendance: null, preferredLayout: null }));
+    db.venue.findMany.mockResolvedValue([venue()]);
+
+    const body = await (await get(token)).json();
+
+    expect(body.event.missing).toEqual(["expectedAttendance", "preferredLayout"]);
+    expect(body.results[0].suitable).toBe(true);
+  });
+
+  it("judges by a session's own attendance and layout when ?session= is given", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ sessions: [session()] }));
+    db.venue.findMany.mockResolvedValue([venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }] })]);
+
+    const body = await (await get(token, `?session=${ID.session}`)).json();
+
+    expect(body.event).toMatchObject({ expectedAttendance: 40, preferredLayout: "boardroom" });
+    expect(body.results[0].suitable).toBe(true);
+  });
+
+  it("refuses a session that is not one of the event's", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ sessions: [session()] }));
+
+    const res = await get(token, `?session=${ID.otherSession}`);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Session not found for this event" });
+    expect(db.venue.findMany).not.toHaveBeenCalled();
+  });
+});

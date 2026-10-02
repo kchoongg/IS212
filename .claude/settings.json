@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test *)",
+      "Bash(npm run lint *)",
+      "Bash(npm run test:coverage *)",
+      "Bash(npx vitest run *)",
+      "Bash(npx tsc --noEmit *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git diff *)",
+      "Bash(git status *)",
+      "Bash(git branch -a *)",
+      "Bash(git branch --list *)",
+      "Bash(python .claude/skills/generate-test-cases/scripts/fill_template.py *)",
+      "Bash(python3 .claude/skills/generate-test-cases/scripts/fill_template.py *)"
+    ]
+  }
+}
