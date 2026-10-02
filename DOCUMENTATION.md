@@ -27,7 +27,7 @@
 >   which events. **Read this before writing any route**, and check the
 >   permission it needs before you write the handler.
 > - [`docs/ConnectSphere_Status_Lifecycle.drawio`](./docs/ConnectSphere_Status_Lifecycle.drawio)
->   — the ten event statuses and which moves between them are legal, the
+>   — the eleven event statuses and which moves between them are legal, the
 >   lifecycle the events `PATCH` route refers to (open with
 >   [diagrams.net](https://app.diagrams.net)).
 > - [`docs/ConnectSphere_BPMN.drawio`](./docs/ConnectSphere_BPMN.drawio) — the
@@ -865,6 +865,41 @@ what changed, why, and the migration name if there is one.
     (clarification #71) is not built here.
 
 ---
+
+### 2026-10-01 — Kayal
+- **Both diagrams brought in line with the customer clarifications**
+  (`docs/discussions/`). Diagrams only — no code changed, so several of these
+  are the intended design, not current behaviour (see the last bullet).
+  - `docs/ConnectSphere_BPMN.drawio` — redrawn. The main flow keeps the same
+    lanes and steps up to approval, then:
+    - Planning is a **parallel split** into venue, equipment and registration
+      branches. Equipment and registration each start with a "required?" /
+      "enabled?" gateway, because not every event needs them (#80). Equipment
+      no longer follows the venue booking request.
+    - An equipment **shortfall** goes to the coordinator, who decides with
+      Technical Support whether it is essential: revise the request, or carry
+      on without it (#90, #106).
+    - The branches **join** before a coordinator gateway, "Essential
+      arrangements complete?", and only then "Confirm event" (#80, #98).
+      Venue approval and equipment reservation no longer lead straight to
+      Confirmed.
+    - "Record withdrawal" from Under review (#103), and a 7-day
+      auto-complete timer beside "Mark event completed" (#71).
+    - A second block, **Changes and exceptions**, holds what can start at any
+      time after submission: change requests with a coordinator review and
+      partial acceptance (#102, #104, #105, #115), postponement with or
+      without a new date (#69, #121), cancellation at any stage with bookings
+      released (#68), a venue being retired, blocked or changed (#54, #120,
+      #122), and returned equipment found damaged (#86, #114). Each ends in
+      an event that names where it rejoins the main flow.
+  - `docs/ConnectSphere_Status_Lifecycle.drawio` — new **Withdrawn** status
+    (from Under review); new **Confirmed → Planning** edge, "significant
+    change"; the Planning → Cancelled arrow is now attached at both ends;
+    notes added for cancel-at-any-stage and auto-completion.
+  - **Not built yet, and now on the diagrams:** the confirm guard, the
+    Withdrawn status, releasing bookings and reservations on cancel or
+    postpone, change requests, and Venue Staff's booking decision. The events
+    `PATCH` route still checks who may set a status, not which move is legal.
 
 ---
 
