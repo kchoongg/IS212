@@ -25,7 +25,7 @@ import {
   fulfilmentOptionsFor,
   fulfilmentUpdateClosedMessage,
 } from "@/lib/equipmentFulfilment";
-import { statusLabel } from "@/lib/statuses";
+import { availabilityStatusKey, statusLabel } from "@/lib/statuses";
 
 // S-25 (detail). SPM-48: for each equipment line an event has requested, is
 // there enough suitable stock free for its dates? Shown automatically on load -
@@ -249,7 +249,7 @@ export default function EquipmentRequestDetailPage() {
       }
       setEditing(null);
       setUpdateNotices((current) => ({ ...current, [line.requestId]: "Update saved." }));
-      // Marking a reserved line Unavailable frees its units, which changes
+      // Marking a reserved line "Cannot be provided" frees its units, which changes
       // what every other line on the page shows - re-read the whole request.
       await load();
     } catch {
@@ -515,7 +515,7 @@ function LineRow({
           </Column>
           {/* SPM-50: the line's own fulfilment status - what Technical Support
               has decided - kept apart from Availability, which is worked out
-              from stock (both can read "Unavailable"). */}
+              from stock ("Cannot be provided" vs "None available"). */}
           <Column label="Status">
             <div className="flex h-9 items-center justify-center">
               <StatusBadge status={line.requestStatus} />
@@ -523,7 +523,7 @@ function LineRow({
           </Column>
           <Column label="Availability">
             <div className="flex h-9 items-center justify-center">
-              {result ? <StatusBadge status={result.status} /> : <span className="text-ink-3">—</span>}
+              {result ? <StatusBadge status={availabilityStatusKey(result.status)} /> : <span className="text-ink-3">—</span>}
             </div>
           </Column>
         </div>

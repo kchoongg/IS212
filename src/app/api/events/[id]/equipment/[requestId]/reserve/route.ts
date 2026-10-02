@@ -4,6 +4,7 @@ import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/
 import { canReserveEquipment, canViewEvent } from "@/lib/permissions";
 import { eventAllowsReserving, reserveQuantity, reservingClosedMessage } from "@/lib/equipmentAvailability";
 import { loadSingleLineAvailability } from "@/lib/equipmentAvailabilityService";
+import { reserveClearsStaffNotes } from "@/lib/equipmentFulfilment";
 
 // SPM-49 — Reserve Equipment. "As Technical Support Staff, I want to reserve
 // available equipment for an event so that the same limited equipment is not
@@ -94,6 +95,9 @@ export async function POST(
           status: toReserve === line.quantityRequested ? "reserved" : "partially_fulfilled",
           reviewedBy: actor.id,
           reviewedAt: new Date(),
+          // SPM-50: an Unavailable line's reason no longer holds once stock is
+          // committed to it, so reserving it clears the reason.
+          ...(reserveClearsStaffNotes(line.requestStatus) ? { staffNotes: null } : {}),
         },
         include: {
           equipment: { select: { id: true, name: true, category: true } },

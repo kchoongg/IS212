@@ -821,6 +821,17 @@ what changed, why, and the migration name if there is one.
     the Coordinator and the owning Organiser.
   - `GET .../equipment/availability` lines now also carry
     `technicalRequirements`, `staffNotes`, `reviewedByName`, `reviewedAt`.
+  - **Reserve (SPM-49) on a line marked Unavailable clears its old reason**
+    (`reserveClearsStaffNotes()`), so a line never reads "Reserved" next to
+    "cannot be provided because…". Reserve stays offered on Unavailable lines.
+  - **Labels:** the request status `unavailable` now reads **"Cannot be
+    provided"**, and the availability chip's `unavailable` reads **"None
+    available"** (new `none_available` key in `src/lib/statuses.ts`, mapped by
+    `availabilityStatusKey()`). Both used to say
+    "Unavailable" on the same line with different meanings. Display only - the
+    stored value is still `unavailable`. Differs from the S-25 mockup's wording.
+    SPM-48/49 test cases' expected results updated; their recorded actual
+    results were left as run.
 - **Test data:** 6 SPM-50 events at the end of `prisma/seed.ts` (after SPM-42, so
   no earlier EVT- number moves) and `npm run fixtures:spm50`
   (`scripts/seed-spm50.ts`). Test cases: `docs/test-cases/SPM-50_Test_Cases.xlsx`

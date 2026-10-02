@@ -5,16 +5,17 @@ import {
   fulfilmentChanges,
   fulfilmentOptionsFor,
   fulfilmentUpdateClosedMessage,
+  reserveClearsStaffNotes,
 } from "../equipmentFulfilment";
 
 describe("fulfilmentOptionsFor (SPM-50 AC2)", () => {
-  it("SPM-50-TC03: offers Requested, Under review and Unavailable on an open line - never Reserved or Partially fulfilled", () => {
+  it("SPM-50-TC03: offers Requested, Under review and Cannot be provided on an open line - never Reserved or Partially fulfilled", () => {
     expect(fulfilmentOptionsFor("requested")).toEqual(["requested", "under_review", "unavailable"]);
     expect(fulfilmentOptionsFor("under_review")).toEqual(["requested", "under_review", "unavailable"]);
     expect(fulfilmentOptionsFor("unavailable")).toEqual(["requested", "under_review", "unavailable"]);
   });
 
-  it("SPM-50-TC03: a line holding stock can only stay as it is or become Unavailable", () => {
+  it("SPM-50-TC03: a line holding stock can only stay as it is or become Cannot be provided", () => {
     expect(fulfilmentOptionsFor("reserved")).toEqual(["reserved", "unavailable"]);
     expect(fulfilmentOptionsFor("partially_fulfilled")).toEqual(["partially_fulfilled", "unavailable"]);
   });
@@ -33,11 +34,11 @@ describe("checkFulfilmentUpdate", () => {
     expect(checkFulfilmentUpdate("under_review", "requested", "")).toBeNull();
   });
 
-  it("SPM-50-TC05: accepts Unavailable with a reason", () => {
+  it("SPM-50-TC05: accepts Cannot be provided with a reason", () => {
     expect(checkFulfilmentUpdate("requested", "unavailable", "Only 1 working unit")).toBeNull();
   });
 
-  it("SPM-50-TC06: refuses Unavailable with no reason", () => {
+  it("SPM-50-TC06: refuses Cannot be provided with no reason", () => {
     expect(checkFulfilmentUpdate("requested", "unavailable", "")).toEqual({ message: "Give a reason when equipment cannot be provided.", field: "staffNotes" });
   });
 
@@ -59,8 +60,8 @@ describe("checkFulfilmentUpdate", () => {
   });
 
   it("SPM-50-TC03: refuses moving a reserved line back to Requested or Under review", () => {
-    expect(checkFulfilmentUpdate("reserved", "under_review", "")).toEqual({ message: "A reserved item can only be marked Unavailable.", field: null });
-    expect(checkFulfilmentUpdate("partially_fulfilled", "requested", "")).toEqual({ message: "A reserved item can only be marked Unavailable.", field: null });
+    expect(checkFulfilmentUpdate("reserved", "under_review", "")).toEqual({ message: 'A reserved item can only be changed to "Cannot be provided".', field: null });
+    expect(checkFulfilmentUpdate("partially_fulfilled", "requested", "")).toEqual({ message: 'A reserved item can only be changed to "Cannot be provided".', field: null });
   });
 
   it("refuses a status that is not on offer, without blaming a reservation that isn't there", () => {
@@ -70,7 +71,7 @@ describe("checkFulfilmentUpdate", () => {
     });
   });
 
-  it("SPM-50-TC07: accepts marking a reserved line Unavailable with a reason", () => {
+  it("SPM-50-TC07: accepts marking a reserved line Cannot be provided with a reason", () => {
     expect(checkFulfilmentUpdate("reserved", "unavailable", "Battery failed inspection")).toBeNull();
   });
 
@@ -95,7 +96,7 @@ describe("fulfilmentChanges", () => {
     expect(fulfilmentChanges("under_review", "")).toEqual({ status: "under_review", staffNotes: null });
   });
 
-  it("SPM-50-TC07: clears the reserved quantity when a line is marked Unavailable", () => {
+  it("SPM-50-TC07: clears the reserved quantity when a line is marked Cannot be provided", () => {
     expect(fulfilmentChanges("unavailable", "Battery failed inspection")).toEqual({
       status: "unavailable",
       staffNotes: "Battery failed inspection",
@@ -127,5 +128,17 @@ describe("eventAllowsFulfilmentUpdate", () => {
     expect(fulfilmentUpdateClosedMessage("cancelled")).toBe(
       "This event is cancelled — equipment requests can no longer be updated."
     );
+  });
+});
+
+describe("reserveClearsStaffNotes", () => {
+  it("SPM-50-TC07: clears the old reason when a line marked Cannot be provided is reserved", () => {
+    expect(reserveClearsStaffNotes("unavailable")).toBe(true);
+  });
+
+  it("keeps notes on a line reserved from any other status", () => {
+    for (const status of ["requested", "under_review", "partially_fulfilled"]) {
+      expect(reserveClearsStaffNotes(status)).toBe(false);
+    }
   });
 });

@@ -76,7 +76,7 @@ export function checkFulfilmentUpdate(
   if (!fulfilmentOptionsFor(currentStatus).includes(nextStatus)) {
     let message = "That status cannot be chosen here.";
     if (HOLDING_STATUSES.includes(nextStatus)) message = "Use Reserve to commit equipment to this event.";
-    else if (HOLDING_STATUSES.includes(currentStatus)) message = "A reserved item can only be marked Unavailable.";
+    else if (HOLDING_STATUSES.includes(currentStatus)) message = 'A reserved item can only be changed to "Cannot be provided".';
     return { message, field: null };
   }
   const notes = staffNotes.trim();
@@ -100,4 +100,13 @@ export function fulfilmentChanges(
     staffNotes: notes.length > 0 ? notes : null,
     ...(nextStatus === "unavailable" ? { quantityReserved: null } : {}),
   };
+}
+
+/// Whether reserving a line clears Technical Support's notes. A line marked
+/// Unavailable carries the reason it couldn't be provided ("both units out for
+/// repair"); once stock frees up and it is reserved, that reason is no longer
+/// true and would contradict the "Reserved" status the Coordinator sees. Notes
+/// on any other line are kept.
+export function reserveClearsStaffNotes(previousStatus: string): boolean {
+  return previousStatus === "unavailable";
 }

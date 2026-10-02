@@ -70,13 +70,13 @@
     },
     {
       "id": "SPM-50-TC03",
-      "title": "Reserved and Partially fulfilled cannot be chosen by hand, and a reserved line can only become Unavailable",
+      "title": "Reserved and Partially fulfilled cannot be chosen by hand, and a reserved line can only become 'Cannot be provided'",
       "linked_ac": [
         "AC2"
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule (team decision): 'Reserved' and 'Partially fulfilled' mean stock is held, so only the Reserve button (SPM-49), which checks availability, can set them. Leaving them releases stock, so a reserved line can only be marked 'Unavailable' (with a reason, TC07).\nRobotics Expo's Wireless Presenter line is 'Requested'. Charity Briefing's Mobile Charging Cart line is 'Reserved' (Reserved = 1).\nData: run `npm run fixtures:spm50` first.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "preconditions": "Rule (team decision): 'Reserved' and 'Partially fulfilled' mean stock is held, so only the Reserve button (SPM-49), which checks availability, can set them. Leaving them releases stock, so a reserved line can only be marked 'Cannot be provided' (with a reason, TC07).\nRobotics Expo's Wireless Presenter line is 'Requested'. Charity Briefing's Mobile Charging Cart line is 'Reserved' (Reserved = 1).\nData: run `npm run fixtures:spm50` first.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
       "steps": [
         "Open the equipment request for the Robotics Expo event",
         "On the Wireless Presenter line, click 'Update'",
@@ -87,18 +87,18 @@
         "Open the 'Fulfilment status' list"
       ],
       "test_data": "Lines: Wireless Presenter (Requested), Mobile Charging Cart (Reserved, Reserved = 1)",
-      "expected_result": "Step 3: The list offers 'Requested', 'Under review' and 'Unavailable' only. 'Reserved' and 'Partially fulfilled' are not offered. The Reserve button remains on the line.\nStep 7: The list offers 'Reserved' (the current status) and 'Unavailable' only. 'Requested' and 'Under review' are not offered."
+      "expected_result": "Step 3: The list offers 'Requested', 'Under review' and 'Cannot be provided' only. 'Reserved' and 'Partially fulfilled' are not offered. The Reserve button remains on the line.\nStep 7: The list offers 'Reserved' (the current status) and 'Cannot be provided' only. 'Requested' and 'Under review' are not offered."
     },
     {
       "id": "SPM-50-TC04",
-      "title": "Line marked Unavailable can be reopened to Under review",
+      "title": "Line marked 'Cannot be provided' can be reopened to Under review",
       "linked_ac": [
         "AC2",
         "AC3"
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Event 'Design Week' (2027-08-16, status 'Planning') has a 'Ring Light' x2 line already marked 'Unavailable' with technical notes 'Both units out for repair'.\nData: run `npm run fixtures:spm50` first, and again before repeating the case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "preconditions": "Event 'Design Week' (2027-08-16, status 'Planning') has a 'Ring Light' x2 line already marked 'Cannot be provided' with technical notes 'Both units out for repair'.\nData: run `npm run fixtures:spm50` first, and again before repeating the case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
       "steps": [
         "Open the equipment request for the Design Week event",
         "On the Ring Light line, click 'Update'",
@@ -106,7 +106,7 @@
         "In 'Technical notes', replace the text with the test data",
         "Click 'Save'"
       ],
-      "test_data": "Fulfilment status: Unavailable -> Under review\nTechnical notes: Repair finished early, re-checking availability",
+      "test_data": "Fulfilment status: Cannot be provided -> Under review\nTechnical notes: Repair finished early, re-checking availability",
       "expected_result": "Step 5: 'Update saved.' appears. The Status chip shows 'Under review' and the line's technical notes read 'Repair finished early, re-checking availability'."
     },
     {
@@ -122,18 +122,18 @@
       "steps": [
         "Open the equipment request for the Robotics Expo event",
         "On the Confidence Monitor line, click 'Update'",
-        "In 'Fulfilment status', choose 'Unavailable'",
+        "In 'Fulfilment status', choose 'Cannot be provided'",
         "In 'Technical notes', enter the test data",
         "Click 'Save'",
         "Refresh the page",
         "Read the Wireless Presenter line"
       ],
-      "test_data": "Fulfilment status: Unavailable\nTechnical notes: Only 1 working unit; suggest 2x 55-inch TV on stands as an alternative",
-      "expected_result": "Step 5: 'Update saved.' appears. The Status chip shows 'Unavailable' (red).\nStep 6: The Status chip still shows 'Unavailable' and the notes 'Only 1 working unit; suggest 2x 55-inch TV on stands as an alternative' are shown on the line after 'Technical Support notes:'.\nStep 7: The Wireless Presenter line still shows the Status chip 'Requested' and no Technical Support notes. Because the lines are no longer at the same stage, the 'Requested items' header shows no single status chip."
+      "test_data": "Fulfilment status: Cannot be provided\nTechnical notes: Only 1 working unit; suggest 2x 55-inch TV on stands as an alternative",
+      "expected_result": "Step 5: 'Update saved.' appears. The Status chip shows 'Cannot be provided' (red).\nStep 6: The Status chip still shows 'Cannot be provided' and the notes 'Only 1 working unit; suggest 2x 55-inch TV on stands as an alternative' are shown on the line after 'Technical Support notes:'.\nStep 7: The Wireless Presenter line still shows the Status chip 'Requested' and no Technical Support notes. Because the lines are no longer at the same stage, the 'Requested items' header shows no single status chip."
     },
     {
       "id": "SPM-50-TC06",
-      "title": "Marking an item Unavailable without a real reason is blocked",
+      "title": "Marking an item 'Cannot be provided' without a real reason is blocked",
       "linked_ac": [
         "AC3"
       ],
@@ -143,36 +143,38 @@
       "steps": [
         "Open the equipment request for the Robotics Expo event",
         "On the Confidence Monitor line, click 'Update'",
-        "In 'Fulfilment status', choose 'Unavailable'",
+        "In 'Fulfilment status', choose 'Cannot be provided'",
         "Leave 'Technical notes' empty",
         "Click 'Save'",
         "In 'Technical notes', type three spaces",
         "Click 'Save'"
       ],
-      "test_data": "Fulfilment status: Unavailable\nTechnical notes: (empty), then '   ' (3 spaces)",
+      "test_data": "Fulfilment status: Cannot be provided\nTechnical notes: (empty), then '   ' (3 spaces)",
       "expected_result": "Step 5: The error 'Give a reason when equipment cannot be provided.' is shown under Technical notes. The Status chip still shows 'Requested' and nothing is saved.\nStep 7: The same error is shown, because a reason made only of spaces counts as empty. The Status chip still shows 'Requested'."
     },
     {
       "id": "SPM-50-TC07",
-      "title": "Marking a reserved line Unavailable releases its reserved units",
+      "title": "Marking a reserved line 'Cannot be provided' releases its units, and reserving it again clears the old reason",
       "linked_ac": [
         "AC3"
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Rule: only lines with status 'Reserved' or 'Partially fulfilled' count against stock, so changing the status to 'Unavailable' frees the units by itself.\n'Mobile Charging Cart' has 1 unit in total.\nEvent 'Charity Briefing' (2027-08-23) has 1x Mobile Charging Cart already 'Reserved' (Reserved = 1).\nEvent 'Charity Gala' (same date, overlapping times) requests 1x Mobile Charging Cart, status 'Requested'.\nData: run `npm run fixtures:spm50` first, and again before repeating the case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "preconditions": "Rule: only lines with status 'Reserved' or 'Partially fulfilled' count against stock, so changing the status to 'Cannot be provided' frees the units by itself.\n'Mobile Charging Cart' has 1 unit in total.\nEvent 'Charity Briefing' (2027-08-23) has 1x Mobile Charging Cart already 'Reserved' (Reserved = 1).\nEvent 'Charity Gala' (same date, overlapping times) requests 1x Mobile Charging Cart, status 'Requested'.\nData: run `npm run fixtures:spm50` first, and again before repeating the case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
       "steps": [
         "Open the equipment request for the Charity Gala event",
         "Read the Mobile Charging Cart line",
         "Click Equipment Requests in the breadcrumb and open the Charity Briefing event",
         "On the Mobile Charging Cart line, click 'Update'",
-        "In 'Fulfilment status', choose 'Unavailable'",
+        "In 'Fulfilment status', choose 'Cannot be provided'",
         "In 'Technical notes', enter the test data",
         "Click 'Save'",
-        "Go back to the Charity Gala equipment request"
+        "Go back to the Charity Gala equipment request",
+        "Go back to the Charity Briefing equipment request",
+        "Click Reserve on the Mobile Charging Cart line"
       ],
       "test_data": "Technical notes: Cart battery failed inspection, cannot be sent out\nMobile Charging Cart: 1 in total",
-      "expected_result": "Step 2: Charity Gala's line shows '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available' and the Availability chip 'Unavailable', with 'Held by Charity Briefing (1 unit)'.\nStep 7: Charity Briefing's line shows the Status chip 'Unavailable'.\nStep 8: Charity Gala's line now shows '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available' with the Availability chip 'Available'. Charity Briefing is no longer listed as holding it, and the Reserve button is offered."
+      "expected_result": "Step 2: Charity Gala's line shows '1 total − 0 in maintenance − 1 reserved elsewhere = 0 available' and the Availability chip 'None available', with 'Held by Charity Briefing (1 unit)'.\nStep 7: Charity Briefing's line shows the Status chip 'Cannot be provided'.\nStep 8: Charity Gala's line now shows '1 total − 0 in maintenance − 0 reserved elsewhere = 1 available' with the Availability chip 'Available'. Charity Briefing is no longer listed as holding it, and the Reserve button is offered.\nStep 10: 'Reservation saved: 1 reserved.' appears. The Status chip shows 'Reserved', the Reserved box shows 1, and the line shows 'Technical Support notes: —': the old reason 'Cart battery failed inspection, cannot be sent out' is cleared, because it no longer holds."
     },
     {
       "id": "SPM-50-TC08",
@@ -211,7 +213,7 @@
       "steps": [
         "Open the equipment request for the Robotics Expo event",
         "On the Confidence Monitor line, click 'Update'",
-        "In 'Fulfilment status', choose 'Unavailable'",
+        "In 'Fulfilment status', choose 'Cannot be provided'",
         "Paste the 501-character test text into 'Technical notes'",
         "Click 'Save'",
         "Delete one character, leaving 500",
@@ -219,7 +221,7 @@
         "Refresh the page"
       ],
       "test_data": "Technical notes: the letter 'A' repeated 501 times, then 500 times",
-      "expected_result": "Step 5: The error 'Technical notes must be 500 characters or fewer.' is shown under Technical notes. The Status chip still shows 'Requested' and nothing is saved.\nStep 7: 'Update saved.' appears and the Status chip shows 'Unavailable'.\nStep 8: All 500 characters are shown in the line's technical notes; nothing is cut off."
+      "expected_result": "Step 5: The error 'Technical notes must be 500 characters or fewer.' is shown under Technical notes. The Status chip still shows 'Requested' and nothing is saved.\nStep 7: 'Update saved.' appears and the Status chip shows 'Cannot be provided'.\nStep 8: All 500 characters are shown in the line's technical notes; nothing is cut off."
     },
     {
       "id": "SPM-50-TC10",
@@ -229,7 +231,7 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Run TC05 first: Robotics Expo's Confidence Monitor is 'Unavailable' with a reason.\nLogged in as the assigned Coordinator, daniel.tan@connectsphere.com (password123).",
+      "preconditions": "Run TC05 first: Robotics Expo's Confidence Monitor is 'Cannot be provided' with a reason.\nLogged in as the assigned Coordinator, daniel.tan@connectsphere.com (password123).",
       "steps": [
         "Click Events in the side menu",
         "Open the Robotics Expo event",
@@ -237,7 +239,7 @@
         "Read the Confidence Monitor row"
       ],
       "test_data": "Event: Robotics Expo",
-      "expected_result": "Step 4: Confidence Monitor shows the status chip 'Unavailable' and 'Technical Support notes: Only 1 working unit; suggest 2x 55-inch TV on stands as an alternative'. The notes are read-only for the Coordinator; their own Quantity and Technical requirements fields are still editable."
+      "expected_result": "Step 4: Confidence Monitor shows the status chip 'Cannot be provided' and 'Technical Support notes: Only 1 working unit; suggest 2x 55-inch TV on stands as an alternative'. The notes are read-only for the Coordinator; their own Quantity and Technical requirements fields are still editable."
     },
     {
       "id": "SPM-50-TC11",
@@ -247,14 +249,14 @@
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "Run TC05 first: Robotics Expo's Confidence Monitor is 'Unavailable' with a reason.\nEvent 'Design Week' also requests 'Confidence Monitor' x1, status 'Requested', no notes.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "preconditions": "Run TC05 first: Robotics Expo's Confidence Monitor is 'Cannot be provided' with a reason.\nEvent 'Design Week' also requests 'Confidence Monitor' x1, status 'Requested', no notes.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
       "steps": [
         "Click Equipment Requests in the side menu",
         "Open the equipment request for the Design Week event",
         "Read the Confidence Monitor line"
       ],
       "test_data": "Item: Confidence Monitor on Robotics Expo (updated) and Design Week (not updated)",
-      "expected_result": "Step 3: Design Week's Confidence Monitor line still shows 'Requested' with no Technical Support notes. The 'Unavailable' status and reason from Robotics Expo do not appear here."
+      "expected_result": "Step 3: Design Week's Confidence Monitor line still shows 'Requested' with no Technical Support notes. The 'Cannot be provided' status and reason from Robotics Expo do not appear here."
     },
     {
       "id": "SPM-50-TC12",
@@ -316,17 +318,18 @@
   ],
   "open_questions": [
     "OPEN - screen design (TC02–TC14): built as an 'Update' panel on each line of the Equipment request page, with 'Fulfilment status' and 'Technical notes' fields and Save / Cancel. Messages such as 'Update saved.', 'Give a reason when equipment cannot be provided.', 'Technical notes must be 500 characters or fewer.' and 'Last updated by …' are our own wording. No AC constrains the design, so the team should confirm it.",
-    "OPEN - Reserve button on an Unavailable line: with the current SPM-49 code (canOfferReserve), an Unavailable line still offers Reserve once stock frees up. Both options are consistent. Allowing it is more convenient; requiring a reopen to 'Under review' first (TC04) is more deliberate. Product call, so no case is written until it is decided.",
-    "OPEN - getting from the Equipment request page to the event: Technical Support has no Events item in the side menu, and the Equipment request page has no link to the event. The page now shows the Coordinator's technical requirements, so Technical Support may never need to leave it, and no test case depends on the link. Team to confirm.",
+    "DECIDED (Janelle, 2 Oct) - Reserve stays on a line marked 'Cannot be provided': if stock frees up, Technical Support can reserve it in one click. Reserving it clears the old 'cannot be provided' reason, so the line never shows 'Reserved' next to a reason that no longer holds (TC07; reserveClearsStaffNotes() in src/lib/equipmentFulfilment.ts, used by the SPM-49 reserve route).",
+    "DECIDED (Janelle, 2 Oct) - no link from the Equipment request page back to the event. The page shows everything Technical Support needs (the Coordinator's requirements, status, notes), and no test case depends on the link.",
     "OPEN - Coordinator changes a quantity after review or reservation (Q&A #114): should the line return to 'Requested' / 'Under review' so it is re-checked? This crosses into SPM-34 / the change-request flow. No case will be written until ownership is settled.",
-    "OPEN - fulfilment status vs approve/reject (Kristen's comment on the ticket): venue booking has request then approve/reject (SPM-42 then SPM-43), but equipment goes record, check, reserve (SPM-47, 48, 49) with fulfilment statuses. Every story in the SPM-47 to SPM-50 chain is written against the fulfilment-status model, so switching would mean revisiting ACs on shipped stories. Team to confirm the divergence is intentional; meanwhile these cases follow the model already used across the chain.",
+    "OPEN (answered by customer Q&A #19) - fulfilment status vs approve/reject (Kristen's comment on the ticket): venue booking has request then approve/reject (SPM-42 then SPM-43), but equipment goes record, check, reserve (SPM-47, 48, 49) with fulfilment statuses. Every story in the SPM-47 to SPM-50 chain is written against the fulfilment-status model, so switching would mean revisiting ACs on shipped stories. Team to confirm the divergence is intentional; meanwhile these cases follow the model already used across the chain. Customer Q&A #19 asked whether equipment has a formal request → approval workflow like venue booking: the answer is that the Coordinator records the requirement, Technical Support reviews suitability and availability, and available equipment can then be reserved - no approval step.",
     "IN PROGRESS (Kristen, her status story) - SPM-49's Reserve button is not limited the same way yet: it still works on Submitted and Under review events (eventAllowsReserving in src/lib/equipmentAvailability.ts). Until Kristen's change lands, Pending Showcase (TC14) still offers Reserve while Update is not offered. TC14 checks only the Update button. Her change also needs SPM-49's seeded events moved from 'Under review' to 'Planning'.",
     "DECIDED (Kristen, 2 Oct) - Technical Support only updates an event's equipment once the event is Approved, Planning or Confirmed (TC14). Before approval only the Organiser and Coordinator work on it, as there is no point arranging equipment for an event that may be rejected. Completed, cancelled, rejected and postponed events cannot be updated either (TC13).",
-    "DECIDED - hand-pickable statuses (TC02, TC03): 'Reserved' and 'Partially fulfilled' are set only by the Reserve button, which keeps Reserved = the smaller of requested and available everywhere (the SPM-49 rule). 'Requested' can be chosen to undo 'Under review'. A Reserved or Partially fulfilled line cannot be moved back to 'Requested' or 'Under review'; leaving it goes through 'Unavailable' with a reason.",
-    "DECIDED - reason for Unavailable (TC06, TC09): required, as Q&A #90 needs text the Coordinator can act on. Technical notes are capped at 500 characters to match SPM-55's out-of-service reason.",
-    "DECIDED - releasing stock when a line is marked Unavailable (TC07): availability counts only lines with status 'reserved' or 'partially_fulfilled' (committedQuantity in src/lib/equipmentAvailability.ts), so the status change alone frees the units, whatever is left in quantityReserved. TC07 therefore checks the other event's availability, not the stored field. Clearing quantityReserved when marking Unavailable is still recommended as data hygiene, so no row reads 'unavailable' with 1 reserved, but it is not needed for correctness.",
+    "DECIDED (Janelle, 2 Oct) - labels: the request status 'unavailable' is shown as 'Cannot be provided' (Technical Support's decision) and the availability result 'unavailable' as 'None available' (no stock free for those dates), so the two never read the same on one line. Only the displayed text changed; the stored value is still 'unavailable'. Differs from the S-25 mockup, which says 'Unavailable'. SPM-48/49 expected results updated to match.",
+    "DECIDED - hand-pickable statuses (TC02, TC03): 'Reserved' and 'Partially fulfilled' are set only by the Reserve button, which keeps Reserved = the smaller of requested and available everywhere (the SPM-49 rule). 'Requested' can be chosen to undo 'Under review'. A Reserved or Partially fulfilled line cannot be moved back to 'Requested' or 'Under review'; leaving it goes through 'Cannot be provided' with a reason.",
+    "DECIDED - reason for 'Cannot be provided' (TC06, TC09): required, as Q&A #90 needs text the Coordinator can act on. Technical notes are capped at 500 characters to match SPM-55's out-of-service reason.",
+    "DECIDED - releasing stock when a line is marked 'Cannot be provided' (TC07): availability counts only lines with status 'reserved' or 'partially_fulfilled' (committedQuantity in src/lib/equipmentAvailability.ts), so the status change alone frees the units, whatever is left in quantityReserved. TC07 therefore checks the other event's availability, not the stored field. Clearing quantityReserved when marking 'Cannot be provided' is still recommended as data hygiene, so no row reads 'unavailable' with 1 reserved, but it is not needed for correctness.",
     "DECIDED - technical notes storage (TC08, TC10): stored in the existing EquipmentRequest.staffNotes column, separate from the Coordinator's technicalRequirements. The assigned Coordinator and the owning Organiser see them read-only.",
-    "ANSWERED, out of scope - notifying the Coordinator when an item is marked Unavailable belongs to the batched notification story, so no case is written here (same position as SPM-49).",
+    "ANSWERED, out of scope - notifying the Coordinator when an item is marked 'Cannot be provided' belongs to the batched notification story, so no case is written here (same position as SPM-49).",
     "BUILT (AC1) - the Equipment request page now shows each line's 'Technical requirements' from the Coordinator, 'Technical Support notes', and 'Last updated by' (TC01, TC08, TC08).",
     "Test data - `npm run fixtures:spm50` (scripts/seed-spm50.ts) creates or resets the SPM-50 events: Robotics Expo, Design Week, Charity Briefing, Charity Gala, Cancelled Hackathon and Pending Showcase (Aug-Sep 2027, assigned Coordinator daniel.tan, Robotics Expo owned by Rachel Ng). prisma/seed.ts creates the same rows. Run the script again before repeating any case that saves a change."
   ],
