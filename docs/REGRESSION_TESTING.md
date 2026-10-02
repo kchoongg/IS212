@@ -78,8 +78,12 @@ A story is in scope if any of its files changed. Three adjustments:
 ## Step 3: Pick the test cases
 
 For each story in scope, select the cases where **Type** is `Positive` and
-**Source** is `Acceptance Criteria`. That is about one case per acceptance
+**Source** is `Acceptance Criteria`. Where several of them cover the same
+acceptance criterion, keep one, so that you end up with about one case per
 criterion.
+
+If a selected case's preconditions say another case must be run first, add
+that case too.
 
 Add a `Negative` or `Boundary` case only when the diff changed the exact
 validation or limit that the case checks.
@@ -124,57 +128,33 @@ request as the story.
 
 ## Step 6: Record the results
 
-Create `docs/regression/Sprint-<N>_Regression.md` from this template:
+Results go in the sprint's regression log, an Excel tracker at
+`docs/regression/Sprint-<N>_Regression.xlsx`. To start a new one, copy the
+previous sprint's tracker, rename it, and clear the yellow cells. Then replace
+the rows on the **Scope** and **Retested cases** sheets with this sprint's
+(steps 2 and 3).
 
-```markdown
-# Sprint <N> regression test
+| Sheet | What goes in it |
+| --- | --- |
+| Summary | Date, testers and the commit tested. The result counts fill in by themselves. |
+| Retested cases | One row per selected case: result, tester, date and notes. |
+| Automated checks | The result of each command in step 1. |
+| Scope | Every earlier story, whether it is in scope, and why. |
+| Smoke run | The result of each step of the smoke run. |
+| Follow-ups | Bugs raised and test cases that need updating. |
 
-- Date:
-- Tested by:
-- Commit tested: <output of `git rev-parse --short HEAD` on main>
-- Baseline: <tag or commit used in step 2>
-
-## Automated checks
-
-| Check | Result | Notes |
-| --- | --- | --- |
-| npm test | | |
-| npm run lint | | |
-| npm run build | | |
-| npm run verify:permissions | | |
-| npm run verify:login | | |
-
-## Scope
-
-| Story | In scope? | Reason (changed file, or "not affected") |
-| --- | --- | --- |
-
-## Retested cases
-
-| Test case ID | Result | Tested by | Notes / bug key |
-| --- | --- | --- | --- |
-
-## Smoke run
-
-| Step | Result | Notes |
-| --- | --- | --- |
-
-## Summary
-
-- Cases run:
-- Pass / Fail / Changed by design / Blocked:
-- Bugs raised:
-- Test cases that need updating:
-```
+If several people are testing at once, upload the tracker to the team's Google
+Drive and fill it in there, so nobody overwrites anyone else. Download the
+finished copy back into `docs/regression/` at close-out.
 
 Use one of four results for each case:
 
 | Result | Meaning | What to do |
 | --- | --- | --- |
 | Pass | The app matches the expected result. | Nothing. |
-| Fail | The app is wrong. | Raise a bug (step 7). |
-| Changed by design | The app differs because a later story changed the behaviour on purpose. | Name the story that changed it in the notes. List the case under "Test cases that need updating". |
-| Blocked | The case could not be run, for example because its test data no longer exists. | Say why in the notes. List the case under "Test cases that need updating". |
+| Fail | The app is wrong. | Raise a bug (step 7). Add a row to Follow-ups. |
+| Changed by design | The app differs because a later story changed the behaviour on purpose. | Name the story that changed it in the notes. Add a row to Follow-ups. |
+| Blocked | The case could not be run, for example because its test data no longer exists. | Say why in the notes. Add a row to Follow-ups. |
 
 `Changed by design` and `Blocked` are not failures, but they mean the test case
 is out of date. The story's owner updates the case's JSON and rebuilds the
