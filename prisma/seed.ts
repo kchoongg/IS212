@@ -1068,6 +1068,9 @@ async function main() {
       purpose: "Briefing for teachers on the 2028 curriculum",
       category: "seminar", organiser: "Grace Abdullah", coordinator: "daniel.tan@connectsphere.com",
       days: daysUntil("2027-08-31"), startHour: 9, durationHours: 3, attendance: 35, layout: "classroom" },
+  );
+
+  // -----------------------------------------------------------------
   // SPM-27 QA fixtures (View Event Status) - one event per status for one
   // organiser. The SAME events as scripts/seed-spm27.ts
   // (`npm run fixtures:spm27`) - keep the two in step.
@@ -1102,6 +1105,36 @@ async function main() {
     spm27("spm27_wind_farm_tour", "SPM27 Bayu Wind Farm Tour", "withdrawn", [...spm27Review, "withdrawn"], 92, 9, 4, "seminar", 30, "theatre"),
     spm27("spm27_product_showcase", "SPM27 Bayu Product Showcase", "cancelled", [...spm27Planning, "cancelled"], 94, 14, 4, "exhibition", 150, "exhibition",
       { cancellationReason: "Product launch moved to next financial year." }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-34 QA fixtures (Confirm Event). The SAME events as
+  // scripts/seed-spm34.ts (`npm run fixtures:spm34`) - keep the two in step.
+  //
+  // The events only. The bookings, equipment requests and sessions that put
+  // each one in its particular state are created by that script alone, so run
+  // it once after a full reseed or every one of these confirms trivially.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm34 = (
+    key: string, title: string, date: string, durationHours: number,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    status: "planning", purpose: "SPM-34 confirm event test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours, attendance: 40, layout: "theatre",
+    ...options,
+  });
+  eventData.push(
+    spm34("spm34_ready", "SPM34 Ready To Confirm", "2027-05-10", 6),
+    spm34("spm34_venue_only", "SPM34 Venue Only", "2027-05-11", 4),
+    spm34("spm34_partial", "SPM34 Partially Fulfilled", "2027-05-12", 4),
+    spm34("spm34_no_venue", "SPM34 No Venue", "2027-05-13", 4),
+    spm34("spm34_pending_venue", "SPM34 Pending Venue", "2027-05-14", 4),
+    spm34("spm34_equipment_short", "SPM34 Equipment Short", "2027-05-15", 4),
+    spm34("spm34_sessions", "SPM34 Two Day Forum", "2027-05-17", 27),
+    spm34("spm34_other_coordinator", "SPM34 Another Coordinator", "2027-05-18", 4,
+      { coordinator: "priya.raj@connectsphere.com" }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

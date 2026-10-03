@@ -1,0 +1,242 @@
+{
+  "story_key": "SPM-34",
+  "story_title": "As an Event Coordinator, I want to confirm an event once its essential arrangements are completed so that the Event Organiser can view the confirmed arrangements",
+  "created_by": "TAN JORDAN",
+  "creation_date": "2026-10-03",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Coordinator can confirm an event only when required arrangements have been completed."
+    },
+    {
+      "id": "AC2",
+      "text": "The required arrangements are those essential to that particular event."
+    },
+    {
+      "id": "AC3",
+      "text": "Given a required arrangement is still incomplete, when the Coordinator attempts to confirm the event, then confirmation is refused and the incomplete arrangement is identified."
+    },
+    {
+      "id": "AC4",
+      "text": "Only the assigned Event Coordinator can confirm the event."
+    },
+    {
+      "id": "AC5",
+      "text": "A confirmed event has a Confirmed status."
+    },
+    {
+      "id": "AC6",
+      "text": "Confirmed venue and equipment arrangements remain associated with the event."
+    },
+    {
+      "id": "AC7",
+      "text": "The Event Organiser can view the confirmed event information."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-34-TC01",
+      "title": "An event whose arrangements are all complete can be confirmed",
+      "linked_ac": [
+        "AC1",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 Ready To Confirm' is in Planning, assigned to Daniel Tan, and has an approved venue booking at Orchard Seminar Room plus one equipment requirement (Handheld Wireless Mic) with status Reserved. Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event's status — SPM-34-TC02 and SPM-34-TC03 read the result, so go straight to those and run npm run fixtures:spm34 after TC03.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 Ready To Confirm' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM34 Ready To Confirm (Planning)\nVenue: Orchard Seminar Room, booking Approved\nEquipment: Handheld Wireless Mic, Reserved\nCoordinator: Daniel Tan",
+      "expected_result": "Step 2: The event opens with the status badge 'Planning' and a 'Confirm event' button in the header.\nStep 3: A dialog headed 'Confirm this event?' appears, explaining that the organiser will be able to see the venue and equipment arranged for it.\nStep 4: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge changes to 'Confirmed'."
+    },
+    {
+      "id": "SPM-34-TC02",
+      "title": "The venue and equipment stay attached to the event after it is confirmed",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-34-TC01 has just been run (so 'SPM34 Ready To Confirm' is now Confirmed) and the fixtures have NOT been reset since. Logged in as Daniel Tan.",
+      "steps": [
+        "Click the 'Venue' tab",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM34 Ready To Confirm, now Confirmed",
+      "expected_result": "Step 1: The Orchard Seminar Room booking is still listed under 'Booking requests' with its status badge, unchanged by the confirmation.\nStep 2: The 'Handheld Wireless Mic' requirement is still listed with its reserved quantity — confirming the event did not detach either arrangement."
+    },
+    {
+      "id": "SPM-34-TC03",
+      "title": "The Organiser can see the confirmed event and its arrangements",
+      "linked_ac": [
+        "AC7",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-34-TC02 has just been run (so 'SPM34 Ready To Confirm' is Confirmed and still holds its arrangements) and the fixtures have NOT been reset since. Rachel Ng (rachel.ng@meridianfina.com / password123) is the Event Organiser who raised it. Run npm run fixtures:spm34 after this case.",
+      "steps": [
+        "Click 'Log out' in the top bar",
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM34 Ready To Confirm' in the list"
+      ],
+      "test_data": "Account: rachel.ng@meridianfina.com (Event Organiser)\nEvent: SPM34 Ready To Confirm, Confirmed",
+      "expected_result": "Step 3: 'SPM34 Ready To Confirm' appears in the organiser's own list with the status 'Confirmed'.\nStep 4: The event opens showing STATUS 'Confirmed' and a VENUE row naming the room that was booked, 'Orchard Seminar Room (ORC-SEM)' — so the organiser can see the arrangement made for their event, not merely that it is confirmed. There is no 'Confirm event' button: confirming is not the organiser's action."
+    },
+    {
+      "id": "SPM-34-TC04",
+      "title": "An event that needs no equipment confirms on its venue alone",
+      "linked_ac": [
+        "AC2",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 Venue Only' is in Planning, assigned to Daniel Tan, has an approved venue booking at Orchard Seminar Room and NO equipment requirements recorded at all. Logged in as Daniel Tan. This case changes the event's status — run npm run fixtures:spm34 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 Venue Only' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM34 Venue Only (Planning)\nVenue: Orchard Seminar Room, booking Approved\nEquipment: none recorded",
+      "expected_result": "Step 4: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge changes to 'Confirmed' — equipment is required only for an event that has some, so none was demanded here."
+    },
+    {
+      "id": "SPM-34-TC05",
+      "title": "Equipment that Technical Support could only partly supply still counts as arranged",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 Partially Fulfilled' is in Planning, assigned to Daniel Tan, has an approved venue booking and one equipment requirement for 2 Handheld Wireless Mics of which only 1 was reserved, leaving the request at status Partially fulfilled. Logged in as Daniel Tan. This case changes the event's status — run npm run fixtures:spm34 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 Partially Fulfilled' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM34 Partially Fulfilled (Planning)\nEquipment: Handheld Wireless Mic, 2 requested, 1 reserved, status Partially fulfilled",
+      "expected_result": "Step 4: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge changes to 'Confirmed' — Technical Support have committed what they can, and the shortfall is their decision rather than a reason to hold the event up."
+    },
+    {
+      "id": "SPM-34-TC06",
+      "title": "An event with no venue cannot be confirmed, and the missing venue is named",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 No Venue' is in Planning, assigned to Daniel Tan, has its equipment reserved but NO venue booking of any kind. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 No Venue' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM34 No Venue (Planning)\nVenue: none booked\nEquipment: Handheld Wireless Mic, Reserved",
+      "expected_result": "Step 4: The event is NOT confirmed. The message 'This event cannot be confirmed yet: no venue is booked for this event.' is shown and the status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-34-TC07",
+      "title": "A venue request still awaiting a decision does not count as an arrangement",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 Pending Venue' is in Planning, assigned to Daniel Tan, and has a venue booking request at Orchard Seminar Room that is still Pending — Venue Staff have neither approved nor rejected it. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 Pending Venue' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM34 Pending Venue (Planning)\nVenue: Orchard Seminar Room, booking Pending",
+      "expected_result": "Step 4: The event is NOT confirmed. The message 'This event cannot be confirmed yet: the venue for this event is still awaiting a decision from Venue Staff.' is shown — worded differently from having no venue at all, so the Coordinator knows to chase Venue Staff rather than start a new search. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-34-TC08",
+      "title": "Only the equipment that is not reserved is named in the refusal",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 Equipment Short' is in Planning, assigned to Daniel Tan, has an approved venue booking and two equipment requirements: Handheld Wireless Mic (Reserved) and Audio Mixing Desk (Requested, not yet reviewed). Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 Equipment Short' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM34 Equipment Short (Planning)\nEquipment: Handheld Wireless Mic (Reserved), Audio Mixing Desk (Requested)",
+      "expected_result": "Step 4: The event is NOT confirmed. The message names 'Audio Mixing Desk' as not reserved yet and does NOT mention the Handheld Wireless Mic, which is already reserved — the Coordinator is told exactly what to chase. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-34-TC09",
+      "title": "A multi-session event needs a venue for every session, and the refusal names the session",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 Two Day Forum' is in Planning, assigned to Daniel Tan, and has two sessions, 'Day 1' and 'Day 2'. Day 1 has an approved venue booking at Orchard Seminar Room; Day 2 has none. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 Two Day Forum' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM34 Two Day Forum (Planning), sessions Day 1 and Day 2\nDay 1: Orchard Seminar Room, Approved\nDay 2: no booking",
+      "expected_result": "Step 4: The event is NOT confirmed. The message names 'the Day 2 session' as having no venue booked, and does not name Day 1, whose room is arranged. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-34-TC10",
+      "title": "A Coordinator who is not the assigned one cannot confirm the event",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm34 has been run. 'SPM34 Another Coordinator' is in Planning with an approved venue booking and nothing outstanding, but is assigned to Priya Raj, not Daniel Tan. Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM34 Another Coordinator' in the list",
+        "Click 'Log out' in the top bar",
+        "Log in as marcus.wong@connectsphere.com with password123",
+        "Click 'Dashboard' in the sidebar"
+      ],
+      "test_data": "Event: SPM34 Another Coordinator (Planning), coordinator Priya Raj\nAccounts: daniel.tan@connectsphere.com (a Coordinator, but not the assigned one), marcus.wong@connectsphere.com (Venue Staff)",
+      "expected_result": "Step 2: The event opens and Daniel Tan can read it, but there is no 'Confirm event' button anywhere on the page — the arrangements are complete, so only the assignment is stopping him.\nStep 5: Marcus Wong's sidebar has no 'All Events' item, so Venue Staff have no route to the event at all."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-03. AC2 originally carried a second clause - 'an arrangement the Coordinator has marked as not required (see: Track Outstanding Arrangements) does not block confirmation'. It was removed from SPM-34 because it duplicates AC10 of Track Outstanding Arrangements, which also owns the mechanism for marking an arrangement not required (its AC7). No requirement was lost; the behaviour is stated once, in the story that builds it. What remains of AC2 - required arrangements are those essential to that particular event - is derived from the event (a venue always, per session; equipment only where a requirement was recorded) and is covered by SPM-34-TC04. When that story lands it sets `required: false` on the arrangement in src/lib/eventConfirmation.ts rather than adding a second rule; note also that its AC2 (several bookings for one event, SPM-81) will need arrangementsFor() to list each booking instead of collapsing them, and its AC8 needs a marker for an arrangement that may not be waived.",
+    "Completeness is strict (decided 2026-10-03): a venue booking must be Approved and equipment must be Reserved or Partially fulfilled. A pending venue request does not count (SPM-34-TC07), because it is a question Venue Staff have not answered — confirming on the strength of it is the double-booking the brief warns about (#35, #80). Confirm this is the customer's intent, or ask at the next Q&A whether a pending request should be enough.",
+    "Technical support staffing is not checked. The brief lists technical support as an arrangement an event may need (Technical Staff Assignment), but nothing in the system assigns staff to an event, so confirmation cannot test for it. If that story is built, it becomes a third arrangement in src/lib/eventConfirmation.ts.",
+    "RESOLVED 2026-10-03: AC4 needed no new rule. canSetEventStatus() already limits the move to Confirmed to the assigned coordinator (STATUS_TRANSITION_ROLES), and the route checks it before the arrangements are read — so an unassigned coordinator is refused on the assignment, never told what is outstanding. SPM-34 added canConfirmEvent() only to decide whether to show the button.",
+    "RESOLVED 2026-10-03: no case covers confirming from a status other than Planning. canTransition() already refuses it and SPM-27 tests the lifecycle graph, so a case here would duplicate that.",
+    "Raised while validating SPM-34-TC03. The Venue tab is a coordinator's planning screen and is not offered to an Event Organiser; typing its address as the organiser gives the generic 'Could not load this event's booking requests.' rather than an access-denied state, because GET /api/events/[id]/venue-bookings is restricted to the coordinator. SPM-34 therefore puts the booked room on the Overview instead, which is where the organiser already looks. Worth deciding separately whether that tab should be hidden from the organiser outright, or show the refusal properly - the same pattern SPM-22 raised for the Equipment tab."
+  ],
+  "code_references": [
+    "src/lib/eventConfirmation.ts",
+    "src/lib/__tests__/eventConfirmation.test.ts",
+    "src/lib/permissions.ts",
+    "src/lib/statuses.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "scripts/seed-spm34.ts",
+    "prisma/seed.ts",
+    "docs/CUSTOMER_CLARIFICATIONS.md"
+  ]
+}
