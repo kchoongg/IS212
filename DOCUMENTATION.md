@@ -147,8 +147,9 @@ IS212/
 │   ├── verify-login.ts          # `npm run verify:login`
 │   ├── seed-spm27.ts            # `npm run fixtures:spm27` — SPM-27 test data, no reseed
 │   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
-│   └── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
-│   └── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
+│   ├── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
+│   ├── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
+│   ├── seed-spm50.ts            # `npm run fixtures:spm50` — SPM-50 test data, no reseed
 │   └── seed-spm54.ts            # `npm run fixtures:spm54` — SPM-54 test data, no reseed
 │
 └── src/
@@ -216,6 +217,10 @@ IS212/
     │   │                                     (Available/Partial/Unavailable), the
     │   │                                     total-minus-maintenance-minus-reserved
     │   │                                     breakdown, and the shortfall banner.
+    │   │                                     Reserve button (SPM-49). Per-line Status
+    │   │                                     chip, the Coordinator's requirements and
+    │   │                                     an Update panel - fulfilment status +
+    │   │                                     technical notes (SPM-50).
     │   │
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
@@ -284,6 +289,9 @@ IS212/
         │                                    requested equipment line (assembleLines())
         ├── equipmentAvailabilityService.ts  # SPM-48: the only file that queries Prisma for
         │                                     availability (loadEventAvailability())
+        ├── equipmentFulfilment.ts          # SPM-50 rules, pure: which fulfilment status a
+        │                                    line may move to, the Unavailable reason, the
+        │                                    500-char notes cap, Approved-onwards only
         ├── cn.ts                       # Tiny class-name joiner
         ├── validation/                  # Zod schemas, one file per domain
         │   ├── auth.ts
@@ -315,7 +323,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
 | **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
 | **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list, availability calendar (S-21, SPM-46 — read-only), venue search + filters (SPM-40); booking decision routes and Block venue (S-23) to build |
-| **Janelle** | `src/app/api/equipment/` | Equipment catalogue | `Equipment`, `EquipmentRequest` | 🟢 list + create; request routes to build |
+| **Janelle** | `src/app/api/equipment/`, `src/app/api/events/[id]/equipment/` | Equipment catalogue, requests, availability, reservations | `Equipment`, `EquipmentRequest` | 🟢 list + create, out-of-service (SPM-48), event requests (SPM-47), availability (SPM-48), reserve (SPM-49), fulfilment status + technical notes (SPM-50) |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
 Stick to your own folder for new *route* files. `prisma/schema.prisma` is
@@ -549,7 +557,9 @@ defend under questioning.
 | Registration: confirmed, in window, no duplicate, seats left | `api/registrations` POST | ✅ done |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
 | Booking conflict detection | venues domain | ❌ to write |
-| Equipment availability | equipment domain | ❌ to write |
+| Equipment availability | `src/lib/equipmentAvailability.ts` | ✅ done (SPM-48) |
+| **Reserved / Partially fulfilled are set only by Reserve** — never picked by hand, so a line never claims stock it doesn't hold; leaving them goes through Unavailable | `fulfilmentOptionsFor()`, `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | ✅ done (SPM-50) |
+| **Unavailable needs a reason** (blank or spaces-only refused); technical notes max 500 characters, saved trimmed. Marking a reserved line Unavailable frees its units (status alone does it; `quantityReserved` is cleared too) | `checkFulfilmentUpdate()`, `fulfilmentChanges()` | ✅ done (SPM-50) |
 | Event status lifecycle — which `from → to` moves are legal at all (who may make them is done; see below) | `canTransition()` in `statuses.ts`, checked by `api/events/[id]` PATCH | ✅ done (SPM-27) |
 
 ### Access rules are business rules too
@@ -575,7 +585,9 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
 | **A role cannot be self-assigned** — public registration offers the two external roles only; staff accounts are created internally | `registerSchema`, `SELF_REGISTERABLE_ROLES` | ✅ done |
 | A deactivated account cannot authenticate at all, and is refused at login rather than at the first API call | `api/auth/login`, `getActor()` | ✅ done |
-| A venue booking decision is Venue Staff's; an equipment request decision is Technical Support's | venues / equipment domains | ⏳ actions defined, routes not built |
+| A venue booking decision is Venue Staff's | venues domain | ⏳ action defined, route not built |
+| An equipment request decision is Technical Support's — reserving (SPM-49) and updating fulfilment status / technical notes (SPM-50) | `canReserveEquipment()`, `canUpdateEquipmentFulfilment()` | ✅ done |
+| **Technical Support sees an event's equipment only in Planning and Confirmed, and works on it in Planning** — the BPMN's Technical Support lane starts after the Coordinator's "Record equipment request" ("Check equipment availability" / "Reserve equipment" in Planning, "Prepare equipment" in Confirmed). Before Planning (including Approved) and after it ends, the event is not in Equipment Requests and a direct link is 404. Confirmed is read-only (team decision, 3 Oct) | `TECH_SUPPORT_EQUIPMENT_STATUSES` / `techSupportSeesEquipment()`, `eventAllowsReserving()` (Planning only); queue, availability, reserve and fulfilment routes; `canViewEquipmentRequests()` | ✅ done |
 
 **Wrap check-and-write in a transaction**, or two people clicking at the same
 moment both pass the check:
@@ -640,6 +652,7 @@ traceability the module asks for.
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
 | `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
+| `npm run fixtures:spm50` | Adds or resets SPM-50's 6 test events (Robotics Expo, Design Week, …, Aug–Sep 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm50_`, with their equipment lines. Needs the base seed's users and the SPM-49 equipment items. Run it again before repeating a case that saves |
 | `npm run fixtures:spm54` | Adds or resets SPM-54's 10 test events ("SPM54 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm54_` (with any booking requests and equipment a test pass added), always at **EVT-000145 to EVT-000154**. Stops without changing anything if another event holds one of those numbers. Run it before a test pass and after any case that moves an event to Planning (TC01/TC02, TC04 to TC07) or adds to one (TC14). The same events are at the end of `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -776,7 +789,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 | **No equipment catalogue screen** | The sidebar's "Equipment" link (Coordinator + Technical Support) points at `/equipment`, which doesn't exist — no story in the backlog builds it, so it 404s. The catalogue exists as data (`prisma/seed.ts`) and is read by every equipment picker; only *editing* it (or an item's location/status) has no screen. Candidate owner is SPM-55 (Record Equipment Unavailability), whose ACs need a status screen anyway. Flagged 2026-09-27. | unclaimed |
-| **Check Equipment Availability is read-only** | SPM-48 built the check (`GET /api/events/[id]/equipment/availability`, the `/equipment/requests` screens) and `PATCH /api/equipment/[id]/out-of-service` for AC7, but nothing *reserves* what the check finds available — that's SPM-49, not built. The mockup's "Reserve what is available" button is intentionally absent. | equipment |
+| **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Customer Q&A #114 says affected arrangements should be reviewed again; whether that belongs to SPM-34 or the change-request flow is still to be decided. | equipment / events |
 | **Equipment availability's cancelled/postponed filter is temporary** | Only `EquipmentRequest.status IN (reserved, partially_fulfilled)` counts against stock, and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). This is standing in for SPM-37 (Cancel Event) and SPM-38 (Postpone Event) actually releasing the reservation when built — remove the filter once they do, and check nothing still relies on it. | equipment |
 | **Equipment transfer/prep time is a flat 2h with no location UI** | `Equipment.locationVenueId` (SPM-48) lets an item be pinned to a venue — no transfer time is added for an event there — but nothing in the app sets it; only `prisma/seed.ts`'s fixtures do. The 2h figure itself, and "before the event only, nothing added after" (SPM-48 open question, not yet asked at a customer Q&A), are both team assumptions. | equipment |
 
@@ -796,6 +809,70 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-02 — Janelle
+- **SPM-50 (Review and Update Equipment Request): built.** Technical Support
+  sets each equipment line's fulfilment status and records technical notes.
+  - **Equipment request page** (`/equipment/requests/[id]`, S-25): each line now
+    shows its own **Status** chip (beside Requested / Reserved / Availability),
+    the Coordinator's technical requirements, Technical Support's notes and
+    "Last updated by …". An **Update** button opens a panel with *Fulfilment
+    status* (Requested / Under review / Cannot be provided) and *Technical notes*.
+  - **Rules** (`src/lib/equipmentFulfilment.ts`, unit tested): Reserved and
+    Partially fulfilled come only from Reserve; a reserved line can only stay
+    as it is or become Cannot be provided; Cannot be provided needs a reason;
+    notes max 500 characters. Marking a reserved line Cannot be provided frees
+    its units (only
+    reserved / partially fulfilled lines count against stock) and clears
+    `quantityReserved`.
+  - **New route:** `PATCH /api/events/[id]/equipment/[requestId]/fulfilment`
+    (`canUpdateEquipmentFulfilment()`, the existing `equipment_request:review`
+    action). Saves only if the line still has the status it was checked
+    against - a Reserve or another update in between gets **409** "changed by
+    someone else" rather than being overwritten (same code the coordinator
+    route uses for a lost race).
+  - **Equipment tab** (S-16): Technical Support's notes are shown read-only to
+    the Coordinator and the owning Organiser.
+  - `GET .../equipment/availability` lines now also carry
+    `technicalRequirements`, `staffNotes`, `reviewedByName`, `reviewedAt`.
+  - **Reserve (SPM-49) on a line marked Cannot be provided clears its old
+    reason** (`reserveClearsStaffNotes()`), so a line never reads "Reserved"
+    next to "cannot be provided because…". Reserve stays offered on those lines.
+  - **Labels:** the request status `unavailable` now reads **"Cannot be
+    provided"**, and the availability chip's `unavailable` reads **"None
+    available"** (new `none_available` key in `src/lib/statuses.ts`, mapped by
+    `availabilityStatusKey()`). Both used to say
+    "Unavailable" on the same line with different meanings. Display only - the
+    stored value is still `unavailable`. Differs from the S-25 mockup's wording.
+    SPM-48/49 test cases' expected results updated; their recorded actual
+    results were left as run.
+- **Test data:** 6 SPM-50 events at the end of `prisma/seed.ts` (after SPM-42, so
+  no earlier EVT- number moves) and `npm run fixtures:spm50`
+  (`scripts/seed-spm50.ts`). Test cases: `docs/test-cases/SPM-50_Test_Cases.xlsx`
+  (14 cases).
+- **Fixed `prisma/seed.ts` not compiling on main** - the SPM-28 / SPM-42 merge
+  dropped the `);` closing the SPM-28 `eventData.push(`.
+- Known Gaps: removed "Check Equipment Availability is read-only" (SPM-49 built
+  Reserve); added "Reserve still works before an event is approved" and
+  "Changing a quantity after review doesn't send the line back for re-checking".
+- **Technical Support follows the BPMN (3 Oct, Kristen):** they see an event's
+  equipment only once it is in **Planning** (the Coordinator has recorded it)
+  or **Confirmed** (read-only, to prepare it), and check, reserve and update it
+  in Planning only. Before that - including Approved - the event is not in
+  Equipment Requests and a direct link is a 404 ("not found, or its equipment
+  is not ready for Technical Support yet"). `TECH_SUPPORT_EQUIPMENT_STATUSES`
+  in `permissions.ts`; `eventAllowsReserving()` is now Planning only, and
+  SPM-50's update uses the same rule. Applies to SPM-48's queue and
+  availability check, SPM-49's Reserve and SPM-50's Update. SPM-49's seeded
+  events moved from Under review to Planning; SPM-50 fixtures: Cancelled
+  Hackathon replaced by Confirmed Launch (Confirmed), plus Approved Briefing
+  (Approved). Known Gap "Reserve still works before an event is approved"
+  removed.
+- **Sidebar fix:** on `/equipment/requests` both "Equipment" and "Equipment
+  Requests" were highlighted, because a link counted as active for any page
+  under it. Now only the most specific match is lit (`activeNavHref()` in
+  `src/lib/roles.ts`, used by `AppShell.tsx`, unit tested).
+- Migration: none (`staff_notes`, `reviewed_by`, `reviewed_at` already existed).
 
 ### 2026-10-02 — Kristen
 - **SPM-54 (Begin Event Planning): built end to end.** An Approved event moves

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/cn";
-import { navFor, roleLabel } from "@/lib/roles";
+import { activeNavHref, navFor, roleLabel } from "@/lib/roles";
 import { useCurrentUser } from "@/lib/useCurrentUser";
 import { Skeleton } from "./ui/DataState";
 
@@ -215,14 +215,13 @@ function SidebarNav({ items, pathname, loading, onNavigate }: SidebarNavProps) {
     );
   }
 
+  // One highlighted link only - the most specific match (activeNavHref).
+  const activeHref = activeNavHref(items, pathname);
+
   return (
     <nav aria-label="Main" className="flex flex-col gap-0.5 p-3">
       {items.map((item) => {
-        // "/events" must stay highlighted on "/events/123", but "/" would
-        // otherwise match everything, so exact-match the root.
-        const active =
-          pathname === item.href ||
-          (item.href !== "/" && pathname.startsWith(`${item.href}/`));
+        const active = item.href === activeHref;
 
         return (
           <Link

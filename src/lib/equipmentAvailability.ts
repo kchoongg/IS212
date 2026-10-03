@@ -21,7 +21,6 @@
 //         (TEMPORARY - see COMMITTING_EVENT_STATUSES).
 
 import { EQUIPMENT_LOAD_WINDOW_MS } from "@/lib/eventSessions";
-import { TERMINAL_EVENT_STATUSES } from "@/lib/statuses";
 
 /// Fixed transfer + preparation time before an event (team proposal; Q&A #2
 /// leaves the representation to the team). One value for every item.
@@ -211,15 +210,20 @@ export function reserveQuantity(requested: number, available: number): number {
   return Math.max(0, Math.min(requested, available));
 }
 
-/// SPM-49: can equipment still be reserved for an event in this status? Not
-/// once it is finished or abandoned (completed, cancelled, rejected) or its
-/// arrangements are released (postponed, draft - customer Q&A #68, #69). One
-/// rule for both the Reserve route, which refuses, and the Equipment request
-/// screen, which hides the button and says why.
+/// SPM-49 / SPM-50: Technical Support's work on an event's equipment - checking
+/// and reserving it, and updating its fulfilment status - happens while the
+/// event is in Planning, where the BPMN puts "Check equipment availability" and
+/// "Reserve equipment". A Confirmed event's equipment is still shown to them
+/// (to prepare it) but is final; a change to it goes back through a change
+/// request. One rule for the routes, which refuse, and the Equipment request
+/// screen, which hides the buttons and says why.
 export function eventAllowsReserving(eventStatus: string): boolean {
-  return !TERMINAL_EVENT_STATUSES.includes(eventStatus) && !RELEASED_EVENT_STATUSES.includes(eventStatus);
+  return eventStatus === "planning";
 }
 
 export function reservingClosedMessage(eventStatus: string): string {
-  return `This event is ${eventStatus} — equipment can no longer be reserved.`;
+  if (eventStatus === "confirmed") {
+    return "This event is confirmed — its equipment is final. A change now goes through a change request.";
+  }
+  return `This event is ${eventStatus.replace(/_/g, " ")} — equipment can be reserved and updated while the event is in planning.`;
 }
