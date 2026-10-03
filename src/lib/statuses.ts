@@ -77,6 +77,13 @@ export function isTerminalEventStatus(status: string): boolean {
   return TERMINAL_EVENT_STATUSES.includes(status);
 }
 
+/// Statuses a request is in before the coordinator has approved it. Venue and
+/// equipment arrangements wait for approval (SPM-54, decided 2026-10-02): the
+/// first of them is what moves an Approved event into Planning.
+export const PRE_APPROVAL_EVENT_STATUSES = ["draft", "submitted", "under_review"];
+
+export function isBeforeApproval(status: string): boolean {
+  return PRE_APPROVAL_EVENT_STATUSES.includes(status); }
 /// SPM-27: which from -> to moves the event lifecycle allows
 /// (docs/ConnectSphere_Status_Lifecycle.drawio). Who may make each move is
 /// STATUS_TRANSITION_ROLES in permissions.ts. A terminal status has no entry,

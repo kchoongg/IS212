@@ -149,6 +149,7 @@ IS212/
 │   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
 │   └── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
 │   └── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
+│   └── seed-spm54.ts            # `npm run fixtures:spm54` — SPM-54 test data, no reseed
 │
 └── src/
     ├── app/
@@ -234,6 +235,8 @@ IS212/
     │   ├── SessionFields.tsx    # S-08's "Sessions" section, shared by events/new and events/[id]/edit
     │   ├── AssignCoordinator.tsx # SPM-30: the assign/reassign control, shared by
     │   │                          /assignments and the event Overview page
+    │   ├── BeginPlanningDialog.tsx # SPM-54: the "Begin planning?" question, shared by Find a
+    │   │                          venue, the booking form and the Equipment tab
     │   └── ui/                  # THE component library — see §6. Import from "@/components/ui"
     │
     └── lib/
@@ -258,6 +261,8 @@ IS212/
         │                                 review page flags "Not provided" - and the
         │                                 rejection-reason rule
         ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
+        ├── beginPlanning.ts              # SPM-54: beginPlanningIfApproved() - THE one way an event moves
+        │                                   Approved -> Planning (takes the caller's transaction)
         ├── venueSlots.ts                  # AM/PM/Night slots, setup/turnaround as whole
         │                                   adjacent slots (#50/#107/#108/#123). Written
         │                                   for SPM-46; SPM-40 carries an identical copy
@@ -565,6 +570,8 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | **Only the Event Operations Manager assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
 | **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
 | **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
+| **An event begins planning with the assigned coordinator's first venue or equipment action, and only from Approved** — pressing Search on Find a venue, submitting a booking request, or adding, saving or removing an equipment requirement. Nothing else moves an event to Planning; the general status PATCH refuses it | `beginPlanningIfApproved()` (`src/lib/beginPlanning.ts`), `canBeginPlanning()`, `POST /api/events/[id]/begin-planning` | ✅ done (SPM-54) |
+| **Venue bookings and equipment changes wait for approval** — on a Submitted or Under review event the coordinator can search venues but cannot request a booking or add, change or remove equipment | `isBeforeApproval()` (`src/lib/statuses.ts`), `checkVenueBookingRequest()`, the equipment routes | ✅ done (SPM-54) |
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
 | **A role cannot be self-assigned** — public registration offers the two external roles only; staff accounts are created internally | `registerSchema`, `SELF_REGISTERABLE_ROLES` | ✅ done |
 | A deactivated account cannot authenticate at all, and is refused at login rather than at the first API call | `api/auth/login`, `getActor()` | ✅ done |
@@ -633,6 +640,7 @@ traceability the module asks for.
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
 | `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
+| `npm run fixtures:spm54` | Adds or resets SPM-54's 10 test events ("SPM54 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm54_` (with any booking requests and equipment a test pass added), always at **EVT-000145 to EVT-000154**. Stops without changing anything if another event holds one of those numbers. Run it before a test pass and after any case that moves an event to Planning (TC01/TC02, TC04 to TC07) or adds to one (TC14). The same events are at the end of `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -747,6 +755,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | Gap | Impact | Owner |
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
+| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Venue booking approval not built** | SPM-42 creates Pending requests and lists them on `/bookings`, but nothing approves or rejects one, so `venue_booking:decide` only guards that read-only list. Two requests submitted at the same moment can both pass the clash check (no database lock). | venues |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC09 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
@@ -761,6 +770,10 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
+| **The organiser is not notified when planning begins** | SPM-54 shows the Planning status on the organiser's Dashboard (its own "Planning" section), on My Events and on the event page, but writes no `Notification` — decided 2026-10-01. | events |
+| **Beginning planning cannot be undone, and its history is not shown** | Nothing moves an event back from Planning to Approved; the "Begin planning?" dialog is the only safeguard. The move is written to `EventStatusHistory` with the action that caused it ("Venue search started", "Venue booking requested", "Equipment requirement recorded / updated / removed"), but the History tab is not built, so who began planning and how is only visible in the database. | events |
+| **Find a venue gives no feedback when a search returns the same results** | Pressing Search with unchanged filters reloads an identical list and nothing says a search ran. Found while testing SPM-54; raised as **SPM-79** (Show Venue Search Feedback), in the backlog. | venues |
+| **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 | **No equipment catalogue screen** | The sidebar's "Equipment" link (Coordinator + Technical Support) points at `/equipment`, which doesn't exist — no story in the backlog builds it, so it 404s. The catalogue exists as data (`prisma/seed.ts`) and is read by every equipment picker; only *editing* it (or an item's location/status) has no screen. Candidate owner is SPM-55 (Record Equipment Unavailability), whose ACs need a status screen anyway. Flagged 2026-09-27. | unclaimed |
 | **Check Equipment Availability is read-only** | SPM-48 built the check (`GET /api/events/[id]/equipment/availability`, the `/equipment/requests` screens) and `PATCH /api/equipment/[id]/out-of-service` for AC7, but nothing *reserves* what the check finds available — that's SPM-49, not built. The mockup's "Reserve what is available" button is intentionally absent. | equipment |
@@ -784,6 +797,92 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-02 — Kristen
+- **SPM-54 (Begin Event Planning): built end to end.** An Approved event moves
+  to Planning with the assigned coordinator's **first venue or equipment
+  action** — there is no "Begin planning" button.
+  - **What begins planning**: pressing **Search** on Find a venue, **Submit
+    request** on the booking form, and **Add**, **Save** or **Remove** on the
+    Equipment tab. Opening a page (including "Search with filters" and
+    "Request booking"), the automatic first search, "Clear filters" and
+    "Cancel" do not.
+  - **"Begin planning?" dialog** (`src/components/BeginPlanningDialog.tsx`):
+    shown before any of those actions on an Approved event, once per event.
+    "Continue" carries out the action and moves the event; "Cancel" does
+    neither. Remove adds the same notice to its existing confirmation instead
+    of asking twice.
+  - **"Planning has started" alert** afterwards on all three screens; the
+    Equipment tab's status badge updates without a reload.
+  - **One way in on the server**: `beginPlanningIfApproved()`
+    (`src/lib/beginPlanning.ts`) re-checks the status in the database and
+    writes the status history row, inside the same transaction as the booking
+    or equipment write. Find a venue calls it through the new
+    `POST /api/events/[id]/begin-planning`. The status PATCH
+    (`/api/events/[id]`) now **refuses** a move to Planning.
+    `canBeginPlanning()` and `PLANNING_FROM_STATUSES` are in `permissions.ts`.
+  - **Before approval** (Submitted, Under review): "Request booking" and
+    every equipment change are unavailable, with a message saying why; the
+    server refuses them too (`isBeforeApproval()` in `statuses.ts`). Venue
+    search still works there and changes nothing. Equipment the organiser
+    requested on the request form stays visible, read-only.
+  - `DELETE /api/events/[id]/equipment/[requestId]` now answers **200 with
+    `{ planningStarted }`** (was 204), and the booking and equipment
+    `POST`/`PATCH` responses carry the same field.
+    `GET /api/events/[id]/venue-bookings` adds `willBeginPlanning`.
+- **Dashboard (S-03) is now a per-status overview for two roles.**
+  - **Organiser**: "Drafts", "Under review", "Approved", "Planning"
+    (replacing "Needs your attention") — SPM-54 AC4, the organiser can see
+    their event has entered planning.
+  - **Coordinator**: "Awaiting your review" (Under review), "Approved",
+    "Planning", their own events only. The first heading is kept because
+    SPM-21 and SPM-30 test cases quote it.
+  - Each section shows the **five most recently updated** events
+    (`OVERVIEW_LIMIT`) and, when there are more, "Showing the 5 most recently
+    updated of N. View all in …". Other roles' dashboards are unchanged.
+- **Decisions** (2026-10-01 and 2026-10-02, recorded as RESOLVED entries in
+  `docs/test-cases/SPM-54_test_cases.json`):
+  - Planning begins with the first venue or equipment action. This **replaced**
+    the 2026-10-01 decision to block bookings and equipment until Planning.
+  - The venue-search trigger moved from **page load** (SPM-40's behaviour) to
+    the **Search click**, so opening the page no longer changes the status.
+  - The dialog says "The organiser and ConnectSphere staff will see this
+    status", not "everyone": an Attendee only sees Confirmed events.
+  - AC3 "track outstanding arrangements" is met by the statuses on the Venue
+    and Equipment tabs; the Readiness screen is SPM-33.
+  - **No notification** to the organiser, and **no test case** for the status
+    history (no History tab).
+  - An Approved event can already list equipment: the organiser requests it
+    on the request form. Kept as is.
+- **Closes part of a Known Gap**: "Status lifecycle is not validated" is now
+  "only partly validated" — Planning is held to Approved. Four new rows added
+  (no notification, no undo/history, search feedback → SPM-79, other stories'
+  test cases).
+- **Fixed `prisma/seed.ts`**, which did not compile on main: the SPM-28
+  fixture block lost its closing `);` in the merge with SPM-42, so a full
+  reseed would have failed.
+- Test cases: `docs/test-cases/SPM-54_Test_Cases.xlsx` (14 cases, all 4 ACs),
+  all passed in the browser on 2026-10-02. Test data comes from
+  **`npm run fixtures:spm54`** (`scripts/seed-spm54.ts`): 10 "SPM54 …" events
+  at **fixed references EVT-000145 to EVT-000154**, mirrored at the end of
+  `prisma/seed.ts` — **add new seed events after them**, or their numbers
+  move. Unit tests added for `canBeginPlanning()`, `isBeforeApproval()` and
+  the booking refusal; one SPM-42 test changed (an Under review event no
+  longer accepts a booking request).
+- `generate-test-cases` skill: `fill_template.py` now leaves **RESOLVED**
+  entries out of the workbook's Open Questions sheet and writes **no sheet**
+  when nothing is still open. They stay in the JSON as the decision record.
+- Jira: **SPM-79** (Show Venue Search Feedback) created under Venue
+  Management and linked to SPM-40 and SPM-54; comments on all three explain
+  the links.
+- `docs/ConnectSphere_Status_Lifecycle.drawio`: the Approved → Planning edge
+  is relabelled from "search" to "first venue / equipment action", and the
+  "resume" edge now runs **Postponed → Approved** instead of Postponed →
+  Planning.
+- **Decision for SPM-38 (Postpone Event), 2026-10-02**: a resumed event goes
+  back to **Approved**; planning then begins again with the coordinator's next
+  venue or equipment action. Planning keeps its single way in. No code for
+  this yet — the points SPM-38 has to settle are in the "Status lifecycle is
+  only partly validated" Known Gap.
 ### 2026-10-02 — Sammi Chua (SPM-27, withdrawal per clarification #103)
 - **Withdrawing is now the assigned coordinator's, from Under review only.**
   Customer clarification #103: the organiser asks the coordinator outside the

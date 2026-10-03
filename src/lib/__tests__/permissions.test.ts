@@ -9,6 +9,7 @@ import {
   STATUS_TRANSITION_ROLES,
   can,
   canAssignCoordinator,
+  canBeginPlanning,
   canReviewEvent,
   canCheckEquipmentAvailability,
   canReserveEquipment,
@@ -641,6 +642,29 @@ describe("visibleEventFor", () => {
   it("does not narrow the record for anyone else", () => {
     for (const other of [organiserA, coordinator, opsManager, venueStaff, techSupport]) {
       expect(visibleEventFor(other, full)).toBe(full);
+    }
+  });
+});
+
+describe("canBeginPlanning (SPM-54)", () => {
+  it("lets the assigned coordinator begin planning an approved event (AC1)", () => {
+    const approved = event({ status: "approved", coordinatorId: "coordinator-1" });
+    expect(canBeginPlanning(coordinator, approved)).toBe(true);
+  });
+
+  it("only from Approved (AC2)", () => {
+    for (const status of [
+      "draft", "submitted", "under_review", "planning", "confirmed",
+      "postponed", "completed", "rejected", "cancelled",
+    ]) {
+      expect(canBeginPlanning(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  });
+
+  it("not for a coordinator who is not assigned, nor any other role", () => {
+    const approved = event({ status: "approved", coordinatorId: "coordinator-1" });
+    for (const other of [otherCoordinator, opsManager, organiserA, attendee]) {
+      expect(canBeginPlanning(other, approved)).toBe(false);
     }
   });
 });

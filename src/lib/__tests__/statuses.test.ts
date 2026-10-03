@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  isBeforeApproval
   canTransition,
   isTerminalEventStatus,
   statusLabel,
@@ -155,5 +156,17 @@ describe("transitionError", () => {
     expect(transitionError("under_review", "confirmed")).toBe(
       "This event is Under review and can't be moved to Confirmed."
     );
+  });
+});
+
+describe("isBeforeApproval", () => {
+  // SPM-54: venue and equipment arrangements wait for approval.
+  it("is true only for the statuses a request passes through before approval", () => {
+    for (const status of ["draft", "submitted", "under_review"]) {
+      expect(isBeforeApproval(status)).toBe(true);
+    }
+    for (const status of ["approved", "planning", "confirmed", "postponed", "completed", "rejected", "cancelled"]) {
+      expect(isBeforeApproval(status)).toBe(false);
+    }
   });
 });

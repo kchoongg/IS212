@@ -49,8 +49,8 @@ identical chrome, one extra screen.
 
 | Key | Label in UI | Internal/External | Home screen after login |
 | --- | --- | --- | --- |
-| `organiser` | Event Organiser | External | `/dashboard` — my events needing action |
-| `coordinator` | Event Coordinator | Internal | `/dashboard` — my assigned events + review queue |
+| `organiser` | Event Organiser | External | `/dashboard` — my events by status: Drafts, Under review, Approved, Planning |
+| `coordinator` | Event Coordinator | Internal | `/dashboard` — my assigned events by status: Awaiting your review, Approved, Planning |
 | `venue_staff` | Venue Staff | Internal | `/dashboard` — pending booking requests |
 | `tech_support` | Technical Support | Internal | `/dashboard` — pending equipment requests |
 | `attendee` | Attendee | External | `/dashboard` — my registrations + open events |
@@ -72,7 +72,7 @@ cite.
 | --- | --- | --- | --- |
 | S-01 | Login | `/login` | Authenticate. |
 | S-02 | Register | `/register` | Create an account. |
-| S-03 | Dashboard | `/dashboard` | Role-specific overview: what needs my attention. |
+| S-03 | Dashboard | `/dashboard` | Role-specific overview: what needs my attention. For an organiser and a coordinator, one section per status, each showing the five most recently updated events with a "View all" link — an overview, not the list. |
 | S-04 | Notifications | `/notifications` | Full notification history, read/unread. |
 | S-05 | Profile | `/profile` | Name, contact details, organisation, department. |
 | S-06 | Event detail | `/events/[id]` | **The hub.** Role-adaptive view of one event. |
@@ -480,6 +480,15 @@ booking, and delete venue all go
 through `ConfirmDialog`, which names the specific consequence ("This releases
 Marina Grand Hall on 3 Oct and cancels 42 registrations"). A generic "Are you
 sure?" is not acceptable.
+
+**Beginning planning is one of these** (SPM-54). The coordinator's first venue
+or equipment action on an Approved event moves it to Planning, which cannot be
+undone and is visible to the organiser. `BeginPlanningDialog` asks first —
+"Begin planning?", naming the status change and who will see it — on Search
+(S-14), Submit request (S-15), and Add and Save (S-16). Cancel leaves the
+event Approved and does not carry out the action. Remove on S-16 already
+confirms, so it adds the same notice to its own dialog rather than asking
+twice. Afterwards a "Planning has started" alert confirms the move.
 
 ---
 

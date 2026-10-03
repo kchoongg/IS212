@@ -214,6 +214,16 @@ async function handleStatusChange(
     );
   }
 
+  // ADDED (SPM-54): there is one way into Planning - the coordinator's first
+  // venue or equipment action on an Approved event, through
+  // beginPlanningIfApproved() (src/lib/beginPlanning.ts). Not this route.
+  if (data.status === "planning") {
+    return NextResponse.json(
+      { error: "Planning begins with the first venue or equipment action on an approved event" },
+      { status: 400 }
+    );
+  }
+
   // ADDED: the brief requires a rejected request to retain the decision reason.
   if (data.status === "rejected" && !data.reason?.trim()) {
     return NextResponse.json(

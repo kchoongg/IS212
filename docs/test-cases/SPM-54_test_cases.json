@@ -1,0 +1,399 @@
+{
+  "story_key": "SPM-54",
+  "story_title": "As the assigned Event Coordinator, I want to move an approved event into planning so that venue, equipment and other arrangements can begin",
+  "created_by": "kchoongg",
+  "creation_date": "2026-10-01",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given an event has been Approved, when the assigned Coordinator begins planning, then the event status changes to Planning."
+    },
+    {
+      "id": "AC2",
+      "text": "An event can only move to Planning from an Approved status."
+    },
+    {
+      "id": "AC3",
+      "text": "Once in Planning, the Coordinator can proceed to request venue bookings, record equipment requirements, and track outstanding arrangements."
+    },
+    {
+      "id": "AC4",
+      "text": "The Event Organiser can view that their event has entered planning."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-54-TC01",
+      "title": "Pressing Search on Find a venue for an Approved event moves it to Planning",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nBefore: run `npm run fixtures:spm54` so 'SPM54 Straits Clinical Forum' is back to Approved.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Straits Clinical Forum' (Approved).\nAfter: if you are running SPM-54-TC02 next, go straight to it - it needs this event in Planning. Otherwise run `npm run fixtures:spm54` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Straits Clinical Forum'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Click 'Search'",
+        "Click 'Continue' in the dialog",
+        "Click 'EVT-000145' in the breadcrumb at the top of the page",
+        "Click 'All Events' in the sidebar"
+      ],
+      "test_data": "Event: SPM54 Straits Clinical Forum (EVT-000145) | Starting status: Approved | Coordinator: Daniel Tan | Organiser: Evelyn Chen",
+      "expected_result": "Step 1: The event page shows EVT-000145 with the 'Approved' status badge, and 'Approved' next to Status in the Details card.\nStep 3: The 'Find a venue' search page opens with the subtitle 'Filled in from SPM54 Straits Clinical Forum's requirements. Change any filter and search again.' No 'Planning has started' alert is shown.\nStep 4: A dialog 'Begin planning?' reads 'This is the first venue or equipment action for this event, so it will move from Approved to Planning. The organiser and ConnectSphere staff will see this status. This cannot be undone.' with 'Cancel' and 'Continue' buttons. The status has not changed yet.\nStep 5: The dialog closes and the search runs. Above the filters, a green alert 'Planning has started' reads 'This event has moved from Approved to Planning now that its venue search has begun.'\nStep 6: The event page shows the 'Planning' status badge, and 'Planning' next to Status in the Details card.\nStep 7: The 'SPM54 Straits Clinical Forum' row shows 'Planning' in the Status column."
+    },
+    {
+      "id": "SPM-54-TC02",
+      "title": "Organiser sees that their event has entered Planning",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-54-TC01 has just been run ('SPM54 Straits Clinical Forum' moved to Planning by Daniel Tan).\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123), Event Organiser of 'SPM54 Straits Clinical Forum'.\nAfter: run `npm run fixtures:spm54` so the next tester starts from the same state. It deletes and recreates only the 'SPM54 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'Dashboard' in the sidebar",
+        "Click 'My Events' in the sidebar",
+        "Choose 'Planning' in 'Filter by status'",
+        "Click 'SPM54 Straits Clinical Forum'"
+      ],
+      "test_data": "Event: SPM54 Straits Clinical Forum (EVT-000145) | Organiser: Evelyn Chen | Coordinator: Daniel Tan",
+      "expected_result": "Step 1: Under the 'Planning' heading on the Dashboard, 'SPM54 Straits Clinical Forum' is listed with the 'Planning' status badge. It is the first event in that section (each section shows the five most recently updated) and is not under 'Approved'.\nStep 2: Under 'Submitted', 'SPM54 Straits Clinical Forum' is listed with 'Planning' in the Status column.\nStep 3: 'SPM54 Straits Clinical Forum' is still listed, and every listed event shows 'Planning'.\nStep 4: The event page shows EVT-000145 with the 'Planning' status badge. The Details card shows 'Planning' next to Status and 'Daniel Tan' next to Coordinator."
+    },
+    {
+      "id": "SPM-54-TC03",
+      "title": "Organiser of an event that has not begun planning still sees Approved",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nLogged in as James Koh (james.koh@meridianfina.com / password123), Event Organiser of 'SPM54 Meridian Budget Briefing' (Approved, coordinator Daniel Tan). No test case moves this event to Planning.\nThe Dashboard shows only the five most recently updated events in each section. If 'SPM54 Meridian Budget Briefing' is not among them, run `npm run fixtures:spm54` and reload the Dashboard.",
+      "steps": [
+        "Click 'Dashboard' in the sidebar",
+        "Click 'My Events' in the sidebar",
+        "Choose 'Planning' in 'Filter by status'",
+        "Choose 'Approved' in 'Filter by status'",
+        "Click 'SPM54 Meridian Budget Briefing'"
+      ],
+      "test_data": "Event: SPM54 Meridian Budget Briefing (EVT-000146) | Status: Approved | Organiser: James Koh",
+      "expected_result": "Step 1: Under the 'Approved' heading on the Dashboard, 'SPM54 Meridian Budget Briefing' is listed with the 'Approved' status badge. It is not under 'Planning'.\nStep 2: Under 'Submitted', 'SPM54 Meridian Budget Briefing' is listed with 'Approved' in the Status column.\nStep 3: 'SPM54 Meridian Budget Briefing' is not listed.\nStep 4: 'SPM54 Meridian Budget Briefing' is listed with 'Approved' in the Status column.\nStep 5: The event page shows EVT-000146 with the 'Approved' status badge, and 'Approved' next to Status in the Details card."
+    },
+    {
+      "id": "SPM-54-TC04",
+      "title": "Requesting a venue booking for an Approved event moves it to Planning",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nBefore: run `npm run fixtures:spm54` so 'SPM54 Pearl Delta Supplier Briefing' is back to Approved with no booking requests.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Pearl Delta Supplier Briefing' (Approved, 25 Aug 2027 09:00–12:00, expects 50, layout Theatre).\nOrchard Seminar Room (ORC-SEM) seats 120 in Theatre layout and has no bookings on 24–25 Aug 2027.\nDo not press 'Search' on Find a venue in this case - it also begins planning (SPM-54-TC01).\nAfter: run `npm run fixtures:spm54` so the next tester starts from the same state. It deletes and recreates only the 'SPM54 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Pearl Delta Supplier Briefing'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'Orchard Seminar Room (ORC-SEM)'",
+        "Click 'Submit request'",
+        "Click 'Continue' in the dialog",
+        "Click 'Back to Venue'",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Pearl Delta Supplier Briefing (EVT-000151) | Starting status: Approved | Venue: Orchard Seminar Room (ORC-SEM) | Date: 25 Aug 2027 | Slot: AM (07:00–12:00)",
+      "expected_result": "Step 1: The event page shows EVT-000151 with the 'Approved' status badge.\nStep 2: 'Orchard Seminar Room (ORC-SEM)' is marked 'Suitable' and has a 'Request booking' button.\nStep 3: The 'Request a venue booking' page shows Event 'SPM54 Pearl Delta Supplier Briefing', Venue 'Orchard Seminar Room (ORC-SEM)' and Layout 'Theatre'. Date is 25 Aug 2027 and only 'AM (07:00–12:00)' is ticked.\nStep 4: A dialog 'Begin planning?' reads 'This is the first venue or equipment action for this event, so it will move from Approved to Planning. The organiser and ConnectSphere staff will see this status. This cannot be undone.' with 'Cancel' and 'Continue' buttons. The request has not been sent yet.\nStep 5: A green alert 'Booking request sent to Venue Staff.' reads 'It is Pending until Venue Staff review it.' Below it, a green alert 'Planning has started' reads 'This event has moved from Approved to Planning now that a venue booking has been requested.'\nStep 6: A 'Booking requests' card lists 'Orchard Seminar Room (ORC-SEM)' with '25 Aug 2027 · AM (07:00–12:00) · Theatre' and a 'Pending' badge.\nStep 7: The event page shows the 'Planning' status badge, and 'Planning' next to Status in the Details card."
+    },
+    {
+      "id": "SPM-54-TC05",
+      "title": "Recording equipment for an Approved event moves it to Planning",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nBefore: run `npm run fixtures:spm54` so 'SPM54 Sundara Service Workshop' is back to Approved with no equipment.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Sundara Service Workshop' (Approved).\nAfter: run `npm run fixtures:spm54` so the next tester starts from the same state. It deletes and recreates only the 'SPM54 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Sundara Service Workshop'",
+        "Click the 'Equipment' tab",
+        "Choose 'Handheld Wireless Mic — AV' in 'Equipment' under 'Add equipment'",
+        "Type 2 into 'Quantity'",
+        "Click 'Add'",
+        "Click 'Continue' in the dialog",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Sundara Service Workshop (EVT-000152) | Starting status: Approved | Equipment: Handheld Wireless Mic | Quantity: 2",
+      "expected_result": "Step 1: The event page shows EVT-000152 with the 'Approved' status badge.\nStep 2: The 'Equipment requirements' page shows EVT-000152 with the 'Approved' status badge, 'Nothing requested yet' and the 'Add equipment' form.\nStep 5: A dialog 'Begin planning?' reads 'This is the first venue or equipment action for this event, so it will move from Approved to Planning. The organiser and ConnectSphere staff will see this status. This cannot be undone.' with 'Cancel' and 'Continue' buttons. Nothing has been added yet.\nStep 6: A 'Requested items' card shows '1 item': 'Handheld Wireless Mic' with a 'Requested' badge and Quantity 2. A green alert 'Planning has started' reads 'This event has moved from Approved to Planning now that its equipment requirements are being worked on.', and the status badge at the top of the page changes to 'Planning'.\nStep 7: The event page shows the 'Planning' status badge, and 'Planning' next to Status in the Details card."
+    },
+    {
+      "id": "SPM-54-TC06",
+      "title": "Saving a change to equipment the organiser requested, on an Approved event, moves it to Planning",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nBefore: run `npm run fixtures:spm54` so 'SPM54 Tanjong Legal Seminar' is back to Approved with its one equipment item at quantity 2.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Tanjong Legal Seminar' (Approved). Its organiser, Aaron Sim, requested Handheld Wireless Mic × 2 when creating the event, so the item is already listed before planning begins.\nAfter: run `npm run fixtures:spm54` so the next tester starts from the same state. It deletes and recreates only the 'SPM54 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Tanjong Legal Seminar'",
+        "Click the 'Equipment' tab",
+        "Change 'Quantity' on the 'Handheld Wireless Mic' row from 2 to 4",
+        "Click 'Save' on that row",
+        "Click 'Continue' in the dialog",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Tanjong Legal Seminar (EVT-000153) | Starting status: Approved | Equipment: Handheld Wireless Mic | Quantity: 2 changed to 4",
+      "expected_result": "Step 1: The event page shows EVT-000153 with the 'Approved' status badge.\nStep 2: The 'Equipment requirements' page shows EVT-000153 with the 'Approved' status badge. The 'Requested items' card shows '1 item': 'Handheld Wireless Mic' with a 'Requested' badge and Quantity 2.\nStep 3: A 'Save' button appears on the row.\nStep 4: A dialog 'Begin planning?' reads 'This is the first venue or equipment action for this event, so it will move from Approved to Planning. The organiser and ConnectSphere staff will see this status. This cannot be undone.' with 'Cancel' and 'Continue' buttons. The change has not been saved yet.\nStep 5: The 'Save' button disappears and Quantity shows 4. A green alert 'Planning has started' reads 'This event has moved from Approved to Planning now that its equipment requirements are being worked on.', and the status badge at the top of the page changes to 'Planning'.\nStep 6: The event page shows the 'Planning' status badge, and 'Planning' next to Status in the Details card."
+    },
+    {
+      "id": "SPM-54-TC07",
+      "title": "Removing equipment the organiser requested, from an Approved event, moves it to Planning",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nBefore: run `npm run fixtures:spm54` so 'SPM54 Civic Trust Teachers Briefing' is back to Approved with its one equipment item.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Civic Trust Teachers Briefing' (Approved). Its organiser, Grace Abdullah, requested Handheld Wireless Mic × 1 when creating the event, so the item is already listed before planning begins.\nAfter: run `npm run fixtures:spm54` so the next tester starts from the same state. It deletes and recreates only the 'SPM54 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Civic Trust Teachers Briefing'",
+        "Click the 'Equipment' tab",
+        "Click 'Remove' on the 'Handheld Wireless Mic' row",
+        "Click 'Remove' in the dialog",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Civic Trust Teachers Briefing (EVT-000154) | Starting status: Approved | Equipment removed: Handheld Wireless Mic (quantity 1)",
+      "expected_result": "Step 1: The event page shows EVT-000154 with the 'Approved' status badge.\nStep 2: The 'Equipment requirements' page shows EVT-000154 with the 'Approved' status badge. The 'Requested items' card shows '1 item': 'Handheld Wireless Mic' with a 'Requested' badge and Quantity 1.\nStep 3: A dialog 'Remove this equipment requirement?' reads 'Technical Support will no longer see this item requested for this event.' followed by 'This is the first venue or equipment action for this event, so it will also move from Approved to Planning. The organiser and ConnectSphere staff will see this status. This cannot be undone.' The item is still listed and the status badge still shows 'Approved'. No separate 'Begin planning?' dialog appears.\nStep 4: The dialog closes and 'Nothing requested yet' is shown. A green alert 'Planning has started' reads 'This event has moved from Approved to Planning now that its equipment requirements are being worked on.', and the status badge at the top of the page changes to 'Planning'.\nStep 5: The event page shows the 'Planning' status badge, and 'Planning' next to Status in the Details card."
+    },
+    {
+      "id": "SPM-54-TC08",
+      "title": "A venue search by anyone other than the assigned coordinator does not begin planning",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nLogged out.\n'SPM54 Meridian Budget Briefing' (EVT-000146) is Approved and its coordinator is Daniel Tan.\nAccounts (all password123): Priya Raj (priya.raj@connectsphere.com), Event Coordinator not assigned to this event; Marcus Wong (marcus.wong@connectsphere.com), Venue Staff; Grace Lim (grace.lim@connectsphere.com), Event Operations Manager.",
+      "steps": [
+        "Log in as Priya Raj",
+        "Click 'All Events' in the sidebar and open 'SPM54 Meridian Budget Briefing'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Type 9999 into 'Expected attendance'",
+        "Click 'Search'",
+        "Click 'EVT-000146' in the breadcrumb at the top of the page",
+        "Log out and log in as Marcus Wong",
+        "Click 'SPM54 Meridian Budget Briefing' under 'Upcoming events' on the Dashboard",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Type 9999 into 'Expected attendance'",
+        "Click 'Search'",
+        "Click 'EVT-000146' in the breadcrumb at the top of the page",
+        "Log out and log in as Grace Lim",
+        "Click 'All Events' in the sidebar and open 'SPM54 Meridian Budget Briefing'",
+        "Type /venues/search?event=EVT-000146 after the site address in the browser address bar (e.g. http://localhost:3000/venues/search?event=EVT-000146) and press Enter",
+        "Type 9999 into 'Expected attendance'",
+        "Click 'Search'",
+        "Click 'EVT-000146' in the breadcrumb at the top of the page"
+      ],
+      "test_data": "Event: SPM54 Meridian Budget Briefing (EVT-000146, Approved, coordinator Daniel Tan) | Users: Priya Raj (Event Coordinator, not assigned), Marcus Wong (Venue Staff), Grace Lim (Event Operations Manager) | Expected attendance typed before each Search: 9999 (no venue is that large, so the search visibly returns nothing)",
+      "expected_result": "Step 2: The event page shows the 'Approved' status badge.\nStep 3: The message 'Only the assigned Coordinator can request a venue booking.' is shown above the venue list, and no venue has a 'Request booking' button.\nStep 6: The venue list is replaced by 'No venues match these filters'. No 'Begin planning?' dialog and no 'Planning has started' alert is shown.\nStep 7: The event page still shows the 'Approved' status badge.\nStep 9: The event page shows the 'Approved' status badge.\nStep 10: The message 'Only the assigned Coordinator can request a venue booking.' is shown above the venue list, and no venue has a 'Request booking' button.\nStep 13: The venue list is replaced by 'No venues match these filters'. No 'Begin planning?' dialog and no 'Planning has started' alert is shown.\nStep 14: The event page still shows the 'Approved' status badge.\nStep 16: The event page shows the 'Approved' status badge. Only the 'Overview' tab is offered - there is no 'Venue' tab.\nStep 17: The 'Find a venue' search page opens, filled in from the event's requirements.\nStep 19: The venue list is replaced by 'No venues match these filters'. No 'Begin planning?' dialog and no 'Planning has started' alert is shown.\nStep 20: The event page still shows the 'Approved' status badge."
+    },
+    {
+      "id": "SPM-54-TC09",
+      "title": "Opening the pages, 'Clear filters' and 'Cancel' do not begin planning",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Meridian Budget Briefing' (Approved, expects 20, layout Boardroom).\nMarina Boardroom 1 (MAR-BR1) seats 24 in Boardroom layout.\nDo not click 'Search', 'Submit request', 'Add', 'Save' or 'Remove' in this case - each of those begins planning (SPM-54-TC01, SPM-54-TC04, SPM-54-TC05, SPM-54-TC06, SPM-54-TC07). If you do, run `npm run fixtures:spm54` afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Meridian Budget Briefing'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Click 'Clear filters'",
+        "Click 'EVT-000146' in the breadcrumb at the top of the page",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'Marina Boardroom 1 (MAR-BR1)'",
+        "Click 'Cancel'",
+        "Click the 'Equipment' tab",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Meridian Budget Briefing (EVT-000146, Approved) | User: Daniel Tan (assigned coordinator) | Venue: Marina Boardroom 1 (MAR-BR1)",
+      "expected_result": "Step 1: The event page shows EVT-000146 with the 'Approved' status badge.\nStep 2: 'Marina Boardroom 1 (MAR-BR1)' is marked 'Suitable' and has a 'Request booking' button.\nStep 3: The 'Find a venue' search page opens, filled in from the event's requirements. No 'Planning has started' alert is shown.\nStep 4: Every filter is emptied and the venue list is shown again. No 'Planning has started' alert is shown.\nStep 5: The event page still shows the 'Approved' status badge.\nStep 7: The 'Request a venue booking' page opens for 'Marina Boardroom 1 (MAR-BR1)'.\nStep 8: The Venue tab is shown again, with no 'Booking requests' card.\nStep 9: The 'Equipment requirements' page shows EVT-000146 with the 'Approved' status badge.\nStep 10: The event page still shows the 'Approved' status badge."
+    },
+    {
+      "id": "SPM-54-TC10",
+      "title": "Cancelling the 'Begin planning?' dialog leaves the event Approved and does not carry out the action",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Meridian Budget Briefing' (Approved, 5 Aug 2027 14:00–17:00, expects 20, layout Boardroom, no booking requests or equipment).\nMarina Boardroom 1 (MAR-BR1) seats 24 in Boardroom layout.\nAlways click 'Cancel' in the dialog in this case. If you click 'Continue', run `npm run fixtures:spm54` afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Meridian Budget Briefing'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Click 'Search'",
+        "Click 'Cancel' in the dialog",
+        "Click 'EVT-000146' in the breadcrumb at the top of the page",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'Marina Boardroom 1 (MAR-BR1)'",
+        "Click 'Submit request'",
+        "Click 'Cancel' in the dialog",
+        "Click 'Cancel' below the form",
+        "Click the 'Equipment' tab",
+        "Choose 'Handheld Wireless Mic — AV' in 'Equipment' under 'Add equipment'",
+        "Click 'Add'",
+        "Click 'Cancel' in the dialog",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Meridian Budget Briefing (EVT-000146, Approved) | User: Daniel Tan (assigned coordinator) | Venue: Marina Boardroom 1 (MAR-BR1) | Equipment: Handheld Wireless Mic, Quantity 1",
+      "expected_result": "Step 1: The event page shows EVT-000146 with the 'Approved' status badge.\nStep 4: A dialog 'Begin planning?' reads 'This is the first venue or equipment action for this event, so it will move from Approved to Planning. The organiser and ConnectSphere staff will see this status. This cannot be undone.' with 'Cancel' and 'Continue' buttons.\nStep 5: The dialog closes. No 'Planning has started' alert is shown.\nStep 6: The event page still shows the 'Approved' status badge.\nStep 9: The 'Begin planning?' dialog appears.\nStep 10: The dialog closes and the booking form is still shown. No 'Booking request sent to Venue Staff.' alert appears.\nStep 11: The Venue tab is shown again, with no 'Booking requests' card.\nStep 12: The 'Equipment requirements' page shows EVT-000146 with the 'Approved' status badge and 'Nothing requested yet'.\nStep 14: The 'Begin planning?' dialog appears.\nStep 15: The dialog closes. 'Nothing requested yet' is still shown, the status badge still shows 'Approved' and no 'Planning has started' alert is shown.\nStep 16: The event page still shows the 'Approved' status badge."
+    },
+    {
+      "id": "SPM-54-TC11",
+      "title": "A venue search leaves an Under review event and an event already in Planning unchanged",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Harbourline Agents Seminar' (Under review - one status before Approved) and 'SPM54 Kirana Store Managers Workshop' (Planning - one status after).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Harbourline Agents Seminar'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Type 9999 into 'Expected attendance'",
+        "Click 'Search'",
+        "Click 'EVT-000147' in the breadcrumb at the top of the page",
+        "Click 'Review Queue' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM54 Kirana Store Managers Workshop'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Type 9999 into 'Expected attendance'",
+        "Click 'Search'",
+        "Click 'EVT-000150' in the breadcrumb at the top of the page"
+      ],
+      "test_data": "Events: SPM54 Harbourline Agents Seminar (EVT-000147, Under review), SPM54 Kirana Store Managers Workshop (EVT-000150, Planning) | User: Daniel Tan (assigned coordinator of both) | Expected attendance typed before each Search: 9999 (no venue is that large, so the search visibly returns nothing)",
+      "expected_result": "Step 1: The event page shows the 'Under review' status badge.\nStep 5: The venue list is replaced by 'No venues match these filters'. No 'Begin planning?' dialog and no 'Planning has started' alert is shown.\nStep 6: The event page still shows the 'Under review' status badge and the 'This request is waiting for your review' alert.\nStep 7: 'SPM54 Harbourline Agents Seminar' is still listed in the Review Queue.\nStep 8: The event page shows the 'Planning' status badge.\nStep 12: The venue list is replaced by 'No venues match these filters'. No 'Begin planning?' dialog and no 'Planning has started' alert is shown.\nStep 13: The event page still shows the 'Planning' status badge."
+    },
+    {
+      "id": "SPM-54-TC12",
+      "title": "Before approval, a venue booking cannot be requested and equipment cannot be recorded",
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Harbourline Agents Seminar' (Under review, expects 60, layout Theatre).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Harbourline Agents Seminar'",
+        "Click the 'Venue' tab",
+        "Click the 'Equipment' tab",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Harbourline Agents Seminar (EVT-000147, Under review) | User: Daniel Tan (assigned coordinator)",
+      "expected_result": "Step 1: The event page shows EVT-000147 with the 'Under review' status badge.\nStep 2: The 'Find a venue' page lists the venues checked for this event. The message 'A venue can be requested once this request has been approved.' is shown above the venue list, and no venue has a 'Request booking' button, including those marked 'Suitable'.\nStep 3: The 'Equipment requirements' page shows EVT-000147 with the 'Under review' status badge. The message 'Equipment can be recorded once this request has been approved.' is shown, and there is no 'Add equipment' form.\nStep 4: The event page still shows the 'Under review' status badge."
+    },
+    {
+      "id": "SPM-54-TC13",
+      "title": "A venue search does not pull a Confirmed or Rejected event into Planning",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Anchorpoint Fleet Briefing' (Confirmed) and 'SPM54 Nusantara Overnight Sprint' (Rejected, reason 'No ConnectSphere venue is licensed for overnight occupancy.').",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Anchorpoint Fleet Briefing'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Type 9999 into 'Expected attendance'",
+        "Click 'Search'",
+        "Click 'EVT-000148' in the breadcrumb at the top of the page",
+        "Click 'All Events' in the sidebar and open 'SPM54 Nusantara Overnight Sprint'",
+        "Click the 'Venue' tab",
+        "Click 'Search with filters'",
+        "Type 9999 into 'Expected attendance'",
+        "Click 'Search'",
+        "Click 'EVT-000149' in the breadcrumb at the top of the page"
+      ],
+      "test_data": "Events: SPM54 Anchorpoint Fleet Briefing (EVT-000148, Confirmed), SPM54 Nusantara Overnight Sprint (EVT-000149, Rejected) | User: Daniel Tan (assigned coordinator of both) | Expected attendance typed before each Search: 9999 (no venue is that large, so the search visibly returns nothing)",
+      "expected_result": "Step 1: The event page shows the 'Confirmed' status badge.\nStep 5: The venue list is replaced by 'No venues match these filters'. No 'Begin planning?' dialog and no 'Planning has started' alert is shown.\nStep 6: The event page still shows the 'Confirmed' status badge.\nStep 7: The event page shows the 'Rejected' status badge and a red 'This request was rejected' alert.\nStep 8: The message 'A venue cannot be requested for a completed, cancelled or rejected event.' is shown, and no venue has a 'Request booking' button.\nStep 11: The venue list is replaced by 'No venues match these filters'. No 'Begin planning?' dialog and no 'Planning has started' alert is shown.\nStep 12: The event page still shows the 'Rejected' status badge and the 'This request was rejected' alert."
+    },
+    {
+      "id": "SPM-54-TC14",
+      "title": "Once in Planning, the coordinator can request a venue booking and record equipment, and sees each with its status",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm54` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM54 …' events, EVT-000145 to EVT-000154, never anyone else's data).\nBefore: run `npm run fixtures:spm54` so 'SPM54 Kirana Store Managers Workshop' has no booking requests or equipment.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), coordinator of 'SPM54 Kirana Store Managers Workshop' (Planning, 18 Aug 2027 09:00–12:00, expects 40, layout Classroom).\nOrchard Seminar Room (ORC-SEM) seats 70 in Classroom layout and has no bookings on 17–18 Aug 2027.\nAfter: run `npm run fixtures:spm54` so the next tester starts from the same state. It deletes and recreates only the 'SPM54 …' events - do NOT run `npx prisma db seed`, which wipes everyone's data.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM54 Kirana Store Managers Workshop'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'Orchard Seminar Room (ORC-SEM)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'",
+        "Click the 'Equipment' tab",
+        "Choose 'Handheld Wireless Mic — AV' in 'Equipment' under 'Add equipment'",
+        "Type 2 into 'Quantity'",
+        "Type the technical requirements into 'Technical requirements'",
+        "Click 'Add'",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM54 Kirana Store Managers Workshop (EVT-000150, Planning) | Venue: Orchard Seminar Room (ORC-SEM) | Date: 18 Aug 2027 | Slot: AM (07:00–12:00) | Equipment: Handheld Wireless Mic | Quantity: 2 | Technical requirements: Two roaming mics for the group discussions.",
+      "expected_result": "Step 1: The event page shows EVT-000150 with the 'Planning' status badge.\nStep 2: 'Orchard Seminar Room (ORC-SEM)' is marked 'Suitable' and has a 'Request booking' button.\nStep 3: The 'Request a venue booking' page shows Event 'SPM54 Kirana Store Managers Workshop', Venue 'Orchard Seminar Room (ORC-SEM)' and Layout 'Classroom'. Date is 18 Aug 2027 and only 'AM (07:00–12:00)' is ticked.\nStep 4: A green alert 'Booking request sent to Venue Staff.' reads 'It is Pending until Venue Staff review it.'\nStep 5: A 'Booking requests' card lists 'Orchard Seminar Room (ORC-SEM)' with '18 Aug 2027 · AM (07:00–12:00) · Classroom' and a 'Pending' badge.\nStep 6: The 'Equipment requirements' page shows EVT-000150 with the 'Planning' status badge, 'Nothing requested yet' and the 'Add equipment' form.\nStep 10: A 'Requested items' card shows '1 item': 'Handheld Wireless Mic' with a 'Requested' badge, Quantity 2 and the technical requirements exactly as typed.\nStep 11: The event page still shows the 'Planning' status badge."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-02 (replaces the 2026-10-01 decision to block arrangements until Planning): planning begins with the assigned coordinator's first action on an Approved event's venue or equipment pages. The actions that count are: pressing 'Search' on Find a venue (TC01), submitting a booking request (TC04), and adding (TC05), saving a change to (TC06) or removing (TC07) an equipment item. Opening a page (including 'Search with filters' and 'Request booking'), 'Clear filters' and 'Cancel' do not (TC09). There is no separate 'Begin planning' button; the action itself asks (see the next entry). Built 2026-10-02.",
+    "RESOLVED 2026-10-02: before an action begins planning, a 'Begin planning?' dialog tells the coordinator the event will move from Approved to Planning, that the organiser and ConnectSphere staff will see the status (not attendees, who only see Confirmed events), and that it cannot be undone. 'Continue' carries out the action; 'Cancel' leaves the event Approved and does not carry it out (TC10). It appears once per event. 'Remove' adds the same notice to its own confirmation dialog instead of asking twice (TC07). Built 2026-10-02.",
+    "RESOLVED 2026-10-02: the coordinator is shown a 'Planning has started' alert when a booking request or an equipment action begins planning, as the venue search already did (TC04 to TC07). Built 2026-10-02.",
+    "RESOLVED 2026-10-02: before approval (Under review), 'Request booking' and equipment changes are not available; a message says why (TC12). The venue search stays available there and does not change the status (TC11). Equipment the organiser requested when creating the event stays visible, read-only. Built 2026-10-02.",
+    "RESOLVED 2026-10-02: AC4 - the organiser's Dashboard lists their events under one heading per status: 'Drafts', 'Under review', 'Approved' and 'Planning' (replacing 'Needs your attention'). It is an overview: each section shows the five most recently updated events, with a 'View all in My Events' link when there are more, so an event that has just entered Planning is first under 'Planning' (TC02 step 1) and an Approved one is under 'Approved' (TC03 step 1). The Event Coordinator's Dashboard is split and capped the same way: 'Awaiting your review' (Under review), 'Approved' and 'Planning', their own events only. No notification. Built 2026-10-02.",
+    "RESOLVED 2026-10-02: there is one way into Planning on the server. Every action that begins planning goes through the same function (src/lib/beginPlanning.ts), which only moves an Approved event and writes one status history entry; the venue search uses POST /api/events/[id]/begin-planning. The general status route refuses a move to Planning. The Approved-only rule is covered by unit tests (canBeginPlanning in src/lib/__tests__/permissions.test.ts). Not reachable by clicking through the app, so there is no manual test case.",
+    "RESOLVED 2026-10-01: AC3 'track outstanding arrangements' is met for SPM-54 by the statuses shown on the Venue and Equipment tabs ('Pending', 'Requested'), checked in TC14. The Readiness screen is SPM-33.",
+    "RESOLVED 2026-10-01: No test case for the status history entry. The History tab belongs to another story.",
+    "Wording chosen while building, to confirm: the 'Begin planning?' dialog text (TC01, TC04 to TC07); the search page's failure text now ends 'try searching again.'; the alert bodies 'This event has moved from Approved to Planning now that a venue booking has been requested.' and '…now that its equipment requirements are being worked on.' (TC04 to TC07), the Under review messages 'A venue can be requested once this request has been approved.' and 'Equipment can be recorded once this request has been approved.' (TC12), and the organiser Dashboard's four descriptions ('Requests you have started but not submitted yet.', 'Requests a coordinator is reviewing.', 'Approved requests waiting for planning to begin.', 'Events your coordinator is now planning.')",
+    "SPM-40-TC15 expects the move to Planning as soon as Find a venue opens. It now needs a 'Click Search' step before the 'Planning has started' message - its owner should update it.",
+    "Other stories to re-run after this change: SPM-42-TC08 and TC09 request bookings for 'SPM42 Three-Session Forum' while it is Approved, which now moves it to Planning (their expected results do not mention the event's status). Any case in another story that requests a booking or changes equipment on an Under review event is now blocked. SPM-21 and SPM-30 quote the coordinator Dashboard's 'Awaiting your review' list: it now holds only Under review events (Approved and Planning have their own sections) and at most five, most recently updated first.",
+    "RESOLVED 2026-10-02: an Approved event can already list equipment before planning begins - the organiser can request it on the event request form (unchanged from earlier stories). The coordinator records and revises equipment afterwards, and their first add, save or removal is what begins planning. The equipment on the TC06 and TC07 fixture events is recorded as requested by the organiser.",
+    "RESOLVED 2026-10-02: Test data. Every case uses the 'SPM54 …' events from `npm run fixtures:spm54` (scripts/seed-spm54.ts), which deletes and recreates only those events at EVT-000145 to EVT-000154 - never a full `npx prisma db seed`. TC01, TC04, TC05, TC06, TC07 and TC14 change data; their preconditions say when to run it. The same events are appended to prisma/seed.ts, so a full reseed gives them the same numbers. If another story's events are merged into prisma/seed.ts ahead of this block, the numbers shift and both files need updating.",
+    "RESOLVED 2026-10-01: prisma/seed.ts did not compile on main (the SPM-28 fixture block lost its closing ');' in the merge with SPM-42), so a full reseed would have failed. Fixed here while adding the SPM-54 block."
+  ],
+  "code_references": [
+    "docs/PERMISSIONS.md",
+    "docs/test-cases/SPM-40_test_cases.json",
+    "docs/test-cases/SPM-42_test_cases.json",
+    "prisma/seed.ts",
+    "scripts/seed-spm28.ts",
+    "scripts/seed-spm54.ts",
+    "src/app/api/events/[id]/begin-planning/route.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/route.ts",
+    "src/app/api/events/[id]/equipment/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/api/venues/search/route.ts",
+    "src/app/dashboard/page.tsx",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/events/page.tsx",
+    "src/app/venues/search/page.tsx",
+    "src/lib/beginPlanning.ts",
+    "src/lib/eventTabs.ts",
+    "src/lib/permissions.ts",
+    "src/lib/roles.ts",
+    "src/lib/statuses.ts",
+    "src/lib/venueBookingRequest.ts",
+    "src/lib/venueSearchForm.ts"
+  ]
+}
