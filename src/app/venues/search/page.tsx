@@ -16,6 +16,7 @@ import {
   PageHeader,
   Select,
 } from "@/components/ui";
+import { BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { LAYOUTS, toOptions } from "@/lib/eventForm";
 import { eventReference, formatVenue } from "@/lib/format";
 import { can } from "@/lib/permissions";
@@ -28,7 +29,6 @@ import {
   searchFromEvent,
   searchQuery,
   shouldStartPlanning,
-  START_PLANNING_REASON,
   type SearchableEvent,
   type SearchFormValues,
 } from "@/lib/venueSearchForm";
@@ -101,9 +101,11 @@ function VenueSearch() {
   const [data, setData] = useState<SearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
-  /// Set once this visit has moved the event from Approved to Planning, or
-  /// tried to and failed - either way the coordinator is told.
+  /// Set once a Search on this visit has moved the event from Approved to
+  /// Planning, or tried to and failed - either way the coordinator is told.
   const [planning, setPlanning] = useState<"started" | "failed" | null>(null);
+  /// Open while the coordinator is being asked whether to begin planning.
+  const [confirmPlanning, setConfirmPlanning] = useState(false);
 
   const search = useCallback(
     async (next: SearchFormValues) => {
@@ -166,28 +168,43 @@ function VenueSearch() {
         const loaded: EventForSearch = await eventRes.json();
         setEvent(loaded);
         initial = searchFromEvent(loaded);
-
-        // Starting the venue search is what moves an Approved event into
-        // Planning (the lifecycle diagram's "search" edge). Through the
-        // existing status route, so its permission check and status history
-        // apply exactly as for any other move. A failure here must not stop
-        // the search itself - it is reported, and the search goes on.
-        if (user && shouldStartPlanning(loaded, user)) {
-          const res = await authedFetch(`/api/events/${eventRef}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "planning", reason: START_PLANNING_REASON }),
-          });
-          setPlanning(res.ok ? "started" : "failed");
-          if (res.ok) setEvent({ ...loaded, status: "planning" });
-        }
       }
       setValues(initial);
+      // This first search only fills the page - it does not begin planning
+      // (see startPlanning below).
       await search(initial);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [eventRef, router, search, selfUrl, user]);
+  }, [eventRef, router, search, selfUrl]);
+
+  // Starting the venue search is what moves an Approved event into Planning
+  // (the lifecycle diagram's "search" edge) - and "starting" means the
+  // coordinator pressing Search (SPM-54, decided 2026-10-02), not the page
+  // opening and not Clear filters. The server makes the move, the same way it
+  // does for a booking request or an equipment change, and says whether it
+  // did. The coordinator is asked first (BeginPlanningDialog); cancelling
+  // leaves the event Approved and does not run the search. A failure here must
+  // not stop the search itself - it is reported, and the search goes on.
+  const startPlanning = async () => {
+    if (!user || !event || !eventRef || !shouldStartPlanning(event, user)) return;
+    try {
+      const res = await authedFetch(`/api/events/${eventRef}/begin-planning`, { method: "POST" });
+      if (!res.ok) {
+        setPlanning("failed");
+        return;
+      }
+      // False when it had already begun elsewhere (another tab, a booking
+      // request) - nothing to say then.
+      const { planningStarted } = await res.json();
+      if (planningStarted) {
+        setPlanning("started");
+        setEvent({ ...event, status: "planning" });
+      }
+    } catch {
+      setPlanning("failed");
+    }
+  };
 
   useEffect(() => {
     if (state === "anonymous") {
@@ -274,8 +291,8 @@ function VenueSearch() {
       )}
       {planning === "failed" && (
         <Alert variant="warning" title="The event is still Approved" className="mb-6">
-          Its status could not be moved to Planning. The search below still works; try reopening
-          this page.
+          Its status could not be moved to Planning. The search below still works; try searching
+          again.
         </Alert>
       )}
 
@@ -287,6 +304,13 @@ function VenueSearch() {
               className="flex flex-col gap-4"
               onSubmit={(e) => {
                 e.preventDefault();
+                // This Search would begin planning: ask first. A search the
+                // form refuses is not a search started, so it is not asked about.
+                const valid = Object.keys(searchFormErrors(values)).length === 0;
+                if (valid && user && event && shouldStartPlanning(event, user)) {
+                  setConfirmPlanning(true);
+                  return;
+                }
                 void search(values);
               }}
             >
@@ -422,6 +446,16 @@ function VenueSearch() {
           </DataState>
         </div>
       </div>
+
+      <BeginPlanningDialog
+        open={confirmPlanning}
+        onConfirm={() => {
+          setConfirmPlanning(false);
+          void startPlanning();
+          void search(values);
+        }}
+        onCancel={() => setConfirmPlanning(false)}
+      />
     </div>
   );
 }
