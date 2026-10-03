@@ -365,13 +365,19 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `decidedBy` | String |  |  |
 | `decidedAt` | DateTime |  |  |
 | `decisionReason` | String |  | Required when rejecting. |
+| `suggestedVenueId` | String |  | Another venue Venue Staff suggested when rejecting (SPM-43). A suggestion only - nothing is booked. NULL unless rejected with one; set to NULL if that venue is ever deleted. |
+| `suggestedAlternative` | String |  | An alternative arrangement in words, given when rejecting (SPM-43) - another date, slot or layout. NULL unless rejected with one. |
 | `needsReview` | Boolean |  | A venue change may have invalidated this booking. The booking is NOT changed - a human decides. Defaults to `false`. |
 | `reviewReason` | String |  | Why it was flagged: comma-separated codes, see Status values. NULL when `needsReview` is false. |
 | `flaggedAt` | DateTime |  | When it was last flagged. NULL when never flagged. |
 
-**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
+**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `suggestedVenue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
 
 **Watch out:**
+
+- **`approved` is the confirmed booking.** There is no separate "confirmed" value: Venue Staff approving a pending request (`PATCH /api/venue-bookings/[id]`, SPM-43) is what books the room. The screens label it "Approved"; "Confirmed" is an *event* status.
+- A booking is decided once, from `pending` only, and deciding it never touches the Event.
+- `venue` and `suggestedVenue` both point at Venue, so the relations are named (`BookingVenue`, `BookingSuggestedVenue`). On the Venue side they are `bookings` and `suggestedIn`.
 
 - Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`. The same test appears in three places - write it once and reuse it.
 - Only compare against `status: 'approved'`. Pending requests may legitimately compete for the same slot.
@@ -541,6 +547,7 @@ double-booked venue. These rules live in route code:
 | Rejection reason | `api/events/[id]` PATCH | a reason is given when status becomes `rejected` |
 | Venue suitability | venues domain (to write) | layout capacity >= attendance, all mandatory facilities present |
 | Booking conflict | venues domain (to write) | no overlapping `approved` booking or unavailability |
+| Booking decision | `src/lib/venueBookingReview.ts`, applied by `api/venue-bookings/[id]` PATCH | decided once, from `pending`; approval re-checks approved bookings and unavailability (slots, setup and turnaround) under a lock on the venue row; a rejection needs a reason; a suggested venue must be active and different |
 | Venue change impact | `src/lib/venueImpact.ts`, applied by `api/venues/[id]` PATCH | which future `approved` bookings a venue edit or retirement newly breaks, so they can be flagged. Pure functions, unit tested without a database. Does NOT yet cover narrowed `opensAt`/`closesAt` - that needs a timezone convention the codebase has not settled |
 | Equipment availability | equipment domain (to write) | requested <= total - maintenance - overlapping reservations |
 | Registration | `api/registrations` POST | event confirmed, within window, not already registered, seats left |
@@ -644,7 +651,12 @@ The data deliberately contains things to find: venues that lack a hearing loop s
 suitability checks can rule them out, equipment in maintenance so availability is
 not just the total, an event rejected with a reason on record, a change request
 refused because the room caps at 40, and one approved future booking that starts
-out flagged for review because its room was made too small for it.
+out flagged for review because its room was made too small for it, and one
+rejected booking that carries a suggested venue and arrangement.
+
+**Keep it in step with the schema.** Every schema change is reflected here in
+the same change, even though nobody is reseeding - see DOCUMENTATION.md,
+"Changing the Schema", step 5.
 
 **Watch out:**
 

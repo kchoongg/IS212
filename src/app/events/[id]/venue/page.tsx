@@ -66,6 +66,9 @@ interface BookingInfo {
     startsAt: string;
     endsAt: string;
     layoutName: string | null;
+    decisionReason: string | null;
+    suggestedAlternative: string | null;
+    suggestedVenue: { id: string; code: string; name: string; isActive: boolean } | null;
     session: { id: string; label: string | null } | null;
     venue: { code: string; name: string };
   }[];
@@ -198,7 +201,17 @@ export default function EventVenuePage() {
 
           {booking?.cannotRequest && <Alert variant="info">{booking.cannotRequest}</Alert>}
 
-          {booking && booking.bookings.length > 0 && <BookingRequests bookings={booking.bookings} />}
+          {booking && booking.bookings.length > 0 && (
+            <BookingRequests
+              bookings={booking.bookings}
+              requestHrefFor={
+                booking.cannotRequest
+                  ? null
+                  : (venueId, session) =>
+                      `/events/${eventId}/booking/new?venue=${venueId}${session ? `&session=${session}` : ""}`
+              }
+            />
+          )}
 
           {data.event.missing.length > 0 && (
             <Alert variant="info" title="This check is incomplete">
@@ -229,22 +242,62 @@ export default function EventVenuePage() {
 }
 
 /// SPM-42 AC5, AC8: this event's requests, each with its session and status.
-function BookingRequests({ bookings }: { bookings: BookingInfo["bookings"] }) {
+/// SPM-43 AC6: a rejected one carries Venue Staff's reason and any suggested
+/// alternative. The suggestion books nothing (#45) - "Request this venue"
+/// only opens the request form on the suggested room, for the same session.
+function BookingRequests({
+  bookings,
+  requestHrefFor,
+}: {
+  bookings: BookingInfo["bookings"];
+  /// Null when this user cannot request a booking for the event.
+  requestHrefFor: ((venueId: string, sessionId: string | null) => string) | null;
+}) {
   return (
     <Card>
       <CardHeader title="Booking requests" />
       <CardBody className="flex flex-col gap-3">
         {bookings.map((b) => (
-          <div key={b.id} className="flex items-start justify-between gap-4 text-sm">
-            <div>
-              <p className="font-medium text-ink">{formatVenue(b.venue.name, b.venue.code)}</p>
-              <p className="text-xs text-ink-3">
-                {b.session && `${b.session.label ?? "Session"} · `}
-                {requestSlotsLabel({ startsAt: new Date(b.startsAt), endsAt: new Date(b.endsAt) })}
-                {b.layoutName && ` · ${layoutLabel(b.layoutName)}`}
-              </p>
+          <div key={b.id} className="text-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="font-medium text-ink">{formatVenue(b.venue.name, b.venue.code)}</p>
+                <p className="text-xs text-ink-3">
+                  {b.session && `${b.session.label ?? "Session"} · `}
+                  {requestSlotsLabel({ startsAt: new Date(b.startsAt), endsAt: new Date(b.endsAt) })}
+                  {b.layoutName && ` · ${layoutLabel(b.layoutName)}`}
+                </p>
+              </div>
+              <StatusBadge status={b.status} />
             </div>
-            <StatusBadge status={b.status} />
+            {b.status === "rejected" && (b.decisionReason || b.suggestedVenue || b.suggestedAlternative) && (
+              <div className="mt-2 flex flex-col gap-1 rounded-md bg-surface-2 px-3 py-2 text-ink-2">
+                {b.decisionReason && (
+                  <p>
+                    <span className="font-medium text-ink">Reason from Venue Staff:</span> {b.decisionReason}
+                  </p>
+                )}
+                {(b.suggestedVenue || b.suggestedAlternative) && (
+                  <p>
+                    <span className="font-medium text-ink">Suggested alternative:</span>{" "}
+                    {[b.suggestedVenue && formatVenue(b.suggestedVenue.name, b.suggestedVenue.code), b.suggestedAlternative]
+                      .filter(Boolean)
+                      .join(" — ")}
+                  </p>
+                )}
+                {b.suggestedVenue?.isActive && requestHrefFor && (
+                  <div className="mt-1">
+                    <ButtonLink
+                      href={requestHrefFor(b.suggestedVenue.id, b.session?.id ?? null)}
+                      variant="secondary"
+                      size="sm"
+                    >
+                      Request this venue
+                    </ButtonLink>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </CardBody>

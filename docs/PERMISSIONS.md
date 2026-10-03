@@ -361,8 +361,11 @@ allowed to see.
   `PUT /api/events/[id]/coordinator`); `canTransition()` (SPM-27) allows
   submitted → under_review, so only removing `ops_manager` from
   `STATUS_TRANSITION_ROLES.under_review` would close it.
-- **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
-  ready for whoever builds them.
+- ~~**Venue bookings** have no routes yet.~~ Closed by SPM-42 and SPM-43:
+  `venue_booking:decide` guards the Booking Requests list
+  (`GET /api/venue-bookings`) and the decision itself
+  (`PATCH /api/venue-bookings/[id]`). It is a role check only — Venue Staff
+  are not scoped by venue (#66), so any of them may decide any request.
 - **Equipment requests are recorded** by the assigned Coordinator (SPM-47,
   `equipment_request:manage`) and **reviewed** by Technical Support with
   `equipment_request:review`: reserving (SPM-49) and setting fulfilment status /

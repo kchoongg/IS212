@@ -370,6 +370,19 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [] },
+    // SPM-43 fixtures (scripts/seed-spm43.ts): a room with one maintenance
+    // period (SPM-43-TC13) and a room the tester retires and restores
+    // (SPM-43-TC14) - dedicated, so neither touches another story's bookings.
+    { code: "SPM43-MNT", name: "SPM43 Maintenance Room", description: "SPM-43 test venue: closed for maintenance on 14 May 2027",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM43-RET", name: "SPM43 Retire Test Room", description: "SPM-43 test venue: retired and restored by SPM-43-TC14",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -1131,6 +1144,39 @@ async function main() {
     fixture("spm50_approved_briefing", "Approved Briefing", "2027-09-13", 9, 3, "Kelvin Loh", { status: "approved" }),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-43 QA fixtures (Review Venue Booking Request). The SAME events as
+  // scripts/seed-spm43.ts (`npm run fixtures:spm43`) - keep the two in step.
+  // Their sessions, booking requests and the maintenance period are created
+  // further down.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm43 = (
+    key: string, title: string, date: string, startHour: number, durationHours: number,
+    attendance: number, layout: string, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-43 venue booking review test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance, layout, ...options,
+  });
+  eventData.push(
+    spm43("spm43_approve", "SPM43 Leadership Offsite", "2027-05-04", 9, 8, 100, "theatre"),
+    spm43("spm43_reject", "SPM43 Product Briefing", "2027-05-05", 14, 3, 150, "theatre"),
+    spm43("spm43_suggest", "SPM43 Awards Dinner", "2027-05-06", 19, 3, 80, "banquet"),
+    spm43("spm43_arrangement", "SPM43 Investor Update", "2027-05-08", 14, 2, 90, "theatre"),
+    spm43("spm43_confirmed", "SPM43 Board Strategy Day", "2027-05-07", 9, 8, 120, "theatre"),
+    spm43("spm43_turnaround", "SPM43 Evening Recital", "2027-05-07", 19, 3, 200, "theatre"),
+    spm43("spm43_rival_a", "SPM43 Design Workshop", "2027-05-10", 14, 3, 30, "classroom"),
+    spm43("spm43_rival_b", "SPM43 Coding Workshop", "2027-05-10", 13, 4, 24, "classroom"),
+    spm43("spm43_sessions", "SPM43 Two-Day Forum", "2027-05-11", 9, 32, 60, "theatre"),
+    spm43("spm43_cancelled_event", "SPM43 Cancelled Launch", "2027-05-13", 9, 8, 140, "theatre",
+      { status: "cancelled", cancellationReason: "Client withdrew the launch" }),
+    spm43("spm43_maintenance", "SPM43 Staff Briefing", "2027-05-14", 9, 2, 30, "classroom"),
+    spm43("spm43_retire", "SPM43 Team Retrospective", "2027-05-17", 14, 2, 20, "classroom"),
+    spm43("spm43_under_review", "SPM43 Policy Briefing", "2027-05-18", 9, 3, 30, "classroom", { status: "under_review" }),
+    spm43("spm43_after_turnaround", "SPM43 Alumni Lecture", "2027-05-08", 14, 3, 150, "theatre"),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -1314,8 +1360,9 @@ async function main() {
   // [eventKey, venueCode, status] — no two 'approved' rows share a venue and
   // an overlapping time. That rule is enforced by route code, not the
   // database, so the seed has to respect it itself.
+  // No PENDING row belongs to a Submitted or Under review event: since SPM-54
+  // a venue can only be requested once the event is approved.
   const bookings: [string, string, string, string?][] = [
-    ["submitted", "ORC-SEM", "pending"],
     ["submitted", "MAR-AUD", "rejected", "Auditorium seating is fixed theatre-style and cannot support parallel tracks."],
     ["planning", "MAR-GH", "approved"],
     ["expo_day", "ORC-GAL", "approved"],
@@ -1332,7 +1379,6 @@ async function main() {
     ["confirmed_cpd", "ONE-SEM", "approved"],
     ["planning_safety", "CBP-CONF", "pending"],
     ["planning_field", "ORC-STU", "pending"],
-    ["review_journal", "CBP-MTG1", "pending"],
     ["completed_annual", "MAR-GH", "approved"],
     ["completed_induction", "ORC-SEM", "approved"],
     ["completed_retreat", "MAR-BR1", "approved"],
@@ -1381,6 +1427,19 @@ async function main() {
       needsReview: true,
       reviewReason: "layout_capacity_below_attendance",
       flaggedAt: day(-2),
+    },
+  });
+
+  // One rejected request carries a suggested alternative (SPM-43 AC6), so the
+  // two columns that story added - suggestedVenueId and suggestedAlternative -
+  // hold something on a fresh database. Venue Staff refused Marina Auditorium
+  // for the developer summit's parallel tracks and pointed at the room whose
+  // partitions can split; nothing was booked by the suggestion.
+  await prisma.venueBooking.updateMany({
+    where: { eventId: events["submitted"].id, venueId: venues["MAR-AUD"], status: "rejected" },
+    data: {
+      suggestedVenueId: venues["ORC-SEM"],
+      suggestedAlternative: "The movable partitions there can split the room for parallel tracks.",
     },
   });
 
@@ -1737,6 +1796,83 @@ async function main() {
       },
     });
   }
+
+  // SPM-43: the booking requests Venue Staff find on Booking Requests, the
+  // two sessions of the Two-Day Forum, and the one maintenance period on
+  // SPM43-MNT (SPM-43-TC13). Same as scripts/seed-spm43.ts. Each request
+  // holds whole slots on its own date - [first hour, last hour] below are the
+  // customer's slot edges (#50): AM 7-12, PM 13-18, Night 19-24.
+  const spm43Sessions: Record<string, string> = {};
+  for (const [label, date, from, attendance, layout] of [
+    ["Day 1", "2027-05-11", 9, 60, "theatre"],
+    ["Day 2", "2027-05-12", 14, 30, "classroom"],
+  ] as const) {
+    const session = await prisma.eventSession.create({
+      data: {
+        eventId: events["spm43_sessions"].id, label,
+        startsAt: day(daysUntil(date), from), endsAt: day(daysUntil(date), from + 3),
+        expectedAttendance: attendance, preferredLayout: layout,
+      },
+    });
+    spm43Sessions[label] = session.id;
+  }
+  const spm43Bookings: {
+    event: string; venue: string; date: string; from: number; to: number; layout: string;
+    status?: "approved"; session?: string; note?: string;
+  }[] = [
+    { event: "spm43_approve", venue: "ORC-SEM", date: "2027-05-04", from: 7, to: 18, layout: "theatre",
+      note: "Lectern and two handheld microphones." },
+    { event: "spm43_reject", venue: "MAR-AUD", date: "2027-05-05", from: 13, to: 18, layout: "theatre" },
+    { event: "spm43_suggest", venue: "ORC-GAL", date: "2027-05-06", from: 19, to: 24, layout: "banquet",
+      note: "Round tables of ten, stage for the awards." },
+    { event: "spm43_arrangement", venue: "ONE-AUD", date: "2027-05-08", from: 13, to: 18, layout: "theatre" },
+    { event: "spm43_confirmed", venue: "MAR-AUD", date: "2027-05-07", from: 7, to: 18, layout: "theatre",
+      status: "approved" },
+    { event: "spm43_turnaround", venue: "MAR-AUD", date: "2027-05-07", from: 19, to: 24, layout: "theatre" },
+    { event: "spm43_rival_a", venue: "ORC-STU", date: "2027-05-10", from: 13, to: 18, layout: "classroom" },
+    { event: "spm43_rival_b", venue: "ORC-STU", date: "2027-05-10", from: 13, to: 18, layout: "classroom" },
+    { event: "spm43_sessions", venue: "ONE-SEM", date: "2027-05-11", from: 7, to: 12, layout: "theatre",
+      session: "Day 1" },
+    { event: "spm43_sessions", venue: "JUR-TRN", date: "2027-05-12", from: 13, to: 18, layout: "classroom",
+      session: "Day 2", note: "Tables in rows, power at every seat." },
+    { event: "spm43_cancelled_event", venue: "CBP-CONF", date: "2027-05-13", from: 7, to: 18, layout: "theatre" },
+    { event: "spm43_maintenance", venue: "SPM43-MNT", date: "2027-05-14", from: 7, to: 12, layout: "classroom" },
+    { event: "spm43_retire", venue: "SPM43-RET", date: "2027-05-17", from: 13, to: 18, layout: "classroom" },
+    // Not creatable in the app since SPM-54 - stands for a request made
+    // before that rule (SPM-43-TC15).
+    { event: "spm43_under_review", venue: "ORC-STU", date: "2027-05-18", from: 7, to: 12, layout: "classroom" },
+    // Its setup slot (8 May AM) follows Board Strategy Day's turnaround
+    // (7 May Night), so it does not clash (SPM-43-TC16).
+    { event: "spm43_after_turnaround", venue: "MAR-AUD", date: "2027-05-08", from: 13, to: 18, layout: "theatre" },
+  ];
+  for (const b of spm43Bookings) {
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[b.event].id,
+        sessionId: b.session ? spm43Sessions[b.session] : undefined,
+        venueId: venues[b.venue],
+        layoutName: b.layout,
+        startsAt: day(daysUntil(b.date), b.from),
+        endsAt: day(daysUntil(b.date), b.to),
+        status: b.status ?? "pending",
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(-3),
+        requirementsNote: b.note,
+        decidedBy: b.status ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: b.status ? day(-2) : undefined,
+      },
+    });
+  }
+  await prisma.venueUnavailability.create({
+    data: {
+      venueId: venues["SPM43-MNT"],
+      startsAt: day(daysUntil("2027-05-14"), 0),
+      endsAt: day(daysUntil("2027-05-14"), 24),
+      reason: "maintenance",
+      notes: "SPM-43 fixture: floor resurfacing",
+      createdBy: users["marcus.wong@connectsphere.com"],
+    },
+  });
 
   // -------------------------------------------------------------------
   // REGISTRATIONS

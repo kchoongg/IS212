@@ -1,0 +1,425 @@
+{
+  "story_key": "SPM-43",
+  "story_title": "As Venue Staff, I want to review a venue booking request so that I can decide whether the requested venue can be made available for the event",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-02",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Venue Staff can view pending booking requests."
+    },
+    {
+      "id": "AC2",
+      "text": "The request displays the requested venue, date, time and event information."
+    },
+    {
+      "id": "AC3",
+      "text": "Venue Staff can approve the request."
+    },
+    {
+      "id": "AC4",
+      "text": "Venue Staff can reject the request."
+    },
+    {
+      "id": "AC5",
+      "text": "Venue Staff can provide a reason when rejecting a request."
+    },
+    {
+      "id": "AC6",
+      "text": "Venue Staff can suggest an alternative venue or arrangement when rejecting a request, for the Coordinator to review and act on."
+    },
+    {
+      "id": "AC7",
+      "text": "An approved booking request becomes a Confirmed booking — the same status referenced by Detect Venue Booking Conflicts and View Venue Availability."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-43-TC01",
+      "title": "Venue Staff see the pending requests, each with its venue, date, slots and event details",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Leadership Offsite' (status Planning, client Meridian Financial Group, coordinator Daniel Tan, 100 people, Theatre, 09:00-17:00 on 4 May 2027) has a Pending request for Orchard Seminar Room (ORC-SEM, setup 60 min, teardown 30 min). 'SPM43 Board Strategy Day' has a booking at Marina Auditorium that is already Approved.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the card for 'SPM43 Leadership Offsite' and check its heading, badge and the six labelled details",
+        "Look for a card for 'SPM43 Board Strategy Day'"
+      ],
+      "test_data": "Request: SPM43 Leadership Offsite at Orchard Seminar Room (ORC-SEM), 4 May 2027, AM + PM\nVenue requirements: Lectern and two handheld microphones.",
+      "expected_result": "Step 2: The 'Booking Requests' page opens with one card per pending request.\nStep 3: The card is headed 'Orchard Seminar Room (ORC-SEM)' with 'for EVT-… SPM43 Leadership Offsite · Meridian Financial Group' and the badge 'Pending'. It shows Requested '4 May 2027 · AM, PM (07:00–18:00)' with 'Setup: 3 May 2027 Night (19:00–24:00)' and 'Turnaround: 4 May 2027 Night (19:00–24:00)'; Event time '4 May 2027, 09:00–17:00'; Layout 'Theatre'; Expected attendance '100'; Venue requirements 'Lectern and two handheld microphones.'; Requested by 'Daniel Tan' with 'Event is Planning'. It has the buttons 'Approve' and 'Reject with a reason'.\nStep 4: There is no card for 'SPM43 Board Strategy Day' - its booking is already approved, so it is not a pending request."
+    },
+    {
+      "id": "SPM-43-TC02",
+      "title": "A request for one session shows that session's own time, attendance and layout, not the event's",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Two-Day Forum' (status Planning, 60 people, Theatre, 11 May 2027 09:00 to 12 May 2027 17:00) has a session 'Day 2' (30 people, Classroom, 14:00-17:00 on 12 May 2027) with a Pending request for Jurong Training Room (JUR-TRN, setup 45 min, teardown 30 min).\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the card for 'SPM43 Two-Day Forum' headed 'Jurong Training Room (JUR-TRN)' and check its details"
+      ],
+      "test_data": "Request: SPM43 Two-Day Forum, session Day 2, at Jurong Training Room (JUR-TRN), 12 May 2027, PM\nVenue requirements: Tables in rows, power at every seat.",
+      "expected_result": "Step 3: The card shows 'Session: Day 2'. Requested is '12 May 2027 · PM (13:00–18:00)' with 'Setup: 12 May 2027 AM (07:00–12:00)' and 'Turnaround: 12 May 2027 Night (19:00–24:00)'. The time is labelled 'Session time' and reads '12 May 2027, 14:00–17:00' (not the event's two days). Layout is 'Classroom' and Expected attendance is '30' (the session's, not the event's Theatre and 60). Venue requirements is 'Tables in rows, power at every seat.' and 'Event is Planning' is shown under Requested by."
+    },
+    {
+      "id": "SPM-43-TC03",
+      "title": "Approving a request books the room: it leaves the list, the calendar shows it Booked, and the Coordinator sees it Approved",
+      "linked_ac": [
+        "AC3",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Leadership Offsite' (status Planning, coordinator Daniel Tan, 09:00-17:00 on 4 May 2027) has a Pending request for Orchard Seminar Room (ORC-SEM, setup 60 min, teardown 30 min), AM + PM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes data: run npm run fixtures:spm43 once when you finish testing (not after every case) to reset it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM43 Leadership Offsite' card, click 'Approve'",
+        "In the dialog, click 'Approve'",
+        "Look for the 'SPM43 Leadership Offsite' card in the list",
+        "Click 'Venues' in the sidebar",
+        "Click 'View availability' in the 'Orchard Seminar Room' row",
+        "Set 'From' to 3 May 2027 and 'To' to 5 May 2027, then click 'Show availability'",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM43 Leadership Offsite' in the list",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Request: SPM43 Leadership Offsite at Orchard Seminar Room (ORC-SEM), 4 May 2027, AM + PM",
+      "expected_result": "Step 3: A dialog titled 'Approve this booking?' appears. It says this books Orchard Seminar Room (ORC-SEM) for SPM43 Leadership Offsite on '4 May 2027 · AM, PM (07:00–18:00)', and has the buttons 'Cancel' and 'Approve'.\nStep 4: The dialog closes and a green 'Booking approved' message appears, naming Orchard Seminar Room (ORC-SEM), SPM43 Leadership Offsite and '4 May 2027 · AM, PM (07:00–18:00)'.\nStep 5: The card is no longer in the list.\nStep 8: On 4 May 2027 the AM and PM slots show 'Booked' with 'SPM43 Leadership Offsite'. The Night slots of 3 May and 4 May show 'Turnaround' with 'Setup or teardown: SPM43 Leadership Offsite'. 'SPM43 Leadership Offsite' is listed under 'Approved bookings'.\nStep 11: The event's own status badge still reads 'Planning' - approving the booking does not confirm the event.\nStep 12: Under 'Booking requests', the Orchard Seminar Room (ORC-SEM) request for '4 May 2027 · AM, PM (07:00–18:00)' has the badge 'Approved'."
+    },
+    {
+      "id": "SPM-43-TC04",
+      "title": "Once one of two requests for the same room and slot is approved, the other is in conflict and cannot be approved",
+      "linked_ac": [
+        "AC7",
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Design Workshop' and 'SPM43 Coding Workshop' (both status Planning) each have a Pending request for Orchard Studio (ORC-STU) on 10 May 2027, PM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes data: run npm run fixtures:spm43 once when you finish testing (not after every case) to reset it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the two cards headed 'Orchard Studio (ORC-STU)' - 'SPM43 Design Workshop' and 'SPM43 Coding Workshop' - and check each one's badge and 'Approve' button",
+        "On the 'SPM43 Design Workshop' card, click 'Approve'",
+        "In the dialog, click 'Approve'",
+        "Find the 'SPM43 Coding Workshop' card and check its badge, the red message and its buttons",
+        "Click 'Approve' on the 'SPM43 Coding Workshop' card",
+        "Click 'Open the calendar' in the red message"
+      ],
+      "test_data": "Approved first: SPM43 Design Workshop, Orchard Studio (ORC-STU), 10 May 2027, PM\nLeft pending: SPM43 Coding Workshop, same room, date and slot",
+      "expected_result": "Step 3: Both cards have the badge 'Pending' and an 'Approve' button that can be clicked.\nStep 5: A green 'Booking approved' message appears and the 'SPM43 Design Workshop' card leaves the list.\nStep 6: The 'SPM43 Coding Workshop' card's badge now reads 'Conflict'. A red message titled 'This request cannot be approved as it stands' reads 'This overlaps an approved booking: EVT-… SPM43 Design Workshop holds Orchard Studio on 10 May 2027 · PM (13:00–18:00).' The 'Approve' button is greyed out; 'Reject with a reason' is not.\nStep 7: Nothing happens - no dialog opens and the request stays in the list.\nStep 8: The 'Orchard Studio availability' page opens from 10 May 2027, and that day's PM slot shows 'Booked' with 'SPM43 Design Workshop'."
+    },
+    {
+      "id": "SPM-43-TC05",
+      "title": "A request that clashes only through an approved booking's turnaround slot cannot be approved",
+      "linked_ac": [
+        "AC7",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Board Strategy Day' has an Approved booking at Marina Auditorium (MAR-AUD, setup 60 min, teardown 30 min) on 7 May 2027, AM + PM, so its turnaround takes 7 May Night. 'SPM43 Evening Recital' has a Pending request for Marina Auditorium on 7 May 2027, Night only.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM43 Evening Recital' card and check its Requested slot, its badge and the red message",
+        "Click 'Approve' on the 'SPM43 Evening Recital' card"
+      ],
+      "test_data": "Pending: SPM43 Evening Recital, Marina Auditorium, 7 May 2027, Night\nApproved: SPM43 Board Strategy Day, Marina Auditorium, 7 May 2027, AM + PM (turnaround: 7 May Night)",
+      "expected_result": "Step 3: Requested reads '7 May 2027 · Night (19:00–24:00)'. The badge reads 'Conflict'. The red message reads 'This overlaps an approved booking: EVT-… SPM43 Board Strategy Day holds Marina Auditorium on 7 May 2027 · AM, PM (07:00–18:00). The clash is through a setup or turnaround slot.'\nStep 4: The 'Approve' button is greyed out and nothing happens - no dialog opens."
+    },
+    {
+      "id": "SPM-43-TC06",
+      "title": "A request for an event that has since been cancelled cannot be approved",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Cancelled Launch' (status Cancelled) still has a Pending request for Changi Conference Centre (CBP-CONF) on 13 May 2027, AM + PM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM43 Cancelled Launch' card and check the line under 'Requested by'",
+        "Click 'Approve' on the card",
+        "In the dialog, click 'Approve'"
+      ],
+      "test_data": "Request: SPM43 Cancelled Launch at Changi Conference Centre (CBP-CONF), 13 May 2027, AM + PM\nEvent status: Cancelled",
+      "expected_result": "Step 3: The card shows 'Event is Cancelled'.\nStep 5: The dialog closes. No 'Booking approved' message appears; the card shows the red message 'A booking cannot be approved for a completed, cancelled or rejected event. Reject it instead.' and stays in the list with the badge 'Pending'."
+    },
+    {
+      "id": "SPM-43-TC07",
+      "title": "Rejecting without a reason, or with only spaces, is refused",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Product Briefing' has a Pending request for Marina Auditorium (MAR-AUD) on 5 May 2027, PM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM43 Product Briefing' card, click 'Reject with a reason'",
+        "Leave 'Reason for rejection' empty and click 'Reject request'",
+        "Click in 'Reason for rejection', press the space bar three times, then click 'Reject request'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Attempt 1: reason empty\nAttempt 2: reason is three spaces",
+      "expected_result": "Step 3: A form opens on the card with 'Reason for rejection' (marked required), 'Suggest another venue' showing 'No venue suggested', 'Alternative arrangement', and the buttons 'Reject request' and 'Cancel'.\nStep 4: 'A reason is required when rejecting. The Coordinator sees this message.' appears under 'Reason for rejection'. The request is not rejected.\nStep 5: The same message appears again. The request is not rejected.\nStep 6: The form closes. The card is still in the list with the badge 'Pending' and the buttons 'Approve' and 'Reject with a reason'."
+    },
+    {
+      "id": "SPM-43-TC08",
+      "title": "Rejecting with a reason takes the request off the list and shows the Coordinator the reason",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Product Briefing' (status Planning, coordinator Daniel Tan) has a Pending request for Marina Auditorium (MAR-AUD) on 5 May 2027, PM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes data: run npm run fixtures:spm43 once when you finish testing (not after every case) to reset it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM43 Product Briefing' card, click 'Reject with a reason'",
+        "In 'Reason for rejection', type: Auditorium is closed for stage repairs that week.",
+        "Leave 'Suggest another venue' on 'No venue suggested' and 'Alternative arrangement' empty, then click 'Reject request'",
+        "Look for the 'SPM43 Product Briefing' card in the list",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM43 Product Briefing' in the list",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Request: SPM43 Product Briefing at Marina Auditorium (MAR-AUD), 5 May 2027, PM\nReason for rejection: Auditorium is closed for stage repairs that week.\nSuggest another venue: No venue suggested\nAlternative arrangement: (empty)",
+      "expected_result": "Step 5: A green 'Booking request rejected' message appears, naming Marina Auditorium (MAR-AUD), SPM43 Product Briefing and '5 May 2027 · PM (13:00–18:00)'.\nStep 6: The card is no longer in the list.\nStep 10: Under 'Booking requests', the Marina Auditorium (MAR-AUD) request has the badge 'Rejected' and shows 'Reason from Venue Staff: Auditorium is closed for stage repairs that week.' There is no 'Suggested alternative' line and no 'Request this venue' button."
+    },
+    {
+      "id": "SPM-43-TC09",
+      "title": "Venue Staff suggest another venue when rejecting; the Coordinator sees it and can start a new request for that venue",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Awards Dinner' (status Planning, coordinator Daniel Tan, 80 people, Banquet, 19:00-22:00 on 6 May 2027) has a Pending request for Orchard Gallery (ORC-GAL) on 6 May 2027, Night.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes data: run npm run fixtures:spm43 once when you finish testing (not after every case) to reset it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM43 Awards Dinner' card, click 'Reject with a reason'",
+        "In 'Reason for rejection', type: Gallery is closed for a private hire that evening.",
+        "Open the 'Suggest another venue' list and look for 'Orchard Gallery (ORC-GAL)' in it",
+        "Choose 'Marina Grand Hall (MAR-GH)' in the 'Suggest another venue' list",
+        "Leave 'Alternative arrangement' empty and click 'Reject request'",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM43 Awards Dinner' in the list",
+        "Click the 'Venue' tab",
+        "Click 'Request this venue'"
+      ],
+      "test_data": "Request: SPM43 Awards Dinner at Orchard Gallery (ORC-GAL), 6 May 2027, Night\nReason for rejection: Gallery is closed for a private hire that evening.\nSuggest another venue: Marina Grand Hall (MAR-GH)\nAlternative arrangement: (empty)",
+      "expected_result": "Step 5: The list starts with 'No venue suggested' and offers the other venues, but not 'Orchard Gallery (ORC-GAL)' - the room being refused cannot be the suggestion.\nStep 7: A green 'Booking request rejected' message appears and the 'SPM43 Awards Dinner' card leaves the list.\nStep 11: Under 'Booking requests' there is one request only - Orchard Gallery (ORC-GAL), badge 'Rejected' - showing 'Reason from Venue Staff: Gallery is closed for a private hire that evening.', 'Suggested alternative: Marina Grand Hall (MAR-GH)' and a 'Request this venue' button. Nothing has been booked or requested at Marina Grand Hall.\nStep 12: The 'Request a venue booking' page opens for Venue 'Marina Grand Hall (MAR-GH)', with Date 6 May 2027 and only 'Night (19:00–24:00)' ticked. Nothing is sent until the Coordinator clicks 'Submit request'."
+    },
+    {
+      "id": "SPM-43-TC10",
+      "title": "Venue Staff suggest an alternative arrangement in words, without naming a venue",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Investor Update' (status Planning, coordinator Daniel Tan, 14:00-16:00 on 8 May 2027) has a Pending request for One-North Auditorium (ONE-AUD) on 8 May 2027, PM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes data: run npm run fixtures:spm43 once when you finish testing (not after every case) to reset it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM43 Investor Update' card, click 'Reject with a reason'",
+        "In 'Reason for rejection', type: Auditorium is reserved for a recording session that afternoon.",
+        "Leave 'Suggest another venue' on 'No venue suggested'",
+        "In 'Alternative arrangement', type: The auditorium is free on 8 May 2027 in the AM slot.",
+        "Click 'Reject request'",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM43 Investor Update' in the list",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Request: SPM43 Investor Update at One-North Auditorium (ONE-AUD), 8 May 2027, PM\nReason for rejection: Auditorium is reserved for a recording session that afternoon.\nSuggest another venue: No venue suggested\nAlternative arrangement: The auditorium is free on 8 May 2027 in the AM slot.",
+      "expected_result": "Step 7: A green 'Booking request rejected' message appears and the 'SPM43 Investor Update' card leaves the list.\nStep 11: Under 'Booking requests', the One-North Auditorium (ONE-AUD) request has the badge 'Rejected' and shows 'Reason from Venue Staff: Auditorium is reserved for a recording session that afternoon.' and 'Suggested alternative: The auditorium is free on 8 May 2027 in the AM slot.' There is no 'Request this venue' button, because no venue was suggested."
+    },
+    {
+      "id": "SPM-43-TC11",
+      "title": "Only Venue Staff can open Booking Requests or decide a request",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Accounts (password123): Coordinator Daniel Tan (daniel.tan@connectsphere.com), Technical Support Kenji Sato (kenji.sato@connectsphere.com).\nSeed: 'SPM43 Evening Recital' (coordinator Daniel Tan) has a Pending request for Marina Auditorium (MAR-AUD).\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Look through the sidebar for 'Booking Requests'",
+        "Type /bookings after the site address in the browser address bar (e.g. http://localhost:3000/bookings) and press Enter",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM43 Evening Recital' in the list",
+        "Click the 'Venue' tab",
+        "Log out, then log in as kenji.sato@connectsphere.com / password123",
+        "Type /bookings after the site address in the browser address bar (e.g. http://localhost:3000/bookings) and press Enter"
+      ],
+      "test_data": "Accounts: Daniel Tan (Event Coordinator, the requester), Kenji Sato (Technical Support)",
+      "expected_result": "Step 2: The sidebar has Dashboard, Review Queue, All Events, Venues, Equipment and Notifications - no 'Booking Requests'.\nStep 3: The page shows 'You do not have access to this' with 'Reviewing venue bookings is Venue Staff's role.' and a 'Back to Dashboard' button. No booking request is shown.\nStep 6: Under 'Booking requests', the Marina Auditorium (MAR-AUD) request has the badge 'Pending' and no 'Approve' or 'Reject' button.\nStep 8: The same 'You do not have access to this' message is shown, and no booking request."
+    },
+    {
+      "id": "SPM-43-TC12",
+      "title": "A request is decided once: approving one that was already rejected from another tab is refused",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Two-Day Forum' (coordinator Daniel Tan) has a session 'Day 1' (09:00-12:00 on 11 May 2027) with a Pending request for One-North Seminar Room (ONE-SEM) on 11 May 2027, AM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes data: run npm run fixtures:spm43 once when you finish testing (not after every case) to reset it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Right-click 'Booking Requests' in the sidebar and choose 'Open link in new tab', then switch to the new tab",
+        "In the new tab, on the 'SPM43 Two-Day Forum' card marked 'Session: Day 1', click 'Reject with a reason'",
+        "In 'Reason for rejection', type: Seminar room is being repainted.",
+        "Click 'Reject request'",
+        "Switch back to the first tab without refreshing it, and click 'Approve' on the same 'Session: Day 1' card",
+        "In the dialog, click 'Approve'",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar (the list has no search box - use Ctrl+F to find the event)",
+        "Click 'SPM43 Two-Day Forum' in the list",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Request: SPM43 Two-Day Forum, session Day 1, at One-North Seminar Room (ONE-SEM), 11 May 2027, AM\nReason for rejection: Seminar room is being repainted.",
+      "expected_result": "Step 6: In the new tab a green 'Booking request rejected' message appears and the Day 1 card leaves the list.\nStep 7: The first tab still shows the Day 1 card, and the 'Approve this booking?' dialog opens.\nStep 8: The dialog closes. No 'Booking approved' message appears; a red message reads 'This booking request has already been decided.' and the Day 1 card leaves the list.\nStep 12: Under 'Booking requests', the 'Day 1' request for One-North Seminar Room (ONE-SEM) still has the badge 'Rejected', with 'Reason from Venue Staff: Seminar room is being repainted.'"
+    },
+    {
+      "id": "SPM-43-TC13",
+      "title": "A request for a time when the venue is unavailable (maintenance) cannot be approved",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Staff Briefing' (status Planning, 09:00-11:00 on 14 May 2027) has a Pending request for 'SPM43 Maintenance Room' (SPM43-MNT) on 14 May 2027, AM. That room is marked unavailable for maintenance all day on 14 May 2027.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM43 Staff Briefing' card and check its Requested slot, its badge and the red message",
+        "Click 'Approve' on the 'SPM43 Staff Briefing' card",
+        "Click 'Open the calendar' in the red message"
+      ],
+      "test_data": "Request: SPM43 Staff Briefing at SPM43 Maintenance Room (SPM43-MNT), 14 May 2027, AM\nVenue unavailable: 14 May 2027, all day, maintenance",
+      "expected_result": "Step 3: Requested reads '14 May 2027 · AM (07:00–12:00)'. The badge reads 'Conflict'. A red message titled 'This request cannot be approved as it stands' reads 'SPM43 Maintenance Room is unavailable at this time (maintenance).'\nStep 4: The 'Approve' button is greyed out and nothing happens - no dialog opens.\nStep 5: The 'SPM43 Maintenance Room availability' page opens from 14 May 2027, and that day's AM slot shows 'Unavailable'."
+    },
+    {
+      "id": "SPM-43-TC14",
+      "title": "A request for a venue that has been retired cannot be approved",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Team Retrospective' (status Planning, 14:00-16:00 on 17 May 2027) has a Pending request for 'SPM43 Retire Test Room' (SPM43-RET) on 17 May 2027, PM. That room is active and used by no other event.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nSteps 9 to 12 restore the venue. If the case is stopped part-way, run npm run fixtures:spm43 to make it active again.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM43 Retire Test Room' row",
+        "Click 'Retire venue'",
+        "In the dialog, click 'Retire venue'",
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM43 Team Retrospective' card, click 'Approve'",
+        "In the dialog, click 'Approve'",
+        "Click 'Venues' in the sidebar",
+        "In 'Show', choose 'Retired only'",
+        "Click the 'SPM43 Retire Test Room' row",
+        "Click 'Restore venue'"
+      ],
+      "test_data": "Venue: SPM43 Retire Test Room (SPM43-RET)\nRequest: SPM43 Team Retrospective, 17 May 2027, PM",
+      "expected_result": "Step 4: A dialog titled 'Retire SPM43 Retire Test Room?' appears.\nStep 5: A green 'Venue retired' message reads 'No approved bookings were affected, so nobody needed to be notified.' and a 'Retired' label appears beside the venue's name.\nStep 7: The 'Approve this booking?' dialog opens.\nStep 8: The dialog closes. No 'Booking approved' message appears; the card shows the red message 'SPM43 Retire Test Room has been retired. Reject this request and suggest another venue.' and stays in the list with the badge 'Pending'.\nStep 10: 'SPM43 Retire Test Room' is listed with the status 'Retired'.\nStep 12: A green 'Venue restored' message appears, the 'Retired' label is gone and the 'Retire venue' button is back - the venue is as it was before this case."
+    },
+    {
+      "id": "SPM-43-TC15",
+      "title": "A request for an event that has not been approved yet is not shown to Venue Staff",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Policy Briefing' (status Under review, 09:00-12:00 on 18 May 2027) has a Pending request for Orchard Studio (ORC-STU) on 18 May 2027, AM. The app no longer lets a Coordinator make a request before the event is approved (SPM-54), so this one is created by the fixture script and stands for a request made before that rule.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes no data.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Look through the whole list for a card for 'SPM43 Policy Briefing'",
+        "Look through the list for any card whose line under 'Requested by' reads 'Event is Submitted' or 'Event is Under review'"
+      ],
+      "test_data": "Request: SPM43 Policy Briefing at Orchard Studio (ORC-STU), 18 May 2027, AM\nEvent status: Under review",
+      "expected_result": "Step 3: There is no card for 'SPM43 Policy Briefing', although its request is Pending - a request waits for its event to be approved before Venue Staff see it.\nStep 4: There is no such card: every request listed belongs to an event that is past approval."
+    },
+    {
+      "id": "SPM-43-TC16",
+      "title": "A request in the first slot clear of an approved booking's turnaround is not in conflict and can be approved",
+      "linked_ac": [
+        "AC3",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Board Strategy Day' has an Approved booking at Marina Auditorium (MAR-AUD, setup 60 min, teardown 30 min) on 7 May 2027, AM + PM, so its turnaround takes 7 May Night. 'SPM43 Alumni Lecture' (status Planning, 14:00-17:00 on 8 May 2027) has a Pending request for Marina Auditorium on 8 May 2027, PM only; its own setup takes 8 May AM, the slot straight after that turnaround.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes no data: the approval is cancelled in step 5.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM43 Alumni Lecture' card and check its Requested slot, the Setup and Turnaround lines under it, and its badge",
+        "Click 'Approve' on the 'SPM43 Alumni Lecture' card",
+        "In the dialog, click 'Cancel'"
+      ],
+      "test_data": "Pending: SPM43 Alumni Lecture, Marina Auditorium, 8 May 2027, PM (setup: 8 May AM)\nApproved: SPM43 Board Strategy Day, Marina Auditorium, 7 May 2027, AM + PM (turnaround: 7 May Night)",
+      "expected_result": "Step 3: Requested reads '8 May 2027 · PM (13:00–18:00)', with 'Setup: 8 May 2027 AM (07:00–12:00)' and 'Turnaround: 8 May 2027 Night (19:00–24:00)' under it. The badge reads 'Pending', not 'Conflict', and the card has no red message.\nStep 4: The 'Approve this booking?' dialog opens, naming Marina Auditorium (MAR-AUD) and '8 May 2027 · PM (13:00–18:00)' - the request can be approved.\nStep 5: The dialog closes. The card is still in the list with the badge 'Pending' and nothing has been booked."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-02 (Kayal): the booking's badge reads 'Approved', as in the BPMN (docs/ConnectSphere_BPMN.drawio, gateway 'Booking approved?' -> 'approved'). AC7's 'Confirmed booking' is that approved booking: the stored status is 'approved', which the availability calendar (SPM-46) shows as 'Booked' and conflict detection (SPM-44) blocks on (TC03, TC04). 'Confirmed' stays an event status only ('Confirm event' is the Coordinator's later step in both diagrams), so a booking is never labelled 'Confirmed'.",
+    "RESOLVED 2026-09-18 (Kristen, Jira comment on SPM-43): notifying the Coordinator of the outcome is out of scope - notifications belong to SPM-53. No test case covers a notification, and the decision route writes none (removed 2026-10-02). The Coordinator finds the decision, reason and suggestion on the event's Venue tab (TC03, TC08, TC09, TC10).",
+    "RESOLVED 2026-10-02 (Kayal): the suggestion is an optional venue picker plus an optional free-text 'Alternative arrangement'. It is a suggestion only - nothing is booked or requested (customer #45, #110); the Coordinator submits a new request, which SPM-42 already tests.",
+    "RESOLVED 2026-10-02: a refusal whose request has left the list (SPM-43-TC12, decided in another tab) is shown at the top of the Booking Requests page instead of on the card.",
+    "RESOLVED 2026-10-02 (Kayal): approval blocked by an unavailable venue and by a retired venue are tested by hand (TC13, TC14), each on its own test venue so no other tester's data is touched. Venue Staff can retire and restore a venue in the app, so TC14 does both itself. Recording an unavailability period has no screen yet (Block venue, S-23 - DOCUMENTATION.md Known Gaps), so TC13's period is created by the fixture script.",
+    "RESOLVED 2026-10-03 (Kayal): a pending request whose event is still Submitted or Under review is not listed on Booking Requests (TC15) - Venue Staff could not approve it, so showing it would only be noise. It joins the list once the event is approved. SPM-54 stops such a request being made, so this only covers requests that already exist; the server also refuses to approve one, which no screen can reach, so no case tests that refusal by hand (unit tested).",
+    "Reverting: a case that approves or rejects says so in its Preconditions ('This case changes data: run npm run fixtures:spm43 once when you finish testing …'). That command is the only reset needed and is never a reseed - it resets only the 'SPM43 …' events in place (their booking requests and decisions are dropped and recreated; each event keeps its EVT- reference), makes 'SPM43 Retire Test Room' active again and resets 'SPM43 Maintenance Room' to its one maintenance period. Nothing outside the SPM43 test data is changed by any case.",
+    "Fixtures: scripts/seed-spm43.ts creates fourteen 'SPM43 …' events in May 2027, on base-seed venues plus the two test venues SPM43-MNT and SPM43-RET; prisma/seed.ts creates the same rows. Each event keeps its EVT- reference between runs on one database, but the number differs from one database to another, so the cases name events by title and never ask the tester to type an event address."
+  ],
+  "code_references": [
+    "src/app/bookings/page.tsx",
+    "src/app/api/venue-bookings/route.ts",
+    "src/app/api/venue-bookings/[id]/route.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "src/app/venues/page.tsx",
+    "src/app/venues/[id]/availability/page.tsx",
+    "src/lib/venueBookingReview.ts",
+    "src/lib/venueBookingReviewService.ts",
+    "src/lib/__tests__/venueBookingReview.test.ts",
+    "src/lib/validation/venues.ts",
+    "src/lib/venueBookingRequest.ts",
+    "src/lib/venueSlots.ts",
+    "src/lib/permissions.ts",
+    "src/lib/roles.ts",
+    "src/components/RequirePermission.tsx",
+    "prisma/schema.prisma",
+    "scripts/seed-spm43.ts",
+    "docs/ConnectSphere_BPMN.drawio",
+    "docs/CUSTOMER_CLARIFICATIONS.md",
+    "prisma/seed.ts"
+  ]
+}
