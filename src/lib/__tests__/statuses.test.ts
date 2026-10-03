@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { isTerminalEventStatus, statusLabel, statusTone } from "../statuses";
+import {
+  canTransition,
+  isTerminalEventStatus,
+  statusLabel,
+  statusTone,
+  transitionError,
+} from "../statuses";
 
 // Traces to SPM-7: a consistent interface. Every status in the system resolves
 // through this map, so these tests are what stop "under_review" reaching a
@@ -72,5 +78,82 @@ describe("isTerminalEventStatus", () => {
     expect(isTerminalEventStatus("draft")).toBe(false);
     expect(isTerminalEventStatus("confirmed")).toBe(false);
     expect(isTerminalEventStatus("postponed")).toBe(false);
+  });
+
+  it("SPM-27-TC07: treats a withdrawn request as finished", () => {
+    expect(isTerminalEventStatus("withdrawn")).toBe(true);
+  });
+});
+
+// SPM-27: the event lifecycle. Decisions agreed 2026-10-01, see the
+// DOCUMENTATION.md changelog.
+describe("canTransition", () => {
+  const LEGAL: [string, string][] = [
+    ["draft", "submitted"],
+    ["submitted", "under_review"],
+    ["under_review", "approved"],
+    ["under_review", "rejected"],
+    ["under_review", "withdrawn"],
+    ["approved", "planning"],
+    ["approved", "cancelled"],
+    ["planning", "confirmed"],
+    ["planning", "postponed"],
+    ["planning", "cancelled"],
+    ["confirmed", "completed"],
+    ["confirmed", "postponed"],
+    ["confirmed", "cancelled"],
+    ["postponed", "approved"],
+    ["postponed", "cancelled"],
+  ];
+
+  it("SPM-27-TC04: allows every move on the lifecycle", () => {
+    for (const [from, to] of LEGAL) {
+      expect(canTransition(from, to), `${from} -> ${to}`).toBe(true);
+    }
+  });
+
+  it("SPM-27-TC05: refuses every move that is not on the lifecycle", () => {
+    const statuses = [...EVENT_STATUSES, "withdrawn"];
+    for (const from of statuses) {
+      for (const to of statuses) {
+        const legal = LEGAL.some(([f, t]) => f === from && t === to);
+        expect(canTransition(from, to), `${from} -> ${to}`).toBe(legal);
+      }
+    }
+  });
+
+  it("SPM-27-TC05: refuses skipping steps and going back to draft", () => {
+    expect(canTransition("draft", "confirmed")).toBe(false);
+    expect(canTransition("submitted", "approved")).toBe(false);
+    expect(canTransition("submitted", "draft")).toBe(false);
+    expect(canTransition("approved", "withdrawn")).toBe(false);
+    // #103: a withdrawal is recorded while the request is under review.
+    expect(canTransition("submitted", "withdrawn")).toBe(false);
+    // Resuming a postponed event goes back through Approved.
+    expect(canTransition("postponed", "planning")).toBe(false);
+  });
+
+  it("SPM-27-TC05: nothing moves out of a final status, including to itself", () => {
+    for (const from of ["completed", "rejected", "cancelled", "withdrawn"]) {
+      for (const to of [...EVENT_STATUSES, "withdrawn"]) {
+        expect(canTransition(from, to), `${from} -> ${to}`).toBe(false);
+      }
+    }
+  });
+
+  it("SPM-27-TC05: refuses unknown statuses", () => {
+    expect(canTransition("deleted", "submitted")).toBe(false);
+    expect(canTransition("draft", "deleted")).toBe(false);
+  });
+});
+
+describe("transitionError", () => {
+  it("SPM-27-TC05: names both statuses by their labels", () => {
+    expect(transitionError("withdrawn", "withdrawn")).toBe(
+      "This event is Withdrawn and can't be moved to Withdrawn."
+    );
+    expect(transitionError("under_review", "confirmed")).toBe(
+      "This event is Under review and can't be moved to Confirmed."
+    );
   });
 });

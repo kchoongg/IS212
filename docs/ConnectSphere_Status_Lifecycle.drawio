@@ -111,14 +111,8 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="id113" edge="1" parent="1" source="n_postponed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11;fontColor=#8B5A2B;jettySize=auto;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" target="n_planning" value="resume">
-          <mxGeometry relative="1" as="geometry">
-            <Array as="points">
-              <mxPoint x="700.01" y="203.04" />
-              <mxPoint x="980.01" y="203.04" />
-            </Array>
-            <mxPoint x="700" y="280" as="sourcePoint" />
-          </mxGeometry>
+        <mxCell id="id113" edge="1" parent="1" source="n_postponed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11;fontColor=#8B5A2B;jettySize=auto;exitX=0.75;exitY=0;exitDx=0;exitDy=0;entryX=0.467;entryY=1;entryDx=0;entryDy=0;" target="n_approved" value="resume">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="id114" edge="1" parent="1" source="n_postponed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11;fontColor=#8B5A2B;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_cancelled" value="cancel">
           <mxGeometry relative="1" as="geometry" />
