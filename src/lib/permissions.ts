@@ -21,6 +21,7 @@
 
 import type { Role } from "./roles";
 import { isRole } from "./roles";
+import { canTransition } from "./statuses";
 
 /// Every distinct thing a user can try to do. Keep the `domain:verb` shape -
 /// it groups the matrix by the domain that owns the route (DOCUMENTATION.md
@@ -360,18 +361,25 @@ export function canReviewEvent(actor: Actor, event: EventAccessFields): boolean 
 /// Venue Staff and Technical Support appear nowhere here on purpose: they
 /// decide their own bookings and equipment requests, not the event's status.
 ///
-/// This says WHO may set a status, not which from->to moves are legal - the
-/// lifecycle graph belongs to Event Status Management, a separate story.
+/// SPM-27 AC4, "the Event Organiser cannot manually change the event status":
+/// the organiser only submits their own request. Postponing is the
+/// coordinator's, like cancelling - an organiser asks through a change
+/// request. Nothing moves an event back to draft. Decisions 2026-10-01.
+/// Withdrawing is the assigned coordinator's too: the organiser asks outside
+/// the system and the coordinator records it (customer clarification #103).
+///
+/// This says WHO may set a status, not which from->to moves are legal - that
+/// is canTransition() in statuses.ts.
 export const STATUS_TRANSITION_ROLES: Record<string, readonly Role[]> = {
-  draft: ["organiser"],
   submitted: ["organiser"],
+  withdrawn: ["coordinator"],
   under_review: ["ops_manager", "coordinator"],
   approved: ["coordinator"],
   rejected: ["coordinator"],
   planning: ["coordinator"],
   confirmed: ["coordinator"],
   completed: ["coordinator"],
-  postponed: ["coordinator", "organiser"],
+  postponed: ["coordinator"],
   cancelled: ["coordinator"],
 };
 
@@ -391,6 +399,28 @@ export function canSetEventStatus(
   if (actor.role === "coordinator") return isAssignedCoordinator(actor, event);
   // ops_manager is the internal admin role: no per-event relationship.
   return true;
+}
+
+/// SPM-27: does the event page offer this user "Record withdrawal"? The same
+/// two checks the PATCH route makes, so the button never offers a refusal.
+export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolean {
+  return canSetEventStatus(actor, event, "withdrawn") && canTransition(event.status, "withdrawn");
+}
+
+// ---------------------------------------------------------------------------
+// BEGIN PLANNING (SPM-54)
+// ---------------------------------------------------------------------------
+
+/// "An event can only move to Planning from an Approved status" (SPM-54 AC2).
+/// The status route holds a move to Planning to this, the same way it holds
+/// approve and reject to REVIEWABLE_STATUSES: without it the assigned
+/// coordinator could pull a Confirmed event back to Planning.
+export const PLANNING_FROM_STATUSES: readonly string[] = ["approved"];
+
+/// May this user begin planning this event right now? Only the coordinator
+/// assigned to it, and only while it is Approved.
+export function canBeginPlanning(actor: Actor, event: EventAccessFields): boolean {
+  return PLANNING_FROM_STATUSES.includes(event.status) && canSetEventStatus(actor, event, "planning");
 }
 
 // ---------------------------------------------------------------------------

@@ -9,6 +9,7 @@ import {
   STATUS_TRANSITION_ROLES,
   can,
   canAssignCoordinator,
+  canBeginPlanning,
   canReviewEvent,
   canCheckEquipmentAvailability,
   canReserveEquipment,
@@ -17,6 +18,7 @@ import {
   canManageEquipmentRequests,
   canSetEventStatus,
   canViewEquipmentRequests,
+  canWithdrawEvent,
   canViewEvent,
   eventListWhere,
   isAssignedCoordinator,
@@ -492,15 +494,33 @@ describe("canSetEventStatus", () => {
     expect(canSetEventStatus(attendee, confirmed, "cancelled")).toBe(false);
   });
 
-  // Postponement was NOT narrowed by that clarification - the organiser may
-  // still postpone their own event. Kept as its own test so a future change to
-  // one rule cannot silently take the other with it.
-  it("still lets the owning organiser postpone, unlike cancelling", () => {
+  // SPM-27 AC4: the organiser cannot change the status themselves, so
+  // postponing is the coordinator's too. An organiser asks through a change
+  // request instead (decision 2026-10-01).
+  it("SPM-27-TC05: lets ONLY the assigned coordinator postpone an event", () => {
     const confirmed = event({ status: "confirmed", coordinatorId: "coordinator-1" });
-    expect(canSetEventStatus(organiserA, confirmed, "postponed")).toBe(true);
     expect(canSetEventStatus(coordinator, confirmed, "postponed")).toBe(true);
+    expect(canSetEventStatus(organiserA, confirmed, "postponed")).toBe(false);
     expect(canSetEventStatus(organiserB, confirmed, "postponed")).toBe(false);
     expect(canSetEventStatus(opsManager, confirmed, "postponed")).toBe(false);
+  });
+
+  it("SPM-27-TC05: no role can move an event back to draft", () => {
+    const submitted = event({ status: "submitted" });
+    expect(canSetEventStatus(organiserA, submitted, "draft")).toBe(false);
+  });
+
+  // Clarification #103: the organiser asks outside the system and the
+  // coordinator records the withdrawal.
+  it("SPM-27-TC06: lets ONLY the assigned coordinator record a withdrawal", () => {
+    const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    expect(canSetEventStatus(coordinator, underReview, "withdrawn")).toBe(true);
+    expect(canSetEventStatus(otherCoordinator, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(organiserA, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(colleagueA, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(organiserB, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(opsManager, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(attendee, underReview, "withdrawn")).toBe(false);
   });
 
   it("keeps event:cancel and the cancelled transition in step", () => {
@@ -516,6 +536,35 @@ describe("canSetEventStatus", () => {
   it("refuses a status nobody owns rather than defaulting to allow", () => {
     expect(canSetEventStatus(coordinator, event(), "deleted")).toBe(false);
     expect(canSetEventStatus(coordinator, event(), "")).toBe(false);
+  });
+});
+
+// SPM-27: whether the event page offers "Record withdrawal" - the assigned
+// coordinator, and only while the request is Under review (#103).
+describe("canWithdrawEvent", () => {
+  it("SPM-27-TC04: offers it to the assigned coordinator while Under review", () => {
+    expect(
+      canWithdrawEvent(coordinator, event({ status: "under_review", coordinatorId: "coordinator-1" }))
+    ).toBe(true);
+  });
+
+  it("SPM-27-TC05: does not offer it before review or from Approved onwards", () => {
+    for (const status of [
+      "submitted", "approved", "planning", "confirmed", "postponed",
+      "completed", "rejected", "cancelled", "withdrawn",
+    ]) {
+      expect(
+        canWithdrawEvent(coordinator, event({ status, coordinatorId: "coordinator-1" })),
+        status
+      ).toBe(false);
+    }
+  });
+
+  it("SPM-27-TC06: does not offer it to anyone but the assigned coordinator", () => {
+    const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    for (const actor of [organiserA, colleagueA, organiserB, otherCoordinator, opsManager, attendee]) {
+      expect(canWithdrawEvent(actor, underReview), actor.id).toBe(false);
+    }
   });
 });
 
@@ -593,6 +642,29 @@ describe("visibleEventFor", () => {
   it("does not narrow the record for anyone else", () => {
     for (const other of [organiserA, coordinator, opsManager, venueStaff, techSupport]) {
       expect(visibleEventFor(other, full)).toBe(full);
+    }
+  });
+});
+
+describe("canBeginPlanning (SPM-54)", () => {
+  it("lets the assigned coordinator begin planning an approved event (AC1)", () => {
+    const approved = event({ status: "approved", coordinatorId: "coordinator-1" });
+    expect(canBeginPlanning(coordinator, approved)).toBe(true);
+  });
+
+  it("only from Approved (AC2)", () => {
+    for (const status of [
+      "draft", "submitted", "under_review", "planning", "confirmed",
+      "postponed", "completed", "rejected", "cancelled",
+    ]) {
+      expect(canBeginPlanning(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  });
+
+  it("not for a coordinator who is not assigned, nor any other role", () => {
+    const approved = event({ status: "approved", coordinatorId: "coordinator-1" });
+    for (const other of [otherCoordinator, opsManager, organiserA, attendee]) {
+      expect(canBeginPlanning(other, approved)).toBe(false);
     }
   });
 });

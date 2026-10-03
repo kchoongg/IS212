@@ -13,6 +13,7 @@ import {
 } from "@/lib/permissions";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
+import { canTransition, transitionError } from "@/lib/statuses";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
@@ -166,6 +167,12 @@ async function handleStatusChange(
     return forbidden(`Your role cannot move an event to "${data.status}"`);
   }
 
+  // ADDED (SPM-27): the role may set this status, but only from where the
+  // lifecycle allows it - no skipping steps, nothing out of a final status.
+  if (!canTransition(event.status, data.status)) {
+    return NextResponse.json({ error: transitionError(event.status, data.status) }, { status: 400 });
+  }
+
   // ADDED: a draft may be incomplete, but anything past draft may not.
   // The SQL design enforced this with a CHECK constraint; Prisma has no
   // equivalent, so the rule moves here - the one place status leaves draft.
@@ -203,6 +210,16 @@ async function handleStatusChange(
   if (REVIEW_OUTCOMES.includes(data.status) && !REVIEWABLE_STATUSES.includes(event.status)) {
     return NextResponse.json(
       { error: "Only a request that is under review can be approved or rejected" },
+      { status: 400 }
+    );
+  }
+
+  // ADDED (SPM-54): there is one way into Planning - the coordinator's first
+  // venue or equipment action on an Approved event, through
+  // beginPlanningIfApproved() (src/lib/beginPlanning.ts). Not this route.
+  if (data.status === "planning") {
+    return NextResponse.json(
+      { error: "Planning begins with the first venue or equipment action on an approved event" },
       { status: 400 }
     );
   }
