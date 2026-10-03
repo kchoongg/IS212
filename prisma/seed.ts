@@ -1144,11 +1144,13 @@ async function main() {
     spm43("spm43_turnaround", "SPM43 Evening Recital", "2027-05-07", 19, 3, 200, "theatre"),
     spm43("spm43_rival_a", "SPM43 Design Workshop", "2027-05-10", 14, 3, 30, "classroom"),
     spm43("spm43_rival_b", "SPM43 Coding Workshop", "2027-05-10", 13, 4, 24, "classroom"),
-    spm43("spm43_sessions", "SPM43 Two-Day Forum", "2027-05-11", 9, 32, 60, "theatre", { status: "approved" }),
+    spm43("spm43_sessions", "SPM43 Two-Day Forum", "2027-05-11", 9, 32, 60, "theatre"),
     spm43("spm43_cancelled_event", "SPM43 Cancelled Launch", "2027-05-13", 9, 8, 140, "theatre",
       { status: "cancelled", cancellationReason: "Client withdrew the launch" }),
     spm43("spm43_maintenance", "SPM43 Staff Briefing", "2027-05-14", 9, 2, 30, "classroom"),
     spm43("spm43_retire", "SPM43 Team Retrospective", "2027-05-17", 14, 2, 20, "classroom"),
+    spm43("spm43_under_review", "SPM43 Policy Briefing", "2027-05-18", 9, 3, 30, "classroom", { status: "under_review" }),
+    spm43("spm43_after_turnaround", "SPM43 Alumni Lecture", "2027-05-08", 14, 3, 150, "theatre"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -1334,8 +1336,9 @@ async function main() {
   // [eventKey, venueCode, status] — no two 'approved' rows share a venue and
   // an overlapping time. That rule is enforced by route code, not the
   // database, so the seed has to respect it itself.
+  // No PENDING row belongs to a Submitted or Under review event: since SPM-54
+  // a venue can only be requested once the event is approved.
   const bookings: [string, string, string, string?][] = [
-    ["submitted", "ORC-SEM", "pending"],
     ["submitted", "MAR-AUD", "rejected", "Auditorium seating is fixed theatre-style and cannot support parallel tracks."],
     ["planning", "MAR-GH", "approved"],
     ["expo_day", "ORC-GAL", "approved"],
@@ -1352,7 +1355,6 @@ async function main() {
     ["confirmed_cpd", "ONE-SEM", "approved"],
     ["planning_safety", "CBP-CONF", "pending"],
     ["planning_field", "ORC-STU", "pending"],
-    ["review_journal", "CBP-MTG1", "pending"],
     ["completed_annual", "MAR-GH", "approved"],
     ["completed_induction", "ORC-SEM", "approved"],
     ["completed_retreat", "MAR-BR1", "approved"],
@@ -1776,6 +1778,12 @@ async function main() {
     { event: "spm43_cancelled_event", venue: "CBP-CONF", date: "2027-05-13", from: 7, to: 18, layout: "theatre" },
     { event: "spm43_maintenance", venue: "SPM43-MNT", date: "2027-05-14", from: 7, to: 12, layout: "classroom" },
     { event: "spm43_retire", venue: "SPM43-RET", date: "2027-05-17", from: 13, to: 18, layout: "classroom" },
+    // Not creatable in the app since SPM-54 - stands for a request made
+    // before that rule (SPM-43-TC15).
+    { event: "spm43_under_review", venue: "ORC-STU", date: "2027-05-18", from: 7, to: 12, layout: "classroom" },
+    // Its setup slot (8 May AM) follows Board Strategy Day's turnaround
+    // (7 May Night), so it does not clash (SPM-43-TC16).
+    { event: "spm43_after_turnaround", venue: "MAR-AUD", date: "2027-05-08", from: 13, to: 18, layout: "theatre" },
   ];
   for (const b of spm43Bookings) {
     await prisma.venueBooking.create({

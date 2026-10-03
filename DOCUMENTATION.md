@@ -589,6 +589,7 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
 | **An event begins planning with the assigned coordinator's first venue or equipment action, and only from Approved** — pressing Search on Find a venue, submitting a booking request, or adding, saving or removing an equipment requirement. Nothing else moves an event to Planning; the general status PATCH refuses it | `beginPlanningIfApproved()` (`src/lib/beginPlanning.ts`), `canBeginPlanning()`, `POST /api/events/[id]/begin-planning` | ✅ done (SPM-54) |
 | **Venue bookings and equipment changes wait for approval** — on a Submitted or Under review event the coordinator can search venues but cannot request a booking or add, change or remove equipment | `isBeforeApproval()` (`src/lib/statuses.ts`), `checkVenueBookingRequest()`, the equipment routes | ✅ done (SPM-54) |
+| **A booking request is reviewed only once its event is approved** — a pending request whose event is still Submitted or Under review is not listed on Booking Requests and cannot be approved | `GET /api/venue-bookings`, `awaitingEventApproval()` (`src/lib/venueBookingReview.ts`) | ✅ done (SPM-43) |
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
 | **A role cannot be self-assigned** — public registration offers the two external roles only; staff accounts are created internally | `registerSchema`, `SELF_REGISTERABLE_ROLES` | ✅ done |
 | A deactivated account cannot authenticate at all, and is refused at login rather than at the first API call | `api/auth/login`, `getActor()` | ✅ done |
@@ -676,7 +677,7 @@ traceability the module asks for.
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
 | `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
-| `npm run fixtures:spm43` | Adds or resets SPM-43's 12 test events ("SPM43 …") without reseeding — touches only events whose `seedKey` starts with `spm43_`. They are reset **in place**: each event row is kept, so its EVT- reference stays the same from run to run, and only its sessions and booking requests are dropped and recreated (so every decision a test pass made goes). It also upserts two test venues: "SPM43 Maintenance Room" (SPM43-MNT, reset to its one maintenance period on 14 May 2027) and "SPM43 Retire Test Room" (SPM43-RET, made active again). Run before each SPM-43 test pass and after any case that approves or rejects — it is the revert |
+| `npm run fixtures:spm43` | Adds or resets SPM-43's 14 test events ("SPM43 …") without reseeding — touches only events whose `seedKey` starts with `spm43_`. They are reset **in place**: each event row is kept, so its EVT- reference stays the same from run to run, and only its sessions and booking requests are dropped and recreated (so every decision a test pass made goes). It also upserts two test venues: "SPM43 Maintenance Room" (SPM43-MNT, reset to its one maintenance period on 14 May 2027) and "SPM43 Retire Test Room" (SPM43-RET, made active again). Run before each SPM-43 test pass and after any case that approves or rejects — it is the revert |
 | `npm run fixtures:spm54` | Adds or resets SPM-54's 10 test events ("SPM54 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm54_` (with any booking requests and equipment a test pass added), always at **EVT-000145 to EVT-000154**. Stops without changing anything if another event holds one of those numbers. Run it before a test pass and after any case that moves an event to Planning (TC01/TC02, TC04 to TC07) or adds to one (TC14). The same events are at the end of `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -833,6 +834,51 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-03 — Kayal
+- **Merged main (SPM-54, SPM-27) into SPM-43.** Both sides kept. In
+  `prisma/seed.ts` the SPM-43 events now come after SPM-54 and SPM-27, so
+  SPM-54 keeps EVT-000145 to EVT-000154. Fixed two things that did not
+  compile on main: the SPM-54 `eventData.push(` in `prisma/seed.ts` was never
+  closed, and `statuses.test.ts` was missing a comma in its import.
+- **A booking request is not shown to Venue Staff, and cannot be approved,
+  while its event is Submitted or Under review.** SPM-54 already stops such a
+  request being made; this covers ones that exist from before.
+  `GET /api/venue-bookings` leaves them out of Booking Requests until the
+  event is approved (decided 2026-10-03: a card nobody can approve is noise),
+  and `checkBookingDecision()` refuses the approval as a backstop
+  (`awaitingEventApproval()` in `src/lib/venueBookingReview.ts`). The request
+  still holds its slot against other requests meanwhile. SPM-43-TC15, on the
+  new fixture event "SPM43 Policy Briefing" (`spm43_under_review`).
+- **SPM-43 test cases: three boundary cases now** (16 cases). New TC16, the
+  other side of TC05: a request in the first slot clear of an approved
+  booking's turnaround is not in conflict (new fixture event "SPM43 Alumni
+  Lecture", `spm43_after_turnaround`, Marina Auditorium 8 May 2027 PM). TC07
+  (blank or spaces-only reason) is relabelled Boundary. 14 SPM-43 fixture
+  events now.
+- **Base seed: two pending requests for events that are not approved yet are
+  gone** from `prisma/seed.ts`, for the same reason — "Straits Medical Journal
+  Club" (Under review) at Changi Meeting Room 1, and "Nusantara Developer
+  Summit" (Submitted) at Orchard Seminar Room. Hidden from Booking Requests,
+  they would have held their rooms with nobody able to clear them.
+  `scripts/remove-pre-approval-bookings.ts` removes the copies in a database
+  seeded earlier — no reseed; it shows the rows and changes nothing unless run
+  with `--apply`. **Already run on the shared database (2026-10-03)**; only
+  needed again on your own Neon branch. No test case in any story used either
+  request.
+- **Kept**: the summit's *rejected* request at Marina Auditorium (1 Nov 2026).
+  SPM-46-TC13 uses it, and it carries the seed's one suggested-venue example.
+- **"SPM43 Two-Day Forum" now starts as Planning, not Approved** (fixture
+  script, seed and SPM-43-TC02): since SPM-54 an event with a booking request
+  has always begun planning, so every SPM-43 fixture request now belongs to a
+  Planning event (or the cancelled / under-review ones kept for TC06 and
+  TC15).
+- **SPM-43 fixtures re-run on the shared database** (`npm run
+  fixtures:spm43`): the 12 existing events keep their EVT- references and
+  "SPM43 Policy Briefing" was added at the end. SPM-28's and SPM-54's pinned
+  references are unchanged.
 
 ---
 

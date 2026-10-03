@@ -63,7 +63,7 @@ type BookingFixture = {
 type Fixture = {
   key: string;
   title: string;
-  status: "approved" | "planning" | "cancelled";
+  status: "under_review" | "approved" | "planning" | "cancelled";
   date: string; // YYYY-MM-DD, Singapore
   startHour: number;
   durationHours: number;
@@ -121,6 +121,12 @@ const FIXTURES: Fixture[] = [
     date: "2027-05-07", startHour: 19, durationHours: 3, attendance: 200, layout: "theatre",
     bookings: [{ venueCode: "MAR-AUD", slots: ["Night", "Night"], status: "pending" }],
     purpose: "conflict through Board Strategy Day's turnaround slot" },
+  // The other side of that boundary: its own setup slot (8 May AM) comes
+  // straight after Board Strategy Day's turnaround (7 May Night), so no clash.
+  { key: "spm43_after_turnaround", title: "SPM43 Alumni Lecture", status: "planning",
+    date: "2027-05-08", startHour: 14, durationHours: 3, attendance: 150, layout: "theatre",
+    bookings: [{ venueCode: "MAR-AUD", slots: ["PM", "PM"], status: "pending" }],
+    purpose: "first slot clear of Board Strategy Day's turnaround - no conflict" },
   // Two requests for one room and slot: approving either puts the other in conflict.
   { key: "spm43_rival_a", title: "SPM43 Design Workshop", status: "planning",
     date: "2027-05-10", startHour: 14, durationHours: 3, attendance: 30, layout: "classroom",
@@ -131,7 +137,7 @@ const FIXTURES: Fixture[] = [
     bookings: [{ venueCode: "ORC-STU", slots: ["PM", "PM"], status: "pending" }],
     purpose: "rival request B for ORC-STU, 10 May PM" },
   // Event times span its sessions (11 May 09:00 to 12 May 17:00).
-  { key: "spm43_sessions", title: "SPM43 Two-Day Forum", status: "approved",
+  { key: "spm43_sessions", title: "SPM43 Two-Day Forum", status: "planning",
     date: "2027-05-11", startHour: 9, durationHours: 32, attendance: 60, layout: "theatre",
     sessions: [
       { label: "Day 1", date: "2027-05-11", startHour: 9, durationHours: 3, attendance: 60, layout: "theatre" },
@@ -154,9 +160,16 @@ const FIXTURES: Fixture[] = [
     date: "2027-05-17", startHour: 14, durationHours: 2, attendance: 20, layout: "classroom",
     bookings: [{ venueCode: "SPM43-RET", slots: ["PM", "PM"], status: "pending" }],
     purpose: "approve refused once the tester retires the room" },
+  // A request the app can no longer create (SPM-54: no booking request before
+  // the event is approved) - it stands for one made before that rule.
+  { key: "spm43_under_review", title: "SPM43 Policy Briefing", status: "under_review",
+    date: "2027-05-18", startHour: 9, durationHours: 3, attendance: 30, layout: "classroom",
+    bookings: [{ venueCode: "ORC-STU", slots: ["AM", "AM"], status: "pending" }],
+    purpose: "event not approved yet - request not listed for Venue Staff" },
 ];
 
 const CHAIN: Record<Fixture["status"], string[]> = {
+  under_review: ["submitted", "under_review"],
   approved: ["submitted", "under_review", "approved"],
   planning: ["submitted", "under_review", "approved", "planning"],
   cancelled: ["submitted", "under_review", "approved", "planning", "cancelled"],

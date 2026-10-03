@@ -11,7 +11,7 @@
 // Pure functions over plain data, like the rest of src/lib. The route
 // (src/app/api/venue-bookings/[id]/route.ts) loads the rows and calls these.
 
-import { isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { requestSlotsLabel } from "@/lib/venueBookingRequest";
 import { occupiedWindow, type Interval, type Turnaround } from "@/lib/venueSlots";
 
@@ -75,6 +75,18 @@ export function approvalConflict(venue: ReviewVenue, booking: Interval & { id: s
   return `This overlaps an approved booking: ${holder} holds ${venue.name} on ${requestSlotsLabel(clash)}.${viaTurnaround}`;
 }
 
+/// Why this request must wait for its event, or null when the event is past
+/// approval. SPM-54: arrangements wait for approval, so no request can be
+/// made for a Submitted or Under review event any more (checkBookingRequest,
+/// src/lib/venueBookingRequest.ts) - this covers a request that already
+/// exists for one. Booking Requests does not list it until the event is
+/// approved (GET /api/venue-bookings), so this is the server's backstop.
+export function awaitingEventApproval(eventStatus: string): string | null {
+  return isBeforeApproval(eventStatus)
+    ? "This event has not been approved yet, so a venue cannot be booked for it."
+    : null;
+}
+
 export type BookingDecision =
   | { decision: "approve" }
   | { decision: "reject"; reason: string; suggestedVenueId?: string; suggestedAlternative?: string };
@@ -109,6 +121,8 @@ export function checkBookingDecision(input: BookingDecisionInput): BookingDecisi
     if (isTerminalEventStatus(input.eventStatus)) {
       return refuse("A booking cannot be approved for a completed, cancelled or rejected event. Reject it instead.");
     }
+    const waiting = awaitingEventApproval(input.eventStatus);
+    if (waiting) return refuse(waiting);
     if (!venue.isActive) {
       return refuse(`${venue.name} has been retired. Reject this request and suggest another venue.`);
     }

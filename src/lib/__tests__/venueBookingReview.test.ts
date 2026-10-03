@@ -3,6 +3,7 @@ import {
   ALREADY_DECIDED_MESSAGE,
   BOOKING_REJECTION_REASON_REQUIRED,
   approvalConflict,
+  awaitingEventApproval,
   checkBookingDecision,
   type BookingDecisionInput,
   type ConfirmedBooking,
@@ -80,6 +81,20 @@ describe("approving a booking request (AC3, AC7)", () => {
     }
     for (const eventStatus of ["approved", "planning", "confirmed", "postponed"]) {
       expect(checkBookingDecision({ ...base, eventStatus }).ok).toBe(true);
+    }
+  });
+
+  it("a request for an event not yet approved cannot be approved, but can be rejected (SPM-54)", () => {
+    for (const eventStatus of ["submitted", "under_review"]) {
+      expect(checkBookingDecision({ ...base, eventStatus })).toEqual({
+        ok: false,
+        error: awaitingEventApproval(eventStatus),
+      });
+      expect(checkBookingDecision({ ...reject("Event not approved yet"), eventStatus })).toEqual({ ok: true });
+    }
+    expect(awaitingEventApproval("under_review")).toMatch(/has not been approved yet/);
+    for (const eventStatus of ["approved", "planning", "confirmed"]) {
+      expect(awaitingEventApproval(eventStatus)).toBeNull();
     }
   });
 

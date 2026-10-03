@@ -61,14 +61,14 @@
       ],
       "type": "Positive",
       "source": "Acceptance Criteria",
-      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Two-Day Forum' (status Approved, 60 people, Theatre, 11 May 2027 09:00 to 12 May 2027 17:00) has a session 'Day 2' (30 people, Classroom, 14:00-17:00 on 12 May 2027) with a Pending request for Jurong Training Room (JUR-TRN, setup 45 min, teardown 30 min).\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Two-Day Forum' (status Planning, 60 people, Theatre, 11 May 2027 09:00 to 12 May 2027 17:00) has a session 'Day 2' (30 people, Classroom, 14:00-17:00 on 12 May 2027) with a Pending request for Jurong Training Room (JUR-TRN, setup 45 min, teardown 30 min).\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
       "steps": [
         "Log in as marcus.wong@connectsphere.com / password123",
         "Click 'Booking Requests' in the sidebar",
         "Find the card for 'SPM43 Two-Day Forum' headed 'Jurong Training Room (JUR-TRN)' and check its details"
       ],
       "test_data": "Request: SPM43 Two-Day Forum, session Day 2, at Jurong Training Room (JUR-TRN), 12 May 2027, PM\nVenue requirements: Tables in rows, power at every seat.",
-      "expected_result": "Step 3: The card shows 'Session: Day 2'. Requested is '12 May 2027 · PM (13:00–18:00)' with 'Setup: 12 May 2027 AM (07:00–12:00)' and 'Turnaround: 12 May 2027 Night (19:00–24:00)'. The time is labelled 'Session time' and reads '12 May 2027, 14:00–17:00' (not the event's two days). Layout is 'Classroom' and Expected attendance is '30' (the session's, not the event's Theatre and 60). Venue requirements is 'Tables in rows, power at every seat.' and 'Event is Approved' is shown under Requested by."
+      "expected_result": "Step 3: The card shows 'Session: Day 2'. Requested is '12 May 2027 · PM (13:00–18:00)' with 'Setup: 12 May 2027 AM (07:00–12:00)' and 'Turnaround: 12 May 2027 Night (19:00–24:00)'. The time is labelled 'Session time' and reads '12 May 2027, 14:00–17:00' (not the event's two days). Layout is 'Classroom' and Expected attendance is '30' (the session's, not the event's Theatre and 60). Venue requirements is 'Tables in rows, power at every seat.' and 'Event is Planning' is shown under Requested by."
     },
     {
       "id": "SPM-43-TC03",
@@ -164,7 +164,7 @@
       "linked_ac": [
         "AC5"
       ],
-      "type": "Negative",
+      "type": "Boundary",
       "source": "Code",
       "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Product Briefing' has a Pending request for Marina Auditorium (MAR-AUD) on 5 May 2027, PM.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).",
       "steps": [
@@ -348,6 +348,44 @@
       ],
       "test_data": "Venue: SPM43 Retire Test Room (SPM43-RET)\nRequest: SPM43 Team Retrospective, 17 May 2027, PM",
       "expected_result": "Step 4: A dialog titled 'Retire SPM43 Retire Test Room?' appears.\nStep 5: A green 'Venue retired' message reads 'No approved bookings were affected, so nobody needed to be notified.' and a 'Retired' label appears beside the venue's name.\nStep 7: The 'Approve this booking?' dialog opens.\nStep 8: The dialog closes. No 'Booking approved' message appears; the card shows the red message 'SPM43 Retire Test Room has been retired. Reject this request and suggest another venue.' and stays in the list with the badge 'Pending'.\nStep 10: 'SPM43 Retire Test Room' is listed with the status 'Retired'.\nStep 12: A green 'Venue restored' message appears, the 'Retired' label is gone and the 'Retire venue' button is back - the venue is as it was before this case."
+    },
+    {
+      "id": "SPM-43-TC15",
+      "title": "A request for an event that has not been approved yet is not shown to Venue Staff",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Policy Briefing' (status Under review, 09:00-12:00 on 18 May 2027) has a Pending request for Orchard Studio (ORC-STU) on 18 May 2027, AM. The app no longer lets a Coordinator make a request before the event is approved (SPM-54), so this one is created by the fixture script and stands for a request made before that rule.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes no data.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Look through the whole list for a card for 'SPM43 Policy Briefing'",
+        "Look through the list for any card whose line under 'Requested by' reads 'Event is Submitted' or 'Event is Under review'"
+      ],
+      "test_data": "Request: SPM43 Policy Briefing at Orchard Studio (ORC-STU), 18 May 2027, AM\nEvent status: Under review",
+      "expected_result": "Step 3: There is no card for 'SPM43 Policy Briefing', although its request is Pending - a request waits for its event to be approved before Venue Staff see it.\nStep 4: There is no such card: every request listed belongs to an event that is past approval."
+    },
+    {
+      "id": "SPM-43-TC16",
+      "title": "A request in the first slot clear of an approved booking's turnaround is not in conflict and can be approved",
+      "linked_ac": [
+        "AC3",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).\nSeed: 'SPM43 Board Strategy Day' has an Approved booking at Marina Auditorium (MAR-AUD, setup 60 min, teardown 30 min) on 7 May 2027, AM + PM, so its turnaround takes 7 May Night. 'SPM43 Alumni Lecture' (status Planning, 14:00-17:00 on 8 May 2027) has a Pending request for Marina Auditorium on 8 May 2027, PM only; its own setup takes 8 May AM, the slot straight after that turnaround.\nIf it is missing, or no longer Pending because an earlier run was not reset, run: npm run fixtures:spm43 (adds or resets the SPM43 test data without a reseed).\nThis case changes no data: the approval is cancelled in step 5.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM43 Alumni Lecture' card and check its Requested slot, the Setup and Turnaround lines under it, and its badge",
+        "Click 'Approve' on the 'SPM43 Alumni Lecture' card",
+        "In the dialog, click 'Cancel'"
+      ],
+      "test_data": "Pending: SPM43 Alumni Lecture, Marina Auditorium, 8 May 2027, PM (setup: 8 May AM)\nApproved: SPM43 Board Strategy Day, Marina Auditorium, 7 May 2027, AM + PM (turnaround: 7 May Night)",
+      "expected_result": "Step 3: Requested reads '8 May 2027 · PM (13:00–18:00)', with 'Setup: 8 May 2027 AM (07:00–12:00)' and 'Turnaround: 8 May 2027 Night (19:00–24:00)' under it. The badge reads 'Pending', not 'Conflict', and the card has no red message.\nStep 4: The 'Approve this booking?' dialog opens, naming Marina Auditorium (MAR-AUD) and '8 May 2027 · PM (13:00–18:00)' - the request can be approved.\nStep 5: The dialog closes. The card is still in the list with the badge 'Pending' and nothing has been booked."
     }
   ],
   "open_questions": [
@@ -356,8 +394,9 @@
     "RESOLVED 2026-10-02 (Kayal): the suggestion is an optional venue picker plus an optional free-text 'Alternative arrangement'. It is a suggestion only - nothing is booked or requested (customer #45, #110); the Coordinator submits a new request, which SPM-42 already tests.",
     "RESOLVED 2026-10-02: a refusal whose request has left the list (SPM-43-TC12, decided in another tab) is shown at the top of the Booking Requests page instead of on the card.",
     "RESOLVED 2026-10-02 (Kayal): approval blocked by an unavailable venue and by a retired venue are tested by hand (TC13, TC14), each on its own test venue so no other tester's data is touched. Venue Staff can retire and restore a venue in the app, so TC14 does both itself. Recording an unavailability period has no screen yet (Block venue, S-23 - DOCUMENTATION.md Known Gaps), so TC13's period is created by the fixture script.",
+    "RESOLVED 2026-10-03 (Kayal): a pending request whose event is still Submitted or Under review is not listed on Booking Requests (TC15) - Venue Staff could not approve it, so showing it would only be noise. It joins the list once the event is approved. SPM-54 stops such a request being made, so this only covers requests that already exist; the server also refuses to approve one, which no screen can reach, so no case tests that refusal by hand (unit tested).",
     "Reverting: a case that approves or rejects says so in its Preconditions ('This case changes data: run npm run fixtures:spm43 once when you finish testing …'). That command is the only reset needed and is never a reseed - it resets only the 'SPM43 …' events in place (their booking requests and decisions are dropped and recreated; each event keeps its EVT- reference), makes 'SPM43 Retire Test Room' active again and resets 'SPM43 Maintenance Room' to its one maintenance period. Nothing outside the SPM43 test data is changed by any case.",
-    "Fixtures: scripts/seed-spm43.ts creates twelve 'SPM43 …' events in May 2027, on base-seed venues plus the two test venues SPM43-MNT and SPM43-RET; prisma/seed.ts creates the same rows. Each event keeps its EVT- reference between runs on one database, but the number differs from one database to another, so the cases name events by title and never ask the tester to type an event address."
+    "Fixtures: scripts/seed-spm43.ts creates fourteen 'SPM43 …' events in May 2027, on base-seed venues plus the two test venues SPM43-MNT and SPM43-RET; prisma/seed.ts creates the same rows. Each event keeps its EVT- reference between runs on one database, but the number differs from one database to another, so the cases name events by title and never ask the tester to type an event address."
   ],
   "code_references": [
     "src/app/bookings/page.tsx",

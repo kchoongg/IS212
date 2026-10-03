@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { eventReference } from "@/lib/format";
+import { PRE_APPROVAL_EVENT_STATUSES } from "@/lib/statuses";
 import { approvalConflict } from "@/lib/venueBookingReview";
 import { loadReviewVenues } from "@/lib/venueBookingReviewService";
 
@@ -22,7 +23,11 @@ export async function GET(req: NextRequest) {
   }
 
   const bookings = await prisma.venueBooking.findMany({
-    where: { status: "pending" },
+    // SPM-54: a request waits for its event's approval, so one whose event is
+    // still Submitted or Under review is not shown - Venue Staff could not
+    // approve it (awaitingEventApproval). It joins the list once the event is
+    // approved.
+    where: { status: "pending", event: { status: { notIn: PRE_APPROVAL_EVENT_STATUSES } } },
     select: {
       id: true,
       status: true,
