@@ -856,6 +856,10 @@ what changed, why, and the migration name if there is one.
 - Known Gaps: removed "Check Equipment Availability is read-only" (SPM-49 built
   Reserve); added "Reserve still works before an event is approved" and
   "Changing a quantity after review doesn't send the line back for re-checking".
+- **Sidebar fix:** on `/equipment/requests` both "Equipment" and "Equipment
+  Requests" were highlighted, because a link counted as active for any page
+  under it. Now only the most specific match is lit (`activeNavHref()` in
+  `src/lib/roles.ts`, used by `AppShell.tsx`, unit tested).
 - Migration: none (`staff_notes`, `reviewed_by`, `reviewed_at` already existed).
 
 ### 2026-10-02 — Kristen
