@@ -234,20 +234,19 @@
     },
     {
       "id": "SPM-44-TC10",
-      "title": "A confirmed booking cannot be approved over another confirmed booking",
+      "title": "A pending request cannot be approved over an existing confirmed booking",
       "linked_ac": [
         "AC6"
       ],
       "type": "Negative",
       "source": "Acceptance Criteria",
-      "preconditions": "BLOCKED — there is no way to confirm a booking in the application. Venue Staff's 'Booking Requests' screen lists pending requests but has no Approve or Reject action; that belongs to Venue Booking Approval (SPM-43), which has no endpoint and no branch. The rule itself is implemented and unit tested in src/lib/venueConflict.ts (checkVenueBookingApproval, scope 'approved') — see open question 1.",
+      "preconditions": "npm run fixtures:spm44 has been run. Two requests exist for SPM44 Conflict Room (SPM44-PLN) on 25 Apr 2027, PM: 'SPM44 Approval Holder' was approved first, and 'SPM44 Approval Rival' is still pending. The pair is seeded rather than made through the app, because the request-time check (SPM-44-TC01) refuses the second request - this is the state Venue Staff inherit when two requests arrive and one is approved. Both events are past approval, so both appear on Booking Requests. Logged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).",
       "steps": [
-        "Log in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123)",
         "Click 'Booking Requests' in the sidebar",
-        "Look for an Approve action on a pending request whose slot another approved booking already holds"
+        "Try to click 'Approve' on the 'SPM44 Approval Rival' request"
       ],
-      "test_data": "Blocked pending SPM-43 (Venue Booking Approval)",
-      "expected_result": "Step 3: No Approve action exists on the screen, so this criterion cannot be exercised through the application. When SPM-43 builds it, approving must be refused with the conflicting booking named, and the unit tests in src/lib/__tests__/venueConflict.test.ts already pin that behaviour."
+      "test_data": "Venue: SPM44 Conflict Room (SPM44-PLN), 25 Apr 2027, PM\nApproved first: SPM44 Approval Holder\nStill pending: SPM44 Approval Rival\nAccount: marcus.wong@connectsphere.com (Venue Staff)",
+      "expected_result": "Step 1: The request for 'SPM44 Approval Rival' is listed with the chip 'Conflict' rather than 'Pending', under a panel headed 'This request cannot be approved as it stands' reading 'This overlaps an approved booking: EVT-… SPM44 Approval Holder holds SPM44 Conflict Room on 25 Apr 2027 · PM (13:00–18:00).' with a link to open the calendar.\nStep 2: The Approve button is disabled and nothing happens — the request cannot be confirmed over the booking that already holds the slot. Reject with a reason is still available, which is how Venue Staff clear it."
     },
     {
       "id": "SPM-44-TC11",
@@ -273,7 +272,7 @@
     }
   ],
   "open_questions": [
-    "AC6 cannot be tested through the application: nothing can confirm a booking. Venue Staff's Booking Requests screen is read-only and bookings/page.tsx says in a comment that Approve and Reject belong to Venue Booking Approval (SPM-43), which has no endpoint and no branch. SPM-44 implements and unit tests the rule (checkVenueBookingApproval in src/lib/venueConflict.ts, 5 tests), including the part that differs from request time: at confirm time a rival PENDING request must NOT block, because approving one request is exactly how Venue Staff choose between two. Whoever builds SPM-43 should call that function rather than write the rule again. Confirm this split is what you want.",
+    "RESOLVED 2026-10-04. AC6 was blocked: nothing could approve a booking. SPM-43 (Review Venue Booking Request) has since merged to main, so SPM-44-TC10 now runs against the real screen and passes. Merging also settled the duplication SPM-43 flagged in its own comment: approvalConflict() in src/lib/venueBookingReview.ts carried a second copy of the confirm-time rule and now calls findVenueConflict() instead, with scope 'approved' so a rival PENDING request still does not block a decision. Its wording is unchanged - Venue Staff read 'This overlaps an approved booking: …', a coordinator reads 'the room is already booked' - because the rule is shared but the sentence is specific to the screen. findVenueConflict() now takes ConflictVenue, narrower than SearchableVenue, so both sides can call it.",
     "AC4 says 'only one active pending request or confirmed booking may exist for the same venue and slot'. The system enforces this at request time, so a second pending request can never be created through the application. It does NOT retroactively police rows that already exist: if two pending requests somehow end up in the database for one slot, nothing flags them. Is enforcement at the point of writing sufficient, or should the system also report existing duplicates?",
     "SPM-44 made the refusal messages more specific (AC9), which changed the wording SPM-42's recorded test cases assert. SPM-42-TC14 and SPM-42-TC15 in docs/test-cases/SPM-42_Test_Cases.xlsx still expect 'Marina Auditorium is already booked for this time.' and will now read '… is already booked for EVT-… Product Showcase on 21 Oct 2026, AM–PM.' The unit tests have been updated; the SPM-42 workbook has not, because changing another story's recorded expectations is the author's call. Decide whether to update those two expected results or re-run SPM-42 and record the new wording.",
     "RESOLVED 2026-10-02: AC2's first half (different slots do not conflict) is only observable at a venue with no setup or turnaround time — at every seeded venue the preparation slot makes neighbouring slots clash. SPM-44's fixture script therefore creates its own room, SPM44 Conflict Room (SPM44-PLN, setup 0, teardown 0), rather than reusing SPM-42's SPM42 Plain Room.",

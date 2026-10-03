@@ -27,8 +27,20 @@ import {
   slotsCovered,
   type Interval,
   type SlotCell,
+  type Turnaround,
 } from "@/lib/venueSlots";
-import type { SearchBlock, SearchBooking, SearchableVenue } from "@/lib/venueSearch";
+import type { SearchBlock, SearchBooking } from "@/lib/venueSearch";
+
+/// Exactly what deciding a conflict reads - no more. Narrower than
+/// SearchableVenue (which a venue search also needs for layouts, facilities
+/// and opening hours) so that the booking REVIEW side, whose venue shape is
+/// its own, can call the same rule instead of keeping a second copy of it.
+/// SearchableVenue satisfies this structurally, so its callers are unaffected.
+export interface ConflictVenue extends Turnaround {
+  name: string;
+  bookings: readonly SearchBooking[];
+  unavailability: readonly SearchBlock[];
+}
 
 export type ConflictKind = "unavailable" | "booked" | "on_hold";
 
@@ -80,7 +92,7 @@ function sharedCells(a: Interval, b: Interval): SlotCell[] {
 /// Order matters: unavailability is reported before a booking, because a room
 /// closed for maintenance cannot be freed by moving one event.
 export function findVenueConflict(
-  venue: SearchableVenue,
+  venue: ConflictVenue,
   window: Interval,
   options: FindConflictOptions = {}
 ): VenueConflict | null {
@@ -178,7 +190,7 @@ function describeBookingEvent(booking?: SearchBooking): string | null {
 }
 
 export interface ApprovalCheckInput {
-  venue: SearchableVenue;
+  venue: ConflictVenue;
   /// The pending booking being confirmed, with the id so it cannot clash with
   /// itself.
   booking: SearchBooking & { id?: string };

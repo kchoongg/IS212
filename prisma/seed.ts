@@ -1065,6 +1065,8 @@ async function main() {
       { coordinator: PRIYA, attendance: 40, layout: "theatre" }),
     spm44("spm44_midnight_clash", "SPM44 Midnight Clash", "2027-04-13", 9, 2,
       { attendance: 40, layout: "theatre" }),
+    spm44("spm44_approval_holder", "SPM44 Approval Holder", "2027-04-25", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_approval_rival", "SPM44 Approval Rival", "2027-04-25", 14, 2),
     spm44("spm44_blocked", "SPM44 Blocked Room", "2027-04-20", 9, 2),
   );
 

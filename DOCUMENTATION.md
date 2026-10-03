@@ -856,6 +856,31 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-04 — Jordan
+- **SPM-43 merged into SPM-44, and the duplicated conflict rule is gone.**
+  `approvalConflict()` in `src/lib/venueBookingReview.ts` carried a second copy
+  of the confirm-time rule, with a comment saying it should call SPM-44's
+  `checkVenueBookingApproval()` once that branch landed. It now calls
+  `findVenueConflict()` with `scope: "approved"`, so a rival PENDING request
+  still does not block a decision. Its wording is unchanged: Venue Staff read
+  "This overlaps an approved booking: …", a coordinator making a request reads
+  "the room is already booked" — the rule is shared, the sentence belongs to
+  the screen. SPM-43's own tests pass unmodified.
+- `findVenueConflict()` now takes **`ConflictVenue`** — name, turnaround,
+  bookings, unavailability — rather than `SearchableVenue`, which also carries
+  layouts, facilities and opening hours the rule never reads. That is what
+  lets the review side call it. `SearchableVenue` satisfies it structurally,
+  so the search and request callers are untouched.
+- **SPM-44 AC6 is no longer blocked.** SPM-44-TC10 runs against the real
+  Booking Requests screen: a pending request whose slot an approved booking
+  holds shows a **Conflict** chip, names the booking in the way, and its
+  Approve button is disabled. Its fixture pair is seeded rather than made
+  through the app, because the request-time check refuses the second request —
+  it is the state Venue Staff inherit when two requests arrive for one slot.
+- Two Excel lock files (`~$SPM-44…`, `~$SPM-50…`) had been committed by
+  accident and are now untracked; `~$*` added to `.gitignore`.
+- Migration: none (SPM-43's `add_venue_booking_suggestion` was already applied).
+
 ### 2026-10-02 — Jordan
 - **SPM-44 (Booking Conflict Detection): the conflict rules moved into one
   module, `src/lib/venueConflict.ts`, and now say WHAT is in the way.**

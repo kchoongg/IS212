@@ -140,6 +140,18 @@ const FIXTURES: Fixture[] = [
     date: "2027-04-13", startHour: 9, durationHours: 2, attendance: 40, layout: "theatre",
     testCases: "TC11" },
 
+  // AC6 - confirm time. Two requests for one slot: one was approved first, the
+  // other is still pending and can no longer be approved. This pair cannot be
+  // created through the app (the request-time check refuses the second), which
+  // is exactly why it is seeded: it is the state Venue Staff inherit when they
+  // approve one of two rivals.
+  { key: "spm44_approval_holder", title: "SPM44 Approval Holder", coordinator: PRIYA,
+    date: "2027-04-25", startHour: 14, durationHours: 2, attendance: 30, layout: "classroom",
+    booking: { venueCode: PLAIN_ROOM.code, status: "approved" }, testCases: "TC10" },
+  { key: "spm44_approval_rival", title: "SPM44 Approval Rival", coordinator: DANIEL,
+    date: "2027-04-25", startHour: 14, durationHours: 2, attendance: 30, layout: "classroom",
+    booking: { venueCode: PLAIN_ROOM.code, status: "pending" }, testCases: "TC10" },
+
   // AC8 - the room is closed, not booked.
   { key: "spm44_blocked", title: "SPM44 Blocked Room", coordinator: DANIEL,
     date: "2027-04-20", startHour: 9, durationHours: 2, attendance: 30, layout: "classroom",
