@@ -49,6 +49,18 @@ export const updateEquipmentRequestSchema = z
   });
 export type UpdateEquipmentRequestInput = z.infer<typeof updateEquipmentRequestSchema>;
 
+// ---- Technical Support's update of one request line (SPM-50) ----
+
+// Only the shape is checked here. Which status a line may move to, the reason
+// "Unavailable" needs and the 500-character cap depend on the line's current
+// status, so they live in src/lib/equipmentFulfilment.ts where the route and
+// the screen share them.
+export const updateEquipmentFulfilmentSchema = z.object({
+  status: z.string().min(1),
+  staffNotes: z.string(),
+});
+export type UpdateEquipmentFulfilmentInput = z.infer<typeof updateEquipmentFulfilmentSchema>;
+
 // ---- Recording units out of service (SPM-48 AC7 / SPM-55) ----
 
 // How many units of an item are unavailable, damaged or under maintenance - one

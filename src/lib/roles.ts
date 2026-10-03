@@ -120,6 +120,21 @@ export function navFor(role: string): NavItem[] {
   return NAV_BY_ROLE[role as Role] ?? [DASHBOARD];
 }
 
+/// Which sidebar link to highlight for this page. A link matches its own
+/// address and anything under it ("/events" stays lit on "/events/EVT-000123"),
+/// and "/" matches only itself. When several match - Technical Support's
+/// "Equipment" (/equipment) and "Equipment Requests" (/equipment/requests) on
+/// /equipment/requests/EVT-000123 - only the most specific one is lit, never
+/// both. null when nothing matches.
+export function activeNavHref(items: NavItem[], pathname: string): string | null {
+  let best: string | null = null;
+  for (const { href } of items) {
+    const matches = pathname === href || (href !== "/" && pathname.startsWith(`${href}/`));
+    if (matches && (best === null || href.length > best.length)) best = href;
+  }
+  return best;
+}
+
 /// Tabs on the event detail hub (UI_DESIGN.md §4.3). A tab the role may not
 /// see is not rendered at all — rendering it disabled would tell an external
 /// user that internal planning information exists.

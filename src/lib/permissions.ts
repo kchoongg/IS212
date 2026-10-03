@@ -249,9 +249,22 @@ export function canManageEquipmentRequests(actor: Actor, event: EventAccessField
 /// requires that (you cannot manage what you cannot see) — not a second,
 /// independent viewing right.
 export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
-  if (actor.role === "tech_support") return true;
+  if (actor.role === "tech_support") return techSupportSeesEquipment(event.status);
   if (actor.role === "organiser") return ownsEvent(actor, event);
   return canManageEquipmentRequests(actor, event);
+}
+
+/// Event statuses in which Technical Support sees an event's equipment at all.
+/// The BPMN puts their lane after the Coordinator's "Record equipment request":
+/// "Check equipment availability" and "Reserve equipment" sit in Planning, and
+/// "Prepare equipment / on-site support" in Confirmed. Before Planning the
+/// equipment is still part of the organiser's request - the Coordinator has
+/// not acted on it yet (team decision, 3 Oct 2026, Kristen). Postponed,
+/// cancelled, rejected and completed events have nothing left to arrange.
+export const TECH_SUPPORT_EQUIPMENT_STATUSES: readonly string[] = ["planning", "confirmed"];
+
+export function techSupportSeesEquipment(eventStatus: string): boolean {
+  return TECH_SUPPORT_EQUIPMENT_STATUSES.includes(eventStatus);
 }
 
 /// SPM-48: "As Technical Support Staff, I want to check whether sufficient
@@ -271,6 +284,14 @@ export function canCheckEquipmentAvailability(actor: Actor): boolean {
 /// action), kept as its own function because reserving is a distinct action
 /// from viewing, not just a stricter view.
 export function canReserveEquipment(actor: Actor): boolean {
+  return can(actor.role, "equipment_request:review");
+}
+
+/// SPM-50: "As Technical Support Staff, I want to review and update equipment
+/// requests." Updating a line's fulfilment status and technical notes is the
+/// same `equipment_request:review` action as reserving - the other half of
+/// Technical Support's review of a request.
+export function canUpdateEquipmentFulfilment(actor: Actor): boolean {
   return can(actor.role, "equipment_request:review");
 }
 

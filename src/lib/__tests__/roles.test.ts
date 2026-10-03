@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   ROLES,
+  activeNavHref,
   eventTabsFor,
   isExternalRole,
   navFor,
@@ -89,5 +90,33 @@ describe("isExternalRole", () => {
     expect(isExternalRole("venue_staff")).toBe(false);
     expect(isExternalRole("tech_support")).toBe(false);
     expect(isExternalRole("ops_manager")).toBe(false);
+  });
+});
+
+describe("activeNavHref", () => {
+  const techSupport = navFor("tech_support");
+
+  it("highlights only Equipment Requests on the requests queue, not Equipment as well", () => {
+    expect(activeNavHref(techSupport, "/equipment/requests")).toBe("/equipment/requests");
+  });
+
+  it("keeps Equipment Requests highlighted on one event's request page", () => {
+    expect(activeNavHref(techSupport, "/equipment/requests/EVT-000123")).toBe("/equipment/requests");
+  });
+
+  it("highlights Equipment on the catalogue itself", () => {
+    expect(activeNavHref(techSupport, "/equipment")).toBe("/equipment");
+  });
+
+  it("keeps a section highlighted on the pages under it", () => {
+    expect(activeNavHref(navFor("organiser"), "/events/EVT-000123/equipment")).toBe("/events");
+  });
+
+  it("does not treat a shared prefix as a match", () => {
+    expect(activeNavHref([{ href: "/events", label: "Events" }], "/eventsx")).toBeNull();
+  });
+
+  it("highlights nothing when no link matches", () => {
+    expect(activeNavHref(techSupport, "/profile")).toBeNull();
   });
 });

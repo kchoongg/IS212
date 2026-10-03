@@ -404,20 +404,32 @@ describe("reserveQuantity (SPM-49 AC1, AC5)", () => {
   });
 });
 
-describe("eventAllowsReserving (SPM-49)", () => {
-  it("allows reserving while the event is still being planned or is confirmed", () => {
-    for (const status of ["submitted", "under_review", "approved", "planning", "confirmed"]) {
-      expect(eventAllowsReserving(status)).toBe(true);
-    }
+describe("eventAllowsReserving (SPM-49, BPMN: Technical Support reserves in Planning)", () => {
+  it("allows reserving only while the event is in planning", () => {
+    expect(eventAllowsReserving("planning")).toBe(true);
   });
 
-  it("refuses once the event is finished, abandoned or its arrangements are released", () => {
-    for (const status of ["completed", "cancelled", "rejected", "postponed", "draft"]) {
+  it("refuses before planning starts - the Coordinator has not recorded the equipment yet", () => {
+    for (const status of ["draft", "submitted", "under_review", "approved"]) {
       expect(eventAllowsReserving(status)).toBe(false);
     }
   });
 
-  it("explains the refusal in the words the screen and the route both show", () => {
-    expect(reservingClosedMessage("cancelled")).toBe("This event is cancelled — equipment can no longer be reserved.");
+  it("refuses once the event is confirmed, finished, abandoned or postponed", () => {
+    for (const status of ["confirmed", "completed", "cancelled", "rejected", "postponed", "withdrawn"]) {
+      expect(eventAllowsReserving(status)).toBe(false);
+    }
+  });
+
+  it("explains a confirmed event's equipment is final", () => {
+    expect(reservingClosedMessage("confirmed")).toBe(
+      "This event is confirmed — its equipment is final. A change now goes through a change request."
+    );
+  });
+
+  it("explains any other status in the words the screen and the route both show", () => {
+    expect(reservingClosedMessage("under_review")).toBe(
+      "This event is under review — equipment can be reserved and updated while the event is in planning."
+    );
   });
 });
