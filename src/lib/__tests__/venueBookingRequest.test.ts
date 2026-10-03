@@ -224,8 +224,17 @@ describe("checkVenueBookingRequest", () => {
         error: "A venue cannot be requested for a completed, cancelled or rejected event.",
       });
     }
-    for (const status of ["under_review", "approved", "planning", "confirmed"]) {
+    for (const status of ["approved", "planning", "confirmed", "postponed"]) {
       expect(checkVenueBookingRequest({ ...base, eventStatus: status }).ok).toBe(true);
+    }
+  });
+
+  it("SPM-54-TC10: a request that has not been approved yet is refused", () => {
+    for (const status of ["submitted", "under_review"]) {
+      expect(checkVenueBookingRequest({ ...base, eventStatus: status })).toEqual({
+        ok: false,
+        error: "A venue can be requested once this request has been approved.",
+      });
     }
   });
 

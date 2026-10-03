@@ -108,7 +108,9 @@ model Venue {
 
   layouts        VenueLayout[]
   facilities     VenueFacility[]
-  bookings       VenueBooking[]
+  bookings       VenueBooking[]        @relation("BookingVenue")
+  /// Rejected requests where Venue Staff suggested this room instead (SPM-43).
+  suggestedIn    VenueBooking[]        @relation("BookingSuggestedVenue")
   unavailability VenueUnavailability[]
   /// Equipment kept at this venue (Equipment.locationVenueId).
   equipmentHere  Equipment[]           @relation("EquipmentLocation")
@@ -385,6 +387,14 @@ model VenueBooking {
   /// Required when rejecting — enforced in route code.
   decisionReason   String?   @map("decision_reason")
 
+  /// Review Venue Booking Request (SPM-43 AC6; discussion board #45, #110):
+  /// when rejecting, Venue Staff may suggest another room and/or describe an
+  /// alternative arrangement. A suggestion only — nothing is booked or
+  /// changed; the Coordinator reads it and submits a new request. Both NULL
+  /// on a pending or approved booking, and on a rejection without one.
+  suggestedVenueId     String? @map("suggested_venue_id")
+  suggestedAlternative String? @map("suggested_alternative")
+
   /// Manage Venue Catalogue (discussion board #120, #122): set when a venue
   /// edit or retirement may have invalidated this booking. The booking itself
   /// is deliberately NOT changed — a room that no longer fits is a judgement
@@ -400,7 +410,8 @@ model VenueBooking {
 
   event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  venue     Venue         @relation(fields: [venueId], references: [id])
+  venue     Venue         @relation("BookingVenue", fields: [venueId], references: [id])
+  suggestedVenue Venue?   @relation("BookingSuggestedVenue", fields: [suggestedVenueId], references: [id], onDelete: SetNull)
   requester User          @relation("BookingRequester", fields: [requestedBy], references: [id])
   decider   User?         @relation("BookingDecider", fields: [decidedBy], references: [id])
 

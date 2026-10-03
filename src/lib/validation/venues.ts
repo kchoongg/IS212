@@ -140,3 +140,18 @@ export const createVenueBookingSchema = z.object({
   requirementsNote: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
 });
 export type CreateVenueBookingInput = z.infer<typeof createVenueBookingSchema>;
+
+// ADDED (SPM-43): PATCH /api/venue-bookings/[id]. A blank `reason` is allowed
+// through on purpose - checkBookingDecision() (src/lib/venueBookingReview.ts)
+// refuses it with the message the screen shows. The suggestion (AC6) exists
+// only on a rejection: approving with amended details is not allowed (#110).
+export const decideVenueBookingSchema = z.discriminatedUnion("decision", [
+  z.object({ decision: z.literal("approve") }).strict(),
+  z.object({
+    decision: z.literal("reject"),
+    reason: z.string().max(2000),
+    suggestedVenueId: z.preprocess(blankToUndefined, z.string().uuid().optional()),
+    suggestedAlternative: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+  }),
+]);
+export type DecideVenueBookingInput = z.infer<typeof decideVenueBookingSchema>;

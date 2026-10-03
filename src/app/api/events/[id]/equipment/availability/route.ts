@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { canCheckEquipmentAvailability, canViewEvent } from "@/lib/permissions";
+import { canCheckEquipmentAvailability, canViewEvent, techSupportSeesEquipment } from "@/lib/permissions";
 import { loadEventAvailability } from "@/lib/equipmentAvailabilityService";
 import { parseEventReference } from "@/lib/format";
 
@@ -29,6 +29,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   }
   if (!canCheckEquipmentAvailability(actor)) {
     return forbidden("Only Technical Support Staff can check equipment availability");
+  }
+  // Not before the Coordinator has started planning, and not once the event
+  // is over or called off - the same 404 as an event they cannot see.
+  if (!techSupportSeesEquipment(event.status)) {
+    return hidden();
   }
 
   const availability = await loadEventAvailability(event.id);

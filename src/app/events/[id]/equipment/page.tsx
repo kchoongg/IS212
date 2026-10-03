@@ -18,11 +18,12 @@ import {
   StatusBadge,
   Tabs,
 } from "@/components/ui";
+import { BEGIN_PLANNING_NOTICE, BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
-import { isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { EventGlance } from "../EventGlance";
 
 // S-16. "As an Event Coordinator, I want to record the equipment required for
@@ -73,6 +74,8 @@ interface EquipmentRequestRow {
   quantityReserved: number | null;
   technicalRequirements: string | null;
   status: string;
+  /// SPM-50: Technical Support's notes on this line - read-only here.
+  staffNotes: string | null;
   equipment: { id: string; name: string; category: string | null };
   session: EventSessionInfo | null;
 }
@@ -132,6 +135,20 @@ export default function EventEquipmentPage() {
   const [newRow, setNewRow] = useState<NewRow>(EMPTY_NEW_ROW);
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  /// SPM-54: set once an add, a save or a removal on this visit has moved the
+  /// event from Approved to Planning, so the coordinator is told.
+  const [planningStarted, setPlanningStarted] = useState(false);
+  /// The add or save waiting on the "Begin planning?" question, if any.
+  const [pendingPlanning, setPendingPlanning] = useState<
+    { kind: "add" } | { kind: "save"; row: EquipmentRequestRow } | null
+  >(null);
+
+  /// The server says when a write began planning; reflect it without a reload.
+  function notePlanningStarted(body: { planningStarted?: boolean }) {
+    if (!body.planningStarted) return;
+    setPlanningStarted(true);
+    setEvent((current) => (current ? { ...current, status: "planning" } : current));
+  }
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -200,7 +217,13 @@ export default function EventEquipmentPage() {
   // server-side (canViewEquipmentRequests) — a role check is enough here.
   const canView = user && ["organiser", "coordinator", "tech_support"].includes(user.role);
   const locked = event ? isTerminalEventStatus(event.status) : false;
-  const canEdit = isCoordinator && !locked && !notPermitted;
+  // SPM-54: recording equipment waits for approval - the first requirement
+  // recorded for an Approved event is what begins planning.
+  const awaitingApproval = event ? isBeforeApproval(event.status) : false;
+  const canEdit = isCoordinator && !locked && !awaitingApproval && !notPermitted;
+  // The next add, save or removal would move the event to Planning, so the
+  // coordinator is asked first (canEdit already means "the assigned one").
+  const willBeginPlanning = canEdit && event?.status === "approved";
 
   const equipmentOptions = useMemo(() => {
     // Scoped to the session currently chosen in "Add equipment" - uniqueness
@@ -248,11 +271,15 @@ export default function EventEquipmentPage() {
     });
   }
 
-  async function saveRow(row: EquipmentRequestRow) {
+  async function saveRow(row: EquipmentRequestRow, confirmed = false) {
     const draft = draftFor(row);
     const quantity = Number(draft.quantityRequested);
     if (!draft.quantityRequested || !Number.isInteger(quantity) || quantity < 1) {
       setRowError((current) => ({ ...current, [row.id]: "Enter a whole number, at least 1." }));
+      return;
+    }
+    if (willBeginPlanning && !confirmed) {
+      setPendingPlanning({ kind: "save", row });
       return;
     }
 
@@ -271,6 +298,7 @@ export default function EventEquipmentPage() {
         return;
       }
       setRequests((current) => current?.map((r) => (r.id === row.id ? body : r)) ?? current);
+      notePlanningStarted(body);
       setDrafts((current) => {
         const next = { ...current };
         delete next[row.id];
@@ -287,12 +315,13 @@ export default function EventEquipmentPage() {
     setRemovingId(id);
     try {
       const res = await authedFetch(`/api/events/${eventId}/equipment/${id}`, { method: "DELETE" });
-      if (!res.ok && res.status !== 204) {
-        const body = await res.json();
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
         setLoadError(body.error ?? "Could not remove this row.");
         return;
       }
       setRequests((current) => current?.filter((r) => r.id !== id) ?? current);
+      notePlanningStarted(body);
     } catch {
       setLoadError("Could not reach the server.");
     } finally {
@@ -301,7 +330,7 @@ export default function EventEquipmentPage() {
     }
   }
 
-  async function addRow() {
+  async function addRow(confirmed = false) {
     setAddError(null);
     const quantity = Number(newRow.quantityRequested);
     if (!newRow.equipmentId) {
@@ -310,6 +339,10 @@ export default function EventEquipmentPage() {
     }
     if (!newRow.quantityRequested || !Number.isInteger(quantity) || quantity < 1) {
       setAddError("Enter a whole number, at least 1.");
+      return;
+    }
+    if (willBeginPlanning && !confirmed) {
+      setPendingPlanning({ kind: "add" });
       return;
     }
 
@@ -330,6 +363,7 @@ export default function EventEquipmentPage() {
         return;
       }
       setRequests((current) => [...(current ?? []), body]);
+      notePlanningStarted(body);
       setNewRow(EMPTY_NEW_ROW);
     } catch {
       setAddError("Could not reach the server.");
@@ -398,6 +432,19 @@ export default function EventEquipmentPage() {
             </Alert>
           )}
 
+          {planningStarted && (
+            <Alert variant="success" title="Planning has started">
+              This event has moved from Approved to Planning now that its equipment requirements
+              are being worked on.
+            </Alert>
+          )}
+
+          {isCoordinator && awaitingApproval && !notPermitted && (
+            <Alert variant="info">
+              Equipment can be recorded once this request has been approved.
+            </Alert>
+          )}
+
           {notPermitted ? (
             <Alert variant="info">{notPermitted}</Alert>
           ) : (
@@ -454,6 +501,15 @@ export default function EventEquipmentPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* SPM-50 AC5: Technical Support's update shows on the
+                            event it belongs to - read-only for everyone here;
+                            it is written on the Equipment request page. */}
+                        {row.staffNotes && (
+                          <p className="mt-2 text-sm text-ink-2">
+                            <span className="font-medium text-ink">Technical Support notes:</span> {row.staffNotes}
+                          </p>
+                        )}
 
                         {rowError[row.id] && (
                           <Alert variant="error" className="mt-3">
@@ -643,7 +699,25 @@ export default function EventEquipmentPage() {
         onCancel={() => setConfirmRemoveId(null)}
       >
         Technical Support will no longer see this item requested for this event.
+        {/* SPM-54: one dialog, not two - this removal would begin planning. */}
+        {willBeginPlanning && (
+          <p className="mt-2">
+            This is the first venue or equipment action for this event, so it will also move from
+            Approved to Planning. {BEGIN_PLANNING_NOTICE}
+          </p>
+        )}
       </ConfirmDialog>
+
+      <BeginPlanningDialog
+        open={pendingPlanning !== null}
+        onConfirm={() => {
+          const pending = pendingPlanning;
+          setPendingPlanning(null);
+          if (pending?.kind === "add") void addRow(true);
+          if (pending?.kind === "save") void saveRow(pending.row, true);
+        }}
+        onCancel={() => setPendingPlanning(null)}
+      />
     </div>
   );
 }

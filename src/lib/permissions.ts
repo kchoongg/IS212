@@ -21,6 +21,7 @@
 
 import type { Role } from "./roles";
 import { isRole } from "./roles";
+import { canTransition } from "./statuses";
 
 /// Every distinct thing a user can try to do. Keep the `domain:verb` shape -
 /// it groups the matrix by the domain that owns the route (DOCUMENTATION.md
@@ -248,9 +249,22 @@ export function canManageEquipmentRequests(actor: Actor, event: EventAccessField
 /// requires that (you cannot manage what you cannot see) — not a second,
 /// independent viewing right.
 export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
-  if (actor.role === "tech_support") return true;
+  if (actor.role === "tech_support") return techSupportSeesEquipment(event.status);
   if (actor.role === "organiser") return ownsEvent(actor, event);
   return canManageEquipmentRequests(actor, event);
+}
+
+/// Event statuses in which Technical Support sees an event's equipment at all.
+/// The BPMN puts their lane after the Coordinator's "Record equipment request":
+/// "Check equipment availability" and "Reserve equipment" sit in Planning, and
+/// "Prepare equipment / on-site support" in Confirmed. Before Planning the
+/// equipment is still part of the organiser's request - the Coordinator has
+/// not acted on it yet (team decision, 3 Oct 2026, Kristen). Postponed,
+/// cancelled, rejected and completed events have nothing left to arrange.
+export const TECH_SUPPORT_EQUIPMENT_STATUSES: readonly string[] = ["planning", "confirmed"];
+
+export function techSupportSeesEquipment(eventStatus: string): boolean {
+  return TECH_SUPPORT_EQUIPMENT_STATUSES.includes(eventStatus);
 }
 
 /// SPM-48: "As Technical Support Staff, I want to check whether sufficient
@@ -270,6 +284,14 @@ export function canCheckEquipmentAvailability(actor: Actor): boolean {
 /// action), kept as its own function because reserving is a distinct action
 /// from viewing, not just a stricter view.
 export function canReserveEquipment(actor: Actor): boolean {
+  return can(actor.role, "equipment_request:review");
+}
+
+/// SPM-50: "As Technical Support Staff, I want to review and update equipment
+/// requests." Updating a line's fulfilment status and technical notes is the
+/// same `equipment_request:review` action as reserving - the other half of
+/// Technical Support's review of a request.
+export function canUpdateEquipmentFulfilment(actor: Actor): boolean {
   return can(actor.role, "equipment_request:review");
 }
 
@@ -360,18 +382,25 @@ export function canReviewEvent(actor: Actor, event: EventAccessFields): boolean 
 /// Venue Staff and Technical Support appear nowhere here on purpose: they
 /// decide their own bookings and equipment requests, not the event's status.
 ///
-/// This says WHO may set a status, not which from->to moves are legal - the
-/// lifecycle graph belongs to Event Status Management, a separate story.
+/// SPM-27 AC4, "the Event Organiser cannot manually change the event status":
+/// the organiser only submits their own request. Postponing is the
+/// coordinator's, like cancelling - an organiser asks through a change
+/// request. Nothing moves an event back to draft. Decisions 2026-10-01.
+/// Withdrawing is the assigned coordinator's too: the organiser asks outside
+/// the system and the coordinator records it (customer clarification #103).
+///
+/// This says WHO may set a status, not which from->to moves are legal - that
+/// is canTransition() in statuses.ts.
 export const STATUS_TRANSITION_ROLES: Record<string, readonly Role[]> = {
-  draft: ["organiser"],
   submitted: ["organiser"],
+  withdrawn: ["coordinator"],
   under_review: ["ops_manager", "coordinator"],
   approved: ["coordinator"],
   rejected: ["coordinator"],
   planning: ["coordinator"],
   confirmed: ["coordinator"],
   completed: ["coordinator"],
-  postponed: ["coordinator", "organiser"],
+  postponed: ["coordinator"],
   cancelled: ["coordinator"],
 };
 
@@ -391,6 +420,28 @@ export function canSetEventStatus(
   if (actor.role === "coordinator") return isAssignedCoordinator(actor, event);
   // ops_manager is the internal admin role: no per-event relationship.
   return true;
+}
+
+/// SPM-27: does the event page offer this user "Record withdrawal"? The same
+/// two checks the PATCH route makes, so the button never offers a refusal.
+export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolean {
+  return canSetEventStatus(actor, event, "withdrawn") && canTransition(event.status, "withdrawn");
+}
+
+// ---------------------------------------------------------------------------
+// BEGIN PLANNING (SPM-54)
+// ---------------------------------------------------------------------------
+
+/// "An event can only move to Planning from an Approved status" (SPM-54 AC2).
+/// The status route holds a move to Planning to this, the same way it holds
+/// approve and reject to REVIEWABLE_STATUSES: without it the assigned
+/// coordinator could pull a Confirmed event back to Planning.
+export const PLANNING_FROM_STATUSES: readonly string[] = ["approved"];
+
+/// May this user begin planning this event right now? Only the coordinator
+/// assigned to it, and only while it is Approved.
+export function canBeginPlanning(actor: Actor, event: EventAccessFields): boolean {
+  return PLANNING_FROM_STATUSES.includes(event.status) && canSetEventStatus(actor, event, "planning");
 }
 
 // ---------------------------------------------------------------------------
