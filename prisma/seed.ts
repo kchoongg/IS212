@@ -517,6 +517,8 @@ async function main() {
     attendance?: number; layout?: string; regEnabled?: boolean; regCapacity?: number;
     accessibilityNotes?: string; rejectionReason?: string; cancellationReason?: string;
     specialRequirements?: string;
+    /// Overrides CHAIN[status] - SPM-27's events carry their own history.
+    chain?: string[];
   };
 
   const eventData: EventSeed[] = [
@@ -1066,6 +1068,40 @@ async function main() {
       purpose: "Briefing for teachers on the 2028 curriculum",
       category: "seminar", organiser: "Grace Abdullah", coordinator: "daniel.tan@connectsphere.com",
       days: daysUntil("2027-08-31"), startHour: 9, durationHours: 3, attendance: 35, layout: "classroom" },
+  // SPM-27 QA fixtures (View Event Status) - one event per status for one
+  // organiser. The SAME events as scripts/seed-spm27.ts
+  // (`npm run fixtures:spm27`) - keep the two in step.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm27Review = ["submitted", "under_review"];
+  const spm27Planning = [...spm27Review, "approved", "planning"];
+  const spm27 = (
+    key: string, title: string, status: string, chain: string[], days: number, startHour: number,
+    durationHours: number, category: string, attendance: number, layout: string,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, chain, days, startHour, durationHours, category, attendance, layout,
+    organiser: "Hakim Zulkifli", purpose: "SPM-27 event status test event",
+    coordinator: chain.includes("under_review") ? "huishan.neo@connectsphere.com" : undefined,
+    ...options,
+  });
+  eventData.push(
+    spm27("spm27_safety_briefing", "SPM27 Bayu Safety Briefing", "submitted", ["submitted"], 70, 9, 3, "training", 40, "classroom"),
+    spm27("spm27_grid_workshop", "SPM27 Bayu Grid Workshop", "under_review", spm27Review, 72, 9, 6, "workshop", 30, "u_shape"),
+    spm27("spm27_investor_day", "SPM27 Bayu Investor Day", "submitted", ["submitted"], 74, 10, 5, "conference", 120, "theatre"),
+    spm27("spm27_town_hall", "SPM27 Bayu Town Hall", "submitted", ["submitted"], 76, 15, 2, "meeting", 150, "theatre"),
+    spm27("spm27_contractor_briefing", "SPM27 Bayu Contractor Briefing", "under_review", spm27Review, 78, 9, 3, "seminar", 50, "theatre"),
+    spm27("spm27_supplier_day", "SPM27 Bayu Supplier Day", "approved", [...spm27Review, "approved"], 80, 9, 7, "exhibition", 90, "exhibition"),
+    spm27("spm27_leadership_retreat", "SPM27 Bayu Leadership Retreat", "planning", spm27Planning, 82, 9, 8, "meeting", 25, "boardroom"),
+    spm27("spm27_annual_conference", "SPM27 Bayu Annual Conference", "confirmed", [...spm27Planning, "confirmed"], 84, 9, 9, "conference", 200, "theatre"),
+    spm27("spm27_graduate_induction", "SPM27 Bayu Graduate Induction", "completed", [...spm27Planning, "confirmed", "completed"], -20, 9, 6, "training", 35, "classroom"),
+    spm27("spm27_overnight_site_visit", "SPM27 Bayu Overnight Site Visit", "rejected", [...spm27Review, "rejected"], 86, 20, 14, "workshop", 60, "exhibition",
+      { rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." }),
+    spm27("spm27_community_fair", "SPM27 Bayu Community Fair", "postponed", [...spm27Planning, "postponed"], 88, 10, 6, "exhibition", 300, "exhibition"),
+    spm27("spm27_partner_lunch", "SPM27 Bayu Partner Lunch", "withdrawn", [...spm27Review, "withdrawn"], 90, 12, 2, "networking", 40, "banquet"),
+    spm27("spm27_wind_farm_tour", "SPM27 Bayu Wind Farm Tour", "withdrawn", [...spm27Review, "withdrawn"], 92, 9, 4, "seminar", 30, "theatre"),
+    spm27("spm27_product_showcase", "SPM27 Bayu Product Showcase", "cancelled", [...spm27Planning, "cancelled"], 94, 14, 4, "exhibition", 150, "exhibition",
+      { cancellationReason: "Product launch moved to next financial year." }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -1183,9 +1219,10 @@ async function main() {
     rejected: "Overnight occupancy not licensed",
     cancelled: "Client withdrew the request",
     postponed: "Client requested a later date",
+    withdrawn: "Organiser asked to withdraw; coordinator recorded it",
   };
   for (const e of eventData) {
-    const chain = CHAIN[e.status];
+    const chain = e.chain ?? CHAIN[e.status];
     let prev = "draft";
     for (let i = 0; i < chain.length; i++) {
       const to = chain[i];

@@ -216,22 +216,21 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 
 | Target status | Roles | Briefing |
 | --- | --- | --- |
-| `draft` | Organiser (owner) | Step 1 |
 | `submitted` | Organiser (owner) | Step 2 |
+| `withdrawn` | Coordinator (assigned) | SPM-27; customer clarification #103 |
 | `under_review` | Ops Manager, Coordinator | Step 3 |
 | `approved` / `rejected` | Coordinator (assigned) | Step 5 |
 | `planning` | Coordinator (assigned), from `approved` only, by a first venue or equipment action | Step 6 |
 | `confirmed` | Coordinator (assigned) | Step 10 |
 | `completed` | Coordinator (assigned) | Step 14 |
-| `postponed` | Coordinator (assigned), Organiser (owner) | §4 Rescheduling |
+| `postponed` | Coordinator (assigned) | §4 Rescheduling; SPM-27 AC4 |
 | `cancelled` | Coordinator (assigned) only | §4 Cancellation, customer clarification #68 |
 
 Venue Staff and Technical Support appear nowhere: they decide their own bookings
 and equipment requests, not the event's status.
 
 **Cancellation is the Event Coordinator's alone** (customer clarification,
-2026-09-18). It is deliberately narrower than every other rule in this table,
-including postponement, which the owning Organiser may still do. Cancelling an
+2026-09-18). Cancelling an
 event releases its venue booking, frees its equipment reservations and drops the
 attendee list (briefing §4, "Cancellation Management"), so it is a ConnectSphere
 operational decision rather than a client-side one. An Organiser who wants their
@@ -257,11 +256,19 @@ equipment routes). `canManageEquipmentRequests()` and
 `canRequestVenueBooking()` still answer the relationship question only — the
 status is checked beside them, as it already was for closed events.
 
-Apart from approve/reject (from `under_review`, `REVIEWABLE_STATUSES`) and planning
-(from `approved`, above), this table says **who**, not **which from → to moves
-are legal**. The rest of the lifecycle graph (you cannot jump `approved` →
-`completed`) belongs to Event Status Management and is not implemented yet —
-see Open items.
+This table says **who**, not **which from → to moves are legal**. That is
+`canTransition()` in `src/lib/statuses.ts` (you cannot jump `draft` →
+`confirmed`), checked by the events `PATCH` route after this role check.
+
+**The Organiser only submits** (SPM-27 AC4, "the Event Organiser
+cannot manually change the event status"). Postponing is the coordinator's too;
+an Organiser who wants to postpone asks through an Event Change Request, as for
+cancelling. Nothing moves an event back to `draft` — a new event is created as
+one.
+
+**A withdrawal is recorded by the coordinator** (customer clarification #103).
+The Organiser asks the assigned coordinator outside the system, and the
+coordinator records it while the request is Under review.
 
 ---
 
@@ -347,8 +354,9 @@ allowed to see.
 - **`under_review` via the status PATCH.** `STATUS_TRANSITION_ROLES` still
   lets the Ops Manager set `under_review` directly, which would leave an event
   under review with no coordinator. The UI never does this (it assigns through
-  `PUT /api/events/[id]/coordinator`); removing it belongs with Lifecycle
-  validation above.
+  `PUT /api/events/[id]/coordinator`); `canTransition()` (SPM-27) allows
+  submitted → under_review, so only removing `ops_manager` from
+  `STATUS_TRANSITION_ROLES.under_review` would close it.
 - **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
   ready for whoever builds them.
 - **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)
