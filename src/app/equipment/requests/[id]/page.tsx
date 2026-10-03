@@ -23,7 +23,6 @@ import {
   checkFulfilmentUpdate,
   eventAllowsFulfilmentUpdate,
   fulfilmentOptionsFor,
-  fulfilmentUpdateClosedMessage,
 } from "@/lib/equipmentFulfilment";
 import { availabilityStatusKey, statusLabel } from "@/lib/statuses";
 
@@ -145,7 +144,9 @@ export default function EquipmentRequestDetailPage() {
         return;
       }
       if (eventRes.status === 404 || availabilityRes.status === 404) {
-        setError("This event was not found.");
+        // Also what Technical Support gets for an event the Coordinator has
+        // not started planning yet (TECH_SUPPORT_EQUIPMENT_STATUSES).
+        setError("This event was not found, or its equipment is not ready for Technical Support yet.");
         return;
       }
       if (!eventRes.ok || !availabilityRes.ok) throw new Error("Could not load this equipment request.");
@@ -269,7 +270,7 @@ export default function EquipmentRequestDetailPage() {
   // says why rather than letting a click fail.
   const reservingOpen = event ? eventAllowsReserving(event.status) : false;
   const isTechSupport = user?.role === "tech_support";
-  // SPM-50: Technical Support's work starts once the event is approved.
+  // SPM-50: the same rule as reserving - Planning only (BPMN).
   const updatingOpen = event ? eventAllowsFulfilmentUpdate(event.status) : false;
 
   return (
@@ -296,12 +297,6 @@ export default function EquipmentRequestDetailPage() {
       {isTechSupport && event && !reservingOpen && (
         <Alert variant="info" className="mb-5">
           {reservingClosedMessage(event.status)}
-        </Alert>
-      )}
-
-      {isTechSupport && event && reservingOpen && !updatingOpen && (
-        <Alert variant="info" className="mb-5">
-          {fulfilmentUpdateClosedMessage(event.status)}
         </Alert>
       )}
 

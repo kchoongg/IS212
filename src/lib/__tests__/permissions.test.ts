@@ -19,6 +19,8 @@ import {
   canManageEquipmentRequests,
   canSetEventStatus,
   canViewEquipmentRequests,
+  techSupportSeesEquipment,
+  TECH_SUPPORT_EQUIPMENT_STATUSES,
   canWithdrawEvent,
   canViewEvent,
   eventListWhere,
@@ -413,10 +415,16 @@ describe("canRequestVenueBooking (SPM-42)", () => {
 });
 
 describe("canViewEquipmentRequests", () => {
-  it("lets Technical Support view any event's equipment, assigned or not", () => {
-    expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1" }))).toBe(
-      true
-    );
+  it("lets Technical Support view the equipment of any event in planning or confirmed, assigned or not", () => {
+    for (const status of ["planning", "confirmed"]) {
+      expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1", status }))).toBe(true);
+    }
+  });
+
+  it("hides an event's equipment from Technical Support before planning and after it ends (BPMN)", () => {
+    for (const status of ["submitted", "under_review", "approved", "postponed", "cancelled", "rejected", "completed", "withdrawn"]) {
+      expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1", status }))).toBe(false);
+    }
   });
 
   it("lets the assigned coordinator view it — because managing it requires seeing it", () => {
@@ -678,5 +686,13 @@ describe("canBeginPlanning (SPM-54)", () => {
     for (const other of [otherCoordinator, opsManager, organiserA, attendee]) {
       expect(canBeginPlanning(other, approved)).toBe(false);
     }
+  });
+});
+
+describe("techSupportSeesEquipment (BPMN: Technical Support's lane is Planning and Confirmed)", () => {
+  it("is Planning and Confirmed only", () => {
+    expect(TECH_SUPPORT_EQUIPMENT_STATUSES).toEqual(["planning", "confirmed"]);
+    expect(techSupportSeesEquipment("planning")).toBe(true);
+    expect(techSupportSeesEquipment("approved")).toBe(false);
   });
 });

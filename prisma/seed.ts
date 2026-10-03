@@ -816,43 +816,44 @@ async function main() {
     fixture("fx_grad2", "Graduation Ceremony 2", "2026-10-30", 10, 4, "Grace Abdullah"),
 
     // SPM-49 test-case events (docs/test-cases/SPM-49_Test_Cases.xlsx): Reserve
-    // Equipment. Several of these are reserved by an actual call to
+    // Equipment. In Planning - Technical Support only sees and reserves an
+    // event's equipment once the Coordinator has started planning (BPMN). Several of these are reserved by an actual call to
     // POST .../reserve while running the cases, not seeded already-reserved -
     // only the events that need to already HOLD stock before the case starts
     // (Fashion Show, Gala Night, Trade Mixer, Summit Lunch, Reserved Showcase)
     // are seeded with a reservation below.
-    fixture("fx49_spring_fair", "Spring Fair", "2027-02-02", 9, 6, "Rachel Ng", { status: "under_review" }),
-    fixture("fx49_founders_day", "Founders Day", "2027-02-04", 9, 6, "James Koh", { status: "under_review" }),
-    fixture("fx49_autumn_fair", "Autumn Fair", "2027-02-09", 9, 6, "Melissa Yap", { status: "under_review" }),
-    fixture("fx49_winter_fair", "Winter Fair", "2027-02-16", 9, 6, "Kelvin Loh", { status: "under_review" }),
-    fixture("fx49_harvest_fair", "Harvest Fair", "2027-03-02", 9, 6, "Samuel Ong", { status: "under_review" }),
-    fixture("fx49_summer_fair", "Summer Fair", "2027-03-09", 9, 6, "Faridah Aziz", { status: "under_review" }),
-    fixture("fx49_craft_market", "Craft Market", "2027-03-16", 9, 6, "Grace Abdullah", { status: "under_review" }),
-    fixture("fx49_fashion_show", "Fashion Show", "2027-03-23", 14, 6, "Evelyn Chen", { status: "under_review" }),
-    fixture("fx49_after_party", "After Party", "2027-03-23", 20, 3, "Hakim Zulkifli", { status: "under_review" }),
-    fixture("fx49_product_demo_day", "Product Demo Day", "2027-03-15", 10, 4, "Budi Santoso", { status: "under_review" }),
-    fixture("fx49_partner_lunch", "Partner Lunch", "2027-03-15", 11, 2, "Rachel Ng", { status: "under_review" }),
-    fixture("fx49_sales_kickoff", "Sales Kickoff", "2027-04-05", 9, 6, "James Koh", { status: "under_review" }),
-    fixture("fx49_board_retreat", "Board Retreat", "2027-04-26", 9, 6, "Melissa Yap", { status: "under_review" }),
-    fixture("fx49_trade_show", "Trade Show", "2027-04-12", 9, 6, "Kelvin Loh", { status: "under_review" }),
-    fixture("fx49_media_briefing", "Media Briefing", "2027-04-13", 9, 6, "Samuel Ong", { status: "under_review" }),
-    fixture("fx49_careers_day", "Careers Day", "2027-04-19", 9, 6, "Faridah Aziz", { status: "under_review" }),
-    fixture("fx49_wrap_party", "Wrap Party", "2027-04-21", 18, 3, "Grace Abdullah", { status: "under_review" }),
-    fixture("fx49_innovation_day", "Innovation Day", "2027-05-03", 9, 6, "Evelyn Chen", { status: "under_review" }),
-    fixture("fx49_gala_night", "Gala Night", "2027-05-10", 18, 4, "Hakim Zulkifli", { status: "under_review" }),
-    fixture("fx49_awards_dinner", "Awards Dinner", "2027-05-10", 19, 4, "Budi Santoso", { status: "under_review" }),
-    fixture("fx49_popup_store", "Pop-up Store", "2027-05-17", 9, 6, "Rachel Ng", { status: "under_review" }),
-    fixture("fx49_flash_sale", "Flash Sale", "2027-05-17", 9, 6, "James Koh", { status: "under_review" }),
-    fixture("fx49_it_bootcamp", "IT Bootcamp", "2027-05-24", 9, 6, "Melissa Yap", { status: "under_review" }),
+    fixture("fx49_spring_fair", "Spring Fair", "2027-02-02", 9, 6, "Rachel Ng"),
+    fixture("fx49_founders_day", "Founders Day", "2027-02-04", 9, 6, "James Koh"),
+    fixture("fx49_autumn_fair", "Autumn Fair", "2027-02-09", 9, 6, "Melissa Yap"),
+    fixture("fx49_winter_fair", "Winter Fair", "2027-02-16", 9, 6, "Kelvin Loh"),
+    fixture("fx49_harvest_fair", "Harvest Fair", "2027-03-02", 9, 6, "Samuel Ong"),
+    fixture("fx49_summer_fair", "Summer Fair", "2027-03-09", 9, 6, "Faridah Aziz"),
+    fixture("fx49_craft_market", "Craft Market", "2027-03-16", 9, 6, "Grace Abdullah"),
+    fixture("fx49_fashion_show", "Fashion Show", "2027-03-23", 14, 6, "Evelyn Chen"),
+    fixture("fx49_after_party", "After Party", "2027-03-23", 20, 3, "Hakim Zulkifli"),
+    fixture("fx49_product_demo_day", "Product Demo Day", "2027-03-15", 10, 4, "Budi Santoso"),
+    fixture("fx49_partner_lunch", "Partner Lunch", "2027-03-15", 11, 2, "Rachel Ng"),
+    fixture("fx49_sales_kickoff", "Sales Kickoff", "2027-04-05", 9, 6, "James Koh"),
+    fixture("fx49_board_retreat", "Board Retreat", "2027-04-26", 9, 6, "Melissa Yap"),
+    fixture("fx49_trade_show", "Trade Show", "2027-04-12", 9, 6, "Kelvin Loh"),
+    fixture("fx49_media_briefing", "Media Briefing", "2027-04-13", 9, 6, "Samuel Ong"),
+    fixture("fx49_careers_day", "Careers Day", "2027-04-19", 9, 6, "Faridah Aziz"),
+    fixture("fx49_wrap_party", "Wrap Party", "2027-04-21", 18, 3, "Grace Abdullah"),
+    fixture("fx49_innovation_day", "Innovation Day", "2027-05-03", 9, 6, "Evelyn Chen"),
+    fixture("fx49_gala_night", "Gala Night", "2027-05-10", 18, 4, "Hakim Zulkifli"),
+    fixture("fx49_awards_dinner", "Awards Dinner", "2027-05-10", 19, 4, "Budi Santoso"),
+    fixture("fx49_popup_store", "Pop-up Store", "2027-05-17", 9, 6, "Rachel Ng"),
+    fixture("fx49_flash_sale", "Flash Sale", "2027-05-17", 9, 6, "James Koh"),
+    fixture("fx49_it_bootcamp", "IT Bootcamp", "2027-05-24", 9, 6, "Melissa Yap"),
     fixture("fx49_cancelled_roadshow", "Cancelled Roadshow", "2027-06-01", 9, 6, "Kelvin Loh",
       { status: "cancelled", cancellationReason: "Client withdrew the request." }),
-    fixture("fx49_trade_mixer", "Trade Mixer", "2027-06-07", 18, 3, "Samuel Ong", { status: "under_review" }),
+    fixture("fx49_trade_mixer", "Trade Mixer", "2027-06-07", 18, 3, "Samuel Ong"),
     // Runs its Day 1 session on the same date Trade Mixer holds all the stock,
     // and Day 2 three weeks later - sessions created further down.
-    fixture("fx49_two_day_forum", "Two-Day Forum", "2027-06-07", 9, 368, "Faridah Aziz", { status: "under_review" }),
-    fixture("fx49_summit_lunch", "Summit Lunch", "2027-06-14", 12, 2, "Grace Abdullah", { status: "under_review" }),
-    fixture("fx49_product_expo", "Product Expo", "2027-06-14", 9, 6, "Evelyn Chen", { status: "under_review" }),
-    fixture("fx49_reserved_showcase", "Reserved Showcase", "2027-07-05", 9, 6, "Rachel Ng", { status: "under_review" }),
+    fixture("fx49_two_day_forum", "Two-Day Forum", "2027-06-07", 9, 368, "Faridah Aziz"),
+    fixture("fx49_summit_lunch", "Summit Lunch", "2027-06-14", 12, 2, "Grace Abdullah"),
+    fixture("fx49_product_expo", "Product Expo", "2027-06-14", 9, 6, "Evelyn Chen"),
+    fixture("fx49_reserved_showcase", "Reserved Showcase", "2027-07-05", 9, 6, "Rachel Ng"),
   );
 
   // -----------------------------------------------------------------
@@ -1122,10 +1123,12 @@ async function main() {
     fixture("spm50_design_week", "Design Week", "2027-08-16", 9, 6, "Melissa Yap"),
     fixture("spm50_charity_briefing", "Charity Briefing", "2027-08-23", 9, 3, "Evelyn Chen"),
     fixture("spm50_charity_gala", "Charity Gala", "2027-08-23", 10, 4, "Hakim Zulkifli"),
-    fixture("spm50_cancelled_hackathon", "Cancelled Hackathon", "2027-08-30", 9, 6, "Budi Santoso",
-      { status: "cancelled", cancellationReason: "Client withdrew the request." }),
-    // Not approved yet, so Technical Support cannot update its equipment.
+    // Confirmed: Technical Support still sees its equipment (to prepare it) but
+    // cannot change it.
+    fixture("spm50_confirmed_launch", "Confirmed Launch", "2027-08-30", 9, 6, "Budi Santoso", { status: "confirmed" }),
+    // Not in Planning yet, so Technical Support does not see their equipment.
     fixture("spm50_pending_showcase", "Pending Showcase", "2027-09-06", 9, 6, "Samuel Ong", { status: "under_review" }),
+    fixture("spm50_approved_briefing", "Approved Briefing", "2027-09-13", 9, 3, "Kelvin Loh", { status: "approved" }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -1607,8 +1610,9 @@ async function main() {
     ["spm50_design_week", "Confidence Monitor", 1, null, "requested", null, null, null],
     ["spm50_charity_briefing", "Mobile Charging Cart", 1, 1, "reserved", null, null, "kenji.sato@connectsphere.com"],
     ["spm50_charity_gala", "Mobile Charging Cart", 1, null, "requested", null, null, null],
-    ["spm50_cancelled_hackathon", "Wireless Presenter", 2, null, "requested", null, null, null],
+    ["spm50_confirmed_launch", "Wireless Presenter", 2, 2, "reserved", null, null, "kenji.sato@connectsphere.com"],
     ["spm50_pending_showcase", "Wireless Presenter", 1, null, "requested", null, null, null],
+    ["spm50_approved_briefing", "Wireless Presenter", 1, null, "requested", null, null, null],
   ];
   for (const [eventKey, eqName, requested, reserved, status, requirements, staffNotes, reviewer] of spm50Requests) {
     const ev = events[eventKey];

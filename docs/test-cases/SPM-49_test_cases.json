@@ -357,20 +357,20 @@
     },
     {
       "id": "SPM-49-TC18",
-      "title": "Equipment cannot be reserved for a cancelled event",
+      "title": "Technical Support cannot see or reserve equipment for a cancelled event",
       "linked_ac": [
         "AC5"
       ],
       "type": "Negative",
       "source": "Code",
-      "preconditions": "Rule source: customer Q&A #68 and #69 and SPM-37 / SPM-38 (cancelling or postponing an event releases its arrangements).\nEvent 'Cancelled Roadshow' (2027-06-01) has status 'Cancelled' and still has a request for 2x Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "preconditions": "Rule source: customer Q&A #68 and #69 and SPM-37 / SPM-38 (cancelling or postponing an event releases its arrangements), and the BPMN (Technical Support works on equipment in Planning; team decision 3 Oct).\nEvent 'Cancelled Roadshow' (2027-06-01) has status 'Cancelled' and still has a request for 2x Portable Stage.\nData: seeded by `npx prisma db seed` (SPM-49 test fixtures). Every case that reserves changes the data, so reseed before running it again.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
       "steps": [
         "Click Equipment Requests in the side menu",
-        "Open the equipment request for the Cancelled Roadshow event",
-        "Look for a Reserve button on the Portable Stage line"
+        "Look for Cancelled Roadshow in the list",
+        "Type /equipment/requests/<Cancelled Roadshow's reference> into the address bar"
       ],
       "test_data": "Event: Cancelled Roadshow (Cancelled), Equipment: Portable Stage, Requested: 2",
-      "expected_result": "No Reserve button is offered on the Portable Stage line, and the page shows the message 'This event is cancelled — equipment can no longer be reserved.'\nNothing is reserved: the Reserved box stays empty."
+      "expected_result": "Step 2: Cancelled Roadshow is not listed.\nStep 3: The page shows 'This event was not found, or its equipment is not ready for Technical Support yet.' No Reserve button is offered and nothing is reserved."
     },
     {
       "id": "SPM-49-TC19",
@@ -435,7 +435,8 @@
     "PARTLY ANSWERED - notifying the Coordinator ('the coordinator is notified either way' in the mockup): the briefing lists 'requested equipment is confirmed or found to be unavailable' as a notification, and the Q&A says notifications are BATCHED with configurable frequency, in-app and email, configurable by type. So it is not an instant on-screen effect; it belongs to the notification story and no case is written.",
     "MOSTLY ANSWERED - reserving for a cancelled, postponed, rejected or draft event (TC17): Q&A #68 and #69 and SPM-37 / SPM-38 say cancelling or postponing releases the event's arrangements, so refusing is consistent (and a draft is invisible to Technical Support anyway). Still to confirm: rejected events, and the wording of the refusal message.",
     "ANSWERED in principle - two users reserving the last unit (TC15): Q&A #35 says the system should identify and block overlapping bookings and help prevent double-booking (a hard block, not a warning). The server must therefore check availability again at the moment of saving, not only when the page was opened.",
-    "Test data: these cases change the data they read (except TC03, TC22 and TC23). Reseed before running a case again. Their events and items are fixed (Feb to Jul 2027) and must be added to prisma/seed.ts together with these cases."
+    "Test data: these cases change the data they read (except TC03, TC22 and TC23). Reseed before running a case again. Their events and items are fixed (Feb to Jul 2027) and must be added to prisma/seed.ts together with these cases.",
+    "DECIDED (3 Oct, following the BPMN) - Technical Support sees and reserves equipment only once the event is in Planning (Confirmed: shown, read-only). The SPM-49 test events were moved from 'Under review' to 'Planning' in prisma/seed.ts to match; TC18 updated. Changed in the SPM-50 branch."
   ],
   "code_references": [
     "design/mockups/EquipmentRequests.dc.html",

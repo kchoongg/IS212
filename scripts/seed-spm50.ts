@@ -50,7 +50,7 @@ type Line = {
 type Fixture = {
   key: string;
   title: string;
-  status: "under_review" | "planning" | "cancelled";
+  status: "under_review" | "approved" | "planning" | "confirmed";
   organiser: string;
   date: string; // YYYY-MM-DD, Singapore
   startHour: number;
@@ -88,26 +88,31 @@ const FIXTURES: Fixture[] = [
     date: "2027-08-23", startHour: 10, durationHours: 4,
     lines: [{ equipment: "Mobile Charging Cart", requested: 1, status: "requested" }],
     testCases: "TC07" },
-  { key: "spm50_cancelled_hackathon", title: "Cancelled Hackathon", status: "cancelled", organiser: "Budi Santoso",
+  { key: "spm50_confirmed_launch", title: "Confirmed Launch", status: "confirmed", organiser: "Budi Santoso",
     date: "2027-08-30", startHour: 9, durationHours: 6,
-    lines: [{ equipment: "Wireless Presenter", requested: 2, status: "requested" }],
+    lines: [{ equipment: "Wireless Presenter", requested: 2, reserved: 2, status: "reserved", reviewer: KENJI }],
     testCases: "TC13" },
   { key: "spm50_pending_showcase", title: "Pending Showcase", status: "under_review", organiser: "Samuel Ong",
     date: "2027-09-06", startHour: 9, durationHours: 6,
+    lines: [{ equipment: "Wireless Presenter", requested: 1, status: "requested" }],
+    testCases: "TC14" },
+  { key: "spm50_approved_briefing", title: "Approved Briefing", status: "approved", organiser: "Kelvin Loh",
+    date: "2027-09-13", startHour: 9, durationHours: 3,
     lines: [{ equipment: "Wireless Presenter", requested: 1, status: "requested" }],
     testCases: "TC14" },
 ];
 
 const CHAIN: Record<Fixture["status"], string[]> = {
   under_review: ["submitted", "under_review"],
+  approved: ["submitted", "under_review", "approved"],
   planning: ["submitted", "under_review", "approved", "planning"],
-  cancelled: ["submitted", "under_review", "approved", "planning", "cancelled"],
+  confirmed: ["submitted", "under_review", "approved", "planning", "confirmed"],
 };
 const REASONS: Record<string, string> = {
   under_review: "Coordinator assigned",
   approved: "Requirements sufficiently clear",
   planning: "Equipment planning started",
-  cancelled: "Client withdrew the request.",
+  confirmed: "Essential arrangements complete",
 };
 
 async function main() {
@@ -169,7 +174,7 @@ async function main() {
         startsAt,
         endsAt,
         submittedAt: historyStart,
-        cancellationReason: f.status === "cancelled" ? REASONS.cancelled : undefined,
+        confirmedAt: f.status === "confirmed" ? addDays(historyStart, chain.length * 5) : undefined,
         statusHistory: {
           create: chain.map((to, i) => ({
             fromStatus: i === 0 ? "draft" : chain[i - 1],

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
-import { canCheckEquipmentAvailability, eventListWhere } from "@/lib/permissions";
+import { TECH_SUPPORT_EQUIPMENT_STATUSES, canCheckEquipmentAvailability, eventListWhere } from "@/lib/permissions";
 
 // SPM-48 / S-25 — the Equipment Requests queue: events that have equipment
 // requested, so Technical Support can open one and see whether it can be
@@ -19,7 +19,13 @@ export async function GET(req: NextRequest) {
 
   const events = await prisma.event.findMany({
     where: {
-      AND: [eventListWhere(actor), { equipmentRequests: { some: { status: { not: "cancelled" } } } }],
+      AND: [
+        eventListWhere(actor),
+        // Only once the Coordinator has started planning (BPMN) - see
+        // TECH_SUPPORT_EQUIPMENT_STATUSES.
+        { status: { in: [...TECH_SUPPORT_EQUIPMENT_STATUSES] } },
+        { equipmentRequests: { some: { status: { not: "cancelled" } } } },
+      ],
     },
     orderBy: [{ startsAt: "asc" }, { sequenceNumber: "asc" }],
     select: {

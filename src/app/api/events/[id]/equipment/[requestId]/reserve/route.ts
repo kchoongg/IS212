@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
-import { canReserveEquipment, canViewEvent } from "@/lib/permissions";
+import { canReserveEquipment, canViewEvent, techSupportSeesEquipment } from "@/lib/permissions";
 import { eventAllowsReserving, reserveQuantity, reservingClosedMessage } from "@/lib/equipmentAvailability";
 import { loadSingleLineAvailability } from "@/lib/equipmentAvailabilityService";
 import { reserveClearsStaffNotes } from "@/lib/equipmentFulfilment";
@@ -57,12 +57,13 @@ export async function POST(
   if (!canReserveEquipment(actor)) {
     return forbidden("Only Technical Support Staff can reserve equipment");
   }
+  if (!techSupportSeesEquipment(existing.event.status)) {
+    return hidden();
+  }
 
-  // ADDED: cancelling or postponing an event releases its arrangements
-  // (customer Q&A #68, #69; SPM-37/38, not yet built) - reserving into one is
-  // the same mistake in the other direction. A draft is invisible to
-  // Technical Support already (canViewEvent), so this mainly catches
-  // cancelled/postponed/rejected/completed.
+  // Reserving happens in Planning (BPMN). The only other status Technical
+  // Support can see is Confirmed, whose equipment is final - a change to it
+  // goes through a change request.
   if (!eventAllowsReserving(existing.event.status)) {
     return NextResponse.json(
       { error: reservingClosedMessage(existing.event.status) },

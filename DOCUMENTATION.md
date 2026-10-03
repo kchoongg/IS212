@@ -587,7 +587,7 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | A deactivated account cannot authenticate at all, and is refused at login rather than at the first API call | `api/auth/login`, `getActor()` | ✅ done |
 | A venue booking decision is Venue Staff's | venues domain | ⏳ action defined, route not built |
 | An equipment request decision is Technical Support's — reserving (SPM-49) and updating fulfilment status / technical notes (SPM-50) | `canReserveEquipment()`, `canUpdateEquipmentFulfilment()` | ✅ done |
-| **Technical Support works on an event's equipment only once it is Approved** (through Planning and Confirmed) — before that only the Organiser and Coordinator work on it (team decision, 2 Oct, matches the BPMN). Enforced for updates (SPM-50); Reserve still allows Submitted / Under review — see Known Gaps | `eventAllowsFulfilmentUpdate()` | ⏳ updates done, Reserve to follow |
+| **Technical Support sees an event's equipment only in Planning and Confirmed, and works on it in Planning** — the BPMN's Technical Support lane starts after the Coordinator's "Record equipment request" ("Check equipment availability" / "Reserve equipment" in Planning, "Prepare equipment" in Confirmed). Before Planning (including Approved) and after it ends, the event is not in Equipment Requests and a direct link is 404. Confirmed is read-only (team decision, 3 Oct) | `TECH_SUPPORT_EQUIPMENT_STATUSES` / `techSupportSeesEquipment()`, `eventAllowsReserving()` (Planning only); queue, availability, reserve and fulfilment routes; `canViewEquipmentRequests()` | ✅ done |
 
 **Wrap check-and-write in a transaction**, or two people clicking at the same
 moment both pass the check:
@@ -789,7 +789,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 | **No equipment catalogue screen** | The sidebar's "Equipment" link (Coordinator + Technical Support) points at `/equipment`, which doesn't exist — no story in the backlog builds it, so it 404s. The catalogue exists as data (`prisma/seed.ts`) and is read by every equipment picker; only *editing* it (or an item's location/status) has no screen. Candidate owner is SPM-55 (Record Equipment Unavailability), whose ACs need a status screen anyway. Flagged 2026-09-27. | unclaimed |
-| **Reserve still works before an event is approved** | SPM-50's Update is refused until the event is Approved (team decision, 2 Oct), but SPM-49's `eventAllowsReserving()` still allows Submitted and Under review, so on such an event Reserve shows and Update doesn't. Kristen is changing it in her status story; SPM-49's seeded events (`fx49_*`, all Under review) must move to Planning at the same time or Reserve disappears on them. | events / equipment |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Customer Q&A #114 says affected arrangements should be reviewed again; whether that belongs to SPM-34 or the change-request flow is still to be decided. | equipment / events |
 | **Equipment availability's cancelled/postponed filter is temporary** | Only `EquipmentRequest.status IN (reserved, partially_fulfilled)` counts against stock, and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). This is standing in for SPM-37 (Cancel Event) and SPM-38 (Postpone Event) actually releasing the reservation when built — remove the filter once they do, and check nothing still relies on it. | equipment |
 | **Equipment transfer/prep time is a flat 2h with no location UI** | `Equipment.locationVenueId` (SPM-48) lets an item be pinned to a venue — no transfer time is added for an event there — but nothing in the app sets it; only `prisma/seed.ts`'s fixtures do. The 2h figure itself, and "before the event only, nothing added after" (SPM-48 open question, not yet asked at a customer Q&A), are both team assumptions. | equipment |
@@ -825,7 +824,7 @@ what changed, why, and the migration name if there is one.
     notes max 500 characters. Marking a reserved line Cannot be provided frees
     its units (only
     reserved / partially fulfilled lines count against stock) and clears
-    `quantityReserved`. Updates only from Approved onwards (team decision, 2 Oct).
+    `quantityReserved`.
   - **New route:** `PATCH /api/events/[id]/equipment/[requestId]/fulfilment`
     (`canUpdateEquipmentFulfilment()`, the existing `equipment_request:review`
     action). Saves only if the line still has the status it was checked
@@ -856,6 +855,19 @@ what changed, why, and the migration name if there is one.
 - Known Gaps: removed "Check Equipment Availability is read-only" (SPM-49 built
   Reserve); added "Reserve still works before an event is approved" and
   "Changing a quantity after review doesn't send the line back for re-checking".
+- **Technical Support follows the BPMN (3 Oct, Kristen):** they see an event's
+  equipment only once it is in **Planning** (the Coordinator has recorded it)
+  or **Confirmed** (read-only, to prepare it), and check, reserve and update it
+  in Planning only. Before that - including Approved - the event is not in
+  Equipment Requests and a direct link is a 404 ("not found, or its equipment
+  is not ready for Technical Support yet"). `TECH_SUPPORT_EQUIPMENT_STATUSES`
+  in `permissions.ts`; `eventAllowsReserving()` is now Planning only, and
+  SPM-50's update uses the same rule. Applies to SPM-48's queue and
+  availability check, SPM-49's Reserve and SPM-50's Update. SPM-49's seeded
+  events moved from Under review to Planning; SPM-50 fixtures: Cancelled
+  Hackathon replaced by Confirmed Launch (Confirmed), plus Approved Briefing
+  (Approved). Known Gap "Reserve still works before an event is approved"
+  removed.
 - **Sidebar fix:** on `/equipment/requests` both "Equipment" and "Equipment
   Requests" were highlighted, because a link counted as active for any page
   under it. Now only the most specific match is lit (`activeNavHref()` in

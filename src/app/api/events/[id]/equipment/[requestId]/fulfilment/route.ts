@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
-import { canUpdateEquipmentFulfilment, canViewEvent } from "@/lib/permissions";
+import { canUpdateEquipmentFulfilment, canViewEvent, techSupportSeesEquipment } from "@/lib/permissions";
 import { updateEquipmentFulfilmentSchema } from "@/lib/validation";
 import {
   checkFulfilmentUpdate,
@@ -48,8 +48,11 @@ export async function PATCH(
       return forbidden("Only Technical Support Staff can update equipment requests");
     }
 
-    // Technical Support's work on an event starts once it is approved, and
-    // stops once it is finished, abandoned or postponed.
+    // Not visible to Technical Support before Planning (BPMN), and only
+    // updatable while it is in Planning - a Confirmed event is read-only.
+    if (!techSupportSeesEquipment(existing.event.status)) {
+      return hidden();
+    }
     if (!eventAllowsFulfilmentUpdate(existing.event.status)) {
       return NextResponse.json({ error: fulfilmentUpdateClosedMessage(existing.event.status) }, { status: 400 });
     }

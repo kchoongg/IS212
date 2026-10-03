@@ -23,6 +23,8 @@
 // partially_fulfilled lines. quantityReserved is cleared as well, purely so no
 // row reads "unavailable, 1 reserved".
 
+import { eventAllowsReserving, reservingClosedMessage } from "@/lib/equipmentAvailability";
+
 /// Statuses Technical Support can pick by hand.
 export const HAND_PICKED_STATUSES = ["requested", "under_review", "unavailable"];
 
@@ -31,22 +33,15 @@ const HOLDING_STATUSES = ["reserved", "partially_fulfilled"];
 
 export const STAFF_NOTES_MAX_LENGTH = 500;
 
-/// Technical Support starts on an event's equipment once Operations has
-/// approved it - before that, only the Organiser and the Coordinator work on
-/// it. Not after it is finished or abandoned, nor while it is postponed (its
-/// arrangements are released, customer Q&A #68/#69).
-const EVENT_STATUSES_OPEN_FOR_UPDATE = ["approved", "planning", "confirmed"];
-
+/// Updates follow the same rule as reserving - Technical Support works on an
+/// event's equipment while it is in Planning (BPMN: "Check equipment
+/// availability" / "Reserve equipment"). See eventAllowsReserving().
 export function eventAllowsFulfilmentUpdate(eventStatus: string): boolean {
-  return EVENT_STATUSES_OPEN_FOR_UPDATE.includes(eventStatus);
+  return eventAllowsReserving(eventStatus);
 }
 
 export function fulfilmentUpdateClosedMessage(eventStatus: string): string {
-  const status = eventStatus.replace(/_/g, " ");
-  if (["draft", "submitted", "under_review"].includes(eventStatus)) {
-    return `This event is ${status} — equipment requests can be updated once the event is approved.`;
-  }
-  return `This event is ${status} — equipment requests can no longer be updated.`;
+  return reservingClosedMessage(eventStatus);
 }
 
 /// The statuses offered in the "Fulfilment status" list for a line in this

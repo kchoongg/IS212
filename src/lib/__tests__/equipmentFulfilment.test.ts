@@ -106,28 +106,27 @@ describe("fulfilmentChanges", () => {
 });
 
 describe("eventAllowsFulfilmentUpdate", () => {
-  it("allows updates once the event is approved, through to confirmed", () => {
-    for (const status of ["approved", "planning", "confirmed"]) {
-      expect(eventAllowsFulfilmentUpdate(status)).toBe(true);
+  it("allows updates only while the event is in planning (BPMN)", () => {
+    expect(eventAllowsFulfilmentUpdate("planning")).toBe(true);
+  });
+
+  it("SPM-50-TC14: refuses updates before planning - including an approved event the Coordinator has not started", () => {
+    for (const status of ["draft", "submitted", "under_review", "approved"]) {
+      expect(eventAllowsFulfilmentUpdate(status)).toBe(false);
     }
   });
 
-  it("SPM-50-TC14: refuses updates before the event is approved", () => {
-    for (const status of ["draft", "submitted", "under_review"]) {
-      expect(eventAllowsFulfilmentUpdate(status)).toBe(false);
-    }
-    expect(fulfilmentUpdateClosedMessage("under_review")).toBe(
-      "This event is under review — equipment requests can be updated once the event is approved."
+  it("SPM-50-TC13: refuses updates on a confirmed event - its equipment is final", () => {
+    expect(eventAllowsFulfilmentUpdate("confirmed")).toBe(false);
+    expect(fulfilmentUpdateClosedMessage("confirmed")).toBe(
+      "This event is confirmed — its equipment is final. A change now goes through a change request."
     );
   });
 
-  it("SPM-50-TC13: refuses updates once the event is finished, abandoned or postponed", () => {
-    for (const status of ["completed", "cancelled", "rejected", "postponed"]) {
+  it("refuses updates once the event is finished, abandoned or postponed", () => {
+    for (const status of ["completed", "cancelled", "rejected", "postponed", "withdrawn"]) {
       expect(eventAllowsFulfilmentUpdate(status)).toBe(false);
     }
-    expect(fulfilmentUpdateClosedMessage("cancelled")).toBe(
-      "This event is cancelled — equipment requests can no longer be updated."
-    );
   });
 });
 
