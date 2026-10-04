@@ -11,7 +11,7 @@
 // Pure functions over plain data, like the rest of src/lib.
 
 import { formatDate, formatDateTimeRange } from "@/lib/format";
-import { isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { occupancyConflict, type SearchableVenue } from "@/lib/venueSearch";
 import {
   SLOTS,
@@ -63,6 +63,9 @@ export function defaultSlots(schedule: Interval): { day: string; slots: Slot[] }
 /// Same rule as recording equipment (SPM-47): a closed event takes no new requests.
 export const CLOSED_EVENT_MESSAGE = "A venue cannot be requested for a completed, cancelled or rejected event.";
 
+/// SPM-54: arrangements wait for approval (isBeforeApproval, src/lib/statuses.ts).
+export const NOT_APPROVED_MESSAGE = "A venue can be requested once this request has been approved.";
+
 export interface BookingRequestInput {
   eventId: string;
   eventStatus: string;
@@ -88,6 +91,7 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
   const { venue, holder } = input;
 
   if (isTerminalEventStatus(input.eventStatus)) return refuse(CLOSED_EVENT_MESSAGE);
+  if (isBeforeApproval(input.eventStatus)) return refuse(NOT_APPROVED_MESSAGE);
 
   if (input.slots.length === 0) return refuse("Choose at least one slot.");
   const window = requestedWindow(input.day, input.slots);

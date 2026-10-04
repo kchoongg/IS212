@@ -106,7 +106,9 @@ Rules:
 - **Test only what's in scope.** If a feature was ruled out of this story
   (for SPM-28: clarifications, notifications), write no case for it — not even
   a read-only one. Record each decision as `"RESOLVED <date>: …"` in
-  `open_questions`.
+  `open_questions`. Resolved entries stay in the JSON as the record; the
+  script leaves them out of the workbook, and writes no Open Questions sheet
+  when none are still open.
 - **Quote the app exactly.** Take button labels, messages, headings and badge
   text from the code (or the built screen), not the mockup — they differ.
 - **Order and overlap.**

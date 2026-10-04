@@ -3,17 +3,41 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { DataState, PageHeader, StatusBadge, Table, type Column } from "@/components/ui";
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  ConfirmDialog,
+  DataState,
+  DetailList,
+  Field,
+  PageHeader,
+  Select,
+  StatusBadge,
+  Textarea,
+} from "@/components/ui";
 import { RequirePermission } from "@/components/RequirePermission";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor } from "@/lib/useCurrentUser";
-import { formatVenue } from "@/lib/format";
+import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { statusLabel } from "@/lib/statuses";
 import { layoutLabel } from "@/lib/venueSuitability";
+import { localDayKey } from "@/lib/venueSlots";
 import { requestSlotsLabel, setupAndTurnaround, slotCellLabel } from "@/lib/venueBookingRequest";
+import { BOOKING_REJECTION_REASON_REQUIRED } from "@/lib/venueBookingReview";
 
-// S-22, Booking Requests. SPM-42 AC7: the pending venue booking requests
-// coordinators have submitted, for Venue Staff to review. Read-only for now -
-// Approve and Reject belong to the Venue Booking Approval story.
+// S-22, Booking Requests (design/mockups/BookingQueue.dc.html). SPM-42 AC7
+// built the pending list; SPM-43 makes it the place Venue Staff decide:
+//   AC1, AC2  each pending request with its venue, date, slots and event
+//   AC3       Approve, behind a confirm dialog naming what it books
+//   AC4-AC6   Reject, with a required reason and an optional suggestion -
+//             another venue and/or an alternative arrangement - for the
+//             coordinator to act on. One form, because AC6 offers the
+//             suggestion "when rejecting" (the mockup's separate "Suggest
+//             another room" button is folded into it).
+// A request that would clash is flagged before anyone clicks Approve; the
+// server checks again either way.
 
 interface Request {
   id: string;
@@ -23,10 +47,33 @@ interface Request {
   layoutName: string | null;
   requirementsNote: string | null;
   requester: { fullName: string };
-  event: { reference: string; title: string | null };
-  session: { label: string | null } | null;
-  venue: { code: string; name: string; setupMinutes: number; teardownMinutes: number };
+  event: {
+    reference: string;
+    title: string | null;
+    status: string;
+    startsAt: string | null;
+    endsAt: string | null;
+    expectedAttendance: number | null;
+    organisation: string | null;
+  };
+  session: { label: string | null; startsAt: string; endsAt: string; expectedAttendance: number | null } | null;
+  venue: { id: string; code: string; name: string; setupMinutes: number; teardownMinutes: number };
+  conflict: string | null;
 }
+
+interface VenueOption {
+  id: string;
+  code: string;
+  name: string;
+}
+
+interface RejectForm {
+  reason: string;
+  suggestedVenueId: string;
+  suggestedAlternative: string;
+}
+
+const EMPTY_FORM: RejectForm = { reason: "", suggestedVenueId: "", suggestedAlternative: "" };
 
 export default function BookingsPage() {
   return (
@@ -40,10 +87,23 @@ export default function BookingsPage() {
   );
 }
 
+const windowOf = (r: Request) => ({ startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) });
+const eventName = (r: Request) => `${r.event.reference} ${r.event.title ?? "Untitled event"}`;
+
 function BookingRequests() {
   const router = useRouter();
   const [rows, setRows] = useState<Request[] | null>(null);
+  const [venues, setVenues] = useState<VenueOption[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  // One request is acted on at a time.
+  const [approving, setApproving] = useState<Request | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [form, setForm] = useState<RejectForm>(EMPTY_FORM);
+  const [fieldErrors, setFieldErrors] = useState<{ reason?: string; suggestedVenueId?: string }>({});
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null);
+  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -63,58 +123,357 @@ function BookingRequests() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load();
+    // The venues Venue Staff can suggest instead (AC6). The picker is optional,
+    // so a failure here leaves it empty rather than blocking the screen.
+    authedFetch("/api/venues")
+      .then((res) => (res.ok ? res.json() : []))
+      .then((list: VenueOption[]) => setVenues([...list].sort((a, b) => a.name.localeCompare(b.name))))
+      .catch(() => setVenues([]));
   }, [load]);
 
-  const columns: Column<Request>[] = [
-    {
-      key: "event",
-      header: "Event",
-      render: (r) => (
-        <div>
-          <Link href={`/events/${r.event.reference}`} className="font-medium text-ink hover:underline">
-            {r.event.reference}
-          </Link>
-          <p className="text-ink-2">{r.event.title ?? "Untitled event"}</p>
-          {r.session && <p className="text-xs text-ink-3">Session: {r.session.label ?? "Session"}</p>}
-        </div>
-      ),
-    },
-    {
-      key: "venue",
-      header: "Venue and slots",
-      render: (r) => {
-        const window = { startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) };
-        const holds = setupAndTurnaround(window, r.venue);
-        return (
-          <div>
-            <p>{formatVenue(r.venue.name, r.venue.code)}</p>
-            <p className="text-ink-2">{requestSlotsLabel(window)}</p>
-            {holds.setup && <p className="text-xs text-ink-3">Setup: {slotCellLabel(holds.setup)}</p>}
-            {holds.turnaround && <p className="text-xs text-ink-3">Turnaround: {slotCellLabel(holds.turnaround)}</p>}
-          </div>
-        );
-      },
-    },
-    {
-      key: "requirements",
-      header: "Requirements",
-      render: (r) => (
-        <div>
-          <p>Layout: {r.layoutName ? layoutLabel(r.layoutName) : "Not set"}</p>
-          <p className="text-ink-2">{r.requirementsNote ?? "None given"}</p>
-        </div>
-      ),
-    },
-    { key: "requester", header: "Requested by", render: (r) => r.requester.fullName },
-    { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
-  ];
+  function startReject(id: string) {
+    setRejectingId(id);
+    setForm(EMPTY_FORM);
+    setFieldErrors({});
+    setActionError(null);
+  }
+
+  function cancelReject() {
+    setRejectingId(null);
+    setForm(EMPTY_FORM);
+    setFieldErrors({});
+  }
+
+  async function decide(request: Request, body: Record<string, unknown>) {
+    setSubmitting(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/venue-bookings/${request.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor("/bookings"));
+        return;
+      }
+      if (!res.ok) {
+        const failure = await res.json().catch(() => null);
+        const message = failure?.error ?? "Could not save your decision. Please try again.";
+        if (failure?.field === "reason" || failure?.field === "suggestedVenueId") {
+          setFieldErrors({ [failure.field]: message });
+        } else {
+          setActionError({ id: request.id, message });
+          // The list may be stale - decided elsewhere, or a room just taken.
+          void load();
+        }
+        return;
+      }
+
+      const what = `${formatVenue(request.venue.name, request.venue.code)} for ${eventName(request)} on ${requestSlotsLabel(windowOf(request))}`;
+      setNotice(
+        body.decision === "approve"
+          ? {
+              title: "Booking approved",
+              body: `${what} is now ${statusLabel("approved")} — the room is booked.`,
+            }
+          : {
+              title: "Booking request rejected",
+              body: `${what} is now ${statusLabel("rejected")}. The Coordinator can see your reason${
+                form.suggestedVenueId || form.suggestedAlternative.trim() ? " and suggestion" : ""
+              } on the event's Venue tab.`,
+            }
+      );
+      cancelReject();
+      // Reloaded rather than filtered locally: an approval can put another
+      // pending request for the same room and slot into conflict.
+      await load();
+    } catch {
+      setActionError({ id: request.id, message: "Could not save your decision. Please try again." });
+    } finally {
+      setSubmitting(false);
+      setApproving(null);
+    }
+  }
+
+  function submitReject(request: Request) {
+    if (form.reason.trim() === "") {
+      setFieldErrors({ reason: BOOKING_REJECTION_REASON_REQUIRED });
+      return;
+    }
+    void decide(request, {
+      decision: "reject",
+      reason: form.reason.trim(),
+      suggestedVenueId: form.suggestedVenueId || undefined,
+      suggestedAlternative: form.suggestedAlternative.trim() || undefined,
+    });
+  }
 
   return (
-    <div>
-      <PageHeader title="Booking Requests" subtitle="Venue bookings requested by coordinators, waiting for review." />
-      <DataState data={rows} error={error} onRetry={() => void load()} empty={{ title: "No pending booking requests" }}>
-        {(data) => <Table columns={columns} rows={data} rowKey={(r) => r.id} />}
+    <div className="max-w-3xl">
+      <PageHeader
+        title="Booking Requests"
+        subtitle={
+          rows && rows.length > 0
+            ? `${rows.length} pending ${rows.length === 1 ? "decision" : "decisions"}.`
+            : "Venue bookings requested by coordinators, waiting for review."
+        }
+      />
+
+      {notice && (
+        <Alert variant="success" title={notice.title} className="mb-4">
+          {notice.body}
+        </Alert>
+      )}
+
+      {/* A refusal whose request has since left the list - decided in another
+          tab, say - has no card to sit on, so it is shown here instead. */}
+      {actionError && rows && !rows.some((r) => r.id === actionError.id) && (
+        <Alert variant="error" className="mb-4">
+          {actionError.message}
+        </Alert>
+      )}
+
+      <DataState
+        data={rows}
+        error={error}
+        onRetry={() => void load()}
+        empty={{
+          title: "No pending booking requests",
+          description: "When a coordinator requests a venue, it appears here for you to approve or reject.",
+        }}
+      >
+        {(data) => (
+          <div className="flex flex-col gap-4">
+            {data.map((request) => (
+              <RequestCard
+                key={request.id}
+                request={request}
+                venues={venues.filter((v) => v.id !== request.venue.id)}
+                rejecting={rejectingId === request.id}
+                form={form}
+                fieldErrors={fieldErrors}
+                submitting={submitting}
+                actionError={actionError?.id === request.id ? actionError.message : null}
+                onApprove={() => {
+                  cancelReject();
+                  setActionError(null);
+                  setApproving(request);
+                }}
+                onStartReject={() => startReject(request.id)}
+                onCancelReject={cancelReject}
+                onChange={(patch) => {
+                  setForm((current) => ({ ...current, ...patch }));
+                  setFieldErrors({});
+                }}
+                onSubmitReject={() => submitReject(request)}
+              />
+            ))}
+          </div>
+        )}
       </DataState>
+
+      <ConfirmDialog
+        open={approving !== null}
+        title="Approve this booking?"
+        confirmLabel="Approve"
+        confirmVariant="primary"
+        loading={submitting}
+        onConfirm={() => approving && void decide(approving, { decision: "approve" })}
+        onCancel={() => setApproving(null)}
+      >
+        {approving && (
+          <>
+            This books {formatVenue(approving.venue.name, approving.venue.code)} for {eventName(approving)} on{" "}
+            {requestSlotsLabel(windowOf(approving))}. No other event can then be booked into those slots, or into
+            the room&rsquo;s setup and turnaround slots around them.
+          </>
+        )}
+      </ConfirmDialog>
     </div>
+  );
+}
+
+interface RequestCardProps {
+  request: Request;
+  venues: VenueOption[];
+  rejecting: boolean;
+  form: RejectForm;
+  fieldErrors: { reason?: string; suggestedVenueId?: string };
+  submitting: boolean;
+  actionError: string | null;
+  onApprove: () => void;
+  onStartReject: () => void;
+  onCancelReject: () => void;
+  onChange: (patch: Partial<RejectForm>) => void;
+  onSubmitReject: () => void;
+}
+
+function RequestCard({
+  request,
+  venues,
+  rejecting,
+  form,
+  fieldErrors,
+  submitting,
+  actionError,
+  onApprove,
+  onStartReject,
+  onCancelReject,
+  onChange,
+  onSubmitReject,
+}: RequestCardProps) {
+  const window = windowOf(request);
+  const holds = setupAndTurnaround(window, request.venue);
+  // A session's own times and attendance where the request is for one (SPM-42 AC4).
+  const schedule = request.session ?? request.event;
+  const attendance = request.session?.expectedAttendance ?? request.event.expectedAttendance;
+
+  return (
+    <Card>
+      <CardBody className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="font-display text-base font-semibold text-ink">
+              {request.venue.name} <span className="font-sans font-normal text-ink-3">({request.venue.code})</span>
+            </h2>
+            <p className="mt-0.5 text-sm text-ink-2">
+              for{" "}
+              <Link href={`/events/${request.event.reference}`} className="font-medium text-ink hover:underline">
+                {request.event.reference}
+              </Link>{" "}
+              {request.event.title ?? "Untitled event"}
+              {request.event.organisation && ` · ${request.event.organisation}`}
+            </p>
+            {request.session && (
+              <p className="text-xs text-ink-3">Session: {request.session.label ?? "Session"}</p>
+            )}
+          </div>
+          {/* Text as well as colour (UI_DESIGN.md §8). Not a StatusBadge: a
+              conflict is computed, not a stored status. */}
+          {request.conflict ? (
+            <span className="inline-flex shrink-0 items-center rounded-full bg-tone-danger-bg px-2.5 py-0.5 text-xs font-medium text-tone-danger-fg ring-1 ring-inset ring-tone-danger-ring">
+              Conflict
+            </span>
+          ) : (
+            <StatusBadge status={request.status} className="shrink-0" />
+          )}
+        </div>
+
+        <DetailList
+          items={[
+            {
+              label: "Requested",
+              value: (
+                <>
+                  {requestSlotsLabel(window)}
+                  {holds.setup && <span className="block text-xs text-ink-3">Setup: {slotCellLabel(holds.setup)}</span>}
+                  {holds.turnaround && (
+                    <span className="block text-xs text-ink-3">Turnaround: {slotCellLabel(holds.turnaround)}</span>
+                  )}
+                </>
+              ),
+            },
+            {
+              label: request.session ? "Session time" : "Event time",
+              value: formatDateTimeRange(schedule.startsAt, schedule.endsAt),
+            },
+            { label: "Layout", value: request.layoutName ? layoutLabel(request.layoutName) : "Not set" },
+            { label: "Expected attendance", value: attendance ?? "Not set" },
+            { label: "Venue requirements", value: request.requirementsNote ?? "None given" },
+            {
+              label: "Requested by",
+              value: (
+                <>
+                  {request.requester.fullName}
+                  <span className="block text-xs text-ink-3">Event is {statusLabel(request.event.status)}</span>
+                </>
+              ),
+            },
+          ]}
+        />
+
+        {request.conflict && (
+          <Alert
+            variant="error"
+            title="This request cannot be approved as it stands"
+            action={
+              <Link
+                href={`/venues/${request.venue.id}/availability?from=${localDayKey(window.startsAt)}`}
+                className="text-sm font-medium underline"
+              >
+                Open the calendar
+              </Link>
+            }
+          >
+            {request.conflict}
+          </Alert>
+        )}
+
+        {actionError && <Alert variant="error">{actionError}</Alert>}
+
+        {rejecting ? (
+          <div className="flex flex-col gap-3 border-t border-line pt-4">
+            <Field
+              label="Reason for rejection"
+              required
+              hint="The Coordinator sees this message."
+              error={fieldErrors.reason}
+            >
+              <Textarea
+                value={form.reason}
+                onChange={(e) => onChange({ reason: e.target.value })}
+                placeholder="Explain why this venue cannot be made available…"
+                maxLength={2000}
+                rows={3}
+              />
+            </Field>
+            <Field
+              label="Suggest another venue"
+              hint="Optional. Nothing is booked — the Coordinator reviews it and submits a new request."
+              error={fieldErrors.suggestedVenueId}
+            >
+              <Select
+                value={form.suggestedVenueId}
+                onChange={(e) => onChange({ suggestedVenueId: e.target.value })}
+                options={[
+                  { value: "", label: "No venue suggested" },
+                  ...venues.map((v) => ({ value: v.id, label: formatVenue(v.name, v.code) })),
+                ]}
+              />
+            </Field>
+            <Field
+              label="Alternative arrangement"
+              hint="Optional. For example another date or slot, or a different layout."
+            >
+              <Textarea
+                value={form.suggestedAlternative}
+                onChange={(e) => onChange({ suggestedAlternative: e.target.value })}
+                maxLength={2000}
+                rows={2}
+              />
+            </Field>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="danger" onClick={onSubmitReject} loading={submitting} loadingText="Rejecting…">
+                Reject request
+              </Button>
+              <Button variant="secondary" onClick={onCancelReject} disabled={submitting}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={onApprove} disabled={Boolean(request.conflict) || submitting}>
+              Approve
+            </Button>
+            <Button variant="danger" onClick={onStartReject} disabled={submitting}>
+              Reject with a reason
+            </Button>
+          </div>
+        )}
+      </CardBody>
+    </Card>
   );
 }

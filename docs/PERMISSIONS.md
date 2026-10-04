@@ -216,31 +216,59 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 
 | Target status | Roles | Briefing |
 | --- | --- | --- |
-| `draft` | Organiser (owner) | Step 1 |
 | `submitted` | Organiser (owner) | Step 2 |
+| `withdrawn` | Coordinator (assigned) | SPM-27; customer clarification #103 |
 | `under_review` | Ops Manager, Coordinator | Step 3 |
 | `approved` / `rejected` | Coordinator (assigned) | Step 5 |
-| `planning` | Coordinator (assigned) | Step 6 |
+| `planning` | Coordinator (assigned), from `approved` only, by a first venue or equipment action | Step 6 |
 | `confirmed` | Coordinator (assigned) | Step 10 |
 | `completed` | Coordinator (assigned) | Step 14 |
-| `postponed` | Coordinator (assigned), Organiser (owner) | §4 Rescheduling |
+| `postponed` | Coordinator (assigned) | §4 Rescheduling; SPM-27 AC4 |
 | `cancelled` | Coordinator (assigned) only | §4 Cancellation, customer clarification #68 |
 
 Venue Staff and Technical Support appear nowhere: they decide their own bookings
 and equipment requests, not the event's status.
 
 **Cancellation is the Event Coordinator's alone** (customer clarification,
-2026-09-18). It is deliberately narrower than every other rule in this table,
-including postponement, which the owning Organiser may still do. Cancelling an
+2026-09-18). Cancelling an
 event releases its venue booking, frees its equipment reservations and drops the
 attendee list (briefing §4, "Cancellation Management"), so it is a ConnectSphere
 operational decision rather than a client-side one. An Organiser who wants their
 event called off raises an Event Change Request and the assigned coordinator
 acts on it; the Ops Manager assigns coordinators and does not cancel either.
 
-This table says **who**, not **which from → to moves are legal**. The lifecycle
-graph (you cannot jump `draft` → `confirmed`) belongs to Event Status
-Management and is not implemented yet — see Open items.
+**Planning is entered one way only** (SPM-54, decided 2026-10-02). There is no
+"begin planning" button and the status PATCH refuses a move to `planning`. An
+event moves `approved` → `planning` when its assigned coordinator first acts on
+its venue or equipment: pressing Search on Find a venue, submitting a venue
+booking request, or adding, saving or removing an equipment requirement. Every
+one of those goes through `beginPlanningIfApproved()`
+(`src/lib/beginPlanning.ts`), which only moves an Approved event and writes one
+status history row; `canBeginPlanning()` is the pure form of the rule. The
+coordinator is asked first ("Begin planning?"), because the move cannot be
+undone and the organiser sees it.
+
+**Arrangements wait for approval.** While an event is `submitted` or
+`under_review`, the assigned coordinator may search venues but may not request
+a booking or add, change or remove equipment (`isBeforeApproval()` in
+`src/lib/statuses.ts`; refused by `checkVenueBookingRequest()` and the
+equipment routes). `canManageEquipmentRequests()` and
+`canRequestVenueBooking()` still answer the relationship question only — the
+status is checked beside them, as it already was for closed events.
+
+This table says **who**, not **which from → to moves are legal**. That is
+`canTransition()` in `src/lib/statuses.ts` (you cannot jump `draft` →
+`confirmed`), checked by the events `PATCH` route after this role check.
+
+**The Organiser only submits** (SPM-27 AC4, "the Event Organiser
+cannot manually change the event status"). Postponing is the coordinator's too;
+an Organiser who wants to postpone asks through an Event Change Request, as for
+cancelling. Nothing moves an event back to `draft` — a new event is created as
+one.
+
+**A withdrawal is recorded by the coordinator** (customer clarification #103).
+The Organiser asks the assigned coordinator outside the system, and the
+coordinator records it while the request is Under review.
 
 ---
 
@@ -262,9 +290,13 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
-| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support, the assigned Coordinator, or the owning Organiser read-only) |
+| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support for Planning and Confirmed events only, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |
 | `PATCH`/`DELETE /api/events/[id]/equipment/[requestId]` | Same as `POST` above, resolved from the request's own event |
+| `GET /api/equipment/requests` | `canCheckEquipmentAvailability()` — Technical Support (SPM-48 queue); Planning and Confirmed events only |
+| `GET /api/events/[id]/equipment/availability` | `canViewEvent()` → 404, then `canCheckEquipmentAvailability()` → 403, then 404 unless the event is Planning or Confirmed — Technical Support (SPM-48) |
+| `POST /api/events/[id]/equipment/[requestId]/reserve` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403, then 404 unless Planning or Confirmed; reserving only in Planning — Technical Support (SPM-49) |
+| `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | `canViewEvent()` → 404, then `canUpdateEquipmentFulfilment()` (`equipment_request:review`) → 403 — Technical Support; 404 unless Planning or Confirmed, updating only in Planning (SPM-50) |
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event |
 
@@ -311,18 +343,33 @@ allowed to see.
 ## 8. Open items
 
 - **Lifecycle validation.** Who may set a status is enforced; which transitions
-  are legal is not. `draft → confirmed` in one step is currently possible for a
-  coordinator.
+  are legal is enforced for approve/reject (from `under_review`, SPM-28) and
+  for planning (from `approved`, SPM-54) only. `approved → confirmed` in one
+  step is still possible for a coordinator.
+- **Resuming a postponed event** (decided 2026-10-02, not built). It goes
+  `postponed` → `approved`, not straight to `planning`: the coordinator's next
+  venue or equipment action then begins planning again, so
+  `PLANNING_FROM_STATUSES` stays `approved` alone. Customer answer #69 backs
+  this — postponing without a date releases the bookings. SPM-38 (Postpone
+  Event) needs its own resume action, because a move to `approved` is
+  otherwise allowed only from `under_review` (`REVIEWABLE_STATUSES`), and has
+  to decide the case where the new date is already known (#69: a rescheduling
+  request, arrangements reviewed rather than released).
 - **`under_review` via the status PATCH.** `STATUS_TRANSITION_ROLES` still
   lets the Ops Manager set `under_review` directly, which would leave an event
   under review with no coordinator. The UI never does this (it assigns through
-  `PUT /api/events/[id]/coordinator`); removing it belongs with Lifecycle
-  validation above.
-- **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
-  ready for whoever builds them.
-- **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)
-  but not yet reviewed. `equipment_request:review` is still defined and ready
-  for whoever builds the Technical Support side (SPM-48/49/50).
+  `PUT /api/events/[id]/coordinator`); `canTransition()` (SPM-27) allows
+  submitted → under_review, so only removing `ops_manager` from
+  `STATUS_TRANSITION_ROLES.under_review` would close it.
+- ~~**Venue bookings** have no routes yet.~~ Closed by SPM-42 and SPM-43:
+  `venue_booking:decide` guards the Booking Requests list
+  (`GET /api/venue-bookings`) and the decision itself
+  (`PATCH /api/venue-bookings/[id]`). It is a role check only — Venue Staff
+  are not scoped by venue (#66), so any of them may decide any request.
+- **Equipment requests are recorded** by the assigned Coordinator (SPM-47,
+  `equipment_request:manage`) and **reviewed** by Technical Support with
+  `equipment_request:review`: reserving (SPM-49) and setting fulfilment status /
+  technical notes (SPM-50).
 - **`registration:view_list`** is defined but unused — the attendee list screen
   is not built.
 - **`users.role` has no database constraint.** `registerSchema` guards the

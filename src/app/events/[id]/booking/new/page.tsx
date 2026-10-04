@@ -17,6 +17,7 @@ import {
   SkeletonRows,
   Textarea,
 } from "@/components/ui";
+import { BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
@@ -35,6 +36,8 @@ interface Info {
   schedule: { startsAt: string | null; endsAt: string | null };
   sessions: { id: string; label: string | null; startsAt: string; endsAt: string; preferredLayout: string | null }[];
   cannotRequest: string | null;
+  /// SPM-54: this request would move the event from Approved to Planning.
+  willBeginPlanning?: boolean;
 }
 
 interface Venue {
@@ -72,6 +75,9 @@ function BookingRequestForm() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [planningStarted, setPlanningStarted] = useState(false);
+  /// Open while the coordinator is being asked whether to begin planning.
+  const [confirmPlanning, setConfirmPlanning] = useState(false);
 
   const session = info?.sessions.find((s) => s.id === sessionId) ?? null;
 
@@ -124,8 +130,17 @@ function BookingRequestForm() {
     setSlots((current) => (current.includes(slot) ? current.filter((s) => s !== slot) : [...current, slot]));
   }
 
-  async function submit(e: React.FormEvent) {
+  function submit(e: React.FormEvent) {
     e.preventDefault();
+    // SPM-54: the first request for an Approved event begins planning - ask first.
+    if (info?.willBeginPlanning) {
+      setConfirmPlanning(true);
+      return;
+    }
+    void send();
+  }
+
+  async function send() {
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -135,6 +150,9 @@ function BookingRequestForm() {
         body: JSON.stringify({ venueId, sessionId: sessionId ?? undefined, day, slots, requirementsNote }),
       });
       if (res.ok) {
+        // SPM-54: the first request for an Approved event begins planning.
+        const created = await res.json().catch(() => ({}));
+        setPlanningStarted(created.planningStarted === true);
         setSent(true);
         return;
       }
@@ -144,6 +162,7 @@ function BookingRequestForm() {
       setSubmitError("Could not send the request. Try again.");
     } finally {
       setSubmitting(false);
+      setConfirmPlanning(false);
     }
   }
 
@@ -186,13 +205,20 @@ function BookingRequestForm() {
       {header}
 
       {sent ? (
-        <Alert
-          variant="success"
-          title="Booking request sent to Venue Staff."
-          action={<ButtonLink href={backHref} variant="secondary" size="sm">Back to Venue</ButtonLink>}
-        >
-          It is Pending until Venue Staff review it.
-        </Alert>
+        <div className="flex flex-col gap-4">
+          <Alert
+            variant="success"
+            title="Booking request sent to Venue Staff."
+            action={<ButtonLink href={backHref} variant="secondary" size="sm">Back to Venue</ButtonLink>}
+          >
+            It is Pending until Venue Staff review it.
+          </Alert>
+          {planningStarted && (
+            <Alert variant="success" title="Planning has started">
+              This event has moved from Approved to Planning now that a venue booking has been requested.
+            </Alert>
+          )}
+        </div>
       ) : info.cannotRequest ? (
         <Alert variant="info">{info.cannotRequest}</Alert>
       ) : (
@@ -254,6 +280,13 @@ function BookingRequestForm() {
           </div>
         </form>
       )}
+
+      <BeginPlanningDialog
+        open={confirmPlanning}
+        loading={submitting}
+        onConfirm={() => void send()}
+        onCancel={() => setConfirmPlanning(false)}
+      />
     </div>
   );
 }

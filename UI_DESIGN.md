@@ -49,8 +49,8 @@ identical chrome, one extra screen.
 
 | Key | Label in UI | Internal/External | Home screen after login |
 | --- | --- | --- | --- |
-| `organiser` | Event Organiser | External | `/dashboard` — my events needing action |
-| `coordinator` | Event Coordinator | Internal | `/dashboard` — my assigned events + review queue |
+| `organiser` | Event Organiser | External | `/dashboard` — my events by status: Drafts, Under review, Approved, Planning |
+| `coordinator` | Event Coordinator | Internal | `/dashboard` — my assigned events by status: Awaiting your review, Approved, Planning |
 | `venue_staff` | Venue Staff | Internal | `/dashboard` — pending booking requests |
 | `tech_support` | Technical Support | Internal | `/dashboard` — pending equipment requests |
 | `attendee` | Attendee | External | `/dashboard` — my registrations + open events |
@@ -72,7 +72,7 @@ cite.
 | --- | --- | --- | --- |
 | S-01 | Login | `/login` | Authenticate. |
 | S-02 | Register | `/register` | Create an account. |
-| S-03 | Dashboard | `/dashboard` | Role-specific overview: what needs my attention. |
+| S-03 | Dashboard | `/dashboard` | Role-specific overview: what needs my attention. For an organiser and a coordinator, one section per status, each showing the five most recently updated events with a "View all" link — an overview, not the list. |
 | S-04 | Notifications | `/notifications` | Full notification history, read/unread. |
 | S-05 | Profile | `/profile` | Name, contact details, organisation, department. |
 | S-06 | Event detail | `/events/[id]` | **The hub.** Role-adaptive view of one event. |
@@ -106,7 +106,7 @@ cite.
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/calendar` | Bookings, holds, and blocks over time. |
-| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject. SPM-42 built the read-only list; Approve/Reject are not built yet. |
+| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
 | S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
 
 ### 3.5 Technical Support
@@ -290,6 +290,7 @@ maps the database string to a human label and a fixed tone:
 | `postponed` | Postponed | warning (amber) |
 | `rejected` | Rejected | danger (red) |
 | `cancelled` | Cancelled | danger (red) |
+| `withdrawn` | Withdrawn | neutral (grey) |
 
 Booking (`pending` / `approved` / `rejected` / `cancelled`), equipment
 (`requested` / `under_review` / `reserved` / `partially_fulfilled` /
@@ -474,10 +475,20 @@ getting right.
 
 ### 7.5 Destructive and irreversible actions
 
-Cancel event, withdraw registration, reject booking, and delete venue all go
+Cancel event, record an event request's withdrawal, withdraw registration, reject
+booking, and delete venue all go
 through `ConfirmDialog`, which names the specific consequence ("This releases
 Marina Grand Hall on 3 Oct and cancels 42 registrations"). A generic "Are you
 sure?" is not acceptable.
+
+**Beginning planning is one of these** (SPM-54). The coordinator's first venue
+or equipment action on an Approved event moves it to Planning, which cannot be
+undone and is visible to the organiser. `BeginPlanningDialog` asks first —
+"Begin planning?", naming the status change and who will see it — on Search
+(S-14), Submit request (S-15), and Add and Save (S-16). Cancel leaves the
+event Approved and does not carry out the action. Remove on S-16 already
+confirms, so it adds the same notice to its own dialog rather than asking
+twice. Afterwards a "Planning has started" alert confirms the move.
 
 ---
 
@@ -544,12 +555,14 @@ This document specifies the whole first release. What is built so far:
 | Facility and accessibility requirements as rows (§6.2) | `src/app/api/facilities/route.ts`, `createEventSchema.facilityIds` |
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
+| S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
+| S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
 
 Specified but not yet built, and why:
 
 | Not built | Blocked on |
 | --- | --- |
-| S-06 event detail, S-12–S-18, S-19–S-25, S-26–S-28. | Their endpoints do not exist yet. |
+| S-06 event detail, S-12–S-15, S-17–S-18, S-19–S-24, S-26–S-28. | Their endpoints do not exist yet. |
 
 **Requirements are now rows, not prose.** An organiser ticks facilities and
 accessibility needs from `GET /api/facilities`, and they are written to

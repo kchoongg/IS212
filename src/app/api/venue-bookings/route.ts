@@ -3,10 +3,15 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { eventReference } from "@/lib/format";
+import { PRE_APPROVAL_EVENT_STATUSES } from "@/lib/statuses";
+import { approvalConflict } from "@/lib/venueBookingReview";
+import { loadReviewVenues } from "@/lib/venueBookingReviewService";
 
-// SPM-42 AC7: the pending venue booking requests Venue Staff review, for the
-// read-only Booking Requests list (S-22). Approving and rejecting belong to
-// the Venue Booking Approval story.
+// The pending venue booking requests Venue Staff review, for the Booking
+// Requests screen (S-22). SPM-42 AC7 built the list; SPM-43 adds the event
+// information a decision needs (AC2) and, per request, whether approving it
+// would clash (`conflict`) - the BPMN's "Review booking & check conflicts".
+// Deciding one is PATCH /api/venue-bookings/[id].
 
 export async function GET(req: NextRequest) {
   const actor = await getActor(req);
@@ -18,7 +23,11 @@ export async function GET(req: NextRequest) {
   }
 
   const bookings = await prisma.venueBooking.findMany({
-    where: { status: "pending" },
+    // SPM-54: a request waits for its event's approval, so one whose event is
+    // still Submitted or Under review is not shown - Venue Staff could not
+    // approve it (awaitingEventApproval). It joins the list once the event is
+    // approved.
+    where: { status: "pending", event: { status: { notIn: PRE_APPROVAL_EVENT_STATUSES } } },
     select: {
       id: true,
       status: true,
@@ -28,17 +37,43 @@ export async function GET(req: NextRequest) {
       requirementsNote: true,
       requestedAt: true,
       requester: { select: { fullName: true } },
-      event: { select: { sequenceNumber: true, title: true } },
-      session: { select: { label: true } },
-      venue: { select: { code: true, name: true, setupMinutes: true, teardownMinutes: true } },
+      event: {
+        select: {
+          sequenceNumber: true,
+          title: true,
+          status: true,
+          startsAt: true,
+          endsAt: true,
+          expectedAttendance: true,
+          organisation: { select: { name: true } },
+        },
+      },
+      session: { select: { label: true, startsAt: true, endsAt: true, expectedAttendance: true } },
+      venue: {
+        select: { id: true, code: true, name: true, setupMinutes: true, teardownMinutes: true, isActive: true },
+      },
     },
     orderBy: { startsAt: "asc" },
   });
 
+  const venues = await loadReviewVenues(prisma, [...new Set(bookings.map((b) => b.venue.id))]);
+
   return NextResponse.json(
-    bookings.map(({ event, ...b }) => ({
-      ...b,
-      event: { reference: eventReference(event.sequenceNumber), title: event.title },
-    }))
+    bookings.map(({ event, ...b }) => {
+      const venue = venues.get(b.venue.id);
+      return {
+        ...b,
+        event: {
+          reference: eventReference(event.sequenceNumber),
+          title: event.title,
+          status: event.status,
+          startsAt: event.startsAt,
+          endsAt: event.endsAt,
+          expectedAttendance: event.expectedAttendance,
+          organisation: event.organisation?.name ?? null,
+        },
+        conflict: venue ? approvalConflict(venue, b) : null,
+      };
+    })
   );
 }

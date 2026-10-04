@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { can, canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
+import { can, canBeginPlanning, canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
 import { parseEventReference } from "@/lib/format";
 import { createVenueBookingSchema } from "@/lib/validation";
-import { isTerminalEventStatus } from "@/lib/statuses";
-import { CLOSED_EVENT_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { CLOSED_EVENT_MESSAGE, NOT_APPROVED_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
+import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
 
 // SPM-42, Request Venue Booking. GET is what the Venue tab needs to offer a
 // request: the event's sessions, its existing requests, and whether this user
@@ -23,6 +24,10 @@ const BOOKING_FIELDS = {
   layoutName: true,
   requirementsNote: true,
   requestedAt: true,
+  // SPM-43: Venue Staff's decision, for the coordinator to act on (AC6).
+  decisionReason: true,
+  suggestedAlternative: true,
+  suggestedVenue: { select: { id: true, code: true, name: true, isActive: true } },
   session: { select: { id: true, label: true } },
   venue: { select: { id: true, code: true, name: true, setupMinutes: true, teardownMinutes: true } },
 } as const;
@@ -65,7 +70,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     ? ONLY_ASSIGNED
     : isTerminalEventStatus(event.status)
       ? CLOSED_EVENT_MESSAGE
-      : null;
+      : isBeforeApproval(event.status)
+        ? NOT_APPROVED_MESSAGE
+        : null;
 
   return NextResponse.json({
     event: { title: event.title, preferredLayout: event.preferredLayout },
@@ -79,6 +86,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       preferredLayout: s.preferredLayout,
     })),
     cannotRequest,
+    // SPM-54: the form asks before a request that would begin planning.
+    willBeginPlanning: cannotRequest === null && canBeginPlanning(actor, event),
     bookings,
   });
 }
@@ -159,21 +168,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: check.error }, { status: 400 });
     }
 
-    const created = await prisma.venueBooking.create({
-      data: {
-        eventId: event.id,
-        sessionId: session?.id,
-        venueId: venue.id,
-        layoutName: preferredLayout,
-        startsAt: check.window.startsAt,
-        endsAt: check.window.endsAt,
-        status: "pending",
-        requestedBy: actor.id,
-        requirementsNote: data.requirementsNote,
-      },
-      select: BOOKING_FIELDS,
+    // SPM-54: the first booking request for an Approved event begins planning,
+    // in the same transaction as the request itself.
+    const { created, planningStarted } = await prisma.$transaction(async (tx) => {
+      const created = await tx.venueBooking.create({
+        data: {
+          eventId: event.id,
+          sessionId: session?.id,
+          venueId: venue.id,
+          layoutName: preferredLayout,
+          startsAt: check.window.startsAt,
+          endsAt: check.window.endsAt,
+          status: "pending",
+          requestedBy: actor.id,
+          requirementsNote: data.requirementsNote,
+        },
+        select: BOOKING_FIELDS,
+      });
+      const planningStarted = await beginPlanningIfApproved(tx, event, actor.id, PLANNING_REASONS.venueBooking);
+      return { created, planningStarted };
     });
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ ...created, planningStarted }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
