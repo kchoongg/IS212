@@ -106,7 +106,7 @@ cite.
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/calendar` | Bookings, holds, and blocks over time. |
-| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject. SPM-42 built the read-only list; Approve/Reject are not built yet. |
+| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
 | S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
 
 ### 3.5 Technical Support
@@ -555,12 +555,14 @@ This document specifies the whole first release. What is built so far:
 | Facility and accessibility requirements as rows (§6.2) | `src/app/api/facilities/route.ts`, `createEventSchema.facilityIds` |
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
+| S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
+| S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
 
 Specified but not yet built, and why:
 
 | Not built | Blocked on |
 | --- | --- |
-| S-06 event detail, S-12–S-18, S-19–S-25, S-26–S-28. | Their endpoints do not exist yet. |
+| S-06 event detail, S-12–S-15, S-17–S-18, S-19–S-24, S-26–S-28. | Their endpoints do not exist yet. |
 
 **Requirements are now rows, not prose.** An organiser ticks facilities and
 accessibility needs from `GET /api/facilities`, and they are written to

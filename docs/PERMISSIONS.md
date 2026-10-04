@@ -290,9 +290,13 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
-| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support, the assigned Coordinator, or the owning Organiser read-only) |
+| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support for Planning and Confirmed events only, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |
 | `PATCH`/`DELETE /api/events/[id]/equipment/[requestId]` | Same as `POST` above, resolved from the request's own event |
+| `GET /api/equipment/requests` | `canCheckEquipmentAvailability()` — Technical Support (SPM-48 queue); Planning and Confirmed events only |
+| `GET /api/events/[id]/equipment/availability` | `canViewEvent()` → 404, then `canCheckEquipmentAvailability()` → 403, then 404 unless the event is Planning or Confirmed — Technical Support (SPM-48) |
+| `POST /api/events/[id]/equipment/[requestId]/reserve` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403, then 404 unless Planning or Confirmed; reserving only in Planning — Technical Support (SPM-49) |
+| `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | `canViewEvent()` → 404, then `canUpdateEquipmentFulfilment()` (`equipment_request:review`) → 403 — Technical Support; 404 unless Planning or Confirmed, updating only in Planning (SPM-50) |
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event |
 
@@ -357,11 +361,15 @@ allowed to see.
   `PUT /api/events/[id]/coordinator`); `canTransition()` (SPM-27) allows
   submitted → under_review, so only removing `ops_manager` from
   `STATUS_TRANSITION_ROLES.under_review` would close it.
-- **Venue bookings** have no routes yet. `venue_booking:decide` is defined and
-  ready for whoever builds them.
-- **Equipment requests can now be recorded** (SPM-47, `equipment_request:manage`)
-  but not yet reviewed. `equipment_request:review` is still defined and ready
-  for whoever builds the Technical Support side (SPM-48/49/50).
+- ~~**Venue bookings** have no routes yet.~~ Closed by SPM-42 and SPM-43:
+  `venue_booking:decide` guards the Booking Requests list
+  (`GET /api/venue-bookings`) and the decision itself
+  (`PATCH /api/venue-bookings/[id]`). It is a role check only — Venue Staff
+  are not scoped by venue (#66), so any of them may decide any request.
+- **Equipment requests are recorded** by the assigned Coordinator (SPM-47,
+  `equipment_request:manage`) and **reviewed** by Technical Support with
+  `equipment_request:review`: reserving (SPM-49) and setting fulfilment status /
+  technical notes (SPM-50).
 - **`registration:view_list`** is defined but unused — the attendee list screen
   is not built.
 - **`users.role` has no database constraint.** `registerSchema` guards the
