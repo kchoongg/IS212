@@ -147,6 +147,7 @@ IS212/
 │   ├── verify-login.ts          # `npm run verify:login`
 │   ├── seed-spm27.ts            # `npm run fixtures:spm27` — SPM-27 test data, no reseed
 │   ├── seed-spm30.ts            # `npm run fixtures:spm30` — SPM-30 test data, no reseed
+│   ├── seed-spm34.ts            # `npm run fixtures:spm34` — SPM-34 test data, no reseed
 │   ├── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
 │   ├── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
 │   ├── seed-spm43.ts            # `npm run fixtures:spm43` — SPM-43 test data, no reseed
@@ -687,6 +688,7 @@ traceability the module asks for.
 | `npm run fixtures:spm27` | Adds or resets SPM-27's 14 test events ("SPM27 Bayu …", one per status, organiser Hakim Zulkifli) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm27_`. Re-run before each SPM-27 test pass |
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
 | `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
+| `npm run fixtures:spm34` | Adds or resets SPM-34's 8 test events ("SPM34 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm34_`, with the venue bookings, equipment requests and sessions that put each one in its own state (ready, venue-only, pending venue, equipment short, two-session, another coordinator's). Re-run before and after each SPM-34 test pass, since confirming is what the cases do |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
 | `npm run fixtures:spm43` | Adds or resets SPM-43's 14 test events ("SPM43 …") without reseeding — touches only events whose `seedKey` starts with `spm43_`. They are reset **in place**: each event row is kept, so its EVT- reference stays the same from run to run, and only its sessions and booking requests are dropped and recreated (so every decision a test pass made goes). It also upserts two test venues: "SPM43 Maintenance Room" (SPM43-MNT, reset to its one maintenance period on 14 May 2027) and "SPM43 Retire Test Room" (SPM43-RET, made active again). Run before each SPM-43 test pass and after any case that approves or rejects — it is the revert |
 | `npm run fixtures:spm50` | Adds or resets SPM-50's 6 test events (Robotics Expo, Design Week, …, Aug–Sep 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm50_`, with their equipment lines. Needs the base seed's users and the SPM-49 equipment items. Run it again before repeating a case that saves |
@@ -849,6 +851,37 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-03 — Jordan
+- **SPM-34 (Confirm Event): an event can only be confirmed once the
+  arrangements it actually needs are in place (#80).** The rule is
+  `src/lib/eventConfirmation.ts`, pure and unit tested (15 tests); the PATCH
+  status route calls it for `confirmed` and returns the outstanding list, and
+  the event hub gained a **Confirm event** button and dialog for the assigned
+  coordinator.
+- **What counts as required is DERIVED, not stored.** A venue is always
+  required — per session for a multi-session event — and equipment only where
+  the coordinator recorded a requirement. AC2's "marked as not required"
+  belongs to Track Outstanding Arrangements, which is not built; when it lands
+  it should set `required: false` in that module rather than add a second rule.
+- **Complete means approved and reserved.** A pending venue request is not an
+  arrangement, and the refusal says so in different words from having no venue
+  at all. Equipment counts as arranged at `reserved` or `partially_fulfilled` —
+  the same statuses that take stock from other events.
+- **The organiser can now see WHICH room.** `GET /api/events/[id]` returns the
+  approved bookings and the Overview shows a Venue row, because the Venue tab
+  is the coordinator's planning screen and is not offered to an organiser —
+  before this they could see an event was Confirmed but never where it was.
+  `EventGlance` showed a hardcoded "Not booked yet" with a comment saying venue
+  booking was not built; it is, since SPM-42, so it reads the real value now.
+- **Fixed two breaks already on this branch**, neither related to SPM-34:
+  `src/lib/__tests__/statuses.test.ts` was missing a comma in its import list,
+  so the whole file failed to transform and 16 tests never ran; and
+  `prisma/seed.ts` had an `eventData.push(` for the SPM-28 fixtures that was
+  never closed, so the file did not compile and `npx prisma db seed` would have
+  failed. Same class of merge artefact as the one fixed on 2026-10-02.
+- `npm run fixtures:spm34` adds SPM-34's 8 events and their arrangements
+  without reseeding.
+- Migration: none.
 ### 2026-10-03 — Kayal
 - **Merged main (SPM-54, SPM-27) into SPM-43.** Both sides kept. In
   `prisma/seed.ts` the SPM-43 events now come after SPM-54 and SPM-27, so
