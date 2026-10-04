@@ -14,6 +14,7 @@ import {
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import { canTransition, transitionError } from "@/lib/statuses";
+import { checkEventConfirmation } from "@/lib/eventConfirmation";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
@@ -56,6 +57,22 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             // list what was requested. Additive - toFormValues() maps the
             // columns it needs and ignores the rest.
             equipmentRequests: { include: { equipment: { select: { name: true } } } },
+            // ADDED (SPM-34 AC6/AC7): the room that was actually booked, so
+            // the organiser can see the arrangement rather than only that the
+            // event is Confirmed. Approved bookings only - a pending request
+            // is not an arrangement anyone should be shown as settled.
+            // Stripped for an Attendee by visibleEventFor(), which allow-lists
+            // fields and so drops this one without needing to name it.
+            venueBookings: {
+              where: { status: "approved" },
+              select: {
+                startsAt: true,
+                endsAt: true,
+                session: { select: { label: true } },
+                venue: { select: { name: true, code: true } },
+              },
+              orderBy: { startsAt: "asc" },
+            },
             // ADDED (SPM-23, multi-session events): empty for an ordinary
             // single-session event. SESSION_SELECT (src/lib/sessionWrites.ts) is a
             // superset of what SPM-47's per-session equipment picker needs
@@ -222,6 +239,41 @@ async function handleStatusChange(
       { error: "Planning begins with the first venue or equipment action on an approved event" },
       { status: 400 }
     );
+  }
+
+  // ADDED (SPM-34): an event is confirmed only once the arrangements it
+  // actually needs are in place (#80), and a refusal names the ones that are
+  // not. The rule is in src/lib/eventConfirmation.ts so it can be unit tested
+  // without a database; this route only gathers what it reads.
+  if (data.status === "confirmed") {
+    const [sessions, bookings, equipment] = await Promise.all([
+      prisma.eventSession.findMany({
+        where: { eventId: event.id },
+        orderBy: { startsAt: "asc" },
+        select: { id: true, label: true },
+      }),
+      prisma.venueBooking.findMany({
+        where: { eventId: event.id },
+        select: { sessionId: true, status: true },
+      }),
+      prisma.equipmentRequest.findMany({
+        where: { eventId: event.id },
+        select: { sessionId: true, status: true, equipment: { select: { name: true } } },
+      }),
+    ]);
+
+    const check = checkEventConfirmation({
+      sessions,
+      bookings,
+      equipment: equipment.map((r) => ({
+        sessionId: r.sessionId,
+        status: r.status,
+        equipmentName: r.equipment.name,
+      })),
+    });
+    if (!check.ok) {
+      return NextResponse.json({ error: check.error, outstanding: check.outstanding }, { status: 400 });
+    }
   }
 
   // ADDED: the brief requires a rejected request to retain the decision reason.

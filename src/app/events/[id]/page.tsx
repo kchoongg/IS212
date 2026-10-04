@@ -22,7 +22,13 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
-import { can, canAssignCoordinator, canReviewEvent, canWithdrawEvent } from "@/lib/permissions";
+import {
+  can,
+  canAssignCoordinator,
+  canConfirmEvent,
+  canReviewEvent,
+  canWithdrawEvent,
+} from "@/lib/permissions";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -64,6 +70,14 @@ interface EventDetail {
   specialRequirements?: string | null;
   organiser?: { fullName: string };
   coordinator?: { fullName: string } | null;
+  /// SPM-34: the approved booking(s), so every authorised role - the organiser
+  /// included - can see which room the event is in.
+  venueBookings?: {
+    startsAt: string;
+    endsAt: string;
+    session: { label: string | null } | null;
+    venue: { name: string; code: string };
+  }[];
   // SPM-30: needed to tell "assign" from "reassign", and which choice would be
   // a no-op. Absent for an Attendee along with the rest of the internal fields.
   coordinatorId?: string | null;
@@ -75,6 +89,19 @@ interface EventDetail {
   // Present for an Attendee too - which company is running the event is
   // public, even though who personally organised it (above) is not.
   organisation?: { name: string } | null;
+}
+
+/// "Orchard Seminar Room (ORC-SEM)", or one line per session for a
+/// multi-session event. "Not booked yet" until Venue Staff approve a booking -
+/// a pending request is not an arrangement.
+function venueSummary(bookings: NonNullable<EventDetail["venueBookings"]>): string {
+  if (bookings.length === 0) return "Not booked yet";
+  return bookings
+    .map((b) => {
+      const room = `${b.venue.name} (${b.venue.code})`;
+      return b.session?.label ? `${b.session.label}: ${room}` : room;
+    })
+    .join(" · ");
 }
 
 export default function EventOverviewPage() {
@@ -93,6 +120,11 @@ export default function EventOverviewPage() {
   // asked for outside the system (clarification #103).
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
+  // SPM-34: the assigned coordinator confirming the event once its
+  // arrangements are done. The server decides whether they are; this only
+  // asks, and shows what it says back.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -181,6 +213,32 @@ export default function EventOverviewPage() {
     }
   }
 
+  async function confirmEvent() {
+    setConfirming(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "confirmed" }),
+      });
+      if (!res.ok) {
+        // The refusal names the arrangements that are still outstanding
+        // (SPM-34 AC3), so it is shown as it comes rather than replaced with
+        // a generic message.
+        setActionError((await res.json()).error ?? "Could not confirm this event.");
+        return;
+      }
+      setNotice("The event is confirmed. The organiser can now see the arrangements.");
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setConfirming(false);
+      setConfirmOpen(false);
+    }
+  }
+
   // Same fields and checks as the PATCH route, so the button only appears
   // when withdrawing would succeed.
   const showWithdraw = Boolean(
@@ -189,6 +247,26 @@ export default function EventOverviewPage() {
     event.organiserId !== undefined &&
     event.coordinatorId !== undefined &&
     canWithdrawEvent(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-34 (AC4): only the assigned coordinator, and only from a status the
+  // lifecycle lets into Confirmed. Whether the arrangements are ready is the
+  // server's call - offering the button and refusing with a reason is more
+  // useful than hiding it and leaving the coordinator to guess.
+  const showConfirm = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canConfirmEvent(
       { id: user.id, role: user.role, organisationId: null },
       {
         organiserId: event.organiserId,
@@ -256,11 +334,16 @@ export default function EventOverviewPage() {
           { label: event?.title || "Event" },
         ]}
         actions={
-          showWithdraw && (
-            <Button variant="secondary" onClick={() => setWithdrawOpen(true)}>
-              Record withdrawal
-            </Button>
-          )
+          <>
+            {showConfirm && (
+              <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
+            )}
+            {showWithdraw && (
+              <Button variant="secondary" onClick={() => setWithdrawOpen(true)}>
+                Record withdrawal
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -382,6 +465,13 @@ export default function EventOverviewPage() {
                   ...(event.coordinator !== undefined
                     ? [{ label: "Coordinator", value: event.coordinator?.fullName ?? "Not yet assigned" }]
                     : []),
+                  // SPM-34 (AC6, AC7): the confirmed arrangement itself. The
+                  // Venue tab is the coordinator's planning screen; this row
+                  // is how everyone else, the organiser above all, learns
+                  // which room their event is in.
+                  ...(event.venueBookings !== undefined
+                    ? [{ label: "Venue", value: venueSummary(event.venueBookings) }]
+                    : []),
                 ]}
               />
             </CardBody>
@@ -452,6 +542,20 @@ export default function EventOverviewPage() {
         Only do this when the organiser has asked to withdraw.{" "}
         {event?.title || "This request"} will be marked Withdrawn and can&apos;t be reopened.
         To go ahead later, the organiser submits a new request.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Confirm this event?"
+        confirmLabel="Confirm event"
+        cancelLabel="Not yet"
+        loading={confirming}
+        onConfirm={() => void confirmEvent()}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        {event?.title || "This event"} will be marked Confirmed, and the organiser will be
+        able to see the venue and equipment arranged for it. Anything still outstanding will
+        be listed instead.
       </ConfirmDialog>
     </div>
   );

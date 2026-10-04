@@ -428,6 +428,14 @@ export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolea
   return canSetEventStatus(actor, event, "withdrawn") && canTransition(event.status, "withdrawn");
 }
 
+/// SPM-34 (AC4). Whether this actor may even attempt to confirm: the assigned
+/// coordinator, on an event the lifecycle allows into Confirmed. Whether the
+/// arrangements are ready is a separate question, answered by
+/// checkEventConfirmation() - this only decides who sees the button.
+export function canConfirmEvent(actor: Actor, event: EventAccessFields): boolean {
+  return canSetEventStatus(actor, event, "confirmed") && canTransition(event.status, "confirmed");
+}
+
 // ---------------------------------------------------------------------------
 // BEGIN PLANNING (SPM-54)
 // ---------------------------------------------------------------------------
