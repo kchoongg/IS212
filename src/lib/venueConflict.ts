@@ -188,31 +188,3 @@ function describeBookingEvent(booking?: SearchBooking): string | null {
   const parts = [booking.eventReference, booking.eventTitle].filter(Boolean);
   return parts.length ? parts.join(" ") : null;
 }
-
-export interface ApprovalCheckInput {
-  venue: ConflictVenue;
-  /// The pending booking being confirmed, with the id so it cannot clash with
-  /// itself.
-  booking: SearchBooking & { id?: string };
-}
-
-export type ApprovalCheck = { ok: true } | { ok: false; error: string; conflict: VenueConflict };
-
-/// AC6. Venue Staff may hold several pending requests for one slot; only one
-/// can become a booking. The check is deliberately re-run at confirm time
-/// rather than trusted from request time, because the room can be blocked, or
-/// a rival request approved, in between.
-///
-/// Not yet called by a route: approving a booking is Venue Booking Approval
-/// (SPM-43), which has no endpoint. It lives here, tested, so that story wires
-/// it in rather than writing the rule a second time.
-export function checkVenueBookingApproval(input: ApprovalCheckInput): ApprovalCheck {
-  const { venue, booking } = input;
-  const conflict = findVenueConflict(venue, booking, {
-    bookingId: booking.id,
-    eventId: undefined,
-    scope: "approved",
-  });
-  if (!conflict) return { ok: true };
-  return { ok: false, error: describeVenueConflict(venue.name, conflict), conflict };
-}

@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  checkVenueBookingApproval,
   describeVenueConflict,
   findVenueConflict,
 } from "../venueConflict";
@@ -173,7 +172,7 @@ describe("findVenueConflict — confirm time (AC6)", () => {
   it("does not let a booking conflict with itself", () => {
     const mine = booking({ ...AM("2026-10-21"), id: "booking-1", eventId: "mine" });
     const v = venue({ bookings: [mine] });
-    expect(checkVenueBookingApproval({ venue: v, booking: mine })).toEqual({ ok: true });
+    expect(findVenueConflict(v, mine, { bookingId: mine.id, scope: "approved" })).toBeNull();
   });
 
   it("refuses approval when another event's booking was approved first", () => {
@@ -181,12 +180,10 @@ describe("findVenueConflict — confirm time (AC6)", () => {
     const mine = booking({ ...AM("2026-10-21"), id: "booking-mine", eventId: "mine", status: "pending" });
     const v = venue({ bookings: [rival, mine] });
 
-    const result = checkVenueBookingApproval({ venue: v, booking: mine });
-    expect(result.ok).toBe(false);
-    if (!result.ok) {
-      expect(result.conflict.kind).toBe("booked");
-      expect(result.error).toContain("EVT-000042 Product Showcase");
-    }
+    const conflict = findVenueConflict(v, mine, { bookingId: mine.id, scope: "approved" });
+    expect(conflict?.kind).toBe("booked");
+    expect(conflict?.booking?.id).toBe("booking-rival");
+    expect(describeVenueConflict(v.name, conflict!)).toContain("EVT-000042 Product Showcase");
   });
 
   it("refuses approval when the room has since been blocked", () => {
@@ -195,9 +192,9 @@ describe("findVenueConflict — confirm time (AC6)", () => {
       bookings: [mine],
       unavailability: [{ startsAt: sgt("2026-11-20", 0), endsAt: sgt("2026-11-21", 0), reason: "maintenance" }],
     });
-    const result = checkVenueBookingApproval({ venue: v, booking: mine });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("unavailable");
+    const conflict = findVenueConflict(v, mine, { bookingId: mine.id, scope: "approved" });
+    expect(conflict?.kind).toBe("unavailable");
+    expect(describeVenueConflict(v.name, conflict!)).toContain("unavailable");
   });
 });
 

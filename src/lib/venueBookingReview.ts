@@ -14,7 +14,7 @@
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { requestSlotsLabel } from "@/lib/venueBookingRequest";
 import { findVenueConflict } from "@/lib/venueConflict";
-import { type Interval, type Turnaround } from "@/lib/venueSlots";
+import { overlapping, type Interval, type Turnaround } from "@/lib/venueSlots";
 
 /// A request is decided once: only a pending one can be approved or rejected.
 export const DECIDABLE_BOOKING_STATUSES: readonly string[] = ["pending"];
@@ -41,10 +41,6 @@ export interface ReviewVenue extends Turnaround {
   isActive: boolean;
   bookings: readonly ConfirmedBooking[];
   unavailability: readonly (Interval & { reason: string })[];
-}
-
-function overlapping(a: Interval, b: Interval): boolean {
-  return a.startsAt.getTime() < b.endsAt.getTime() && a.endsAt.getTime() > b.startsAt.getTime();
 }
 
 /// Why this request cannot be approved as it stands, or null when the room is
