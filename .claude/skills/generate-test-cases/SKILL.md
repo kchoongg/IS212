@@ -67,11 +67,13 @@ Rules:
   event request page"), not their route (`/events/new`) — **except when the
   tester has to type the address**: then give the page's URL path in the step,
   e.g. "Type /queue after the site address in the browser address bar (e.g.
-  http://localhost:3000/queue) and press Enter". For a path with an event
-  reference in it, quote the real reference (`/events/EVT-000124/review`) when
-  the story's fixture script pins it (see `scripts/seed-spm28.ts`: it recreates
-  its events at the numbers `npx prisma db seed` gives them). If the reference
-  isn't pinned, add an earlier step that notes it from the screen and write
+  http://localhost:3000/queue) and press Enter".
+  **Never quote an event id** — no `EVT-000124`, no `/events/EVT-000124/review`,
+  in steps, test data, preconditions or expected results. An event's id
+  changes on every reseed, so a quoted one goes stale. Name the event by its
+  title only ("SPM28 Nusantara Product Launch") and have the tester open it
+  from the list. For a path with an event reference in it, add an earlier
+  step that notes the reference from the screen and write
   `/events/<reference from step 2>/review`.
   **Sidebar links differ by role** — take each label from `NAV_BY_ROLE` in
   `src/lib/roles.ts` for the user logged in at that step. The same `/events`
@@ -114,7 +116,8 @@ Rules:
 Test cases run on a **shared** database that several testers use, so a case
 must never depend on data another story's tester might change, and a tester
 must be able to put back whatever a case changed. Follow
-`scripts/seed-spm28.ts` (and `scripts/seed-spm30.ts`):
+`scripts/seed-spm28.ts` (and `scripts/seed-spm30.ts`), except where they pin
+EVT- numbers — that predates the rule below:
 
 - **Dedicated events.** Give the story its own events, titled `"<STORY> …"`
   (e.g. "SPM28 Nusantara Product Launch") with seed keys prefixed
@@ -131,11 +134,12 @@ must be able to put back whatever a case changed. Follow
 - **Fixed dates.** Use calendar dates (`daysUntil("2027-03-17")` in the seed,
   literal dates in the script), never "today + n", so dates quoted in a case
   never go stale.
-- **Fixed references.** Have the script recreate each event at the EVT-
-  number a full reseed gives it (its position in the seed's creation order;
-  the seed restarts numbering at 1), refuse if another event holds one, and
-  move the Postgres sequence past them. Then cases can quote
-  `/events/EVT-000124/review`.
+- **No pinned event ids.** Wherever possible, don't have the script recreate
+  events at fixed EVT- numbers — let the database number them, and find each
+  event by its seed key (script) or title (cases). Give every fixture event a
+  title no other event has, since the title is how a tester finds it. Pin a
+  number only when a case can't be written without it, and say why in a
+  comment in the script; even then the case quotes the title, not the id.
 - **Preconditions** say the fixtures are loaded. A case that changes data
   says to run the script **before and after** it; if the next case needs that
   change, it says to go straight to that case and reset after it instead.
