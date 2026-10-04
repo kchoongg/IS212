@@ -8,7 +8,6 @@ import { GET as assignments } from "@/app/api/assignments/route";
 import { GET as queue } from "@/app/api/queue/route";
 import { GET as facilities } from "@/app/api/facilities/route";
 import { GET as equipmentRequests } from "@/app/api/equipment/requests/route";
-import { GET as venueBookings } from "@/app/api/venue-bookings/route";
 import { ROLES } from "@/lib/roles";
 import { callArg, db, req, signIn, user } from "@/test/kit";
 
@@ -131,7 +130,7 @@ describe("GET /api/equipment/requests", () => {
     expect(await res.json()).toEqual([{ sequenceNumber: 12, title: "Gala", status: "planning", requestCount: 3 }]);
   });
 
-  it("never lists a draft, and only events with a request that is not cancelled", async () => {
+  it("lists only events in planning or confirmed that have a request which is not cancelled", async () => {
     const token = signIn(user("tech_support"));
     db.event.findMany.mockResolvedValue([]);
 
@@ -140,48 +139,10 @@ describe("GET /api/equipment/requests", () => {
     expect(callArg(db.event.findMany).where).toEqual({
       AND: [
         { status: { not: "draft" } },
+        // Technical Support sees an event's equipment once planning has begun.
+        { status: { in: ["planning", "confirmed"] } },
         { equipmentRequests: { some: { status: { not: "cancelled" } } } },
       ],
     });
-  });
-});
-
-describe("GET /api/venue-bookings", () => {
-  it("is 401 without a session", async () => {
-    expect((await venueBookings(req("GET", "/api/venue-bookings"))).status).toBe(401);
-  });
-
-  it.each(rolesExcept("venue_staff"))("is 403 for %s", async (role) => {
-    const res = await venueBookings(req("GET", "/api/venue-bookings", { token: signIn(user(role)) }));
-
-    expect(res.status).toBe(403);
-    expect(db.venueBooking.findMany).not.toHaveBeenCalled();
-  });
-
-  it("gives Venue Staff the pending bookings, naming each event by its reference", async () => {
-    const token = signIn(user("venue_staff"));
-    db.venueBooking.findMany.mockResolvedValue([
-      {
-        id: "b1",
-        status: "pending",
-        layoutName: "theatre",
-        event: { sequenceNumber: 42, title: "Town Hall" },
-        venue: { code: "HALL-A", name: "Hall A" },
-      },
-    ]);
-
-    const res = await venueBookings(req("GET", "/api/venue-bookings", { token }));
-
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual([
-      {
-        id: "b1",
-        status: "pending",
-        layoutName: "theatre",
-        event: { reference: "EVT-000042", title: "Town Hall" },
-        venue: { code: "HALL-A", name: "Hall A" },
-      },
-    ]);
-    expect(callArg(db.venueBooking.findMany).where).toEqual({ status: "pending" });
   });
 });

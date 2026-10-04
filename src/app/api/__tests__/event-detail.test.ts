@@ -173,6 +173,15 @@ describe("GET /api/events/[id]", () => {
     );
   });
 
+  it("loads only the approved venue bookings, so a pending request is never shown as settled", async () => {
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event());
+
+    await get(token);
+
+    expect(callArg(db.event.findUnique).include.venueBookings.where).toEqual({ status: "approved" });
+  });
+
   it("gives staff the whole record, including the internal fields", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event({ coordinator: { fullName: "Daniel Tan" } }));
@@ -325,15 +334,17 @@ describe("PATCH /api/events/[id] - status change", () => {
       });
     });
 
-    it("does not run the completeness check when a draft stays a draft", async () => {
+    it.each([
+      ["a draft", () => draft()],
+      ["a submitted request", () => event({ status: "submitted" })],
+    ])("refuses moving %s to draft - nothing goes back to draft", async (_case, row) => {
       const token = signIn(organiser());
-      db.event.findUnique.mockResolvedValue(draft({ category: null }));
-      givenUpdateSucceeds();
+      db.event.findUnique.mockResolvedValue(row());
 
       const res = await patch(token, { status: "draft" });
 
-      expect(res.status).toBe(200);
-      expect(db.eventSession.findMany).not.toHaveBeenCalled();
+      expect(res.status).toBe(403);
+      expect(db.event.update).not.toHaveBeenCalled();
     });
   });
 
@@ -373,15 +384,41 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect((await patch(token, { status: "approved" })).status).toBe(403);
     });
 
-    it.each(["approved", "rejected"])("refuses %s for a request no longer under review", async (status) => {
+    it.each([
+      ["approved", "This event is Planning and can't be moved to Approved."],
+      ["rejected", "This event is Planning and can't be moved to Rejected."],
+    ])("refuses %s for a request no longer under review", async (status, message) => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
 
       const res = await patch(token, { status, reason: "Changed my mind" });
 
       expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({ error: "Only a request that is under review can be approved or rejected" });
+      expect(await res.json()).toEqual({ error: message });
       expect(db.event.update).not.toHaveBeenCalled();
+    });
+
+    it("lets the assigned coordinator record a withdrawal while the request is under review", async () => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event());
+      givenUpdateSucceeds();
+
+      const res = await patch(token, { status: "withdrawn", reason: "Client asked to withdraw" });
+
+      expect(res.status).toBe(200);
+      expect(callArg(db.event.update).data).toEqual({ status: "withdrawn" });
+      expect(callArg(db.eventStatusHistory.create).data).toMatchObject({
+        fromStatus: "under_review",
+        toStatus: "withdrawn",
+        reason: "Client asked to withdraw",
+      });
+    });
+
+    it("refuses an organiser withdrawing their own request - they ask the coordinator", async () => {
+      const token = signIn(organiser());
+      db.event.findUnique.mockResolvedValue(event());
+
+      expect((await patch(token, { status: "withdrawn" })).status).toBe(403);
     });
 
     it.each([undefined, "", "   "])("refuses a rejection with reason %j", async (reason) => {
@@ -412,16 +449,126 @@ describe("PATCH /api/events/[id] - status change", () => {
   });
 
   describe("later transitions", () => {
-    it("stamps the confirmation time when the assigned coordinator confirms", async () => {
-      vi.useFakeTimers({ now: NOW });
+    it.each([
+      ["a submitted request straight to confirmed", "submitted", "confirmed", "This event is Submitted and can't be moved to Confirmed."],
+      ["a completed event to cancelled", "completed", "cancelled", "This event is Completed and can't be moved to Cancelled."],
+      ["a confirmed event back to planning", "confirmed", "planning", "This event is Confirmed and can't be moved to Planning."],
+    ])("refuses a move the lifecycle does not allow: %s", async (_case, from, to, message) => {
       const token = signIn(coordinator());
-      db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
-      givenUpdateSucceeds();
+      db.event.findUnique.mockResolvedValue(event({ status: from }));
 
-      const res = await patch(token, { status: "confirmed" });
+      const res = await patch(token, { status: to, reason: "x" });
 
-      expect(res.status).toBe(200);
-      expect(callArg(db.event.update).data).toEqual({ status: "confirmed", confirmedAt: NOW });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: message });
+      expect(db.event.update).not.toHaveBeenCalled();
+    });
+
+    it("refuses moving an approved event to planning by hand - a venue or equipment action does that", async () => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ status: "approved" }));
+
+      const res = await patch(token, { status: "planning" });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: "Planning begins with the first venue or equipment action on an approved event",
+      });
+      expect(db.event.update).not.toHaveBeenCalled();
+    });
+
+    describe("confirming", () => {
+      /// What the route reads to decide whether the arrangements are in place.
+      function givenArrangements({
+        sessions = [] as object[],
+        bookings = [] as object[],
+        equipment = [] as object[],
+      } = {}) {
+        db.eventSession.findMany.mockResolvedValue(sessions);
+        db.venueBooking.findMany.mockResolvedValue(bookings);
+        db.equipmentRequest.findMany.mockResolvedValue(equipment);
+      }
+      const venueApproved = { sessionId: null, status: "approved" };
+      const projector = (status: string, sessionId: string | null = null) => ({
+        sessionId,
+        status,
+        equipment: { name: "Projector" },
+      });
+
+      async function confirm(arrangements: Parameters<typeof givenArrangements>[0] = {}) {
+        const token = signIn(coordinator());
+        db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
+        givenUpdateSucceeds();
+        // After givenUpdateSucceeds(), which stubs an event with no sessions.
+        givenArrangements(arrangements);
+        return patch(token, { status: "confirmed" });
+      }
+
+      it("confirms, and stamps the time, once the venue is approved and no equipment is outstanding", async () => {
+        vi.useFakeTimers({ now: NOW });
+        const res = await confirm({ bookings: [venueApproved], equipment: [projector("reserved")] });
+
+        expect(res.status).toBe(200);
+        expect(callArg(db.event.update).data).toEqual({ status: "confirmed", confirmedAt: NOW });
+        expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
+      });
+
+      it("counts partially fulfilled equipment as arranged - the shortfall is the coordinator's call", async () => {
+        const res = await confirm({ bookings: [venueApproved], equipment: [projector("partially_fulfilled")] });
+
+        expect(res.status).toBe(200);
+      });
+
+      it("confirms an event that needs no equipment", async () => {
+        expect((await confirm({ bookings: [venueApproved] })).status).toBe(200);
+      });
+
+      it.each([
+        ["no venue is booked", {}, "This event cannot be confirmed yet: no venue is booked for this event."],
+        [
+          "the venue request is still pending",
+          { bookings: [{ sessionId: null, status: "pending" }] },
+          "This event cannot be confirmed yet: the venue for this event is still awaiting a decision from Venue Staff.",
+        ],
+        [
+          "the only venue request was rejected",
+          { bookings: [{ sessionId: null, status: "rejected" }] },
+          "This event cannot be confirmed yet: no venue is booked for this event.",
+        ],
+        [
+          "equipment is requested but not reserved",
+          { bookings: [venueApproved], equipment: [projector("requested")] },
+          "This event cannot be confirmed yet: Projector for this event is not reserved yet.",
+        ],
+        [
+          "both are outstanding",
+          { equipment: [projector("unavailable")] },
+          "This event cannot be confirmed yet: no venue is booked for this event; Projector for this event is not reserved yet.",
+        ],
+      ])("refuses while %s, naming what is outstanding", async (_case, arrangements, message) => {
+        const res = await confirm(arrangements);
+        const body = await res.json();
+
+        expect(res.status).toBe(400);
+        expect(body.error).toBe(message);
+        expect(body.outstanding.length).toBeGreaterThan(0);
+        expect(db.event.update).not.toHaveBeenCalled();
+      });
+
+      it("needs a venue for every session of a multi-session event", async () => {
+        const res = await confirm({
+          sessions: [
+            { id: "s1", label: "Day 1" },
+            { id: "s2", label: "Day 2" },
+          ],
+          bookings: [{ sessionId: "s1", status: "approved" }],
+        });
+
+        expect(res.status).toBe(400);
+        expect((await res.json()).error).toBe(
+          "This event cannot be confirmed yet: no venue is booked for the Day 2 session."
+        );
+      });
     });
 
     it("keeps the cancellation reason when the assigned coordinator cancels", async () => {
@@ -441,19 +588,23 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect((await patch(token, { status: "cancelled", reason: "We changed plans" })).status).toBe(403);
     });
 
-    it("lets an organiser postpone their own event", async () => {
-      const token = signIn(organiser());
+    it("lets the assigned coordinator postpone a confirmed event", async () => {
+      const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
       givenUpdateSucceeds();
 
       expect((await patch(token, { status: "postponed" })).status).toBe(200);
     });
 
-    it("refuses an organiser postponing a colleague's event", async () => {
-      const token = signIn(user("organiser", { id: ID.thirdUser, organisationId: ID.org }));
+    it.each([
+      ["their own event", () => organiser()],
+      ["a colleague's event", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
+    ])("refuses an organiser postponing %s - that goes through the coordinator", async (_case, actor) => {
+      const token = signIn(actor());
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
 
       expect((await patch(token, { status: "postponed" })).status).toBe(403);
+      expect(db.event.update).not.toHaveBeenCalled();
     });
 
     it("lets the Ops Manager move any event to under review", async () => {

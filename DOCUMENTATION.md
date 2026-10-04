@@ -854,6 +854,37 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-04 — Kristen
+- **Tests brought up to date with `main`** (SPM-27, SPM-34, SPM-43, SPM-50,
+  SPM-54). 2,363 tests in 53 files; coverage 99.5% statements / 97.4%
+  branches, above the CI minimums. No application code changed.
+  - New route tests: `venue-booking-review.test.ts` (Venue Staff's list and
+    approve/reject), `event-planning-fulfilment.test.ts` (begin planning,
+    Technical Support's fulfilment update).
+  - Updated route tests for the enforced lifecycle, withdrawal, confirmation,
+    `planningStarted`, and Technical Support seeing equipment only from
+    Planning on.
+  - UI tests rewritten for the redesigned Dashboard (one list per stage, top
+    five) and Booking Requests (approve / reject cards), and extended for the
+    "Begin planning?" question, Record withdrawal, Confirm event, the Venue
+    row, rejected-booking details and the equipment Update panel.
+- **`prisma/seed.ts` repaired** — the SPM-34 merge left an `eventData.push(`
+  unclosed, so lint failed with `')' expected` and the pre-push hook blocked
+  every push. The same break is on `main` (PR #36).
+- **Found while testing, not fixed** (tests do not lock these in):
+  - A postponed event cannot be resumed. `EVENT_TRANSITIONS` allows
+    postponed → approved, but `PATCH /api/events/[id]` refuses every
+    `approved` that is not from Under review ("Only a request that is under
+    review can be approved or rejected").
+  - Every `ConfirmDialog` uses the same `id="confirm-dialog-title"`. Pages
+    with two or three dialogs (event overview, event equipment) therefore
+    announce each one to a screen reader under the first dialog's title.
+  - The organiser and coordinator dashboards show a load failure once per
+    list - four identical alerts and Retry buttons for an organiser.
+  - An organiser's Submitted request is on none of their dashboard lists
+    (Drafts, Under review, Approved, Planning) until a coordinator is
+    assigned.
+
 ### 2026-10-02 — Kristen
 - **CI pipeline added** — `.github/workflows/ci.yml`, GitHub Actions. Runs on
   every pull request and on each push to `main`; five checks in parallel:

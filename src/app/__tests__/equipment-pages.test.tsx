@@ -82,7 +82,10 @@ describe("Event equipment tab", () => {
   const itemRow = async (name: string) =>
     (await screen.findAllByText(name)).find((el) => el.tagName === "P")!.closest("div.p-4") as HTMLElement;
   const addForm = () => screen.getByRole("group", { name: "Add equipment" });
-  const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
+  /// The page holds two dialogs - the removal question and "Begin planning?".
+  const dialog = (title = "Remove this equipment requirement?") =>
+    screen.getByText(title, { selector: "dialog h2" }).closest("dialog") as HTMLDialogElement;
+  const planningDialog = () => dialog("Begin planning?");
 
   describe("who can open it", () => {
     it("sends an anonymous visitor to log in", async () => {
@@ -277,11 +280,22 @@ describe("Event equipment tab", () => {
 
         expect(dialog().open).toBe(true);
         expect(dialog()).toHaveTextContent("Technical Support will no longer see this item requested for this event.");
+        expect(dialog()).not.toHaveTextContent("Approved to Planning");
         expect(api.sent(`DELETE ${row("r1")}`)).toHaveLength(0);
       });
 
+      it("copes with a removal the server answers with no body", async () => {
+        open("coordinator", { [`DELETE ${row("r1")}`]: reply(204) });
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Remove" }));
+
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Remove", hidden: true }));
+
+        await waitFor(() => expect(screen.queryByText("Projector")).not.toBeInTheDocument());
+        expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
+      });
+
       it("removes it once confirmed", async () => {
-        const api = open("coordinator", { [`DELETE ${row("r1")}`]: reply(204) });
+        const api = open("coordinator", { [`DELETE ${row("r1")}`]: { planningStarted: false } });
         await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Remove" }));
 
         await userEvent.click(within(dialog()).getByRole("button", { name: "Remove", hidden: true }));
@@ -510,8 +524,225 @@ describe("Event equipment tab", () => {
     });
   });
 
+  describe("Technical Support's notes on a line", () => {
+    it.each(["coordinator", "organiser", "tech_support"])("are shown to %s on the item they are about", async (role) => {
+      open(role, { [LIST]: [projectorRow({ staffNotes: "Spare unit on standby." }), lecternRow({ staffNotes: null })] });
+
+      expect(await itemRow("Projector")).toHaveTextContent("Technical Support notes: Spare unit on standby.");
+      expect(await itemRow("Lectern")).not.toHaveTextContent("Technical Support notes");
+    });
+  });
+
+  describe("on an approved event, where the first change begins planning", () => {
+    const approved = (routes: Record<string, unknown> = {}) =>
+      open("coordinator", { [EVENT]: event({ status: "approved" }), ...routes });
+    const picker = () => within(addForm()).getByLabelText("Equipment");
+    const add = () => userEvent.click(within(addForm()).getByRole("button", { name: "Add" }));
+    const proceed = () =>
+      userEvent.click(within(planningDialog()).getByRole("button", { name: "Continue", hidden: true }));
+    const mic = (extra = {}) => ({ ...request("r3", catalogue[2]), ...extra });
+    async function chooseMic() {
+      await itemRow("Projector");
+      await waitFor(() => expect(picker()).toBeEnabled());
+      set(picker(), "eq-mic");
+    }
+
+    describe("adding", () => {
+      it("asks first, and sends nothing until the coordinator continues", async () => {
+        const api = approved({ [ADD]: reply(201, mic({ planningStarted: true })) });
+        await chooseMic();
+
+        await add();
+
+        expect(planningDialog().open).toBe(true);
+        expect(planningDialog()).toHaveTextContent("it will move from Approved to Planning");
+        expect(api.sent(ADD)).toHaveLength(0);
+      });
+
+      it("on Continue, adds the item and says planning has started", async () => {
+        const api = approved({ [ADD]: reply(201, mic({ planningStarted: true })) });
+        await chooseMic();
+        await add();
+
+        await proceed();
+
+        expect(await itemRow("Microphone")).toBeInTheDocument();
+        expect(screen.getByText("Planning has started")).toBeInTheDocument();
+        expect(api.sent(ADD)).toHaveLength(1);
+        expect(planningDialog().open).toBe(false);
+      });
+
+      it("on Cancel, adds nothing and keeps what was chosen", async () => {
+        const api = approved({ [ADD]: reply(201, mic({ planningStarted: true })) });
+        await chooseMic();
+        await add();
+
+        await userEvent.click(within(planningDialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+        expect(planningDialog().open).toBe(false);
+        expect(api.sent(ADD)).toHaveLength(0);
+        expect(picker()).toHaveValue("eq-mic");
+        expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
+      });
+
+      it("does not ask about an addition the form refuses", async () => {
+        approved();
+        await itemRow("Projector");
+
+        await add();
+
+        expect(planningDialog().open).toBe(false);
+        expect(within(addForm()).getByRole("alert")).toBeInTheDocument();
+      });
+
+      it("does not ask again once planning has begun", async () => {
+        const api = approved({ [ADD]: reply(201, mic({ planningStarted: true })) });
+        await chooseMic();
+        await add();
+        await proceed();
+        await itemRow("Microphone");
+        const projector = await itemRow("Projector");
+        api.on(`PATCH ${row("r1")}`, projectorRow({ quantityRequested: 5, planningStarted: false }));
+
+        set(within(projector).getByLabelText("Quantity"), "5");
+        await userEvent.click(within(projector).getByRole("button", { name: "Save" }));
+
+        await waitFor(() => expect(api.sent(`PATCH ${row("r1")}`)).toHaveLength(1));
+        expect(planningDialog().open).toBe(false);
+      });
+
+      it("says nothing about planning when the server reports it had already begun", async () => {
+        approved({ [ADD]: reply(201, mic({ planningStarted: false })) });
+        await chooseMic();
+        await add();
+
+        await proceed();
+
+        expect(await itemRow("Microphone")).toBeInTheDocument();
+        expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
+      });
+    });
+
+    describe("saving a change to a row", () => {
+      const PATCH = `PATCH ${row("r1")}`;
+      async function changeQuantity(quantity = "5") {
+        const projector = await itemRow("Projector");
+        set(within(projector).getByLabelText("Quantity"), quantity);
+        await userEvent.click(within(projector).getByRole("button", { name: "Save" }));
+        return projector;
+      }
+
+      it("asks first, then saves and says planning has started", async () => {
+        const api = approved({ [PATCH]: projectorRow({ quantityRequested: 5, planningStarted: true }) });
+
+        await changeQuantity();
+        expect(planningDialog().open).toBe(true);
+        expect(api.sent(PATCH)).toHaveLength(0);
+        await proceed();
+
+        expect(await screen.findByText("Planning has started")).toBeInTheDocument();
+        expect(api.sent(PATCH)[0].body).toMatchObject({ quantityRequested: 5 });
+      });
+
+      it("saves nothing when the question is cancelled, and keeps the edit", async () => {
+        const api = approved({ [PATCH]: projectorRow({ quantityRequested: 5 }) });
+
+        const projector = await changeQuantity();
+        await userEvent.click(within(planningDialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+        expect(api.sent(PATCH)).toHaveLength(0);
+        expect(within(projector).getByLabelText("Quantity")).toHaveValue(5);
+        expect(within(projector).getByRole("button", { name: "Save" })).toBeInTheDocument();
+      });
+
+      it("does not ask about a quantity it refuses", async () => {
+        approved();
+
+        const projector = await changeQuantity("0");
+
+        expect(planningDialog().open).toBe(false);
+        expect(within(projector).getByRole("alert")).toHaveTextContent("Enter a whole number, at least 1.");
+      });
+    });
+
+    describe("removing a row", () => {
+      const DELETE = `DELETE ${row("r1")}`;
+
+      it("asks once, in the removal question itself, not a second time", async () => {
+        approved({ [DELETE]: { planningStarted: true } });
+
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Remove" }));
+
+        expect(dialog()).toHaveTextContent("it will also move from Approved to Planning");
+        expect(dialog()).toHaveTextContent("This cannot be undone.");
+        expect(planningDialog().open).toBe(false);
+      });
+
+      it("removes it and says planning has started", async () => {
+        const api = approved({ [DELETE]: { planningStarted: true } });
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Remove" }));
+
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Remove", hidden: true }));
+
+        expect(await screen.findByText("Planning has started")).toBeInTheDocument();
+        expect(api.sent(DELETE)).toHaveLength(1);
+        expect(screen.queryByText("Projector")).not.toBeInTheDocument();
+        expect(planningDialog().open).toBe(false);
+      });
+    });
+
+    it("never asks on an event already in planning", async () => {
+      const api = open("coordinator", { [ADD]: reply(201, mic({ planningStarted: false })) });
+      await chooseMic();
+
+      await add();
+
+      expect(await itemRow("Microphone")).toBeInTheDocument();
+      expect(api.sent(ADD)).toHaveLength(1);
+      expect(planningDialog().open).toBe(false);
+    });
+  });
+
+  describe("before the request is approved", () => {
+    it.each(["submitted", "under_review"])("tells the coordinator a %s request must be approved first, read-only", async (status) => {
+      open("coordinator", { [EVENT]: event({ status }) });
+
+      await itemRow("Projector");
+
+      expect(screen.getByText("Equipment can be recorded once this request has been approved.")).toBeInTheDocument();
+      expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Add equipment" })).not.toBeInTheDocument();
+    });
+
+    it("does not say so to the organiser, who never records equipment", async () => {
+      open("organiser", { [EVENT]: event({ status: "under_review" }) });
+
+      await itemRow("Projector");
+
+      expect(screen.queryByText("Equipment can be recorded once this request has been approved.")).not.toBeInTheDocument();
+    });
+
+    it("does not say so once the request is approved", async () => {
+      open("coordinator", { [EVENT]: event({ status: "approved" }) });
+
+      await itemRow("Projector");
+
+      expect(screen.queryByText("Equipment can be recorded once this request has been approved.")).not.toBeInTheDocument();
+      expect(addForm()).toBeInTheDocument();
+    });
+
+    it("gives the reason they cannot see the equipment instead, to a coordinator who is not assigned", async () => {
+      open("coordinator", { [EVENT]: event({ status: "under_review" }), [LIST]: reply(403, { error: "forbidden" }) });
+
+      expect(
+        await screen.findByText("Only the coordinator assigned to this event can view and manage its equipment requirements.")
+      ).toBeInTheDocument();
+      expect(screen.queryByText("Equipment can be recorded once this request has been approved.")).not.toBeInTheDocument();
+    });
+  });
+
   describe("when equipment can no longer be changed", () => {
-    it.each(["completed", "cancelled", "rejected"])("shows a %s event read-only, even to its coordinator", async (status) => {
+    it.each(["completed", "cancelled", "rejected", "withdrawn"])("shows a %s event read-only, even to its coordinator", async (status) => {
       open("coordinator", { [EVENT]: event({ status }) });
 
       await itemRow("Projector");
@@ -587,6 +818,10 @@ describe("Equipment request (availability and reserve)", () => {
       venueChosen: true,
       transferMinutes: 120,
       result: result(),
+      technicalRequirements: null,
+      staffNotes: null,
+      reviewedByName: null,
+      reviewedAt: null,
       ...overrides,
     };
   }
@@ -818,24 +1053,298 @@ describe("Equipment request (availability and reserve)", () => {
       expect(within(await lineRow()).getByRole("button", { name: "Reserve" })).toBeInTheDocument();
     });
 
-    it.each(["cancelled", "postponed", "completed", "rejected"])(
-      "is not offered for a %s event, and the page says why",
-      async (status) => {
-        open([line("r1")], { [EVENT]: event({ status }) });
+    it("is not offered for a confirmed event, whose equipment is final", async () => {
+      open([line("r1")], { [EVENT]: event({ status: "confirmed" }) });
 
-        const row = await lineRow();
+      const row = await lineRow();
 
-        expect(screen.getByText(`This event is ${status} — equipment can no longer be reserved.`)).toBeInTheDocument();
-        expect(within(row).queryByRole("button", { name: "Reserve" })).not.toBeInTheDocument();
+      expect(
+        screen.getByText("This event is confirmed — its equipment is final. A change now goes through a change request.")
+      ).toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Reserve" })).not.toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["postponed", "postponed"],
+      ["under_review", "under review"],
+    ])("is not offered for an event that is %s, and the page says when it is", async (status, words) => {
+      open([line("r1")], { [EVENT]: event({ status }) });
+
+      const row = await lineRow();
+
+      expect(
+        screen.getByText(`This event is ${words} — equipment can be reserved and updated while the event is in planning.`)
+      ).toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Reserve" })).not.toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+    });
+
+    it("says nothing of the kind while the event is in planning", async () => {
+      open();
+
+      await lineRow();
+
+      expect(screen.queryByText(/This event is/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("the coordinator's requirements and Technical Support's own review", () => {
+    it("are shown on each line, with who last updated it and when", async () => {
+      open([
+        line("r1", {
+          technicalRequirements: "HDMI on stage left",
+          staffNotes: "Spare unit checked",
+          reviewedByName: "Tessa Lim",
+          reviewedAt: "2027-02-01T02:30:00.000Z",
+        }),
+      ]);
+
+      const row = await lineRow();
+
+      expect(row).toHaveTextContent("Technical requirements: HDMI on stage left");
+      expect(row).toHaveTextContent("Technical Support notes: Spare unit checked");
+      expect(row).toHaveTextContent("Last updated by Tessa Lim, 1 Feb 2027, 10:30");
+    });
+
+    it("are dashed out, with no 'last updated', on a line nobody has touched", async () => {
+      open();
+
+      const row = await lineRow();
+
+      expect(row).toHaveTextContent("Technical requirements: —");
+      expect(row).toHaveTextContent("Technical Support notes: —");
+      expect(row).not.toHaveTextContent("Last updated by");
+    });
+
+    it.each([
+      ["no name", { reviewedByName: null, reviewedAt: "2027-02-01T02:30:00.000Z" }],
+      ["no time", { reviewedByName: "Tessa Lim", reviewedAt: null }],
+    ])("says nothing about the last update when it has %s", async (_case, review) => {
+      open([line("r1", review)]);
+
+      expect(await lineRow()).not.toHaveTextContent("Last updated by");
+    });
+
+    it("keeps what Technical Support decided apart from what the stock allows", async () => {
+      open([
+        line("r1", { requestStatus: "unavailable", result: result({ status: "available" }) }),
+        line("r2", { equipmentName: "Lectern", requestStatus: "under_review", result: result({ status: "unavailable", available: 0 }) }),
+        line("r3", { equipmentName: "Microphone", result: null }),
+      ]);
+
+      expect(await lineRow()).toHaveTextContent("StatusCannot be providedAvailabilityAvailable");
+      expect(await lineRow("Lectern")).toHaveTextContent("StatusUnder reviewAvailabilityNone available");
+      expect(await lineRow("Microphone")).toHaveTextContent("StatusRequestedAvailability—");
+    });
+  });
+
+  describe("updating a line", () => {
+    const fulfilment = (id: string) => `PATCH /api/events/${REF}/equipment/${id}/fulfilment`;
+    const startUpdate = async (name = "Projector") => {
+      const row = await lineRow(name);
+      await userEvent.click(within(row).getByRole("button", { name: "Update" }));
+      return row;
+    };
+    const status = () => screen.getByLabelText("Fulfilment status");
+    const notes = () => screen.getByLabelText("Technical notes");
+    const save = () => userEvent.click(screen.getByRole("button", { name: "Save" }));
+    const statusOptions = () => within(status()).getAllByRole("option").map((o) => o.textContent);
+
+    it.each(["requested", "under_review", "unavailable", "reserved", "partially_fulfilled"])(
+      "is offered on a line that is %s",
+      async (requestStatus) => {
+        open([line("r1", { requestStatus })]);
+
+        expect(within(await lineRow()).getByRole("button", { name: "Update" })).toBeInTheDocument();
       }
     );
+
+    it("is not offered on a line the coordinator has withdrawn", async () => {
+      open([line("r1", { requestStatus: "cancelled" })]);
+
+      expect(within(await lineRow()).queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+    });
+
+    it("opens with the line's current status and notes, in place of the Update button", async () => {
+      open([line("r1", { requestStatus: "under_review", staffNotes: "Checking the spare." })]);
+
+      const row = await startUpdate();
+
+      expect(status()).toHaveValue("under_review");
+      expect(notes()).toHaveValue("Checking the spare.");
+      expect(within(row).queryByRole("button", { name: "Update" })).not.toBeInTheDocument();
+    });
+
+    it("offers the statuses that can be picked by hand, never the ones only Reserve sets", async () => {
+      open();
+
+      await startUpdate();
+
+      expect(statusOptions()).toEqual(["Requested", "Under review", "Cannot be provided"]);
+      expect(notes()).toHaveValue("");
+    });
+
+    it.each([
+      ["reserved", ["Reserved", "Cannot be provided"]],
+      ["partially_fulfilled", ["Partially fulfilled", "Cannot be provided"]],
+    ])("lets a %s line only stay as it is or be marked as not providable", async (requestStatus, options) => {
+      open([line("r1", { requestStatus, quantityReserved: 2 })]);
+
+      await startUpdate();
+
+      expect(statusOptions()).toEqual(options);
+    });
+
+    it("asks for a reason once 'Cannot be provided' is chosen", async () => {
+      open();
+      await startUpdate();
+      expect(screen.getByText(/Anything the Coordinator or the team should know/)).toBeInTheDocument();
+
+      set(status(), "unavailable");
+
+      expect(screen.getByText("Required: why it cannot be provided, and any alternative you can suggest.")).toBeInTheDocument();
+    });
+
+    it("is open on one line at a time", async () => {
+      open([line("r1"), line("r2", { equipmentName: "Lectern", staffNotes: "Lectern note" })]);
+      await startUpdate();
+      set(notes(), "Half-written");
+
+      const lectern = await startUpdate("Lectern");
+
+      expect(screen.getAllByLabelText("Technical notes")).toHaveLength(1);
+      expect(within(lectern).getByLabelText("Technical notes")).toHaveValue("Lectern note");
+      expect(within(await lineRow()).getByRole("button", { name: "Update" })).toBeInTheDocument();
+    });
+
+    it("saves the status and notes, confirms it, and reloads every line", async () => {
+      const api = open([line("r1")], { [fulfilment("r1")]: { id: "r1" } });
+      await startUpdate();
+      set(status(), "under_review");
+      set(notes(), "Checking the spare unit.");
+
+      await save();
+
+      expect(await screen.findByText("Update saved.")).toBeInTheDocument();
+      expect(api.sent(fulfilment("r1")).map((c) => c.body)).toEqual([
+        { status: "under_review", staffNotes: "Checking the spare unit." },
+      ]);
+      await waitFor(() => expect(api.sent(AVAILABILITY)).toHaveLength(2));
+      expect(screen.queryByLabelText("Technical notes")).not.toBeInTheDocument();
+    });
+
+    it("clears the confirmation when the line is updated again", async () => {
+      open([line("r1")], { [fulfilment("r1")]: { id: "r1" } });
+      await startUpdate();
+      await save();
+      await screen.findByText("Update saved.");
+
+      await startUpdate();
+
+      expect(screen.queryByText("Update saved.")).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["'Cannot be provided' with no reason", "unavailable", "   ", "Give a reason when equipment cannot be provided."],
+      ["notes over 500 characters", "under_review", "x".repeat(501), "Technical notes must be 500 characters or fewer."],
+    ])("refuses %s under the notes field, without asking the server", async (_case, next, text, message) => {
+      const api = open([line("r1")], { [fulfilment("r1")]: { id: "r1" } });
+      await startUpdate();
+      set(status(), next);
+      set(notes(), text);
+
+      await save();
+
+      expect(screen.getByText(message)).toBeInTheDocument();
+      expect(notes()).toBeInvalid();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(api.sent(fulfilment("r1"))).toHaveLength(0);
+    });
+
+    it("clears that complaint as soon as the panel is edited", async () => {
+      open();
+      await startUpdate();
+      set(status(), "unavailable");
+      await save();
+      expect(screen.getByText("Give a reason when equipment cannot be provided.")).toBeInTheDocument();
+
+      set(notes(), "Both units are out for repair.");
+
+      expect(screen.queryByText("Give a reason when equipment cannot be provided.")).not.toBeInTheDocument();
+      expect(notes()).toBeValid();
+    });
+
+    it("Cancel closes the panel and forgets what was typed", async () => {
+      const api = open([line("r1")], { [fulfilment("r1")]: { id: "r1" } });
+      await startUpdate();
+      set(status(), "under_review");
+      set(notes(), "Half-written");
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByLabelText("Technical notes")).not.toBeInTheDocument();
+      await startUpdate();
+      expect(status()).toHaveValue("requested");
+      expect(notes()).toHaveValue("");
+      expect(api.sent(fulfilment("r1"))).toHaveLength(0);
+    });
+
+    describe("when the server refuses", () => {
+      it("shows a complaint about the notes under the notes field", async () => {
+        open([line("r1")], {
+          [fulfilment("r1")]: reply(400, { error: "Technical notes must be 500 characters or fewer.", field: "staffNotes" }),
+        });
+        await startUpdate();
+
+        await save();
+
+        expect(await screen.findByText("Technical notes must be 500 characters or fewer.")).toBeInTheDocument();
+        expect(notes()).toBeInvalid();
+        expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["the server's reason", reply(409, { error: "This request was changed by someone else. Reload and try again." }), "This request was changed by someone else. Reload and try again."],
+        ["a general message when it gives none", reply(500, {}), "Could not save this update."],
+        ["a general message when its answer is unreadable", reply(500), "Could not save this update."],
+        ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server."],
+      ])("shows %s above the panel, which stays open", async (_case, answer, message) => {
+        const api = open([line("r1")], { [fulfilment("r1")]: answer });
+        const row = await startUpdate();
+        set(notes(), "Kept");
+
+        await save();
+
+        expect(await within(row).findByRole("alert")).toHaveTextContent(message);
+        expect(notes()).toHaveValue("Kept");
+        expect(notes()).toBeValid();
+        expect(screen.queryByText("Update saved.")).not.toBeInTheDocument();
+        expect(api.sent(AVAILABILITY)).toHaveLength(1);
+      });
+
+      it("sends the user to log in when their session expired", async () => {
+        open([line("r1")], { [fulfilment("r1")]: reply(401, {}) });
+        await startUpdate();
+
+        await save();
+
+        await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
+        expect(screen.queryByText("Update saved.")).not.toBeInTheDocument();
+      });
+    });
   });
 
   describe("when it cannot be loaded", () => {
-    it("says the event was not found", async () => {
-      open([], { [EVENT]: reply(404, {}) });
+    it.each([
+      ["the event", () => ({ [EVENT]: reply(404, {}) })],
+      ["its equipment, which Technical Support only sees from planning on", () => ({ [AVAILABILITY]: reply(404, {}) })],
+    ])("says so when %s is not found", async (_case, routes) => {
+      open([], routes());
 
-      expect(await screen.findByRole("alert")).toHaveTextContent("This event was not found.");
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "This event was not found, or its equipment is not ready for Technical Support yet."
+      );
     });
 
     it("offers a Retry that loads again", async () => {

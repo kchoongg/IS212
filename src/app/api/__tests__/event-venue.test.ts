@@ -122,6 +122,8 @@ describe("GET /api/events/[id]/venue-bookings", () => {
         },
       ],
       cannotRequest: null,
+      // Already in planning, so requesting begins nothing.
+      willBeginPlanning: false,
       bookings,
     });
     expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
@@ -140,6 +142,42 @@ describe("GET /api/events/[id]/venue-bookings", () => {
 
     expect(res.status).toBe(200);
     expect((await res.json()).cannotRequest).toBe("Only the assigned Coordinator can request a venue booking.");
+  });
+
+  it("says a request on an approved event will begin planning", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "approved" }));
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    const body = await (await get(token)).json();
+
+    expect(body).toMatchObject({ cannotRequest: null, willBeginPlanning: true });
+  });
+
+  it.each(["submitted", "under_review"])(
+    "tells the assigned coordinator a %s event must be approved first",
+    async (status) => {
+      const token = signIn(assignedCoordinator());
+      db.event.findUnique.mockResolvedValue(event({ status }));
+      db.venueBooking.findMany.mockResolvedValue([]);
+
+      const body = await (await get(token)).json();
+
+      expect(body.cannotRequest).toBe("A venue can be requested once this request has been approved.");
+      expect(body.willBeginPlanning).toBe(false);
+    }
+  );
+
+  it("returns Venue Staff's decision on each request, for the coordinator to act on", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event());
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    await get(token);
+    const select = callArg(db.venueBooking.findMany).select;
+
+    expect(select).toMatchObject({ decisionReason: true, suggestedAlternative: true });
+    expect(select.suggestedVenue).toEqual({ select: { id: true, code: true, name: true, isActive: true } });
   });
 
   it.each(["completed", "cancelled", "rejected"])(
@@ -270,6 +308,12 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       expect(await refusal(given(event(), venueRow))).toBe("Venue not found");
     });
 
+    it.each(["submitted", "under_review"])("an event that is still %s", async (status) => {
+      expect(await refusal(given(event({ status })))).toBe(
+        "A venue can be requested once this request has been approved."
+      );
+    });
+
     it.each(["completed", "cancelled", "rejected"])("an event that is %s", async (status) => {
       expect(await refusal(given(event({ status })))).toBe(
         "A venue cannot be requested for a completed, cancelled or rejected event."
@@ -337,6 +381,31 @@ describe("POST /api/events/[id]/venue-bookings", () => {
 
       expect(await refusal(token)).toBe("Hall A is unavailable at this time.");
     });
+  });
+
+  it("begins planning when it is the first arrangement on an approved event", async () => {
+    const token = given(event({ status: "approved" }));
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await post(token, valid);
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).planningStarted).toBe(true);
+    expect(callArg(db.event.updateMany)).toEqual({
+      where: { id: ID.event, status: "approved" },
+      data: { status: "planning" },
+    });
+    expect(callArg(db.eventStatusHistory.create).data).toMatchObject({
+      toStatus: "planning",
+      reason: "Venue booking requested",
+    });
+  });
+
+  it("leaves the status alone on an event already in planning", async () => {
+    const res = await post(given(), valid);
+
+    expect((await res.json()).planningStarted).toBe(false);
+    expect(db.event.updateMany).not.toHaveBeenCalled();
   });
 
   it("is not blocked by the event's own earlier request for the same slot", async () => {

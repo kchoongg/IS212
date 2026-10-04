@@ -180,6 +180,97 @@ describe("Event Venue tab", () => {
     expect(requests).toHaveTextContent("Approved");
   });
 
+  describe("a rejected booking request", () => {
+    const rejected = (overrides: Record<string, unknown> = {}) => ({
+      id: "b1",
+      status: "rejected",
+      startsAt: "2027-03-04T05:00:00.000Z",
+      endsAt: "2027-03-04T10:00:00.000Z",
+      layoutName: "theatre",
+      session: null,
+      venue: { code: "HALL-A", name: "Hall A" },
+      decisionReason: "The hall is being refitted that week.",
+      suggestedAlternative: "Free on the Friday instead.",
+      suggestedVenue: { id: "v9", code: "ROOM-C", name: "Room C", isActive: true },
+      ...overrides,
+    });
+    const requests = async () =>
+      (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
+
+    it("shows Venue Staff's reason and the alternative they suggested", async () => {
+      open({ [INFO]: info({ bookings: [rejected()] }) });
+
+      const card = await requests();
+
+      expect(card).toHaveTextContent("Reason from Venue Staff: The hall is being refitted that week.");
+      expect(card).toHaveTextContent("Suggested alternative: Room C (ROOM-C) — Free on the Friday instead.");
+    });
+
+    it("offers to request the suggested venue, which only opens the request form", async () => {
+      open({ [INFO]: info({ bookings: [rejected()] }) });
+
+      expect(within(await requests()).getByRole("link", { name: "Request this venue" })).toHaveAttribute(
+        "href",
+        "/events/EVT-000007/booking/new?venue=v9"
+      );
+    });
+
+    it("carries the session into the request for the suggested venue", async () => {
+      open({ [INFO]: info({ sessions, bookings: [rejected({ session: { id: "s2", label: null } })] }) });
+
+      expect(within(await requests()).getByRole("link", { name: "Request this venue" })).toHaveAttribute(
+        "href",
+        "/events/EVT-000007/booking/new?venue=v9&session=s2"
+      );
+    });
+
+    it.each([
+      ["the suggested venue has since been retired", { suggestedVenue: { id: "v9", code: "ROOM-C", name: "Room C", isActive: false } }, {}],
+      ["only a note was suggested, not a venue", { suggestedVenue: null }, {}],
+      ["this user cannot request bookings", {}, { cannotRequest: "Only the assigned Coordinator can request a venue booking." }],
+    ])("does not offer it when %s", async (_case, bookingOverrides, infoOverrides) => {
+      open({ [INFO]: info({ bookings: [rejected(bookingOverrides)], ...infoOverrides }) });
+
+      const card = await requests();
+
+      expect(card).toHaveTextContent("Reason from Venue Staff:");
+      expect(within(card).queryByRole("link", { name: "Request this venue" })).not.toBeInTheDocument();
+    });
+
+    it("shows a suggestion with no reason, and a reason with no suggestion", async () => {
+      open({
+        [INFO]: info({
+          bookings: [
+            rejected({ decisionReason: null, suggestedAlternative: null }),
+            rejected({ id: "b2", suggestedVenue: null, suggestedAlternative: null }),
+          ],
+        }),
+      });
+
+      const card = await requests();
+
+      expect(card).toHaveTextContent("Suggested alternative: Room C (ROOM-C)");
+      expect(card.textContent!.match(/Reason from Venue Staff:/g)).toHaveLength(1);
+      expect(card.textContent!.match(/Suggested alternative:/g)).toHaveLength(1);
+    });
+
+    it("adds nothing under a rejection that carries no reason or suggestion", async () => {
+      open({ [INFO]: info({ bookings: [rejected({ decisionReason: null, suggestedAlternative: null, suggestedVenue: null })] }) });
+
+      const card = await requests();
+
+      expect(card).toHaveTextContent("Rejected");
+      expect(card).not.toHaveTextContent("Reason from Venue Staff");
+      expect(card).not.toHaveTextContent("Suggested alternative");
+    });
+
+    it("shows no decision details under a request that is not rejected", async () => {
+      open({ [INFO]: info({ bookings: [rejected({ status: "approved" })] }) });
+
+      expect(await requests()).not.toHaveTextContent("Reason from Venue Staff");
+    });
+  });
+
   it("shows no booking requests card when there are none", async () => {
     open();
 
@@ -492,6 +583,70 @@ describe("Venue booking request form", () => {
       await screen.findByText("Booking request sent to Venue Staff.");
       expect(api.sent(POST)).toHaveLength(1);
     });
+  });
+
+  describe("when the request would begin planning", () => {
+    const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
+    const firstRequest = (answer: unknown = reply(201, { id: "b1", planningStarted: true })) =>
+      open({ [INFO]: info({ willBeginPlanning: true }), [POST]: answer });
+
+    it("asks first, and sends nothing until the coordinator continues", async () => {
+      const api = firstRequest();
+      await date();
+
+      await submit();
+
+      expect(dialog().open).toBe(true);
+      expect(dialog()).toHaveTextContent("it will move from Approved to Planning");
+      expect(api.sent(POST)).toHaveLength(0);
+    });
+
+    it("on Continue, sends the request and says planning has started", async () => {
+      const api = firstRequest();
+      await date();
+      await submit();
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Continue", hidden: true }));
+
+      expect(await screen.findByText("Booking request sent to Venue Staff.")).toBeInTheDocument();
+      expect(screen.getByText("Planning has started")).toBeInTheDocument();
+      expect(api.sent(POST)).toHaveLength(1);
+      expect(dialog().open).toBe(false);
+    });
+
+    it("on Cancel, sends nothing and keeps the form", async () => {
+      const api = firstRequest();
+      await date();
+      await submit();
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+      expect(dialog().open).toBe(false);
+      expect(api.sent(POST)).toHaveLength(0);
+      expect(screen.getByRole("button", { name: "Submit request" })).toBeInTheDocument();
+    });
+
+    it("closes the question and shows the error when the request is refused", async () => {
+      firstRequest(reply(400, { error: "Hall A is already booked for this time." }));
+      await date();
+      await submit();
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Continue", hidden: true }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Hall A is already booked for this time.");
+      expect(dialog().open).toBe(false);
+    });
+  });
+
+  it("does not ask, or mention planning, for an event already in planning", async () => {
+    const api = open({ [POST]: reply(201, { id: "b1", planningStarted: false }) });
+    await date();
+
+    await submit();
+
+    expect(await screen.findByText("Booking request sent to Venue Staff.")).toBeInTheDocument();
+    expect(api.sent(POST)).toHaveLength(1);
+    expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
   });
 
   it("shows the reason instead of the form when a booking cannot be requested", async () => {

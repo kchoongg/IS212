@@ -1149,6 +1149,9 @@ async function main() {
     spm34("spm34_sessions", "SPM34 Two Day Forum", "2027-05-17", 27),
     spm34("spm34_other_coordinator", "SPM34 Another Coordinator", "2027-05-18", 4,
       { coordinator: "priya.raj@connectsphere.com" }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-50 QA fixtures (Review and Update Equipment Request). The SAME events
   // and equipment lines as scripts/seed-spm50.ts (`npm run fixtures:spm50`) -
   // keep the two in step. In August 2027, clear of every SPM-49 event, so

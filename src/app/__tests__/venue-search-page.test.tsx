@@ -469,21 +469,120 @@ describe("Find a venue", () => {
     });
 
     describe("starting planning", () => {
-      const PATCH = `PATCH /api/events/${REF}`;
+      const BEGIN = `POST /api/events/${REF}/begin-planning`;
+      const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
+      const approved = () => event({ status: "approved" });
 
-      it("moves an Approved event to Planning when its assigned coordinator starts the search", async () => {
-        const api = openFor(event({ status: "approved" }), { [PATCH]: { status: "planning" } });
+      it("does not begin planning just because the page was opened", async () => {
+        const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
 
-        expect(await screen.findByText("Planning has started")).toBeInTheDocument();
-        expect(api.sent(PATCH)[0].body).toEqual({ status: "planning", reason: "Venue search started" });
-        expect(await screen.findByText("2 of 5 venues match")).toBeInTheDocument();
+        await ready();
+
+        expect(api.sent(BEGIN)).toHaveLength(0);
+        expect(dialog().open).toBe(false);
+        expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
       });
 
-      it("reports a failure to move the status, and still searches", async () => {
-        openFor(event({ status: "approved" }), { [PATCH]: reply(403, {}) });
+      it("asks the assigned coordinator before a Search that would begin planning", async () => {
+        const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
+        await ready();
+
+        await search();
+
+        expect(dialog().open).toBe(true);
+        expect(dialog()).toHaveTextContent("Begin planning?");
+        expect(dialog()).toHaveTextContent("it will move from Approved to Planning");
+        expect(dialog()).toHaveTextContent("This cannot be undone.");
+        expect(api.sent(BEGIN)).toHaveLength(0);
+        expect(api.sent(SEARCH)).toHaveLength(1);
+      });
+
+      it("on Continue, begins planning, says so, and runs the search", async () => {
+        const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
+        await ready();
+        await search();
+
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Continue", hidden: true }));
+
+        expect(await screen.findByText("Planning has started")).toBeInTheDocument();
+        expect(api.sent(BEGIN)).toHaveLength(1);
+        await waitFor(() => expect(api.sent(SEARCH)).toHaveLength(2));
+        expect(dialog().open).toBe(false);
+      });
+
+      it("on Cancel, leaves the event approved and does not search", async () => {
+        const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
+        await ready();
+        await search();
+
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+        expect(dialog().open).toBe(false);
+        expect(api.sent(BEGIN)).toHaveLength(0);
+        expect(api.sent(SEARCH)).toHaveLength(1);
+      });
+
+      it("does not ask again once planning has begun", async () => {
+        const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
+        await ready();
+        await search();
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Continue", hidden: true }));
+        await screen.findByText("Planning has started");
+
+        await search();
+
+        await waitFor(() => expect(api.sent(SEARCH)).toHaveLength(3));
+        expect(dialog().open).toBe(false);
+        expect(api.sent(BEGIN)).toHaveLength(1);
+      });
+
+      it("says nothing when planning had already begun somewhere else", async () => {
+        const api = openFor(approved(), { [BEGIN]: { planningStarted: false } });
+        await ready();
+        await search();
+
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Continue", hidden: true }));
+
+        await waitFor(() => expect(api.sent(SEARCH)).toHaveLength(2));
+        expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
+        expect(screen.queryByText("The event is still Approved")).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["the server refuses", reply(403, {})],
+        ["the server cannot be reached", () => Promise.reject(new Error("offline"))],
+      ])("reports that the event is still approved when %s, and still searches", async (_case, answer) => {
+        const api = openFor(approved(), { [BEGIN]: answer });
+        await ready();
+        await search();
+
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Continue", hidden: true }));
 
         expect(await screen.findByText("The event is still Approved")).toBeInTheDocument();
-        expect(await screen.findByText("2 of 5 venues match")).toBeInTheDocument();
+        expect(screen.getByText(/The search below still works; try searching\s+again\./)).toBeInTheDocument();
+        await waitFor(() => expect(api.sent(SEARCH)).toHaveLength(2));
+      });
+
+      it("does not ask about a search the form refuses", async () => {
+        openFor(approved(), { [BEGIN]: { planningStarted: true } });
+        await ready();
+        set(field("To"), "");
+
+        await search();
+
+        expect(dialog().open).toBe(false);
+        expect(screen.getByText("Give both a start and an end, or clear both.")).toBeInTheDocument();
+      });
+
+      it("Clear filters neither asks nor begins planning", async () => {
+        const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
+        await ready();
+
+        await userEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+
+        await waitFor(() => expect(api.sent(SEARCH)).toHaveLength(2));
+        expect(dialog().open).toBe(false);
+        expect(api.sent(BEGIN)).toHaveLength(0);
       });
 
       it.each([
@@ -491,13 +590,15 @@ describe("Find a venue", () => {
         ["the event is confirmed", event({ status: "confirmed" }), "coordinator"],
         ["the coordinator is not the one assigned", event({ status: "approved", coordinatorId: "someone-else" }), "coordinator"],
         ["the searcher is the Ops Manager", event({ status: "approved" }), "ops_manager"],
-      ])("leaves the status alone when %s", async (_case, eventRow, role) => {
+      ])("searches straight away, without asking, when %s", async (_case, eventRow, role) => {
         const api = openFor(eventRow, {}, role);
-
         await ready();
 
-        expect(api.sent(PATCH)).toHaveLength(0);
-        expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
+        await search();
+
+        await waitFor(() => expect(api.sent(SEARCH)).toHaveLength(2));
+        expect(dialog().open).toBe(false);
+        expect(api.sent(BEGIN)).toHaveLength(0);
       });
     });
 

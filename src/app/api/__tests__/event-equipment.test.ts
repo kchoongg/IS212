@@ -80,6 +80,27 @@ describe("GET /api/events/[id]/equipment", () => {
     expect(res.status).toBe(403);
     expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
   });
+
+  it("still shows Technical Support the equipment of a confirmed event, to prepare it", async () => {
+    const token = signIn(user("tech_support", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+
+    expect((await list(token)).status).toBe(200);
+  });
+
+  it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "completed"])(
+    "is 403 for Technical Support while the event is %s - their part starts with planning",
+    async (status) => {
+      const token = signIn(user("tech_support", { id: ID.thirdUser }));
+      db.event.findUnique.mockResolvedValue(event({ status }));
+
+      const res = await list(token);
+
+      expect(res.status).toBe(403);
+      expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe("POST /api/events/[id]/equipment", () => {
@@ -156,7 +177,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
-  it.each(["completed", "cancelled", "rejected"])("refuses an event that is %s", async (status) => {
+  it.each(["completed", "cancelled", "rejected", "withdrawn"])("refuses an event that is %s", async (status) => {
     const token = givenAssignedCoordinator({ status });
 
     const res = await add(token, valid);
@@ -164,6 +185,46 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Cannot record equipment for a completed, cancelled, or rejected event" });
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
+  });
+
+  it.each(["submitted", "under_review"])("refuses an event that is still %s - arrangements wait for approval", async (status) => {
+    const token = givenAssignedCoordinator({ status });
+
+    const res = await add(token, valid);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Equipment can be recorded once this request has been approved" });
+    expect(db.equipmentRequest.create).not.toHaveBeenCalled();
+  });
+
+  it("begins planning when it is the first arrangement on an approved event", async () => {
+    const token = givenAssignedCoordinator({ status: "approved" });
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await add(token, valid);
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).planningStarted).toBe(true);
+    expect(callArg(db.event.updateMany)).toEqual({
+      where: { id: ID.event, status: "approved" },
+      data: { status: "planning" },
+    });
+    expect(callArg(db.eventStatusHistory.create).data).toMatchObject({
+      fromStatus: "approved",
+      toStatus: "planning",
+      changedBy: ID.user,
+      reason: "Equipment requirement recorded",
+    });
+  });
+
+  it("leaves the status alone on an event already in planning", async () => {
+    const token = givenAssignedCoordinator();
+
+    const res = await add(token, valid);
+
+    expect((await res.json()).planningStarted).toBe(false);
+    expect(db.event.updateMany).not.toHaveBeenCalled();
+    expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
   });
 
   it("scopes the requirement to one of the event's own sessions", async () => {
@@ -299,7 +360,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
     });
 
-    it.each(["completed", "cancelled", "rejected"])("is refused once the event is %s", async (status) => {
+    it.each(["completed", "cancelled", "rejected", "withdrawn"])("is refused once the event is %s", async (status) => {
       const res = await call(givenRequest(assignedCoordinator(), requestRow({ status })));
 
       expect(res.status).toBe(400);
@@ -308,6 +369,43 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       });
       expect(db.equipmentRequest.update).not.toHaveBeenCalled();
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
+    });
+
+    it.each(["submitted", "under_review"])("is refused while the event is still %s", async (status) => {
+      const res = await call(givenRequest(assignedCoordinator(), requestRow({ status })));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Equipment can be recorded once this request has been approved" });
+      expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+      expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe.each([
+    ["PATCH", "Equipment requirement updated", (token: string) => update(token, { quantityRequested: 6 })],
+    ["DELETE", "Equipment requirement removed", (token: string) => remove(token)],
+  ])("%s and planning", (_method, reason, call) => {
+    it("begins planning on an approved event, in the same transaction as the change", async () => {
+      const token = givenRequest(assignedCoordinator(), requestRow({ status: "approved" }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+      db.event.updateMany.mockResolvedValue({ count: 1 });
+
+      const res = await call(token);
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).planningStarted).toBe(true);
+      expect(db.$transaction).toHaveBeenCalledOnce();
+      expect(callArg(db.eventStatusHistory.create).data).toMatchObject({ toStatus: "planning", reason });
+    });
+
+    it("leaves the status alone on an event already in planning", async () => {
+      const token = givenRequest();
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      const res = await call(token);
+
+      expect((await res.json()).planningStarted).toBe(false);
+      expect(db.event.updateMany).not.toHaveBeenCalled();
     });
   });
 
@@ -351,13 +449,13 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     expect((await update(token, { quantityRequested: 6 })).status).toBe(500);
   });
 
-  it("DELETE removes the request and answers 204 with no body", async () => {
+  it("DELETE removes the request and says whether planning began", async () => {
     const token = givenRequest();
 
     const res = await remove(token);
 
-    expect(res.status).toBe(204);
-    expect(await res.text()).toBe("");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ planningStarted: false });
     expect(callArg(db.equipmentRequest.delete)).toEqual({ where: { id: ID.request } });
   });
 });

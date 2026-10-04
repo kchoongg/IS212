@@ -137,8 +137,8 @@ describe("AppShell", () => {
       expect(within(mainNav()).getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
     });
 
-    it("highlights an exact match, and only sections the page actually sits under", async () => {
-      setRoute("/equipment/requests");
+    it("highlights only the most specific section when two contain the page", async () => {
+      setRoute("/equipment/requests/EVT-000007");
       mockApi(signedInAs("tech_support"));
 
       render(<AppShell>page content</AppShell>);
@@ -148,8 +148,9 @@ describe("AppShell", () => {
         .filter((a) => a.getAttribute("aria-current") === "page")
         .map((a) => a.textContent);
 
-      // /equipment/requests sits under /equipment, so both are highlighted.
-      expect(current).toEqual(["Equipment", "Equipment Requests"]);
+      // The page sits under both /equipment and /equipment/requests; only the
+      // closer one is lit, never both.
+      expect(current).toEqual(["Equipment Requests"]);
     });
 
     it("logs out: forgets the session and goes to the login page", async () => {

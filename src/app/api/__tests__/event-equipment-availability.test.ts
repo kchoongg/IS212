@@ -115,6 +115,63 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
   });
 
+  it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "completed"])(
+    "is 404 for an event that is %s - Technical Support's part starts with planning",
+    async (status) => {
+      const token = signIn(techSupport());
+      db.event.findUnique.mockResolvedValue(eventRow({ status }));
+
+      const res = await check(token);
+
+      expect(res.status).toBe(404);
+      expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
+    }
+  );
+
+  it("is still shown for a confirmed event", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(eventRow({ status: "confirmed" }));
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+
+    expect((await check(token)).status).toBe(200);
+  });
+
+  it("gives each line the coordinator's requirements and Technical Support's own review", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(
+      eventRow({
+        equipmentRequests: [
+          line({
+            technicalRequirements: "HDMI on stage left",
+            staffNotes: "Spare unit checked",
+            reviewedAt: new Date("2027-02-01T02:00:00.000Z"),
+            reviewer: { fullName: "Tessa Lim" },
+          }),
+        ],
+      })
+    );
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+
+    const body = await (await check(token)).json();
+
+    expect(body.lines[0]).toMatchObject({
+      technicalRequirements: "HDMI on stage left",
+      staffNotes: "Spare unit checked",
+      reviewedByName: "Tessa Lim",
+      reviewedAt: "2027-02-01T02:00:00.000Z",
+    });
+  });
+
+  it("gives no reviewer for a line nobody has reviewed yet", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(eventRow());
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+
+    const body = await (await check(token)).json();
+
+    expect(body.lines[0].reviewedByName).toBeNull();
+  });
+
   it("reports a line as available when nothing else holds the item", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
@@ -354,16 +411,25 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it.each(["completed", "cancelled", "rejected", "postponed"])(
-    "refuses to reserve into an event that is %s",
+  it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "rejected", "completed"])(
+    "is 404 for an event that is %s - Technical Support does not see its equipment",
     async (status) => {
       const res = await post(given(requestRow({}, { status })));
 
-      expect(res.status).toBe(400);
-      expect(await res.json()).toEqual({ error: `This event is ${status} — equipment can no longer be reserved.` });
+      expect(res.status).toBe(404);
       expect(db.$transaction).not.toHaveBeenCalled();
     }
   );
+
+  it("refuses to reserve into a confirmed event, whose equipment is final", async () => {
+    const res = await post(given(requestRow({}, { status: "confirmed" })));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "This event is confirmed — its equipment is final. A change now goes through a change request.",
+    });
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
 
   it("reserves everything requested when it is all available", async () => {
     vi.useFakeTimers({ now: NOW });
@@ -433,6 +499,22 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
 
     expect(res.status).toBe(400);
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+  });
+
+  it("clears the 'cannot be provided' reason when such a line is reserved after all", async () => {
+    const token = given(requestRow({ status: "unavailable", staffNotes: "Both units out for repair" }));
+
+    await post(token);
+
+    expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "reserved", staffNotes: null });
+  });
+
+  it("keeps Technical Support's notes on any other line it reserves", async () => {
+    const token = given(requestRow({ status: "under_review", staffNotes: "Deliver to the loading bay" }));
+
+    await post(token);
+
+    expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("staffNotes");
   });
 
   it("refuses a request that has been withdrawn", async () => {

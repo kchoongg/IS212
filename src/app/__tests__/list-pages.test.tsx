@@ -14,6 +14,7 @@ import EquipmentRequestsPage from "@/app/equipment/requests/page";
 import AssignmentsPage from "@/app/assignments/page";
 import { ROLES } from "@/lib/roles";
 import {
+  fireEvent,
   mockApi,
   render,
   reply,
@@ -47,6 +48,7 @@ function event(sequenceNumber: number, overrides: Record<string, unknown> = {}) 
     endsAt: "2027-03-04T09:00:00.000Z",
     expectedAttendance: 100,
     coordinatorId: null,
+    updatedAt: "2027-01-01T00:00:00.000Z",
     ...overrides,
   };
 }
@@ -54,6 +56,18 @@ function event(sequenceNumber: number, overrides: Record<string, unknown> = {}) 
 describe("Dashboard", () => {
   const listed = () => screen.getAllByRole("listitem").filter((li) => li.querySelector("a[href^='/events/']"));
   const listedTitles = () => listed().map((li) => li.querySelector("span")!.textContent);
+  /// One list on the dashboard: its heading and everything under it.
+  const section = (heading: string) => screen.getByRole("heading", { name: heading }).parentElement as HTMLElement;
+  const titlesIn = (heading: string) =>
+    within(section(heading))
+      .queryAllByRole("listitem")
+      .map((li) => li.querySelector("span")!.textContent);
+  const headings = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+  /// `count` events of one status, each updated a minute after the one before.
+  const many = (count: number, overrides: Record<string, unknown>) =>
+    Array.from({ length: count }, (_, i) =>
+      event(i + 1, { updatedAt: `2027-01-01T00:0${i}:00.000Z`, ...overrides })
+    );
 
   it("sends an anonymous visitor to log in", async () => {
     mockApi(signedOut());
@@ -63,23 +77,41 @@ describe("Dashboard", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fdashboard"));
   });
 
-  it("greets an organiser and surfaces their drafts and requests under review", async () => {
+  it("greets an organiser and sorts their requests into one list per stage", async () => {
     mockApi({
       ...signedInAs("organiser", { name: "Rachel Ng" }),
       "GET /api/events": [
         event(1, { title: "My draft", status: "draft" }),
         event(2, { title: "In review", status: "under_review" }),
-        event(3, { title: "Already confirmed", status: "confirmed" }),
+        event(3, { title: "Just approved", status: "approved" }),
+        event(4, { title: "Being planned", status: "planning" }),
+        event(5, { title: "Already confirmed", status: "confirmed" }),
       ],
     });
 
     render(<DashboardPage />);
 
     expect(await screen.findByRole("heading", { name: "Welcome, Rachel Ng" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Needs your attention" })).toBeInTheDocument();
-    await waitFor(() => expect(listedTitles()).toEqual(["My draft", "In review"]));
+    await waitFor(() => expect(listed()).toHaveLength(4));
+    expect(headings().slice(0, 4)).toEqual(["Drafts", "Under review", "Approved", "Planning"]);
+    expect(titlesIn("Drafts")).toEqual(["My draft"]);
+    expect(titlesIn("Under review")).toEqual(["In review"]);
+    expect(titlesIn("Approved")).toEqual(["Just approved"]);
+    expect(titlesIn("Planning")).toEqual(["Being planned"]);
     expect(screen.getByRole("link", { name: "New event request" })).toHaveAttribute("href", "/events/new");
     expect(screen.queryByText("Internal view")).not.toBeInTheDocument();
+  });
+
+  it("says what each of an organiser's lists is waiting for when it is empty", async () => {
+    mockApi({ ...signedInAs("organiser"), "GET /api/events": [] });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("No drafts")).toBeInTheDocument();
+    expect(section("Under review")).toHaveTextContent("Nothing under review");
+    expect(section("Approved")).toHaveTextContent("Nothing waiting to be planned");
+    expect(section("Planning")).toHaveTextContent("Nothing in planning");
+    expect(section("Planning")).toHaveTextContent("Events appear here once your coordinator begins planning.");
   });
 
   it("opens a draft in the editor and anything else on its detail page", async () => {
@@ -103,24 +135,119 @@ describe("Dashboard", () => {
     expect(await screen.findByText("Untitled event")).toBeInTheDocument();
   });
 
-  it("shows a coordinator only the unconfirmed events assigned to them", async () => {
+  describe("as an overview", () => {
+    it("shows only the five most recently changed events of a long list, newest first", async () => {
+      mockApi({ ...signedInAs("organiser"), "GET /api/events": many(7, { status: "draft" }) });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => expect(listed()).toHaveLength(5));
+      expect(titlesIn("Drafts")).toEqual(["Event 7", "Event 6", "Event 5", "Event 4", "Event 3"]);
+      expect(section("Drafts")).toHaveTextContent("Showing the 5 most recently updated of 7.");
+      expect(within(section("Drafts")).getByRole("link", { name: "View all in My Events" })).toHaveAttribute(
+        "href",
+        "/events"
+      );
+    });
+
+    it("says nothing about a list that is shown in full", async () => {
+      mockApi({ ...signedInAs("organiser"), "GET /api/events": many(5, { status: "draft" }) });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => expect(listed()).toHaveLength(5));
+      expect(screen.queryByText(/Showing the/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /View all/ })).not.toBeInTheDocument();
+    });
+
+    it("counts each list on its own", async () => {
+      mockApi({
+        ...signedInAs("organiser"),
+        "GET /api/events": [...many(6, { status: "planning" }), event(9, { title: "Lone draft", status: "draft" })],
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => expect(listed()).toHaveLength(6));
+      expect(section("Planning")).toHaveTextContent("Showing the 5 most recently updated of 6.");
+      expect(section("Drafts")).not.toHaveTextContent("Showing the");
+    });
+
+    it("sends a coordinator to the Review Queue for the rest of their reviews, and to All Events otherwise", async () => {
+      const me = viewer("coordinator");
+      mockApi({
+        ...signedInAs("coordinator"),
+        "GET /api/events": [
+          ...many(6, { status: "under_review", coordinatorId: me.id }),
+          ...many(6, { status: "planning", coordinatorId: me.id }),
+        ],
+      });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => expect(listed()).toHaveLength(10));
+      expect(
+        within(section("Awaiting your review")).getByRole("link", { name: "View all in Review Queue" })
+      ).toHaveAttribute("href", "/queue");
+      expect(within(section("Planning")).getByRole("link", { name: "View all in All Events" })).toHaveAttribute(
+        "href",
+        "/events"
+      );
+    });
+
+    it("does not cut short the single list of a role that has no overview", async () => {
+      mockApi({ ...signedInAs("ops_manager"), "GET /api/events": many(7, { status: "submitted" }) });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => expect(listed()).toHaveLength(7));
+      expect(listedTitles()[0]).toBe("Event 1");
+      expect(screen.queryByText(/Showing the/)).not.toBeInTheDocument();
+    });
+
+    it("offers no 'View all' to a role with no events list to go to", async () => {
+      mockApi({ ...signedInAs("intern"), "GET /api/events": many(6, { status: "draft" }) });
+
+      render(<DashboardPage />);
+
+      expect(await screen.findByText(/Showing the 5 most recently updated of 6\./)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /View all/ })).not.toBeInTheDocument();
+    });
+  });
+
+  it("shows a coordinator only their own events, by the stage each has reached", async () => {
     const me = viewer("coordinator");
     mockApi({
       ...signedInAs("coordinator"),
       "GET /api/events": [
-        event(1, { title: "Mine, in planning", coordinatorId: me.id }),
-        event(2, { title: "A colleague's", coordinatorId: "someone-else" }),
-        event(3, { title: "Nobody's yet", status: "submitted" }),
-        event(4, { title: "Mine, confirmed", status: "confirmed", coordinatorId: me.id }),
+        event(1, { title: "Mine, to review", status: "under_review", coordinatorId: me.id }),
+        event(2, { title: "Mine, approved", status: "approved", coordinatorId: me.id }),
+        event(3, { title: "Mine, in planning", coordinatorId: me.id }),
+        event(4, { title: "A colleague's", coordinatorId: "someone-else" }),
+        event(5, { title: "Nobody's yet", status: "submitted" }),
+        event(6, { title: "Mine, confirmed", status: "confirmed", coordinatorId: me.id }),
       ],
     });
 
     render(<DashboardPage />);
 
-    expect(await screen.findByRole("heading", { name: "Awaiting your review" })).toBeInTheDocument();
-    await waitFor(() => expect(listedTitles()).toEqual(["Mine, in planning"]));
+    await waitFor(() => expect(listed()).toHaveLength(3));
+    expect(headings().slice(0, 3)).toEqual(["Awaiting your review", "Approved", "Planning"]);
+    expect(titlesIn("Awaiting your review")).toEqual(["Mine, to review"]);
+    expect(titlesIn("Approved")).toEqual(["Mine, approved"]);
+    expect(titlesIn("Planning")).toEqual(["Mine, in planning"]);
     expect(screen.getByText("Internal view")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "New event request" })).not.toBeInTheDocument();
+  });
+
+  it("tells a coordinator with nothing on their plate what each list is for", async () => {
+    mockApi({ ...signedInAs("coordinator"), "GET /api/events": [] });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("Nothing to review")).toBeInTheDocument();
+    expect(section("Approved")).toHaveTextContent("Events appear here once you approve them.");
+    expect(section("Planning")).toHaveTextContent("Events appear here once you begin planning them.");
   });
 
   it("shows the Ops Manager submitted events that have no coordinator", async () => {
@@ -166,11 +293,10 @@ describe("Dashboard", () => {
 
     render(<DashboardPage />);
 
-    await screen.findByText("Nothing needs your attention");
     const goTo = screen.getByRole("heading", { name: "Go to" }).closest("div.rounded-lg") as HTMLElement;
-    const links = within(goTo).getAllByRole("link").map((a) => a.textContent);
-    expect(links).not.toContain("Dashboard");
-    expect(links).toContain("Notifications");
+    const links = () => within(goTo).queryAllByRole("link").map((a) => a.textContent);
+    await waitFor(() => expect(links()).toContain("Notifications"));
+    expect(links()).not.toContain("Dashboard");
   });
 
   it("falls back to the organiser's view for a role it does not recognise", async () => {
@@ -178,7 +304,8 @@ describe("Dashboard", () => {
 
     render(<DashboardPage />);
 
-    expect(await screen.findByRole("heading", { name: "Needs your attention" })).toBeInTheDocument();
+    await waitFor(() => expect(listed()).toHaveLength(1));
+    expect(headings().slice(0, 4)).toEqual(["Drafts", "Under review", "Approved", "Planning"]);
   });
 
   it("sends the user to log in when their session has expired mid-visit", async () => {
@@ -190,15 +317,28 @@ describe("Dashboard", () => {
   });
 
   it("shows a load failure with a Retry that loads again", async () => {
-    const api = mockApi({ ...signedInAs("organiser"), "GET /api/events": reply(500, {}) });
+    const api = mockApi({ ...signedInAs("ops_manager"), "GET /api/events": reply(500, {}) });
     render(<DashboardPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load your events.");
 
-    api.on("GET /api/events", [event(1, { status: "draft", title: "Recovered" })]);
+    api.on("GET /api/events", [event(1, { status: "submitted", title: "Recovered" })]);
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByText("Recovered")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("recovers every one of an organiser's lists from a load failure", async () => {
+    const api = mockApi({ ...signedInAs("organiser"), "GET /api/events": reply(500, {}) });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getAllByRole("alert").length).toBeGreaterThan(0));
+
+    api.on("GET /api/events", [event(1, { status: "planning", title: "Recovered" })]);
+    await userEvent.click(screen.getAllByRole("button", { name: "Retry" })[0]);
+
+    expect(await screen.findByText("Recovered")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(section("Drafts")).toHaveTextContent("No drafts");
   });
 });
 
@@ -459,6 +599,10 @@ describe("Review Queue", () => {
 });
 
 describe("Booking Requests", () => {
+  const LIST = "GET /api/venue-bookings";
+  const VENUES = "GET /api/venues";
+  const DECIDE = "PATCH /api/venue-bookings/b1";
+
   // 13:00-18:00 Singapore time on 4 March 2027: the PM slot.
   const request = (overrides: Record<string, unknown> = {}) => ({
     id: "b1",
@@ -468,11 +612,46 @@ describe("Booking Requests", () => {
     layoutName: "u_shape",
     requirementsNote: "Stage at the north end",
     requester: { fullName: "Daniel Tan" },
-    event: { reference: "EVT-000007", title: "Town Hall" },
+    event: {
+      reference: "EVT-000007",
+      title: "Town Hall",
+      status: "planning",
+      startsAt: "2027-03-04T06:00:00.000Z",
+      endsAt: "2027-03-04T09:00:00.000Z",
+      expectedAttendance: 120,
+      organisation: "Acme Pte Ltd",
+    },
     session: null,
-    venue: { code: "HALL-A", name: "Hall A", setupMinutes: 0, teardownMinutes: 0 },
+    venue: { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 0, teardownMinutes: 0 },
+    conflict: null,
     ...overrides,
   });
+  const venueList = [
+    { id: "v3", code: "ROOM-C", name: "Room C" },
+    { id: "v1", code: "HALL-A", name: "Hall A" },
+    { id: "v2", code: "HALL-B", name: "Hall B" },
+  ];
+
+  function open(routes: Record<string, unknown> = {}) {
+    const api = mockApi({ ...signedInAs("venue_staff"), [LIST]: [request()], [VENUES]: venueList, ...routes });
+    render(<BookingsPage />);
+    return api;
+  }
+
+  /// The card for one request, found by its venue heading.
+  const card = async (venue = "Hall A (HALL-A)") =>
+    (await screen.findByRole("heading", { name: venue })).closest("div.rounded-lg") as HTMLElement;
+  const valueOf = (within_: HTMLElement, label: string) =>
+    within(within_).getByText(label, { selector: "dt" }).nextElementSibling as HTMLElement;
+  const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
+  const approve = async () => userEvent.click(within(await card()).getByRole("button", { name: "Approve" }));
+  const confirmApproval = () =>
+    userEvent.click(within(dialog()).getByRole("button", { name: "Approve", hidden: true }));
+  const startRejecting = async (venue?: string) =>
+    userEvent.click(within(await card(venue)).getByRole("button", { name: "Reject with a reason" }));
+  const reason = () => screen.getByLabelText(/Reason for rejection/);
+  const giveReason = (text: string) => fireEvent.change(reason(), { target: { value: text } });
+  const submitRejection = () => userEvent.click(screen.getByRole("button", { name: "Reject request" }));
 
   it.each(ROLES.filter((r) => r !== "venue_staff"))("refuses %s without requesting the list", async (role) => {
     const api = mockApi(signedInAs(role));
@@ -480,97 +659,477 @@ describe("Booking Requests", () => {
     render(<BookingsPage />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Reviewing venue bookings is Venue Staff's role.");
-    expect(api.sent("GET /api/venue-bookings")).toHaveLength(0);
+    expect(api.sent(LIST)).toHaveLength(0);
   });
 
-  it("shows the event, venue, slots, requirements, requester and status of each request", async () => {
-    mockApi({ ...signedInAs("venue_staff"), "GET /api/venue-bookings": [request()] });
+  describe("each request", () => {
+    it("shows its venue, event, slots, schedule, requirements, requester and status", async () => {
+      open();
 
-    render(<BookingsPage />);
-    const cells = within(await table()).getAllByRole("cell");
+      const it_ = await card();
 
-    expect(within(cells[0]).getByRole("link", { name: "EVT-000007" })).toHaveAttribute("href", "/events/EVT-000007");
-    expect(cells[0]).toHaveTextContent("Town Hall");
-    expect(cells[1]).toHaveTextContent("Hall A");
-    expect(cells[1]).toHaveTextContent("PM (13:00–18:00)");
-    expect(cells[2]).toHaveTextContent("Layout: U shape");
-    expect(cells[2]).toHaveTextContent("Stage at the north end");
-    expect(cells[3]).toHaveTextContent("Daniel Tan");
-    expect(cells[4]).toHaveTextContent("Pending");
-  });
-
-  it("shows no setup or turnaround line for a venue that needs neither", async () => {
-    mockApi({ ...signedInAs("venue_staff"), "GET /api/venue-bookings": [request()] });
-
-    render(<BookingsPage />);
-
-    expect(within(await table()).queryByText(/Setup:|Turnaround:/)).not.toBeInTheDocument();
-  });
-
-  it("shows the slots a venue's setup and turnaround take either side", async () => {
-    mockApi({
-      ...signedInAs("venue_staff"),
-      "GET /api/venue-bookings": [
-        request({ venue: { code: "HALL-A", name: "Hall A", setupMinutes: 60, teardownMinutes: 30 } }),
-      ],
+      expect(within(it_).getByRole("link", { name: "EVT-000007" })).toHaveAttribute("href", "/events/EVT-000007");
+      expect(it_).toHaveTextContent("for EVT-000007 Town Hall · Acme Pte Ltd");
+      expect(valueOf(it_, "Requested")).toHaveTextContent(/^4 Mar 2027 · PM \(13:00–18:00\)$/);
+      expect(valueOf(it_, "Event time")).toHaveTextContent("4 Mar 2027");
+      expect(valueOf(it_, "Event time")).toHaveTextContent("14:00");
+      expect(valueOf(it_, "Layout")).toHaveTextContent("U shape");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^120$/);
+      expect(valueOf(it_, "Venue requirements")).toHaveTextContent("Stage at the north end");
+      expect(valueOf(it_, "Requested by")).toHaveTextContent("Daniel Tan");
+      expect(valueOf(it_, "Requested by")).toHaveTextContent("Event is Planning");
+      expect(it_).toHaveTextContent("Pending");
+      expect(within(it_).queryByText("Session time")).not.toBeInTheDocument();
     });
 
-    render(<BookingsPage />);
-    const venueCell = within(await table()).getAllByRole("cell")[1];
+    it("shows the slots a venue's setup and turnaround take either side", async () => {
+      open({
+        [LIST]: [request({ venue: { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 60, teardownMinutes: 30 } })],
+      });
 
-    expect(venueCell).toHaveTextContent("Setup: 4 Mar 2027 AM (07:00–12:00)");
-    expect(venueCell).toHaveTextContent("Turnaround: 4 Mar 2027 Night (19:00–24:00)");
-  });
+      const requested = valueOf(await card(), "Requested");
 
-  it("names the session, and fills the gaps of a sparse request", async () => {
-    mockApi({
-      ...signedInAs("venue_staff"),
-      "GET /api/venue-bookings": [
-        request({
-          layoutName: null,
-          requirementsNote: null,
-          event: { reference: "EVT-000008", title: null },
-          session: { label: "Day 1" },
-        }),
-        request({ id: "b2", session: { label: null } }),
-      ],
+      expect(requested).toHaveTextContent("Setup: 4 Mar 2027 AM (07:00–12:00)");
+      expect(requested).toHaveTextContent("Turnaround: 4 Mar 2027 Night (19:00–24:00)");
     });
 
-    render(<BookingsPage />);
-    const cells = within(await table()).getAllByRole("cell");
+    it("shows no setup or turnaround line for a venue that needs neither", async () => {
+      open();
 
-    expect(cells[0]).toHaveTextContent("Untitled event");
-    expect(cells[0]).toHaveTextContent("Session: Day 1");
-    expect(cells[2]).toHaveTextContent("Layout: Not set");
-    expect(cells[2]).toHaveTextContent("None given");
-    expect(cells[5]).toHaveTextContent("Session: Session");
+      expect(within(await card()).queryByText(/Setup:|Turnaround:/)).not.toBeInTheDocument();
+    });
+
+    it("shows a session's own name, time and attendance in place of the event's", async () => {
+      open({
+        [LIST]: [
+          request({
+            session: {
+              label: "Day 1",
+              startsAt: "2027-03-04T07:00:00.000Z",
+              endsAt: "2027-03-04T08:00:00.000Z",
+              expectedAttendance: 40,
+            },
+          }),
+        ],
+      });
+
+      const it_ = await card();
+
+      expect(it_).toHaveTextContent("Session: Day 1");
+      expect(valueOf(it_, "Session time")).toHaveTextContent("15:00");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^40$/);
+      expect(within(it_).queryByText("Event time")).not.toBeInTheDocument();
+    });
+
+    it("falls back to the event's attendance for a session that gives none, and names an unnamed session", async () => {
+      open({
+        [LIST]: [
+          request({
+            session: {
+              label: null,
+              startsAt: "2027-03-04T07:00:00.000Z",
+              endsAt: "2027-03-04T08:00:00.000Z",
+              expectedAttendance: null,
+            },
+          }),
+        ],
+      });
+
+      const it_ = await card();
+
+      expect(it_).toHaveTextContent("Session: Session");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^120$/);
+    });
+
+    it("fills the gaps of a sparse request", async () => {
+      open({
+        [LIST]: [
+          request({
+            layoutName: null,
+            requirementsNote: null,
+            event: {
+              reference: "EVT-000008",
+              title: null,
+              status: "approved",
+              startsAt: null,
+              endsAt: null,
+              expectedAttendance: null,
+              organisation: null,
+            },
+          }),
+        ],
+      });
+
+      const it_ = await card();
+
+      expect(it_).toHaveTextContent("for EVT-000008 Untitled event");
+      expect(it_).not.toHaveTextContent("Untitled event ·");
+      expect(valueOf(it_, "Layout")).toHaveTextContent("Not set");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent("Not set");
+      expect(valueOf(it_, "Venue requirements")).toHaveTextContent("None given");
+      expect(valueOf(it_, "Requested by")).toHaveTextContent("Event is Approved");
+    });
+  });
+
+  it.each([
+    [1, "1 pending decision."],
+    [2, "2 pending decisions."],
+  ])("counts %i waiting under the title", async (count, subtitle) => {
+    open({ [LIST]: [request(), request({ id: "b2" })].slice(0, count) });
+
+    expect(await screen.findByText(subtitle)).toBeInTheDocument();
   });
 
   it("says so when no requests are pending", async () => {
-    mockApi({ ...signedInAs("venue_staff"), "GET /api/venue-bookings": [] });
-
-    render(<BookingsPage />);
+    open({ [LIST]: [] });
 
     expect(await screen.findByText("No pending booking requests")).toBeInTheDocument();
+    expect(screen.getByText("Venue bookings requested by coordinators, waiting for review.")).toBeInTheDocument();
+  });
+
+  describe("a request that would clash", () => {
+    const clash = "Hall A is already booked for EVT-000003 in this slot.";
+
+    it("is flagged, says why, and cannot be approved", async () => {
+      open({ [LIST]: [request({ conflict: clash })] });
+
+      const it_ = await card();
+
+      expect(within(it_).getByRole("alert")).toHaveTextContent("This request cannot be approved as it stands");
+      expect(within(it_).getByRole("alert")).toHaveTextContent(clash);
+      expect(within(it_).getByText("Conflict")).toBeInTheDocument();
+      expect(within(it_).queryByText("Pending")).not.toBeInTheDocument();
+      expect(within(it_).getByRole("button", { name: "Approve" })).toBeDisabled();
+      expect(within(it_).getByRole("button", { name: "Reject with a reason" })).toBeEnabled();
+    });
+
+    it("links to the venue's calendar on the day requested", async () => {
+      open({ [LIST]: [request({ conflict: clash })] });
+
+      expect(within(await card()).getByRole("link", { name: "Open the calendar" })).toHaveAttribute(
+        "href",
+        "/venues/v1/availability?from=2027-03-04"
+      );
+    });
+
+    it("leaves a request with no clash approvable, with no warning", async () => {
+      open();
+
+      const it_ = await card();
+
+      expect(within(it_).getByRole("button", { name: "Approve" })).toBeEnabled();
+      expect(within(it_).queryByRole("alert")).not.toBeInTheDocument();
+      expect(within(it_).queryByText("Conflict")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("approving", () => {
+    it("asks first, naming the room, event and slots it books", async () => {
+      const api = open({ [DECIDE]: {} });
+
+      await approve();
+
+      expect(dialog().open).toBe(true);
+      expect(dialog()).toHaveTextContent("Approve this booking?");
+      expect(dialog()).toHaveTextContent(
+        "This books Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027 · PM (13:00–18:00)."
+      );
+      expect(api.sent(DECIDE)).toHaveLength(0);
+    });
+
+    it("on confirming, approves it, says the room is booked, and reloads the list", async () => {
+      const api = open({ [DECIDE]: {} });
+      await approve();
+      api.on(LIST, []);
+
+      await confirmApproval();
+
+      const notice = await screen.findByText("Booking approved");
+      expect(notice.closest("[role]")).toHaveTextContent(
+        "Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027 · PM (13:00–18:00) is now Approved — the room is booked."
+      );
+      expect(api.sent(DECIDE).map((c) => c.body)).toEqual([{ decision: "approve" }]);
+      expect(await screen.findByText("No pending booking requests")).toBeInTheDocument();
+      expect(dialog().open).toBe(false);
+    });
+
+    it("names an untitled event as such", async () => {
+      open({
+        [LIST]: [request({ event: { ...request().event, title: null } })],
+      });
+
+      await approve();
+
+      expect(dialog()).toHaveTextContent("for EVT-000007 Untitled event on");
+    });
+
+    it("does nothing when the question is cancelled", async () => {
+      const api = open({ [DECIDE]: {} });
+      await approve();
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+      expect(dialog().open).toBe(false);
+      expect(api.sent(DECIDE)).toHaveLength(0);
+      expect(api.sent(LIST)).toHaveLength(1);
+    });
+
+    it("closes a rejection that was being written for another request", async () => {
+      open({ [LIST]: [request(), request({ id: "b2", venue: { ...request().venue, id: "v2", code: "HALL-B", name: "Hall B" } })] });
+      await startRejecting("Hall B (HALL-B)");
+      giveReason("Half-written");
+
+      await approve();
+
+      expect(screen.queryByLabelText(/Reason for rejection/)).not.toBeInTheDocument();
+      expect(dialog().open).toBe(true);
+    });
+  });
+
+  describe("rejecting", () => {
+    it("opens a form on that request only, in place of its buttons", async () => {
+      open({ [LIST]: [request(), request({ id: "b2", venue: { ...request().venue, id: "v2", code: "HALL-B", name: "Hall B" } })] });
+
+      await startRejecting();
+
+      const it_ = await card();
+      expect(within(it_).getByLabelText(/Reason for rejection/)).toHaveValue("");
+      expect(within(it_).queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+      expect(within(await card("Hall B (HALL-B)")).getByRole("button", { name: "Approve" })).toBeInTheDocument();
+      expect(screen.getAllByLabelText(/Reason for rejection/)).toHaveLength(1);
+    });
+
+    it("moves the form when another request is rejected instead, starting it empty", async () => {
+      open({ [LIST]: [request(), request({ id: "b2", venue: { ...request().venue, id: "v2", code: "HALL-B", name: "Hall B" } })] });
+      await startRejecting();
+      giveReason("Meant for Hall A");
+
+      await startRejecting("Hall B (HALL-B)");
+
+      expect(screen.getAllByLabelText(/Reason for rejection/)).toHaveLength(1);
+      expect(within(await card("Hall B (HALL-B)")).getByLabelText(/Reason for rejection/)).toHaveValue("");
+    });
+
+    it.each(["", "   "])("insists on a reason, refusing %j without asking the server", async (text) => {
+      const api = open({ [DECIDE]: {} });
+      await startRejecting();
+      giveReason(text);
+
+      await submitRejection();
+
+      expect(screen.getByText("A reason is required when rejecting. The Coordinator sees this message.")).toBeInTheDocument();
+      expect(reason()).toBeInvalid();
+      expect(api.sent(DECIDE)).toHaveLength(0);
+    });
+
+    it("clears that complaint as soon as the form is edited", async () => {
+      open();
+      await startRejecting();
+      await submitRejection();
+
+      giveReason("The hall is being refitted.");
+
+      expect(screen.queryByText(/A reason is required when rejecting/)).not.toBeInTheDocument();
+      expect(screen.getByText("The Coordinator sees this message.")).toBeInTheDocument();
+    });
+
+    it("sends the trimmed reason alone, and tells Venue Staff where the Coordinator will see it", async () => {
+      const api = open({ [DECIDE]: {} });
+      await startRejecting();
+      giveReason("  The hall is being refitted.  ");
+      api.on(LIST, []);
+
+      await submitRejection();
+
+      const notice = await screen.findByText("Booking request rejected");
+      expect(notice.closest("[role]")).toHaveTextContent(
+        "Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027 · PM (13:00–18:00) is now Rejected. The Coordinator can see your reason on the event's Venue tab."
+      );
+      expect(api.sent(DECIDE).map((c) => c.body)).toEqual([
+        { decision: "reject", reason: "The hall is being refitted." },
+      ]);
+      expect(await screen.findByText("No pending booking requests")).toBeInTheDocument();
+    });
+
+    it("sends a suggested venue and arrangement with it, and mentions the suggestion", async () => {
+      const api = open({ [DECIDE]: {} });
+      await startRejecting();
+      giveReason("Refit");
+      fireEvent.change(screen.getByLabelText("Suggest another venue"), { target: { value: "v2" } });
+      fireEvent.change(screen.getByLabelText("Alternative arrangement"), { target: { value: "  Friday instead  " } });
+
+      await submitRejection();
+
+      expect(await screen.findByText(/The Coordinator can see your reason and suggestion on/)).toBeInTheDocument();
+      expect(api.sent(DECIDE)[0].body).toEqual({
+        decision: "reject",
+        reason: "Refit",
+        suggestedVenueId: "v2",
+        suggestedAlternative: "Friday instead",
+      });
+    });
+
+    it.each([
+      ["only a venue", "v2", "", { suggestedVenueId: "v2" }],
+      ["only an arrangement", "", "Friday instead", { suggestedAlternative: "Friday instead" }],
+    ])("counts %s as a suggestion", async (_case, venue, arrangement, sent) => {
+      const api = open({ [DECIDE]: {} });
+      await startRejecting();
+      giveReason("Refit");
+      fireEvent.change(screen.getByLabelText("Suggest another venue"), { target: { value: venue } });
+      fireEvent.change(screen.getByLabelText("Alternative arrangement"), { target: { value: arrangement } });
+
+      await submitRejection();
+
+      expect(await screen.findByText(/your reason and suggestion on/)).toBeInTheDocument();
+      expect(api.sent(DECIDE)[0].body).toEqual({ decision: "reject", reason: "Refit", ...sent });
+    });
+
+    it("does not count an arrangement of only spaces as a suggestion", async () => {
+      const api = open({ [DECIDE]: {} });
+      await startRejecting();
+      giveReason("Refit");
+      fireEvent.change(screen.getByLabelText("Alternative arrangement"), { target: { value: "   " } });
+
+      await submitRejection();
+
+      expect(await screen.findByText(/The Coordinator can see your reason on the event/)).toBeInTheDocument();
+      expect(api.sent(DECIDE)[0].body).toEqual({ decision: "reject", reason: "Refit" });
+    });
+
+    it("offers every other venue to suggest, by name, and never the one being rejected", async () => {
+      open();
+      await startRejecting();
+
+      const options = within(screen.getByLabelText("Suggest another venue")).getAllByRole("option");
+
+      expect(options.map((o) => o.textContent)).toEqual(["No venue suggested", "Hall B (HALL-B)", "Room C (ROOM-C)"]);
+      expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual(["", "v2", "v3"]);
+    });
+
+    it.each([
+      ["the venues cannot be loaded", reply(500, {})],
+      ["the server cannot be reached for them", () => Promise.reject(new Error("offline"))],
+    ])("still lets a request be rejected when %s", async (_case, answer) => {
+      const api = open({ [VENUES]: answer, [DECIDE]: {} });
+      await startRejecting();
+
+      expect(within(screen.getByLabelText("Suggest another venue")).getAllByRole("option")).toHaveLength(1);
+      giveReason("Refit");
+      await submitRejection();
+
+      expect(await screen.findByText("Booking request rejected")).toBeInTheDocument();
+      expect(api.sent(DECIDE)).toHaveLength(1);
+    });
+
+    it("Cancel closes the form and forgets what was typed", async () => {
+      const api = open({ [DECIDE]: {} });
+      await startRejecting();
+      giveReason("Half-written");
+
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByLabelText(/Reason for rejection/)).not.toBeInTheDocument();
+      await startRejecting();
+      expect(reason()).toHaveValue("");
+      expect(api.sent(DECIDE)).toHaveLength(0);
+    });
+  });
+
+  describe("when the decision is refused", () => {
+    it.each([
+      ["reason", /Reason for rejection/, "Give a reason of 2000 characters or fewer."],
+      ["suggestedVenueId", "Suggest another venue", "That venue is no longer available to suggest."],
+    ])("shows a complaint about %s under that field, keeping the form", async (field, label, message) => {
+      const api = open({ [DECIDE]: reply(400, { error: message, field }) });
+      await startRejecting();
+      giveReason("Refit");
+
+      await submitRejection();
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      expect(screen.getByLabelText(label)).toBeInvalid();
+      expect(reason()).toHaveValue("Refit");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(api.sent(LIST)).toHaveLength(1);
+    });
+
+    it("shows any other refusal on the request and reloads the list, which may be stale", async () => {
+      const api = open({ [DECIDE]: reply(400, { error: "Hall A is no longer free in that slot." }) });
+      await approve();
+
+      await confirmApproval();
+
+      expect(await within(await card()).findByRole("alert")).toHaveTextContent("Hall A is no longer free in that slot.");
+      await waitFor(() => expect(api.sent(LIST)).toHaveLength(2));
+      expect(dialog().open).toBe(false);
+      expect(screen.queryByText("Booking approved")).not.toBeInTheDocument();
+    });
+
+    it("shows the refusal above the list when the request has since left it", async () => {
+      const api = open({ [DECIDE]: reply(409, { error: "This booking request has already been decided." }) });
+      await approve();
+      api.on(LIST, []);
+
+      await confirmApproval();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("This booking request has already been decided.");
+      expect(await screen.findByText("No pending booking requests")).toBeInTheDocument();
+    });
+
+    it.each([
+      ["the server gives no reason", reply(500, {})],
+      ["the server answers with nothing readable", reply(500)],
+      ["the server cannot be reached", () => Promise.reject(new Error("offline"))],
+    ])("says the decision could not be saved when %s", async (_case, answer) => {
+      open({ [DECIDE]: answer });
+      await approve();
+
+      await confirmApproval();
+
+      expect(await within(await card()).findByRole("alert")).toHaveTextContent(
+        "Could not save your decision. Please try again."
+      );
+      expect(dialog().open).toBe(false);
+    });
+
+    it("clears an earlier refusal when a rejection is started", async () => {
+      open({ [DECIDE]: reply(400, { error: "Hall A is no longer free in that slot." }) });
+      await approve();
+      await confirmApproval();
+      await within(await card()).findByRole("alert");
+
+      await startRejecting();
+
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("sends the user to log in when their session expired before deciding", async () => {
+      open({ [DECIDE]: reply(401, {}) });
+      await approve();
+
+      await confirmApproval();
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fbookings"));
+      expect(screen.queryByText("Booking approved")).not.toBeInTheDocument();
+    });
   });
 
   it("sends the user to log in when their session has expired", async () => {
-    mockApi({ ...signedInAs("venue_staff"), "GET /api/venue-bookings": reply(401, {}) });
-
-    render(<BookingsPage />);
+    open({ [LIST]: reply(401, {}) });
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fbookings"));
   });
 
   it("shows a load failure with a Retry that loads again", async () => {
-    const api = mockApi({ ...signedInAs("venue_staff"), "GET /api/venue-bookings": reply(500, {}) });
-    render(<BookingsPage />);
+    const api = open({ [LIST]: reply(500, {}) });
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load booking requests.");
 
-    api.on("GET /api/venue-bookings", [request()]);
+    api.on(LIST, [request()]);
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await rowTexts()).toHaveLength(1);
+    expect(await card()).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
 

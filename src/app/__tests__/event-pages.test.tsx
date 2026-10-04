@@ -82,6 +82,10 @@ const valueOf = (label: string) => {
   return term!.nextElementSibling as HTMLElement;
 };
 
+/// The page holds several dialogs; each is found by its own title.
+const dialogTitled = (title: string) =>
+  screen.getByText(title, { selector: "dialog h2" }).closest("dialog") as HTMLDialogElement;
+
 describe("Event overview", () => {
   function open(role: string, eventRow: unknown = event(), extra: Record<string, unknown> = {}, who = {}) {
     setRoute(`/events/${REF}`, { id: REF });
@@ -286,8 +290,7 @@ describe("Event overview", () => {
 
       await userEvent.selectOptions(screen.getByRole("combobox", { name: "Reassign to — Gala Dinner" }), "Priya Raj");
       await userEvent.click(screen.getByRole("button", { name: "Reassign" }));
-      const dialog = screen.getByRole("dialog", { hidden: true });
-      await userEvent.click(within(dialog).getByRole("button", { name: "Reassign", hidden: true }));
+      await userEvent.click(within(dialogTitled("Reassign this event?")).getByRole("button", { name: "Reassign", hidden: true }));
 
       expect(await screen.findByText("Reassigned from Daniel Tan to Priya Raj.")).toBeInTheDocument();
     });
@@ -332,6 +335,183 @@ describe("Event overview", () => {
         expect(api.sent("GET /api/assignments")).toHaveLength(0);
       }
     );
+  });
+
+  describe("the venue the event is in", () => {
+    it("is named once a booking is approved", async () => {
+      open("organiser", event({ venueBookings: [{ session: null, venue: { name: "Hall A", code: "HALL-A" } }] }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Venue")).toHaveTextContent(/^Hall A \(HALL-A\)$/);
+    });
+
+    it("is named per session for a multi-session event", async () => {
+      open(
+        "organiser",
+        event({
+          venueBookings: [
+            { session: { label: "Day 1" }, venue: { name: "Hall A", code: "HALL-A" } },
+            { session: { label: null }, venue: { name: "Room B", code: "ROOM-B" } },
+          ],
+        })
+      );
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Venue")).toHaveTextContent("Day 1: Hall A (HALL-A) · Room B (ROOM-B)");
+    });
+
+    it("reads 'Not booked yet' until one is", async () => {
+      open("organiser", event({ venueBookings: [] }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Venue")).toHaveTextContent("Not booked yet");
+    });
+
+    it("has no row at all for a viewer who is not sent the bookings", async () => {
+      open("attendee", publicEvent());
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(terms()).not.toContain("Venue");
+    });
+  });
+
+  describe.each([
+    {
+      action: "recording a withdrawal",
+      button: "Record withdrawal",
+      title: "Record this withdrawal?",
+      keep: "Keep request",
+      from: "under_review",
+      sends: { status: "withdrawn" },
+      warning: "Gala Dinner will be marked Withdrawn and can't be reopened.",
+      untitled: "This request will be marked Withdrawn",
+      done: "The withdrawal has been recorded.",
+      fallback: "Could not withdraw this request.",
+      refusal: "This event is planning and can't be moved to withdrawn.",
+      notFrom: ["submitted", "approved", "planning", "withdrawn"],
+    },
+    {
+      action: "confirming the event",
+      button: "Confirm event",
+      title: "Confirm this event?",
+      keep: "Not yet",
+      from: "planning",
+      sends: { status: "confirmed" },
+      warning: "Gala Dinner will be marked Confirmed",
+      untitled: "This event will be marked Confirmed",
+      done: "The event is confirmed. The organiser can now see the arrangements.",
+      fallback: "Could not confirm this event.",
+      refusal: "This event can't be confirmed yet: no venue booking has been approved.",
+      notFrom: ["under_review", "approved", "confirmed", "postponed"],
+    },
+  ])("$action", ({ button, title, keep, from, sends, warning, untitled, done, fallback, refusal, notFrom }) => {
+    const PATCH = `PATCH /api/events/${REF}`;
+    const assigned = { id: "c1" };
+    const openAs = (routes: Record<string, unknown> = {}, eventRow = event({ status: from })) =>
+      open("coordinator", eventRow, routes, assigned);
+    const ask = async () => userEvent.click(await screen.findByRole("button", { name: button }));
+    const go = () => userEvent.click(within(dialogTitled(title)).getByRole("button", { name: button, hidden: true }));
+
+    it("is offered to the assigned coordinator", async () => {
+      openAs();
+
+      expect(await screen.findByRole("button", { name: button })).toBeInTheDocument();
+    });
+
+    it.each(notFrom)("is not offered while the event is %s", async (status) => {
+      openAs({}, event({ status }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("button", { name: button })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["a coordinator it is not assigned to", "coordinator", { id: "c2" }],
+      ["the Ops Manager", "ops_manager", {}],
+      ["the organiser who owns it", "organiser", { id: "organiser-id" }],
+    ])("is not offered to %s", async (_who, role, who) => {
+      open(role, event({ status: from }), { "GET /api/users": [] }, who);
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("button", { name: button })).not.toBeInTheDocument();
+    });
+
+    it("asks first, saying what it does, and sends nothing yet", async () => {
+      const api = openAs({ [PATCH]: {} });
+
+      await ask();
+
+      expect(dialogTitled(title).open).toBe(true);
+      expect(dialogTitled(title)).toHaveTextContent(warning);
+      expect(api.sent(PATCH)).toHaveLength(0);
+    });
+
+    it("words the question for an event with no title", async () => {
+      openAs({}, event({ status: from, title: null }));
+
+      await ask();
+
+      expect(dialogTitled(title)).toHaveTextContent(untitled);
+    });
+
+    it("does it once confirmed, says so, and reloads the event", async () => {
+      const api = openAs({ [PATCH]: {} });
+      await ask();
+
+      await go();
+
+      expect(await screen.findByText(done)).toBeInTheDocument();
+      expect(api.sent(PATCH).map((c) => c.body)).toEqual([sends]);
+      await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+      expect(dialogTitled(title).open).toBe(false);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("does nothing when the question is declined", async () => {
+      const api = openAs({ [PATCH]: {} });
+      await ask();
+
+      await userEvent.click(within(dialogTitled(title)).getByRole("button", { name: keep, hidden: true }));
+
+      expect(dialogTitled(title).open).toBe(false);
+      expect(api.sent(PATCH)).toHaveLength(0);
+    });
+
+    it.each([
+      ["the server's reason", reply(400, { error: refusal }), refusal],
+      ["a general message when it gives none", reply(500, {}), fallback],
+      ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
+    ])("shows %s when it is refused, and closes the question", async (_case, answer, message) => {
+      const api = openAs({ [PATCH]: answer });
+      await ask();
+
+      await go();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(message);
+      expect(dialogTitled(title).open).toBe(false);
+      expect(screen.queryByText(done)).not.toBeInTheDocument();
+      expect(api.sent(EVENT)).toHaveLength(1);
+    });
+
+    it("clears an earlier refusal when it then succeeds", async () => {
+      const api = openAs({ [PATCH]: reply(400, { error: refusal }) });
+      await ask();
+      await go();
+      await screen.findByRole("alert");
+      api.on(PATCH, {});
+
+      await ask();
+      await go();
+
+      expect(await screen.findByText(done)).toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
   });
 
   describe("when it cannot be loaded", () => {
@@ -381,6 +561,53 @@ describe("EventGlance", () => {
     expect(valueOf("Coordinator")).toHaveTextContent("Daniel Tan");
     expect(valueOf("Venue")).toHaveTextContent("Not booked yet");
     expect(valueOf("Submitted")).toHaveTextContent("10 Jan 2027");
+  });
+
+  it("names the venue that is booked", () => {
+    render(
+      <EventGlance
+        event={{
+          startsAt: null,
+          endsAt: null,
+          expectedAttendance: null,
+          submittedAt: null,
+          coordinator: null,
+          venueBookings: [{ session: null, venue: { name: "Hall A", code: "HALL-A" } }],
+        }}
+      />
+    );
+
+    expect(valueOf("Venue")).toHaveTextContent(/^Hall A$/);
+  });
+
+  it("names each session's venue for a multi-session event", () => {
+    render(
+      <EventGlance
+        event={{
+          startsAt: null,
+          endsAt: null,
+          expectedAttendance: null,
+          submittedAt: null,
+          coordinator: null,
+          venueBookings: [
+            { session: { label: "Day 1" }, venue: { name: "Hall A", code: "HALL-A" } },
+            { session: { label: null }, venue: { name: "Room B", code: "ROOM-B" } },
+          ],
+        }}
+      />
+    );
+
+    expect(valueOf("Venue")).toHaveTextContent("Day 1: Hall A · Room B");
+  });
+
+  it("says no venue is booked for an empty list, as for none loaded", () => {
+    render(
+      <EventGlance
+        event={{ startsAt: null, endsAt: null, expectedAttendance: null, submittedAt: null, coordinator: null, venueBookings: [] }}
+      />
+    );
+
+    expect(valueOf("Venue")).toHaveTextContent("Not booked yet");
   });
 
   it("fills in what is not known yet", () => {
