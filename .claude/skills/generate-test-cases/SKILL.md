@@ -1,13 +1,15 @@
 ---
 name: generate-test-cases
-description: Generate test cases in the team's Excel test case template from a Jira user story (acceptance criteria) and the code that implements it. Use when asked to create, write, or update test cases for a Jira issue or user story.
+description: Generate test cases in the team's Excel test case template from a Jira user story (acceptance criteria) and the code that implements it, then write the automated unit tests for the same code. Use when asked to create, write, or update test cases for a Jira issue or user story.
 ---
 
 # Generate test cases
 
 Input: $ARGUMENTS — a Jira issue key (e.g. PROJ-123), or a path to a user story file.
 
-Output: `docs/test-cases/<ISSUE-KEY>_Test_Cases.xlsx`, built from `Test_Case_Template.xlsx` in this skill folder.
+Output:
+- `docs/test-cases/<ISSUE-KEY>_Test_Cases.xlsx`, built from `Test_Case_Template.xlsx` in this skill folder — the manual test cases.
+- The automated tests for the story's code (Step 5), so the CI coverage check does not drop.
 
 Never write the Excel file by hand. Always produce the JSON, then run the script. The script copies the template sheet, so the format stays fixed.
 
@@ -35,6 +37,18 @@ Jira is linked to GitHub through the issue key, so find the code with it:
 If nothing matches, search the codebase for terms from the story (screen names, endpoints, field names).
 
 Read the relevant files. Note behaviour the acceptance criteria don't mention: validation rules, limits, error messages, permissions, and edge cases.
+
+### When the code is not written yet (test-first)
+
+The team works test-driven, so this is the normal case for a new story: the test cases are written before the code and say what the code must do.
+
+- Take the behaviour from the acceptance criteria, `docs/CUSTOMER_CLARIFICATIONS.md`, and the design: `UI_DESIGN.md` (the screen's own section, §6 forms, §7 validation and error states), `docs/PERMISSIONS.md`, `design/mockups/`. Take anything the story does not spell out (login redirect, refusal for the wrong role, empty and error states) from how the nearest existing screen already behaves.
+- "Quote the app exactly" (Step 3) cannot be met from code that does not exist. Quote `UI_DESIGN.md` where it gives the wording. Where nothing does, choose wording in the style of the existing screens — that wording is now part of what the developer builds to. List every label, message and page address you chose in `open_questions` as `"DECIDED <date>: …"`, so the team can change it before the code is written.
+- Every case's `source` is "Acceptance Criteria". There are no "Code" cases yet; a case that comes from the design or from existing conventions rather than the story's own wording says so in its `open_questions` "DECIDED" entry.
+- Leave `code_references` empty, and say in the report that the cases were written before the code.
+- The fixture script (below) can only be written once the schema it needs exists. If it does not, describe the fixture events the story needs in `open_questions` and leave the script until the code is built.
+
+When the code has been written, run this skill again for the same story: check each case against the built screen, correct any wording that changed, add "Code" cases for behaviour that appeared during the build, and write the fixture script.
 
 ## Step 3: Write the test cases as JSON
 
@@ -162,11 +176,20 @@ must pass without it.
 
 If it says openpyxl is not installed, tell the user to run `pip install openpyxl`.
 
-## Step 5: Report back
+## Step 5: Write the unit tests
+
+The manual test cases above are followed by a person. The same story also needs automated tests, which CI runs on every pull request.
+
+Read `.claude/skills/write-unit-tests/SKILL.md` and follow it for the same story. It picks its own mode from what Step 2 found: with no code yet it writes the tests first, to fail until the code is built; with the code written it checks them and fills the gaps. Use the manual test cases you just wrote as its source for the story's behaviour, so the two sets of tests agree.
+
+Skip this step only if the user said they want the Excel file alone — and say in the report that it was skipped.
+
+## Step 6: Report back
 
 Tell the user, briefly:
 - The output file path
 - Number of test cases, and how many came from code rather than acceptance criteria
 - The open questions, listed in full, since they need a human answer
+- The unit tests: the items from Step 5 of `write-unit-tests` (files, coverage, anything uncovered, anything that looked wrong)
 
 Do not update, comment on, or attach anything to the Jira issue unless the user asks.

@@ -1,0 +1,232 @@
+import { describe, it, expect, vi, afterEach } from "vitest";
+
+vi.mock("@/lib/prisma");
+
+import { POST } from "@/app/api/registrations/route";
+import { callArg, db, ID, req, signIn, user } from "@/test/kit";
+
+const NOW = new Date("2026-10-02T04:00:00Z");
+
+/// An event an attendee can register for right now. Each test changes the one
+/// field its rule depends on.
+function openEvent(overrides = {}) {
+  return {
+    id: ID.event,
+    organiserId: ID.otherUser,
+    organisationId: ID.org,
+    coordinatorId: ID.thirdUser,
+    status: "confirmed",
+    registrationEnabled: true,
+    registrationCapacity: null,
+    registrationOpensAt: null,
+    registrationClosesAt: null,
+    ...overrides,
+  };
+}
+
+function register(token: string | undefined, body: object = { eventId: ID.event }) {
+  return POST(req("POST", "/api/registrations", { token, body }));
+}
+
+describe("POST /api/registrations", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("is 401 without a session", async () => {
+    expect((await register(undefined)).status).toBe(401);
+  });
+
+  it.each(["organiser", "coordinator", "ops_manager", "venue_staff", "tech_support"])(
+    "is 403 for %s - only an Attendee registers",
+    async (role) => {
+      const res = await register(signIn(user(role)));
+
+      expect(res.status).toBe(403);
+      expect(db.registration.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it("registers an attendee for a confirmed event that is open", async () => {
+    const attendee = user("attendee");
+    const token = signIn(attendee);
+    db.event.findUnique.mockResolvedValue(openEvent());
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "r1", ...data }));
+
+    const res = await register(token, {
+      eventId: ID.event,
+      dietaryRequirements: "Vegetarian",
+      accessibilityRequirements: "Step-free access",
+    });
+
+    expect(res.status).toBe(201);
+    expect(callArg(db.registration.create).data).toEqual({
+      eventId: ID.event,
+      attendeeId: attendee.id,
+      dietaryRequirements: "Vegetarian",
+      accessibilityRequirements: "Step-free access",
+      status: "registered",
+    });
+  });
+
+  it("rejects an eventId that is not a UUID", async () => {
+    const res = await register(signIn(user("attendee")), { eventId: "EVT-000001" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Validation failed");
+  });
+
+  it("is 404 for an event that does not exist", async () => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(null);
+
+    expect((await register(token)).status).toBe(404);
+  });
+
+  it.each([
+    ["not confirmed yet", { status: "planning" }],
+    ["confirmed but with registration switched off", { registrationEnabled: false }],
+  ])("is 404, not 400, for an event the attendee cannot see: %s", async (_case, overrides) => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent(overrides));
+
+    const res = await register(token);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Event not found" });
+    expect(db.registration.create).not.toHaveBeenCalled();
+  });
+
+  it("refuses before the registration window opens", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationOpensAt: new Date("2026-10-03T00:00:00Z") }));
+
+    const res = await register(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Registration has not opened yet" });
+  });
+
+  it("refuses after the registration window closes", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationClosesAt: new Date("2026-10-01T00:00:00Z") }));
+
+    const res = await register(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Registration has closed" });
+  });
+
+  it("accepts a registration inside the window", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(
+      openEvent({
+        registrationOpensAt: new Date("2026-10-01T00:00:00Z"),
+        registrationClosesAt: new Date("2026-10-03T00:00:00Z"),
+      })
+    );
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.create.mockResolvedValue({ id: "r1" });
+
+    expect((await register(token)).status).toBe(201);
+  });
+
+  it.each(["registered", "attended"])("refuses a second registration while the first is %s", async (status) => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent());
+    db.registration.findUnique.mockResolvedValue({ id: "r1", status });
+
+    const res = await register(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Already registered for this event" });
+    expect(db.registration.create).not.toHaveBeenCalled();
+    expect(db.registration.update).not.toHaveBeenCalled();
+  });
+
+  it("reactivates a withdrawn registration instead of inserting a second row", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent());
+    db.registration.findUnique.mockResolvedValue({ id: "r1", status: "withdrawn" });
+    db.registration.update.mockResolvedValue({ id: "r1", status: "registered" });
+
+    const res = await register(token, { eventId: ID.event, dietaryRequirements: "Halal" });
+
+    expect(res.status).toBe(201);
+    expect(db.registration.create).not.toHaveBeenCalled();
+    expect(callArg(db.registration.update)).toEqual({
+      where: { id: "r1" },
+      data: {
+        status: "registered",
+        registeredAt: NOW,
+        withdrawnAt: null,
+        dietaryRequirements: "Halal",
+        accessibilityRequirements: undefined,
+      },
+    });
+  });
+
+  it("refuses when every seat is taken", async () => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: 50 }));
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.count.mockResolvedValue(50);
+
+    const res = await register(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "This event is full" });
+    expect(db.registration.create).not.toHaveBeenCalled();
+  });
+
+  it("takes the last seat, counting only registered and attended as taken", async () => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: 50 }));
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.count.mockResolvedValue(49);
+    db.registration.create.mockResolvedValue({ id: "r1" });
+
+    const res = await register(token);
+
+    expect(res.status).toBe(201);
+    expect(callArg(db.registration.count).where).toEqual({
+      eventId: ID.event,
+      status: { in: ["registered", "attended"] },
+    });
+  });
+
+  it("does not count seats for an event with no capacity limit", async () => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: null }));
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.create.mockResolvedValue({ id: "r1" });
+
+    await register(token);
+
+    expect(db.registration.count).not.toHaveBeenCalled();
+  });
+
+  it("reports a duplicate caught only by the database's unique constraint", async () => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent());
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.create.mockRejectedValue(new Error("Unique constraint failed on the fields: (`event_id`)"));
+
+    const res = await register(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Already registered for this event" });
+  });
+
+  it("answers 500 when the database fails", async () => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockRejectedValue(new Error("connection lost"));
+
+    expect((await register(token)).status).toBe(500);
+  });
+});

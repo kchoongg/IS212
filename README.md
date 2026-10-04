@@ -31,8 +31,10 @@
 | --- | --- |
 | `npm run dev` | Start the dev server |
 | `npm run build` | Production build |
-| `npx eslint src --ext .ts,.tsx` | Lint (`npm run lint` is broken on Next 16) |
+| `npm run lint` | Lint the whole repo |
+| `npx tsc --noEmit` | Type-check |
 | `npm test` | Run tests once |
+| `npm run test:coverage` | Run tests once and report coverage (`coverage/index.html`) |
 | `npm run test:watch` | Run tests in watch mode |
 | `npm run prisma:generate` | Regenerate the Prisma client |
 | `npm run prisma:migrate` | Create/apply a migration |

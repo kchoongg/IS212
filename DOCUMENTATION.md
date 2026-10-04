@@ -683,7 +683,10 @@ traceability the module asks for.
 | `npm run dev` | Start the app (auto-reloads as you edit) |
 | `npm run build` | Production build |
 | `npm run lint` | Check code style/common mistakes (runs `eslint .` over the whole repo) |
-| `npm test` | Run tests once |
+| `npm test` | Run every test once (about 40 seconds) |
+| `npm test -- src/app/__tests__/event-pages.test.tsx` | Run one test file. Add `-t "part of a test name"` to run only matching tests |
+| `npm run test:watch -- event-pages` | Re-run the matching tests every time you save — the one to leave running while you write code to make failing tests pass |
+| `npm run test:coverage` | Run every test and print how much of the code they cover. Fails below the minimums in `vitest.config.mts`. Open `coverage/index.html` to see uncovered lines |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run fixtures:spm27` | Adds or resets SPM-27's 14 test events ("SPM27 Bayu …", one per status, organiser Hakim Zulkifli) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm27_`. Re-run before each SPM-27 test pass |
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
@@ -851,6 +854,143 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-04 — Kristen
+- **Tests brought up to date with `main`** (SPM-27, SPM-34, SPM-43, SPM-50,
+  SPM-54). 2,363 tests in 53 files; coverage 99.5% statements / 97.4%
+  branches, above the CI minimums. No application code changed.
+  - New route tests: `venue-booking-review.test.ts` (Venue Staff's list and
+    approve/reject), `event-planning-fulfilment.test.ts` (begin planning,
+    Technical Support's fulfilment update).
+  - Updated route tests for the enforced lifecycle, withdrawal, confirmation,
+    `planningStarted`, and Technical Support seeing equipment only from
+    Planning on.
+  - UI tests rewritten for the redesigned Dashboard (one list per stage, top
+    five) and Booking Requests (approve / reject cards), and extended for the
+    "Begin planning?" question, Record withdrawal, Confirm event, the Venue
+    row, rejected-booking details and the equipment Update panel.
+- **`prisma/seed.ts` repaired** — the SPM-34 merge left an `eventData.push(`
+  unclosed, so lint failed with `')' expected` and the pre-push hook blocked
+  every push. The same break is on `main` (PR #36).
+- **Found while testing, not fixed** (tests do not lock these in):
+  - A postponed event cannot be resumed. `EVENT_TRANSITIONS` allows
+    postponed → approved, but `PATCH /api/events/[id]` refuses every
+    `approved` that is not from Under review ("Only a request that is under
+    review can be approved or rejected").
+  - Every `ConfirmDialog` uses the same `id="confirm-dialog-title"`. Pages
+    with two or three dialogs (event overview, event equipment) therefore
+    announce each one to a screen reader under the first dialog's title.
+  - The organiser and coordinator dashboards show a load failure once per
+    list - four identical alerts and Retry buttons for an organiser.
+  - An organiser's Submitted request is on none of their dashboard lists
+    (Drafts, Under review, Approved, Planning) until a coordinator is
+    assigned.
+
+### 2026-10-02 — Kristen
+- **CI pipeline added** — `.github/workflows/ci.yml`, GitHub Actions. Runs on
+  every pull request and on each push to `main`; five checks in parallel:
+  - **Lint** (`npm run lint`), **Type-check** (`npx tsc --noEmit`),
+    **Unit tests** (`npm run test:coverage`).
+  - **Build** (`npm run build`). Sets a placeholder `JWT_SECRET`, because
+    `src/lib/auth.ts` throws at import time without one and the build imports
+    every route. No `DATABASE_URL` is needed — the build never connects.
+  - **Migrations** — `prisma validate`, then `prisma migrate deploy` against a
+    Postgres container that exists only for that job, so a migration that
+    does not apply cleanly to an empty database fails the PR.
+  - No secrets, no deploy step, and the shared Neon database is never touched.
+- **Fixed `prisma/seed.ts`, which did not parse.** The merge of `main` into
+  SPM-28 (`27f8a74`) dropped the `);` closing the SPM-28 `eventData.push(` and
+  the opening rule of the SPM-42 comment block, so `npm run lint`,
+  `tsc --noEmit` and `npx prisma db seed` all failed on `main`. Restored both
+  lines; no seed data changed. This is the kind of break the pipeline now
+  catches before merge.
+- **Coverage reporting added.** New dev dependency `@vitest/coverage-v8`
+  (pinned to `5.0.0` — it must match the `vitest` version exactly, so bump the
+  two together) and a `npm run test:coverage` script. Every file under `src/`
+  counts, tested or not. Locally it prints a table and writes
+  `coverage/index.html` (gitignored); in CI the table is in the Unit tests log
+  and the HTML report is attached to the run as `coverage-report`.
+  - Report only at first; a minimum was added later the same day (see
+    "Coverage minimum" below).
+  - First measurement: **25% of statements overall**. `src/lib/validation`
+    100%, `src/lib` 81%; the API routes, pages and components were at 0%
+    because nothing tested them.
+- **API route tests added — all 24 `route.ts` files**, plus `src/lib/apiAuth.ts`.
+  550 new tests (580 -> 1130); coverage is now **46% overall, 99.6% of the
+  API routes, 88% of `src/lib`**. Pages and components are still at 0%.
+  - Tests live in `src/app/api/__tests__/`, one file per group of routes.
+    Each calls the exported handler directly - no server, no database.
+  - Only Prisma is faked (`src/lib/__mocks__/prisma.ts`, switched on by
+    `vi.mock("@/lib/prisma")` at the top of a test file). Sessions,
+    permissions and Zod validation are the real code, so a test fails if a
+    route stops refusing what it should.
+  - `src/test/kit.ts` is the shared setup: `signIn(user("coordinator"))`
+    returns a real session token, `req()` builds the request, `db` is the
+    mocked client. Copy any existing test file to start a new one.
+  - `vitest.config.mts` sets a test-only `JWT_SECRET`, which `src/lib/auth.ts`
+    needs at import time.
+  - Two things the tests could not reach, both left as they are:
+    `api/registrations/route.ts` lines 35-40 (the "not open for registration
+    yet" / "not enabled" messages - `canViewEvent()` already answers 404 for
+    those events, so an attendee never gets that far) and the defensive
+    `if (!booking) continue` in `api/venues/[id]/route.ts`.
+  - `eslint.config.mjs` now ignores `coverage/`, so `npm run lint` does not
+    lint the generated report.
+- **UI tests added — every page and component.** 827 more tests (1130 ->
+  1957); coverage is now **99.5% of statements overall** (routes 99.6%,
+  `src/lib` 99.3%, pages 99.7%, components 99.3%). The full suite takes about
+  40 seconds.
+  - New dev dependencies: `@testing-library/react`, `@testing-library/dom`,
+    `@testing-library/user-event`, `@testing-library/jest-dom`, `jsdom`.
+  - Tests live in `src/app/__tests__/` (pages) and `src/components/__tests__/`.
+    A UI test file starts with `// @vitest-environment jsdom`, renders the
+    real page, and drives it by its labels, buttons and text.
+  - `src/test/ui.tsx` is the shared setup: `mockApi({ "GET /api/queue": [] })`
+    fakes the network (a request with no route fails the test),
+    `signedInAs("coordinator")` signs a role in, `router` and `setRoute()`
+    stand in for `next/navigation` (`src/test/navigation.ts`, aliased in
+    `vitest.config.mts`). Copy any existing test file to start a new one.
+  - The two event forms (new request, edit draft) share one set of tests run
+    against both, so they cannot drift apart unnoticed.
+  - What these tests are not: they do not start the app or touch a database.
+    A page test proves the screen behaves given an API answer; a route test
+    proves the API answers given database rows. Nothing yet checks the two
+    together end to end.
+  - Found while writing them, left unchanged:
+    - Venue search (`venues/search/page.tsx`): after a search fails outright
+      (a 500), Retry reloads the page's data and clears the filters, because
+      the failure also discards the previous results. After a refusal (403 /
+      404) it repeats the same search, as intended.
+    - Venue search: the attendance box is a native number input with `min=1`
+      and the form does not set `noValidate`, so the browser blocks 0 or a
+      fraction before the page's own "Enter a whole number of people" message
+      can show.
+    - Booking request (`events/[id]/booking/new`): opened with no `?venue=`,
+      it requests `/api/venues/null` and shows "This event or venue could not
+      be found" rather than its own "Choose a venue ... first" message.
+    - Venue availability: the venue list is requested before a 403 on the
+      calendar arrives, so a refused role still triggers one `/api/venues`
+      call (which the server also refuses).
+- **Pre-push hook added** — `.githooks/pre-push` runs `npm run lint` and
+  `npm test` before every `git push`. A lint failure cancels the push.
+  Failing tests are listed but do not: the team works test-first, so a
+  branch is expected to have failing tests until its code is written, and
+  CI is what stops those reaching `main`. Switched on by `npm install` (the
+  `prepare` script). Skip it in an emergency with `git push --no-verify`.
+- **Test-first workflow** — `/generate-test-cases <KEY>` (and
+  `/write-unit-tests <KEY>` on its own) now work before the code exists:
+  they write the manual cases and failing automated tests from the
+  acceptance criteria and the design documents, with a "contract" comment
+  in each test file listing what has to be built. Run again once the code
+  is written to check the tests and fill gaps. See `contributing.md`,
+  "Tests come first".
+- **Coverage minimum** — `npm run test:coverage` now fails below 95%
+  statements / lines / functions and 92% branches (`vitest.config.mts`), so
+  the CI Unit tests check goes red when code is added without tests.
+- **`.claude/settings.json` added** — lets Claude Code run the test, lint,
+  type-check and read-only git commands the two test commands use without
+  asking each time. Nothing that writes or pushes is on the list.
+- Not included yet: marking the checks as required in the repo's branch
+  protection settings.
 ### 2026-10-03 — Jordan
 - **SPM-34 (Confirm Event): an event can only be confirmed once the
   arrangements it actually needs are in place (#80).** The rule is
