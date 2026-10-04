@@ -30,8 +30,8 @@ const BOOKING_HELD = "approved";
 /// Mirrors COMMITTING_REQUEST_STATUSES in equipmentAvailability.ts: these are
 /// the requests that take stock away from other events, so they are the ones
 /// that count as arranged. `partially_fulfilled` counts - Technical Support
-/// have committed what they can, and the shortfall is their decision to make,
-/// not a reason to hold up the whole event.
+/// have committed what they can. Whether the shortfall is essential is the
+/// Coordinator's decision (#90), which they make by confirming or not.
 const EQUIPMENT_HELD = ["reserved", "partially_fulfilled"];
 
 export type ArrangementKind = "venue" | "equipment";

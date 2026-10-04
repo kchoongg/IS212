@@ -32,8 +32,8 @@ describe("checkEventConfirmation — the happy paths", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  // Boundary: Technical Support committed what they could. The shortfall is
-  // their decision, not a reason to hold the event up.
+  // Boundary: Technical Support committed what they could. Whether the
+  // shortfall is essential is the Coordinator's decision (#90).
   it("treats partially_fulfilled equipment as arranged", () => {
     const result = checkEventConfirmation(
       input({
