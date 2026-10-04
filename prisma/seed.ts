@@ -1162,6 +1162,36 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-34 QA fixtures (Confirm Event). The SAME events as
+  // scripts/seed-spm34.ts (`npm run fixtures:spm34`) - keep the two in step.
+  //
+  // The events only. The bookings, equipment requests and sessions that put
+  // each one in its particular state are created by that script alone, so run
+  // it once after a full reseed or every one of these confirms trivially.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm34 = (
+    key: string, title: string, date: string, durationHours: number,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    status: "planning", purpose: "SPM-34 confirm event test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours, attendance: 40, layout: "theatre",
+    ...options,
+  });
+  eventData.push(
+    spm34("spm34_ready", "SPM34 Ready To Confirm", "2027-05-10", 6),
+    spm34("spm34_venue_only", "SPM34 Venue Only", "2027-05-11", 4),
+    spm34("spm34_partial", "SPM34 Partially Fulfilled", "2027-05-12", 4),
+    spm34("spm34_no_venue", "SPM34 No Venue", "2027-05-13", 4),
+    spm34("spm34_pending_venue", "SPM34 Pending Venue", "2027-05-14", 4),
+    spm34("spm34_equipment_short", "SPM34 Equipment Short", "2027-05-15", 4),
+    spm34("spm34_sessions", "SPM34 Two Day Forum", "2027-05-17", 27),
+    spm34("spm34_other_coordinator", "SPM34 Another Coordinator", "2027-05-18", 4,
+      { coordinator: "priya.raj@connectsphere.com" }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-50 QA fixtures (Review and Update Equipment Request). The SAME events
   // and equipment lines as scripts/seed-spm50.ts (`npm run fixtures:spm50`) -
   // keep the two in step. In August 2027, clear of every SPM-49 event, so
