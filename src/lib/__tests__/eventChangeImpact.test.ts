@@ -1,4 +1,4 @@
-// CONTRACT (SPM-62, written before the code) - what these tests expect to exist:
+// SPM-62 Update Event Information - the rules these tests pin down (written test-first):
 //   src/lib/eventChangeImpact.ts, pure (no Prisma), exporting:
 //     IMPORTANT_CHANGES = ["schedule", "attendance", "venue_requirements", "equipment"]
 //     CHANGE_LABELS: Record<ImportantChange, string>

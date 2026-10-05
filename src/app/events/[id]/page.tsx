@@ -23,10 +23,12 @@ import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
 import {
+  EVENT_INFORMATION_STATUSES,
   can,
   canAssignCoordinator,
   canConfirmEvent,
   canReviewEvent,
+  canUpdateEventInformation,
   canWithdrawEvent,
 } from "@/lib/permissions";
 
@@ -310,6 +312,25 @@ export default function EventOverviewPage() {
     )
   );
 
+  // SPM-62: the assigned coordinator updates the event's information after
+  // approval (/events/[id]/update). Same rule as the route.
+  const showEditInformation = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    EVENT_INFORMATION_STATUSES.includes(event.status) &&
+    canUpdateEventInformation(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
   }
@@ -337,6 +358,11 @@ export default function EventOverviewPage() {
           <>
             {showConfirm && (
               <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
+            )}
+            {showEditInformation && (
+              <ButtonLink href={`/events/${eventId}/update`} variant="secondary">
+                Edit event information
+              </ButtonLink>
             )}
             {showWithdraw && (
               <Button variant="secondary" onClick={() => setWithdrawOpen(true)}>

@@ -218,6 +218,13 @@ model Event {
   registrationCapacity Int?      @map("registration_capacity")
   registrationOpensAt  DateTime? @map("registration_opens_at")
   registrationClosesAt DateTime? @map("registration_closes_at")
+  /// Update Event Information (SPM-62): set when a change to the event may
+  /// affect the attendees already registered or waitlisted (e.g. its date
+  /// moved). The registrations themselves are not changed. Comma-separated
+  /// reason codes, as VenueBooking.reviewReason; NULL = not flagged.
+  /// Reviewed and cleared in Review Flagged Arrangements (SPM-68); also set by
+  /// Configure Event Registration (SPM-64).
+  registrationReviewReason String? @map("registration_review_reason")
 
   rejectionReason    String? @map("rejection_reason")
   cancellationReason String? @map("cancellation_reason")
@@ -511,6 +518,16 @@ model EquipmentRequest {
   reviewedAt  DateTime? @map("reviewed_at")
   staffNotes  String?   @map("staff_notes")
 
+  /// Update Event Information (SPM-62): set when a change to the event may
+  /// have invalidated this request (e.g. the event's date moved, so its
+  /// window no longer matches). The request itself is NOT changed - the
+  /// assigned Coordinator keeps or replaces it in Review Flagged Arrangements
+  /// (SPM-68). Same shape as VenueBooking.needsReview: reason codes,
+  /// comma-separated, merged rather than overwritten by a later flag.
+  needsReview  Boolean   @default(false) @map("needs_review")
+  reviewReason String?   @map("review_reason")
+  flaggedAt    DateTime? @map("flagged_at")
+
   event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   equipment Equipment     @relation(fields: [equipmentId], references: [id])
@@ -535,6 +552,8 @@ model EquipmentRequest {
   // and could drop these partial indexes, since it doesn't know about them.
   @@index([equipmentId, status, startsAt, endsAt])
   @@index([sessionId])
+  /// The Coordinator's review list (SPM-68): flagged requests, most recent first.
+  @@index([needsReview, flaggedAt])
   @@map("equipment_requests")
 }
 

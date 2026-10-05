@@ -254,6 +254,16 @@ describe("POST /api/events/[id]/equipment", () => {
     });
   });
 
+  it("does not move it twice when another change got there first", async () => {
+    const token = givenAssignedCoordinator({ status: "confirmed" });
+    db.event.updateMany.mockResolvedValue({ count: 0 });
+
+    const body = await (await add(token, valid)).json();
+
+    expect(body.confirmationReverted).toBe(false);
+    expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+  });
+
   it("says nothing was unconfirmed for an event in Planning", async () => {
     const token = givenAssignedCoordinator();
 

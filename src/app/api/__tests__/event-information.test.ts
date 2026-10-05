@@ -1,4 +1,4 @@
-// CONTRACT (SPM-62, written before the code) - what these tests expect to exist:
+// SPM-62 Update Event Information - the route these tests pin down (written test-first):
 //   src/app/api/events/[id]/information/route.ts   exports PATCH
 //   PATCH /api/events/EVT-000007/information, body = any of the permitted fields:
 //     title, category, purpose, description, startsAt, endsAt, expectedAttendance, preferredLayout,
@@ -335,6 +335,14 @@ describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
     expect(res.status).toBe(200);
     expect(callArg(db.event.update).where).toEqual({ id: ID.event });
     expect(eventData()).toEqual(ordinary);
+  });
+
+  it("saves a new name and type of event", async () => {
+    const token = given();
+
+    await save(token, { title: "  Harbour Leaders Forum ", category: "seminar" });
+
+    expect(eventData()).toEqual({ title: "Harbour Leaders Forum", category: "seminar" });
   });
 
   it.each(["approved", "planning", "confirmed"])(

@@ -787,7 +787,7 @@ describe("Event equipment tab", () => {
     });
   });
 
-  // SPM-62 (AC4, AC6), written before the code: equipment requirements are
+  // SPM-62 (AC4, AC6): equipment requirements are
   // important information, so a change to a Confirmed event's equipment moves
   // it back to Planning. Like the edit form, the tab asks first - "Cancel" /
   // "Continue", as its "Begin planning?" question does (SPM-54) - and Remove

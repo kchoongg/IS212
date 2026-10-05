@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// CONTRACT (SPM-62, written before the code) - what these tests expect to exist:
+// SPM-62 Update Event Information - the screen these tests pin down (written test-first):
 //   src/app/events/[id]/update/page.tsx, default export: "Edit event information"
 //   Loads GET /api/events/<ref> and GET /api/facilities.
 //   Refuses (red alert "You can't edit this event's information", a "Back to event" button, no form):
@@ -495,5 +495,138 @@ describe("Edit event information - saving", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not reach the server. Check your connection and try again."
     );
+  });
+});
+
+describe("Edit event information - more of what it loads, sends and checks", () => {
+  it("sends a visitor whose session expired while loading to log in", async () => {
+    open(reply(401, { error: "Not authenticated" }));
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fupdate"));
+  });
+
+  it("says when the server cannot be reached while loading", async () => {
+    open(() => Promise.reject(new Error("offline")));
+
+    expect(
+      await screen.findByText("Could not reach the server. Check your connection and try again.")
+    ).toBeInTheDocument();
+  });
+
+  it("sends every other field that changed, a cleared layout as no preference", async () => {
+    const api = open();
+    await formReady();
+
+    set(/^Event name/, "  Harbour Leaders Forum  ");
+    set(/^Type of event/, "seminar");
+    set(/^Expected attendance/, "95");
+    set(/^Preferred room layout/, "");
+    set(/^Other accessibility notes/, "Two wheelchair users");
+    set(/^Anything else about the space/, "Front row for speakers");
+    await save();
+
+    await waitFor(() => expect(api.sent(SAVE)).toHaveLength(1));
+    expect(api.sent(SAVE)[0].body).toEqual({
+      title: "Harbour Leaders Forum",
+      category: "seminar",
+      expectedAttendance: 95,
+      preferredLayout: null,
+      accessibilityNotes: "Two wheelchair users",
+      specialRequirements: "Front row for speakers",
+    });
+  });
+
+  it("sends the list without a facility that is unticked", async () => {
+    const api = open();
+    await formReady();
+
+    await userEvent.click(await screen.findByRole("checkbox", { name: "Fixed ceiling projector" }));
+    await save();
+
+    await waitFor(() => expect(api.sent(SAVE)).toHaveLength(1));
+    expect(api.sent(SAVE)[0].body).toEqual({ facilityIds: [] });
+  });
+
+  it.each([
+    [/^Starts at/, "Enter when the event starts."],
+    [/^Ends at/, "Enter when the event ends."],
+  ])("refuses a cleared %s", async (label, message) => {
+    const api = open();
+    await formReady();
+
+    set(label, "");
+    await save();
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+    expect(api.sent(SAVE)).toHaveLength(0);
+  });
+
+  it("refuses a start on or before registration opens", async () => {
+    const api = open(event({ registrationOpensAt: iso("2027-03-12T09:00") }));
+    await formReady();
+
+    set(/^Starts at/, "2027-03-12T09:00");
+    await save();
+
+    expect(
+      await screen.findByText("Registration closes after this start time. Change the registration period first.")
+    ).toBeInTheDocument();
+    expect(api.sent(SAVE)).toHaveLength(0);
+  });
+
+  it("clears a field's message once it is edited", async () => {
+    open();
+    await formReady();
+    set(/^Event name/, "");
+    await save();
+    expect(await screen.findByText("Give the event a name so you can find it again.")).toBeInTheDocument();
+
+    set(/^Event name/, "Harbour Leaders Forum");
+
+    expect(screen.queryByText("Give the event a name so you can find it again.")).not.toBeInTheDocument();
+  });
+
+  it("saves a multi-session event's description without sending its schedule", async () => {
+    const api = open(
+      event({
+        sessions: [
+          { id: "s1", label: "Day 1", startsAt: iso(START), endsAt: iso(END), expectedAttendance: 80, preferredLayout: null },
+          { id: "s2", label: "Day 2", startsAt: iso("2027-03-18T09:00"), endsAt: iso("2027-03-18T17:00"), expectedAttendance: 60, preferredLayout: null },
+        ],
+      })
+    );
+    await formReady();
+
+    set(/^Description/, "Two-day programme");
+    await save();
+
+    await waitFor(() => expect(api.sent(SAVE)).toHaveLength(1));
+    expect(api.sent(SAVE)[0].body).toEqual({ description: "Two-day programme" });
+  });
+
+  it("refuses an empty type of event", async () => {
+    const api = open();
+    await formReady();
+
+    set(/^Type of event/, "");
+    await save();
+
+    expect(await screen.findByText("Choose the type of event.")).toBeInTheDocument();
+    expect(api.sent(SAVE)).toHaveLength(0);
+  });
+
+  it("lists a multi-session event's sessions", async () => {
+    open(
+      event({
+        sessions: [
+          { id: "s1", label: "Day 1", startsAt: iso(START), endsAt: iso(END), expectedAttendance: 80, preferredLayout: null },
+          { id: "s2", label: null, startsAt: iso("2027-03-18T09:00"), endsAt: iso("2027-03-18T17:00"), expectedAttendance: null, preferredLayout: null },
+        ],
+      })
+    );
+    await formReady();
+
+    expect(screen.getByText(/^Day 1: 17 Mar 2027, 09:00–17:00 · 80 expected$/)).toBeInTheDocument();
+    expect(screen.getByText(/^18 Mar 2027, 09:00–17:00$/)).toBeInTheDocument();
   });
 });

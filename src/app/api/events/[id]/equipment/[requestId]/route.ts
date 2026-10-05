@@ -4,7 +4,7 @@ import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/
 import { canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
-import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
+import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
 import { ZodError } from "zod";
 
 // PATCH/DELETE one EquipmentRequest row within S-16 — SPM-47 AC6:
@@ -78,7 +78,8 @@ export async function PATCH(
     //
     // SPM-54: saving a change on an Approved event begins planning, in the same
     // transaction as the change.
-    const { updated, planningStarted } = await prisma.$transaction(async (tx) => {
+    // SPM-62: on a Confirmed event it moves the event back to Planning instead.
+    const { updated, planningStarted, confirmationReverted } = await prisma.$transaction(async (tx) => {
       const updated = await tx.equipmentRequest.update({
         where: { id: requestId },
         data: {
@@ -91,9 +92,15 @@ export async function PATCH(
         },
       });
       const planningStarted = await beginPlanningIfApproved(tx, existing.event, actor.id, PLANNING_REASONS.equipmentUpdated);
-      return { updated, planningStarted };
+      const confirmationReverted = await revertConfirmationIfConfirmed(
+        tx,
+        existing.event,
+        actor.id,
+        PLANNING_REASONS.equipmentUpdated
+      );
+      return { updated, planningStarted, confirmationReverted };
     });
-    return NextResponse.json({ ...updated, planningStarted });
+    return NextResponse.json({ ...updated, planningStarted, confirmationReverted });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
@@ -136,9 +143,17 @@ export async function DELETE(
 
   // SPM-54: removing a row from an Approved event begins planning too, so this
   // answers with a body (was 204) to tell the screen when it did.
-  const planningStarted = await prisma.$transaction(async (tx) => {
+  // SPM-62: or, on a Confirmed event, moves it back to Planning.
+  const { planningStarted, confirmationReverted } = await prisma.$transaction(async (tx) => {
     await tx.equipmentRequest.delete({ where: { id: requestId } });
-    return beginPlanningIfApproved(tx, existing.event, actor.id, PLANNING_REASONS.equipmentRemoved);
+    const planningStarted = await beginPlanningIfApproved(tx, existing.event, actor.id, PLANNING_REASONS.equipmentRemoved);
+    const confirmationReverted = await revertConfirmationIfConfirmed(
+      tx,
+      existing.event,
+      actor.id,
+      PLANNING_REASONS.equipmentRemoved
+    );
+    return { planningStarted, confirmationReverted };
   });
-  return NextResponse.json({ planningStarted });
+  return NextResponse.json({ planningStarted, confirmationReverted });
 }

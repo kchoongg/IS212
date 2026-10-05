@@ -913,7 +913,7 @@ describe("Review request", () => {
   });
 });
 
-// SPM-62, written before the code: the way in to "Edit event information"
+// SPM-62: the way in to "Edit event information"
 // (/events/<ref>/update) from the event page. What a save changed and flagged
 // is shown on the edit page itself (event-information-pages.test.tsx);
 // showing flags afterwards is SPM-33 / SPM-68's.
