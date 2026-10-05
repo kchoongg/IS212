@@ -1,0 +1,585 @@
+// CONTRACT (SPM-62, written before the code) - what these tests expect to exist:
+//   src/app/api/events/[id]/information/route.ts   exports PATCH
+//   PATCH /api/events/EVT-000007/information, body = any of the permitted fields:
+//     title, category, purpose, description, startsAt, endsAt, expectedAttendance, preferredLayout,
+//     accessibilityNotes, specialRequirements, facilityIds. Any other key (status, organiserId, equipment,
+//     sessions, the registration settings - those are Configure Event Registration, SPM-64) -> 400
+//     "Validation failed" (strict schema).
+//   -> 401 no session; 404 malformed / unknown / not visible (canViewEvent);
+//      403 "Only the coordinator assigned to this event can change its information" for anyone else;
+//      400 "Event information can only be changed while the event is Approved, Planning or Confirmed.";
+//      400 { error, details.fieldErrors } for the same field rules as the draft edit, plus a start
+//          before registration closes: startsAt "Registration closes after this start time. Change the
+//          registration period first.";
+//      400 "Session times and attendance can't be changed here yet." for schedule/attendance/layout on a
+//          multi-session event;
+//      200 { event, importantChanges, statusReverted, flagged }; 500 on a database failure.
+//      `flagged` words what THIS save flagged, one line per arrangement, for the page to show:
+//        "Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed"
+//        "Equipment: 4K Portable Projector × 2 – the date or time changed"
+//        "Registrations: 12 attendees – the date or time changed"
+//      Showing flags afterwards is Track Outstanding Arrangements (SPM-33) / Review Flagged Arrangements (SPM-68).
+//   Reads: prisma.event.findUnique (with facilityRequirements and sessions), prisma.venueBooking.findMany,
+//          prisma.equipmentRequest.findMany (each with the venue's / item's name), prisma.registration.count.
+//   Writes, in one prisma.$transaction:
+//     event.update({ where: { id }, data: <changed fields> [+ registrationReviewReason]
+//                    [+ status: "planning", confirmedAt: null] })
+//     venueBooking.update / equipmentRequest.update({ where: { id }, data: { needsReview: true, reviewReason, flaggedAt } })
+//       - reviewReason merged with what is already stored, SPM-39's venue codes included
+//     eventStatusHistory.create (confirmed -> planning, reason "Event information changed: <labels>")
+//   No notifications: telling the organiser and attendees is Receive Event Notifications (SPM-53).
+// Decided here, not in the story: see docs/test-cases/SPM-62_test_cases.json open_questions.
+import { describe, it, expect, vi } from "vitest";
+
+vi.mock("@/lib/prisma");
+
+import { PATCH } from "@/app/api/events/[id]/information/route";
+import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+
+const REF = "EVT-000007";
+const ORGANISER_ID = "organiser-id";
+const START = new Date("2027-03-17T01:00:00.000Z");
+const END = new Date("2027-03-17T09:00:00.000Z");
+const NEW_START = "2027-03-24T01:00:00.000Z";
+const NEW_END = "2027-03-24T09:00:00.000Z";
+
+const assignedCoordinator = () => user("coordinator", { id: ID.user });
+
+function event(overrides: Record<string, unknown> = {}) {
+  return {
+    id: ID.event,
+    sequenceNumber: 7,
+    title: "Harbour Leadership Summit",
+    category: "conference",
+    purpose: "Leadership offsite",
+    description: "Keynotes and panels",
+    status: "planning",
+    organiserId: ORGANISER_ID,
+    organisationId: ID.org,
+    coordinatorId: ID.user,
+    startsAt: START,
+    endsAt: END,
+    expectedAttendance: 80,
+    preferredLayout: "theatre",
+    accessibilityNotes: null,
+    specialRequirements: null,
+    registrationEnabled: true,
+    registrationCapacity: 100,
+    registrationOpensAt: null,
+    registrationClosesAt: null,
+    confirmedAt: new Date("2027-01-10T00:00:00.000Z"),
+    registrationReviewReason: null,
+    facilityRequirements: [{ facilityId: ID.facility, isMandatory: true }],
+    sessions: [],
+    ...overrides,
+  };
+}
+
+const approvedBooking = (overrides = {}) => ({
+  id: ID.booking,
+  status: "approved",
+  endsAt: END,
+  reviewReason: null,
+  needsReview: false,
+  session: null,
+  venue: { name: "Orchard Seminar Room", code: "ORC-SEM" },
+  ...overrides,
+});
+
+const reservedEquipment = (overrides = {}) => ({
+  id: ID.request,
+  status: "reserved",
+  endsAt: END,
+  quantityRequested: 2,
+  reviewReason: null,
+  needsReview: false,
+  equipment: { name: "4K Portable Projector" },
+  ...overrides,
+});
+
+interface Arrangements {
+  bookings?: object[];
+  equipment?: object[];
+  registrations?: number;
+}
+
+/// Signs `actor` in and loads the event and its arrangements. By default the
+/// event has an approved booking, reserved equipment and 12 registrations.
+function given(
+  eventOverrides: Record<string, unknown> = {},
+  { bookings = [approvedBooking()], equipment = [reservedEquipment()], registrations = 12 }: Arrangements = {},
+  actor = assignedCoordinator()
+) {
+  const token = signIn(actor);
+  const row = event(eventOverrides);
+  db.event.findUnique.mockResolvedValue(row);
+  db.venueBooking.findMany.mockResolvedValue(bookings);
+  db.equipmentRequest.findMany.mockResolvedValue(equipment);
+  db.registration.count.mockResolvedValue(registrations);
+  db.event.update.mockImplementation(async ({ data }: { data: object }) => ({ ...row, ...data }));
+  return token;
+}
+
+function save(token: string | undefined, body: unknown, reference = REF) {
+  return PATCH(
+    req("PATCH", `/api/events/${reference}/information`, { token, body }),
+    params({ id: reference })
+  );
+}
+
+const eventData = () => callArg(db.event.update).data;
+
+function nothingWritten() {
+  expect(db.event.update).not.toHaveBeenCalled();
+  expect(db.venueBooking.update).not.toHaveBeenCalled();
+  expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+  expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+}
+
+const reasonsOf = (value: string) => value.split(",").sort();
+
+describe("PATCH /api/events/[id]/information - who may change it", () => {
+  it("is 401 without a session", async () => {
+    expect((await save(undefined, { description: "x" })).status).toBe(401);
+  });
+
+  it.each(["nope", ID.event])("is 404 for the malformed reference %s, without querying", async (reference) => {
+    const token = signIn(assignedCoordinator());
+
+    expect((await save(token, { description: "x" }, reference)).status).toBe(404);
+    expect(db.event.findUnique).not.toHaveBeenCalled();
+  });
+
+  it("is 404 for a reference that matches no event", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(null);
+
+    expect((await save(token, { description: "x" })).status).toBe(404);
+  });
+
+  it("is 404, not 403, for an event the user may not see - an attendee and a planning event", async () => {
+    const token = given({}, {}, user("attendee", { id: ID.thirdUser }));
+
+    expect((await save(token, { description: "x" })).status).toBe(404);
+    nothingWritten();
+  });
+
+  it.each([
+    ["a coordinator who is not assigned", () => user("coordinator", { id: ID.otherUser })],
+    ["the organiser who raised it", () => user("organiser", { id: ORGANISER_ID })],
+    ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
+    ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
+    ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
+  ])("is 403 for %s, and writes nothing", async (_who, actor) => {
+    const token = given({}, {}, actor());
+
+    const res = await save(token, { description: "x" });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({
+      error: "Only the coordinator assigned to this event can change its information",
+    });
+    nothingWritten();
+  });
+
+  it("is 403 for an attendee who can see a confirmed event open for registration", async () => {
+    const token = given({ status: "confirmed", registrationEnabled: true }, {}, user("attendee", { id: ID.thirdUser }));
+
+    expect((await save(token, { description: "x" })).status).toBe(403);
+    nothingWritten();
+  });
+
+  it("is 404 for a coordinator's own event while it is still a draft", async () => {
+    const token = given({ status: "draft" });
+
+    expect((await save(token, { description: "x" })).status).toBe(404);
+  });
+
+  it.each(["submitted", "under_review", "postponed", "completed", "cancelled", "rejected", "withdrawn"])(
+    "refuses an event that is %s",
+    async (status) => {
+      const token = given({ status });
+
+      const res = await save(token, { description: "x" });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: "Event information can only be changed while the event is Approved, Planning or Confirmed.",
+      });
+      nothingWritten();
+    }
+  );
+
+  it.each(["approved", "planning", "confirmed"])("accepts an ordinary edit while the event is %s", async (status) => {
+    const token = given({ status });
+
+    expect((await save(token, { description: "New programme" })).status).toBe(200);
+  });
+});
+
+describe("PATCH /api/events/[id]/information - validation", () => {
+  it.each([
+    ["the status", { status: "confirmed" }],
+    ["the organiser", { organiserId: ID.otherUser }],
+    ["the coordinator", { coordinatorId: ID.otherUser }],
+    ["equipment", { equipment: [] }],
+    ["sessions", { sessions: [] }],
+    ["whether registration is on", { registrationEnabled: false }],
+    ["the registration capacity", { registrationCapacity: 50 }],
+    ["when registration opens", { registrationOpensAt: "2027-02-01T01:00:00.000Z" }],
+    ["when registration closes", { registrationClosesAt: "2027-03-01T01:00:00.000Z" }],
+  ])("refuses a body that tries to change %s", async (_what, body) => {
+    const token = given();
+
+    const res = await save(token, { description: "x", ...body });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Validation failed");
+    nothingWritten();
+  });
+
+  it.each([
+    ["a blank event name", { title: "  " }, "title"],
+    ["no type of event", { category: "" }, "category"],
+    ["a cleared start", { startsAt: null }, "startsAt"],
+    ["a cleared end", { endsAt: null }, "endsAt"],
+    ["an attendance of zero", { expectedAttendance: 0 }, "expectedAttendance"],
+    ["a cleared attendance", { expectedAttendance: null }, "expectedAttendance"],
+    ["a fractional attendance", { expectedAttendance: 1.5 }, "expectedAttendance"],
+  ])("refuses %s", async (_what, body, field) => {
+    const token = given();
+
+    const res = await save(token, body);
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors).toHaveProperty(field);
+    nothingWritten();
+  });
+
+  it("accepts an attendance of 1", async () => {
+    const token = given({}, { bookings: [], equipment: [], registrations: 0 });
+
+    expect((await save(token, { expectedAttendance: 1 })).status).toBe(200);
+  });
+
+  it("checks a new end against the start already saved", async () => {
+    const token = given();
+
+    const res = await save(token, { endsAt: "2027-03-17T00:00:00.000Z" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.endsAt).toEqual(["Ends at must be after starts at."]);
+    nothingWritten();
+  });
+
+  it("refuses an end equal to the start", async () => {
+    const token = given();
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_START });
+
+    expect((await res.json()).details.fieldErrors.endsAt).toEqual(["Ends at must be after starts at."]);
+  });
+
+  it("refuses a start before registration closes", async () => {
+    const token = given({ registrationClosesAt: new Date("2027-03-10T10:00:00.000Z") });
+
+    const res = await save(token, { startsAt: "2027-03-10T01:00:00.000Z", endsAt: "2027-03-10T09:00:00.000Z" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.startsAt).toEqual([
+      "Registration closes after this start time. Change the registration period first.",
+    ]);
+    nothingWritten();
+  });
+
+  it("accepts a start after registration closes", async () => {
+    const token = given({ registrationClosesAt: new Date("2027-03-10T10:00:00.000Z") });
+
+    expect((await save(token, { startsAt: NEW_START, endsAt: NEW_END })).status).toBe(200);
+  });
+
+  it.each([
+    ["the start", { startsAt: NEW_START }],
+    ["the attendance", { expectedAttendance: 90 }],
+    ["the layout", { preferredLayout: "classroom" }],
+  ])("refuses to change %s of a multi-session event here", async (_what, body) => {
+    const token = given({ sessions: [{ id: ID.session }, { id: ID.otherSession }] });
+
+    const res = await save(token, body);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Session times and attendance can't be changed here yet." });
+    nothingWritten();
+  });
+
+  it("still lets the description of a multi-session event change", async () => {
+    const token = given({ sessions: [{ id: ID.session }, { id: ID.otherSession }] });
+
+    expect((await save(token, { description: "Two-day programme" })).status).toBe(200);
+  });
+});
+
+describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
+  const ordinary = {
+    purpose: "Brief clients on the 2027 outlook",
+    description: "Keynote, market briefing and Q&A",
+    specialRequirements: "Reserve the front row",
+    accessibilityNotes: "Two wheelchair users",
+  };
+
+  it("saves exactly the fields sent", async () => {
+    const token = given();
+
+    const res = await save(token, ordinary);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).where).toEqual({ id: ID.event });
+    expect(eventData()).toEqual(ordinary);
+  });
+
+  it.each(["approved", "planning", "confirmed"])(
+    "on a %s event, flags nothing and leaves the status alone",
+    async (status) => {
+      const token = given({ status });
+
+      const res = await save(token, ordinary);
+      const body = await res.json();
+
+      expect(body.importantChanges).toEqual([]);
+      expect(body.statusReverted).toBe(false);
+      expect(body.flagged).toEqual([]);
+      expect(eventData()).not.toHaveProperty("status");
+      expect(eventData()).not.toHaveProperty("registrationReviewReason");
+      expect(db.venueBooking.update).not.toHaveBeenCalled();
+      expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+      expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it("treats important fields sent back unchanged as no change at all", async () => {
+    const token = given({ status: "confirmed" });
+
+    const res = await save(token, {
+      ...ordinary,
+      startsAt: START.toISOString(),
+      endsAt: END.toISOString(),
+      expectedAttendance: 80,
+      preferredLayout: "theatre",
+      facilityIds: [ID.facility],
+    });
+    const body = await res.json();
+
+    expect(body.importantChanges).toEqual([]);
+    expect(body.statusReverted).toBe(false);
+    expect(db.venueBooking.update).not.toHaveBeenCalled();
+  });
+
+  it("does not begin planning on an Approved event", async () => {
+    const token = given({ status: "approved" }, { bookings: [], equipment: [], registrations: 0 });
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(eventData()).not.toHaveProperty("status");
+    expect(db.event.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("PATCH /api/events/[id]/information - an important change", () => {
+  it("saves the new schedule and reports it as a date and time change", async () => {
+    const token = given();
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).importantChanges).toEqual(["schedule"]);
+    expect(eventData()).toMatchObject({ startsAt: new Date(NEW_START), endsAt: new Date(NEW_END) });
+  });
+
+  it("flags the venue booking for review without moving or cancelling it", async () => {
+    const token = given();
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    const update = callArg(db.venueBooking.update);
+    expect(update.where).toEqual({ id: ID.booking });
+    expect(update.data).toEqual({
+      needsReview: true,
+      reviewReason: "event_schedule_changed",
+      flaggedAt: expect.any(Date),
+    });
+  });
+
+  it("flags the equipment for review without changing it", async () => {
+    const token = given();
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    const update = callArg(db.equipmentRequest.update);
+    expect(update.where).toEqual({ id: ID.request });
+    expect(update.data).toEqual({
+      needsReview: true,
+      reviewReason: "event_schedule_changed",
+      flaggedAt: expect.any(Date),
+    });
+  });
+
+  it("flags the registrations on the event itself", async () => {
+    const token = given();
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(eventData().registrationReviewReason).toBe("event_schedule_changed");
+  });
+
+  it("does not flag registrations when nobody has registered", async () => {
+    const token = given({}, { registrations: 0 });
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(eventData()).not.toHaveProperty("registrationReviewReason");
+  });
+
+  it("flags only the venue booking when the attendance changes", async () => {
+    const token = given();
+
+    const res = await save(token, { expectedAttendance: 90 });
+
+    expect((await res.json()).importantChanges).toEqual(["attendance"]);
+    expect(callArg(db.venueBooking.update).data.reviewReason).toBe("event_attendance_changed");
+    expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+    expect(eventData()).not.toHaveProperty("registrationReviewReason");
+  });
+
+  it("flags the venue booking when the venue requirements change, and replaces them", async () => {
+    const token = given();
+
+    const res = await save(token, { facilityIds: [ID.facility, ID.venue] });
+
+    expect((await res.json()).importantChanges).toEqual(["venue_requirements"]);
+    expect(callArg(db.venueBooking.update).data.reviewReason).toBe("event_requirements_changed");
+    expect(callArg(db.eventFacilityRequirement.deleteMany)).toEqual({ where: { eventId: ID.event } });
+  });
+
+  it("keeps the reasons a booking was already flagged for, SPM-39's included", async () => {
+    const token = given({}, { bookings: [approvedBooking({ needsReview: true, reviewReason: "venue_retired" })] });
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(reasonsOf(callArg(db.venueBooking.update).data.reviewReason)).toEqual([
+      "event_schedule_changed",
+      "venue_retired",
+    ]);
+  });
+
+  it("flags every booking the event has", async () => {
+    const token = given({}, { bookings: [approvedBooking(), approvedBooking({ id: ID.otherVenue, status: "pending" })] });
+
+    await save(token, { expectedAttendance: 90 });
+
+    expect(db.venueBooking.update).toHaveBeenCalledTimes(2);
+  });
+
+  it("words what this save flagged, one line per arrangement", async () => {
+    const token = given();
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect((await res.json()).flagged).toEqual([
+      "Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed",
+      "Equipment: 4K Portable Projector × 2 – the date or time changed",
+      "Registrations: 12 attendees – the date or time changed",
+    ]);
+  });
+
+  it("names a session's booking by its session, and joins several reasons", async () => {
+    const token = given({}, { bookings: [approvedBooking({ session: { label: "Day 2" } })], equipment: [] });
+
+    const res = await save(token, { expectedAttendance: 90, preferredLayout: "classroom" });
+
+    expect((await res.json()).flagged).toEqual([
+      "Venue booking: Day 2: Orchard Seminar Room (ORC-SEM) – the expected attendance changed; the venue requirements changed",
+    ]);
+  });
+
+  it("says '1 attendee' for a single registration", async () => {
+    const token = given({}, { bookings: [], equipment: [], registrations: 1 });
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect((await res.json()).flagged).toEqual(["Registrations: 1 attendee – the date or time changed"]);
+  });
+
+  it("words only this save's reasons, not what a booking was already flagged for", async () => {
+    const token = given({}, { bookings: [approvedBooking({ needsReview: true, reviewReason: "venue_retired" })], equipment: [], registrations: 0 });
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect((await res.json()).flagged).toEqual([
+      "Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed",
+    ]);
+  });
+
+  it("does all of it in one transaction", async () => {
+    const token = given();
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(db.$transaction).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a Planning event in Planning", async () => {
+    const token = given({ status: "planning" });
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect((await res.json()).statusReverted).toBe(false);
+    expect(eventData()).not.toHaveProperty("status");
+  });
+});
+
+describe("PATCH /api/events/[id]/information - a Confirmed event", () => {
+  it("moves back to Planning, clearing when it was confirmed", async () => {
+    const token = given({ status: "confirmed" });
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect((await res.json()).statusReverted).toBe(true);
+    expect(eventData()).toMatchObject({ status: "planning", confirmedAt: null });
+  });
+
+  it("records the move in the status history, naming what changed", async () => {
+    const token = given({ status: "confirmed" });
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END, expectedAttendance: 90 });
+
+    expect(callArg(db.eventStatusHistory.create).data).toEqual({
+      eventId: ID.event,
+      fromStatus: "confirmed",
+      toStatus: "planning",
+      changedBy: ID.user,
+      reason: "Event information changed: Date and time, Expected attendance",
+    });
+  });
+
+  it("stays Confirmed when the change flags only registrations", async () => {
+    const token = given({ status: "confirmed" }, { bookings: [], equipment: [], registrations: 12 });
+
+    const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect((await res.json()).statusReverted).toBe(false);
+    expect(eventData()).not.toHaveProperty("status");
+    expect(eventData().registrationReviewReason).toBe("event_schedule_changed");
+  });
+});
+
+describe("PATCH /api/events/[id]/information - failures", () => {
+  it("answers 500 when the database fails", async () => {
+    const token = given();
+    db.event.update.mockRejectedValue(new Error("connection lost"));
+
+    const res = await save(token, { description: "x" });
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Internal server error" });
+  });
+});

@@ -227,6 +227,41 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
   });
 
+  // SPM-62 (AC4, AC6): equipment requirements are important information, so
+  // changing them on a Confirmed event moves it back to Planning to be
+  // confirmed again, in the same transaction as the change. Telling the
+  // organiser is Receive Event Notifications (SPM-53), not this route.
+  it("moves a Confirmed event back to Planning", async () => {
+    const token = givenAssignedCoordinator({ status: "confirmed", title: "Sundara Hospitality Showcase" });
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await add(token, valid);
+    const body = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(body.confirmationReverted).toBe(true);
+    expect(body.planningStarted).toBe(false);
+    expect(callArg(db.event.updateMany)).toEqual({
+      where: { id: ID.event, status: "confirmed" },
+      data: { status: "planning", confirmedAt: null },
+    });
+    expect(callArg(db.eventStatusHistory.create).data).toEqual({
+      eventId: ID.event,
+      fromStatus: "confirmed",
+      toStatus: "planning",
+      changedBy: ID.user,
+      reason: "Equipment requirement recorded",
+    });
+  });
+
+  it("says nothing was unconfirmed for an event in Planning", async () => {
+    const token = givenAssignedCoordinator();
+
+    const body = await (await add(token, valid)).json();
+
+    expect(body.confirmationReverted).toBe(false);
+  });
+
   it("scopes the requirement to one of the event's own sessions", async () => {
     const token = givenAssignedCoordinator();
     db.eventSession.findUnique.mockResolvedValue({ id: ID.session, eventId: ID.event });
@@ -407,6 +442,27 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       expect((await res.json()).planningStarted).toBe(false);
       expect(db.event.updateMany).not.toHaveBeenCalled();
     });
+
+    it("moves a Confirmed event back to Planning (SPM-62)", async () => {
+      const token = givenRequest(assignedCoordinator(), requestRow({ status: "confirmed", title: "Sundara Hospitality Showcase" }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+      db.event.updateMany.mockResolvedValue({ count: 1 });
+
+      const res = await call(token);
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).confirmationReverted).toBe(true);
+      expect(db.$transaction).toHaveBeenCalledOnce();
+      expect(callArg(db.event.updateMany)).toEqual({
+        where: { id: ID.event, status: "confirmed" },
+        data: { status: "planning", confirmedAt: null },
+      });
+      expect(callArg(db.eventStatusHistory.create).data).toMatchObject({
+        fromStatus: "confirmed",
+        toStatus: "planning",
+        reason,
+      });
+    });
   });
 
   it("PATCH changes the quantity and technical requirements, and nothing else", async () => {
@@ -455,7 +511,8 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     const res = await remove(token);
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ planningStarted: false });
+    // CHANGED (SPM-62): also says whether a Confirmed event was unconfirmed.
+    expect(await res.json()).toEqual({ planningStarted: false, confirmationReverted: false });
     expect(callArg(db.equipmentRequest.delete)).toEqual({ where: { id: ID.request } });
   });
 });

@@ -1,0 +1,468 @@
+{
+  "story_key": "SPM-62",
+  "story_title": "As an authorised Event Coordinator, I want to update permitted event information so that event details remain accurate during planning",
+  "created_by": "kchoongg",
+  "creation_date": "2026-10-05",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Authorised users can update permitted event information."
+    },
+    {
+      "id": "AC2",
+      "text": "Changes are reflected in the event record."
+    },
+    {
+      "id": "AC3",
+      "text": "Users cannot edit information they are not authorised to modify."
+    },
+    {
+      "id": "AC4",
+      "text": "Important information such as date, time, attendance, venue and equipment requirements is identified as affecting existing arrangements."
+    },
+    {
+      "id": "AC5",
+      "text": "Given important information is changed on an event with existing venue, equipment or registration arrangements, when the change is saved, then the affected arrangements are identified and flagged for review rather than automatically changed."
+    },
+    {
+      "id": "AC6",
+      "text": "Given the event is Confirmed and the change affects its essential arrangements, when the change is saved, then the event status reverts (e.g. to Planning) so it can be reconfirmed. Notifying the Event Organiser that it is no longer confirmed is covered by Receive Event Notifications (SPM-53)."
+    },
+    {
+      "id": "AC7",
+      "text": "An ordinary edit that does not affect existing arrangements does not flag arrangements or change the event status."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-62-TC01",
+      "title": "The edit form opens with the event's current information and only the fields a coordinator may change",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Click 'Edit event information'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit | Status: Planning | When: 17 Mar 2027, 09:00–17:00 | Expected attendance: 80 | Layout: Theatre | Required facility: Fixed ceiling projector",
+      "expected_result": "Step 1: The event page shows the 'Planning' status badge and an 'Edit event information' button at the top of the page.\nStep 2: The 'Edit event information' page opens with the 'Planning' status badge. The form is filled in with the event's current information: Event name 'SPM62 Harbour Leadership Summit', Starts at 17 Mar 2027 09:00, Ends at 17 Mar 2027 17:00, Expected attendance 80, Preferred room layout 'Theatre', and 'Fixed ceiling projector' ticked under 'The venue must have'. There are no fields for Organiser, Company, Coordinator or Status, no Registration section, and no equipment rows: an info message reads 'Equipment is changed on the Equipment tab.' The buttons are 'Save changes' and 'Cancel'. No amber warning is shown.\nStep 3: The event page opens again with the 'Planning' status badge and the same details as in step 1."
+    },
+    {
+      "id": "SPM-62-TC02",
+      "title": "The form says when a change affects existing arrangements, naming the kind of change",
+      "linked_ac": [
+        "AC4",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Click 'Edit event information'",
+        "Change 'Description' to 'Updated programme with a panel discussion'",
+        "Change 'Starts at' to 24 Mar 2027, 09:00",
+        "Change 'Ends at' to 24 Mar 2027, 17:00",
+        "Change 'Expected attendance' to 95",
+        "Tick 'Hearing induction loop' under 'Accessibility needs'",
+        "Click 'Cancel'",
+        "Click 'Edit event information'"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit (Planning) | Description: Updated programme with a panel discussion | New start: 24 Mar 2027, 09:00 | New end: 24 Mar 2027, 17:00 | Expected attendance: 80 -> 95 | Accessibility need: Hearing induction loop",
+      "expected_result": "Step 3: No amber warning appears. A description change does not affect arrangements.\nStep 4: An amber alert 'These changes affect existing arrangements' appears above the 'Save changes' button, reading 'You've changed: Date and time. Any venue booking, equipment or registrations already arranged will be flagged for review, not changed.'\nStep 5: The alert still lists only 'Date and time'.\nStep 6: The alert now reads 'You've changed: Date and time, Expected attendance. Any venue booking, equipment or registrations already arranged will be flagged for review, not changed.'\nStep 7: The alert now reads 'You've changed: Date and time, Expected attendance, Venue requirements. Any venue booking, equipment or registrations already arranged will be flagged for review, not changed.'\nStep 8: The event page opens with nothing changed: 'When' in the Details card shows '17 Mar 2027, 09:00–17:00' and 'Expected attendance' shows '80'. No 'Event information updated.' alert is shown.\nStep 9: The form shows the original values again (Starts at 17 Mar 2027 09:00, Expected attendance 80, 'Hearing induction loop' not ticked) and no amber alert."
+    },
+    {
+      "id": "SPM-62-TC03",
+      "title": "An ordinary edit to an Approved event is saved and shown on the event, with nothing flagged",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Bayu Energy Outlook' is back in its starting state.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Bayu Energy Outlook'",
+        "Click 'Edit event information'",
+        "Change 'Purpose' to 'Brief clients on the 2027 regional energy outlook'",
+        "Change 'Description' to 'Keynote, market briefing and Q&A'",
+        "Change 'Anything else about the space' to 'Reserve the front row for speakers'",
+        "Click 'Save changes'",
+        "Click 'Back to event'",
+        "Click 'Edit event information'"
+      ],
+      "test_data": "Event: SPM62 Bayu Energy Outlook | Status: Approved | No venue booking, equipment or registrations | Purpose: Brief clients on the 2027 regional energy outlook | Description: Keynote, market briefing and Q&A | Anything else about the space: Reserve the front row for speakers",
+      "expected_result": "Step 1: The event page shows the 'Approved' status badge.\nStep 5: No amber warning has appeared at any point while editing.\nStep 6: No dialog appears. The form is replaced by a green alert 'Event information updated.' and a 'Back to event' link. No 'Flagged for review' alert is shown.\nStep 7: The event page shows the subtitle 'Brief clients on the 2027 regional energy outlook' under the title, Description 'Keynote, market briefing and Q&A' in the Details card, and Special requirements 'Reserve the front row for speakers' in the Venue requirements card. The status badge still reads 'Approved' (editing information does not begin planning).\nStep 8: The form shows the saved Purpose, Description and 'Anything else about the space' values."
+    },
+    {
+      "id": "SPM-62-TC04",
+      "title": "A date and attendance change on an event with no arrangements is saved with nothing flagged",
+      "linked_ac": [
+        "AC2",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Anchorpoint Logistics Forum' is back in its starting state.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Anchorpoint Logistics Forum'",
+        "Click 'Edit event information'",
+        "Change 'Starts at' to 25 May 2027, 09:00",
+        "Change 'Ends at' to 25 May 2027, 12:00",
+        "Change 'Expected attendance' to 70",
+        "Click 'Save changes'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM62 Anchorpoint Logistics Forum | Status: Approved | When: 18 May 2027, 09:00–12:00 -> 25 May 2027, 09:00–12:00 | Expected attendance: 50 -> 70 | No venue booking, equipment or registrations",
+      "expected_result": "Step 1: The event page shows the 'Approved' status badge, 'When' 18 May 2027, 09:00–12:00 and 'Expected attendance' 50. The Venue row reads 'Not booked yet'.\nStep 5: The amber alert reads 'You've changed: Date and time, Expected attendance. Any venue booking, equipment or registrations already arranged will be flagged for review, not changed.'\nStep 6: No dialog appears. The form is replaced by a green alert 'Event information updated.' and a 'Back to event' link. No 'Flagged for review' alert is shown, because the event has no venue booking, equipment or registrations to flag.\nStep 7: The Details card shows 'When' '25 May 2027, 09:00–12:00' and 'Expected attendance' '70'. The status badge still reads 'Approved'."
+    },
+    {
+      "id": "SPM-62-TC05",
+      "title": "A date change on a Planning event flags its venue booking, equipment and registrations without changing them",
+      "linked_ac": [
+        "AC2",
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Harbour Leadership Summit' is back in its starting state.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: if you are running SPM-62-TC06 next, go straight to it - it checks this change as the organiser. Otherwise run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Click 'Edit event information'",
+        "Change 'Starts at' to 24 Mar 2027, 09:00",
+        "Change 'Ends at' to 24 Mar 2027, 17:00",
+        "Click 'Save changes'",
+        "Click 'Back to event'",
+        "Click the 'Venue' tab",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit | Status: Planning | When: 17 Mar 2027, 09:00–17:00 -> 24 Mar 2027, 09:00–17:00 | Approved booking: Orchard Seminar Room (ORC-SEM) on 17 Mar 2027 | Equipment: 4K Portable Projector x 2, Reserved | Registrations: 12 attendees registered",
+      "expected_result": "Step 1: The event page shows the 'Planning' status badge, 'When' 17 Mar 2027, 09:00–17:00, and Venue 'Orchard Seminar Room (ORC-SEM)'.\nStep 5: No dialog appears. The form is replaced by a green alert 'Event information updated.' and a 'Back to event' link. Below it, an amber alert 'Flagged for review' reads 'These were arranged for the event's earlier details and have not been changed.' and lists three lines: 'Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed'; 'Equipment: 4K Portable Projector × 2 – the date or time changed'; 'Registrations: 12 attendees – the date or time changed'.\nStep 6: The Details card shows 'When' '24 Mar 2027, 09:00–17:00' and still shows Venue 'Orchard Seminar Room (ORC-SEM)'. The status badge still reads 'Planning'.\nStep 7: The booking for Orchard Seminar Room (ORC-SEM) is still shown on 17 Mar 2027 with the 'Approved' badge. It has not been moved to 24 Mar 2027 or cancelled.\nStep 8: '4K Portable Projector', quantity 2, is still listed with the 'Reserved' badge."
+    },
+    {
+      "id": "SPM-62-TC06",
+      "title": "The organiser sees the event's new date",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-62-TC05 has just been run ('SPM62 Harbour Leadership Summit' moved to 24 Mar 2027 by Daniel Tan; its arrangements flagged for review).\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123), Event Organiser of 'SPM62 Harbour Leadership Summit'.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit (Planning) | Organiser: Evelyn Chen",
+      "expected_result": "Step 1: The event page shows the 'Planning' status badge and 'When' '24 Mar 2027, 09:00–17:00'. Venue still reads 'Orchard Seminar Room (ORC-SEM)'."
+    },
+    {
+      "id": "SPM-62-TC07",
+      "title": "An attendance and venue requirement change flags only the venue booking",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Kirana Supplier Day' is back in its starting state.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Kirana Supplier Day'",
+        "Click 'Edit event information'",
+        "Change 'Expected attendance' to 90",
+        "Tick 'Step-free access' under 'Accessibility needs'",
+        "Click 'Save changes'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM62 Kirana Supplier Day | Status: Planning | Expected attendance: 60 -> 90 | Accessibility need added: Step-free access | Approved booking: Changi Conference Centre (CBP-CONF) | Equipment: Handheld Wireless Mic x 4, Reserved | Registrations: 8 attendees registered",
+      "expected_result": "Step 4: The amber alert reads 'You've changed: Expected attendance, Venue requirements. Any venue booking, equipment or registrations already arranged will be flagged for review, not changed.'\nStep 5: No dialog appears. The form is replaced by a green alert 'Event information updated.' and a 'Back to event' link. Below it, an amber alert 'Flagged for review' reads 'These were arranged for the event's earlier details and have not been changed.' and lists one line only: 'Venue booking: Changi Conference Centre (CBP-CONF) – the expected attendance changed; the venue requirements changed'. There is no Equipment line and no Registrations line.\nStep 6: The Details card shows 'Expected attendance' '90', the Venue requirements card lists 'Step-free access', and the status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-62-TC08",
+      "title": "On a Confirmed event, an important change asks first, and 'Keep editing' saves nothing",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\n'SPM62 Straits Pharmacy Forum' is Confirmed (if SPM-62-TC09 has been run since the last reset, run `npm run fixtures:spm62` first).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Straits Pharmacy Forum'",
+        "Click 'Edit event information'",
+        "Change 'Starts at' to 16 Jun 2027, 09:00",
+        "Change 'Ends at' to 16 Jun 2027, 17:00",
+        "Click 'Save changes'",
+        "Click 'Keep editing'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM62 Straits Pharmacy Forum | Status: Confirmed | When: 9 Jun 2027, 09:00–17:00 | Proposed: 16 Jun 2027, 09:00–17:00",
+      "expected_result": "Step 1: The event page shows the 'Confirmed' status badge and 'When' '9 Jun 2027, 09:00–17:00'.\nStep 5: A dialog 'Move this event back to Planning?' reads 'SPM62 Straits Pharmacy Forum is Confirmed. Saving these changes moves it back to Planning so it can be confirmed again.' with the buttons 'Keep editing' and 'Save and move to Planning'.\nStep 6: The dialog closes. The form still shows Starts at 16 Jun 2027 09:00 and the amber alert listing 'Date and time'.\nStep 7: The event page opens with the 'Confirmed' status badge and 'When' still '9 Jun 2027, 09:00–17:00'."
+    },
+    {
+      "id": "SPM-62-TC09",
+      "title": "A date change on a Confirmed event moves it back to Planning and flags its arrangements",
+      "linked_ac": [
+        "AC2",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Straits Pharmacy Forum' is back to Confirmed.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Straits Pharmacy Forum'",
+        "Click 'Edit event information'",
+        "Change 'Starts at' to 16 Jun 2027, 09:00",
+        "Change 'Ends at' to 16 Jun 2027, 17:00",
+        "Click 'Save changes'",
+        "Click 'Save and move to Planning'",
+        "Click 'Back to event'",
+        "Click 'All Events' in the sidebar"
+      ],
+      "test_data": "Event: SPM62 Straits Pharmacy Forum | Status: Confirmed | When: 9 Jun 2027, 09:00–17:00 -> 16 Jun 2027, 09:00–17:00 | Approved booking: Marina Auditorium (MAR-AUD) | Equipment: Powered Speaker x 2, Reserved | Registrations: 20 attendees registered",
+      "expected_result": "Step 1: The event page shows the 'Confirmed' status badge, and there is no 'Confirm event' button.\nStep 5: The 'Move this event back to Planning?' dialog appears.\nStep 6: The dialog closes. The form is replaced by a green alert 'Event information updated. The event is back in Planning and needs to be confirmed again.' and a 'Back to event' link. Below it, an amber alert 'Flagged for review' reads 'These were arranged for the event's earlier details and have not been changed.' and lists: 'Venue booking: Marina Auditorium (MAR-AUD) – the date or time changed'; 'Equipment: Powered Speaker × 2 – the date or time changed'; 'Registrations: 20 attendees – the date or time changed'.\nStep 7: The event page shows the 'Planning' status badge, 'When' '16 Jun 2027, 09:00–17:00' and Status 'Planning' in the Details card, and a 'Confirm event' button at the top of the page.\nStep 8: The 'SPM62 Straits Pharmacy Forum' row shows 'Planning' in the Status column."
+    },
+    {
+      "id": "SPM-62-TC10",
+      "title": "An ordinary edit to a Confirmed event keeps it Confirmed, with nothing flagged",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Meridian Quarterly Review' is back in its starting state.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: if you are running SPM-62-TC11 next, go straight to it - it checks this edit as the organiser. Otherwise run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Meridian Quarterly Review'",
+        "Click 'Edit event information'",
+        "Change 'Description' to 'Q3 results, Q4 forecast and open questions'",
+        "Change 'Other accessibility notes' to 'Two attendees use wheelchairs'",
+        "Click 'Save changes'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM62 Meridian Quarterly Review | Status: Confirmed | Approved booking: Marina Boardroom 1 (MAR-BR1) | Description: Q3 results, Q4 forecast and open questions | Other accessibility notes: Two attendees use wheelchairs | Organiser: James Koh",
+      "expected_result": "Step 1: The event page shows the 'Confirmed' status badge.\nStep 4: No amber warning has appeared.\nStep 5: No dialog appears. The form is replaced by a green alert 'Event information updated.' and a 'Back to event' link. No 'Flagged for review' alert is shown.\nStep 6: The status badge still reads 'Confirmed' and there is no 'Confirm event' button. The Details card shows Description 'Q3 results, Q4 forecast and open questions', the Venue requirements card shows Accessibility notes 'Two attendees use wheelchairs', and Venue still reads 'Marina Boardroom 1 (MAR-BR1)'."
+    },
+    {
+      "id": "SPM-62-TC11",
+      "title": "The organiser sees an ordinary edit to their Confirmed event",
+      "linked_ac": [
+        "AC2",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-62-TC10 has just been run ('SPM62 Meridian Quarterly Review' description and accessibility notes changed by Daniel Tan; still Confirmed).\nLogged in as James Koh (james.koh@meridianfina.com / password123), Event Organiser of 'SPM62 Meridian Quarterly Review'.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM62 Meridian Quarterly Review'"
+      ],
+      "test_data": "Event: SPM62 Meridian Quarterly Review | Organiser: James Koh",
+      "expected_result": "Step 1: The event page shows the 'Confirmed' status badge, Description 'Q3 results, Q4 forecast and open questions' and Accessibility notes 'Two attendees use wheelchairs'."
+    },
+    {
+      "id": "SPM-62-TC12",
+      "title": "An important value changed and then changed back counts as an ordinary edit",
+      "linked_ac": [
+        "AC4",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Meridian Quarterly Review' is back in its starting state.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Meridian Quarterly Review'",
+        "Click 'Edit event information'",
+        "Change 'Expected attendance' to 45",
+        "Change 'Expected attendance' back to 30",
+        "Change 'Description' to 'Agenda: results, forecast and Q&A'",
+        "Click 'Save changes'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM62 Meridian Quarterly Review | Status: Confirmed | Expected attendance: 30 -> 45 -> 30 | Description: Agenda: results, forecast and Q&A",
+      "expected_result": "Step 3: The amber alert appears, reading 'You've changed: Expected attendance. Any venue booking, equipment or registrations already arranged will be flagged for review, not changed.'\nStep 4: The amber alert disappears.\nStep 6: No 'Move this event back to Planning?' dialog appears. The form is replaced by a green alert 'Event information updated.' and a 'Back to event' link. No 'Flagged for review' alert is shown.\nStep 7: The status badge still reads 'Confirmed', 'Expected attendance' shows '30', and Description shows 'Agenda: results, forecast and Q&A'."
+    },
+    {
+      "id": "SPM-62-TC13",
+      "title": "Adding equipment to a Confirmed event asks first, then moves it back to Planning",
+      "linked_ac": [
+        "AC4",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm62` so 'SPM62 Sundara Hospitality Showcase' is back to Confirmed.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nAfter: run `npm run fixtures:spm62` so the next tester starts from the same state (never `npx prisma db seed`, which wipes everyone's data).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Sundara Hospitality Showcase'",
+        "Click the 'Equipment' tab",
+        "Choose 'Handheld Wireless Mic' in 'Equipment' under 'Add equipment'",
+        "Enter 2 in 'Quantity'",
+        "Click 'Add'",
+        "Click 'Cancel' in the dialog",
+        "Click 'Add'",
+        "Click 'Continue' in the dialog",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM62 Sundara Hospitality Showcase | Status: Confirmed | Approved booking: Orchard Gallery (ORC-GAL) | Added: Handheld Wireless Mic x 2",
+      "expected_result": "Step 1: The event page shows the 'Confirmed' status badge.\nStep 5: A dialog 'Move this event back to Planning?' reads 'SPM62 Sundara Hospitality Showcase is Confirmed. Changing its equipment moves it back to Planning so it can be confirmed again.' with the buttons 'Cancel' and 'Continue'. Nothing has been added yet.\nStep 6: The dialog closes. 'Handheld Wireless Mic' is not in the list of requested items, and it is still chosen under 'Add equipment'.\nStep 7: The same dialog appears again.\nStep 8: The dialog closes. 'Handheld Wireless Mic', quantity 2, is listed with the 'Requested' badge. An amber alert 'This event is no longer confirmed' reads 'Changing its equipment moved it back to Planning so it can be confirmed again.' No 'Planning has started' alert is shown.\nStep 9: The event page shows the 'Planning' status badge, Status 'Planning' in the Details card, and a 'Confirm event' button."
+    },
+    {
+      "id": "SPM-62-TC14",
+      "title": "The event's organiser cannot edit its information",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123), Event Organiser of 'SPM62 Harbour Leadership Summit'.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Note the event reference shown next to the title (it starts with EVT-)",
+        "Type /events/<reference from step 2>/update after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>/update) and press Enter"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit (Planning) | User: Evelyn Chen, Event Organiser who raised the request",
+      "expected_result": "Step 1: The event page shows the 'Planning' status badge. There is no 'Edit event information' button.\nStep 3: The 'Edit event information' page shows a red alert 'You can't edit this event's information' reading 'Only the coordinator assigned to this event can change its information.' and a 'Back to event' button. No form fields are shown."
+    },
+    {
+      "id": "SPM-62-TC15",
+      "title": "A coordinator who is not assigned to the event cannot edit its information",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Priya Raj (priya.raj@connectsphere.com / password123), an Event Coordinator who is not assigned to any 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Note the event reference shown next to the title (it starts with EVT-)",
+        "Type /events/<reference from step 2>/update after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>/update) and press Enter"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit (Planning, coordinator Daniel Tan) | User: Priya Raj, Event Coordinator",
+      "expected_result": "Step 1: The event page shows the event with 'Daniel Tan' as Coordinator. There is no 'Edit event information' button.\nStep 3: The 'Edit event information' page shows a red alert 'You can't edit this event's information' reading 'Only the coordinator assigned to this event can change its information.' and a 'Back to event' button. No form fields are shown."
+    },
+    {
+      "id": "SPM-62-TC16",
+      "title": "The Operations Manager cannot edit an event's information",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123), Operations Manager.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Note the event reference shown next to the title (it starts with EVT-)",
+        "Type /events/<reference from step 2>/update after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>/update) and press Enter"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit (Planning) | User: Grace Lim, Operations Manager",
+      "expected_result": "Step 1: The event page shows the 'Planning' status badge. There is no 'Edit event information' button.\nStep 3: The 'Edit event information' page shows a red alert 'You can't edit this event's information' reading 'Only the coordinator assigned to this event can change its information.' and a 'Back to event' button. No form fields are shown."
+    },
+    {
+      "id": "SPM-62-TC17",
+      "title": "The assigned coordinator cannot edit an event that is Under review or Completed",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Civic Learning Day'",
+        "Note the event reference shown next to the title (it starts with EVT-)",
+        "Type /events/<reference from step 2>/update after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>/update) and press Enter",
+        "Click 'All Events' in the sidebar and open 'SPM62 Pearl Delta Plant Tour'",
+        "Note the event reference shown next to the title (it starts with EVT-)",
+        "Type /events/<reference from step 5>/update after the site address in the browser address bar and press Enter"
+      ],
+      "test_data": "Events: SPM62 Civic Learning Day (Under review) and SPM62 Pearl Delta Plant Tour (Completed), both assigned to Daniel Tan",
+      "expected_result": "Step 1: The event page shows the 'Under review' status badge. There is no 'Edit event information' button.\nStep 3: The 'Edit event information' page shows a red alert 'You can't edit this event's information' reading 'Event information can only be changed while the event is Approved, Planning or Confirmed.' and a 'Back to event' button. No form fields are shown.\nStep 4: The event page shows the 'Completed' status badge. There is no 'Edit event information' button.\nStep 6: The same red alert is shown, reading 'Event information can only be changed while the event is Approved, Planning or Confirmed.' No form fields are shown."
+    },
+    {
+      "id": "SPM-62-TC18",
+      "title": "The event name can't be cleared and the end can't be before the start",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Click 'Edit event information'",
+        "Clear 'Event name'",
+        "Change 'Ends at' to 17 Mar 2027, 08:00",
+        "Click 'Save changes'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit | Event name: (blank) | Starts at: 17 Mar 2027, 09:00 | Ends at: 17 Mar 2027, 08:00",
+      "expected_result": "Step 5: Nothing is saved and no dialog appears. 'Give the event a name so you can find it again.' is shown in red under 'Event name', and 'Ends at must be after starts at.' is shown in red under 'Ends at'. The cursor moves to 'Event name'.\nStep 6: The event page shows the title 'SPM62 Harbour Leadership Summit' and 'When' '17 Mar 2027, 09:00–17:00'."
+    },
+    {
+      "id": "SPM-62-TC19",
+      "title": "Expected attendance can't be blank or below 1",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Click 'Edit event information'",
+        "Change 'Expected attendance' to 0",
+        "Click 'Save changes'",
+        "Clear 'Expected attendance'",
+        "Click 'Save changes'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit | Expected attendance: 0, then blank",
+      "expected_result": "Step 4: Nothing is saved. 'Enter a whole number of people, at least 1.' is shown in red under 'Expected attendance'.\nStep 6: Nothing is saved. 'Enter how many people you expect.' is shown in red under 'Expected attendance'.\nStep 7: The event page shows 'Expected attendance' '80'."
+    },
+    {
+      "id": "SPM-62-TC20",
+      "title": "The event can't be moved to start before its registration closes",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm62` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM62 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM62 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM62 Harbour Leadership Summit'",
+        "Click 'Edit event information'",
+        "Change 'Starts at' to 10 Mar 2027, 09:00",
+        "Change 'Ends at' to 10 Mar 2027, 17:00",
+        "Click 'Save changes'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM62 Harbour Leadership Summit | Registration closes: 10 Mar 2027, 18:00 | Proposed: 10 Mar 2027, 09:00–17:00",
+      "expected_result": "Step 5: Nothing is saved and no dialog appears. 'Registration closes after this start time. Change the registration period first.' is shown in red under 'Starts at'.\nStep 6: The event page shows 'When' '17 Mar 2027, 09:00–17:00'."
+    }
+  ],
+  "open_questions": [
+    "Written before the code (TDD, 2026-10-05). Every label, message, page address and rule below marked DECIDED was chosen here, in the style of the existing screens, and is what the developer now builds to. Change any of them before the code is written and update the cases with it.",
+    "DECIDED 2026-10-05: who may edit (AC1, AC3). Only the coordinator assigned to the event. The organiser who raised it (after submission changes go through the coordinator, clarification #102), other coordinators, the Ops Manager, Venue Staff, Technical Support and Attendees may not.",
+    "RESOLVED 2026-10-05: when (AC3). Only while the event is Approved, Planning or Confirmed. Under review is the request still being decided (SPM-28); Completed, Cancelled, Rejected and Withdrawn are final. Postponed is not editable in this story: rescheduling a postponed event goes through resuming it (Postponed -> Approved) first.",
+    "DECIDED 2026-10-05: the page is 'Edit event information' at /events/<reference>/update, reached from an 'Edit event information' button at the top of the event page (shown only to the assigned coordinator in those statuses). The organiser's draft editor at /events/<reference>/edit is unchanged. After saving, the form is replaced on the same page by a green alert 'Event information updated.' ('Event information updated. The event is back in Planning and needs to be confirmed again.' when the status reverted), what the save flagged (see 'who sees the flags'), and a 'Back to event' link. Refusal: red alert 'You can't edit this event's information' with 'Only the coordinator assigned to this event can change its information.' or 'Event information can only be changed while the event is Approved, Planning or Confirmed.', and a 'Back to event' button.",
+    "DECIDED 2026-10-05: the permitted fields (AC1, AC3) are the organiser's request fields, with the same labels and validation messages as the draft form (S-08): Event name, Type of event, Purpose, Description, Starts at, Ends at, Expected attendance, Preferred room layout, The venue must have, Accessibility needs, Other accessibility notes and Anything else about the space. Not on the form: organiser, company, coordinator, status and reference; equipment, which is changed on the Equipment tab (SPM-47; the form says 'Equipment is changed on the Equipment tab.'); and the registration settings, which are Configure Event Registration's (SPM-64, see below).",
+    "RESOLVED 2026-10-05: multi-session events. Their per-session times, attendance and layout are shown read-only here ('Session times and attendance can't be changed here yet.'). Editing sessions is a follow-up story: it has to update each session in place, since the draft editor's delete-and-recreate would also delete each session's venue bookings and equipment.",
+    "DECIDED 2026-10-05: the important information (AC4) is: 'Date and time' (Starts at, Ends at), 'Expected attendance', 'Venue requirements' (Preferred room layout, The venue must have, Accessibility needs), and equipment requirements (changed on the Equipment tab). Everything else is ordinary, including Other accessibility notes and Anything else about the space (free text that venue matching does not read). A value changed and then changed back is not a change (TC12). As the form is edited, an amber alert 'These changes affect existing arrangements' reads 'You've changed: <list>. Any venue booking, equipment or registrations already arranged will be flagged for review, not changed.'",
+    "RESOLVED 2026-10-05: what gets flagged (AC5). Date and time flags the event's venue bookings (Pending or Approved, not yet ended), its equipment requests (Requested, Under review, Reserved or Partially fulfilled) and its registrations (if anyone is Registered or on the waiting list). Expected attendance and venue requirements flag only the venue bookings. Any attendance change counts, a decrease included: the coordinator judges whether the room still suits. Nothing is changed: the booking keeps its times and status, the equipment keeps its status, and no attendee is told anything.",
+    "RESOLVED 2026-10-05 (overlap check against open Jira stories): registration settings are not edited in this story. Configure Event Registration (SPM-64, Sprint 3) owns turning registration on or off, the capacity and the registration period, with its own rules (capacity within the booked room, reopening a closed period), so the Registration section was taken off this form. Flagging registrations when the capacity drops below the number registered, or registration is turned off, moved to SPM-64 as a new criterion (Jira updated). This story still flags registrations when the date or time changes, and refuses a start before registration closes, under Starts at: 'Registration closes after this start time. Change the registration period first.' (TC20).",
+    "RESOLVED 2026-10-05: who sees the flags, and where. The BPMN change path is 'Return event to Planning; notify organiser' -> 'Resume main flow at Planning', where the coordinator searches venues and submits booking and equipment requests again, so flags are the coordinator's: Venue Staff and Technical Support see a new or changed request, not a flag. This story shows only what a save flagged, to the coordinator who saved, on the edit page after saving: an amber alert 'Flagged for review', 'These were arranged for the event's earlier details and have not been changed.', one line per arrangement, e.g. 'Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed', 'Equipment: 4K Portable Projector × 2 – the expected attendance changed', 'Registrations: 12 attendees – the date or time changed'. Reasons: 'the date or time changed', 'the expected attendance changed', 'the venue requirements changed', joined with '; '. Showing flags afterwards is Track Outstanding Arrangements (SPM-33) and Review Flagged Arrangements (SPM-68), so the event page itself is unchanged here. Flags are stored as VenueBooking.needsReview/reviewReason (as SPM-39 does), new EquipmentRequest.needsReview/reviewReason/flaggedAt columns (also needed by SPM-55), and a new Event.registrationReviewReason (also used by SPM-64).",
+    "RESOLVED 2026-10-05: reviewing and clearing flags is not part of this story. SPM-68 Review Flagged Arrangements (Sprint 3) gives the coordinator the list of flagged venue bookings and equipment with the reason, and keeping or replacing each one; it also makes a flagged arrangement block confirmation. When the coordinator replaces an arrangement, Venue Staff and Technical Support receive it as a new request.",
+    "RESOLVED 2026-10-05: reviewing flagged registrations is in Review Flagged Arrangements (SPM-68), extended in Jira: flagged registrations are listed with the number registered or waitlisted and why, the coordinator can mark them as reviewed (clearing the flag without changing any registration), and they do not prevent confirmation. SPM-32 and SPM-35 end when the change is applied, so neither covers it.",
+    "RESOLVED 2026-10-05 (overlap check): Release or Adjust Equipment Reservation (SPM-69) said a coordinator's change to a reserved equipment requirement flags the reservation for Technical Support, which contradicted the coordinator-only flags above. Reworded in Jira: the changed requirement goes back to Technical Support as Requested, showing what was already reserved, and is not flagged; SPM-75 reworded to match. Setting the requirement back to Requested is SPM-69's to build; this story only moves a Confirmed event back to Planning when its equipment changes.",
+    "DECIDED 2026-10-05: reverting a Confirmed event (AC6). It reverts when a saved change flags a venue booking or an equipment request, which are the arrangements confirmation depends on (SPM-34). Before saving, a dialog 'Move this event back to Planning?' reads '<title> is Confirmed. Saving these changes moves it back to Planning so it can be confirmed again.' with 'Keep editing' and 'Save and move to Planning'. The event moves to Planning, Confirmed at is cleared, and a status history entry is written: 'Event information changed: Date and time' (the list of changes).",
+    "RESOLVED 2026-10-05: equipment requirements on a Confirmed event (AC4, AC6). Adding, changing or removing an equipment requirement on the Equipment tab of a Confirmed event asks first, like the information form: 'Move this event back to Planning?' reading '<title> is Confirmed. Changing its equipment moves it back to Planning so it can be confirmed again.' with 'Cancel' and 'Continue' (the same buttons as the tab's 'Begin planning?' dialog, SPM-54). 'Remove' adds this notice to its own confirmation dialog instead of asking twice: 'It will also move from Confirmed back to Planning.' On Continue the event moves to Planning with history reasons 'Equipment requirement recorded / updated / removed', the tab shows an amber alert 'This event is no longer confirmed': 'Changing its equipment moved it back to Planning so it can be confirmed again.' (TC13).",
+    "DECIDED 2026-10-05: editing information on an Approved event does not begin planning (TC03, TC04). Only venue and equipment actions do (SPM-54).",
+    "Fixture events, to build as `scripts/seed-spm62.ts` (`npm run fixtures:spm62`) and to append to prisma/seed.ts once the review-flag columns exist. All are coordinated by Daniel Tan, and each has a unique title. (1) 'SPM62 Harbour Leadership Summit': Planning, organiser Evelyn Chen, 17 Mar 2027 09:00–17:00, attendance 80, layout theatre, required 'Fixed ceiling projector', Approved booking Orchard Seminar Room (ORC-SEM), 4K Portable Projector × 2 Reserved, registration on with capacity 100, closing 10 Mar 2027 18:00, and 12 attendees registered. (2) 'SPM62 Kirana Supplier Day': Planning, organiser Faridah Aziz, 21 Apr 2027 10:00–16:00, attendance 60, Approved booking Changi Conference Centre (CBP-CONF), Handheld Wireless Mic × 4 Reserved, registration on with 8 registered. (3) 'SPM62 Bayu Energy Outlook': Approved, organiser Hakim Zulkifli, 12 May 2027 09:00–12:00, attendance 40, no arrangements, registration off. (4) 'SPM62 Anchorpoint Logistics Forum': Approved, organiser Melissa Yap, 18 May 2027 09:00–12:00, attendance 50, no arrangements. (5) 'SPM62 Straits Pharmacy Forum': Confirmed, organiser Evelyn Chen, 9 Jun 2027 09:00–17:00, attendance 120, Approved booking Marina Auditorium (MAR-AUD), Powered Speaker × 2 Reserved, registration on with capacity 150 and 20 registered. (6) 'SPM62 Meridian Quarterly Review': Confirmed, organiser James Koh, 16 Jun 2027 14:00–17:00, attendance 30, Approved booking Marina Boardroom 1 (MAR-BR1), registration off. (7) 'SPM62 Sundara Hospitality Showcase': Confirmed, organiser Dewi Kartika, 23 Jun 2027 10:00–18:00, attendance 70, Approved booking Orchard Gallery (ORC-GAL), no equipment. (8) 'SPM62 Civic Learning Day': Under review, organiser Grace Abdullah, 7 Jul 2027. (9) 'SPM62 Pearl Delta Plant Tour': Completed, organiser Samuel Ong, 10 Sep 2026.",
+    "RESOLVED 2026-10-05: no notifications are built in this story. Receive Event Notifications (SPM-53) already covers them: 'The Event Organiser is notified when a confirmed event is no longer confirmed', 'Relevant users are notified of important event changes' and 'Registered Attendees are notified of the new date and time when an event is rescheduled'. The BPMN's 'notify organiser (and attendees if date / time changes)' is met there. SPM-62's AC6 and SPM-32's description were reworded in Jira on 2026-10-05 to point to SPM-53."
+  ],
+  "code_references": []
+}
