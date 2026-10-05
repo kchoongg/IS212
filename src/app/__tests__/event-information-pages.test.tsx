@@ -29,6 +29,7 @@
 import { describe, it, expect } from "vitest";
 import UpdateEventPage from "@/app/events/[id]/update/page";
 import { ROLES } from "@/lib/roles";
+import { formatDateTimeRange } from "@/lib/format";
 import {
   fireEvent,
   mockApi,
@@ -626,7 +627,11 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     );
     await formReady();
 
-    expect(screen.getByText(/^Day 1: 17 Mar 2027, 09:00–17:00 · 80 expected$/)).toBeInTheDocument();
-    expect(screen.getByText(/^18 Mar 2027, 09:00–17:00$/)).toBeInTheDocument();
+    // Derived from the local values above, as the dates are typed: CI runs in
+    // UTC and laptops in SGT, and formatDateTimeRange() always shows SGT.
+    const day1 = formatDateTimeRange(iso(START), iso(END));
+    const day2 = formatDateTimeRange(iso("2027-03-18T09:00"), iso("2027-03-18T17:00"));
+    expect(screen.getByText(`Day 1: ${day1} · 80 expected`)).toBeInTheDocument();
+    expect(screen.getByText(day2)).toBeInTheDocument();
   });
 });
