@@ -1,0 +1,49 @@
+#!/bin/sh
+# Runs before every `git push`.
+#
+#   lint  - must pass. A failure cancels the push.
+#   tests - reported, never blocking. The team works test-first, so a branch
+#           with failing tests is normal until its code is written; the push
+#           goes through and the failures are listed so nobody is surprised.
+#
+# Switched on by `npm install` (the "prepare" script in package.json points
+# Git at this folder). CI runs everything again on the pull request - lint,
+# type-check, tests, build and migrations - and that is where failing tests
+# stop a merge.
+#
+# ESLint and Vitest are started with `node` directly rather than through
+# `npm run`: GitHub Desktop and other Windows Git apps cannot run the `npm`
+# launcher from a hook ("npm: No such file or directory"). These two lines
+# are the same as the "lint" and "test" scripts in package.json - keep them
+# in step.
+#
+# To push without it in an emergency: git push --no-verify
+
+ESLINT=node_modules/eslint/bin/eslint.js
+VITEST=node_modules/vitest/vitest.mjs
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-push: Node.js was not found, so lint and tests were skipped. CI will still run them."
+  exit 0
+fi
+if [ ! -f "$ESLINT" ] || [ ! -f "$VITEST" ]; then
+  echo "pre-push: dependencies are not installed, so lint and tests were skipped. Run 'npm install'. CI will still run them."
+  exit 0
+fi
+
+echo "pre-push: lint"
+node "$ESLINT" . || {
+  echo "pre-push: lint failed - push cancelled. Fix the errors above, or see .githooks/pre-push."
+  exit 1
+}
+
+echo "pre-push: tests"
+if node "$VITEST" run; then
+  echo "pre-push: all tests pass."
+else
+  echo ""
+  echo "pre-push: WARNING - some tests are failing (listed above). Pushing anyway."
+  echo "pre-push: expected while a ticket's code is still being written; CI will stay red until they pass."
+fi
+
+exit 0

@@ -1,13 +1,15 @@
 ---
 name: generate-test-cases
-description: Generate test cases in the team's Excel test case template from a Jira user story (acceptance criteria) and the code that implements it. Use when asked to create, write, or update test cases for a Jira issue or user story.
+description: Generate test cases in the team's Excel test case template from a Jira user story (acceptance criteria) and the code that implements it, then write the automated unit tests for the same code. Use when asked to create, write, or update test cases for a Jira issue or user story.
 ---
 
 # Generate test cases
 
 Input: $ARGUMENTS — a Jira issue key (e.g. PROJ-123), or a path to a user story file.
 
-Output: `docs/test-cases/<ISSUE-KEY>_Test_Cases.xlsx`, built from `Test_Case_Template.xlsx` in this skill folder.
+Output:
+- `docs/test-cases/<ISSUE-KEY>_Test_Cases.xlsx`, built from `Test_Case_Template.xlsx` in this skill folder — the manual test cases.
+- The automated tests for the story's code (Step 5), so the CI coverage check does not drop.
 
 Never write the Excel file by hand. Always produce the JSON, then run the script. The script copies the template sheet, so the format stays fixed.
 
@@ -35,6 +37,18 @@ Jira is linked to GitHub through the issue key, so find the code with it:
 If nothing matches, search the codebase for terms from the story (screen names, endpoints, field names).
 
 Read the relevant files. Note behaviour the acceptance criteria don't mention: validation rules, limits, error messages, permissions, and edge cases.
+
+### When the code is not written yet (test-first)
+
+The team works test-driven, so this is the normal case for a new story: the test cases are written before the code and say what the code must do.
+
+- Take the behaviour from the acceptance criteria, `docs/CUSTOMER_CLARIFICATIONS.md`, and the design: `UI_DESIGN.md` (the screen's own section, §6 forms, §7 validation and error states), `docs/PERMISSIONS.md`, `design/mockups/`. Take anything the story does not spell out (login redirect, refusal for the wrong role, empty and error states) from how the nearest existing screen already behaves.
+- "Quote the app exactly" (Step 3) cannot be met from code that does not exist. Quote `UI_DESIGN.md` where it gives the wording. Where nothing does, choose wording in the style of the existing screens — that wording is now part of what the developer builds to. List every label, message and page address you chose in `open_questions` as `"DECIDED <date>: …"`, so the team can change it before the code is written.
+- Every case's `source` is "Acceptance Criteria". There are no "Code" cases yet; a case that comes from the design or from existing conventions rather than the story's own wording says so in its `open_questions` "DECIDED" entry.
+- Leave `code_references` empty, and say in the report that the cases were written before the code.
+- The fixture script (below) can only be written once the schema it needs exists. If it does not, describe the fixture events the story needs in `open_questions` and leave the script until the code is built.
+
+When the code has been written, run this skill again for the same story: check each case against the built screen, correct any wording that changed, add "Code" cases for behaviour that appeared during the build, and write the fixture script.
 
 ## Step 3: Write the test cases as JSON
 
@@ -67,11 +81,13 @@ Rules:
   event request page"), not their route (`/events/new`) — **except when the
   tester has to type the address**: then give the page's URL path in the step,
   e.g. "Type /queue after the site address in the browser address bar (e.g.
-  http://localhost:3000/queue) and press Enter". For a path with an event
-  reference in it, quote the real reference (`/events/EVT-000124/review`) when
-  the story's fixture script pins it (see `scripts/seed-spm28.ts`: it recreates
-  its events at the numbers `npx prisma db seed` gives them). If the reference
-  isn't pinned, add an earlier step that notes it from the screen and write
+  http://localhost:3000/queue) and press Enter".
+  **Never quote an event id** — no `EVT-000124`, no `/events/EVT-000124/review`,
+  in steps, test data, preconditions or expected results. An event's id
+  changes on every reseed, so a quoted one goes stale. Name the event by its
+  title only ("SPM28 Nusantara Product Launch") and have the tester open it
+  from the list. For a path with an event reference in it, add an earlier
+  step that notes the reference from the screen and write
   `/events/<reference from step 2>/review`.
   **Sidebar links differ by role** — take each label from `NAV_BY_ROLE` in
   `src/lib/roles.ts` for the user logged in at that step. The same `/events`
@@ -114,7 +130,8 @@ Rules:
 Test cases run on a **shared** database that several testers use, so a case
 must never depend on data another story's tester might change, and a tester
 must be able to put back whatever a case changed. Follow
-`scripts/seed-spm28.ts` (and `scripts/seed-spm30.ts`):
+`scripts/seed-spm28.ts` (and `scripts/seed-spm30.ts`), except where they pin
+EVT- numbers — that predates the rule below:
 
 - **Dedicated events.** Give the story its own events, titled `"<STORY> …"`
   (e.g. "SPM28 Nusantara Product Launch") with seed keys prefixed
@@ -131,11 +148,12 @@ must be able to put back whatever a case changed. Follow
 - **Fixed dates.** Use calendar dates (`daysUntil("2027-03-17")` in the seed,
   literal dates in the script), never "today + n", so dates quoted in a case
   never go stale.
-- **Fixed references.** Have the script recreate each event at the EVT-
-  number a full reseed gives it (its position in the seed's creation order;
-  the seed restarts numbering at 1), refuse if another event holds one, and
-  move the Postgres sequence past them. Then cases can quote
-  `/events/EVT-000124/review`.
+- **No pinned event ids.** Wherever possible, don't have the script recreate
+  events at fixed EVT- numbers — let the database number them, and find each
+  event by its seed key (script) or title (cases). Give every fixture event a
+  title no other event has, since the title is how a tester finds it. Pin a
+  number only when a case can't be written without it, and say why in a
+  comment in the script; even then the case quotes the title, not the id.
 - **Preconditions** say the fixtures are loaded. A case that changes data
   says to run the script **before and after** it; if the next case needs that
   change, it says to go straight to that case and reset after it instead.
@@ -162,11 +180,20 @@ must pass without it.
 
 If it says openpyxl is not installed, tell the user to run `pip install openpyxl`.
 
-## Step 5: Report back
+## Step 5: Write the unit tests
+
+The manual test cases above are followed by a person. The same story also needs automated tests, which CI runs on every pull request.
+
+Read `.claude/skills/write-unit-tests/SKILL.md` and follow it for the same story. It picks its own mode from what Step 2 found: with no code yet it writes the tests first, to fail until the code is built; with the code written it checks them and fills the gaps. Use the manual test cases you just wrote as its source for the story's behaviour, so the two sets of tests agree.
+
+Skip this step only if the user said they want the Excel file alone — and say in the report that it was skipped.
+
+## Step 6: Report back
 
 Tell the user, briefly:
 - The output file path
 - Number of test cases, and how many came from code rather than acceptance criteria
 - The open questions, listed in full, since they need a human answer
+- The unit tests: the items from Step 5 of `write-unit-tests` (files, coverage, anything uncovered, anything that looked wrong)
 
 Do not update, comment on, or attach anything to the Jira issue unless the user asks.
