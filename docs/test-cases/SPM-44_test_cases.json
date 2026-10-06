@@ -91,22 +91,24 @@
     },
     {
       "id": "SPM-44-TC03",
-      "title": "An event's own booking does not conflict with itself",
+      "title": "The same event cannot request the same venue and slot twice",
       "linked_ac": [
-        "AC1",
-        "AC10"
+        "AC4",
+        "AC5"
       ],
-      "type": "Boundary",
-      "source": "Code",
+      "type": "Negative",
+      "source": "Acceptance Criteria",
       "preconditions": "SPM-44-TC02 has just been run (so 'SPM44 Adjacent Slot' now holds a pending request at SPM44 Conflict Room on 5 Apr 2027, AM) and the fixtures have NOT been reset since. Logged in as Daniel Tan, assigned to 'SPM44 Adjacent Slot'. Run npm run fixtures:spm44 after this case.",
       "steps": [
         "Click 'All Events' in the sidebar",
         "Click 'SPM44 Adjacent Slot' in the list",
         "Click the 'Venue' tab",
-        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and read its status chip"
+        "Find 'SPM44 Conflict Room (SPM44-PLN)' in the venue list and click its 'Request booking' button",
+        "Click 'Submit request'",
+        "Click 'Cancel'"
       ],
-      "test_data": "Event: SPM44 Adjacent Slot, which already holds a pending AM request at this room",
-      "expected_result": "Step 4: SPM44 Conflict Room is still shown as 'Suitable' with a 'Request booking' button — an event's own pending request is not reported as a conflict with itself. The pending request it already holds is listed under 'Booking requests' above."
+      "test_data": "Event: SPM44 Adjacent Slot, which already holds a pending AM request at this room\nVenue: SPM44 Conflict Room (SPM44-PLN)\nSlot: AM (07:00-12:00), the same slot again",
+      "expected_result": "Step 3: The request from SPM-44-TC02 is listed under 'Booking requests' as '5 Apr 2027 · AM (07:00–12:00) · Classroom' with the status badge 'Pending'.\nStep 4: The booking request screen opens with the Date 5 Apr 2027 and only 'AM (07:00–12:00)' ticked - the event's own request is not reported as another event's clash.\nStep 5: The request is refused with 'This event already has a pending request for SPM44 Conflict Room on 5 Apr 2027 · AM (07:00–12:00).'\nStep 6: The Venue tab is shown, and 'Booking requests' still lists exactly one request for 5 Apr 2027 · AM - no second request was created."
     },
     {
       "id": "SPM-44-TC04",
@@ -273,10 +275,11 @@
   ],
   "open_questions": [
     "RESOLVED 2026-10-04. AC6 was blocked: nothing could approve a booking. SPM-43 (Review Venue Booking Request) has since merged to main, so SPM-44-TC10 now runs against the real screen and passes. Merging also settled the duplication SPM-43 flagged in its own comment: approvalConflict() in src/lib/venueBookingReview.ts carried a second copy of the confirm-time rule and now calls findVenueConflict() instead, with scope 'approved' so a rival PENDING request still does not block a decision. Its wording is unchanged - Venue Staff read 'This overlaps an approved booking: …', a coordinator reads 'the room is already booked' - because the rule is shared but the sentence is specific to the screen. findVenueConflict() now takes ConflictVenue, narrower than SearchableVenue, so both sides can call it.",
-    "AC4 says 'only one active pending request or confirmed booking may exist for the same venue and slot'. The system enforces this at request time, so a second pending request can never be created through the application. It does NOT retroactively police rows that already exist: if two pending requests somehow end up in the database for one slot, nothing flags them. Is enforcement at the point of writing sufficient, or should the system also report existing duplicates?",
+    "AC4 says 'only one active pending request or confirmed booking may exist for the same venue and slot'. The system enforces this at request time - including, since the PR #37 review fixes, a repeat from the same event and requests submitted at the same moment. It does NOT retroactively police rows that already exist: if two pending requests end up in the database for one slot (as the AC6 fixture pair deliberately does), nothing flags them. Is enforcement at the point of writing sufficient, or should the system also report existing duplicates?",
     "SPM-44 made the refusal messages more specific (AC9), which changed the wording SPM-42's recorded test cases assert. SPM-42-TC14 and SPM-42-TC15 in docs/test-cases/SPM-42_Test_Cases.xlsx still expect 'Marina Auditorium is already booked for this time.' and will now read '… is already booked for EVT-… Product Showcase on 21 Oct 2026, AM–PM.' The unit tests have been updated; the SPM-42 workbook has not, because changing another story's recorded expectations is the author's call. Decide whether to update those two expected results or re-run SPM-42 and record the new wording.",
     "RESOLVED 2026-10-02: AC2's first half (different slots do not conflict) is only observable at a venue with no setup or turnaround time — at every seeded venue the preparation slot makes neighbouring slots clash. SPM-44's fixture script therefore creates its own room, SPM44 Conflict Room (SPM44-PLN, setup 0, teardown 0), rather than reusing SPM-42's SPM42 Plain Room.",
-    "Raised while validating SPM-44-TC01. A venue whose slot is already taken is still shown as 'Suitable' with a 'Request booking' button on the event's Venue tab; the conflict is only reported when the request is submitted. That is consistent with SPM-41, where suitability means capacity, layout and facilities rather than occupancy, and the search screen (SPM-44-TC09) does drop the room once a time window is given. It still means a coordinator can open the booking screen for a room they cannot have. Should the Venue tab mark an occupied room, or is finding out on submit acceptable?"
+    "Raised while validating SPM-44-TC01. A venue whose slot is already taken is still shown as 'Suitable' with a 'Request booking' button on the event's Venue tab; the conflict is only reported when the request is submitted. That is consistent with SPM-41, where suitability means capacity, layout and facilities rather than occupancy, and the search screen (SPM-44-TC09) does drop the room once a time window is given. It still means a coordinator can open the booking screen for a room they cannot have. Should the Venue tab mark an occupied room, or is finding out on submit acceptable?",
+    "RESOLVED 2026-10-06: two gaps in AC4 raised in review on PR #37 (kayalvizhi24), both predating SPM-44. (1) One event could submit the same request twice: findVenueConflict() exempts the event's own bookings, so two sessions of one event can share a room, and nothing else caught a repeat. findDuplicateRequest() (src/lib/venueConflict.ts) now refuses the same event and session asking again for overlapping slots at the same venue; SPM-44-TC03 now submits the repeat instead of only checking the button. (2) Two requests submitted at the same moment could both pass the check, which ran before the transaction. POST /api/events/[id]/venue-bookings now locks the venue row (SELECT ... FOR UPDATE) inside the transaction before reading bookings, as the approval route already did. Checked by firing two coordinators' requests for one slot at once, twice: each time exactly one was created."
   ],
   "code_references": [
     "src/lib/venueConflict.ts",

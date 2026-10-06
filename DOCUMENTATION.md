@@ -575,7 +575,7 @@ defend under questioning.
 | **Approval re-checks the room** — refused if another *approved* booking's slots (setup and turnaround included) or an unavailability period overlap, if the venue is retired, or if the event is completed, cancelled or rejected. A rival *pending* request does not block: approving one is how Venue Staff choose. The venue row is locked for the check, so two approvals cannot both pass | `approvalConflict()`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
 | **Reason required when rejecting a booking**; a suggested venue must be active and not the one refused. The suggestion books nothing (#45, #110) | `checkBookingDecision()` | ✅ done (SPM-43) |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
-| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way | `findVenueConflict()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search) | ✅ done (SPM-44) |
+| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event and session cannot request overlapping slots at a venue twice (two sessions may share a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
 | Equipment availability | `src/lib/equipmentAvailability.ts` | ✅ done (SPM-48) |
 | **Reserved / Partially fulfilled are set only by Reserve** — never picked by hand, so a line never claims stock it doesn't hold; leaving them goes through Unavailable | `fulfilmentOptionsFor()`, `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | ✅ done (SPM-50) |
 | **Unavailable needs a reason** (blank or spaces-only refused); technical notes max 500 characters, saved trimmed. Marking a reserved line Unavailable frees its units (status alone does it; `quantityReserved` is cleared too) | `checkFulfilmentUpdate()`, `fulfilmentChanges()` | ✅ done (SPM-50) |
@@ -852,6 +852,34 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-06 — Jordan
+- **SPM-44 review fixes (PR #37, raised by kayalvizhi24).** Both gaps predate
+  SPM-44 (they came with SPM-42's request route); neither allowed an actual
+  double booking, because approval was already locked.
+- **A repeat request is refused.** `findVenueConflict()` exempts the
+  requesting event's own bookings, so two sessions of one event can share a
+  room — but that also let one event submit the same request twice and get two
+  pending rows. `findDuplicateRequest()` in `src/lib/venueConflict.ts` refuses
+  the same event and session asking again for overlapping slots at the same
+  venue while the first is pending or approved: "This event already has a
+  pending request for … on 5 Apr 2027 · AM (07:00–12:00)." The exemption
+  stays. `SearchBooking` gained an optional `sessionId`, and
+  `checkVenueBookingRequest()` now takes the request's `sessionId`.
+- **Requests made at the same moment.** `POST /api/events/[id]/venue-bookings`
+  read the venue and ran the check before its transaction, so two coordinators
+  could both pass before either row was written. It now takes
+  `SELECT … FOR UPDATE` on the venue row inside the transaction, then reads
+  the bookings, checks and creates — the same lock the approval route
+  (`PATCH /api/venue-bookings/[id]`) already takes. No rule or wording changed.
+- **SPM-44's room, bookings and maintenance period are in `prisma/seed.ts`.**
+  They existed only in `scripts/seed-spm44.ts`, so after a full reseed the
+  conflict cases had nothing to collide with. SPM44-PLN is now in `venueData`
+  beside SPM-42's and SPM-43's rooms, and the holder bookings and the AC8
+  block are created after SPM-43's bookings. No event's EVT- reference moves.
+- SPM-44-TC03 now submits the repeat request instead of only checking that the
+  button is shown.
+- Migration: none.
 
 ### 2026-10-04 — Jordan
 - **SPM-43 merged into SPM-44, and the duplicated conflict rule is gone.**

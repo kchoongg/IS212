@@ -383,6 +383,13 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [] },
+    // SPM-44 fixture (scripts/seed-spm44.ts, PLAIN_ROOM there - keep in step):
+    // no setup or turnaround, so a booking holds exactly the slots asked for.
+    { code: "SPM44-PLN", name: "SPM44 Conflict Room", description: "SPM-44 test venue: no setup or turnaround, so slots are exact",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "24:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 60], ["theatre", 60]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -1211,10 +1218,9 @@ async function main() {
   // SPM-44 QA fixtures (Booking Conflict Detection). The SAME events as
   // scripts/seed-spm44.ts (`npm run fixtures:spm44`) - keep the two in step.
   //
-  // The events only. The bookings they hold (approved, pending, rejected,
-  // cancelled), the SPM44-PLN room and the unavailability period AC8 needs are
-  // created by that script alone, so run it once after a full reseed or the
-  // conflict cases have nothing to collide with.
+  // The SPM44-PLN room is in venueData above, and the bookings these events
+  // hold plus the room's maintenance period (AC8) are created after the SPM-43
+  // bookings below, so a full reseed leaves the conflict cases ready to run.
   // Pushed LAST - after SPM-54 (pinned to EVT-000145..154) and every other
   // story's fixtures - so no earlier event's EVT- reference number shifts. Add
   // new events AFTER this block.
@@ -1943,6 +1949,61 @@ async function main() {
       endsAt: day(daysUntil("2027-05-14"), 24),
       reason: "maintenance",
       notes: "SPM-43 fixture: floor resurfacing",
+      createdBy: users["marcus.wong@connectsphere.com"],
+    },
+  });
+
+  // SPM-44: the bookings its holder events already have, and SPM44-PLN's
+  // maintenance period (AC8). Same as scripts/seed-spm44.ts - each booking
+  // spans its event's own times, as the script stores it. The block's notes
+  // start "SPM44" because that is how the script finds it to replace it.
+  const spm44Bookings: {
+    event: string; venue: string; date: string; from: number; to: number; layout: string;
+    status: "approved" | "pending" | "rejected" | "cancelled"; by: string; reason?: string;
+  }[] = [
+    { event: "spm44_holder_approved", venue: "SPM44-PLN", date: "2027-04-05", from: 14, to: 16, layout: "classroom",
+      status: "approved", by: PRIYA },
+    { event: "spm44_holder_pending", venue: "SPM44-PLN", date: "2027-04-06", from: 14, to: 16, layout: "classroom",
+      status: "pending", by: PRIYA },
+    { event: "spm44_holder_rejected", venue: "SPM44-PLN", date: "2027-04-07", from: 14, to: 16, layout: "classroom",
+      status: "rejected", by: PRIYA, reason: "Room needed for internal works." },
+    { event: "spm44_holder_cancelled", venue: "SPM44-PLN", date: "2027-04-08", from: 14, to: 16, layout: "classroom",
+      status: "cancelled", by: PRIYA, reason: "Released by the coordinator." },
+    { event: "spm44_setup_holder", venue: "ORC-SEM", date: "2027-04-09", from: 14, to: 16, layout: "theatre",
+      status: "approved", by: PRIYA },
+    { event: "spm44_midnight_holder", venue: "ORC-SEM", date: "2027-04-12", from: 20, to: 22, layout: "theatre",
+      status: "approved", by: PRIYA },
+    // AC6: approved first, so the rival below can no longer be approved.
+    { event: "spm44_approval_holder", venue: "SPM44-PLN", date: "2027-04-25", from: 14, to: 16, layout: "classroom",
+      status: "approved", by: PRIYA },
+    { event: "spm44_approval_rival", venue: "SPM44-PLN", date: "2027-04-25", from: 14, to: 16, layout: "classroom",
+      status: "pending", by: "daniel.tan@connectsphere.com" },
+  ];
+  for (const b of spm44Bookings) {
+    const decided = b.status !== "pending";
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[b.event].id,
+        venueId: venues[b.venue],
+        layoutName: b.layout,
+        startsAt: day(daysUntil(b.date), b.from),
+        endsAt: day(daysUntil(b.date), b.to),
+        status: b.status,
+        requestedBy: users[b.by],
+        requestedAt: day(-3),
+        decidedBy: decided ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: decided ? day(-2) : undefined,
+        decisionReason: b.reason,
+      },
+    });
+  }
+  await prisma.venueUnavailability.create({
+    data: {
+      venueId: venues["SPM44-PLN"],
+      startsAt: day(daysUntil("2027-04-20"), 0),
+      endsAt: day(daysUntil("2027-04-22"), 0),
+      reason: "maintenance",
+      notes: "SPM44 test block: air-handling unit replacement.",
       createdBy: users["marcus.wong@connectsphere.com"],
     },
   });

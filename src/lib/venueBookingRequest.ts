@@ -12,8 +12,8 @@
 
 import { formatDate, formatDateTimeRange } from "@/lib/format";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
-import { describeVenueConflict, findVenueConflict } from "@/lib/venueConflict";
-import { type SearchableVenue } from "@/lib/venueSearch";
+import { describeVenueConflict, findDuplicateRequest, findVenueConflict } from "@/lib/venueConflict";
+import { type SearchBooking, type SearchableVenue } from "@/lib/venueSearch";
 import {
   SLOTS,
   SLOT_BOUNDARIES,
@@ -69,6 +69,9 @@ export const NOT_APPROVED_MESSAGE = "A venue can be requested once this request 
 
 export interface BookingRequestInput {
   eventId: string;
+  /// The session asked for; null for an event without sessions. Two sessions
+  /// may share a room, the same session may not ask twice (SPM-44 AC4).
+  sessionId: string | null;
   eventStatus: string;
   /// Who the request is for - the event, or one of its sessions (AC4, AC5).
   holder: { kind: "event" | "session"; name: string };
@@ -109,6 +112,11 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
     return refuse(`${venue.name} is not suitable for this event: ${unmet.map(describeUnmet).join(" ")}`);
   }
 
+  // SPM-44 AC4: the same request a second time. Checked before clashes with
+  // other events, because "you have already asked" is the more useful answer.
+  const duplicate = findDuplicateRequest(venue, window, { eventId: input.eventId, sessionId: input.sessionId });
+  if (duplicate) return refuse(describeDuplicateRequest(holder, venue.name, duplicate));
+
   // #35, #41: a clash is blocked, not warned about. SPM-44 (AC9) also says
   // WHAT it clashes with, so the coordinator can go and look at that event or
   // period instead of guessing from an empty calendar.
@@ -116,6 +124,22 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
   if (conflict) return refuse(describeVenueConflict(venue.name, conflict));
 
   return { ok: true, window };
+}
+
+/// "This event already has a pending request for SPM44 Conflict Room on
+/// 5 Apr 2027 · AM (07:00–12:00)." - the earlier request's own slots, so the
+/// coordinator can find it in the list below the form.
+export function describeDuplicateRequest(
+  holder: BookingRequestInput["holder"],
+  venueName: string,
+  existing: SearchBooking
+): string {
+  const who = holder.kind === "event" ? "This event" : holder.name;
+  const what =
+    existing.status === "approved"
+      ? `already has ${venueName} booked`
+      : `already has a pending request for ${venueName}`;
+  return `${who} ${what} on ${requestSlotsLabel(existing)}.`;
 }
 
 /// AC3 as the screens show it: the slot this request's setup takes before it

@@ -64,8 +64,9 @@ export type ConflictScope = "active" | "approved";
 
 export interface FindConflictOptions {
   /// The event being requested or confirmed. Its own bookings never conflict
-  /// with themselves — re-requesting the same venue for the same event is a
-  /// different problem (a duplicate), not a double-booking.
+  /// with themselves — two sessions of one event may share a room in the same
+  /// slot. Asking twice for the same thing is a different problem (a
+  /// duplicate), checked by findDuplicateRequest() below.
   eventId?: string;
   /// A booking being confirmed does not conflict with itself.
   bookingId?: string;
@@ -133,6 +134,42 @@ export function findVenueConflict(
   }
 
   return null;
+}
+
+/// Who a request is for: the event, and the session when it has sessions.
+export interface RequestHolder {
+  eventId: string;
+  /// Null for an event without sessions.
+  sessionId: string | null;
+}
+
+/// AC4's other half: "only one active pending request or confirmed booking
+/// may exist for the same venue and slot" - including from the same event.
+/// findVenueConflict() exempts the event's own bookings, so on its own it let
+/// a coordinator submit the same request twice and get two pending rows
+/// (raised in review on PR #37).
+///
+/// A repeat is the same holder - same event, same session or both none - at
+/// this venue, overlapping the slots asked for, while the first request is
+/// still pending or approved. Two DIFFERENT sessions of one event sharing a
+/// room is allowed, which is why the exemption above stays.
+///
+/// Only the slots each request holds are compared: setup and turnaround are
+/// about one event making way for another, and here there is only one.
+export function findDuplicateRequest(
+  venue: ConflictVenue,
+  window: Interval,
+  holder: RequestHolder
+): SearchBooking | null {
+  return (
+    venue.bookings.find(
+      (b) =>
+        b.eventId === holder.eventId &&
+        (b.sessionId ?? null) === holder.sessionId &&
+        BLOCKING_STATUSES.active.includes(b.status) &&
+        overlapping(window, b)
+    ) ?? null
+  );
 }
 
 /// "21 Oct 2026, AM" · "21 Oct 2026, AM–PM" · "5 Mar 2027 Night – 6 Mar 2027 AM".

@@ -56,6 +56,9 @@ export interface VenueSearchFilters {
 export interface SearchBooking extends Interval {
   eventId: string;
   status: string;
+  /// The session the booking is for; null or absent for a whole event. Only
+  /// the duplicate rule reads it (findDuplicateRequest, venueConflict.ts).
+  sessionId?: string | null;
   /// SPM-44 (AC9): enough to name the booking in a refusal. Optional because
   /// the search screen never loads them - it hides a clashing venue rather
   /// than explaining it.
