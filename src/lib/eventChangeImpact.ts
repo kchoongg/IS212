@@ -142,7 +142,7 @@ function reasonsFor(changes: readonly ImportantChange[], applies: readonly Impor
 }
 
 /// The arrangements this change flags, each with the reasons THIS change
-/// adds. Merging them into reasons already stored is mergeReviewReason().
+/// adds. Adding them to reasons already stored is addReviewReasons().
 export function affectedArrangements(
   changes: readonly ImportantChange[],
   arrangements: Arrangements,
@@ -179,20 +179,8 @@ export function revertsConfirmation(status: string, affected: AffectedArrangemen
 // STORING AND WORDING
 // ---------------------------------------------------------------------------
 
-/// The stored reasons plus the new ones, each once. Unlike venueImpact's
-/// parseReviewReason(), codes this module does not know are KEPT: the column
-/// is shared with SPM-39 (and later SPM-45, SPM-55, SPM-80), and dropping
-/// their reasons would lose why the arrangement was flagged.
-export function mergeReviewReason(existing: string | null | undefined, added: readonly string[]): string {
-  const codes = (existing ?? "")
-    .split(",")
-    .map((code) => code.trim())
-    .filter(Boolean);
-  for (const code of added) {
-    if (!codes.includes(code)) codes.push(code);
-  }
-  return codes.join(",");
-}
+/// Adding these reasons to what is already stored is addReviewReasons()
+/// (src/lib/reviewFlags.ts), shared by every story that writes a review flag.
 
 /// "the expected attendance changed; the venue requirements changed"
 export function reviewLine(reasons: readonly ChangeReason[]): string {

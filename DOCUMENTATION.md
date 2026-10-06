@@ -296,6 +296,8 @@ IS212/
         │                                   (takes the caller's transaction). SPM-32 applies
         │                                   approved change requests through it.
         ├── eventInformationForm.ts        # SPM-62 form, pure: what changed, the payload, checks
+        ├── reviewFlags.ts                 # addReviewReasons(): THE way to add to a reviewReason
+        │                                   column - keeps codes from other stories (SPM-39/62/...)
         ├── venueSlots.ts                  # AM/PM/Night slots, setup/turnaround as whole
         │                                   adjacent slots (#50/#107/#108/#123). Written
         │                                   for SPM-46; SPM-40 carries an identical copy
@@ -907,6 +909,10 @@ what changed, why, and the migration name if there is one.
     reviewing and clearing flags (SPM-68), a changed reservation going back
     to Technical Support (SPM-69). Jira updated for SPM-32, SPM-62, SPM-64,
     SPM-68, SPM-69 and SPM-75.
+- **Fixed (review on PR #40):** a venue edit (SPM-39) dropped review reasons
+  it did not recognise, so it wiped an event-change reason SPM-62 had put on
+  the same booking. Every writer of a `reviewReason` column now adds through
+  `addReviewReasons()` (`src/lib/reviewFlags.ts`), which keeps all codes.
 - **Migration:** `20261005120000_add_event_change_review_flags` —
   `equipment_requests.needs_review` / `review_reason` / `flagged_at` (+ index)
   and `events.registration_review_reason`. Applied to the shared Neon database

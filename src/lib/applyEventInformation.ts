@@ -17,12 +17,12 @@ import {
   attendeeCount,
   historyReason,
   importantChanges,
-  mergeReviewReason,
   reviewLine,
   revertsConfirmation,
   type EventInfo,
   type ImportantChange,
 } from "@/lib/eventChangeImpact";
+import { addReviewReasons } from "@/lib/reviewFlags";
 import type { UpdateEventInformationInput } from "@/lib/validation";
 
 /// The event as the caller loaded it: the fields compared and merged here,
@@ -148,7 +148,7 @@ export async function applyEventInformation(
         ? { facilityRequirements: { create: data.facilityIds.map((facilityId) => ({ facilityId, isMandatory: true })) } }
         : {}),
       ...(affected.registrations
-        ? { registrationReviewReason: mergeReviewReason(event.registrationReviewReason, affected.registrations.reasons) }
+        ? { registrationReviewReason: addReviewReasons(event.registrationReviewReason, affected.registrations.reasons) }
         : {}),
       // Back to Planning so it can be confirmed again (AC6). Not a lifecycle
       // move anyone makes through the status route - see canTransition().
@@ -162,14 +162,14 @@ export async function applyEventInformation(
     const row = bookings.find((b) => b.id === id)!;
     await tx.venueBooking.update({
       where: { id },
-      data: { needsReview: true, reviewReason: mergeReviewReason(row.reviewReason, reasons), flaggedAt: now },
+      data: { needsReview: true, reviewReason: addReviewReasons(row.reviewReason, reasons), flaggedAt: now },
     });
   }
   for (const { id, reasons } of affected.equipmentRequests) {
     const row = equipment.find((r) => r.id === id)!;
     await tx.equipmentRequest.update({
       where: { id },
-      data: { needsReview: true, reviewReason: mergeReviewReason(row.reviewReason, reasons), flaggedAt: now },
+      data: { needsReview: true, reviewReason: addReviewReasons(row.reviewReason, reasons), flaggedAt: now },
     });
   }
 
