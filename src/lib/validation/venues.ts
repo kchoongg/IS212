@@ -1,5 +1,12 @@
 import { z } from "zod";
 import { SLOTS, isDayKey } from "@/lib/venueSlots";
+import {
+  OTHER_REASON_ERROR,
+  OTHER_REASON_MAX,
+  PERIOD_ORDER_ERROR,
+  UNAVAILABILITY_REASONS,
+  periodInterval,
+} from "@/lib/venueUnavailability";
 
 // ---- Venues ----
 
@@ -140,6 +147,31 @@ export const createVenueBookingSchema = z.object({
   requirementsNote: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
 });
 export type CreateVenueBookingInput = z.infer<typeof createVenueBookingSchema>;
+
+// ADDED (SPM-45): POST /api/venues/[id]/unavailability and PATCH
+// .../unavailability/[periodId]. A period is stated as the first slot the
+// venue is out of use and the first slot it is back (customer #50), and must
+// cover at least one slot. `otherReason` only means something for "other",
+// where it is required; the routes ignore it for any other reason.
+export const venueUnavailabilitySchema = z
+  .object({
+    fromDay: availabilityDay,
+    fromSlot: z.enum(SLOTS),
+    untilDay: availabilityDay,
+    untilSlot: z.enum(SLOTS),
+    reason: z.enum(UNAVAILABILITY_REASONS),
+    otherReason: z.preprocess(blankToUndefined, z.string().trim().max(OTHER_REASON_MAX).optional()),
+  })
+  .superRefine((period, ctx) => {
+    const { startsAt, endsAt } = periodInterval(period);
+    if (endsAt.getTime() <= startsAt.getTime()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: PERIOD_ORDER_ERROR, path: ["untilDay"] });
+    }
+    if (period.reason === "other" && !period.otherReason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: OTHER_REASON_ERROR, path: ["otherReason"] });
+    }
+  });
+export type VenueUnavailabilityInput = z.infer<typeof venueUnavailabilitySchema>;
 
 // ADDED (SPM-43): PATCH /api/venue-bookings/[id]. A blank `reason` is allowed
 // through on purpose - checkBookingDecision() (src/lib/venueBookingReview.ts)

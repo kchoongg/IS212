@@ -602,14 +602,32 @@ describe("Edit venue", () => {
     flaggedBookings,
   });
 
-  function open(venueRow: unknown = venue(), patch: unknown = saved(), role = "venue_staff") {
+  // SPM-45: the editor also loads the venue's unavailable periods.
+  const PERIODS = "GET /api/venues/v1/unavailability";
+
+  function open(
+    venueRow: unknown = venue(),
+    patch: unknown = saved(),
+    role = "venue_staff",
+    routes: Record<string, unknown> = {}
+  ) {
     setRoute("/venues/v1/edit", { id: "v1" });
-    const api = mockApi({ ...signedInAs(role), "GET /api/facilities": facilities, [VENUE]: venueRow, [PATCH]: patch });
+    const api = mockApi({
+      ...signedInAs(role),
+      "GET /api/facilities": facilities,
+      [VENUE]: venueRow,
+      [PATCH]: patch,
+      [PERIODS]: [],
+      ...routes,
+    });
     render(<EditVenuePage />);
     return api;
   }
   const ready = () => screen.findByRole("checkbox", { name: "Stage" });
-  const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
+  /// A dialog by its heading - the page has more than one since SPM-45.
+  const dialogTitled = (title: string | RegExp) =>
+    screen.getByRole("heading", { name: title, hidden: true }).closest("dialog") as HTMLDialogElement;
+  const dialog = () => dialogTitled(/^Retire /);
   const save = () => userEvent.click(button("Save changes"));
 
   describe("opening it", () => {
@@ -908,6 +926,372 @@ describe("Edit venue", () => {
       expect(api.sent(PATCH)[0].body).toEqual({ isActive: true });
       expect(screen.queryByText("This venue is retired")).not.toBeInTheDocument();
       expect(button("Retire venue")).toBeInTheDocument();
+    });
+  });
+
+  // SPM-45, written before the code, as the editor's contract:
+  //   It loads GET /api/venues/[id]/unavailability and lists each period under an
+  //   "Unavailable periods" heading: reason, the description of an Other reason, and
+  //   "Unavailable from <date> <slot>.
+  //   Available again from <date> <slot>.", with "Change period" and "End period".
+  //   "Mark unavailable" opens a dialog titled "Mark <venue> unavailable" with the fields
+  //   Unavailable from, First unavailable slot, Available again on, First available slot
+  //   and Reason (required). Choosing "Other" shows a required "Other reason" text field.
+  //   It POSTs { fromDay, fromSlot, untilDay, untilSlot, reason, otherReason? }. "Change period" opens "Change unavailable period", filled in, and
+  //   PATCHes .../unavailability/[periodId]; "End period" DELETEs it. After each, the page
+  //   says what happened (as it does for a save) and loads the periods again.
+  // Decided here, not in the story (change the test if the team wants otherwise):
+  //   every label, heading and message quoted below.
+  describe("unavailable periods (SPM-45)", () => {
+    const CREATE = "POST /api/venues/v1/unavailability";
+    const CHANGE = "PATCH /api/venues/v1/unavailability/p1";
+    const END = "DELETE /api/venues/v1/unavailability/p1";
+    const AFTER_ERROR = "The venue must become available again after it becomes unavailable.";
+
+    const period = (overrides: Record<string, unknown> = {}) => ({
+      id: "p1",
+      fromDay: "2027-06-10",
+      fromSlot: "PM",
+      untilDay: "2027-06-15",
+      untilSlot: "PM",
+      reason: "equipment_failure",
+      otherReason: null,
+      ...overrides,
+    });
+    const flagged = (eventTitle: string) => ({
+      bookingId: eventTitle,
+      eventId: "e1",
+      eventTitle,
+      sessionLabel: null,
+      reasons: ["venue_unavailable"],
+    });
+    const outcome = (flaggedBookings: object[] = []) => ({ period: period(), flaggedBookings });
+
+    async function openWith(routes: Record<string, unknown> = {}) {
+      const api = open(venue(), saved(), "venue_staff", routes);
+      await ready();
+      return api;
+    }
+
+    const markDialog = () => dialogTitled("Mark Hall A unavailable");
+    const changeDialog = () => dialogTitled("Change unavailable period");
+    const inDialog = (d: HTMLElement, name: string) => within(d).getByRole("button", { name, hidden: true });
+
+    function fill(d: HTMLElement, values: Partial<Record<"from" | "fromSlot" | "until" | "untilSlot" | "reason" | "otherReason", string>>) {
+      if (values.from !== undefined) set(field(/^Unavailable from/, d), values.from);
+      if (values.fromSlot !== undefined) set(field(/^First unavailable slot/, d), values.fromSlot);
+      if (values.until !== undefined) set(field(/^Available again on/, d), values.until);
+      if (values.untilSlot !== undefined) set(field(/^First available slot/, d), values.untilSlot);
+      if (values.reason !== undefined) set(field(/^Reason/, d), values.reason);
+      if (values.otherReason !== undefined) set(field(/^Other reason/, d), values.otherReason);
+    }
+    const complete = { from: "2027-06-10", fromSlot: "PM", until: "2027-06-15", untilSlot: "PM", reason: "equipment_failure" };
+
+    async function openMarkDialog(routes: Record<string, unknown> = {}) {
+      const api = await openWith({ [CREATE]: reply(201, outcome()), ...routes });
+      await userEvent.click(button("Mark unavailable"));
+      return api;
+    }
+
+    describe("the list", () => {
+      it("shows each period with its reason, dates and slots, and what an Other reason is", async () => {
+        await openWith({ [PERIODS]: [period(), period({ id: "p2", fromDay: "2027-07-01", fromSlot: "AM", untilDay: "2027-07-01", untilSlot: "Night", reason: "other", otherReason: "Film crew on site" })] });
+
+        expect(screen.getByRole("heading", { name: "Unavailable periods" })).toBeInTheDocument();
+        expect(await screen.findByText("Equipment failure")).toBeInTheDocument();
+        expect(screen.getByText("Unavailable from 10 Jun 2027 PM. Available again from 15 Jun 2027 PM.")).toBeInTheDocument();
+        expect(screen.getByText("Other")).toBeInTheDocument();
+        expect(screen.getByText("Film crew on site")).toBeInTheDocument();
+        expect(screen.getByText("Unavailable from 1 Jul 2027 AM. Available again from 1 Jul 2027 Night.")).toBeInTheDocument();
+        expect(screen.getAllByRole("button", { name: "Change period" })).toHaveLength(2);
+        expect(screen.getAllByRole("button", { name: "End period" })).toHaveLength(2);
+      });
+
+      it("says so when the venue has none, and still offers to mark it unavailable", async () => {
+        await openWith();
+
+        expect(await screen.findByText("No unavailable periods under way or coming up.")).toBeInTheDocument();
+        expect(button("Mark unavailable")).toBeInTheDocument();
+        expect(screen.queryByRole("button", { name: "End period" })).not.toBeInTheDocument();
+      });
+
+      it("does not mark the venue as retired", async () => {
+        await openWith({ [PERIODS]: [period()] });
+
+        await screen.findByText("Equipment failure");
+        expect(screen.queryByText("Retired")).not.toBeInTheDocument();
+        expect(button("Retire venue")).toBeInTheDocument();
+      });
+
+      it.each(["coordinator", "ops_manager"])("is never requested for %s, who cannot open the editor", async (role) => {
+        const api = open(venue(), saved(), role);
+
+        expect(await screen.findByText("Only Venue Staff can change a venue")).toBeInTheDocument();
+        expect(api.sent(PERIODS)).toHaveLength(0);
+      });
+    });
+
+    describe("marking the venue unavailable", () => {
+      it("asks for both dates, both slots and a reason", async () => {
+        const api = await openMarkDialog();
+        const d = markDialog();
+
+        expect(field(/^Unavailable from/, d)).toHaveValue("");
+        expect(field(/^Available again on/, d)).toHaveValue("");
+        for (const label of [/^First unavailable slot/, /^First available slot/]) {
+          const slots = within(field(label, d)).getAllByRole("option", { hidden: true });
+          expect(slots.map((o) => o.textContent)).toEqual(["AM", "PM", "Night"]);
+        }
+        const reasons = within(field(/^Reason/, d)).getAllByRole("option", { hidden: true });
+        expect(reasons.map((o) => o.textContent)).toEqual([
+          "Choose a reason",
+          "Maintenance",
+          "Equipment failure",
+          "Renovation",
+          "Safety",
+          "Internal activity",
+          "Other",
+        ]);
+        expect(within(d).queryByLabelText(/^Other reason/)).not.toBeInTheDocument();
+        expect(d).toHaveTextContent("No booking is cancelled or moved.");
+        expect(api.sent(CREATE)).toHaveLength(0);
+      });
+
+      it("refuses an empty form, naming each missing answer", async () => {
+        const api = await openMarkDialog();
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(markDialog()).toHaveTextContent("Enter the date the venue becomes unavailable.");
+        expect(markDialog()).toHaveTextContent("Enter the date the venue becomes available again.");
+        expect(markDialog()).toHaveTextContent("Choose a reason.");
+        expect(api.sent(CREATE)).toHaveLength(0);
+      });
+
+      it.each([
+        ["an earlier slot of the same day", "AM"],
+        ["the same slot", "PM"],
+      ])("refuses a return in %s", async (_case, untilSlot) => {
+        const api = await openMarkDialog();
+        fill(markDialog(), { ...complete, until: "2027-06-10", untilSlot });
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(markDialog()).toHaveTextContent(AFTER_ERROR);
+        expect(api.sent(CREATE)).toHaveLength(0);
+      });
+
+      it("accepts a return in the next slot of the same day", async () => {
+        const api = await openMarkDialog();
+        fill(markDialog(), { ...complete, until: "2027-06-10", untilSlot: "Night" });
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        await waitFor(() => expect(api.sent(CREATE)).toHaveLength(1));
+        expect(api.sent(CREATE)[0].body).toMatchObject({ untilDay: "2027-06-10", untilSlot: "Night" });
+      });
+
+      it("sends the period, then lists it and says who was flagged", async () => {
+        const api = await openMarkDialog({
+          [CREATE]: reply(201, outcome([flagged("Afternoon Workshop"), flagged("Closing Seminar")])),
+        });
+        fill(markDialog(), complete);
+        api.on(PERIODS, [period()]);
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(
+          await screen.findByText("Unavailable period saved — 2 bookings flagged for review, coordinators notified")
+        ).toBeInTheDocument();
+        expect(api.sent(CREATE)[0].body).toEqual({
+          fromDay: "2027-06-10",
+          fromSlot: "PM",
+          untilDay: "2027-06-15",
+          untilSlot: "PM",
+          reason: "equipment_failure",
+        });
+        expect(screen.getByText(/Afternoon Workshop/).closest("li")).toHaveTextContent(
+          "Afternoon Workshop: the venue is unavailable during this booking"
+        );
+        expect(screen.getByText(/Closing Seminar/)).toBeInTheDocument();
+        expect(await screen.findByText("Unavailable from 10 Jun 2027 PM. Available again from 15 Jun 2027 PM.")).toBeInTheDocument();
+        expect(api.sent(PERIODS)).toHaveLength(2);
+      });
+
+      it("says so when no booking was affected", async () => {
+        await openMarkDialog();
+        fill(markDialog(), complete);
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(await screen.findByText("Unavailable period saved")).toBeInTheDocument();
+        expect(screen.getByText("No approved bookings were affected, so nobody needed to be notified.")).toBeInTheDocument();
+      });
+
+      describe("when the reason is Other", () => {
+        it("asks what the reason is, only once Other is chosen", async () => {
+          await openMarkDialog();
+
+          fill(markDialog(), { reason: "other" });
+          expect(field(/^Other reason/, markDialog())).toHaveValue("");
+
+          fill(markDialog(), { reason: "safety" });
+          expect(within(markDialog()).queryByLabelText(/^Other reason/)).not.toBeInTheDocument();
+        });
+
+        it.each(["", "   "])("refuses a description of %j", async (text) => {
+          const api = await openMarkDialog();
+          fill(markDialog(), { ...complete, reason: "other" });
+          fill(markDialog(), { otherReason: text });
+
+          await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+          expect(markDialog()).toHaveTextContent("Describe the reason.");
+          expect(api.sent(CREATE)).toHaveLength(0);
+        });
+
+        it("sends the description, trimmed", async () => {
+          const api = await openMarkDialog();
+          fill(markDialog(), { ...complete, reason: "other" });
+          fill(markDialog(), { otherReason: "  Film crew on site " });
+
+          await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+          await waitFor(() => expect(api.sent(CREATE)).toHaveLength(1));
+          expect(api.sent(CREATE)[0].body).toEqual({
+            fromDay: "2027-06-10",
+            fromSlot: "PM",
+            untilDay: "2027-06-15",
+            untilSlot: "PM",
+            reason: "other",
+            otherReason: "Film crew on site",
+          });
+        });
+
+        it("does not send a description typed before the reason was changed to one on the list", async () => {
+          const api = await openMarkDialog();
+          fill(markDialog(), { ...complete, reason: "other" });
+          fill(markDialog(), { otherReason: "Film crew on site" });
+          fill(markDialog(), { reason: "renovation" });
+
+          await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+          await waitFor(() => expect(api.sent(CREATE)).toHaveLength(1));
+          expect(api.sent(CREATE)[0].body).not.toHaveProperty("otherReason");
+        });
+      });
+
+      it("does nothing when the dialog is cancelled", async () => {
+        const api = await openMarkDialog();
+        fill(markDialog(), complete);
+
+        await userEvent.click(inDialog(markDialog(), "Cancel"));
+
+        expect(markDialog().open).toBe(false);
+        expect(api.sent(CREATE)).toHaveLength(0);
+      });
+
+      it("shows the server's refusal and records nothing", async () => {
+        const api = await openMarkDialog({ [CREATE]: reply(403, { error: "Only Venue Staff can mark a venue unavailable" }) });
+        fill(markDialog(), complete);
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(await screen.findByText("Only Venue Staff can mark a venue unavailable")).toBeInTheDocument();
+        expect(screen.queryByText(/Unavailable period saved/)).not.toBeInTheDocument();
+        expect(api.sent(PERIODS)).toHaveLength(1);
+      });
+
+      it("explains a network failure", async () => {
+        await openMarkDialog({ [CREATE]: () => Promise.reject(new Error("offline")) });
+        fill(markDialog(), complete);
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(await screen.findByText("Could not reach the server. Check your connection and try again.")).toBeInTheDocument();
+      });
+    });
+
+    describe("changing a period", () => {
+      async function openChangeDialog(answer: unknown = outcome()) {
+        const api = await openWith({ [PERIODS]: [period()], [CHANGE]: answer });
+        await userEvent.click(await screen.findByRole("button", { name: "Change period" }));
+        return api;
+      }
+
+      it("opens filled in with the period as it stands", async () => {
+        const api = await openChangeDialog();
+        const d = changeDialog();
+
+        expect(field(/^Unavailable from/, d)).toHaveValue("2027-06-10");
+        expect(field(/^First unavailable slot/, d)).toHaveValue("PM");
+        expect(field(/^Available again on/, d)).toHaveValue("2027-06-15");
+        expect(field(/^First available slot/, d)).toHaveValue("PM");
+        expect(field(/^Reason/, d)).toHaveValue("equipment_failure");
+        expect(within(d).queryByLabelText(/^Other reason/)).not.toBeInTheDocument();
+        expect(api.sent(CHANGE)).toHaveLength(0);
+      });
+
+      it("shows the description of an Other reason, ready to edit", async () => {
+        await openWith({ [PERIODS]: [period({ reason: "other", otherReason: "Film crew on site" })], [CHANGE]: outcome() });
+        await userEvent.click(await screen.findByRole("button", { name: "Change period" }));
+
+        expect(field(/^Reason/, changeDialog())).toHaveValue("other");
+        expect(field(/^Other reason/, changeDialog())).toHaveValue("Film crew on site");
+      });
+
+      it("sends the new dates and slots, then says which bookings are newly flagged", async () => {
+        const api = await openChangeDialog(outcome([flagged("Morning Briefing")]));
+        fill(changeDialog(), { from: "2027-06-09", fromSlot: "Night", until: "2027-06-16", untilSlot: "AM" });
+        api.on(PERIODS, [period({ fromDay: "2027-06-09", fromSlot: "Night", untilDay: "2027-06-16", untilSlot: "AM" })]);
+
+        await userEvent.click(inDialog(changeDialog(), "Save period"));
+
+        expect(
+          await screen.findByText("Unavailable period changed — 1 booking flagged for review, coordinators notified")
+        ).toBeInTheDocument();
+        expect(api.sent(CHANGE)[0].body).toEqual({
+          fromDay: "2027-06-09",
+          fromSlot: "Night",
+          untilDay: "2027-06-16",
+          untilSlot: "AM",
+          reason: "equipment_failure",
+        });
+        expect(await screen.findByText("Unavailable from 9 Jun 2027 Night. Available again from 16 Jun 2027 AM.")).toBeInTheDocument();
+      });
+
+      it("refuses a return that is not later than the start", async () => {
+        const api = await openChangeDialog();
+        fill(changeDialog(), { until: "2027-06-10", untilSlot: "PM" });
+
+        await userEvent.click(inDialog(changeDialog(), "Save period"));
+
+        expect(changeDialog()).toHaveTextContent(AFTER_ERROR);
+        expect(api.sent(CHANGE)).toHaveLength(0);
+      });
+    });
+
+    describe("ending a period early", () => {
+      it("ends it without a confirmation, says so, and drops it from the list", async () => {
+        const api = await openWith({ [PERIODS]: [period()], [END]: { ended: true } });
+        await screen.findByText("Equipment failure");
+        api.on(PERIODS, []);
+
+        await userEvent.click(button("End period"));
+
+        expect(await screen.findByText("Unavailable period ended")).toBeInTheDocument();
+        expect(api.sent(END)).toHaveLength(1);
+        expect(await screen.findByText("No unavailable periods under way or coming up.")).toBeInTheDocument();
+      });
+
+      it("shows the error and keeps the period when ending is refused", async () => {
+        await openWith({ [PERIODS]: [period()], [END]: reply(400, { error: "This unavailable period is already over." }) });
+
+        await userEvent.click(await screen.findByRole("button", { name: "End period" }));
+
+        expect(await screen.findByText("This unavailable period is already over.")).toBeInTheDocument();
+        expect(screen.getByText("Equipment failure")).toBeInTheDocument();
+      });
     });
   });
 

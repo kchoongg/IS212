@@ -33,13 +33,13 @@ Copy from here rather than typing from memory.
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
 | `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
-| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` — comma-separated, one or more |
+| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
 | `ClarificationRequest.status` | `open` `answered` `closed` |
 | `EventChangeRequest.status` | `pending` `approved` `rejected` `withdrawn` |
 | `Facility.category` | `facility` `accessibility` |
-| `VenueUnavailability.reason` | `maintenance` `renovation` `safety` `internal_activity` `other` |
+| `VenueUnavailability.reason` | `maintenance` `equipment_failure` `renovation` `safety` `internal_activity` `other` |
 | layout names | `theatre` `classroom` `boardroom` `banquet` `exhibition` `u_shape` `cabaret` |
 
 The Zod schemas in `src/lib/validation/` (one file per domain) enforce most of
@@ -397,8 +397,8 @@ Maintenance blocks. No event, no requester, no approval step — which is why th
 | `venueId` | String | req |  |
 | `startsAt` | DateTime | req |  |
 | `endsAt` | DateTime | req |  |
-| `reason` | String | req | maintenance \| renovation \| safety \| internal_activity \| other |
-| `notes` | String |  |  |
+| `reason` | String | req | maintenance \| equipment_failure \| renovation \| safety \| internal_activity \| other (`UNAVAILABILITY_REASONS`, SPM-45) |
+| `notes` | String |  | What the reason is when `reason` is `other` - required then, by the routes; null for a listed reason written through the app. |
 | `createdBy` | String | req |  |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
@@ -518,7 +518,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`. |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45). |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |

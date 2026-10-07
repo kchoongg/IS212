@@ -107,7 +107,7 @@ cite.
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/calendar` | Bookings, holds, and blocks over time. |
 | S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
-| S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
+| S-23 | Block venue | — (on S-20) | Record a period the venue is unavailable for. Built in SPM-45 as the "Unavailable periods" section and "Mark unavailable" dialog on the venue editor (S-20), not as a page of its own: first and last slot (AM/PM/Night), a reason, and a typed reason when it is Other. |
 
 ### 3.5 Technical Support
 
@@ -407,7 +407,7 @@ every session has one.
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
 | S-10 Change request | Reason *, Proposed start, Proposed end, Proposed attendance, Other changes | At least one proposed change required. Significant-change warning shown live — see §7.4. |
 | S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup/Teardown minutes, Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. |
-| S-23 Block venue | Start, End, Reason (select), Notes | Warns if the block collides with an approved booking. |
+| S-23 Mark unavailable (dialog on S-20, SPM-45) | Unavailable from + First unavailable slot, Available again on + First available slot, Reason (select), Other reason (only when the reason is Other) | The return must be later than the start. A period is never refused for the bookings it lands on: they are flagged for review and listed after saving. |
 | S-24 Equipment catalogue | Name, Category, Description, Total quantity, Quantity in maintenance | Maintenance quantity ≤ total. |
 | S-26 Register for event | Dietary requirements, Accessibility requirements | Both optional and free text. |
 

@@ -292,10 +292,10 @@
         <mxCell id="xe_cancelled" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Event&#xa;cancelled" vertex="1">
           <mxGeometry height="48" width="48" x="7126" y="4161" as="geometry" />
         </mxCell>
-        <mxCell id="xs_venue" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Venue retired, blocked&#xa;or attributes changed" vertex="1">
+        <mxCell id="xs_venue" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Venue retired, marked unavailable&#xa;or attributes changed" vertex="1">
           <mxGeometry height="48" width="48" x="7300" y="4476" as="geometry" />
         </mxCell>
-        <mxCell id="xt_vupdate" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Update venue; flag affected&#xa;bookings for review" vertex="1">
+        <mxCell id="xt_vupdate" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Update venue or mark it&#xa;unavailable; flag affected&#xa;bookings for review" vertex="1">
           <mxGeometry height="64" width="180" x="7410" y="4468" as="geometry" />
         </mxCell>
         <mxCell id="xt_vrev" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Review affected booking&#xa;with Venue Staff" vertex="1">

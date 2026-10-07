@@ -383,6 +383,39 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [] },
+    // SPM-45 fixtures (scripts/seed-spm45.ts): six rooms Venue Staff mark
+    // unavailable - dedicated, so doing so flags no other story's bookings.
+    // Only SPM45-SET needs a setup and a turnaround slot.
+    { code: "SPM45-DAT", name: "SPM45 Dates Room", description: "SPM-45 test venue: no unavailable period, no bookings",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-PER", name: "SPM45 Period Room", description: "SPM-45 test venue: four bookings around 10-15 Jun 2027",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-SET", name: "SPM45 Setup Room", description: "SPM-45 test venue: needs a setup and a turnaround slot",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 60, teardownMinutes: 60,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-STA", name: "SPM45 Status Room", description: "SPM-45 test venue: an approved, a pending and a finished booking",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-NOW", name: "SPM45 Closure Room", description: "SPM-45 test venue: unavailable from 1 Oct 2026 to 1 Dec 2028",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-BAK", name: "SPM45 Reopened Room", description: "SPM-45 test venue: was unavailable 1 Sep to 1 Oct 2026",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -1207,6 +1240,34 @@ async function main() {
     spm43("spm43_after_turnaround", "SPM43 Alumni Lecture", "2027-05-08", 14, 3, 150, "theatre"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-45 QA fixtures (Record Venue Unavailability). The SAME events as
+  // scripts/seed-spm45.ts (`npm run fixtures:spm45`) - keep the two in step.
+  // Their approved bookings and the two unavailable periods are created
+  // further down.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm45 = (
+    key: string, title: string, date: string, startHour: number, durationHours: number,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-45 venue unavailability test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "classroom", ...options,
+  });
+  eventData.push(
+    spm45("spm45_before", "SPM45 Morning Briefing", "2027-06-10", 9, 2),
+    spm45("spm45_first", "SPM45 Afternoon Workshop", "2027-06-10", 14, 3),
+    spm45("spm45_last", "SPM45 Closing Seminar", "2027-06-15", 9, 3),
+    spm45("spm45_after", "SPM45 Return Forum", "2027-06-15", 14, 3),
+    spm45("spm45_turnaround", "SPM45 Evening Talk", "2027-06-20", 19, 3),
+    spm45("spm45_setup", "SPM45 Afternoon Talk", "2027-06-22", 14, 3),
+    spm45("spm45_clear", "SPM45 Later Talk", "2027-06-23", 14, 3),
+    spm45("spm45_approved", "SPM45 Approved Review", "2027-07-05", 9, 3),
+    spm45("spm45_pending", "SPM45 Pending Request", "2027-07-05", 14, 3),
+    spm45("spm45_finished", "SPM45 Finished Meeting", "2026-09-15", 9, 3, { status: "completed" }),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -1903,6 +1964,61 @@ async function main() {
       createdBy: users["marcus.wong@connectsphere.com"],
     },
   });
+
+  // SPM-45 fixtures, the same as scripts/seed-spm45.ts. Each booking holds one
+  // whole slot, placed against the period its test case records:
+  //   SPM45-PER  one either side of each edge of 10 Jun PM - 15 Jun PM (TC08)
+  //   SPM45-SET  a turnaround slot and a setup slot inside 21 Jun AM - 22 Jun
+  //              PM, and one booking clear of it (TC12)
+  //   SPM45-STA  an approved, a pending and a finished booking (TC13)
+  // and two periods that already exist - one under way (TC14, TC15), one that
+  // has passed (TC16).
+  const spm45Bookings: [string, string, string, number, number, string][] = [
+    ["spm45_before", "SPM45-PER", "2027-06-10", 7, 12, "approved"],
+    ["spm45_first", "SPM45-PER", "2027-06-10", 13, 18, "approved"],
+    ["spm45_last", "SPM45-PER", "2027-06-15", 7, 12, "approved"],
+    ["spm45_after", "SPM45-PER", "2027-06-15", 13, 18, "approved"],
+    ["spm45_turnaround", "SPM45-SET", "2027-06-20", 19, 24, "approved"],
+    ["spm45_setup", "SPM45-SET", "2027-06-22", 13, 18, "approved"],
+    ["spm45_clear", "SPM45-SET", "2027-06-23", 13, 18, "approved"],
+    ["spm45_approved", "SPM45-STA", "2027-07-05", 7, 12, "approved"],
+    ["spm45_pending", "SPM45-STA", "2027-07-05", 13, 18, "pending"],
+    ["spm45_finished", "SPM45-STA", "2026-09-15", 7, 12, "approved"],
+  ];
+  for (const [event, venueCode, date, from, to, status] of spm45Bookings) {
+    const approved = status === "approved";
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[event].id,
+        venueId: venues[venueCode],
+        layoutName: "classroom",
+        startsAt: day(daysUntil(date), from),
+        endsAt: day(daysUntil(date), to),
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(-3),
+        decidedBy: approved ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: approved ? day(-2) : undefined,
+      },
+    });
+  }
+  const spm45Periods: [string, string, string, string][] = [
+    ["SPM45-NOW", "2026-10-01", "2028-12-01", "renovation"],
+    ["SPM45-BAK", "2026-09-01", "2026-10-01", "maintenance"],
+  ];
+  for (const [code, from, until, reason] of spm45Periods) {
+    await prisma.venueUnavailability.create({
+      data: {
+        venueId: venues[code],
+        // From the start of the first unavailable slot (AM) to the start of
+        // the first available one (AM).
+        startsAt: day(daysUntil(from), 7),
+        endsAt: day(daysUntil(until), 7),
+        reason,
+        createdBy: users["marcus.wong@connectsphere.com"],
+      },
+    });
+  }
 
   // -------------------------------------------------------------------
   // REGISTRATIONS

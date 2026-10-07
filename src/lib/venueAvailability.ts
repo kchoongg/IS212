@@ -333,16 +333,9 @@ export function buildAvailability(input: {
   // window, because maintenance during a booking's setup time is a genuine
   // problem: the room cannot be set up.
   //
-  // ⚠️ KNOWN GAP - AC5 IS COVERED BY UNIT TESTS ONLY (2026-09-22).
-  // A manual tester cannot exercise this. Nothing in the app can create a
-  // VenueUnavailability record: the "Block venue" screen (S-23 in
-  // UI_DESIGN.md) is not built, and no route writes to that table. The seed
-  // loads five unavailable periods, but they are all at different venues, so
-  // none overlap anything - this branch never runs against seeded data.
-  // Testing AC5 by hand needs either S-23 or deliberately overlapping rows
-  // added to prisma/seed.ts. Deliberately NOT built in SPM-46. See Known Gaps
-  // in DOCUMENTATION.md; carry this into SPM-46's test cases as an open
-  // question rather than writing a manual case nobody can run.
+  // Overlapping periods used to exist only in the seed. Since SPM-45 Venue
+  // Staff can record them in the app (SPM-45-TC17 does), so this runs against
+  // real data too.
   for (let i = 0; i < unavailability.length; i++) {
     for (let j = i + 1; j < unavailability.length; j++) {
       if (overlapping(input.unavailability[i], input.unavailability[j])) {
