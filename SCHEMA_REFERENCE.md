@@ -237,6 +237,7 @@ Postgres table `events` &middot; `prisma.event`
 | `registrationCapacity` | Int |  | Seats open to the public. NOT the same as expectedAttendance. |
 | `registrationOpensAt` | DateTime |  |  |
 | `registrationClosesAt` | DateTime |  |  |
+| `registrationReviewReason` | String |  | Set when a change to the event may affect attendees already registered or waitlisted (SPM-62: the date or time changed; SPM-64: capacity lowered below them or registration turned off). Comma-separated reason codes, as `VenueBooking.reviewReason`. NULL = not flagged. Registrations themselves are not changed. |
 | `rejectionReason` | String |  | Required when rejecting - the route enforces it. |
 | `cancellationReason` | String |  |  |
 | `submittedAt` | DateTime |  |  |
@@ -382,6 +383,7 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 - Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`. The same test appears in three places - write it once and reuse it.
 - Only compare against `status: 'approved'`. Pending requests may legitimately compete for the same slot.
 - `needsReview` is a flag, never an action. When a venue is edited or retired, `PATCH /api/venues/[id]` sets it on affected bookings and notifies the coordinator; it does not change the booking's venue, layout, times or status, and it does not touch the Event. Only `approved` bookings that have not yet finished are candidates - a pending booking is not a commitment, so there is nothing to protect by flagging it.
+- A change to the event's own information sets it too (Update Event Information, SPM-62): `event_schedule_changed`, `event_attendance_changed`, `event_requirements_changed`, on pending and approved bookings that have not finished. Those codes share the column with the venue codes above, so every writer adds reasons through `addReviewReasons()` (`src/lib/reviewFlags.ts`), which keeps codes it does not recognise. Never parse the column into your own codes before writing it back.
 - **Nothing clears the flag yet.** There is no route for a coordinator to acknowledge or resolve one - that is a separate story. Do not assume a flagged booking is unresolved in real life.
 - `reviewReason` accumulates. A second venue edit merges its codes into the existing list rather than replacing them, so parse it as a set.
 
@@ -453,6 +455,9 @@ Request and reservation in one table: a reservation only ever comes from a reque
 | `reviewedBy` | String |  |  |
 | `reviewedAt` | DateTime |  |  |
 | `staffNotes` | String |  |  |
+| `needsReview` | Boolean |  | A change to the event (SPM-62: its date or time) may have invalidated this request. The request is NOT changed - the coordinator keeps or replaces it (SPM-68). Defaults to `false`. |
+| `reviewReason` | String |  | Why it was flagged: comma-separated codes, merged with any already there. |
+| `flaggedAt` | DateTime |  | When it was last flagged. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User
 

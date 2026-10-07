@@ -256,6 +256,35 @@ export const updateEventDraftSchema = z
   });
 export type UpdateEventDraftInput = z.infer<typeof updateEventDraftSchema>;
 
+// SPM-62: the assigned coordinator updating an event's information after
+// approval. Every field optional - only what changed is sent - but none of the
+// required ones may be cleared, since the event has long since left draft.
+// Strict: the organiser, coordinator, status, equipment (Equipment tab,
+// SPM-47), sessions (follow-up story) and registration settings (Configure
+// Event Registration, SPM-64) are not changed here, and a body that tries is
+// refused rather than half-applied. Messages as in eventForm.ts.
+export const updateEventInformationSchema = z
+  .object({
+    title: z.string().trim().min(1, "Give the event a name so you can find it again.").optional(),
+    category: z.string().trim().min(1, "Choose the type of event.").optional(),
+    purpose: z.string().optional(),
+    description: z.string().optional(),
+    startsAt: z.string({ invalid_type_error: "Enter when the event starts." }).datetime().optional(),
+    endsAt: z.string({ invalid_type_error: "Enter when the event ends." }).datetime().optional(),
+    expectedAttendance: z
+      .number({ invalid_type_error: "Enter how many people you expect." })
+      .int("Enter a whole number of people, at least 1.")
+      .positive("Enter a whole number of people, at least 1.")
+      .optional(),
+    // null = "No preference", which is a real choice to save.
+    preferredLayout: z.string().nullable().optional(),
+    accessibilityNotes: z.string().optional(),
+    specialRequirements: z.string().optional(),
+    facilityIds: z.array(z.string().uuid()).optional(),
+  })
+  .strict();
+export type UpdateEventInformationInput = z.infer<typeof updateEventInformationSchema>;
+
 // SPM-30: assign or reassign an event's coordinator. The route checks the
 // person is an active Event Coordinator; this only checks the shape.
 export const assignCoordinatorSchema = z.object({

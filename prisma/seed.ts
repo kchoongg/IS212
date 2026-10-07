@@ -1207,6 +1207,45 @@ async function main() {
     spm43("spm43_after_turnaround", "SPM43 Alumni Lecture", "2027-05-08", 14, 3, 150, "theatre"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-62 QA fixtures (Update Event Information). The SAME events as
+  // scripts/seed-spm62.ts (`npm run fixtures:spm62`) - keep the two in step.
+  //
+  // The events only. Their venue bookings, reserved equipment, registrations
+  // and required facility are created by that script alone, so run it once
+  // after a full reseed or there is nothing for a change to flag.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm62 = (
+    key: string, title: string, status: string, organiser: string, date: string,
+    startHour: number, durationHours: number, attendance: number, layout: string,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser, coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-62 update event information test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout, ...options,
+  });
+  eventData.push(
+    spm62("spm62_harbour", "SPM62 Harbour Leadership Summit", "planning", "Evelyn Chen", "2027-03-17", 9, 8, 80, "theatre",
+      { regEnabled: true, regCapacity: 100 }),
+    spm62("spm62_kirana", "SPM62 Kirana Supplier Day", "planning", "Faridah Aziz", "2027-04-21", 10, 6, 60, "theatre",
+      { regEnabled: true, regCapacity: 50 }),
+    spm62("spm62_bayu", "SPM62 Bayu Energy Outlook", "approved", "Hakim Zulkifli", "2027-05-12", 9, 3, 40, "theatre",
+      { category: "seminar" }),
+    spm62("spm62_anchorpoint", "SPM62 Anchorpoint Logistics Forum", "approved", "Melissa Yap", "2027-05-18", 9, 3, 50, "theatre",
+      { category: "seminar" }),
+    spm62("spm62_pharmacy", "SPM62 Straits Pharmacy Forum", "confirmed", "Evelyn Chen", "2027-06-09", 9, 8, 120, "theatre",
+      { regEnabled: true, regCapacity: 150 }),
+    spm62("spm62_meridian", "SPM62 Meridian Quarterly Review", "confirmed", "James Koh", "2027-06-16", 14, 3, 30, "boardroom",
+      { category: "meeting" }),
+    spm62("spm62_sundara", "SPM62 Sundara Hospitality Showcase", "confirmed", "Dewi Kartika", "2027-06-23", 10, 8, 70, "exhibition",
+      { category: "exhibition" }),
+    spm62("spm62_civic", "SPM62 Civic Learning Day", "under_review", "Grace Abdullah", "2027-07-07", 9, 6, 60, "classroom",
+      { category: "training" }),
+    spm62("spm62_pearl", "SPM62 Pearl Delta Plant Tour", "completed", "Samuel Ong", "2026-09-10", 9, 4, 25, "theatre",
+      { category: "networking" }),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {

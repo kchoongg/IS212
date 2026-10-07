@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { addReviewReasons } from "@/lib/reviewFlags";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { updateVenueSchema } from "@/lib/validation";
@@ -215,14 +216,17 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         // Keep whatever an earlier edit flagged. assessVenueEdit() only ever
         // reports newly introduced problems, so these reasons are additional
         // to any already on the row, not a correction of them.
-        const existing = booking.needsReview ? parseReviewReason(booking.reviewReason) : [];
-        const reasons = mergeReasons(existing, impact.reasons);
+        const stored = booking.needsReview ? booking.reviewReason : null;
+        const reasons = mergeReasons(parseReviewReason(stored), impact.reasons);
 
         await tx.venueBooking.update({
           where: { id: booking.id },
           data: {
             needsReview: true,
-            reviewReason: formatReviewReason(reasons),
+            // The venue reasons in their usual order, then every other code
+            // already there - the column is shared with other stories
+            // (SPM-62's event changes), whose codes parseReviewReason() drops.
+            reviewReason: addReviewReasons(formatReviewReason(reasons), stored?.split(",") ?? []),
             flaggedAt: now,
           },
         });

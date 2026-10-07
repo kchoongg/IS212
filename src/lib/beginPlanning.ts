@@ -59,3 +59,36 @@ export async function beginPlanningIfApproved(
   });
   return true;
 }
+
+/// Update Event Information (SPM-62, AC4/AC6): equipment requirements are
+/// important information, so changing them on a Confirmed event moves it back
+/// to Planning to be confirmed again. The other way into Planning, and like
+/// beginPlanningIfApproved() it only acts from one status: false (and nothing
+/// written) for an event that is not Confirmed. Called in the same
+/// transaction as the equipment change, with the same history reasons.
+/// Telling the organiser is Receive Event Notifications (SPM-53).
+export async function revertConfirmationIfConfirmed(
+  tx: Prisma.TransactionClient,
+  event: { id: string; status: string },
+  actorId: string,
+  reason: string
+): Promise<boolean> {
+  if (event.status !== "confirmed") return false;
+
+  const moved = await tx.event.updateMany({
+    where: { id: event.id, status: "confirmed" },
+    data: { status: "planning", confirmedAt: null },
+  });
+  if (moved.count === 0) return false;
+
+  await tx.eventStatusHistory.create({
+    data: {
+      eventId: event.id,
+      fromStatus: "confirmed",
+      toStatus: "planning",
+      changedBy: actorId,
+      reason,
+    },
+  });
+  return true;
+}
