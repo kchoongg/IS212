@@ -212,6 +212,18 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     return token;
   }
 
+  /// A booking by another event in DAY's PM slot. SPM-44 (AC9) loads the
+  /// event with each booking so a refusal can say whose booking is in the way.
+  function anotherEventsBooking(status: string) {
+    return {
+      eventId: "another-event",
+      status,
+      startsAt: PM_STARTS,
+      endsAt: PM_ENDS,
+      event: { sequenceNumber: 9, title: "Board Meeting" },
+    };
+  }
+
   async function refusal(token: string, body: unknown = valid) {
     const res = await post(token, body);
     expect(res.status).toBe(400);
@@ -277,6 +289,8 @@ describe("POST /api/events/[id]/venue-bookings", () => {
 
     expect(callArg(db.venue.findUnique).include.bookings).toEqual({
       where: { status: { in: ["pending", "approved"] } },
+      // SPM-44 (AC9): the event behind each booking, so a refusal can name it.
+      include: { event: { select: { sequenceNumber: true, title: true } } },
     });
   });
 
@@ -361,25 +375,25 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     it("a venue with an approved booking for another event in that slot", async () => {
       const token = given(
         event(),
-        venue({ bookings: [{ eventId: "another-event", status: "approved", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+        venue({ bookings: [anotherEventsBooking("approved")] })
       );
 
-      expect(await refusal(token)).toBe("Hall A is already booked for this time.");
+      expect(await refusal(token)).toBe("Hall A is already booked for EVT-000009 Board Meeting on 4 Mar 2027, PM.");
     });
 
     it("a venue with another event's pending request in that slot", async () => {
       const token = given(
         event(),
-        venue({ bookings: [{ eventId: "another-event", status: "pending", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+        venue({ bookings: [anotherEventsBooking("pending")] })
       );
 
-      expect(await refusal(token)).toBe("Hall A is on hold for another event at this time.");
+      expect(await refusal(token)).toBe("Hall A is on hold for EVT-000009 Board Meeting on 4 Mar 2027, PM.");
     });
 
     it("a venue recorded as unavailable in that slot", async () => {
       const token = given(event(), venue({ unavailability: [{ startsAt: PM_STARTS, endsAt: PM_ENDS }] }));
 
-      expect(await refusal(token)).toBe("Hall A is unavailable at this time.");
+      expect(await refusal(token)).toBe("Hall A is unavailable at this time (4 Mar 2027, PM).");
     });
   });
 
@@ -408,13 +422,51 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     expect(db.event.updateMany).not.toHaveBeenCalled();
   });
 
+  /// One of this event's own bookings in DAY's PM slot: for the whole event
+  /// (sessionId null) or for one of its sessions.
+  function ownBooking(status: string, sessionId: string | null = null) {
+    return {
+      eventId: ID.event,
+      sessionId,
+      status,
+      startsAt: PM_STARTS,
+      endsAt: PM_ENDS,
+      event: { sequenceNumber: 7, title: "Town Hall" },
+    };
+  }
+
   it("is not blocked by the event's own earlier request for the same slot", async () => {
+    // The event's own bookings never conflict with it: here Day 1 already holds
+    // the room's PM slot, and Day 2 of the same event may share it. (Before
+    // SPM-44 this used a single-session event asking for the same slot again;
+    // that is now refused as a repeat - see the next two tests.)
     const token = given(
-      event(),
-      venue({ bookings: [{ eventId: ID.event, status: "pending", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+      event({ sessions: [session(), session({ id: ID.otherSession, label: "Day 2" })] }),
+      venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }], bookings: [ownBooking("pending", ID.session)] })
     );
 
-    expect((await post(token, valid)).status).toBe(201);
+    expect((await post(token, { ...valid, sessionId: ID.otherSession })).status).toBe(201);
+  });
+
+  // SPM-44 AC4, raised in review on PR #37: only one active request or booking
+  // per venue and slot, including from the same event.
+  it("refuses the same event asking again for a slot its pending request already holds", async () => {
+    const token = given(event(), venue({ bookings: [ownBooking("pending")] }));
+
+    expect(await refusal(token)).toBe(
+      "This event already has a pending request for Hall A on 4 Mar 2027 · PM (13:00–18:00)."
+    );
+  });
+
+  it("refuses the same session asking twice, and names the session", async () => {
+    const token = given(
+      event({ sessions: [session(), session({ id: ID.otherSession, label: "Day 2" })] }),
+      venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }], bookings: [ownBooking("approved", ID.session)] })
+    );
+
+    expect(await refusal(token, { ...valid, sessionId: ID.session })).toBe(
+      "Day 1 already has Hall A booked on 4 Mar 2027 · PM (13:00–18:00)."
+    );
   });
 
   it("accepts a venue that has the facility the event requires", async () => {
