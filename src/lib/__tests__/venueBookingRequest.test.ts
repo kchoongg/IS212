@@ -138,6 +138,7 @@ describe("checkVenueBookingRequest", () => {
   // SPM42 Town Hall at Orchard Seminar Room: 6 Mar 2027 09:00-17:00, no sessions.
   const base: BookingRequestInput = {
     eventId: "town-hall",
+    sessionId: null,
     eventStatus: "planning",
     holder: { kind: "event", name: "SPM42 Town Hall" },
     schedule: { startsAt: sgt("2027-03-06T09:00:00"), endsAt: sgt("2027-03-06T17:00:00") },
@@ -241,14 +242,14 @@ describe("checkVenueBookingRequest", () => {
   it("SPM-42-TC14: a slot with another event's approved booking is refused", () => {
     expect(checkVenueBookingRequest(withBooking("approved", "2027-03-06T11:00:00", "2027-03-06T15:00:00"))).toEqual({
       ok: false,
-      error: "Orchard Seminar Room is already booked for this time.",
+      error: "Orchard Seminar Room is already booked on 5 Mar 2027 Night – 6 Mar 2027 Night.",
     });
   });
 
   it("SPM-42-TC14: a slot on hold for another event's pending request is refused", () => {
     expect(checkVenueBookingRequest(withBooking("pending", "2027-03-06T09:00:00", "2027-03-06T17:00:00"))).toEqual({
       ok: false,
-      error: "Orchard Seminar Room is on hold for another event at this time.",
+      error: "Orchard Seminar Room is on hold for another event on 6 Mar 2027, AM–PM.",
     });
   });
 
@@ -260,7 +261,10 @@ describe("checkVenueBookingRequest", () => {
         unavailability: [{ reason: "maintenance", startsAt: sgt("2027-03-06T00:00:00"), endsAt: sgt("2027-03-06T23:59:00") }],
       },
     });
-    expect(result).toEqual({ ok: false, error: "Orchard Seminar Room is unavailable at this time." });
+    expect(result).toEqual({
+      ok: false,
+      error: "Orchard Seminar Room is unavailable at this time (maintenance, 6 Mar 2027, AM–Night).",
+    });
   });
 
   it("SPM-42-TC15: a clash only through setup or turnaround slots is refused", () => {
@@ -268,7 +272,7 @@ describe("checkVenueBookingRequest", () => {
     // same slot this request's turnaround needs.
     expect(checkVenueBookingRequest(withBooking("approved", "2027-03-07T09:00:00", "2027-03-07T11:00:00"))).toEqual({
       ok: false,
-      error: "Orchard Seminar Room is already booked for this time.",
+      error: "Orchard Seminar Room is already booked on 6 Mar 2027, Night.",
     });
   });
 
@@ -276,6 +280,81 @@ describe("checkVenueBookingRequest", () => {
     for (const status of ["cancelled", "rejected"]) {
       expect(checkVenueBookingRequest(withBooking(status, "2027-03-06T09:00:00", "2027-03-06T17:00:00")).ok).toBe(true);
     }
+  });
+
+  // SPM-44 AC4, raised in review on PR #37: the event's own bookings are
+  // exempt from the clash check, so a repeat has to be caught separately.
+  describe("a repeat of the same request (SPM-44 AC4)", () => {
+    const own = (
+      status: string,
+      startsAt: string,
+      endsAt: string,
+      sessionId: string | null = null
+    ): BookingRequestInput["venue"]["bookings"][number] => ({
+      eventId: "town-hall", sessionId, status, startsAt: sgt(startsAt), endsAt: sgt(endsAt),
+    });
+    const holding = (...bookings: BookingRequestInput["venue"]["bookings"]): BookingRequestInput => ({
+      ...base,
+      venue: { ...base.venue, bookings },
+    });
+
+    it("SPM-44-TC03: refuses the same event asking again while its request is pending", () => {
+      expect(checkVenueBookingRequest(holding(own("pending", "2027-03-06T07:00:00", "2027-03-06T18:00:00")))).toEqual({
+        ok: false,
+        error:
+          "This event already has a pending request for Orchard Seminar Room on 6 Mar 2027 · AM, PM (07:00–18:00).",
+      });
+    });
+
+    it("refuses it once the first request is approved, worded as a booking", () => {
+      expect(checkVenueBookingRequest(holding(own("approved", "2027-03-06T07:00:00", "2027-03-06T18:00:00")))).toEqual({
+        ok: false,
+        error: "This event already has Orchard Seminar Room booked on 6 Mar 2027 · AM, PM (07:00–18:00).",
+      });
+    });
+
+    it("boundary: one shared slot is enough to make it a repeat", () => {
+      // The earlier request holds PM only; this one asks for AM and PM.
+      const result = checkVenueBookingRequest(holding(own("pending", "2027-03-06T13:00:00", "2027-03-06T18:00:00")));
+      expect(result.ok).toBe(false);
+    });
+
+    it("boundary: the same event in a different slot of the same day is not a repeat", () => {
+      // Venue with no setup or turnaround, so only the slots themselves count.
+      const input = holding(own("pending", "2027-03-06T19:00:00", "2027-03-07T00:00:00"));
+      expect(
+        checkVenueBookingRequest({ ...input, venue: { ...input.venue, setupMinutes: 0, teardownMinutes: 0 } }).ok
+      ).toBe(true);
+    });
+
+    it("does not count a cancelled or rejected earlier request", () => {
+      for (const status of ["cancelled", "rejected"]) {
+        expect(checkVenueBookingRequest(holding(own(status, "2027-03-06T07:00:00", "2027-03-06T18:00:00"))).ok).toBe(true);
+      }
+    });
+
+    it("lets two different sessions of one event share the room in the same slot", () => {
+      const daySession = { ...holding(own("pending", "2027-03-06T07:00:00", "2027-03-06T18:00:00", "day-1")) };
+      expect(
+        checkVenueBookingRequest({ ...daySession, sessionId: "day-2", holder: { kind: "session", name: "Day 2" } }).ok
+      ).toBe(true);
+    });
+
+    it("refuses the same session asking twice, naming the session", () => {
+      const input = holding(own("pending", "2027-03-06T07:00:00", "2027-03-06T18:00:00", "day-1"));
+      expect(checkVenueBookingRequest({ ...input, sessionId: "day-1", holder: { kind: "session", name: "Day 1" } })).toEqual({
+        ok: false,
+        error: "Day 1 already has a pending request for Orchard Seminar Room on 6 Mar 2027 · AM, PM (07:00–18:00).",
+      });
+    });
+
+    it("still reports another event's clash when there is no repeat", () => {
+      const other = { eventId: "other", status: "approved", startsAt: sgt("2027-03-06T11:00:00"), endsAt: sgt("2027-03-06T15:00:00") };
+      expect(checkVenueBookingRequest(holding(other)).ok).toBe(false);
+      expect(checkVenueBookingRequest(holding(other))).toEqual(
+        checkVenueBookingRequest(withBooking("approved", "2027-03-06T11:00:00", "2027-03-06T15:00:00"))
+      );
+    });
   });
 
 });

@@ -24,7 +24,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "fixtures:spm34": "tsx scripts/seed-spm34.ts"
+    "fixtures:spm34": "tsx scripts/seed-spm34.ts",
+    "fixtures:spm44": "tsx scripts/seed-spm44.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

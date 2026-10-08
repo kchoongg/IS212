@@ -21,12 +21,15 @@
 // tested without a database. src/app/api/venues/search/route.ts loads the rows
 // and calls searchVenues().
 
+import { findVenueConflict } from "@/lib/venueConflict";
 import {
+  NO_TURNAROUND,
   dayNumberOf,
   localDayKey,
   localDayStart,
   localMinuteOfDay,
   occupiedWindow,
+  overlapping,
   parseClock,
   type Interval,
 } from "@/lib/venueSlots";
@@ -53,6 +56,15 @@ export interface VenueSearchFilters {
 export interface SearchBooking extends Interval {
   eventId: string;
   status: string;
+  /// The session the booking is for; null or absent for a whole event. Only
+  /// the duplicate rule reads it (findDuplicateRequest, venueConflict.ts).
+  sessionId?: string | null;
+  /// SPM-44 (AC9): enough to name the booking in a refusal. Optional because
+  /// the search screen never loads them - it hides a clashing venue rather
+  /// than explaining it.
+  id?: string;
+  eventReference?: string;
+  eventTitle?: string | null;
 }
 
 export interface SearchBlock extends Interval {
@@ -152,15 +164,6 @@ export function withinOpeningHours(
   return startMinute >= opens && endMinute <= closes;
 }
 
-/// Half-open overlap - each starts before the other ends. The test used
-/// everywhere in the venues domain (SCHEMA_REFERENCE.md), so back-to-back is
-/// not a clash.
-function overlapping(a: Interval, b: Interval): boolean {
-  return a.startsAt.getTime() < b.endsAt.getTime() && a.endsAt.getTime() > b.startsAt.getTime();
-}
-
-const NO_TURNAROUND = { setupMinutes: 0, teardownMinutes: 0 };
-
 /// AC1, second half: is the room free? Returns the first reason it is not, or
 /// null when it is.
 ///
@@ -194,24 +197,11 @@ export function occupancyConflict(
   window: Interval,
   eventId?: string
 ): "unavailable" | "booked" | "on_hold" | null {
-  const needed = occupiedWindow(window, venue);
-
-  if (venue.unavailability.some((block) => overlapping(needed, block))) return "unavailable";
-
-  const others = venue.bookings.filter((b) => eventId == null || b.eventId !== eventId);
-  if (
-    others.some((b) => b.status === "approved" && overlapping(needed, occupiedWindow(b, venue)))
-  ) {
-    return "booked";
-  }
-  if (
-    others.some(
-      (b) => b.status === "pending" && overlapping(needed, occupiedWindow(b, NO_TURNAROUND))
-    )
-  ) {
-    return "on_hold";
-  }
-  return null;
+  // SPM-44 moved the rule itself into venueConflict.ts, which also reports
+  // WHAT the clash is with. The search screen only needs the kind - it hides a
+  // clashing venue rather than explaining it - so it takes the kind and drops
+  // the detail.
+  return findVenueConflict(venue, window, { eventId })?.kind ?? null;
 }
 
 /// Every criterion the venue fails, in the order the filters appear on screen.

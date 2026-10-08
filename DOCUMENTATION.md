@@ -150,6 +150,7 @@ IS212/
 │   ├── seed-spm34.ts            # `npm run fixtures:spm34` — SPM-34 test data, no reseed
 │   ├── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
 │   ├── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
+│   ├── seed-spm44.ts            # `npm run fixtures:spm44` — SPM-44 test data, no reseed
 │   ├── seed-spm43.ts            # `npm run fixtures:spm43` — SPM-43 test data, no reseed
 │   ├── seed-spm50.ts            # `npm run fixtures:spm50` — SPM-50 test data, no reseed
 │   ├── seed-spm54.ts            # `npm run fixtures:spm54` — SPM-54 test data, no reseed
@@ -595,7 +596,7 @@ defend under questioning.
 | **Approval re-checks the room** — refused if another *approved* booking's slots (setup and turnaround included) or an unavailability period overlap, if the venue is retired, or if the event is completed, cancelled or rejected. A rival *pending* request does not block: approving one is how Venue Staff choose. The venue row is locked for the check, so two approvals cannot both pass | `approvalConflict()`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
 | **Reason required when rejecting a booking**; a suggested venue must be active and not the one refused. The suggestion books nothing (#45, #110) | `checkBookingDecision()` | ✅ done (SPM-43) |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
-| Booking conflict detection | venues domain | ❌ to write |
+| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event and session cannot request overlapping slots at a venue twice (two sessions may share a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
 | Equipment availability | `src/lib/equipmentAvailability.ts` | ✅ done (SPM-48) |
 | **Reserved / Partially fulfilled are set only by Reserve** — never picked by hand, so a line never claims stock it doesn't hold; leaving them goes through Unavailable | `fulfilmentOptionsFor()`, `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | ✅ done (SPM-50) |
 | **Unavailable needs a reason** (blank or spaces-only refused); technical notes max 500 characters, saved trimmed. Marking a reserved line Unavailable frees its units (status alone does it; `quantityReserved` is cleared too) | `checkFulfilmentUpdate()`, `fulfilmentChanges()` | ✅ done (SPM-50) |
@@ -717,6 +718,7 @@ traceability the module asks for.
 | `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
 | `npm run fixtures:spm34` | Adds or resets SPM-34's 8 test events ("SPM34 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm34_`, with the venue bookings, equipment requests and sessions that put each one in its own state (ready, venue-only, pending venue, equipment short, two-session, another coordinator's). Re-run before and after each SPM-34 test pass, since confirming is what the cases do |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
+| `npm run fixtures:spm44` | Adds or resets SPM-44's 16 test events ("SPM44 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm44_` (with the bookings they hold, so every request a test pass submitted goes too), upserts the test venue "SPM44 Conflict Room" (SPM44-PLN, no setup or turnaround so neighbouring slots do not clash), and replaces the one unavailability period AC8 needs. Re-run before and after each SPM-44 test pass |
 | `npm run fixtures:spm43` | Adds or resets SPM-43's 14 test events ("SPM43 …") without reseeding — touches only events whose `seedKey` starts with `spm43_`. They are reset **in place**: each event row is kept, so its EVT- reference stays the same from run to run, and only its sessions and booking requests are dropped and recreated (so every decision a test pass made goes). It also upserts two test venues: "SPM43 Maintenance Room" (SPM43-MNT, reset to its one maintenance period on 14 May 2027) and "SPM43 Retire Test Room" (SPM43-RET, made active again). Run before each SPM-43 test pass and after any case that approves or rejects — it is the revert |
 | `npm run fixtures:spm50` | Adds or resets SPM-50's 6 test events (Robotics Expo, Design Week, …, Aug–Sep 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm50_`, with their equipment lines. Needs the base seed's users and the SPM-49 equipment items. Run it again before repeating a case that saves |
 | `npm run fixtures:spm54` | Adds or resets SPM-54's 10 test events ("SPM54 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm54_` (with any booking requests and equipment a test pass added), always at **EVT-000145 to EVT-000154**. Stops without changing anything if another event holds one of those numbers. Run it before a test pass and after any case that moves an event to Planning (TC01/TC02, TC04 to TC07) or adds to one (TC14). The same events are at the end of `prisma/seed.ts` |
@@ -881,6 +883,34 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-06 — Jordan
+- **SPM-44 review fixes (PR #37, raised by kayalvizhi24).** Both gaps predate
+  SPM-44 (they came with SPM-42's request route); neither allowed an actual
+  double booking, because approval was already locked.
+- **A repeat request is refused.** `findVenueConflict()` exempts the
+  requesting event's own bookings, so two sessions of one event can share a
+  room — but that also let one event submit the same request twice and get two
+  pending rows. `findDuplicateRequest()` in `src/lib/venueConflict.ts` refuses
+  the same event and session asking again for overlapping slots at the same
+  venue while the first is pending or approved: "This event already has a
+  pending request for … on 5 Apr 2027 · AM (07:00–12:00)." The exemption
+  stays. `SearchBooking` gained an optional `sessionId`, and
+  `checkVenueBookingRequest()` now takes the request's `sessionId`.
+- **Requests made at the same moment.** `POST /api/events/[id]/venue-bookings`
+  read the venue and ran the check before its transaction, so two coordinators
+  could both pass before either row was written. It now takes
+  `SELECT … FOR UPDATE` on the venue row inside the transaction, then reads
+  the bookings, checks and creates — the same lock the approval route
+  (`PATCH /api/venue-bookings/[id]`) already takes. No rule or wording changed.
+- **SPM-44's room, bookings and maintenance period are in `prisma/seed.ts`.**
+  They existed only in `scripts/seed-spm44.ts`, so after a full reseed the
+  conflict cases had nothing to collide with. SPM44-PLN is now in `venueData`
+  beside SPM-42's and SPM-43's rooms, and the holder bookings and the AC8
+  block are created after SPM-43's bookings. No event's EVT- reference moves.
+- SPM-44-TC03 now submits the repeat request instead of only checking that the
+  button is shown.
+- Migration: none.
+
 ### 2026-10-06 — Kristen
 - **SPM-62 (Update Event Information).** The assigned coordinator can change
   an event's information after approval, and a change that affects existing
@@ -930,6 +960,39 @@ what changed, why, and the migration name if there is one.
   `UI_DESIGN.md` (implementation status). Known Gaps: review-flag gap widened
   (owner SPM-68), quantity re-check now SPM-69's, two new rows
   (notifications, session edits).
+
+### 2026-10-04 — Jordan
+- **SPM-43 merged into SPM-44, and the duplicated conflict rule is gone.**
+  `approvalConflict()` in `src/lib/venueBookingReview.ts` carried a second copy
+  of the confirm-time rule, with a comment saying it should call SPM-44's
+  `checkVenueBookingApproval()` once that branch landed. It now calls
+  `findVenueConflict()` with `scope: "approved"`, so a rival PENDING request
+  still does not block a decision. Its wording is unchanged: Venue Staff read
+  "This overlaps an approved booking: …", a coordinator making a request reads
+  "the room is already booked" — the rule is shared, the sentence belongs to
+  the screen. SPM-43's own tests pass unmodified.
+- `findVenueConflict()` now takes **`ConflictVenue`** — name, turnaround,
+  bookings, unavailability — rather than `SearchableVenue`, which also carries
+  layouts, facilities and opening hours the rule never reads. That is what
+  lets the review side call it. `SearchableVenue` satisfies it structurally,
+  so the search and request callers are untouched.
+- **SPM-44 AC6 is no longer blocked.** SPM-44-TC10 runs against the real
+  Booking Requests screen: a pending request whose slot an approved booking
+  holds shows a **Conflict** chip, names the booking in the way, and its
+  Approve button is disabled. Its fixture pair is seeded rather than made
+  through the app, because the request-time check refuses the second request —
+  it is the state Venue Staff inherit when two requests arrive for one slot.
+- **`checkVenueBookingApproval()` removed.** It was written before SPM-43
+  existed, for that story to call; SPM-43's `approvalConflict()` calls
+  `findVenueConflict()` directly instead, so nothing in the app used it. Its
+  three unit tests now exercise `findVenueConflict()` with the approval scope.
+- **SPM-44's events moved to the end of `prisma/seed.ts`,** after SPM-43's.
+  They had been pushed before the SPM-54 block, which would have moved
+  SPM-54's pinned EVT-000145 to EVT-000154 (and every later fixture's
+  reference) by 16 on a full reseed. No data changed.
+- Two Excel lock files (`~$SPM-44…`, `~$SPM-50…`) had been committed by
+  accident and are now untracked; `~$*` added to `.gitignore`.
+- Migration: none (SPM-43's `add_venue_booking_suggestion` was already applied).
 
 ### 2026-10-04 — Kristen
 - **Tests brought up to date with `main`** (SPM-27, SPM-34, SPM-43, SPM-50,
@@ -1144,6 +1207,41 @@ what changed, why, and the migration name if there is one.
   fixtures:spm43`): the 12 existing events keep their EVT- references and
   "SPM43 Policy Briefing" was added at the end. SPM-28's and SPM-54's pinned
   references are unchanged.
+
+### 2026-10-02 — Jordan
+- **SPM-44 (Booking Conflict Detection): the conflict rules moved into one
+  module, `src/lib/venueConflict.ts`, and now say WHAT is in the way.**
+  `findVenueConflict()` returns the clashing booking or unavailability period
+  and the slots actually contested, and `describeVenueConflict()` turns that
+  into the message a coordinator reads. `occupancyConflict()` in
+  `venueSearch.ts` now delegates to it, so the search screen and the booking
+  check can no longer disagree about whether a room is free.
+- **Refusal wording changed (AC9).** "Marina Auditorium is already booked for
+  this time." is now "… is already booked for EVT-000042 Product Showcase on
+  21 Oct 2026, AM–PM." Unavailability gives its reason and the whole closure,
+  not just the slot asked for. **SPM-42's recorded test cases (TC14, TC15)
+  still quote the old wording** — their unit tests were updated, the workbook
+  was not, because that is Sammi's to re-record.
+- **Confirm-time checking is written but has no caller.**
+  `checkVenueBookingApproval()` enforces AC6 and differs from request time in
+  one way that matters: a rival *pending* request must not block a
+  confirmation, because approving one request is how Venue Staff choose
+  between two. Whoever builds SPM-43 should call it rather than write the rule
+  again. SPM-44-TC10 is recorded Blocked until then.
+- `overlapping()` and `NO_TURNAROUND` moved from `venueSearch.ts` to
+  `venueSlots.ts`, where `Interval` and `Turnaround` already live, so two
+  modules can share them without a cycle.
+- **Fixed a merge artefact in `prisma/seed.ts`:** the `eventData.push(` opened
+  for the SPM-28 fixtures was never closed, so the file did not compile and
+  `npx prisma db seed` would have failed. One `);` added; no data changed.
+- **Boundary coverage.** Two unit tests pin the half-open overlap rule at a
+  slot edge (a block filling AM exactly does not reach PM) and the dead time
+  between slots (12:00-13:00 belongs to no slot, so a booking inside one blocks
+  nothing). SPM-44-TC11 walks the day-crossing case by hand: a Night booking's
+  turnaround takes the NEXT morning's AM (#123), and the refusal spans both
+  days.
+- `npm run fixtures:spm44` adds SPM-44's 14 events, the SPM44-PLN test room
+  and one unavailability period, without reseeding.
 
 ---
 

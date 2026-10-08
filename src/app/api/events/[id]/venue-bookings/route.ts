@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canBeginPlanning, canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
-import { parseEventReference } from "@/lib/format";
+import { eventReference, parseEventReference } from "@/lib/format";
 import { createVenueBookingSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { CLOSED_EVENT_MESSAGE, NOT_APPROVED_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
@@ -124,53 +124,72 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Set the event date and time before requesting a venue." }, { status: 400 });
     }
 
-    const venue = await prisma.venue.findUnique({
-      where: { id: data.venueId },
-      include: {
-        layouts: true,
-        facilities: true,
-        bookings: { where: { status: { in: ["pending", "approved"] } } },
-        unavailability: true,
-      },
-    });
-    // Retired venues are out of the catalogue (see GET /venue-suitability).
-    if (!venue || !venue.isActive) {
-      return NextResponse.json({ error: "Venue not found" }, { status: 400 });
-    }
-
     // D11: a session's own attendance and layout, the event's facilities.
     const preferredLayout = session ? session.preferredLayout : event.preferredLayout;
-    const check = checkVenueBookingRequest({
-      eventId: event.id,
-      eventStatus: event.status,
-      holder: session
-        ? { kind: "session", name: session.label ?? "This session" }
-        : { kind: "event", name: event.title ?? "This event" },
-      schedule,
-      needs: {
-        expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
-        preferredLayout,
-        requirements: event.facilityRequirements.map((r) => ({
-          facilityId: r.facilityId,
-          name: r.facility.name,
-          category: r.facility.category,
-          isMandatory: r.isMandatory,
-        })),
-      },
-      venue: {
-        ...venue,
-        facilityIds: venue.facilities.map((f) => f.facilityId),
-      },
-      day: data.day,
-      slots: data.slots,
-    });
-    if (!check.ok) {
-      return NextResponse.json({ error: check.error }, { status: 400 });
-    }
 
-    // SPM-54: the first booking request for an Approved event begins planning,
-    // in the same transaction as the request itself.
-    const { created, planningStarted } = await prisma.$transaction(async (tx) => {
+    // The check and the insert are one step. Read before the transaction, two
+    // coordinators asking for the same slot at the same moment could each
+    // pass the check before the other's row was written (raised in review on
+    // PR #37). Locking the venue row first - as the approval route does
+    // (PATCH /api/venue-bookings/[id]) - makes the second request wait, and
+    // then read the first one's booking. Everything below reads after the lock.
+    const result = await prisma.$transaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM venues WHERE id = ${data.venueId} FOR UPDATE`;
+
+      const venue = await tx.venue.findUnique({
+        where: { id: data.venueId },
+        include: {
+          layouts: true,
+          facilities: true,
+          // SPM-44 (AC9): the refusal names the booking in the way, so the
+          // event behind each one is loaded with it. Only active bookings are
+          // read - a rejected or cancelled one holds nothing (AC7).
+          bookings: {
+            where: { status: { in: ["pending", "approved"] } },
+            include: { event: { select: { sequenceNumber: true, title: true } } },
+          },
+          unavailability: true,
+        },
+      });
+      // Retired venues are out of the catalogue (see GET /venue-suitability).
+      if (!venue || !venue.isActive) {
+        return { error: "Venue not found" } as const;
+      }
+
+      const check = checkVenueBookingRequest({
+        eventId: event.id,
+        sessionId: session?.id ?? null,
+        eventStatus: event.status,
+        holder: session
+          ? { kind: "session", name: session.label ?? "This session" }
+          : { kind: "event", name: event.title ?? "This event" },
+        schedule,
+        needs: {
+          expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
+          preferredLayout,
+          requirements: event.facilityRequirements.map((r) => ({
+            facilityId: r.facilityId,
+            name: r.facility.name,
+            category: r.facility.category,
+            isMandatory: r.isMandatory,
+          })),
+        },
+        venue: {
+          ...venue,
+          facilityIds: venue.facilities.map((f) => f.facilityId),
+          bookings: venue.bookings.map((b) => ({
+            ...b,
+            eventReference: eventReference(b.event.sequenceNumber),
+            eventTitle: b.event.title,
+          })),
+        },
+        day: data.day,
+        slots: data.slots,
+      });
+      if (!check.ok) {
+        return { error: check.error } as const;
+      }
+
       const created = await tx.venueBooking.create({
         data: {
           eventId: event.id,
@@ -185,9 +204,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         },
         select: BOOKING_FIELDS,
       });
+      // SPM-54: the first booking request for an Approved event begins
+      // planning, in the same transaction as the request itself.
       const planningStarted = await beginPlanningIfApproved(tx, event, actor.id, PLANNING_REASONS.venueBooking);
-      return { created, planningStarted };
+      return { created, planningStarted } as const;
     });
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+    const { created, planningStarted } = result;
     return NextResponse.json({ ...created, planningStarted }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
