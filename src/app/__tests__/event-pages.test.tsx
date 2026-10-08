@@ -912,3 +912,52 @@ describe("Review request", () => {
     });
   });
 });
+
+// SPM-62: the way in to "Edit event information"
+// (/events/<ref>/update) from the event page. What a save changed and flagged
+// is shown on the edit page itself (event-information-pages.test.tsx);
+// showing flags afterwards is SPM-33 / SPM-68's.
+describe("Event overview - updating event information (SPM-62)", () => {
+  const assigned = { id: "c1" };
+
+  function open(role: string, eventRow: unknown = event(), who: object = {}, path = `/events/${REF}`) {
+    setRoute(path, { id: REF });
+    mockApi({ ...signedInAs(role, who), [EVENT]: eventRow, "GET /api/assignments": { coordinators: [] } });
+    render(<EventOverviewPage />);
+  }
+
+  const heading = () => screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+  describe("the way in", () => {
+    it.each(["approved", "planning", "confirmed"])("is offered to the assigned coordinator of a %s event", async (status) => {
+      open("coordinator", event({ status }), assigned);
+
+      const link = await screen.findByRole("link", { name: "Edit event information" });
+
+      expect(link).toHaveAttribute("href", `/events/${REF}/update`);
+    });
+
+    it.each(["under_review", "postponed", "completed", "cancelled", "rejected", "withdrawn"])(
+      "is not offered while the event is %s",
+      async (status) => {
+        open("coordinator", event({ status }), assigned);
+        await heading();
+
+        expect(screen.queryByRole("link", { name: "Edit event information" })).not.toBeInTheDocument();
+      }
+    );
+
+    it.each([
+      ["a coordinator it is not assigned to", "coordinator", { id: "c2" }],
+      ["the organiser who owns it", "organiser", { id: "organiser-id" }],
+      ["the Ops Manager", "ops_manager", {}],
+      ["Venue Staff", "venue_staff", {}],
+      ["Technical Support", "tech_support", {}],
+    ])("is not offered to %s", async (_who, role, who) => {
+      open(role, event(), who);
+      await heading();
+
+      expect(screen.queryByRole("link", { name: "Edit event information" })).not.toBeInTheDocument();
+    });
+  });
+});

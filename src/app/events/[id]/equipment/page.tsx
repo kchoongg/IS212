@@ -138,7 +138,12 @@ export default function EventEquipmentPage() {
   /// SPM-54: set once an add, a save or a removal on this visit has moved the
   /// event from Approved to Planning, so the coordinator is told.
   const [planningStarted, setPlanningStarted] = useState(false);
-  /// The add or save waiting on the "Begin planning?" question, if any.
+  /// SPM-62: set once a change on this visit has moved a Confirmed event back
+  /// to Planning, so the coordinator is told.
+  const [confirmationReverted, setConfirmationReverted] = useState(false);
+  /// The add or save waiting on a question first, if any: "Begin planning?"
+  /// on an Approved event, or "Move this event back to Planning?" on a
+  /// Confirmed one (SPM-62).
   const [pendingPlanning, setPendingPlanning] = useState<
     { kind: "add" } | { kind: "save"; row: EquipmentRequestRow } | null
   >(null);
@@ -148,6 +153,18 @@ export default function EventEquipmentPage() {
     if (!body.planningStarted) return;
     setPlanningStarted(true);
     setEvent((current) => (current ? { ...current, status: "planning" } : current));
+  }
+
+  /// SPM-62: and when it moved a Confirmed event back to Planning.
+  function noteConfirmationReverted(body: { confirmationReverted?: boolean }) {
+    if (!body.confirmationReverted) return;
+    setConfirmationReverted(true);
+    setEvent((current) => (current ? { ...current, status: "planning" } : current));
+  }
+
+  function noteStatusChange(body: { planningStarted?: boolean; confirmationReverted?: boolean }) {
+    notePlanningStarted(body);
+    noteConfirmationReverted(body);
   }
 
   const load = useCallback(async () => {
@@ -224,6 +241,10 @@ export default function EventEquipmentPage() {
   // The next add, save or removal would move the event to Planning, so the
   // coordinator is asked first (canEdit already means "the assigned one").
   const willBeginPlanning = canEdit && event?.status === "approved";
+  // SPM-62 (AC4, AC6): equipment requirements are important information, so
+  // the next change to a Confirmed event moves it back to Planning - asked
+  // first, as the information form does.
+  const willUnconfirm = canEdit && event?.status === "confirmed";
 
   const equipmentOptions = useMemo(() => {
     // Scoped to the session currently chosen in "Add equipment" - uniqueness
@@ -278,7 +299,7 @@ export default function EventEquipmentPage() {
       setRowError((current) => ({ ...current, [row.id]: "Enter a whole number, at least 1." }));
       return;
     }
-    if (willBeginPlanning && !confirmed) {
+    if ((willBeginPlanning || willUnconfirm) && !confirmed) {
       setPendingPlanning({ kind: "save", row });
       return;
     }
@@ -298,7 +319,7 @@ export default function EventEquipmentPage() {
         return;
       }
       setRequests((current) => current?.map((r) => (r.id === row.id ? body : r)) ?? current);
-      notePlanningStarted(body);
+      noteStatusChange(body);
       setDrafts((current) => {
         const next = { ...current };
         delete next[row.id];
@@ -321,7 +342,7 @@ export default function EventEquipmentPage() {
         return;
       }
       setRequests((current) => current?.filter((r) => r.id !== id) ?? current);
-      notePlanningStarted(body);
+      noteStatusChange(body);
     } catch {
       setLoadError("Could not reach the server.");
     } finally {
@@ -341,7 +362,7 @@ export default function EventEquipmentPage() {
       setAddError("Enter a whole number, at least 1.");
       return;
     }
-    if (willBeginPlanning && !confirmed) {
+    if ((willBeginPlanning || willUnconfirm) && !confirmed) {
       setPendingPlanning({ kind: "add" });
       return;
     }
@@ -363,13 +384,21 @@ export default function EventEquipmentPage() {
         return;
       }
       setRequests((current) => [...(current ?? []), body]);
-      notePlanningStarted(body);
+      noteStatusChange(body);
       setNewRow(EMPTY_NEW_ROW);
     } catch {
       setAddError("Could not reach the server.");
     } finally {
       setAdding(false);
     }
+  }
+
+  /// Carries out the add or save the question was about, once answered.
+  function runPending() {
+    const pending = pendingPlanning;
+    setPendingPlanning(null);
+    if (pending?.kind === "add") void addRow(true);
+    if (pending?.kind === "save") void saveRow(pending.row, true);
   }
 
   if (state === "loading" || (state === "authenticated" && !user)) {
@@ -436,6 +465,12 @@ export default function EventEquipmentPage() {
             <Alert variant="success" title="Planning has started">
               This event has moved from Approved to Planning now that its equipment requirements
               are being worked on.
+            </Alert>
+          )}
+
+          {confirmationReverted && (
+            <Alert variant="warning" title="This event is no longer confirmed">
+              Changing its equipment moved it back to Planning so it can be confirmed again.
             </Alert>
           )}
 
@@ -706,18 +741,27 @@ export default function EventEquipmentPage() {
             Approved to Planning. {BEGIN_PLANNING_NOTICE}
           </p>
         )}
+        {/* SPM-62: likewise for a Confirmed event going back to Planning. */}
+        {willUnconfirm && <p className="mt-2">It will also move from Confirmed back to Planning.</p>}
       </ConfirmDialog>
 
       <BeginPlanningDialog
-        open={pendingPlanning !== null}
-        onConfirm={() => {
-          const pending = pendingPlanning;
-          setPendingPlanning(null);
-          if (pending?.kind === "add") void addRow(true);
-          if (pending?.kind === "save") void saveRow(pending.row, true);
-        }}
+        open={pendingPlanning !== null && willBeginPlanning}
+        onConfirm={runPending}
         onCancel={() => setPendingPlanning(null)}
       />
+
+      <ConfirmDialog
+        open={pendingPlanning !== null && willUnconfirm}
+        title="Move this event back to Planning?"
+        confirmLabel="Continue"
+        confirmVariant="primary"
+        onConfirm={runPending}
+        onCancel={() => setPendingPlanning(null)}
+      >
+        {event?.title || "This event"} is Confirmed. Changing its equipment moves it back to Planning so it can be
+        confirmed again.
+      </ConfirmDialog>
     </div>
   );
 }
