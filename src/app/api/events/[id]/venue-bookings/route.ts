@@ -184,10 +184,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           })),
         },
         day: data.day,
-        slots: data.slots,
+        startTime: data.startTime,
+        endTime: data.endTime,
       });
       if (!check.ok) {
-        return { error: check.error } as const;
+        // SPM-93 AC3: a refused time names the field it belongs to.
+        return check.field ? ({ error: check.error, field: check.field } as const) : ({ error: check.error } as const);
       }
 
       const created = await tx.venueBooking.create({
@@ -210,7 +212,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return { created, planningStarted } as const;
     });
     if ("error" in result) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json(result, { status: 400 });
     }
     const { created, planningStarted } = result;
     return NextResponse.json({ ...created, planningStarted }, { status: 201 });

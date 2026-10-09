@@ -1,7 +1,13 @@
 import { z } from "zod";
-import { SLOTS, isDayKey } from "@/lib/venueSlots";
+import { BOOKING_STEP_MINUTES, isDayKey } from "@/lib/venueTime";
 
 // ---- Venues ----
+
+const stepMinutes = z
+  .number()
+  .int()
+  .nonnegative()
+  .multipleOf(BOOKING_STEP_MINUTES, { message: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on." });
 
 // CHANGED: `location` split into building/floor/address (story 9 filters by
 // location, so it has to be queryable, not one free-text blob). `capacity`
@@ -17,8 +23,10 @@ export const createVenueSchema = z.object({
   maxCapacity: z.number().int().positive(),
   opensAt: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   closesAt: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  setupMinutes: z.number().int().nonnegative().optional(),
-  teardownMinutes: z.number().int().nonnegative().optional(),
+  /// SPM-93 AC5: in 15-minute steps, zero included - the smallest unit of
+  /// booking (#126, #128). venueForm.ts gives the same message on screen.
+  setupMinutes: stepMinutes.optional(),
+  teardownMinutes: stepMinutes.optional(),
   /// Facility IDs this venue has, both `facility` and `accessibility` ones.
   facilityIds: z.array(z.string().uuid()).optional(),
   /// Optional per-layout capacities, e.g. [{ layoutName: "theatre", capacity: 500 }]
@@ -124,18 +132,18 @@ export const venueAvailabilityQuerySchema = z.object({
 });
 export type VenueAvailabilityQuery = z.infer<typeof venueAvailabilityQuerySchema>;
 
-// ADDED (SPM-42): POST /api/events/[id]/venue-bookings. An empty `slots` list
-// is allowed through on purpose - checkVenueBookingRequest()
-// (src/lib/venueBookingRequest.ts) refuses it with the message the screen shows.
+// ADDED (SPM-42): POST /api/events/[id]/venue-bookings. SPM-93: a date and a
+// start and end time instead of slots. The times are only required to be
+// strings here: an off-grid or inverted time is refused by
+// checkVenueBookingRequest() (src/lib/venueBookingRequest.ts), with the
+// message and the field the screen shows (AC3).
 export const createVenueBookingSchema = z.object({
   venueId: z.string().uuid(),
-  /// Required by the route when the event has sessions (AC4).
+  /// Required by the route when the event has sessions.
   sessionId: z.string().uuid().optional(),
   day: availabilityDay,
-  slots: z
-    .array(z.enum(SLOTS))
-    .max(SLOTS.length)
-    .refine((slots) => new Set(slots).size === slots.length, { message: "Each slot may appear only once" }),
+  startTime: z.string().max(5),
+  endTime: z.string().max(5),
   /// 'Venue requirements' (AC6). Optional; blank means none given.
   requirementsNote: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
 });

@@ -44,7 +44,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       }
 
       // One decision per venue at a time. Without the lock, two requests for
-      // the same slot approved at the same moment would each pass the conflict
+      // the same time approved at the same moment would each pass the conflict
       // check before the other's approval was written (#35: double-booking is
       // blocked, not warned about). Everything below reads after the lock.
       await tx.$queryRaw`SELECT id FROM venues WHERE id = ${found.venueId} FOR UPDATE`;

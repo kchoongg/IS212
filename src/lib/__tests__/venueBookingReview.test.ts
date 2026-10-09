@@ -10,22 +10,23 @@ import {
 } from "../venueBookingReview";
 import { decideVenueBookingSchema } from "../validation";
 
-// SPM-43 (Review Venue Booking Request). Slot times are the customer's (#50):
-// AM 07:00-12:00, PM 13:00-18:00, Night 19:00-24:00, Singapore time. Written
-// with an explicit +08:00 so each case reads as the time a user sees.
+// SPM-43 (Review Venue Booking Request), with SPM-93's rule for conflicts: a
+// booking occupies the room from its start minus the venue's setup to its end
+// plus its turnaround (Week 7 Customer Changes, Change #1). Written with an
+// explicit +08:00 so each case reads as the time a user sees.
 
 const sgt = (iso: string) => new Date(`${iso}+08:00`);
 
-// A pending request for Orchard Seminar Room, 6 Mar 2027 AM + PM. The room
-// needs setup and turnaround, so it also takes 5 Mar Night and 6 Mar Night.
+// A pending request for Orchard Seminar Room, 6 Mar 2027 09:00-17:00. With 60
+// min setup and 30 min turnaround the room is in use 08:00-17:30.
 const base: BookingDecisionInput = {
   decision: { decision: "approve" },
   booking: {
     id: "request",
     status: "pending",
     venueId: "orc-sem",
-    startsAt: sgt("2027-03-06T07:00:00"),
-    endsAt: sgt("2027-03-06T18:00:00"),
+    startsAt: sgt("2027-03-06T09:00:00"),
+    endsAt: sgt("2027-03-06T17:00:00"),
   },
   eventStatus: "planning",
   venue: {
@@ -107,26 +108,29 @@ describe("approving a booking request (AC3, AC7)", () => {
 });
 
 describe("conflicts at approval", () => {
-  it("another approved booking in the same slots blocks, and is named", () => {
-    expect(checkBookingDecision(withConfirmed(confirmed("2027-03-06T09:00:00", "2027-03-06T17:00:00")))).toEqual({
+  it("another approved booking at the same times blocks, and is named with its room-in-use period", () => {
+    expect(checkBookingDecision(withConfirmed(confirmed("2027-03-06T11:00:00", "2027-03-06T15:00:00")))).toEqual({
       ok: false,
       error:
-        "This overlaps an approved booking: EVT-000042 Product Showcase holds Orchard Seminar Room on 6 Mar 2027 · AM, PM (07:00–18:00).",
+        "This overlaps an approved booking: EVT-000042 Product Showcase holds Orchard Seminar Room on 6 Mar 2027, 11:00–15:00 (room in use 10:00–15:30).",
     });
   });
 
-  it("a clash only through setup or turnaround slots blocks too", () => {
-    // The other booking holds 7 Mar AM, so its setup takes 6 Mar Night - the
-    // slot this request's turnaround needs.
+  it("SPM-93-TC14: a clash only through setup or turnaround blocks too, and says so", () => {
+    // The other booking's setup starts at 17:00; this request's turnaround runs to 17:30.
     expect(approvalConflict(base.venue, base.booking)).toBeNull();
     expect(
       approvalConflict(
-        { ...base.venue, bookings: [confirmed("2027-03-07T09:00:00", "2027-03-07T11:00:00")] },
+        { ...base.venue, bookings: [confirmed("2027-03-06T18:00:00", "2027-03-06T19:00:00")] },
         base.booking
       )
     ).toBe(
-      "This overlaps an approved booking: EVT-000042 Product Showcase holds Orchard Seminar Room on 7 Mar 2027 · AM (07:00–12:00). The clash is through a setup or turnaround slot."
+      "This overlaps an approved booking: EVT-000042 Product Showcase holds Orchard Seminar Room on 6 Mar 2027, 18:00–19:00 (room in use 17:00–19:30). The clash is through setup or turnaround time."
     );
+  });
+
+  it("SPM-93-TC14: a booking whose setup starts as this request's turnaround ends does not block", () => {
+    expect(approvalConflict({ ...base.venue, bookings: [confirmed("2027-03-06T18:30:00", "2027-03-06T19:00:00")] }, base.booking)).toBeNull();
   });
 
   it("an approved booking far enough away does not block", () => {
@@ -135,7 +139,7 @@ describe("conflicts at approval", () => {
 
   it("the request never clashes with itself", () => {
     expect(
-      checkBookingDecision(withConfirmed(confirmed("2027-03-06T07:00:00", "2027-03-06T18:00:00", "request"))).ok
+      checkBookingDecision(withConfirmed(confirmed("2027-03-06T09:00:00", "2027-03-06T17:00:00", "request"))).ok
     ).toBe(true);
   });
 

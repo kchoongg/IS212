@@ -12,9 +12,9 @@
 // (src/app/api/venue-bookings/[id]/route.ts) loads the rows and calls these.
 
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
-import { requestSlotsLabel } from "@/lib/venueBookingRequest";
+import { formatDateTimeRange } from "@/lib/format";
 import { findVenueConflict } from "@/lib/venueConflict";
-import { overlapping, type Interval, type Turnaround } from "@/lib/venueSlots";
+import { occupiedWindow, overlapping, timeRangeLabel, type Interval, type Turnaround } from "@/lib/venueTime";
 
 /// A request is decided once: only a pending one can be approved or rejected.
 export const DECIDABLE_BOOKING_STATUSES: readonly string[] = ["pending"];
@@ -47,9 +47,10 @@ export interface ReviewVenue extends Turnaround {
 /// free. Re-checked at approval rather than trusted from request time: the
 /// room can be blocked, or another request approved, in between (#35).
 ///
-/// The same slot rules as request time (SPM-42): the request needs its own
-/// slots plus the venue's setup and turnaround slots, and so does every
-/// approved booking it is compared with (#107, #108, #123).
+/// The same rule as request time (SPM-93 AC6, AC7): the request and every
+/// approved booking it is compared with each occupy the room from their start
+/// minus the venue's setup to their end plus its turnaround. Occupied periods
+/// that only meet end to start do not clash.
 ///
 /// CHANGED (SPM-44): this used to carry its own copy of the rule. It
 /// now asks findVenueConflict() - the one place that decides what blocks a
@@ -79,11 +80,11 @@ export function approvalConflict(venue: ReviewVenue, booking: Interval & { id: s
   const clash = conflict.booking!;
   const holder = [clash.eventReference, clash.eventTitle].filter(Boolean).join(" ");
   // The useful half of this message: the two bookings' own times may not
-  // overlap at all, and the clash exists only through a setup or turnaround
-  // slot (#123). Saying so stops Venue Staff hunting for an overlap that
-  // isn't there.
-  const viaTurnaround = overlapping(booking, clash) ? "" : " The clash is through a setup or turnaround slot.";
-  return `This overlaps an approved booking: ${holder} holds ${venue.name} on ${requestSlotsLabel(clash)}.${viaTurnaround}`;
+  // overlap at all, and the clash exists only through setup or turnaround
+  // time. Saying so stops Venue Staff hunting for an overlap that isn't there.
+  const inUse = timeRangeLabel(occupiedWindow(clash, venue));
+  const viaTurnaround = overlapping(booking, clash) ? "" : " The clash is through setup or turnaround time.";
+  return `This overlaps an approved booking: ${holder} holds ${venue.name} on ${formatDateTimeRange(clash.startsAt, clash.endsAt)} (room in use ${inUse}).${viaTurnaround}`;
 }
 
 /// Why this request must wait for its event, or null when the event is past

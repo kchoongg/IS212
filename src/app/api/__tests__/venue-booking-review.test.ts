@@ -1,6 +1,7 @@
 // SPM-43: the Booking Requests list Venue Staff work from, and their decision
-// on one request. Times are UTC; Singapore is UTC+8, so 05:00Z-10:00Z on
-// 4 March is that day's PM slot (13:00-18:00).
+// on one request, with SPM-93's conflict rule (times plus the venue's setup and
+// turnaround). Times are UTC; Singapore is UTC+8, so 05:00Z-10:00Z on 4 March
+// is 13:00-18:00 local, and AM below is 07:00-12:00.
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 
@@ -139,26 +140,40 @@ describe("GET /api/venue-bookings", () => {
   });
 
   describe("flagging a clash before anyone clicks Approve", () => {
-    it("names the approved booking that already holds the slot", async () => {
+    it("names the approved booking that already holds the time", async () => {
       const token = given([pending()], [venueRow({ bookings: [approvedElsewhere()] })]);
 
       const [row] = await (await list(token)).json();
 
       expect(row.conflict).toBe(
-        "This overlaps an approved booking: EVT-000050 Gala Dinner holds Hall A on 4 Mar 2027 · PM (13:00–18:00)."
+        "This overlaps an approved booking: EVT-000050 Gala Dinner holds Hall A on 4 Mar 2027, 13:00–18:00 (room in use 13:00–18:00)."
       );
     });
 
-    it("says when the clash is only through the venue's setup or turnaround slot", async () => {
-      // The other booking is in the AM; this one's setup reaches back into it.
+    it("SPM-93-TC14: says when the clash is only through the venue's setup or turnaround time", async () => {
+      // The other booking is 07:00-12:00, in use until 12:45; this one's setup starts at 12:30.
+      const turnaround = { setupMinutes: 30, teardownMinutes: 45 };
       const token = given(
-        [pending({ venue: { ...pending().venue, setupMinutes: 60 } })],
-        [venueRow({ setupMinutes: 60, bookings: [approvedElsewhere(AM)] })]
+        [pending({ venue: { ...pending().venue, ...turnaround } })],
+        [venueRow({ ...turnaround, bookings: [approvedElsewhere(AM)] })]
       );
 
       const [row] = await (await list(token)).json();
 
-      expect(row.conflict).toMatch(/The clash is through a setup or turnaround slot\.$/);
+      expect(row.conflict).toBe(
+        "This overlaps an approved booking: EVT-000050 Gala Dinner holds Hall A on 4 Mar 2027, 07:00–12:00 (room in use 06:30–12:45). The clash is through setup or turnaround time."
+      );
+    });
+
+    it("SPM-93-TC14: does not flag a request whose setup starts as an approved booking's turnaround ends", async () => {
+      const token = given(
+        [pending({ venue: { ...pending().venue, setupMinutes: 15, teardownMinutes: 45 } })],
+        [venueRow({ setupMinutes: 15, teardownMinutes: 45, bookings: [approvedElsewhere(AM)] })]
+      );
+
+      const [row] = await (await list(token)).json();
+
+      expect(row.conflict).toBeNull();
     });
 
     it("names an unavailable period, with its reason in words", async () => {
@@ -169,7 +184,7 @@ describe("GET /api/venue-bookings", () => {
       expect(row.conflict).toBe("Hall A is unavailable at this time (internal activity).");
     });
 
-    it("does not flag a slot that is free", async () => {
+    it("does not flag a time that is free", async () => {
       const token = given([pending()], [venueRow({ bookings: [approvedElsewhere(AM)] })]);
 
       const [row] = await (await list(token)).json();
@@ -262,7 +277,7 @@ describe("PATCH /api/venue-bookings/[id]", () => {
       });
     });
 
-    it("locks the venue before checking for a clash, so two approvals cannot both take the slot", async () => {
+    it("locks the venue before checking for a clash, so two approvals cannot both take the room", async () => {
       const token = given();
 
       await decide(token, approve);
@@ -308,7 +323,7 @@ describe("PATCH /api/venue-bookings/[id]", () => {
         "clashes with an approved booking",
         booking(),
         venueRow({ bookings: [approvedElsewhere()] }),
-        "This overlaps an approved booking: EVT-000050 Gala Dinner holds Hall A on 4 Mar 2027 · PM (13:00–18:00).",
+        "This overlaps an approved booking: EVT-000050 Gala Dinner holds Hall A on 4 Mar 2027, 13:00–18:00 (room in use 13:00–18:00).",
       ],
       [
         "falls in an unavailable period",
@@ -399,7 +414,7 @@ describe("PATCH /api/venue-bookings/[id]", () => {
     it.each([
       ["the event has been cancelled", booking({ event: { status: "cancelled" } }), venueRow()],
       ["the venue has been retired", booking(), venueRow({ isActive: false })],
-      ["the slot is already taken", booking(), venueRow({ bookings: [approvedElsewhere()] })],
+      ["the time is already taken", booking(), venueRow({ bookings: [approvedElsewhere()] })],
     ])("is still possible when %s - that is what rejecting is for", async (_case, row, venue) => {
       expect((await decide(given(row, venue), reject)).status).toBe(200);
     });
