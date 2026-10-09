@@ -1066,6 +1066,30 @@ what changed, why, and the migration name if there is one.
   - **Tests:** the `eventListWhere` attendee tests in `permissions.test.ts`
     and `events.test.ts` were updated on purpose, because the rule changed.
     3 more unit tests, 1 more route test.
+- **Slice 8 (AC10, UI): the Registration card.** New
+  `src/app/events/[id]/RegistrationCard.tsx` replaces the Overview's read-only
+  Registration card.
+  - **Read-only view, for everyone who can see the event:** Registration
+    (Enabled / Not enabled for this event), then Capacity, Measured against
+    (not shown to an attendee), Opens and Closes. Opens and Closes replace the
+    old single "Window" row, so two attendee assertions in
+    `event-pages.test.tsx` were updated on purpose.
+  - **Outstanding alert:** "Registration setup is incomplete", built from the
+    same `registrationGaps()` as the confirm refusal. Not shown to an attendee.
+  - **The coordinator's form:** only the assigned coordinator, in Approved,
+    Planning or Confirmed, gets "Change registration settings". The form sends
+    only what changed, checks nothing itself (the server's messages show under
+    their fields), and lists the "Flagged for review" lines after a save.
+  - **Data:** `GET /api/events/[id]` now includes `registrationVenueBooking`
+    (with its room's layouts), so the card names the measured booking without
+    another request. A new `GET /api/events/[id]/registration` gives the form
+    the active bookings, each with its layout capacity. It's asked for only
+    when the form opens, and only the assigned coordinator may call it.
+  - **Test cases corrected:** the app formats September as "Sept" (en-GB), so
+    the SPM-64 test cases now say "30 Sept 2026".
+
+  26 page tests in `src/app/__tests__/event-registration-pages.test.tsx`, plus
+  3 route tests for the GET and 1 for the include.
 - **Slow-machine timeouts are not failures.** On a busy laptop (OneDrive
   syncing the repo, back-to-back runs), `npm test` timed out at random in the
   page tests and `auth.test.ts`. That happened on `main` without SPM-64's

@@ -136,6 +136,24 @@ describe("GET /api/events/[id]", () => {
     expect((await get(token)).status).toBe(404);
   });
 
+  // SPM-64 (AC4, TC23): the booking the capacity is measured against comes
+  // with the event, so the Registration card can say "Measured against".
+  it("includes the booking the registration capacity is measured against, with its room's layouts", async () => {
+    const token = signIn(user("coordinator"));
+    db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
+
+    await get(token);
+
+    expect(callArg(db.event.findUnique).include.registrationVenueBooking).toEqual({
+      select: {
+        id: true,
+        status: true,
+        layoutName: true,
+        venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+      },
+    });
+  });
+
   // SPM-64 (#10), manual case TC22: registration turned off doesn't hide the
   // event from an attendee who already holds a place.
   it("shows a confirmed event with registration off to an attendee who holds a place in it", async () => {

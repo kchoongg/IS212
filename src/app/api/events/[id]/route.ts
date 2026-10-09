@@ -80,6 +80,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             // (id/label/startsAt/endsAt), so it's reused here rather than
             // duplicating a second, narrower select shape.
             sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
+            // ADDED (SPM-64 AC4): the booking the registration capacity is
+            // measured against, so the Registration card can name it and say
+            // when it is no longer active. Stripped for an Attendee by
+            // visibleEventFor() - which room caps the capacity is internal.
+            registrationVenueBooking: {
+              select: {
+                id: true,
+                status: true,
+                layoutName: true,
+                venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+              },
+            },
           },
         });
   if (!event) {

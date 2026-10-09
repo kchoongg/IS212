@@ -93,7 +93,7 @@ export interface RegistrationGaps {
 /// Only meaningful while registration is enabled.
 export function registrationGaps(
   setup: RegistrationSetup,
-  bookings: ConfirmationInput["bookings"]
+  bookings: readonly { id?: string; status: string }[]
 ): RegistrationGaps {
   const stillNeeded: RegistrationGaps["stillNeeded"] = [];
   if (setup.capacity == null) stillNeeded.push("registration capacity");

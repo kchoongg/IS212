@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Event } from "@prisma/client";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
@@ -7,6 +8,7 @@ import { EVENT_INFORMATION_STATUSES, canConfigureRegistration, canViewEvent } fr
 import { configureRegistrationSchema } from "@/lib/validation";
 import {
   capacityError,
+  liveBookings,
   measuredBooking,
   periodErrors,
   registrationFlagLine,
@@ -22,23 +24,64 @@ import { addReviewReasons } from "@/lib/reviewFlags";
 // Information (SPM-62, ../information/route.ts): 401, then 404 for an event
 // the user may not see, then 403, then the status window, then validation.
 
+const BOOKING_FIELDS = {
+  id: true,
+  status: true,
+  layoutName: true,
+  venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+} as const;
+
+/// Who is asking, and the event if they are its assigned coordinator - or the
+/// refusal to send instead (401, 404 for an event they may not see, 403).
+async function coordinatorsEvent(
+  req: NextRequest,
+  id: string
+): Promise<{ refusal: NextResponse; event?: never } | { event: Event; refusal?: never }> {
+  const actor = await getActor(req);
+  if (!actor) return { refusal: unauthenticated() };
+
+  const sequenceNumber = parseEventReference(id);
+  const event = sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
+  // An event the user may not see is 404, never 403 - a 403 would confirm it exists.
+  if (!event || !canViewEvent(actor, event)) return { refusal: hidden() };
+  if (!canConfigureRegistration(actor, event)) {
+    return { refusal: forbidden("Only the coordinator assigned to this event can change its registration settings") };
+  }
+  return { event };
+}
+
+/// AC4: the bookings the coordinator's form offers under 'Capacity measured
+/// against' - the active ones, each with its room's capacity in the booked
+/// layout (null when it has none). Asked for only when the form opens.
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const found = await coordinatorsEvent(req, id);
+    if (found.refusal) return found.refusal;
+
+    const bookings = await prisma.venueBooking.findMany({ where: { eventId: found.event.id }, select: BOOKING_FIELDS });
+    return NextResponse.json({
+      bookings: liveBookings(bookings).map((b) => ({
+        id: b.id,
+        status: b.status,
+        layoutName: b.layoutName,
+        layoutCapacity: b.venue.layouts.find((l) => l.layoutName === b.layoutName)?.capacity ?? null,
+        venue: { name: b.venue.name, code: b.venue.code },
+      })),
+    });
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
-    const actor = await getActor(req);
-    if (!actor) {
-      return unauthenticated();
-    }
+    const found = await coordinatorsEvent(req, id);
+    if (found.refusal) return found.refusal;
+    const { event } = found;
 
-    const sequenceNumber = parseEventReference(id);
-    const event = sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
-    // An event the user may not see is 404, never 403 - a 403 would confirm it exists.
-    if (!event || !canViewEvent(actor, event)) {
-      return hidden();
-    }
-    if (!canConfigureRegistration(actor, event)) {
-      return forbidden("Only the coordinator assigned to this event can change its registration settings");
-    }
     if (!EVENT_INFORMATION_STATUSES.includes(event.status)) {
       return NextResponse.json(
         { error: "Registration settings can only be changed while the event is Approved, Planning or Confirmed." },
@@ -53,15 +96,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // read only then.
     let measuredBookingId: string | undefined;
     if (data.registrationCapacity !== undefined || data.registrationVenueBookingId !== undefined) {
-      const bookings = await prisma.venueBooking.findMany({
-        where: { eventId: event.id },
-        select: {
-          id: true,
-          status: true,
-          layoutName: true,
-          venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
-        },
-      });
+      const bookings = await prisma.venueBooking.findMany({ where: { eventId: event.id }, select: BOOKING_FIELDS });
       const measured = measuredBooking(bookings, data.registrationVenueBookingId, event.registrationVenueBookingId);
       if (!measured.ok) {
         return fieldError(measured.field, measured.error);

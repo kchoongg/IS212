@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/prisma");
 
-import { PATCH } from "@/app/api/events/[id]/registration/route";
+import { GET, PATCH } from "@/app/api/events/[id]/registration/route";
 import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
 
 // "Now" is fixed, so whether an event has started (AC7) never depends on the
@@ -444,5 +444,50 @@ describe("AC11 only the assigned coordinator changes registration settings", () 
 
     expect((await save(token, { registrationEnabled: false })).status).toBe(403);
     nothingWritten();
+  });
+});
+
+// The coordinator's form asks for the bookings it can measure against only
+// when it opens (SPM-64 AC4, manual cases TC04, TC09).
+describe("GET /api/events/[id]/registration - the bookings the form offers", () => {
+  const load = (token: string | undefined) =>
+    GET(req("GET", `/api/events/${REF}/registration`, { token }), params({ id: REF }));
+
+  it("gives the assigned coordinator the event's active bookings with their layout capacity (TC09)", async () => {
+    const token = given();
+    db.venueBooking.findMany.mockResolvedValue([
+      classroomBooking,
+      studioBooking,
+      { ...classroomBooking, id: "rejected-one", status: "rejected" },
+    ]);
+
+    const res = await load(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
+    expect(await res.json()).toEqual({
+      bookings: [
+        { id: ID.booking, status: "approved", layoutName: "classroom", layoutCapacity: 70, venue: { name: "Orchard Seminar Room", code: "ORC-SEM" } },
+        { id: STUDIO_BOOKING_ID, status: "pending", layoutName: "classroom", layoutCapacity: 40, venue: { name: "Orchard Studio", code: "ORC-STU" } },
+      ],
+    });
+  });
+
+  it("gives a booking with no layout a capacity of null", async () => {
+    const token = given();
+    db.venueBooking.findMany.mockResolvedValue([{ ...classroomBooking, layoutName: null }]);
+
+    const body = await (await load(token)).json();
+
+    expect(body.bookings[0].layoutCapacity).toBeNull();
+  });
+
+  it("is 401 without a session, 404 for an event the user can't see, 403 for anyone else", async () => {
+    expect((await load(undefined)).status).toBe(401);
+
+    expect((await load(given({}, user("attendee", { id: ID.thirdUser })))).status).toBe(404);
+
+    expect((await load(given({}, user("organiser", { id: ORGANISER_ID })))).status).toBe(403);
+    expect(db.venueBooking.findMany).not.toHaveBeenCalled();
   });
 });
