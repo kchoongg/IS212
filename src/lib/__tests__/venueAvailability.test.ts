@@ -8,11 +8,15 @@ import {
   type AvailabilityHoldInput,
   type AvailabilityBookingInput,
   type AvailabilityVenue,
+  type ScheduleEntry,
 } from "../venueAvailability";
 
-// Traces to SPM-46's seven acceptance criteria. Times are Singapore wall-clock
-// with an explicit +08:00 offset, so each case reads as what the calendar shows
-// and the suite passes on a machine in any timezone.
+// Traces to SPM-46's seven acceptance criteria, as changed by SPM-93 AC9: the
+// calendar shows bookings, holds and unavailable periods at their actual times,
+// with setup and turnaround shown separately from the booked time - no longer
+// as AM / PM / Night cells. Times are Singapore wall-clock with an explicit
+// +08:00 offset, so each case reads as what the calendar shows and the suite
+// passes on a machine in any timezone.
 
 const sgt = (iso: string) => new Date(`${iso}+08:00`);
 
@@ -113,189 +117,139 @@ describe("resolveAvailabilityRange - AC1, choosing a period", () => {
   });
 });
 
-describe("buildAvailability - the grid", () => {
-  it("has one column per slot and one row per day in the range", () => {
-    const result = build({ from: "2026-09-28", to: "2026-10-04" });
-    expect(result.days.map((d) => d.date)).toEqual([
-      "2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04",
-    ]);
-    expect(result.slots).toEqual([
-      { slot: "AM", label: "07:00–12:00" },
-      { slot: "PM", label: "13:00–18:00" },
-      { slot: "Night", label: "19:00–24:00" },
-    ]);
-  });
+/// A day's entries as the calendar writes them: "setup 09:30–10:00 · Title".
+const lines = (entries: ScheduleEntry[]) => entries.map((e) => `${e.kind} ${e.from}–${e.to} · ${e.label}`);
 
-  it("marks every slot free when nothing is booked", () => {
-    const result = build({});
-    for (const cell of Object.values(result.days[0].slots)) {
-      expect(cell.status).toBe("free");
-    }
+describe("buildAvailability - one row per day", () => {
+  it("has one row per day in the range, each with its entries", () => {
+    const result = build({ from: "2026-09-28", to: "2026-09-30" });
+    expect(result.days.map((d) => d.date)).toEqual(["2026-09-28", "2026-09-29", "2026-09-30"]);
+    expect(result.days.every((d) => d.entries.length === 0)).toBe(true);
   });
 
   it("echoes the venue and range it was asked about", () => {
     const result = build({ from: "2026-09-28", to: "2026-09-29" });
-    expect(result.venue.code).toBe("MAR-GH");
+    expect(result.venue).toEqual(VENUE);
     expect(result.range).toEqual({ from: "2026-09-28", to: "2026-09-29", timeZone: "Asia/Singapore" });
   });
 });
 
-describe("AC3 / AC7 - approved bookings block their slots", () => {
-  it("marks the slot an approved booking sits in as booked", () => {
-    const b = booking("2026-09-28T14:00:00", "2026-09-28T16:00:00");
-    const { days, bookings } = build({ bookings: [b] });
-    expect(days[0].slots.PM).toMatchObject({ status: "booked", bookingIds: [b.id] });
-    expect(days[0].slots.AM.status).toBe("free");
-    expect(bookings[0]).toMatchObject({ id: b.id, eventTitle: b.eventTitle, layoutName: "theatre" });
-  });
+describe("SPM-93 AC9 - bookings at their actual times, setup and turnaround separate", () => {
+  const STUDIO = { setupMinutes: 30, teardownMinutes: 45 };
 
-  it("blocks the slot whatever the booking's EVENT status is", () => {
-    // The decision on SPM-46, pinned. Marina Grand Hall on 1 Dec 2026 has an
-    // approved booking whose event is still in planning; reading "confirmed
-    // bookings" by event status would show the room free and invite a
-    // double-booking. The event's status is shown - it never decides.
-    const planning = booking("2026-12-01T09:00:00", "2026-12-01T11:00:00", { eventStatus: "planning" });
-    const { days, bookings } = build({ from: "2026-12-01", to: "2026-12-01", bookings: [planning] });
-    expect(days[0].slots.AM.status).toBe("booked");
-    expect(bookings[0].eventStatus).toBe("planning");
-  });
-
-  it("flags two bookings that share a slot, because a slot is consumed in full", () => {
-    // #107: "If an event runs across two slots, does it consume both slots in
-    // full? Yes." So two approved bookings in the same PM - even ones whose
-    // own times never touch - are a double-booking, not neighbours sharing an
-    // afternoon. Reported rather than assumed away: no database constraint
-    // stops it, and stopping it is what this calendar is for.
-    const early = booking("2026-09-28T13:00:00", "2026-09-28T14:00:00");
-    const late = booking("2026-09-28T15:00:00", "2026-09-28T17:00:00");
-    const result = build({ bookings: [early, late] });
-    expect(result.days[0].slots.PM.bookingIds).toEqual([early.id, late.id]);
-    expect(result.bookings[0].overlaps.bookingIds).toEqual([late.id]);
-    expect(result.bookings[1].overlaps.bookingIds).toEqual([early.id]);
-    expect(result.hasOverlaps).toBe(true);
-  });
-
-  it("flags a booking whose turnaround slot another booking already holds", () => {
-    // An AM event's turnaround takes PM; a PM event holds PM. Under the old
-    // minute model these two only clashed if the raw minutes touched.
-    const morning = booking("2026-09-28T09:00:00", "2026-09-28T11:00:00");
-    const afternoon = booking("2026-09-28T14:00:00", "2026-09-28T16:00:00");
-    const result = build({
-      venue: { setupMinutes: 30, teardownMinutes: 30 },
-      bookings: [morning, afternoon],
+  it("SPM-93-TC15: an approved booking shows as setup, booked and turnaround entries, in time order", () => {
+    const masterclass = booking("2027-06-08T10:00:00", "2027-06-08T12:00:00", { eventTitle: "SPM93 Morning Masterclass" });
+    const result = build({ venue: STUDIO, from: "2027-06-08", to: "2027-06-08", bookings: [masterclass] });
+    expect(lines(result.days[0].entries)).toEqual([
+      "setup 09:30–10:00 · SPM93 Morning Masterclass",
+      "booked 10:00–12:00 · SPM93 Morning Masterclass",
+      "turnaround 12:00–12:45 · SPM93 Morning Masterclass",
+    ]);
+    expect(result.days[0].entries.map((e) => e.bookingId)).toEqual([masterclass.id, masterclass.id, masterclass.id]);
+    expect(result.bookings[0]).toMatchObject({
+      occupiedFrom: sgt("2027-06-08T09:30:00"),
+      occupiedTo: sgt("2027-06-08T12:45:00"),
     });
-    expect(result.hasOverlaps).toBe(true);
+  });
+
+  it("SPM-93-TC16: a venue with no setup or turnaround shows only the booked time", () => {
+    const demo = booking("2027-06-08T10:00:00", "2027-06-08T12:00:00", { eventTitle: "SPM93 Quick Demo" });
+    const result = build({ from: "2027-06-08", to: "2027-06-08", bookings: [demo] });
+    expect(lines(result.days[0].entries)).toEqual(["booked 10:00–12:00 · SPM93 Quick Demo"]);
+    expect(result.bookings[0]).toMatchObject({ occupiedFrom: sgt("2027-06-08T10:00:00"), occupiedTo: sgt("2027-06-08T12:00:00") });
+  });
+
+  it("shows a booking whatever its EVENT status is", () => {
+    const planning = booking("2026-12-01T09:00:00", "2026-12-01T17:00:00", { eventStatus: "planning" });
+    const result = build({ from: "2026-12-01", to: "2026-12-01", bookings: [planning] });
+    expect(result.days[0].entries).toHaveLength(1);
+    expect(result.bookings[0].eventStatus).toBe("planning");
+  });
+
+  it("shows the old lunch and dinner gaps as booked time, not hidden (#126)", () => {
+    const lunch = booking("2027-06-14T12:00:00", "2027-06-14T13:00:00", { eventTitle: "Lunch" });
+    const result = build({ from: "2027-06-14", to: "2027-06-14", bookings: [lunch] });
+    expect(lines(result.days[0].entries)).toEqual(["booked 12:00–13:00 · Lunch"]);
+  });
+
+  it("splits a booking crossing midnight across both days, the first ending at 24:00", () => {
+    const late = booking("2027-06-08T22:00:00", "2027-06-09T01:00:00", { eventTitle: "Late" });
+    const result = build({ from: "2027-06-08", to: "2027-06-09", bookings: [late] });
+    expect(lines(result.days[0].entries)).toEqual(["booked 22:00–24:00 · Late"]);
+    expect(lines(result.days[1].entries)).toEqual(["booked 00:00–01:00 · Late"]);
+  });
+
+  it("names an untitled event", () => {
+    const result = build({ bookings: [booking("2026-09-28T10:00:00", "2026-09-28T11:00:00", { eventTitle: null })] });
+    expect(result.days[0].entries[0].label).toBe("Untitled event");
   });
 });
 
-describe("AC2 - slots occupied by setup or turnaround", () => {
-  it("shows the whole slot before a booking as turnaround, not booked", () => {
-    // A 13:00 start is PM. Any setup at all claims the WHOLE slot before it -
-    // AM - however many minutes are recorded (#108, #123).
-    const b = booking("2026-09-28T13:00:00", "2026-09-28T16:00:00");
-    const { days, bookings } = build({ venue: { setupMinutes: 240 }, bookings: [b] });
-    expect(days[0].slots.AM).toMatchObject({ status: "turnaround", turnaroundBookingIds: [b.id], bookingIds: [] });
-    expect(days[0].slots.PM).toMatchObject({ status: "booked", bookingIds: [b.id] });
-    // "Room in use" now runs from the start of the setup slot.
-    expect(bookings[0].occupiedFrom).toEqual(sgt("2026-09-28T07:00:00"));
+describe("SPM-93 AC9 - tentative holds (#41) at their actual times", () => {
+  it("SPM-93-TC15: a hold shows as setup, requested and turnaround entries", () => {
+    const lunch: AvailabilityHoldInput = {
+      id: "hold-1",
+      eventId: "lunch",
+      eventTitle: "SPM93 Partner Lunch",
+      startsAt: sgt("2027-06-10T12:00:00"),
+      endsAt: sgt("2027-06-10T13:00:00"),
+    };
+    const result = build({ venue: { setupMinutes: 30, teardownMinutes: 45 }, from: "2027-06-10", to: "2027-06-10", holds: [lunch] });
+    expect(lines(result.days[0].entries)).toEqual([
+      "setup 11:30–12:00 · SPM93 Partner Lunch",
+      "requested 12:00–13:00 · SPM93 Partner Lunch",
+      "turnaround 13:00–13:45 · SPM93 Partner Lunch",
+    ]);
+    expect(result.days[0].entries.map((e) => e.holdId)).toEqual(["hold-1", "hold-1", "hold-1"]);
+    expect(result.holds[0]).toMatchObject({ occupiedFrom: sgt("2027-06-10T11:30:00"), occupiedTo: sgt("2027-06-10T13:45:00") });
   });
 
-  it("costs one slot whether setup is 20 minutes or 240", () => {
-    const b = booking("2026-09-28T13:00:00", "2026-09-28T16:00:00");
-    for (const setupMinutes of [20, 240]) {
-      const { days } = build({ venue: { setupMinutes }, bookings: [b] });
-      expect(days[0].slots.AM.status).toBe("turnaround");
-    }
+  it("never counts a hold as a clash", () => {
+    const b = booking("2026-09-28T10:00:00", "2026-09-28T12:00:00");
+    const hold: AvailabilityHoldInput = { id: "h", eventId: "x", eventTitle: "X", startsAt: sgt("2026-09-28T10:00:00"), endsAt: sgt("2026-09-28T12:00:00") };
+    const result = build({ bookings: [b], holds: [hold] });
+    expect(result.hasOverlaps).toBe(false);
+    expect(result.bookings[0].overlaps.bookingIds).toEqual([]);
+  });
+});
+
+describe("SPM-93 AC9 - unavailable periods at their actual times", () => {
+  it("SPM-93-TC16: a part-day period shows its own times, and nothing else of the day", () => {
+    const maintenance = block("2027-06-16T14:00:00", "2027-06-16T18:00:00");
+    const result = build({ venue: { setupMinutes: 30, teardownMinutes: 45 }, from: "2027-06-16", to: "2027-06-16", unavailability: [maintenance] });
+    expect(lines(result.days[0].entries)).toEqual(["unavailable 14:00–18:00 · Maintenance"]);
+    expect(result.days[0].entries[0].unavailabilityId).toBe(maintenance.id);
   });
 
-  it("shows teardown reaching into the next slot as turnaround", () => {
-    const b = booking("2026-09-28T14:00:00", "2026-09-28T17:00:00");
-    const { days } = build({ venue: { teardownMinutes: 60 }, bookings: [b] });
-    expect(days[0].slots.PM.status).toBe("booked");
-    expect(days[0].slots.Night.status).toBe("turnaround");
-  });
-
-  it("prefers booked over turnaround when both reach a slot", () => {
-    const main = booking("2026-09-28T09:00:00", "2026-09-28T11:00:00");
-    const later = booking("2026-09-28T13:00:00", "2026-09-28T15:00:00");
-    // `later`'s 3-hour setup reaches back into AM, where `main` sits properly.
-    const { days } = build({ venue: { setupMinutes: 180 }, bookings: [main, later] });
-    expect(days[0].slots.AM.status).toBe("booked");
-    expect(days[0].slots.AM.bookingIds).toContain(main.id);
-    expect(days[0].slots.AM.turnaroundBookingIds).toContain(later.id);
-  });
-
-  it("tags each of a booking's cells with how it got there", () => {
-    const b = booking("2026-09-28T13:00:00", "2026-09-28T16:00:00");
-    const { bookings } = build({ venue: { setupMinutes: 240 }, bookings: [b] });
-    expect(bookings[0].cells).toEqual([
-      { day: "2026-09-28", slot: "AM", via: "turnaround" },
-      { day: "2026-09-28", slot: "PM", via: "booking" },
+  it("a multi-day period covers each whole day between its first and last", () => {
+    const renovation = block("2026-09-28T12:00:00", "2026-09-30T09:00:00", { reason: "renovation" });
+    const result = build({ from: "2026-09-28", to: "2026-09-30", unavailability: [renovation] });
+    expect(result.days.map((d) => lines(d.entries))).toEqual([
+      ["unavailable 12:00–24:00 · Renovation"],
+      ["unavailable 00:00–24:00 · Renovation"],
+      ["unavailable 00:00–09:00 · Renovation"],
     ]);
   });
 
-  it("warns only about a booking the grid cannot show at all", () => {
-    // Crossing the lunch gap is normal and holds AM and PM, so no warning.
-    const ordinary = booking("2026-09-28T09:00:00", "2026-09-28T17:00:00");
-    expect(build({ bookings: [ordinary] }).bookings[0].minutesOutsideSlots).toBe(0);
-
-    // Entirely inside the 12:00-13:00 gap: it touches no slot and would
-    // vanish from the grid, which is the case worth surfacing.
-    const hidden = booking("2026-09-28T12:15:00", "2026-09-28T12:45:00");
-    expect(build({ bookings: [hidden] }).bookings[0].minutesOutsideSlots).toBe(30);
+  it("labels an underscored reason in words", () => {
+    const result = build({ unavailability: [block("2026-09-28T09:00:00", "2026-09-28T10:00:00", { reason: "internal_activity" })] });
+    expect(result.days[0].entries[0].label).toBe("Internal activity");
   });
 });
 
-describe("tentative holds - pending requests (#41)", () => {
-  it("shows a hold on its slots without taking them", () => {
-    const hold = { id: "h1", eventId: "e9", eventTitle: "Pearl Delta Safety Conference",
-      startsAt: sgt("2026-09-28T14:00:00"), endsAt: sgt("2026-09-28T16:00:00") };
-    const { days, holds } = build({ holds: [hold] });
-    // AC7: availability reflects CONFIRMED bookings, so the slot stays free...
-    expect(days[0].slots.PM.status).toBe("free");
-    // ...but the hold is visible, which is what #41 needs: a coordinator must
-    // see that this room has already been asked for.
-    expect(days[0].slots.PM.holdIds).toEqual(["h1"]);
-    expect(holds[0].eventTitle).toBe("Pearl Delta Safety Conference");
-  });
-
-  it("never lets a hold change a slot's status or count as a clash", () => {
-    const hold = { id: "h1", eventId: "e9", eventTitle: "A request",
-      startsAt: sgt("2026-09-28T14:00:00"), endsAt: sgt("2026-09-28T16:00:00") };
-    const result = build({ holds: [hold] });
-    expect(Object.values(result.days[0].slots).every((c) => c.status === "free")).toBe(true);
-    expect(result.hasOverlaps).toBe(false);
-  });
-
-  it("claims only its own slots, not setup or turnaround ones", () => {
-    // A request is not a commitment, so it does not reserve the slot either
-    // side the way an approved booking does.
-    const hold = { id: "h1", eventId: "e9", eventTitle: "A request",
-      startsAt: sgt("2026-09-28T14:00:00"), endsAt: sgt("2026-09-28T16:00:00") };
-    const { days } = build({ venue: { setupMinutes: 240, teardownMinutes: 180 }, holds: [hold] });
-    expect(days[0].slots.AM.holdIds).toEqual([]);
-    expect(days[0].slots.PM.holdIds).toEqual(["h1"]);
-    expect(days[0].slots.Night.holdIds).toEqual([]);
-  });
-});
-
-describe("AC4 - recorded unavailable periods", () => {
-  it("marks every slot a maintenance block covers as unavailable", () => {
-    const u = block("2026-09-28T00:00:00", "2026-09-29T00:00:00", { reason: "renovation", notes: "Floor resurfacing" });
-    const { days, unavailability } = build({ unavailability: [u] });
-    for (const cell of Object.values(days[0].slots)) {
-      expect(cell).toMatchObject({ status: "unavailable", unavailabilityIds: [u.id] });
-    }
-    expect(unavailability[0]).toMatchObject({ reason: "renovation", notes: "Floor resurfacing" });
-  });
-
-  it("puts unavailable above booked when both occupy a slot", () => {
-    const b = booking("2026-09-28T14:00:00", "2026-09-28T15:00:00");
-    const u = block("2026-09-28T16:00:00", "2026-09-28T17:00:00");
-    const { days } = build({ bookings: [b], unavailability: [u] });
-    // Same PM slot, different hours: the slot reads unavailable, and still
-    // lists the booking, so nothing is hidden.
-    expect(days[0].slots.PM).toMatchObject({ status: "unavailable", bookingIds: [b.id], unavailabilityIds: [u.id] });
+describe("entry order", () => {
+  it("lists a day's entries by start time, an earlier booking's turnaround before a later one's setup at the same minute", () => {
+    const a = booking("2026-09-28T10:00:00", "2026-09-28T11:00:00", { eventTitle: "A" });
+    const b = booking("2026-09-28T11:30:00", "2026-09-28T12:00:00", { eventTitle: "B" });
+    const result = build({ venue: { setupMinutes: 30, teardownMinutes: 30 }, bookings: [b, a] });
+    expect(lines(result.days[0].entries)).toEqual([
+      "setup 09:30–10:00 · A",
+      "booked 10:00–11:00 · A",
+      "turnaround 11:00–11:30 · A",
+      "setup 11:00–11:30 · B",
+      "booked 11:30–12:00 · B",
+      "turnaround 12:00–12:30 · B",
+    ]);
   });
 });
 
@@ -314,15 +268,6 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
     const b = block("2026-09-28T12:00:00", "2026-09-28T16:00:00");
     const result = build({ unavailability: [a, b] });
     expect(result.unavailability[0].overlaps.unavailabilityIds).toEqual([]);
-    expect(result.hasOverlaps).toBe(false);
-  });
-
-  it("does not count two periods in the same slot as overlapping unless their times do", () => {
-    // Both in AM, 08-09 and 10-11: same cell, no clash. Decided on intervals.
-    const a = block("2026-09-28T08:00:00", "2026-09-28T09:00:00");
-    const b = block("2026-09-28T10:00:00", "2026-09-28T11:00:00");
-    const result = build({ unavailability: [a, b] });
-    expect(result.days[0].slots.AM.unavailabilityIds).toEqual([a.id, b.id]);
     expect(result.hasOverlaps).toBe(false);
   });
 
@@ -356,47 +301,18 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
 });
 
 describe("the requested range", () => {
-  it("keeps only cells inside the range, even for a longer booking", () => {
-    const b = booking("2026-09-27T20:00:00", "2026-09-29T10:00:00");
-    const result = build({ from: "2026-09-28", to: "2026-09-28", bookings: [b] });
-    expect(result.bookings[0].cells.every((c) => c.day === "2026-09-28")).toBe(true);
+  it("keeps only the days inside the range, even for a longer booking", () => {
+    const long = booking("2026-09-27T09:00:00", "2026-09-29T17:00:00", { eventTitle: "Long" });
+    const result = build({ from: "2026-09-28", to: "2026-09-28", bookings: [long] });
     expect(result.days).toHaveLength(1);
+    expect(lines(result.days[0].entries)).toEqual(["booked 00:00–24:00 · Long"]);
   });
 
-  it("still lists a booking that reaches the range only through turnaround", () => {
-    // The evening BEFORE the range. A 600-minute teardown keeps the room in
-    // use until 08:30 on the 28th, so the route must still fetch this booking
-    // (it widens its query by turnaround for exactly this) and AM must show it.
-    const b = booking("2026-09-27T20:00:00", "2026-09-27T22:30:00");
-    const result = build({ from: "2026-09-28", to: "2026-09-28", venue: { teardownMinutes: 600 }, bookings: [b] });
-    // Teardown to 08:30 on the 28th reaches AM.
-    expect(result.days[0].slots.AM).toMatchObject({ status: "turnaround", turnaroundBookingIds: [b.id] });
-  });
-});
-
-describe("opening hours and retired venues", () => {
-  it("marks a slot the venue only partly covers as partial, still free", () => {
-    // Orchard Studio, 08:00-21:00: Night (18-23) closes early, and AM (06-12)
-    // opens late. Both are partial, and both still free - partial hours make a
-    // slot shorter, not unbookable.
-    const { days } = build({ venue: { opensAt: "08:00", closesAt: "21:00" } });
-    expect(days[0].slots.Night).toMatchObject({ status: "free", openingHours: "partial" });
-    expect(days[0].slots.AM).toMatchObject({ status: "free", openingHours: "partial" });
-    expect(days[0].slots.PM.openingHours).toBe("full");
-  });
-
-  it("marks an empty slot closed when the venue is shut for all of it", () => {
-    const { days } = build({ venue: { opensAt: "08:00", closesAt: "12:00" } });
-    expect(days[0].slots.PM).toMatchObject({ status: "closed", openingHours: "closed" });
-    expect(days[0].slots.Night.status).toBe("closed");
-  });
-
-  it("never offers a retired venue's empty slots as free", () => {
-    // SPM-39 AC6: inactive venues are not presented as available options.
-    const b = booking("2026-09-28T14:00:00", "2026-09-28T16:00:00");
-    const { days } = build({ venue: { isActive: false }, bookings: [b] });
-    expect(days[0].slots.AM.status).toBe("closed");
-    // Its existing bookings are still shown - retiring hides nothing.
-    expect(days[0].slots.PM.status).toBe("booked");
+  it("still shows a booking that reaches the range only through its setup", () => {
+    // A 00:30 booking on the 29th with 60 min setup needs the room from 23:30 on the 28th.
+    const early = booking("2026-09-29T00:30:00", "2026-09-29T02:00:00", { eventTitle: "Early" });
+    const result = build({ venue: { setupMinutes: 60 }, from: "2026-09-28", to: "2026-09-28", bookings: [early] });
+    expect(lines(result.days[0].entries)).toEqual(["setup 23:30–24:00 · Early"]);
+    expect(result.bookings).toHaveLength(1);
   });
 });

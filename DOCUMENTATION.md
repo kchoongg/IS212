@@ -150,10 +150,15 @@ IS212/
 │   ├── seed-spm34.ts            # `npm run fixtures:spm34` — SPM-34 test data, no reseed
 │   ├── seed-spm28.ts            # `npm run fixtures:spm28` — SPM-28 test data, no reseed
 │   ├── seed-spm42.ts            # `npm run fixtures:spm42` — SPM-42 test data, no reseed
+│   ├── seed-spm44.ts            # `npm run fixtures:spm44` — SPM-44 test data, no reseed
 │   ├── seed-spm43.ts            # `npm run fixtures:spm43` — SPM-43 test data, no reseed
 │   ├── seed-spm50.ts            # `npm run fixtures:spm50` — SPM-50 test data, no reseed
 │   ├── seed-spm54.ts            # `npm run fixtures:spm54` — SPM-54 test data, no reseed
-│   └── seed-spm45.ts            # `npm run fixtures:spm45` — SPM-45 test data, no reseed
+│   ├── seed-spm45.ts            # `npm run fixtures:spm45` — SPM-45 test data, no reseed
+│   ├── seed-spm62.ts            # `npm run fixtures:spm62` — SPM-62 test data, no reseed
+│   ├── seed-spm93.ts            # `npm run fixtures:spm93` — SPM-93 test data, no reseed
+│   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
+│                                   steps and lists bookings that then clash (dry run by default)
 │
 └── src/
     ├── app/
@@ -202,6 +207,11 @@ IS212/
     │   │                                request was rejected" banner with the
     │   │                                reason, and a "Review request" button for
     │   │                                the assigned coordinator while Under review.
+    │   ├── events/[id]/update/page.tsx  # Edit event information (SPM-62): the assigned
+    │   │                                coordinator changes an event's information after
+    │   │                                approval. NOT the draft editor (../edit), which is
+    │   │                                the organiser's, before submission. Reached from
+    │   │                                "Edit event information" on the Overview.
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
     │   ├── events/[id]/booking/new/page.tsx # S-15 Venue booking request (SPM-42), from
     │   │                                "Request booking" on the Venue tab
@@ -233,7 +243,9 @@ IS212/
     │   └── api/                     # ← THE BACKEND. Each folder = one "service"/domain.
     │       ├── auth/                   (Jordan)
     │       ├── events/                  (Kristen) — incl. events/[id]/coordinator
-    │       │                                (PUT: assign/reassign, SPM-30)
+    │       │                                (PUT: assign/reassign, SPM-30) and
+    │       │                                events/[id]/information (PATCH: update an
+    │       │                                event's information after approval, SPM-62)
     │       ├── assignments/              (Kristen) — the S-28 queue's data (SPM-30)
     │       ├── queue/                    (Kristen) — the S-12 Review Queue's data (SPM-28)
     │       ├── venues/                   (Kayal) — incl. venues/[id]/unavailability
@@ -281,19 +293,32 @@ IS212/
         │                                 rejection-reason rule
         ├── sessionWrites.ts              # Writes a multi-session event's sessions + their equipment (takes the caller's transaction)
         ├── beginPlanning.ts              # SPM-54: beginPlanningIfApproved() - THE one way an event moves
-        │                                   Approved -> Planning (takes the caller's transaction)
-        ├── venueSlots.ts                  # AM/PM/Night slots, setup/turnaround as whole
-        │                                   adjacent slots (#50/#107/#108/#123). Written
-        │                                   for SPM-46; SPM-40 carries an identical copy
-        │                                   so the two branches merge cleanly - change it
-        │                                   on ONE branch only.
+        │                                   Approved -> Planning (takes the caller's transaction).
+        │                                   SPM-62 adds revertConfirmationIfConfirmed():
+        │                                   an equipment change moves a Confirmed event
+        │                                   back to Planning.
+        ├── eventChangeImpact.ts           # SPM-62 rules, pure: which changes are important,
+        │                                   which arrangements each flags, when a Confirmed
+        │                                   event reverts. SPM-32/35/88 reuse it - one meaning
+        │                                   of "important" everywhere.
+        ├── applyEventInformation.ts       # SPM-62: applies a change and flags what it affects
+        │                                   (takes the caller's transaction). SPM-32 applies
+        │                                   approved change requests through it.
+        ├── eventInformationForm.ts        # SPM-62 form, pure: what changed, the payload, checks
+        ├── reviewFlags.ts                 # addReviewReasons(): THE way to add to a reviewReason
+        │                                   column - keeps codes from other stories (SPM-39/62/...)
+        ├── venueTime.ts                   # SPM-93: the 15-minute booking grid, local
+        │                                   (Singapore) time, occupiedWindow() - start minus
+        │                                   setup to end plus turnaround - and THE overlap
+        │                                   test. Replaced venueSlots.ts (AM/PM/Night).
         ├── venueSearch.ts                 # SPM-40 filter rules, pure - no Prisma. One
         │                                   function per AC; searchVenues() keeps only
         │                                   venues passing every filter (AC7).
         ├── venueSearchForm.ts             # SPM-40 form values: pre-fill from an event,
         │                                   query string, client-side checks
-        ├── venueBookingRequest.ts         # SPM-42 request rules, pure: chosen slots ->
-        │                                   booking window, does it cover the schedule
+        ├── venueBookingRequest.ts         # SPM-42 request rules, pure: date + start/end
+        │                                   time -> booking window; grid, opening hours,
+        │                                   cover the schedule, conflicts (SPM-93)
         ├── venueBookingReview.ts          # SPM-43 decision rules, pure: decided once,
         │                                   approval conflict re-check, reason required,
         │                                   what may be suggested (checkBookingDecision())
@@ -582,14 +607,15 @@ defend under questioning.
 | **Approve and reject only from Under review** — a request is decided once; approving or rejecting an event in any other status is refused (400) | `REVIEW_OUTCOMES` / `REVIEWABLE_STATUSES`, `api/events/[id]` PATCH | ✅ done (SPM-28) |
 | Registration: confirmed, in window, no duplicate, seats left | `api/registrations` POST | ✅ done |
 | **A venue booking request is decided once, and only while Pending** — approving or rejecting an already-decided one is refused (400) | `DECIDABLE_BOOKING_STATUSES`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
-| **Approval re-checks the room** — refused if another *approved* booking's slots (setup and turnaround included) or an unavailability period overlap, if the venue is retired, or if the event is completed, cancelled or rejected. A rival *pending* request does not block: approving one is how Venue Staff choose. The venue row is locked for the check, so two approvals cannot both pass | `approvalConflict()`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
+| **A booking occupies the room from its start minus the venue's setup to its end plus its turnaround** — every availability and conflict check (request, approval, search, calendar) compares these periods; periods that only meet end to start do not clash. Times are on a 15-minute grid, and the whole period must fit the opening hours | `occupiedWindow()`, `overlapping()`, `withinOpeningHours()` (`src/lib/venueTime.ts`), `checkVenueBookingRequest()` | ✅ done (SPM-93) |
+| **Approval re-checks the room** — refused if another *approved* booking's occupied time (setup and turnaround included) or an unavailability period overlap, if the venue is retired, or if the event is completed, cancelled or rejected. A rival *pending* request does not block: approving one is how Venue Staff choose. The venue row is locked for the check, so two approvals cannot both pass | `approvalConflict()`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
 | **Reason required when rejecting a booking**; a suggested venue must be active and not the one refused. The suggestion books nothing (#45, #110) | `checkBookingDecision()` | ✅ done (SPM-43) |
 | **An unavailable period covers at least one slot** — it runs from the start of its first unavailable slot to the start of its first available one, and the return must be later than the start (#50) | `venueUnavailabilitySchema`, `periodInterval()`, `api/venues/[id]/unavailability` | ✅ done (SPM-45) |
 | **A period needs a reason; "other" needs a typed one** — required, trimmed, 500 characters at most, kept in the row's `notes`; ignored for a listed reason | `venueUnavailabilitySchema`, `periodColumns()` | ✅ done (SPM-45) |
 | **A period flags the bookings it covers and changes none** — approved and not finished only; a booking counts when the period covers any slot it holds, setup and turnaround included. Changing a period flags only what it newly covers; nothing clears a flag | `bookingInPeriod()`, `flagBookingsInPeriod()` | ✅ done (SPM-45) |
 | **Ending a period early** — one under way ends now (the row is kept), one not started is deleted, one already over is refused (400) | `periodPhase()`, `api/venues/[id]/unavailability/[periodId]` DELETE | ✅ done (SPM-45) |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
-| Booking conflict detection | venues domain | ❌ to write |
+| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event and session cannot request overlapping slots at a venue twice (two sessions may share a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
 | Equipment availability | `src/lib/equipmentAvailability.ts` | ✅ done (SPM-48) |
 | **Reserved / Partially fulfilled are set only by Reserve** — never picked by hand, so a line never claims stock it doesn't hold; leaving them goes through Unavailable | `fulfilmentOptionsFor()`, `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | ✅ done (SPM-50) |
 | **Unavailable needs a reason** (blank or spaces-only refused); technical notes max 500 characters, saved trimmed. Marking a reserved line Unavailable frees its units (status alone does it; `quantityReserved` is cleared too) | `checkFulfilmentUpdate()`, `fulfilmentChanges()` | ✅ done (SPM-50) |
@@ -614,6 +640,9 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
 | **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
 | **An event begins planning with the assigned coordinator's first venue or equipment action, and only from Approved** — pressing Search on Find a venue, submitting a booking request, or adding, saving or removing an equipment requirement. Nothing else moves an event to Planning; the general status PATCH refuses it | `beginPlanningIfApproved()` (`src/lib/beginPlanning.ts`), `canBeginPlanning()`, `POST /api/events/[id]/begin-planning` | ✅ done (SPM-54) |
+| **Only the assigned coordinator updates an event's information after submission, and only while it is Approved, Planning or Confirmed** — the organiser asks through a change request instead (SPM-35, clarification #102). Organiser, coordinator, status, equipment (Equipment tab), sessions and registration settings (SPM-64) are not editable there | `canUpdateEventInformation()`, `EVENT_INFORMATION_STATUSES`, `updateEventInformationSchema` (strict), `PATCH /api/events/[id]/information` | ✅ done (SPM-62) |
+| **An important change flags the arrangements it affects and never changes them** — date or time flags the venue bookings, equipment and registrations; attendance or venue requirements flag the venue bookings only. Flags merge into what is already there (SPM-39's reasons included) | `src/lib/eventChangeImpact.ts`, `src/lib/applyEventInformation.ts` | ✅ done (SPM-62) |
+| **A Confirmed event goes back to Planning when its venue or equipment is affected** — an important change on the edit form, or any equipment change on the Equipment tab, asked first in both places. Registrations alone do not revert it | `revertsConfirmation()`, `revertConfirmationIfConfirmed()` (`src/lib/beginPlanning.ts`) | ✅ done (SPM-62) |
 | **Venue bookings and equipment changes wait for approval** — on a Submitted or Under review event the coordinator can search venues but cannot request a booking or add, change or remove equipment | `isBeforeApproval()` (`src/lib/statuses.ts`), `checkVenueBookingRequest()`, the equipment routes | ✅ done (SPM-54) |
 | **A booking request is reviewed only once its event is approved** — a pending request whose event is still Submitted or Under review is not listed on Booking Requests and cannot be approved | `GET /api/venue-bookings`, `awaitingEventApproval()` (`src/lib/venueBookingReview.ts`) | ✅ done (SPM-43) |
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
@@ -708,10 +737,13 @@ traceability the module asks for.
 | `npm run fixtures:spm28` | Adds or resets SPM-28's 7 test events ("SPM28 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm28_`, with their facilities and equipment, always at **EVT-000124 to EVT-000130** (the numbers a full reseed gives them, so test cases can quote addresses). Stops without changing anything if another event holds one of those numbers. Run it before and after SPM-28-TC08 (approve) and TC10/TC11 (reject, then the organiser views it), so the next tester finds those requests Under review again. The same events are in `prisma/seed.ts` |
 | `npm run fixtures:spm34` | Adds or resets SPM-34's 8 test events ("SPM34 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm34_`, with the venue bookings, equipment requests and sessions that put each one in its own state (ready, venue-only, pending venue, equipment short, two-session, another coordinator's). Re-run before and after each SPM-34 test pass, since confirming is what the cases do |
 | `npm run fixtures:spm42` | Adds or resets SPM-42's 14 test events ("SPM42 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm42_` (with their sessions and bookings, so every request a test pass submitted goes too), and upserts the test venue "SPM42 Plain Room" (SPM42-PLN). Re-run before each SPM-42 test pass |
+| `npm run fixtures:spm44` | Adds or resets SPM-44's 16 test events ("SPM44 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm44_` (with the bookings they hold, so every request a test pass submitted goes too), upserts the test venue "SPM44 Conflict Room" (SPM44-PLN, no setup or turnaround so neighbouring slots do not clash), and replaces the one unavailability period AC8 needs. Re-run before and after each SPM-44 test pass |
 | `npm run fixtures:spm43` | Adds or resets SPM-43's 14 test events ("SPM43 …") without reseeding — touches only events whose `seedKey` starts with `spm43_`. They are reset **in place**: each event row is kept, so its EVT- reference stays the same from run to run, and only its sessions and booking requests are dropped and recreated (so every decision a test pass made goes). It also upserts two test venues: "SPM43 Maintenance Room" (SPM43-MNT, reset to its one maintenance period on 14 May 2027) and "SPM43 Retire Test Room" (SPM43-RET, made active again). Run before each SPM-43 test pass and after any case that approves or rejects — it is the revert |
 | `npm run fixtures:spm50` | Adds or resets SPM-50's 6 test events (Robotics Expo, Design Week, …, Aug–Sep 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm50_`, with their equipment lines. Needs the base seed's users and the SPM-49 equipment items. Run it again before repeating a case that saves |
 | `npm run fixtures:spm54` | Adds or resets SPM-54's 10 test events ("SPM54 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm54_` (with any booking requests and equipment a test pass added), always at **EVT-000145 to EVT-000154**. Stops without changing anything if another event holds one of those numbers. Run it before a test pass and after any case that moves an event to Planning (TC01/TC02, TC04 to TC07) or adds to one (TC14). The same events are at the end of `prisma/seed.ts` |
 | `npm run fixtures:spm45` | Adds or resets SPM-45's test data without reseeding — upserts six test venues ("SPM45 Dates Room", "SPM45 Period Room", "SPM45 Setup Room", "SPM45 Status Room", "SPM45 Closure Room", "SPM45 Reopened Room") and ten events whose `seedKey` starts with `spm45_`. The events are reset **in place** (EVT- references kept); the rooms' unavailable periods and the events' bookings and notifications are dropped and recreated, which removes every period and review flag a test pass left. Run it before a test pass and after any case that says so |
+| `npm run fixtures:spm62` | Adds or resets SPM-62's 9 test events ("SPM62 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm62_`, with their approved venue bookings, reserved equipment, registrations and required facility. No pinned reference numbers: the cases find events by title. Stops without changing anything if one of its rooms is already booked at that time. Run it before and after any case that saves (TC03 to TC05, TC07, TC09, TC10, TC12, TC13). The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm93` | Adds or resets SPM-93's 18 test events ("SPM93 …") and its three test venues (SPM93 Studio, Quick Room, Settings Room) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm93_`, with their bookings and sessions, and puts the three venues back to their starting values with one maintenance period. Run it before and after any case that sends, approves or edits (docs/test-cases/SPM-93_Test_Cases.xlsx). The same venues and events, without bookings, sessions or maintenance, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -826,12 +858,12 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | Gap | Impact | Owner |
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
-| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
-| **Two booking requests submitted at the same moment can both pass the clash check** | `POST /api/events/[id]/venue-bookings` (SPM-42) checks and writes without a lock, so two holds on one room and slot can exist. Approval is not affected: `PATCH /api/venue-bookings/[id]` (SPM-43) locks the venue row and re-checks, so only one of them can be approved and the other then shows as a Conflict on `/bookings`. | venues |
+| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
+| **Two booking requests submitted at the same moment can both pass the clash check** | `POST /api/events/[id]/venue-bookings` (SPM-42) checks and writes without a lock, so two holds on one room for overlapping times can exist. Approval is not affected: `PATCH /api/venue-bookings/[id]` (SPM-43) locks the venue row and re-checks, so only one of them can be approved and the other then shows as a Conflict on `/bookings`. | venues |
 | **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
 | **A decided booking cannot be undone or released** | Once approved or rejected (SPM-43) a request stays that way: nothing cancels an approved booking, and Venue Staff have no list of what they have already decided. Releasing bookings belongs to cancelling and postponing an event (SPM-37, SPM-38). | venues / events |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
-| **No way to clear a booking's review flag** | `PATCH /api/venues/[id]` sets `VenueBooking.needsReview` when a venue change affects a booking, but nothing clears it and no screen lists flagged bookings — so the flag is only visible in the database, and any demo that sets one leaves permanent state until the next reseed. Marking a venue unavailable (SPM-45) sets the same flag, and changing or ending the period does not clear it - that is SPM-68's. | venues |
+| **No way to see or clear review flags after they are raised** | Venue changes (SPM-39) flag bookings; event information changes (SPM-62) flag bookings, equipment requests (`EquipmentRequest.needsReview`) and registrations (`Event.registrationReviewReason`). Nothing clears any of them, and SPM-62 shows its flags only on the save screen at the moment of saving — afterwards they are visible only in the database, and they do not yet block confirmation. **SPM-68 (Review Flagged Arrangements, Sprint 3)** lists them, keeps or replaces each, and makes an open flag block confirmation. Until then a coordinator must act on the "Flagged for review" list straight away. Marking a venue unavailable (SPM-45) sets the same booking flag, and changing or ending the period does not clear it. | SPM-68 |
 | **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
 | **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
@@ -842,13 +874,16 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
+| **Nobody is notified when an event's information changes** | SPM-62 moves a Confirmed event back to Planning but writes no `Notification` — the organiser ("no longer confirmed") and registered attendees ("new date and time") are told by **SPM-53**, per the BPMN and SPM-62's reworded AC6 (decided 2026-10-05). | SPM-53 |
+| **A multi-session event's sessions cannot be edited after approval** | Edit event information shows a multi-session event's sessions read-only ("Session times and attendance can't be changed here yet."). The draft editor replaces sessions wholesale, which after approval would delete each session's bookings and equipment, so session edits need their own story that updates them in place. | events |
 | **The organiser is not notified when planning begins** | SPM-54 shows the Planning status on the organiser's Dashboard (its own "Planning" section), on My Events and on the event page, but writes no `Notification` — decided 2026-10-01. | events |
 | **Beginning planning cannot be undone, and its history is not shown** | Nothing moves an event back from Planning to Approved; the "Begin planning?" dialog is the only safeguard. The move is written to `EventStatusHistory` with the action that caused it ("Venue search started", "Venue booking requested", "Equipment requirement recorded / updated / removed"), but the History tab is not built, so who began planning and how is only visible in the database. | events |
 | **Find a venue gives no feedback when a search returns the same results** | Pressing Search with unchanged filters reloads an identical list and nothing says a search ran. Found while testing SPM-54; raised as **SPM-79** (Show Venue Search Feedback), in the backlog. | venues |
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
+| **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 | **No equipment catalogue screen** | The sidebar's "Equipment" link (Coordinator + Technical Support) points at `/equipment`, which doesn't exist — no story in the backlog builds it, so it 404s. The catalogue exists as data (`prisma/seed.ts`) and is read by every equipment picker; only *editing* it (or an item's location/status) has no screen. Candidate owner is SPM-55 (Record Equipment Unavailability), whose ACs need a status screen anyway. Flagged 2026-09-27. | unclaimed |
-| **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Customer Q&A #114 says affected arrangements should be reviewed again; whether that belongs to SPM-34 or the change-request flow is still to be decided. | equipment / events |
+| **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
 | **Equipment availability's cancelled/postponed filter is temporary** | Only `EquipmentRequest.status IN (reserved, partially_fulfilled)` counts against stock, and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). This is standing in for SPM-37 (Cancel Event) and SPM-38 (Postpone Event) actually releasing the reservation when built — remove the filter once they do, and check nothing still relies on it. | equipment |
 | **Equipment transfer/prep time is a flat 2h with no location UI** | `Equipment.locationVenueId` (SPM-48) lets an item be pinned to a venue — no transfer time is added for an event there — but nothing in the app sets it; only `prisma/seed.ts`'s fixtures do. The 2h figure itself, and "before the event only, nothing added after" (SPM-48 open question, not yet asked at a customer Q&A), are both team assumptions. | equipment |
 
@@ -868,6 +903,126 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-08 — Kayal
+- **SPM-93 (Book Venues in 15-Minute Units).** Week 7 Change #1, #126 and
+  #128 replace the AM / PM / Night slots with times on a 15-minute grid, and
+  make setup and turnaround real durations. No schema change: bookings,
+  holds and unavailable periods always stored real times; the slots only
+  lived in `src/lib/venueSlots.ts`, now replaced by `src/lib/venueTime.ts`.
+  - **The rule** (AC6, AC7): a booking occupies the room from its start minus
+    the venue's setup to its end plus its turnaround (`occupiedWindow()`), and
+    two bookings clash when those periods overlap - meeting end to start is
+    fine. Used by the request (SPM-42), approval (SPM-43), venue search
+    (SPM-40) and the calendar (SPM-46). A pending request holds its setup and
+    turnaround too (decided 2026-10-08, from #41 and Week 7 Change #1).
+  - **Request form (S-15)**: Date, Start time, End time instead of slot
+    checkboxes, defaulting to the event's or session's times widened to the
+    grid (`defaultTimes()`); off-grid or inverted times are named under their
+    field (AC3); the setup, turnaround and room-in-use times are shown. The
+    room-in-use period must fit the opening hours (AC4 - decided 2026-10-08;
+    our question #131 is still open). `POST /api/events/[id]/venue-bookings`
+    takes `startTime`/`endTime` and returns `{ error, field }` for a refused time.
+  - **Booking Requests (S-22)** show the times, setup, turnaround and room in
+    use, in the card, the approve dialog and the conflict message (AC8).
+  - **Calendar (S-21)**: one row per day listing Setup / Booked / Requested /
+    Turnaround / Unavailable entries at their actual times (AC9). The response
+    has `days[].entries` instead of `days[].slots`.
+  - **Venue form**: "Setup time (minutes)" and "Turnaround time (minutes)", in
+    15-minute steps, zero included (AC5), checked on screen and by the API.
+    `scripts/spm93-round-turnaround.ts` rounds venues saved before this up
+    (CBP-MTG1 and CBP-MTG2 had 20 min of setup; `prisma/seed.ts` now says 30)
+    and lists bookings that then clash - flagging them is SPM-80.
+  - **Seed**: SPM93 venues and events added at the end of `prisma/seed.ts`;
+    `EventSeed` gained an optional `startMinute`, and event durations are
+    rounded to the millisecond (no existing event moves).
+  - **SPM-44's conflict module, in times.** `src/lib/venueConflict.ts` stays
+    the one place that decides a clash and says what it is with; it now
+    reports the minutes both need ("…is already booked for EVT-… Title on
+    8 Jun 2027, 09:30–09:45.") instead of shared slot cells, and a pending
+    request holds its setup and turnaround too. Its tests were rewritten for
+    times; SPM-44's own test cases still quote slot wording - for its owner.
+  - Test cases: `docs/test-cases/SPM-93_Test_Cases.xlsx` (17), written before
+    the code; all 17 passed when run by hand. SPM-42, SPM-43 and SPM-46 are Done and not reopened: SPM-93 is
+    the new story for the change (Week 7 guide, scenario 2).
+
+### 2026-10-06 — Jordan
+- **SPM-44 review fixes (PR #37, raised by kayalvizhi24).** Both gaps predate
+  SPM-44 (they came with SPM-42's request route); neither allowed an actual
+  double booking, because approval was already locked.
+- **A repeat request is refused.** `findVenueConflict()` exempts the
+  requesting event's own bookings, so two sessions of one event can share a
+  room — but that also let one event submit the same request twice and get two
+  pending rows. `findDuplicateRequest()` in `src/lib/venueConflict.ts` refuses
+  the same event and session asking again for overlapping slots at the same
+  venue while the first is pending or approved: "This event already has a
+  pending request for … on 5 Apr 2027 · AM (07:00–12:00)." The exemption
+  stays. `SearchBooking` gained an optional `sessionId`, and
+  `checkVenueBookingRequest()` now takes the request's `sessionId`.
+- **Requests made at the same moment.** `POST /api/events/[id]/venue-bookings`
+  read the venue and ran the check before its transaction, so two coordinators
+  could both pass before either row was written. It now takes
+  `SELECT … FOR UPDATE` on the venue row inside the transaction, then reads
+  the bookings, checks and creates — the same lock the approval route
+  (`PATCH /api/venue-bookings/[id]`) already takes. No rule or wording changed.
+- **SPM-44's room, bookings and maintenance period are in `prisma/seed.ts`.**
+  They existed only in `scripts/seed-spm44.ts`, so after a full reseed the
+  conflict cases had nothing to collide with. SPM44-PLN is now in `venueData`
+  beside SPM-42's and SPM-43's rooms, and the holder bookings and the AC8
+  block are created after SPM-43's bookings. No event's EVT- reference moves.
+- SPM-44-TC03 now submits the repeat request instead of only checking that the
+  button is shown.
+- Migration: none.
+
+### 2026-10-06 — Kristen
+- **SPM-62 (Update Event Information).** The assigned coordinator can change
+  an event's information after approval, and a change that affects existing
+  arrangements flags them for review instead of changing them.
+  - **New screen:** Edit event information (`/events/[id]/update`), from an
+    "Edit event information" button on the Overview (assigned coordinator;
+    Approved, Planning or Confirmed). Same labels and messages as the draft
+    form. As the form is edited, an amber "These changes affect existing
+    arrangements" alert names the important changes. A Confirmed event asks
+    "Move this event back to Planning?" first. After saving, the page shows
+    what was flagged, with a "Back to event" link.
+  - **New route:** `PATCH /api/events/[id]/information` — only what changed,
+    strict schema, 401 / 404 / 403 / 400 as the endpoint pattern. Refuses a
+    start before registration closes, and schedule changes on a multi-session
+    event.
+  - **Rules** (pure, `src/lib/eventChangeImpact.ts`): date or time flags venue
+    bookings, equipment and registrations; attendance and venue requirements
+    flag venue bookings only; a Confirmed event reverts when a venue booking
+    or equipment request is flagged. Writing them is
+    `src/lib/applyEventInformation.ts`, which SPM-32 will reuse.
+  - **Equipment tab:** adding, saving or removing equipment on a Confirmed
+    event asks first, then moves it back to Planning. The equipment routes
+    return `confirmationReverted`.
+  - **Not here, on purpose** (overlap check against open Jira stories,
+    2026-10-05): registration settings (SPM-64), notifications (SPM-53),
+    reviewing and clearing flags (SPM-68), a changed reservation going back
+    to Technical Support (SPM-69). Jira updated for SPM-32, SPM-62, SPM-64,
+    SPM-68, SPM-69 and SPM-75.
+- **Fixed (review on PR #40):** a venue edit (SPM-39) dropped review reasons
+  it did not recognise, so it wiped an event-change reason SPM-62 had put on
+  the same booking. Every writer of a `reviewReason` column now adds through
+  `addReviewReasons()` (`src/lib/reviewFlags.ts`), which keeps all codes.
+- **Migration:** `20261005120000_add_event_change_review_flags` —
+  `equipment_requests.needs_review` / `review_reason` / `flagged_at` (+ index)
+  and `events.registration_review_reason`. Applied to the shared Neon database
+  on 2026-10-05.
+- **Test data:** `npm run fixtures:spm62` (9 events). The same events are
+  appended to `prisma/seed.ts`.
+- **Tests:** written first, then the code to them. 2,558 tests pass. New:
+  `eventChangeImpact.test.ts`, `event-information.test.ts`,
+  `event-information-pages.test.tsx`; extended: `event-equipment.test.ts`,
+  `equipment-pages.test.tsx`, `event-pages.test.tsx`. Manual cases:
+  `docs/test-cases/SPM-62_Test_Cases.xlsx` (20), walked through the running
+  app on 2026-10-05.
+- **Docs:** `docs/PERMISSIONS.md` (the route), `SCHEMA_REFERENCE.md` (the new
+  columns, and the event reason codes sharing `VenueBooking.reviewReason`),
+  `UI_DESIGN.md` (implementation status). Known Gaps: review-flag gap widened
+  (owner SPM-68), quantity re-check now SPM-69's, two new rows
+  (notifications, session edits).
 
 ### 2026-10-06 — Kayal
 
@@ -926,6 +1081,39 @@ what changed, why, and the migration name if there is one.
     `docs/test-cases/SPM-45_Test_Cases.xlsx` (17 cases, all 6 ACs).
   - **Not done here:** the Coordinator's list of flagged bookings and the
     replacement-venue search (SPM-68); showing the notification (SPM-71).
+
+### 2026-10-04 — Jordan
+- **SPM-43 merged into SPM-44, and the duplicated conflict rule is gone.**
+  `approvalConflict()` in `src/lib/venueBookingReview.ts` carried a second copy
+  of the confirm-time rule, with a comment saying it should call SPM-44's
+  `checkVenueBookingApproval()` once that branch landed. It now calls
+  `findVenueConflict()` with `scope: "approved"`, so a rival PENDING request
+  still does not block a decision. Its wording is unchanged: Venue Staff read
+  "This overlaps an approved booking: …", a coordinator making a request reads
+  "the room is already booked" — the rule is shared, the sentence belongs to
+  the screen. SPM-43's own tests pass unmodified.
+- `findVenueConflict()` now takes **`ConflictVenue`** — name, turnaround,
+  bookings, unavailability — rather than `SearchableVenue`, which also carries
+  layouts, facilities and opening hours the rule never reads. That is what
+  lets the review side call it. `SearchableVenue` satisfies it structurally,
+  so the search and request callers are untouched.
+- **SPM-44 AC6 is no longer blocked.** SPM-44-TC10 runs against the real
+  Booking Requests screen: a pending request whose slot an approved booking
+  holds shows a **Conflict** chip, names the booking in the way, and its
+  Approve button is disabled. Its fixture pair is seeded rather than made
+  through the app, because the request-time check refuses the second request —
+  it is the state Venue Staff inherit when two requests arrive for one slot.
+- **`checkVenueBookingApproval()` removed.** It was written before SPM-43
+  existed, for that story to call; SPM-43's `approvalConflict()` calls
+  `findVenueConflict()` directly instead, so nothing in the app used it. Its
+  three unit tests now exercise `findVenueConflict()` with the approval scope.
+- **SPM-44's events moved to the end of `prisma/seed.ts`,** after SPM-43's.
+  They had been pushed before the SPM-54 block, which would have moved
+  SPM-54's pinned EVT-000145 to EVT-000154 (and every later fixture's
+  reference) by 16 on a full reseed. No data changed.
+- Two Excel lock files (`~$SPM-44…`, `~$SPM-50…`) had been committed by
+  accident and are now untracked; `~$*` added to `.gitignore`.
+- Migration: none (SPM-43's `add_venue_booking_suggestion` was already applied).
 
 ### 2026-10-04 — Kristen
 - **Tests brought up to date with `main`** (SPM-27, SPM-34, SPM-43, SPM-50,
@@ -1140,6 +1328,41 @@ what changed, why, and the migration name if there is one.
   fixtures:spm43`): the 12 existing events keep their EVT- references and
   "SPM43 Policy Briefing" was added at the end. SPM-28's and SPM-54's pinned
   references are unchanged.
+
+### 2026-10-02 — Jordan
+- **SPM-44 (Booking Conflict Detection): the conflict rules moved into one
+  module, `src/lib/venueConflict.ts`, and now say WHAT is in the way.**
+  `findVenueConflict()` returns the clashing booking or unavailability period
+  and the slots actually contested, and `describeVenueConflict()` turns that
+  into the message a coordinator reads. `occupancyConflict()` in
+  `venueSearch.ts` now delegates to it, so the search screen and the booking
+  check can no longer disagree about whether a room is free.
+- **Refusal wording changed (AC9).** "Marina Auditorium is already booked for
+  this time." is now "… is already booked for EVT-000042 Product Showcase on
+  21 Oct 2026, AM–PM." Unavailability gives its reason and the whole closure,
+  not just the slot asked for. **SPM-42's recorded test cases (TC14, TC15)
+  still quote the old wording** — their unit tests were updated, the workbook
+  was not, because that is Sammi's to re-record.
+- **Confirm-time checking is written but has no caller.**
+  `checkVenueBookingApproval()` enforces AC6 and differs from request time in
+  one way that matters: a rival *pending* request must not block a
+  confirmation, because approving one request is how Venue Staff choose
+  between two. Whoever builds SPM-43 should call it rather than write the rule
+  again. SPM-44-TC10 is recorded Blocked until then.
+- `overlapping()` and `NO_TURNAROUND` moved from `venueSearch.ts` to
+  `venueSlots.ts`, where `Interval` and `Turnaround` already live, so two
+  modules can share them without a cycle.
+- **Fixed a merge artefact in `prisma/seed.ts`:** the `eventData.push(` opened
+  for the SPM-28 fixtures was never closed, so the file did not compile and
+  `npx prisma db seed` would have failed. One `);` added; no data changed.
+- **Boundary coverage.** Two unit tests pin the half-open overlap rule at a
+  slot edge (a block filling AM exactly does not reach PM) and the dead time
+  between slots (12:00-13:00 belongs to no slot, so a booking inside one blocks
+  nothing). SPM-44-TC11 walks the day-crossing case by hand: a Night booking's
+  turnaround takes the NEXT morning's AM (#123), and the refusal spans both
+  days.
+- `npm run fixtures:spm44` adds SPM-44's 14 events, the SPM44-PLN test room
+  and one unavailability period, without reseeding.
 
 ---
 

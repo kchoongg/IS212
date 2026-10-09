@@ -272,7 +272,7 @@ describe("Add venue", () => {
 
     expect(field(/^Opens at/)).toHaveValue("08:00");
     expect(field(/^Closes at/)).toHaveValue("22:00");
-    expect(field("Setup minutes")).toHaveValue(0);
+    expect(field("Setup time (minutes)")).toHaveValue(0);
   });
 
   it("adds a venue from the required fields alone, then returns to the catalogue", async () => {
@@ -307,8 +307,8 @@ describe("Add venue", () => {
     set(field(/^Maximum capacity/), "300");
     set(field(/^Opens at/), "07:00");
     set(field(/^Closes at/), "23:00");
-    set(field("Setup minutes"), "60");
-    set(field("Teardown minutes"), "30");
+    set(field("Setup time (minutes)"), "60");
+    set(field("Turnaround time (minutes)"), "30");
     await userEvent.click(screen.getByRole("checkbox", { name: "Stage" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Hearing loop" }));
     await userEvent.click(screen.getByRole("checkbox", { name: "Stage" }));
@@ -339,8 +339,8 @@ describe("Add venue", () => {
   it("leaves setup and teardown out when they are blanked", async () => {
     const api = await open();
     fillRequiredVenue();
-    set(field("Setup minutes"), "");
-    set(field("Teardown minutes"), "");
+    set(field("Setup time (minutes)"), "");
+    set(field("Turnaround time (minutes)"), "");
 
     await submit();
 
@@ -370,8 +370,11 @@ describe("Add venue", () => {
       ["no opening time", () => set(field(/^Opens at/), ""), "Enter when the venue opens."],
       ["no closing time", () => set(field(/^Closes at/), ""), "Enter when the venue closes."],
       ["closing before opening", () => set(field(/^Closes at/), "07:00"), "Closing time must be after opening time."],
-      ["negative setup minutes", () => set(field("Setup minutes"), "-5"), "Enter a whole number of minutes, 0 or more."],
-      ["fractional teardown minutes", () => set(field("Teardown minutes"), "1.5"), "Enter a whole number of minutes, 0 or more."],
+      ["negative setup minutes", () => set(field("Setup time (minutes)"), "-5"), "Enter a whole number of minutes, 0 or more."],
+      ["fractional turnaround minutes", () => set(field("Turnaround time (minutes)"), "1.5"), "Enter a whole number of minutes, 0 or more."],
+      // SPM-93-TC07 (AC5): setup and turnaround go in 15-minute steps.
+      ["setup minutes off the 15-minute grid", () => set(field("Setup time (minutes)"), "20"), "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on."],
+      ["turnaround minutes off the 15-minute grid", () => set(field("Turnaround time (minutes)"), "50"), "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on."],
     ])("%s", async (_case, breakIt, message) => {
       const api = await open();
       fillRequiredVenue();
@@ -700,7 +703,7 @@ describe("Edit venue", () => {
       expect(field("Floor")).toHaveValue("3");
       expect(field("Address")).toHaveValue("");
       expect(field(/^Maximum capacity/)).toHaveValue(300);
-      expect(field("Setup minutes")).toHaveValue(60);
+      expect(field("Setup time (minutes)")).toHaveValue(60);
       expect(field("Layout")).toHaveValue("theatre");
       expect(field("Seats")).toHaveValue(280);
       expect(screen.getByRole("checkbox", { name: "Hearing loop" })).toBeChecked();

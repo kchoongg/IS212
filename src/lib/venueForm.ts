@@ -11,6 +11,7 @@ import type { FieldErrors } from "@/lib/formErrors";
 // matching. One list, imported.
 export { LAYOUTS, toOptions } from "@/lib/eventForm";
 import { LAYOUTS } from "@/lib/eventForm";
+import { BOOKING_STEP_MINUTES } from "@/lib/venueTime";
 
 /// Numbers are held as strings while typing: a number input mid-edit is
 /// legitimately "" or "4", neither of which should become NaN.
@@ -119,6 +120,9 @@ export function validateVenueForm(values: VenueFormValues): FieldErrors {
     const minutes = Number(values[field]);
     if (!Number.isInteger(minutes) || minutes < 0) {
       errors[field] = "Enter a whole number of minutes, 0 or more.";
+    } else if (minutes % BOOKING_STEP_MINUTES !== 0) {
+      // SPM-93 AC5: the smallest unit of booking (#126, #128).
+      errors[field] = "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.";
     }
   }
 

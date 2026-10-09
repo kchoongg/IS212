@@ -786,6 +786,127 @@ describe("Event equipment tab", () => {
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fequipment"));
     });
   });
+
+  // SPM-62 (AC4, AC6): equipment requirements are
+  // important information, so a change to a Confirmed event's equipment moves
+  // it back to Planning. Like the edit form, the tab asks first - "Cancel" /
+  // "Continue", as its "Begin planning?" question does (SPM-54) - and Remove
+  // adds the notice to its own question rather than asking twice. The routes
+  // answer `confirmationReverted: true`, and the tab says so afterwards.
+  // Decided 2026-10-05, see docs/test-cases/SPM-62_test_cases.json.
+  describe("on a Confirmed event, where a change unconfirms it", () => {
+    const QUESTION = "Move this event back to Planning?";
+    const ASKS =
+      "Gala Dinner is Confirmed. Changing its equipment moves it back to Planning so it can be confirmed again.";
+    const DONE = "This event is no longer confirmed";
+    const DONE_BODY =
+      "Changing its equipment moved it back to Planning so it can be confirmed again.";
+    const PATCH = `PATCH ${row("r1")}`;
+    const DELETE = `DELETE ${row("r1")}`;
+
+    const confirmed = (routes: Record<string, unknown> = {}) =>
+      open("coordinator", { [EVENT]: event({ status: "confirmed", title: "Gala Dinner" }), ...routes });
+    const mic = (extra = {}) => ({ ...request("r3", catalogue[2]), ...extra });
+    const reverted = { planningStarted: false, confirmationReverted: true };
+    const question = () => dialog(QUESTION);
+    const isAsking = () => screen.queryByText(QUESTION, { selector: "dialog[open] h2" }) !== null;
+    const answer = (name: "Cancel" | "Continue") =>
+      userEvent.click(within(question()).getByRole("button", { name, hidden: true }));
+
+    async function chooseMicAndAdd() {
+      await itemRow("Projector");
+      const picker = within(addForm()).getByLabelText("Equipment");
+      await waitFor(() => expect(picker).toBeEnabled());
+      set(picker, "eq-mic");
+      await userEvent.click(within(addForm()).getByRole("button", { name: "Add" }));
+    }
+
+    describe("adding", () => {
+      it("asks first, saying what will happen, and sends nothing yet", async () => {
+        const api = confirmed({ [ADD]: reply(201, mic(reverted)) });
+
+        await chooseMicAndAdd();
+
+        expect(question().open).toBe(true);
+        expect(question()).toHaveTextContent(ASKS);
+        expect(api.sent(ADD)).toHaveLength(0);
+      });
+
+      it("on Cancel, adds nothing and keeps what was chosen", async () => {
+        const api = confirmed({ [ADD]: reply(201, mic(reverted)) });
+        await chooseMicAndAdd();
+
+        await answer("Cancel");
+
+        expect(question().open).toBe(false);
+        expect(api.sent(ADD)).toHaveLength(0);
+        expect(within(addForm()).getByLabelText("Equipment")).toHaveValue("eq-mic");
+        expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+      });
+
+      it("on Continue, adds the item and says the event is no longer confirmed", async () => {
+        const api = confirmed({ [ADD]: reply(201, mic(reverted)) });
+        await chooseMicAndAdd();
+
+        await answer("Continue");
+
+        expect(await itemRow("Microphone")).toBeInTheDocument();
+        expect(screen.getByText(DONE)).toBeInTheDocument();
+        expect(screen.getByText(DONE_BODY)).toBeInTheDocument();
+        expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
+        expect(api.sent(ADD)).toHaveLength(1);
+        expect(question().open).toBe(false);
+      });
+    });
+
+    it("asks before saving a changed quantity", async () => {
+      const api = confirmed({ [PATCH]: { ...projectorRow({ quantityRequested: 5 }), ...reverted } });
+      const projector = await itemRow("Projector");
+      set(within(projector).getByLabelText("Quantity"), "5");
+
+      await userEvent.click(within(projector).getByRole("button", { name: "Save" }));
+
+      expect(question().open).toBe(true);
+      expect(api.sent(PATCH)).toHaveLength(0);
+      await answer("Continue");
+      expect(await screen.findByText(DONE)).toBeInTheDocument();
+      expect(api.sent(PATCH)[0].body).toMatchObject({ quantityRequested: 5 });
+    });
+
+    describe("removing", () => {
+      it("says so in the removal question itself, not a second time", async () => {
+        confirmed({ [DELETE]: reverted });
+
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Remove" }));
+
+        expect(dialog()).toHaveTextContent(
+          "It will also move from Confirmed back to Planning."
+        );
+        expect(isAsking()).toBe(false);
+      });
+
+      it("removes it and says the event is no longer confirmed", async () => {
+        const api = confirmed({ [DELETE]: reverted });
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Remove" }));
+
+        await userEvent.click(within(dialog()).getByRole("button", { name: "Remove", hidden: true }));
+
+        expect(await screen.findByText(DONE)).toBeInTheDocument();
+        expect(api.sent(DELETE)).toHaveLength(1);
+      });
+    });
+
+    it("never asks, or says so, on an event that is not Confirmed", async () => {
+      const api = open("coordinator", { [ADD]: reply(201, mic({ planningStarted: false, confirmationReverted: false })) });
+
+      await chooseMicAndAdd();
+
+      expect(await itemRow("Microphone")).toBeInTheDocument();
+      expect(isAsking()).toBe(false);
+      expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+      expect(api.sent(ADD)).toHaveLength(1);
+    });
+  });
 });
 
 describe("Equipment request (availability and reserve)", () => {

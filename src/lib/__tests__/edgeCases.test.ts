@@ -8,8 +8,8 @@ import { canViewEvent, isAssignedCoordinator } from "@/lib/permissions";
 import { isSelfRegisterableRole } from "@/lib/roles";
 import { INITIAL, validateForm } from "@/lib/eventForm";
 import { INITIAL_VENUE, validateVenueForm } from "@/lib/venueForm";
-import { requestSlotsLabel } from "@/lib/venueBookingRequest";
-import { minutesOutsideSlots, occupiedCells } from "@/lib/venueSlots";
+import { defaultTimes } from "@/lib/venueBookingRequest";
+import { widenToGrid } from "@/lib/venueTime";
 
 describe("formatting a value that is missing", () => {
   it("shows a dash instead of a time, a date-time, a duration or a venue", () => {
@@ -78,33 +78,14 @@ describe("venue form", () => {
   });
 });
 
-describe("slots", () => {
-  it("describes a booking that spans days by its times, not by one day's slots", () => {
-    const label = requestSlotsLabel({
-      startsAt: new Date("2027-03-04T05:00:00.000Z"),
-      endsAt: new Date("2027-03-05T10:00:00.000Z"),
-    });
-
-    expect(label).toMatch(/4 Mar 2027.*5 Mar 2027/);
+describe("booking times", () => {
+  it("offers no default times for an event without a readable time", () => {
+    expect(defaultTimes({ startsAt: new Date("not a date"), endsAt: new Date("2027-03-04T10:00:00.000Z") })).toBeNull();
   });
 
-  it("counts no minutes outside slots for an interval that ends before it starts", () => {
-    expect(
-      minutesOutsideSlots({ startsAt: new Date("2027-03-04T10:00:00.000Z"), endsAt: new Date("2027-03-04T05:00:00.000Z") })
-    ).toBe(0);
-  });
-
-  it("does not add a turnaround slot the booking itself already holds", () => {
-    // AM and Night of the same day, with PM between: PM is the slot after AM
-    // and the slot before Night, so setup and teardown reach for the same one.
-    const allDay = { startsAt: new Date("2027-03-03T23:00:00.000Z"), endsAt: new Date("2027-03-04T16:00:00.000Z") };
-
-    const cells = occupiedCells(allDay, { setupMinutes: 30, teardownMinutes: 30 });
-
-    expect(cells.filter((c) => c.day === "2027-03-04").map((c) => `${c.slot}:${c.via}`)).toEqual([
-      "AM:booking",
-      "PM:booking",
-      "Night:booking",
-    ]);
+  it("widens an interval that ends before it starts without inventing a span", () => {
+    const widened = widenToGrid({ startsAt: new Date("2027-03-04T02:10:00.000Z"), endsAt: new Date("2027-03-04T01:50:00.000Z") });
+    expect(widened.startsAt.toISOString()).toBe("2027-03-04T02:00:00.000Z");
+    expect(widened.endsAt.toISOString()).toBe("2027-03-04T02:00:00.000Z");
   });
 });

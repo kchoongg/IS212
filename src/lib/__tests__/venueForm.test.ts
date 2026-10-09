@@ -61,3 +61,25 @@ describe("venuePayload - opening hours", () => {
     expect(payload.closesAt).toBe("23:00");
   });
 });
+
+// SPM-93 AC5: setup and turnaround are set in minutes, in 15-minute steps,
+// zero included.
+describe("validateVenueForm - setup and turnaround minutes", () => {
+  it.each(["0", "15", "30", "45", "240"])("SPM-93-TC07: accepts %s minutes for both", (minutes) => {
+    expect(validateVenueForm({ ...VALID, setupMinutes: minutes, teardownMinutes: minutes })).toEqual({});
+  });
+
+  it("SPM-93-TC07: refuses 20 minutes of setup and 50 of turnaround, naming both fields", () => {
+    expect(validateVenueForm({ ...VALID, setupMinutes: "20", teardownMinutes: "50" })).toEqual({
+      setupMinutes: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.",
+      teardownMinutes: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.",
+    });
+  });
+
+  it("keeps the whole-number message for negative or non-numeric minutes", () => {
+    expect(validateVenueForm({ ...VALID, setupMinutes: "-15", teardownMinutes: "1.5" })).toEqual({
+      setupMinutes: "Enter a whole number of minutes, 0 or more.",
+      teardownMinutes: "Enter a whole number of minutes, 0 or more.",
+    });
+  });
+});

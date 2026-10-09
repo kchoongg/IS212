@@ -409,6 +409,20 @@ describe("PATCH /api/venues/[id]", () => {
       expect(callArg(db.venueBooking.update).data.reviewReason).toBe("venue_retired,layout_removed");
     });
 
+    // The column is shared: Update Event Information (SPM-62) writes its own
+    // reasons here too. A venue edit must not drop a code it does not know.
+    it("keeps a reason another story flagged, such as the event's date changing", async () => {
+      const token = given(venue(), [
+        booking({ needsReview: true, reviewReason: "event_schedule_changed,layout_removed" }),
+      ]);
+
+      await patch(token, { isActive: false });
+
+      expect(callArg(db.venueBooking.update).data.reviewReason).toBe(
+        "venue_retired,layout_removed,event_schedule_changed"
+      );
+    });
+
     it("flags and notifies once per affected booking", async () => {
       const token = given(venue(), [booking(), booking({ id: "second-booking" })]);
 

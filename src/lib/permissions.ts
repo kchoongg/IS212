@@ -230,6 +230,21 @@ export function canEditEventContent(actor: Actor, event: EventAccessFields): boo
   return ownsEvent(actor, event) && event.status === "draft";
 }
 
+/// SPM-62: an event's information can be updated after approval, while it is
+/// being planned, and once confirmed - the window in which arrangements exist
+/// or are being made. Not while it is still a request (Under review, SPM-28),
+/// not once Postponed (a new date goes through a change request, SPM-38), and
+/// never once final.
+export const EVENT_INFORMATION_STATUSES: readonly string[] = ["approved", "planning", "confirmed"];
+
+/// SPM-62: only the coordinator assigned to the event updates its
+/// information. The organiser asks through a change request (SPM-35,
+/// clarification #102). The status window is checked separately, so a refusal
+/// can say which rule was broken.
+export function canUpdateEventInformation(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
+}
+
 /// SPM-47: equipment requirements are recorded and revised by the coordinator
 /// assigned to the event (SPM-30 removed the "any coordinator while it has
 /// none yet" allowance - see isAssignedCoordinator). Unlike canEditEventContent this is not restricted to draft: equipment

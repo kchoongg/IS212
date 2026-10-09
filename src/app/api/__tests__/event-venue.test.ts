@@ -1,5 +1,6 @@
-// SPM-41 (venue suitability) and SPM-42 (request a venue booking). Times are
-// written in UTC; Singapore is UTC+8, so 05:00Z is 13:00 local - the PM slot.
+// SPM-41 (venue suitability) and SPM-42 (request a venue booking), with
+// SPM-93's times on a 15-minute grid. Times are written in UTC; Singapore is
+// UTC+8, so 05:30Z is 13:30 local.
 
 import { describe, it, expect, vi } from "vitest";
 
@@ -11,8 +12,9 @@ import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
 
 const REF = "EVT-000007";
 const DAY = "2027-03-04";
-const PM_STARTS = new Date("2027-03-04T05:00:00.000Z");
-const PM_ENDS = new Date("2027-03-04T10:00:00.000Z");
+/// The event's own times, 13:30-17:00 local.
+const STARTS = new Date("2027-03-04T05:30:00.000Z");
+const ENDS = new Date("2027-03-04T09:00:00.000Z");
 
 const hearingLoop = { facilityId: ID.facility, isMandatory: true, facility: { name: "Hearing loop", category: "accessibility" } };
 
@@ -195,7 +197,7 @@ describe("GET /api/events/[id]/venue-bookings", () => {
 });
 
 describe("POST /api/events/[id]/venue-bookings", () => {
-  const valid = { venueId: ID.venue, day: DAY, slots: ["PM"] };
+  const valid = { venueId: ID.venue, day: DAY, startTime: "13:30", endTime: "17:00" };
 
   function post(token: string | undefined, body: unknown, reference = REF) {
     return requestBooking(
@@ -210,6 +212,18 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     db.venue.findUnique.mockResolvedValue(venueRow);
     db.venueBooking.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.booking, ...data }));
     return token;
+  }
+
+  /// A booking by another event at the event's own times. SPM-44 (AC9) loads the
+  /// event with each booking so a refusal can say whose booking is in the way.
+  function anotherEventsBooking(status: string) {
+    return {
+      eventId: "another-event",
+      status,
+      startsAt: STARTS,
+      endsAt: ENDS,
+      event: { sequenceNumber: 9, title: "Board Meeting" },
+    };
   }
 
   async function refusal(token: string, body: unknown = valid) {
@@ -243,7 +257,7 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     expect(db.venueBooking.create).not.toHaveBeenCalled();
   });
 
-  it("creates a pending request for exactly the chosen slots", async () => {
+  it("SPM-93-TC01: creates a pending request for exactly the requested times", async () => {
     const token = given();
 
     const res = await post(token, { ...valid, requirementsNote: "  Stage at the north end " });
@@ -254,8 +268,8 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       sessionId: undefined,
       venueId: ID.venue,
       layoutName: "theatre",
-      startsAt: PM_STARTS,
-      endsAt: PM_ENDS,
+      startsAt: STARTS,
+      endsAt: ENDS,
       status: "pending",
       requestedBy: ID.user,
       requirementsNote: "Stage at the north end",
@@ -277,14 +291,16 @@ describe("POST /api/events/[id]/venue-bookings", () => {
 
     expect(callArg(db.venue.findUnique).include.bookings).toEqual({
       where: { status: { in: ["pending", "approved"] } },
+      // SPM-44 (AC9): the event behind each booking, so a refusal can name it.
+      include: { event: { select: { sequenceNumber: true, title: true } } },
     });
   });
 
   it.each([
     ["a venue id that is not a UUID", { ...valid, venueId: "hall-a" }, "venueId"],
     ["a day that is not a real date", { ...valid, day: "2027-02-30" }, "day"],
-    ["a slot that does not exist", { ...valid, slots: ["Evening"] }, "slots"],
-    ["the same slot twice", { ...valid, slots: ["PM", "PM"] }, "slots"],
+    ["no start time", { venueId: ID.venue, day: DAY, endTime: "17:00" }, "startTime"],
+    ["no end time", { venueId: ID.venue, day: DAY, startTime: "13:30" }, "endTime"],
   ])("rejects %s", async (_case, body, field) => {
     const res = await post(given(), body);
     const json = await res.json();
@@ -320,19 +336,44 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       );
     });
 
-    it("no slots chosen", async () => {
-      expect(await refusal(given(), { ...valid, slots: [] })).toBe("Choose at least one slot.");
+    // SPM-93 AC3: the refused time is named, with the field it belongs to.
+    it.each([
+      ["SPM-93-TC03: a start time off the 15-minute grid", { ...valid, startTime: "13:40" }, "startTime", "Choose a start time on a 15-minute step (:00, :15, :30 or :45)."],
+      ["SPM-93-TC03: an end time off the 15-minute grid", { ...valid, endTime: "17:20" }, "endTime", "Choose an end time on a 15-minute step (:00, :15, :30 or :45)."],
+      ["SPM-93-TC03: an end that is not after the start", { ...valid, endTime: "13:30" }, "endTime", "The end time must be after the start time."],
+    ])("%s", async (_case, body, field, message) => {
+      const res = await post(given(), body);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: message, field });
+      expect(db.venueBooking.create).not.toHaveBeenCalled();
     });
 
-    it("slots that are not next to each other", async () => {
-      expect(await refusal(given(), { ...valid, slots: ["AM", "Night"] })).toMatch(
-        /^Choose slots that are next to each other/
+    it("SPM-93-TC04: times that do not cover the event's own time", async () => {
+      expect(await refusal(given(), { ...valid, startTime: "14:00" })).toBe(
+        "The requested times do not cover the event's time (4 Mar 2027, 13:30–17:00)."
       );
     });
 
-    it("slots that do not cover the event's own time", async () => {
-      expect(await refusal(given(), { ...valid, slots: ["AM"] })).toMatch(
-        /^The chosen slots do not cover the event's time \(/
+    it("SPM-93-TC09: a venue whose setup runs into another event's approved booking", async () => {
+      // Booked 17:30-18:00; with 30 min setup the room is in use from 17:00, as this request ends.
+      const later = {
+        ...anotherEventsBooking("approved"),
+        startsAt: new Date("2027-03-04T09:30:00.000Z"),
+        endsAt: new Date("2027-03-04T10:00:00.000Z"),
+      };
+      expect(await refusal(given(event(), venue({ setupMinutes: 30, teardownMinutes: 15, bookings: [later] })))).toBe(
+        "Hall A is already booked for EVT-000009 Board Meeting on 4 Mar 2027, 17:00–17:15."
+      );
+      vi.clearAllMocks();
+      expect((await post(given(event(), venue({ setupMinutes: 30, bookings: [later] })), valid)).status).toBe(201);
+    });
+
+    it("SPM-93-TC06: times whose setup or turnaround falls outside opening hours", async () => {
+      const token = given(event(), venue({ closesAt: "17:30", setupMinutes: 30, teardownMinutes: 45 }));
+
+      expect(await refusal(token)).toBe(
+        "Hall A is open 07:00–17:30. With its 30 min setup and 45 min turnaround, choose times between 07:30 and 16:45."
       );
     });
 
@@ -358,28 +399,28 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       );
     });
 
-    it("a venue with an approved booking for another event in that slot", async () => {
+    it("a venue with an approved booking for another event at that time", async () => {
       const token = given(
         event(),
-        venue({ bookings: [{ eventId: "another-event", status: "approved", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+        venue({ bookings: [anotherEventsBooking("approved")] })
       );
 
-      expect(await refusal(token)).toBe("Hall A is already booked for this time.");
+      expect(await refusal(token)).toBe("Hall A is already booked for EVT-000009 Board Meeting on 4 Mar 2027, 13:30–17:00.");
     });
 
-    it("a venue with another event's pending request in that slot", async () => {
+    it("a venue with another event's pending request at that time", async () => {
       const token = given(
         event(),
-        venue({ bookings: [{ eventId: "another-event", status: "pending", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+        venue({ bookings: [anotherEventsBooking("pending")] })
       );
 
-      expect(await refusal(token)).toBe("Hall A is on hold for another event at this time.");
+      expect(await refusal(token)).toBe("Hall A is on hold for EVT-000009 Board Meeting on 4 Mar 2027, 13:30–17:00.");
     });
 
-    it("a venue recorded as unavailable in that slot", async () => {
-      const token = given(event(), venue({ unavailability: [{ startsAt: PM_STARTS, endsAt: PM_ENDS }] }));
+    it("a venue recorded as unavailable at that time", async () => {
+      const token = given(event(), venue({ unavailability: [{ startsAt: STARTS, endsAt: ENDS }] }));
 
-      expect(await refusal(token)).toBe("Hall A is unavailable at this time.");
+      expect(await refusal(token)).toBe("Hall A is unavailable at this time (4 Mar 2027, 13:30–17:00).");
     });
   });
 
@@ -408,13 +449,51 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     expect(db.event.updateMany).not.toHaveBeenCalled();
   });
 
-  it("is not blocked by the event's own earlier request for the same slot", async () => {
+  /// One of this event's own bookings at its own times: for the whole event
+  /// (sessionId null) or for one of its sessions.
+  function ownBooking(status: string, sessionId: string | null = null) {
+    return {
+      eventId: ID.event,
+      sessionId,
+      status,
+      startsAt: STARTS,
+      endsAt: ENDS,
+      event: { sequenceNumber: 7, title: "Town Hall" },
+    };
+  }
+
+  it("is not blocked by the event's own earlier request for the same time", async () => {
+    // The event's own bookings never conflict with it: here Day 1 already holds
+    // the room at that time, and Day 2 of the same event may share it. (Before
+    // SPM-44 this used a single-session event asking for the same time again;
+    // that is now refused as a repeat - see the next two tests.)
     const token = given(
-      event(),
-      venue({ bookings: [{ eventId: ID.event, status: "pending", startsAt: PM_STARTS, endsAt: PM_ENDS }] })
+      event({ sessions: [session(), session({ id: ID.otherSession, label: "Day 2" })] }),
+      venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }], bookings: [ownBooking("pending", ID.session)] })
     );
 
-    expect((await post(token, valid)).status).toBe(201);
+    expect((await post(token, { ...valid, sessionId: ID.otherSession })).status).toBe(201);
+  });
+
+  // SPM-44 AC4, raised in review on PR #37: only one active request or booking
+  // per venue and time, including from the same event.
+  it("refuses the same event asking again for a time its pending request already holds", async () => {
+    const token = given(event(), venue({ bookings: [ownBooking("pending")] }));
+
+    expect(await refusal(token)).toBe(
+      "This event already has a pending request for Hall A on 4 Mar 2027, 13:30–17:00."
+    );
+  });
+
+  it("refuses the same session asking twice, and names the session", async () => {
+    const token = given(
+      event({ sessions: [session(), session({ id: ID.otherSession, label: "Day 2" })] }),
+      venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }], bookings: [ownBooking("approved", ID.session)] })
+    );
+
+    expect(await refusal(token, { ...valid, sessionId: ID.session })).toBe(
+      "Day 1 already has Hall A booked on 4 Mar 2027, 13:30–17:00."
+    );
   });
 
   it("accepts a venue that has the facility the event requires", async () => {
@@ -451,11 +530,11 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       expect(await refusal(given(multiSession(), boardroomVenue()), body)).toBe("Choose a session.");
     });
 
-    it("names the session, not the event, when the slots miss its time", async () => {
+    it("names the session, not the event, when the times miss its time", async () => {
       const token = given(multiSession(), boardroomVenue());
 
-      expect(await refusal(token, { ...valid, sessionId: ID.session, slots: ["AM"] })).toMatch(
-        /^The chosen slots do not cover the session's time \(/
+      expect(await refusal(token, { ...valid, sessionId: ID.session, endTime: "16:00" })).toBe(
+        "The requested times do not cover the session's time (4 Mar 2027, 13:30–17:00)."
       );
     });
   });

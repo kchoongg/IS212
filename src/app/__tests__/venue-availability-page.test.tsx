@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 //
-// S-21, the venue availability calendar (SPM-46). The page only lays out what
-// GET /api/venues/[id]/availability worked out, so the responses here are
-// built with the same buildAvailability() the route uses - the test data
-// cannot drift from the real response shape.
+// S-21, the venue availability calendar (SPM-46), showing actual times since
+// SPM-93. The page only lays out what GET /api/venues/[id]/availability worked
+// out, so the responses here are built with the same buildAvailability() the
+// route uses - the test data cannot drift from the real response shape.
 //
-// Times are UTC; Singapore is UTC+8, so 05:00Z-10:00Z is the PM slot.
+// Times are UTC; Singapore is UTC+8, so 05:00Z-10:00Z is 13:00-18:00 local.
 
 import { describe, it, expect } from "vitest";
 import VenueAvailabilityPage from "@/app/venues/[id]/availability/page";
@@ -91,10 +91,9 @@ function open(scenario: Scenario | unknown = {}, { role = "coordinator", query =
 }
 
 const grid = () => screen.findByRole("table");
-const cell = async (slot: "AM" | "PM" | "Night", row = 1) => {
-  const index = { AM: 1, PM: 2, Night: 3 }[slot];
-  return within(within(await grid()).getAllByRole("row")[row]).getAllByRole("cell")[index];
-};
+/// The Schedule cell of a day's row.
+const schedule = async (row = 1) => within(within(await grid()).getAllByRole("row")[row]).getAllByRole("cell")[1];
+const entries = (cell: HTMLElement) => within(cell).getAllByRole("listitem").map((li) => li.textContent);
 const cardOf = (title: string) => screen.getByRole("heading", { name: title }).closest("div.rounded-lg") as HTMLElement;
 
 describe("Venue availability", () => {
@@ -139,7 +138,7 @@ describe("Venue availability", () => {
       open({ venue: { setupMinutes: 60, teardownMinutes: 30 }, to: "2027-03-10" });
 
       expect(await screen.findByRole("heading", { level: 1, name: "Hall A availability" })).toBeInTheDocument();
-      expect(screen.getByText("4 Mar 2027 – 10 Mar 2027 · open 07:00–23:59 · setup 60 min, teardown 30 min")).toBeInTheDocument();
+      expect(screen.getByText("4 Mar 2027 – 10 Mar 2027 · open 07:00–23:59 · setup 60 min, turnaround 30 min")).toBeInTheDocument();
     });
 
     it("links the venue in the breadcrumb to its editor for Venue Staff only", async () => {
@@ -277,95 +276,87 @@ describe("Venue availability", () => {
     });
   });
 
-  describe("the grid", () => {
-    it("has a row per day and a column per slot, each with its hours", async () => {
+  describe("the schedule (SPM-93 AC9)", () => {
+    it("has a row per day and one Schedule column - no AM, PM or Night columns", async () => {
       open({ to: "2027-03-05" });
 
       const table = await grid();
 
-      expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual([
-        "Day",
-        "AM 07:00–12:00",
-        "PM 13:00–18:00",
-        "Night 19:00–24:00",
-      ]);
+      expect(within(table).getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Day", "Schedule"]);
       expect(within(table).getAllByRole("row").slice(1).map((r) => r.querySelector("td")!.textContent)).toEqual([
         "Thu 4 Mar 2027",
         "Fri 5 Mar 2027",
       ]);
     });
 
-    it("says an empty slot is Free", async () => {
+    it("says a day with nothing on is Free", async () => {
       open();
 
-      expect(await cell("AM")).toHaveTextContent(/^Free$/);
+      expect(await schedule()).toHaveTextContent(/^Free$/);
     });
 
-    it("says when a free slot is only partly within opening hours", async () => {
-      open({ venue: { opensAt: "09:00", closesAt: "15:00" } });
-
-      expect(await cell("AM")).toHaveTextContent("FreeOpen from 09:00");
-      expect(await cell("PM")).toHaveTextContent("FreeOpen until 15:00");
-      expect(await cell("Night")).toHaveTextContent(/^Closed$/);
-    });
-
-    it("names the event in a booked slot", async () => {
+    it("names the event and its actual times in a booking's entry", async () => {
       open({ bookings: [booking()] });
 
-      expect(await cell("PM")).toHaveTextContent("BookedTown Hall");
-      expect(await cell("AM")).toHaveTextContent(/^Free$/);
+      expect(entries(await schedule())).toEqual(["Booked13:00–18:00· Town Hall"]);
     });
 
-    it("marks the slots a booking's setup and teardown take", async () => {
-      open({ venue: { setupMinutes: 60, teardownMinutes: 30 }, bookings: [booking()] });
+    it("SPM-93-TC15: shows a booking's setup and turnaround as their own entries, either side of the booked time", async () => {
+      open({ venue: { setupMinutes: 30, teardownMinutes: 45 }, bookings: [booking()] });
 
-      expect(await cell("AM")).toHaveTextContent("TurnaroundSetup or teardown: Town Hall");
-      expect(await cell("Night")).toHaveTextContent("TurnaroundSetup or teardown: Town Hall");
+      expect(entries(await schedule())).toEqual([
+        "Setup12:30–13:00· Town Hall",
+        "Booked13:00–18:00· Town Hall",
+        "Turnaround18:00–18:45· Town Hall",
+      ]);
     });
 
-    it("names the reason in an unavailable slot, and still names a booking sharing it", async () => {
+    it("SPM-93-TC15: shows a request not yet approved, with its setup and turnaround, as Requested", async () => {
+      open({ venue: { setupMinutes: 30, teardownMinutes: 0 }, holds: [{ id: "h1", eventId: "e2", eventTitle: "Summit", ...PM }] });
+
+      expect(entries(await schedule())).toEqual(["Setup12:30–13:00· Summit", "Requested13:00–18:00· Summit"]);
+    });
+
+    it("SPM-93-TC16: shows an unavailable period at its times, with its reason", async () => {
       open({
-        bookings: [booking({ eventTitle: null })],
-        unavailability: [{ id: "u1", reason: "internal_activity", notes: null, ...PM }],
+        unavailability: [
+          { id: "u1", reason: "internal_activity", notes: null, startsAt: new Date("2027-03-04T06:00:00.000Z"), endsAt: new Date("2027-03-04T10:00:00.000Z") },
+        ],
       });
 
-      const pm = await cell("PM");
-
-      expect(pm).toHaveTextContent("Unavailable");
-      expect(pm).toHaveTextContent("Internal activity");
-      expect(pm).toHaveTextContent("Untitled event");
+      expect(entries(await schedule())).toEqual(["Unavailable14:00–18:00· Internal activity"]);
     });
 
-    it("keeps a requested slot Free, but says who has asked for it", async () => {
-      open({ holds: [{ id: "h1", eventId: "e2", eventTitle: "Summit", ...PM }, { id: "h2", eventId: "e3", eventTitle: null, ...PM }] });
+    it("lists everything on a day in time order", async () => {
+      open({
+        bookings: [booking({ eventTitle: null })],
+        unavailability: [{ id: "u1", reason: "maintenance", notes: null, startsAt: new Date("2027-03-04T01:00:00.000Z"), endsAt: new Date("2027-03-04T02:00:00.000Z") }],
+      });
 
-      const pm = await cell("PM");
-
-      expect(pm).toHaveTextContent("Free");
-      expect(pm).toHaveTextContent("Requested: Summit");
-      expect(pm).toHaveTextContent("Requested: another event");
+      expect(entries(await schedule())).toEqual(["Unavailable09:00–10:00· Maintenance", "Booked13:00–18:00· Untitled event"]);
     });
 
-    it("shows every empty slot of a retired venue as Closed, never Free", async () => {
-      open({ venue: { isActive: false }, bookings: [booking()] });
+    it("shows an empty day of a retired venue as Closed, never Free", async () => {
+      open({ venue: { isActive: false }, to: "2027-03-05", bookings: [booking()] });
 
-      expect(await cell("AM")).toHaveTextContent(/^Closed$/);
-      expect(await cell("PM")).toHaveTextContent("BookedTown Hall");
+      expect(entries(await schedule())).toEqual(["Booked13:00–18:00· Town Hall"]);
+      expect(await schedule(2)).toHaveTextContent(/^Closed$/);
       expect(screen.getByText("This venue is retired")).toBeInTheDocument();
     });
 
-    it("explains what each status means", async () => {
+    it("explains what each kind of entry means", async () => {
       open();
       await grid();
 
-      const key = screen.getByText("the room can be requested").closest("ul") as HTMLElement;
+      const key = screen.getByText("nothing on that day").closest("ul") as HTMLElement;
 
       expect(within(key).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
-        "Freethe room can be requested",
         "Bookedan approved booking's own times",
-        "Turnaroundonly setup or teardown time",
+        "Setupthe venue's setup time before a booking or request",
+        "Turnaroundthe venue's turnaround time after it",
+        "Requestedasked for, not yet approved",
         "Unavailablea recorded unavailable period",
-        "Closedoutside opening hours, or a retired venue",
+        "Freenothing on that day",
       ]);
     });
   });
@@ -391,47 +382,39 @@ describe("Venue availability", () => {
       expect(card).toHaveTextContent("Layout: U-shape");
     });
 
-    it("widens 'Room in use' by the venue's setup and teardown, across days when needed", async () => {
-      open({
-        venue: { setupMinutes: 60, teardownMinutes: 30 },
-        bookings: [booking({ startsAt: new Date("2027-03-04T11:00:00.000Z"), endsAt: new Date("2027-03-04T16:00:00.000Z"), layoutName: null })],
-      });
+    it("SPM-93-TC15: widens 'Room in use' by the venue's setup and turnaround minutes", async () => {
+      open({ venue: { setupMinutes: 30, teardownMinutes: 45 }, bookings: [booking({ layoutName: null })] });
       await grid();
 
       const card = cardOf("Approved bookings");
 
-      // Night on the 4th, plus PM before for setup and the next day's AM after.
-      expect(card).toHaveTextContent(/Room in use 4 Mar 2027.*5 Mar 2027/);
+      expect(card).toHaveTextContent("4 Mar 2027, 13:00–18:00");
+      expect(card).toHaveTextContent("Room in use 12:30–18:45");
       expect(card).not.toHaveTextContent("Layout:");
     });
 
-    it("warns about a booking that touches no slot at all, since the grid cannot show it", async () => {
-      // 12:15-12:45 Singapore time: wholly inside the gap between AM and PM.
+    it("gives both dates when the room is in use across midnight", async () => {
+      open({
+        venue: { setupMinutes: 60, teardownMinutes: 30 },
+        bookings: [booking({ startsAt: new Date("2027-03-04T11:00:00.000Z"), endsAt: new Date("2027-03-04T16:00:00.000Z") })],
+      });
+      await grid();
+
+      expect(cardOf("Approved bookings")).toHaveTextContent(/Room in use 4 Mar 2027, 18:00 – 5 Mar 2027, 00:30/);
+    });
+
+    it("SPM-93-TC05: shows a booking in the old lunch gap at its times, with no warning", async () => {
+      // 12:15-12:45 Singapore time: once between the AM and PM slots, now an ordinary booking (#126).
       open({ bookings: [booking({ startsAt: new Date("2027-03-04T04:15:00.000Z"), endsAt: new Date("2027-03-04T04:45:00.000Z") })] });
-      await grid();
 
-      expect(cardOf("Approved bookings")).toHaveTextContent(
-        /30 minutes of this booking fall outside the AM, PM and Night slots/
-      );
-      expect(await cell("AM")).toHaveTextContent(/^Free$/);
-      expect(await cell("PM")).toHaveTextContent(/^Free$/);
+      expect(entries(await schedule())).toEqual(["Booked12:15–12:45· Town Hall"]);
+      expect(cardOf("Approved bookings")).not.toHaveTextContent(/slot/i);
     });
 
-    it("does not warn about a booking that merely crosses the lunch gap", async () => {
-      // 09:00-17:00 Singapore time: holds AM and PM in full.
-      open({ bookings: [booking({ startsAt: new Date("2027-03-04T01:00:00.000Z"), endsAt: new Date("2027-03-04T09:00:00.000Z") })] });
-      await grid();
-
-      expect(cardOf("Approved bookings")).not.toHaveTextContent("fall outside");
-      expect(await cell("AM")).toHaveTextContent("BookedTown Hall");
-      expect(await cell("PM")).toHaveTextContent("BookedTown Hall");
-    });
-
-    it("says nothing about slots for a booking that sits inside them", async () => {
+    it("says nothing about overlaps for a booking that has none", async () => {
       open({ bookings: [booking()] });
       await grid();
 
-      expect(cardOf("Approved bookings")).not.toHaveTextContent("fall outside");
       expect(cardOf("Approved bookings")).not.toHaveTextContent("Overlaps with");
     });
   });
@@ -444,7 +427,7 @@ describe("Venue availability", () => {
       expect(cardOf("Unavailable periods")).toHaveTextContent("No unavailable periods in this range.");
     });
 
-    it("lists each with its reason, notes and dates", async () => {
+    it("SPM-93-TC16: lists each with its reason, notes and times", async () => {
       open({ unavailability: [{ id: "u1", reason: "renovation", notes: "Floor resurfacing", ...PM }] });
       await grid();
 
@@ -452,7 +435,7 @@ describe("Venue availability", () => {
 
       expect(card).toHaveTextContent("Renovation");
       expect(card).toHaveTextContent("Floor resurfacing");
-      expect(card).toHaveTextContent("4 Mar 2027 to 4 Mar 2027");
+      expect(card).toHaveTextContent("4 Mar 2027, 13:00–18:00");
     });
   });
 
@@ -466,7 +449,7 @@ describe("Venue availability", () => {
 
       expect(screen.getByText("Some bookings or unavailable periods overlap")).toBeInTheDocument();
       const first = within(cardOf("Approved bookings")).getAllByRole("listitem")[0];
-      expect(first).toHaveTextContent("Overlaps with: Summit; Maintenance (4 Mar 2027 to 4 Mar 2027)");
+      expect(first).toHaveTextContent("Overlaps with: Summit; Maintenance (4 Mar 2027, 13:00–18:00)");
       expect(cardOf("Unavailable periods")).toHaveTextContent("Overlaps with: Town Hall; Summit");
     });
 
@@ -487,7 +470,9 @@ describe("Venue availability", () => {
 
       expect(card).toHaveTextContent("Summit");
       expect(card).toHaveTextContent("Untitled event");
-      expect(card).toHaveTextContent("These slots are still free, but someone has already asked for this room.");
+      expect(card).toHaveTextContent("4 Mar 2027, 13:00–18:00");
+      expect(card).toHaveTextContent("Room in use 13:00–18:00");
+      expect(card).toHaveTextContent("These times are not booked yet, but someone has already asked for this room.");
       expect(cardOf("Approved bookings")).toHaveTextContent("No approved bookings in this range.");
     });
 
