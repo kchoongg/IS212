@@ -5,7 +5,7 @@ import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import { EVENT_INFORMATION_STATUSES, canConfigureRegistration, canViewEvent } from "@/lib/permissions";
 import { configureRegistrationSchema } from "@/lib/validation";
-import { capacityError, liveBookings } from "@/lib/registrationSettings";
+import { capacityError, measuredBooking } from "@/lib/registrationSettings";
 
 // Configure Event Registration (SPM-64): the assigned coordinator sets up
 // attendee registration for an event. The rules are
@@ -39,9 +39,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     const data = configureRegistrationSchema.parse(await req.json());
 
-    // AC3: a new capacity is checked against the room the event has booked.
-    // The bookings are read only when the capacity is being changed.
-    if (data.registrationCapacity !== undefined) {
+    // AC3, AC4: the capacity is measured against one of the event's bookings,
+    // checked whenever the capacity or that booking changes. The bookings are
+    // read only then.
+    let measuredBookingId: string | undefined;
+    if (data.registrationCapacity !== undefined || data.registrationVenueBookingId !== undefined) {
       const bookings = await prisma.venueBooking.findMany({
         where: { eventId: event.id },
         select: {
@@ -51,15 +53,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
         },
       });
-      const error = capacityError(data.registrationCapacity, liveBookings(bookings));
-      if (error) {
-        // Keyed by field so readServerError() (src/lib/formErrors.ts) shows it
-        // under 'Registration capacity'.
-        return NextResponse.json(
-          { error, details: { fieldErrors: { registrationCapacity: [error] } } },
-          { status: 400 }
-        );
+      const measured = measuredBooking(bookings, data.registrationVenueBookingId, event.registrationVenueBookingId);
+      if (!measured.ok) {
+        return fieldError(measured.field, measured.error);
       }
+      const capacity = data.registrationCapacity ?? event.registrationCapacity;
+      const error = capacity == null ? null : capacityError(capacity, measured.booking);
+      if (error) {
+        return fieldError("registrationCapacity", error);
+      }
+      measuredBookingId = measured.booking.id;
     }
 
     // Turning registration off keeps the saved capacity and period, so turning
@@ -69,6 +72,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       data: {
         ...(data.registrationEnabled !== undefined ? { registrationEnabled: data.registrationEnabled } : {}),
         ...(data.registrationCapacity !== undefined ? { registrationCapacity: data.registrationCapacity } : {}),
+        ...(measuredBookingId !== undefined ? { registrationVenueBookingId: measuredBookingId } : {}),
       },
     });
     return NextResponse.json({ event: updated, flagged: [] });
@@ -79,4 +83,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+/// Keyed by field so readServerError() (src/lib/formErrors.ts) shows the
+/// message under that field, as the information route does.
+function fieldError(field: string, error: string) {
+  return NextResponse.json({ error, details: { fieldErrors: { [field]: [error] } } }, { status: 400 });
 }

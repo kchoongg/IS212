@@ -23,6 +23,9 @@ export const configureRegistrationSchema = z
       .int("Enter a whole number, at least 1.")
       .positive("Enter a whole number, at least 1.")
       .optional(),
+    // AC4: which of the event's venue bookings the capacity is measured
+    // against. Only needed when it has several active ones.
+    registrationVenueBookingId: z.string().uuid().optional(),
   })
   .strict();
 export type ConfigureRegistrationInput = z.infer<typeof configureRegistrationSchema>;

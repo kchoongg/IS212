@@ -33,12 +33,51 @@ export function liveBookings<T extends { status: string }>(bookings: readonly T[
   return bookings.filter((b) => LIVE_BOOKING_STATUSES.includes(b.status));
 }
 
-/// Why `capacity` can't be saved against these live bookings, worded for the
-/// 'Registration capacity' field, or null when it can.
-export function capacityError(capacity: number, live: readonly BookingForCapacity[]): string | null {
-  const booking = live[0];
-  if (!booking) return "Book a venue for this event before setting a registration capacity.";
+export type MeasuredBooking<T> =
+  | { ok: true; booking: T }
+  | { ok: false; field: "registrationCapacity" | "registrationVenueBookingId"; error: string };
 
+/// AC4: which of the event's bookings the capacity is measured against. An
+/// event can hold several active bookings (a multi-session event, or several
+/// rooms at once - Week 7 change #3, SPM-81), and then the coordinator
+/// chooses. `bookings` are the event's own, in any status: a chosen id that
+/// is not among its active ones - rejected, cancelled, or another event's -
+/// is refused. `savedId` is the one chosen on an earlier save, kept while it
+/// is still active so changing only the capacity doesn't ask again.
+export function measuredBooking<T extends { id: string; status: string }>(
+  bookings: readonly T[],
+  selectedId: string | undefined,
+  savedId: string | null
+): MeasuredBooking<T> {
+  const live = liveBookings(bookings);
+  if (live.length === 0) {
+    return {
+      ok: false,
+      field: "registrationCapacity",
+      error: "Book a venue for this event before setting a registration capacity.",
+    };
+  }
+
+  if (selectedId !== undefined) {
+    const chosen = live.find((b) => b.id === selectedId);
+    return chosen
+      ? { ok: true, booking: chosen }
+      : { ok: false, field: "registrationVenueBookingId", error: "That venue booking isn't an active booking for this event." };
+  }
+
+  const saved = live.find((b) => b.id === savedId);
+  if (saved) return { ok: true, booking: saved };
+  if (live.length === 1) return { ok: true, booking: live[0] };
+  return {
+    ok: false,
+    field: "registrationVenueBookingId",
+    error: "Choose which venue booking the capacity is measured against.",
+  };
+}
+
+/// Why `capacity` can't be saved against this booking, worded for the
+/// 'Registration capacity' field, or null when it can.
+export function capacityError(capacity: number, booking: BookingForCapacity): string | null {
   // A layout the room no longer offers (removed in Manage Venue Catalogue,
   // SPM-39) leaves the capacity just as unknown as no layout at all.
   const layout = booking.venue.layouts.find((l) => l.layoutName === booking.layoutName);

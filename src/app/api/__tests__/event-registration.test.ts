@@ -35,6 +35,7 @@ function event(overrides: Record<string, unknown> = {}) {
     registrationCapacity: null,
     registrationOpensAt: null,
     registrationClosesAt: null,
+    registrationVenueBookingId: null,
     registrationReviewReason: null,
     ...overrides,
   };
@@ -104,6 +105,7 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
   it.each([
     ["a field that is not a registration setting", { registrationEnabled: true, title: "New name" }],
     ["a switch that is not true or false", { registrationEnabled: "yes" }],
+    ["a booking reference that is not an id", { registrationVenueBookingId: "studio" }],
   ])("refuses a body with %s", async (_what, body) => {
     const token = given();
 
@@ -141,7 +143,7 @@ const classroomBooking = {
 };
 
 describe("AC2 the coordinator sets a registration capacity", () => {
-  it("saves the capacity, checked against the event's own bookings (TC04)", async () => {
+  it("saves the capacity with the booking it was measured against, read from the event's own bookings (TC04)", async () => {
     const token = given({ registrationEnabled: true });
     db.venueBooking.findMany.mockResolvedValue([classroomBooking]);
 
@@ -149,7 +151,7 @@ describe("AC2 the coordinator sets a registration capacity", () => {
 
     expect(res.status).toBe(200);
     expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
-    expect(callArg(db.event.update).data).toEqual({ registrationCapacity: 60 });
+    expect(callArg(db.event.update).data).toEqual({ registrationCapacity: 60, registrationVenueBookingId: ID.booking });
   });
 
   it.each([0, -5, 12.5])("refuses a capacity of %s under its field, and writes nothing (TC05)", async (capacity) => {
@@ -182,6 +184,54 @@ describe("AC3 the capacity cannot exceed the booked room's layout capacity", () 
       "Registration capacity can't be more than 70, the capacity of Orchard Seminar Room (ORC-SEM) in its Classroom layout.";
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationCapacity: [message] } } });
+    nothingWritten();
+  });
+});
+
+const STUDIO_BOOKING_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const studioBooking = {
+  id: STUDIO_BOOKING_ID,
+  status: "pending",
+  layoutName: "classroom",
+  venue: { name: "Orchard Studio", code: "ORC-STU", layouts: [{ layoutName: "classroom", capacity: 40 }] },
+};
+
+describe("AC4 with several bookings the coordinator chooses which one the capacity is measured against", () => {
+  it("saves the chosen booking with the capacity (TC09)", async () => {
+    const token = given({ registrationEnabled: true });
+    db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
+
+    const res = await save(token, { registrationCapacity: 40, registrationVenueBookingId: STUDIO_BOOKING_ID });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).data).toEqual({
+      registrationCapacity: 40,
+      registrationVenueBookingId: STUDIO_BOOKING_ID,
+    });
+  });
+
+  it("refuses a missing choice under 'Capacity measured against', and writes nothing (TC10)", async () => {
+    const token = given({ registrationEnabled: true });
+    db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
+
+    const res = await save(token, { registrationCapacity: 30 });
+
+    const message = "Choose which venue booking the capacity is measured against.";
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationVenueBookingId: [message] } } });
+    nothingWritten();
+  });
+
+  it("re-checks the saved capacity when only the booking is changed (TC18)", async () => {
+    const token = given({ registrationEnabled: true, registrationCapacity: 60 });
+    db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
+
+    const res = await save(token, { registrationVenueBookingId: STUDIO_BOOKING_ID });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.registrationCapacity).toEqual([
+      "Registration capacity can't be more than 40, the capacity of Orchard Studio (ORC-STU) in its Classroom layout.",
+    ]);
     nothingWritten();
   });
 });

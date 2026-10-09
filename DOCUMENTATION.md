@@ -980,7 +980,28 @@ what changed, why, and the migration name if there is one.
   `layoutLabel()` from `venueSuitability.ts`. A layout the room no longer offers
   counts the same as no layout. Bookings are read only when the capacity
   changes. 7 unit tests in `registrationSettings.test.ts`, plus 6 route tests.
-- Migration: `add_registration_venue_booking` (planned, not yet applied).
+- **Slice 3 (AC4): which booking the capacity is measured against.** New
+  `Event.registrationVenueBookingId` (FK to `venue_bookings`, `ON DELETE SET
+  NULL`). The PATCH takes `registrationVenueBookingId` and stores the measured
+  booking whenever the capacity or the booking changes. `measuredBooking()`
+  works like this:
+  - the only active booking is used automatically;
+  - a booking chosen earlier is kept while it's still active;
+  - with several active bookings and none chosen, the save is refused with
+    "Choose which venue booking the capacity is measured against.";
+  - a chosen id that is rejected, cancelled or another event's is refused with
+    "That venue booking isn't an active booking for this event." (only reachable
+    through the API; the form lists active bookings only).
+
+  Changing only the booking re-checks the saved capacity against the new room.
+  `capacityError()` now takes the one chosen booking. The existing Event ↔
+  VenueBooking relation is now named `EventVenueBookings`, as Prisma requires
+  when two models are related twice; no database change and no code change.
+  The unit tests are now 16 (the "no booking" check moved into
+  `measuredBooking()`), with 4 more route tests.
+- Migration: `20261009120000_add_registration_venue_booking`, written by hand
+  and checked against `prisma migrate diff` (identical SQL). **Not yet applied
+  to the shared Neon database.**
 
 ### 2026-10-06 — Jordan
 - **SPM-44 review fixes (PR #37, raised by kayalvizhi24).** Both gaps predate
