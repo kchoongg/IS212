@@ -1017,6 +1017,23 @@ what changed, why, and the migration name if there is one.
   are not covered by this rule. The route tests now fix the clock (9 Oct 2026),
   so they don't depend on the day they run. 4 more unit tests, 2 more route
   tests.
+- **Slice 6 (AC9): flag, don't change.** A save that lowers the capacity below
+  the attendees holding a place, or turns registration off while anyone holds
+  one, writes `Event.registrationReviewReason`. The codes are
+  `registration_capacity_lowered` and `registration_disabled`
+  (`REGISTRATION_REASONS` in `registrationSettings.ts`), added through
+  `addReviewReasons()`, so SPM-62's codes are kept. Attendees holding a place
+  are counted with SPM-62's `HOLDING_A_PLACE` (now exported from
+  `applyEventInformation.ts`), and only for a change that could take
+  someone's place. Lowering to exactly that number flags nothing. The response's
+  `flagged` holds one line in SPM-62's style, e.g. "Registrations: 15 attendees
+  – the registration capacity was lowered below the number registered or
+  waitlisted". No Registration row is ever written. 8 more unit tests, 4 more
+  route tests.
+- **Slow-machine timeouts are not failures.** On a busy laptop (OneDrive
+  syncing the repo, back-to-back runs), `npm test` timed out at random in the
+  page tests and `auth.test.ts`. That happened on `main` without SPM-64's
+  changes too. `npx vitest run --maxWorkers=2` passes everything.
 - Migration: `20261009120000_add_registration_venue_booking`, written by hand
   and checked against `prisma migrate diff` (identical SQL). Applied to the
   shared Neon database on 2026-10-09 with `npx prisma migrate deploy` (no reset,

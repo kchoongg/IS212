@@ -5,7 +5,16 @@ import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import { EVENT_INFORMATION_STATUSES, canConfigureRegistration, canViewEvent } from "@/lib/permissions";
 import { configureRegistrationSchema } from "@/lib/validation";
-import { capacityError, measuredBooking, periodErrors, startedError } from "@/lib/registrationSettings";
+import {
+  capacityError,
+  measuredBooking,
+  periodErrors,
+  registrationFlagLine,
+  registrationReviewReasons,
+  startedError,
+} from "@/lib/registrationSettings";
+import { HOLDING_A_PLACE } from "@/lib/applyEventInformation";
+import { addReviewReasons } from "@/lib/reviewFlags";
 
 // Configure Event Registration (SPM-64): the assigned coordinator sets up
 // attendee registration for an event. The rules are
@@ -81,6 +90,20 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       if (field) return fieldError(field, errors[field]);
     }
 
+    // AC9: a lower capacity or registration turned off may take places from
+    // attendees who hold one. The registrations are flagged, never changed.
+    // Counted only for a change that could do that.
+    const before = { enabled: event.registrationEnabled, capacity: event.registrationCapacity };
+    const after = {
+      enabled: data.registrationEnabled ?? before.enabled,
+      capacity: data.registrationCapacity ?? before.capacity,
+    };
+    const couldTakePlaces = after.capacity !== before.capacity || (before.enabled && !after.enabled);
+    const holdingAPlace = couldTakePlaces
+      ? await prisma.registration.count({ where: { eventId: event.id, status: { in: HOLDING_A_PLACE } } })
+      : 0;
+    const reasons = registrationReviewReasons(before, after, holdingAPlace);
+
     // Turning registration off keeps the saved capacity and period, so turning
     // it back on restores them (decided 2026-10-09).
     const updated = await prisma.event.update({
@@ -91,9 +114,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         ...(measuredBookingId !== undefined ? { registrationVenueBookingId: measuredBookingId } : {}),
         ...(opensAt !== undefined ? { registrationOpensAt: opensAt } : {}),
         ...(closesAt !== undefined ? { registrationClosesAt: closesAt } : {}),
+        ...(reasons.length > 0
+          ? { registrationReviewReason: addReviewReasons(event.registrationReviewReason, reasons) }
+          : {}),
       },
     });
-    return NextResponse.json({ event: updated, flagged: [] });
+    // What THIS save flagged, worded for the person who made it (as SPM-62).
+    const flagged = reasons.length > 0 ? [registrationFlagLine(holdingAPlace, reasons)] : [];
+    return NextResponse.json({ event: updated, flagged });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });

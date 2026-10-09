@@ -70,6 +70,13 @@ function save(token: string | undefined, body: unknown, reference = REF) {
 
 const nothingWritten = () => expect(db.event.update).not.toHaveBeenCalled();
 
+/// AC9: a save may flag the registrations, never change them.
+function noRegistrationTouched() {
+  for (const method of ["create", "update", "updateMany", "delete", "deleteMany", "upsert"]) {
+    expect(db.registration[method]).not.toHaveBeenCalled();
+  }
+}
+
 describe("AC1 the assigned coordinator turns registration on or off", () => {
   it("turns registration on (TC01)", async () => {
     const token = given({ registrationEnabled: false });
@@ -83,7 +90,7 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
     expect(body.flagged).toEqual([]);
   });
 
-  it("turns registration off without clearing the saved capacity and period (TC02)", async () => {
+  it("turns registration off without clearing the saved settings, and flags nothing when nobody holds a place (TC02)", async () => {
     const token = given({
       status: "confirmed",
       registrationEnabled: true,
@@ -92,10 +99,13 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
       registrationClosesAt: new Date("2026-09-30T09:00:00.000Z"),
     });
 
+    db.registration.count.mockResolvedValue(0);
+
     const res = await save(token, { registrationEnabled: false });
 
     expect(res.status).toBe(200);
     expect(callArg(db.event.update).data).toEqual({ registrationEnabled: false });
+    expect((await res.json()).flagged).toEqual([]);
   });
 
   it.each(["submitted", "under_review", "postponed", "completed", "cancelled", "rejected", "withdrawn"])(
@@ -315,6 +325,72 @@ describe("AC7 a closed period can be extended or reopened until the event starts
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationClosesAt: [message] } } });
     nothingWritten();
+  });
+});
+
+describe("AC9 a change that leaves attendees without a place flags the registrations, never changes them", () => {
+  /// Full House Masterclass: capacity 20, 12 registered + 3 waitlisted hold a place.
+  function fullHouse(overrides: Record<string, unknown> = {}) {
+    const token = given({ registrationEnabled: true, registrationCapacity: 20, ...overrides });
+    db.venueBooking.findMany.mockResolvedValue([classroomBooking]);
+    db.registration.count.mockResolvedValue(15);
+    return token;
+  }
+
+  it("saves a capacity lowered below the attendees holding a place, and flags the registrations (TC19)", async () => {
+    const token = fullHouse();
+
+    const res = await save(token, { registrationCapacity: 14 });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.registration.count).where).toEqual({
+      eventId: ID.event,
+      status: { in: ["registered", "waitlisted"] },
+    });
+    expect(callArg(db.event.update).data).toMatchObject({
+      registrationCapacity: 14,
+      registrationReviewReason: "registration_capacity_lowered",
+    });
+    expect((await res.json()).flagged).toEqual([
+      "Registrations: 15 attendees – the registration capacity was lowered below the number registered or waitlisted",
+    ]);
+    noRegistrationTouched();
+  });
+
+  it("saves registration turned off with only waitlisted attendees, and flags them (TC21)", async () => {
+    const token = given({ registrationEnabled: true, registrationCapacity: 10 });
+    db.registration.count.mockResolvedValue(4);
+
+    const res = await save(token, { registrationEnabled: false });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).data).toEqual({
+      registrationEnabled: false,
+      registrationReviewReason: "registration_disabled",
+    });
+    expect((await res.json()).flagged).toEqual(["Registrations: 4 attendees – registration was turned off"]);
+    noRegistrationTouched();
+  });
+
+  it("adds its reason to a flag already raised by another story, keeping that one", async () => {
+    const token = given({
+      registrationEnabled: true,
+      registrationCapacity: 10,
+      registrationReviewReason: "event_schedule_changed",
+    });
+    db.registration.count.mockResolvedValue(4);
+
+    await save(token, { registrationEnabled: false });
+
+    expect(callArg(db.event.update).data.registrationReviewReason).toBe("event_schedule_changed,registration_disabled");
+  });
+
+  it("doesn't count registrations for a change that can't take anyone's place", async () => {
+    const token = given();
+
+    await save(token, { registrationEnabled: true });
+
+    expect(db.registration.count).not.toHaveBeenCalled();
   });
 });
 

@@ -10,6 +10,7 @@
 // and is given as a venue attribute (customer clarification #112). The room's
 // maxCapacity is never a fallback, the same rule as checkVenueSuitability().
 
+import { attendeeCount } from "@/lib/eventChangeImpact";
 import { layoutLabel } from "@/lib/venueSuitability";
 
 /// A pending booking is a question Venue Staff have not answered yet, but it
@@ -123,4 +124,52 @@ export function startedError(eventStartsAt: Date | null, now: Date): string | nu
     return "The event has started, so the registration period can't be changed.";
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// FLAGGING THE REGISTRATIONS (AC9)
+// ---------------------------------------------------------------------------
+
+/// Why a registration change flagged the event's registrations. Stored in
+/// Event.registrationReviewReason with SPM-62's codes, through
+/// addReviewReasons() (src/lib/reviewFlags.ts); cleared in SPM-68.
+export const REGISTRATION_REASONS = ["registration_capacity_lowered", "registration_disabled"] as const;
+export type RegistrationReason = (typeof REGISTRATION_REASONS)[number];
+
+export const REGISTRATION_REASON_PROSE: Record<RegistrationReason, string> = {
+  registration_capacity_lowered: "the registration capacity was lowered below the number registered or waitlisted",
+  registration_disabled: "registration was turned off",
+};
+
+export interface RegistrationSwitch {
+  enabled: boolean;
+  capacity: number | null;
+}
+
+/// AC9: the reasons this change flags the registrations for, given how many
+/// attendees hold a place (registered or waitlisted - HOLDING_A_PLACE).
+/// Flagged, never changed: who keeps a place is the coordinator's decision in
+/// SPM-68. A capacity set to exactly that number leaves everyone a place.
+export function registrationReviewReasons(
+  before: RegistrationSwitch,
+  after: RegistrationSwitch,
+  holdingAPlace: number
+): RegistrationReason[] {
+  const reasons: RegistrationReason[] = [];
+  if (after.capacity !== before.capacity && after.capacity !== null && after.capacity < holdingAPlace) {
+    reasons.push("registration_capacity_lowered");
+  }
+  if (before.enabled && !after.enabled && holdingAPlace > 0) {
+    reasons.push("registration_disabled");
+  }
+  return reasons;
+}
+
+/// "Registrations: 15 attendees – registration was turned off", in the same
+/// shape as SPM-62's 'Flagged for review' lines.
+export function registrationFlagLine(holdingAPlace: number, reasons: readonly RegistrationReason[]): string {
+  const why = REGISTRATION_REASONS.filter((r) => reasons.includes(r))
+    .map((r) => REGISTRATION_REASON_PROSE[r])
+    .join("; ");
+  return `Registrations: ${attendeeCount(holdingAPlace)} – ${why}`;
 }

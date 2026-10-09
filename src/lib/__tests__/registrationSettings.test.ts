@@ -6,13 +6,17 @@
 //     capacityError(capacity, booking)              null when allowed, else the message for 'Registration capacity'
 //     periodErrors({ opensAt, closesAt }, startsAt)   field -> message for the period, empty when allowed
 //     startedError(startsAt, now)                   the refusal once the event has started, else null
-// Manual cases: docs/test-cases/SPM-64_test_cases.json (TC04, TC06-TC15, TC18; wording decided there).
+//     registrationReviewReasons(before, after, n)   the review reasons a change raises, n = registered + waitlisted
+//     registrationFlagLine(n, reasons)              the 'Flagged for review' line
+// Manual cases: docs/test-cases/SPM-64_test_cases.json (TC02, TC04, TC06-TC15, TC18-TC22; wording decided there).
 import { describe, it, expect } from "vitest";
 import {
   capacityError,
   liveBookings,
   measuredBooking,
   periodErrors,
+  registrationFlagLine,
+  registrationReviewReasons,
   startedError,
   type BookingForCapacity,
 } from "../registrationSettings";
@@ -167,6 +171,51 @@ describe("AC7 the period can be extended or reopened until the event starts", ()
 
   it("never refuses for an event with no start yet", () => {
     expect(startedError(null, START)).toBeNull();
+  });
+});
+
+describe("AC9 a change that leaves attendees without a place flags the registrations", () => {
+  const on = (capacity: number | null) => ({ enabled: true, capacity });
+  const off = (capacity: number | null) => ({ enabled: false, capacity });
+
+  it("flags a capacity lowered below the attendees holding a place (TC19)", () => {
+    expect(registrationReviewReasons(on(20), on(14), 15)).toEqual(["registration_capacity_lowered"]);
+  });
+
+  it("flags nothing when the capacity is lowered to exactly that number (TC20)", () => {
+    expect(registrationReviewReasons(on(20), on(15), 15)).toEqual([]);
+  });
+
+  it("flags a first capacity that is already below the attendees holding a place", () => {
+    expect(registrationReviewReasons(on(null), on(10), 15)).toEqual(["registration_capacity_lowered"]);
+  });
+
+  it("flags nothing when the capacity is unchanged, even if already below the number", () => {
+    expect(registrationReviewReasons(on(10), on(10), 15)).toEqual([]);
+  });
+
+  it("flags registration turned off while anyone holds a place (TC21)", () => {
+    expect(registrationReviewReasons(on(10), off(10), 4)).toEqual(["registration_disabled"]);
+  });
+
+  it("flags nothing when registration is turned off with nobody holding a place (TC02)", () => {
+    expect(registrationReviewReasons(on(50), off(50), 0)).toEqual([]);
+  });
+
+  it("gives both reasons when the capacity is lowered and registration turned off together", () => {
+    expect(registrationReviewReasons(on(20), off(14), 15)).toEqual([
+      "registration_capacity_lowered",
+      "registration_disabled",
+    ]);
+  });
+
+  it("words the flag line for the person who saved (TC19, TC21, TC22)", () => {
+    expect(registrationFlagLine(15, ["registration_capacity_lowered"])).toBe(
+      "Registrations: 15 attendees – the registration capacity was lowered below the number registered or waitlisted"
+    );
+    expect(registrationFlagLine(1, ["registration_disabled"])).toBe(
+      "Registrations: 1 attendee – registration was turned off"
+    );
   });
 });
 
