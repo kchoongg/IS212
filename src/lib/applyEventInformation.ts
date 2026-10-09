@@ -23,6 +23,7 @@ import {
   type ImportantChange,
 } from "@/lib/eventChangeImpact";
 import { addReviewReasons } from "@/lib/reviewFlags";
+import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
 import type { UpdateEventInformationInput } from "@/lib/validation";
 
 /// The event as the caller loaded it: the fields compared and merged here,
@@ -47,9 +48,6 @@ export interface AppliedChange {
   flagged: string[];
 }
 
-/// Statuses whose attendees still hold a place. Also what Configure Event
-/// Registration (SPM-64) counts before flagging the registrations.
-export const HOLDING_A_PLACE = ["registered", "waitlisted"];
 
 export function eventInfoOf(event: EventForChange): EventInfo {
   return {

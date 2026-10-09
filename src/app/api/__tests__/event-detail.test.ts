@@ -136,6 +136,23 @@ describe("GET /api/events/[id]", () => {
     expect((await get(token)).status).toBe(404);
   });
 
+  // SPM-64 (#10), manual case TC22: registration turned off doesn't hide the
+  // event from an attendee who already holds a place.
+  it("shows a confirmed event with registration off to an attendee who holds a place in it", async () => {
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: false }));
+    db.registration.count.mockResolvedValue(1);
+
+    const res = await get(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.registration.count).where).toEqual({
+      eventId: ID.event,
+      attendeeId: ID.thirdUser,
+      status: { in: ["registered", "waitlisted"] },
+    });
+  });
+
   it("gives an attendee only the public fields of a confirmed, open event", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(

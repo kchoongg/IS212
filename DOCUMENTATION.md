@@ -1052,6 +1052,20 @@ what changed, why, and the migration name if there is one.
 
   8 more unit tests in `eventConfirmation.test.ts`, 1 more route test in
   `event-detail.test.ts`.
+- **Slice 7b (#10): attendees keep seeing an event they hold a place in.**
+  - **The rule:** a registered or waitlisted attendee still sees a Confirmed
+    event after its registration is turned off. A withdrawn attendee doesn't,
+    and an event that isn't Confirmed stays hidden.
+  - **Where:** `canViewEvent()` takes an optional `attendeeHoldsPlace`, and
+    `eventListWhere()` adds the matching `registrations: { some: … }` clause
+    (the two stay in step). `GET /api/events/[id]` counts the attendee's place
+    only for an attendee.
+  - **Moved:** `HOLDING_A_PLACE` now lives in `registrationSettings.ts`
+    (pure), because `permissions.ts` also runs in the browser.
+    `applyEventInformation.ts` (SPM-62) imports it from there.
+  - **Tests:** the `eventListWhere` attendee tests in `permissions.test.ts`
+    and `events.test.ts` were updated on purpose, because the rule changed.
+    3 more unit tests, 1 more route test.
 - **Slow-machine timeouts are not failures.** On a busy laptop (OneDrive
   syncing the repo, back-to-back runs), `npm test` timed out at random in the
   page tests and `auth.test.ts`. That happened on `main` without SPM-64's

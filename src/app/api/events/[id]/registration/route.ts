@@ -12,8 +12,8 @@ import {
   registrationFlagLine,
   registrationReviewReasons,
   startedError,
+  HOLDING_A_PLACE,
 } from "@/lib/registrationSettings";
-import { HOLDING_A_PLACE } from "@/lib/applyEventInformation";
 import { addReviewReasons } from "@/lib/reviewFlags";
 
 // Configure Event Registration (SPM-64): the assigned coordinator sets up

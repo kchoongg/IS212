@@ -18,6 +18,12 @@ import { layoutLabel } from "@/lib/venueSuitability";
 /// against it. Rejected and cancelled bookings hold nothing.
 const LIVE_BOOKING_STATUSES = ["pending", "approved"];
 
+/// Registration statuses whose attendees still hold a place. Counted by
+/// Update Event Information (SPM-62) and here (AC9) before flagging the
+/// registrations, and what keeps an event visible to an attendee once its
+/// registration is turned off (#10, canViewEvent()).
+export const HOLDING_A_PLACE = ["registered", "waitlisted"];
+
 export interface BookingForCapacity {
   id: string;
   status: string;
