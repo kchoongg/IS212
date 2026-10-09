@@ -1,0 +1,105 @@
+// Track Outstanding Arrangements (SPM-33): the one place that reads an event's
+// arrangements from the database, for the two things that judge them - the
+// Readiness tab (GET /api/events/[id]/arrangements) and Confirm
+// (PATCH /api/events/[id]). The rules are in src/lib/eventConfirmation.ts and
+// stay pure; this file only gathers what they read, so the list a Coordinator
+// is shown and the refusal they get on confirming always come from the same
+// rows.
+//
+// When an arrangement is added (e.g. the Operational Safety Check, SPM-86),
+// load its data here and add it to ConfirmationInput - both callers get it.
+
+import { prisma } from "./prisma";
+import type { ConfirmationInput } from "./eventConfirmation";
+
+const BY = { select: { fullName: true } } as const;
+
+/// The parts of the event row itself that count as an arrangement: its
+/// registration settings (SPM-64). The name of whoever marked the setup as not
+/// required is optional - Confirm does not load it, the Readiness tab does.
+export interface EventArrangementFields {
+  id: string;
+  registrationEnabled: boolean;
+  registrationCapacity: number | null;
+  registrationOpensAt: Date | null;
+  registrationClosesAt: Date | null;
+  registrationNotRequired?: boolean;
+  registrationNotRequiredAt?: Date | null;
+  registrationNotRequiredByUser?: { fullName: string } | null;
+}
+
+export async function loadConfirmationInput(event: EventArrangementFields): Promise<ConfirmationInput> {
+  const [sessions, bookings, equipment] = await Promise.all([
+    prisma.eventSession.findMany({
+      where: { eventId: event.id },
+      orderBy: { startsAt: "asc" },
+      select: { id: true, label: true },
+    }),
+    prisma.venueBooking.findMany({
+      where: { eventId: event.id },
+      // Oldest first: the order the coordinator asked for the rooms in.
+      orderBy: { requestedAt: "asc" },
+      select: {
+        id: true,
+        sessionId: true,
+        status: true,
+        needsReview: true,
+        reviewReason: true,
+        notRequired: true,
+        notRequiredAt: true,
+        notRequiredByUser: BY,
+        venue: { select: { name: true } },
+      },
+    }),
+    prisma.equipmentRequest.findMany({
+      where: { eventId: event.id },
+      orderBy: { requestedAt: "asc" },
+      select: {
+        id: true,
+        sessionId: true,
+        status: true,
+        needsReview: true,
+        reviewReason: true,
+        notRequired: true,
+        notRequiredAt: true,
+        notRequiredByUser: BY,
+        equipment: { select: { name: true } },
+      },
+    }),
+  ]);
+
+  return {
+    sessions,
+    bookings: bookings.map((b) => ({
+      id: b.id,
+      sessionId: b.sessionId,
+      status: b.status,
+      venueName: b.venue.name,
+      needsReview: b.needsReview,
+      reviewReason: b.reviewReason,
+      notRequired: b.notRequired,
+      notRequiredBy: b.notRequiredByUser?.fullName ?? null,
+      notRequiredAt: b.notRequiredAt,
+    })),
+    equipment: equipment.map((r) => ({
+      id: r.id,
+      sessionId: r.sessionId,
+      status: r.status,
+      equipmentName: r.equipment.name,
+      needsReview: r.needsReview,
+      reviewReason: r.reviewReason,
+      notRequired: r.notRequired,
+      notRequiredBy: r.notRequiredByUser?.fullName ?? null,
+      notRequiredAt: r.notRequiredAt,
+    })),
+    registration: {
+      enabled: event.registrationEnabled,
+      capacity: event.registrationCapacity,
+      opensAt: event.registrationOpensAt,
+      closesAt: event.registrationClosesAt,
+      notRequired: event.registrationNotRequired ?? false,
+      notRequiredBy: event.registrationNotRequiredByUser?.fullName ?? null,
+      notRequiredAt: event.registrationNotRequiredAt ?? null,
+    },
+  };
+}

@@ -154,7 +154,8 @@ IS212/
 │   ├── seed-spm43.ts            # `npm run fixtures:spm43` — SPM-43 test data, no reseed
 │   ├── seed-spm50.ts            # `npm run fixtures:spm50` — SPM-50 test data, no reseed
 │   ├── seed-spm54.ts            # `npm run fixtures:spm54` — SPM-54 test data, no reseed
-│   └── seed-spm62.ts            # `npm run fixtures:spm62` — SPM-62 test data, no reseed
+│   ├── seed-spm62.ts            # `npm run fixtures:spm62` — SPM-62 test data, no reseed
+│   └── seed-spm33.ts            # `npm run fixtures:spm33` — SPM-33 test data, no reseed
 │
 └── src/
     ├── app/
@@ -209,6 +210,13 @@ IS212/
     │   │                                the organiser's, before submission. Reached from
     │   │                                "Edit event information" on the Overview.
     │   ├── events/[id]/equipment/page.tsx  # S-16, the Equipment tab (SPM-47)
+    │   ├── events/[id]/readiness/page.tsx  # S-18, the Readiness tab (SPM-33), coordinators
+    │   │                                only: every venue booking, equipment line and the
+    │   │                                registration setup as Complete, Outstanding or Not
+    │   │                                required, how many still block confirmation, and
+    │   │                                "Mark as not required" for the assigned coordinator.
+    │   │                                It decides nothing - the list comes from
+    │   │                                api/events/[id]/arrangements.
     │   ├── events/[id]/booking/new/page.tsx # S-15 Venue booking request (SPM-42), from
     │   │                                "Request booking" on the Venue tab
     │   ├── bookings/page.tsx            # S-22 Booking Requests, Venue Staff. SPM-42
@@ -289,6 +297,15 @@ IS212/
         │                                   SPM-62 adds revertConfirmationIfConfirmed():
         │                                   an equipment change moves a Confirmed event
         │                                   back to Planning.
+        ├── eventConfirmation.ts           # SPM-34 + SPM-33 rules, pure: arrangementsFor() is THE
+        │                                   list of an event's arrangements (each booking, each
+        │                                   equipment line, registration setup) and their state;
+        │                                   checkEventConfirmation() refuses on the outstanding
+        │                                   ones. Its header says how to add an arrangement
+        │                                   (the Operational Safety Check, SPM-86).
+        ├── eventArrangements.ts           # SPM-33: loadConfirmationInput() - the only file that
+        │                                   reads those arrangements from Prisma, for the
+        │                                   Readiness tab AND Confirm
         ├── eventChangeImpact.ts           # SPM-62 rules, pure: which changes are important,
         │                                   which arrangements each flags, when a Confirmed
         │                                   event reverts. SPM-32/35/88 reuse it - one meaning
@@ -595,6 +612,8 @@ defend under questioning.
 | **A venue booking request is decided once, and only while Pending** — approving or rejecting an already-decided one is refused (400) | `DECIDABLE_BOOKING_STATUSES`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
 | **Approval re-checks the room** — refused if another *approved* booking's slots (setup and turnaround included) or an unavailability period overlap, if the venue is retired, or if the event is completed, cancelled or rejected. A rival *pending* request does not block: approving one is how Venue Staff choose. The venue row is locked for the check, so two approvals cannot both pass | `approvalConflict()`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
 | **Reason required when rejecting a booking**; a suggested venue must be active and not the one refused. The suggestion books nothing (#45, #110) | `checkBookingDecision()` | ✅ done (SPM-43) |
+| **Confirm refuses on everything the Readiness tab shows as outstanding** - no venue, a pending venue request (each booking judged on its own), equipment that is not reserved or only partly reserved, a booking or equipment line flagged for review, and registration that is enabled but has no capacity or period. One rule lists and judges them | `arrangementsFor()`, `checkEventConfirmation()` (`src/lib/eventConfirmation.ts`), read by `loadConfirmationInput()` | ✅ done (SPM-34, SPM-33) |
+| **An arrangement marked as not required prevents nothing, but an event always needs a venue** - any booking, equipment line or the registration setup can be waived, only while outstanding; "No venue booked" never can, and comes back when an event's only booking is waived. Who decided and when is recorded on marking and on reversing | `arrangement()`, `WAIVABLE_KINDS` (`src/lib/eventConfirmation.ts`), `PATCH /api/events/[id]/arrangements` | ✅ done (SPM-33) |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
 | Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event and session cannot request overlapping slots at a venue twice (two sessions may share a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
 | Equipment availability | `src/lib/equipmentAvailability.ts` | ✅ done (SPM-48) |
@@ -624,6 +643,7 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | **Only the assigned coordinator updates an event's information after submission, and only while it is Approved, Planning or Confirmed** — the organiser asks through a change request instead (SPM-35, clarification #102). Organiser, coordinator, status, equipment (Equipment tab), sessions and registration settings (SPM-64) are not editable there | `canUpdateEventInformation()`, `EVENT_INFORMATION_STATUSES`, `updateEventInformationSchema` (strict), `PATCH /api/events/[id]/information` | ✅ done (SPM-62) |
 | **An important change flags the arrangements it affects and never changes them** — date or time flags the venue bookings, equipment and registrations; attendance or venue requirements flag the venue bookings only. Flags merge into what is already there (SPM-39's reasons included) | `src/lib/eventChangeImpact.ts`, `src/lib/applyEventInformation.ts` | ✅ done (SPM-62) |
 | **A Confirmed event goes back to Planning when its venue or equipment is affected** — an important change on the edit form, or any equipment change on the Equipment tab, asked first in both places. Registrations alone do not revert it | `revertsConfirmation()`, `revertConfirmationIfConfirmed()` (`src/lib/beginPlanning.ts`) | ✅ done (SPM-62) |
+| **Only the assigned coordinator marks an arrangement as not required, and only while the event is in Planning** — any coordinator can read the Readiness list; on a Confirmed event nothing can be marked or reversed | `canMarkArrangements()`, `ARRANGEMENT_MARKING_STATUSES`, `canViewArrangements()`, `GET` / `PATCH /api/events/[id]/arrangements` | ✅ done (SPM-33) |
 | **Venue bookings and equipment changes wait for approval** — on a Submitted or Under review event the coordinator can search venues but cannot request a booking or add, change or remove equipment | `isBeforeApproval()` (`src/lib/statuses.ts`), `checkVenueBookingRequest()`, the equipment routes | ✅ done (SPM-54) |
 | **A booking request is reviewed only once its event is approved** — a pending request whose event is still Submitted or Under review is not listed on Booking Requests and cannot be approved | `GET /api/venue-bookings`, `awaitingEventApproval()` (`src/lib/venueBookingReview.ts`) | ✅ done (SPM-43) |
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
@@ -723,6 +743,7 @@ traceability the module asks for.
 | `npm run fixtures:spm50` | Adds or resets SPM-50's 6 test events (Robotics Expo, Design Week, …, Aug–Sep 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm50_`, with their equipment lines. Needs the base seed's users and the SPM-49 equipment items. Run it again before repeating a case that saves |
 | `npm run fixtures:spm54` | Adds or resets SPM-54's 10 test events ("SPM54 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm54_` (with any booking requests and equipment a test pass added), always at **EVT-000145 to EVT-000154**. Stops without changing anything if another event holds one of those numbers. Run it before a test pass and after any case that moves an event to Planning (TC01/TC02, TC04 to TC07) or adds to one (TC14). The same events are at the end of `prisma/seed.ts` |
 | `npm run fixtures:spm62` | Adds or resets SPM-62's 9 test events ("SPM62 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm62_`, with their approved venue bookings, reserved equipment, registrations and required facility. No pinned reference numbers: the cases find events by title. Stops without changing anything if one of its rooms is already booked at that time. Run it before and after any case that saves (TC03 to TC05, TC07, TC09, TC10, TC12, TC13). The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm33` | Adds or resets SPM-33's 11 test events ("SPM33 …", 12–27 Jul 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm33_`, with the sessions, venue bookings and equipment lines that put each one in its own state (two rooms, nothing booked, flagged, partly reserved, another coordinator's, confirmed with a line already marked as not required). No pinned reference numbers. Stops without changing anything if one of its rooms is already booked at that time. Needs the migration `add_arrangement_not_required`. Run it before and after any case that marks an arrangement or confirms (TC05 to TC10). The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -843,7 +864,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **A decided booking cannot be undone or released** | Once approved or rejected (SPM-43) a request stays that way: nothing cancels an approved booking, and Venue Staff have no list of what they have already decided. Releasing bookings belongs to cancelling and postponing an event (SPM-37, SPM-38). | venues / events |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **Nothing can create a venue unavailability period** | `GET /api/venues/[id]/availability` (SPM-46) reads `VenueUnavailability` and reports overlapping periods (AC5), but the **Block venue** screen (S-23) is not built and no route writes to that table — every row in it is seeded. AC5 itself is no longer blocked: `prisma/seed.ts` now carries the one overlapping pair, at Jurong Expo Floor (days 40–44 and 42–46), so SPM-46-TC09 runs by hand. What is still missing is any way for Venue Staff to block a venue in the app at all. | venues |
-| **No way to see or clear review flags after they are raised** | Venue changes (SPM-39) flag bookings; event information changes (SPM-62) flag bookings, equipment requests (`EquipmentRequest.needsReview`) and registrations (`Event.registrationReviewReason`). Nothing clears any of them, and SPM-62 shows its flags only on the save screen at the moment of saving — afterwards they are visible only in the database, and they do not yet block confirmation. **SPM-68 (Review Flagged Arrangements, Sprint 3)** lists them, keeps or replaces each, and makes an open flag block confirmation. Until then a coordinator must act on the "Flagged for review" list straight away. | SPM-68 |
+| **A review flag cannot be cleared** | Venue changes (SPM-39) flag bookings; event information changes (SPM-62) flag bookings, equipment requests (`EquipmentRequest.needsReview`) and registrations (`Event.registrationReviewReason`). Since SPM-33 a flagged booking or equipment line is shown on the event's Readiness tab as Outstanding with why, and **blocks confirmation**. But nothing clears a flag yet, so the only way past one is to mark the arrangement as not required. **SPM-68 (Review Flagged Arrangements, Sprint 3)** lists them across events and keeps or replaces each. Flagged registrations are still visible only in the database. | SPM-68 |
+| **The Operational Safety Check is not on the Readiness tab** | SPM-33's AC6 (shown as a required item) and AC9 (cannot be marked as not required) wait for SPM-86, which defines the status they read; they have no tests yet. The header of `src/lib/eventConfirmation.ts` says where it goes: a kind, its data, one block in `arrangementsFor()`, and nothing in `WAIVABLE_KINDS`. Whether it also stops Confirm is SPM-88's. | SPM-86 / SPM-33 |
+| **SPM-34's test cases are out of date after SPM-33** | SPM-34-TC05 expects a Partially fulfilled line to confirm; it is now refused until the line is marked as not required (as SPM-33-TC10). SPM-34-TC07's message now names the venue ("Orchard Seminar Room for this event is still awaiting a decision from Venue Staff"). | SPM-34's owner |
 | **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
 | **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
@@ -882,6 +905,48 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-09 — Kristen
+- **SPM-33 (Track Outstanding Arrangements).** A coordinator can see
+  everything that has to be in place before an event is confirmed, and
+  the assigned one can mark an arrangement as not required.
+  - **New screen:** the Readiness tab (`/events/[id]/readiness`, S-18),
+    coordinators only. One item per venue booking, equipment line and
+    (where enabled) the registration setup, each Complete, Outstanding or
+    Not required, with a count of what still blocks confirmation.
+  - **New route:** `GET` / `PATCH /api/events/[id]/arrangements`. PATCH
+    marks one arrangement as not required or as required again: the
+    assigned coordinator only, in Planning only, and only an outstanding
+    one. Who decided and when is stored and shown (briefing 8f, #14).
+  - **One rule for the list and for Confirm**
+    (`src/lib/eventConfirmation.ts`): each booking is judged on its own,
+    so an event with several (SPM-81) lists them separately; an event or
+    session with no booking still required shows "No venue booked", which
+    can never be waived. `src/lib/eventArrangements.ts` reads the rows for
+    both callers.
+  - **Confirm is stricter** (decided 2026-10-08). It now also refuses on
+    a flagged booking or equipment line, registration that is enabled but
+    incomplete, and equipment that is only partly reserved - until the
+    coordinator marks it as not required (#90, #106). A pending booking
+    is named in the refusal.
+  - **Not here, on purpose:** the Operational Safety Check (AC6, AC9)
+    waits for SPM-86; clearing a flag is SPM-68; registration settings
+    are SPM-64. See Known Gaps.
+- **Migration:** `20261009100000_add_arrangement_not_required` -
+  `not_required` / `not_required_by` / `not_required_at` on
+  `venue_bookings` and `equipment_requests`, and
+  `registration_not_required` (+ `_by`, `_at`) on `events`. Additive.
+  **Not yet applied to the shared database.**
+- **Test data:** `npm run fixtures:spm33` (11 events), appended to
+  `prisma/seed.ts`. Not yet run.
+- **Tests:** written first, then the code to them. 2,764 tests pass. New:
+  `event-arrangements.test.ts`, `event-readiness-page.test.tsx`; extended:
+  `eventConfirmation.test.ts`, `event-detail.test.ts`, `statuses.test.ts`,
+  `client.test.tsx`, `event-pages.test.tsx`. Manual cases:
+  `docs/test-cases/SPM-33_Test_Cases.xlsx` (14), not yet walked through
+  the running app.
+- **Docs:** `docs/PERMISSIONS.md` (the two routes), `SCHEMA_REFERENCE.md`
+  (the new columns), `UI_DESIGN.md` (S-18 built).
 
 ### 2026-10-06 — Jordan
 - **SPM-44 review fixes (PR #37, raised by kayalvizhi24).** Both gaps predate

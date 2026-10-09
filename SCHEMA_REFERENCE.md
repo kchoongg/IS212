@@ -238,6 +238,9 @@ Postgres table `events` &middot; `prisma.event`
 | `registrationOpensAt` | DateTime |  |  |
 | `registrationClosesAt` | DateTime |  |  |
 | `registrationReviewReason` | String |  | Set when a change to the event may affect attendees already registered or waitlisted (SPM-62: the date or time changed; SPM-64: capacity lowered below them or registration turned off). Comma-separated reason codes, as `VenueBooking.reviewReason`. NULL = not flagged. Registrations themselves are not changed. |
+| `registrationNotRequired` | Boolean |  | SPM-33: the assigned coordinator marked the registration setup as not required, so an enabled but incomplete setup no longer prevents confirmation. The settings are NOT changed. Defaults to `false`. |
+| `registrationNotRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `registrationNotRequiredByUser`. NULL when never decided. |
+| `registrationNotRequiredAt` | DateTime |  | When that decision was made. |
 | `rejectionReason` | String |  | Required when rejecting - the route enforces it. |
 | `cancellationReason` | String |  |  |
 | `submittedAt` | DateTime |  |  |
@@ -371,6 +374,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `needsReview` | Boolean |  | A venue change may have invalidated this booking. The booking is NOT changed - a human decides. Defaults to `false`. |
 | `reviewReason` | String |  | Why it was flagged: comma-separated codes, see Status values. NULL when `needsReview` is false. |
 | `flaggedAt` | DateTime |  | When it was last flagged. NULL when never flagged. |
+| `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this booking as not required for the event, so it no longer prevents confirmation. The booking is NOT changed, withdrawn or released. Defaults to `false`. |
+| `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
+| `notRequiredAt` | DateTime |  | When that decision was made. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `suggestedVenue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
 
@@ -458,6 +464,9 @@ Request and reservation in one table: a reservation only ever comes from a reque
 | `needsReview` | Boolean |  | A change to the event (SPM-62: its date or time) may have invalidated this request. The request is NOT changed - the coordinator keeps or replaces it (SPM-68). Defaults to `false`. |
 | `reviewReason` | String |  | Why it was flagged: comma-separated codes, merged with any already there. |
 | `flaggedAt` | DateTime |  | When it was last flagged. |
+| `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this line as not required (e.g. an item Technical Support cannot provide, agreed to be non-essential), so it no longer prevents confirmation. Its status and anything reserved are NOT changed. Defaults to `false`. |
+| `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
+| `notRequiredAt` | DateTime |  | When that decision was made. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User
 

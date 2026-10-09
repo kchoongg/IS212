@@ -488,16 +488,38 @@ describe("PATCH /api/events/[id] - status change", () => {
         db.venueBooking.findMany.mockResolvedValue(bookings);
         db.equipmentRequest.findMany.mockResolvedValue(equipment);
       }
-      const venueApproved = { sessionId: null, status: "approved" };
-      const projector = (status: string, sessionId: string | null = null) => ({
-        sessionId,
+      // CHANGED (SPM-33): each row now carries what the Readiness list reads -
+      // the venue's name, the review flag and whether it is marked as not
+      // required. A booking is named in the refusal, since an event can have
+      // more than one.
+      const venue = (status: string, overrides: Record<string, unknown> = {}) => ({
+        id: ID.booking,
+        sessionId: null,
         status,
+        needsReview: false,
+        reviewReason: null,
+        notRequired: false,
+        venue: { name: "Hall A", code: "HALL-A" },
+        ...overrides,
+      });
+      const venueApproved = venue("approved");
+      const projector = (status: string, overrides: Record<string, unknown> = {}) => ({
+        id: ID.request,
+        sessionId: null,
+        status,
+        needsReview: false,
+        reviewReason: null,
+        notRequired: false,
         equipment: { name: "Projector" },
+        ...overrides,
       });
 
-      async function confirm(arrangements: Parameters<typeof givenArrangements>[0] = {}) {
+      async function confirm(
+        arrangements: Parameters<typeof givenArrangements>[0] = {},
+        eventOverrides: Record<string, unknown> = {}
+      ) {
         const token = signIn(coordinator());
-        db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
+        db.event.findUnique.mockResolvedValue(event({ status: "planning", ...eventOverrides }));
         givenUpdateSucceeds();
         // After givenUpdateSucceeds(), which stubs an event with no sessions.
         givenArrangements(arrangements);
@@ -513,12 +535,6 @@ describe("PATCH /api/events/[id] - status change", () => {
         expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
       });
 
-      it("counts partially fulfilled equipment as arranged - the shortfall is the coordinator's call", async () => {
-        const res = await confirm({ bookings: [venueApproved], equipment: [projector("partially_fulfilled")] });
-
-        expect(res.status).toBe(200);
-      });
-
       it("confirms an event that needs no equipment", async () => {
         expect((await confirm({ bookings: [venueApproved] })).status).toBe(200);
       });
@@ -527,12 +543,12 @@ describe("PATCH /api/events/[id] - status change", () => {
         ["no venue is booked", {}, "This event cannot be confirmed yet: no venue is booked for this event."],
         [
           "the venue request is still pending",
-          { bookings: [{ sessionId: null, status: "pending" }] },
-          "This event cannot be confirmed yet: the venue for this event is still awaiting a decision from Venue Staff.",
+          { bookings: [venue("pending")] },
+          "This event cannot be confirmed yet: Hall A for this event is still awaiting a decision from Venue Staff.",
         ],
         [
           "the only venue request was rejected",
-          { bookings: [{ sessionId: null, status: "rejected" }] },
+          { bookings: [venue("rejected")] },
           "This event cannot be confirmed yet: no venue is booked for this event.",
         ],
         [
@@ -540,10 +556,32 @@ describe("PATCH /api/events/[id] - status change", () => {
           { bookings: [venueApproved], equipment: [projector("requested")] },
           "This event cannot be confirmed yet: Projector for this event is not reserved yet.",
         ],
+        // CHANGED (SPM-33, decided 2026-10-08): this used to confirm. The
+        // shortfall is the coordinator's call (#90), made by marking the line
+        // as not required.
+        [
+          "equipment is only partly reserved",
+          { bookings: [venueApproved], equipment: [projector("partially_fulfilled")] },
+          "This event cannot be confirmed yet: Projector for this event is only partly reserved.",
+        ],
         [
           "both are outstanding",
           { equipment: [projector("unavailable")] },
           "This event cannot be confirmed yet: no venue is booked for this event; Projector for this event is not reserved yet.",
+        ],
+        // SPM-33 AC4: a flagged arrangement is outstanding until it is resolved.
+        [
+          "an approved booking is flagged for review",
+          { bookings: [venue("approved", { needsReview: true, reviewReason: "event_schedule_changed" })] },
+          "This event cannot be confirmed yet: Hall A for this event is flagged for review: the date or time changed.",
+        ],
+        [
+          "reserved equipment is flagged for review",
+          {
+            bookings: [venueApproved],
+            equipment: [projector("reserved", { needsReview: true, reviewReason: "event_schedule_changed" })],
+          },
+          "This event cannot be confirmed yet: Projector for this event is flagged for review: the date or time changed.",
         ],
       ])("refuses while %s, naming what is outstanding", async (_case, arrangements, message) => {
         const res = await confirm(arrangements);
@@ -561,13 +599,79 @@ describe("PATCH /api/events/[id] - status change", () => {
             { id: "s1", label: "Day 1" },
             { id: "s2", label: "Day 2" },
           ],
-          bookings: [{ sessionId: "s1", status: "approved" }],
+          bookings: [venue("approved", { sessionId: "s1" })],
         });
 
         expect(res.status).toBe(400);
         expect((await res.json()).error).toBe(
           "This event cannot be confirmed yet: no venue is booked for the Day 2 session."
         );
+      });
+
+      // SPM-33 AC11: "arrangements marked as not required do not prevent it".
+      describe("with arrangements marked as not required (SPM-33)", () => {
+        it.each([
+          [
+            "an equipment line Technical Support cannot provide",
+            { bookings: [venueApproved], equipment: [projector("unavailable", { notRequired: true })] },
+          ],
+          [
+            "a partly reserved equipment line",
+            { bookings: [venueApproved], equipment: [projector("partially_fulfilled", { notRequired: true })] },
+          ],
+          [
+            "a second venue booking that is still pending",
+            { bookings: [venueApproved, venue("pending", { id: ID.otherVenue, notRequired: true })] },
+          ],
+        ])("confirms when the only thing outstanding is %s, marked as not required", async (_case, arrangements) => {
+          const res = await confirm(arrangements);
+
+          expect(res.status).toBe(200);
+          expect(callArg(db.event.update).data).toMatchObject({ status: "confirmed" });
+        });
+
+        it("still refuses an event whose only venue booking is marked as not required", async () => {
+          const res = await confirm({ bookings: [venue("pending", { notRequired: true })] });
+
+          expect(res.status).toBe(400);
+          expect((await res.json()).error).toBe(
+            "This event cannot be confirmed yet: no venue is booked for this event."
+          );
+          expect(db.event.update).not.toHaveBeenCalled();
+        });
+      });
+
+      // SPM-33 AC5: registration that is enabled but not set up is outstanding.
+      describe("with registration enabled (SPM-33)", () => {
+        const complete = {
+          registrationEnabled: true,
+          registrationCapacity: 80,
+          registrationOpensAt: new Date("2027-02-01T01:00:00.000Z"),
+          registrationClosesAt: new Date("2027-02-28T10:00:00.000Z"),
+        };
+
+        it("confirms once registration has a capacity and a registration period", async () => {
+          expect((await confirm({ bookings: [venueApproved] }, complete)).status).toBe(200);
+        });
+
+        it("refuses while registration is enabled but has no capacity", async () => {
+          const res = await confirm({ bookings: [venueApproved] }, { ...complete, registrationCapacity: null });
+
+          expect(res.status).toBe(400);
+          expect((await res.json()).error).toBe(
+            "This event cannot be confirmed yet: registration is enabled but has no capacity."
+          );
+          expect(db.event.update).not.toHaveBeenCalled();
+        });
+
+        it("confirms when incomplete registration setup is marked as not required", async () => {
+          const res = await confirm(
+            { bookings: [venueApproved] },
+            { ...complete, registrationCapacity: null, registrationNotRequired: true }
+          );
+
+          expect(res.status).toBe(200);
+        });
       });
     });
 

@@ -284,6 +284,8 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403 |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
+| `GET /api/events/[id]/arrangements` | `canViewArrangements()` (`event:confirm` - any coordinator) → 403, then `canViewEvent()` → 404. The answer's `canManage` is true only for the assigned coordinator while the event is in Planning (SPM-33) |
+| `PATCH /api/events/[id]/arrangements` | `canViewEvent()` → 404, then `canMarkArrangements()` → 403 (the assigned coordinator only), then `ARRANGEMENT_MARKING_STATUSES` → 400 (Planning only). Records who decided and when (SPM-33) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
 | `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
 | `GET /api/venues` | `venue:view` — Coordinator, Ops Manager, Venue Staff |

@@ -1,0 +1,350 @@
+{
+  "story_key": "SPM-33",
+  "story_title": "As an Event Coordinator, I want to view outstanding event arrangements so that I know what still needs to be completed before the event can be confirmed",
+  "created_by": "kchoongg",
+  "creation_date": "2026-10-08",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The system displays outstanding venue arrangements."
+    },
+    {
+      "id": "AC2",
+      "text": "Given an event has more than one venue booking, when arrangements are displayed, then each venue booking is listed separately with its own status (see: Request More Than One Venue for an Event, SPM-81)."
+    },
+    {
+      "id": "AC3",
+      "text": "The system displays outstanding equipment arrangements."
+    },
+    {
+      "id": "AC4",
+      "text": "Given a venue booking or equipment reservation is flagged for review, when arrangements are displayed, then it is shown as outstanding, with why it was flagged, until the Coordinator resolves it (see: Review Flagged Arrangements, SPM-68)."
+    },
+    {
+      "id": "AC5",
+      "text": "The system displays other required planning items, including registration setup that is enabled but incomplete (see: Configure Event Registration, SPM-64)."
+    },
+    {
+      "id": "AC7",
+      "text": "Completed arrangements are distinguishable from outstanding ones."
+    },
+    {
+      "id": "AC8",
+      "text": "The assigned Coordinator can mark an arrangement as not required for this event (e.g. an event that needs no equipment, or an unfulfilled equipment item agreed with Technical Support Staff to be non-essential), and can reverse that decision."
+    },
+    {
+      "id": "AC10",
+      "text": "An arrangement marked as not required is shown as such and is distinguishable from both completed and outstanding arrangements."
+    },
+    {
+      "id": "AC11",
+      "text": "The Coordinator can identify which arrangements are preventing confirmation; arrangements marked as not required do not prevent it."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-33-TC01",
+      "title": "Every venue booking and equipment line is listed with its own status, and Confirm names the outstanding ones",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC3",
+        "AC7",
+        "AC11"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). 'SPM33 Two Room Conference' is in Planning, assigned to Daniel Tan, with two venue bookings, Marina Auditorium (Approved) and Orchard Studio (Pending), and two equipment requirements, Handheld Wireless Mic (Reserved) and Audio Mixing Desk (Requested, not yet reviewed by Technical Support). Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123). Confirmation is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Two Room Conference' in the list",
+        "Click the 'Readiness' tab",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM33 Two Room Conference (Planning)\nVenue bookings: Marina Auditorium (Approved), Orchard Studio (Pending)\nEquipment: Handheld Wireless Mic (Reserved), Audio Mixing Desk (Requested)\nCoordinator: Daniel Tan",
+      "expected_result": "Step 2: The event opens with the status badge 'Planning' and a 'Readiness' tab after the 'Equipment' tab.\nStep 3: Four separate items are listed. 'Marina Auditorium' shows 'Approved' and 'Complete'. 'Orchard Studio' shows 'Pending' and 'Outstanding', and says it is still awaiting a decision from Venue Staff. 'Handheld Wireless Mic' shows 'Reserved' and 'Complete'. 'Audio Mixing Desk' shows 'Requested' and 'Outstanding', and says it is not reserved yet. Neither complete item shows 'Outstanding'. The message '2 arrangements still block confirmation' is shown above the list.\nStep 6: The event is NOT confirmed. The message 'This event cannot be confirmed yet: Orchard Studio for this event is still awaiting a decision from Venue Staff; Audio Mixing Desk for this event is not reserved yet.' is shown, naming the same two arrangements and neither of the complete ones. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-33-TC02",
+      "title": "An event with no venue booking shows 'No venue booked', and nothing for equipment or registration it does not have",
+      "linked_ac": [
+        "AC1",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). 'SPM33 Nothing Booked' is in Planning, assigned to Daniel Tan, and has no venue booking and no equipment requirements, and registration is not enabled. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Nothing Booked' in the list",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM33 Nothing Booked (Planning)\nVenue bookings: none\nEquipment: none\nRegistration: not enabled",
+      "expected_result": "Step 3: The list has one item, 'No venue booked', showing 'Outstanding' and saying no venue is booked for this event. It has no 'Mark as not required' button. No equipment item and no 'Registration setup' item is listed. The message '1 arrangement still blocks confirmation' is shown."
+    },
+    {
+      "id": "SPM-33-TC03",
+      "title": "A multi-session event shows which session each venue arrangement belongs to",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). 'SPM33 Two Day Forum' is in Planning, assigned to Daniel Tan, with two sessions, 'Day 1' and 'Day 2'. Day 1 has an approved booking at Orchard Seminar Room; Day 2 has no booking. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Two Day Forum' in the list",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM33 Two Day Forum (Planning), sessions Day 1 and Day 2\nDay 1: Orchard Seminar Room, Approved\nDay 2: no booking",
+      "expected_result": "Step 3: 'Orchard Seminar Room' is listed for 'Day 1' with 'Approved' and 'Complete'. A separate item 'No venue booked' is listed for 'Day 2' with 'Outstanding'. The message '1 arrangement still blocks confirmation' is shown."
+    },
+    {
+      "id": "SPM-33-TC04",
+      "title": "A flagged venue booking and equipment reservation are shown as outstanding, with why, and prevent confirmation",
+      "linked_ac": [
+        "AC4",
+        "AC11"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). 'SPM33 Date Changed' is in Planning, assigned to Daniel Tan. Its venue booking at Orchard Seminar Room is Approved and its Handheld Wireless Mic is Reserved, but both were flagged for review when the event's date was changed. Logged in as Daniel Tan. Confirmation is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Date Changed' in the list",
+        "Click the 'Readiness' tab",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM33 Date Changed (Planning)\nVenue: Orchard Seminar Room, Approved, flagged (the date or time changed)\nEquipment: Handheld Wireless Mic, Reserved, flagged (the date or time changed)",
+      "expected_result": "Step 3: 'Orchard Seminar Room' shows 'Approved' and 'Outstanding', not 'Complete', and says it is flagged for review: the date or time changed. 'Handheld Wireless Mic' shows 'Reserved' and 'Outstanding', and says it is flagged for review: the date or time changed. The message '2 arrangements still block confirmation' is shown.\nStep 6: The event is NOT confirmed. The message 'This event cannot be confirmed yet: Orchard Seminar Room for this event is flagged for review: the date or time changed; Handheld Wireless Mic for this event is flagged for review: the date or time changed.' is shown. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-33-TC05",
+      "title": "The assigned Coordinator marks an equipment line Technical Support cannot provide as not required",
+      "linked_ac": [
+        "AC8",
+        "AC10",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm33 before this case. 'SPM33 Stage Unavailable' is in Planning, assigned to Daniel Tan, with an approved venue booking at Orchard Gallery and two equipment requirements: Handheld Wireless Mic (Reserved) and Portable Stage, which Technical Support marked 'Cannot be provided'. Logged in as Daniel Tan. This case changes the event. SPM-33-TC06 needs that change, so go straight to it and run npm run fixtures:spm33 after SPM-33-TC06.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Stage Unavailable' in the list",
+        "Click the 'Readiness' tab",
+        "Click 'Mark as not required' in the 'Portable Stage' item"
+      ],
+      "test_data": "Event: SPM33 Stage Unavailable (Planning)\nVenue: Orchard Gallery, Approved\nEquipment: Handheld Wireless Mic (Reserved), Portable Stage (Cannot be provided)",
+      "expected_result": "Step 3: 'Portable Stage' shows 'Cannot be provided' and 'Outstanding', with a 'Mark as not required' button. 'Orchard Gallery' and 'Handheld Wireless Mic' show 'Complete' and have no such button. The message '1 arrangement still blocks confirmation' is shown.\nStep 4: 'Portable Stage' now shows 'Not required' in place of 'Outstanding', and still shows 'Cannot be provided'. It says 'Marked as not required by Daniel Tan on' followed by today's date and the time. It reads differently from 'Handheld Wireless Mic', which shows 'Complete'. Its button now reads 'Mark as required'. The message changes to 'Nothing is blocking confirmation'."
+    },
+    {
+      "id": "SPM-33-TC06",
+      "title": "The Coordinator reverses a not-required decision and the arrangement is outstanding again",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-33-TC05 has just been run (so 'Portable Stage' on 'SPM33 Stage Unavailable' shows 'Not required') and the fixtures have NOT been reset since. Still logged in as Daniel Tan, on the Readiness tab of 'SPM33 Stage Unavailable'. Run npm run fixtures:spm33 after this case.",
+      "steps": [
+        "Click 'Mark as required' in the 'Portable Stage' item",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM33 Stage Unavailable (Planning)\nEquipment: Portable Stage (Cannot be provided), marked as not required in SPM-33-TC05",
+      "expected_result": "Step 1: 'Portable Stage' shows 'Outstanding' again, with a 'Mark as not required' button, and no longer says who marked it as not required. The message changes back to '1 arrangement still blocks confirmation'.\nStep 2: The 'Portable Stage' requirement is still listed with the status 'Cannot be provided' and its requested quantity. Marking it and reversing the decision did not change or remove the requirement."
+    },
+    {
+      "id": "SPM-33-TC07",
+      "title": "One of two venue bookings is marked as not required and the other is unchanged",
+      "linked_ac": [
+        "AC8",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm33 before and after this case. 'SPM33 Breakout Not Needed' is in Planning, assigned to Daniel Tan, with two venue bookings: Marina Auditorium (Approved) and Orchard Studio (Pending). It has no equipment. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Breakout Not Needed' in the list",
+        "Click the 'Readiness' tab",
+        "Click 'Mark as not required' in the 'Orchard Studio' item",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM33 Breakout Not Needed (Planning)\nVenue bookings: Marina Auditorium (Approved), Orchard Studio (Pending)",
+      "expected_result": "Step 3: 'Orchard Studio' shows 'Pending' and 'Outstanding'. The message '1 arrangement still blocks confirmation' is shown.\nStep 4: 'Orchard Studio' shows 'Not required' and still shows 'Pending'. 'Marina Auditorium' still shows 'Approved' and 'Complete'. The message changes to 'Nothing is blocking confirmation'.\nStep 5: Under 'Booking requests', the Orchard Studio request is still listed as 'Pending' and the Marina Auditorium booking as 'Approved'. Neither was withdrawn or changed."
+    },
+    {
+      "id": "SPM-33-TC08",
+      "title": "Marking an event's only venue booking as not required still leaves it without a venue",
+      "linked_ac": [
+        "AC8",
+        "AC11"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm33 before and after this case. 'SPM33 Single Pending Room' is in Planning, assigned to Daniel Tan, with one venue booking, Orchard Studio (Pending), and no equipment. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Single Pending Room' in the list",
+        "Click the 'Readiness' tab",
+        "Click 'Mark as not required' in the 'Orchard Studio' item"
+      ],
+      "test_data": "Event: SPM33 Single Pending Room (Planning)\nVenue bookings: Orchard Studio (Pending) only",
+      "expected_result": "Step 3: 'Orchard Studio' shows 'Pending' and 'Outstanding'. There is no 'No venue booked' item. The message '1 arrangement still blocks confirmation' is shown.\nStep 4: 'Orchard Studio' shows 'Not required'. A new item 'No venue booked' appears showing 'Outstanding', with no 'Mark as not required' button. The message still reads '1 arrangement still blocks confirmation': an event always needs a venue."
+    },
+    {
+      "id": "SPM-33-TC09",
+      "title": "Registration that is enabled but has no capacity is outstanding until it is marked as not required",
+      "linked_ac": [
+        "AC5",
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm33 before and after this case. 'SPM33 Registration Not Needed' is in Planning, assigned to Daniel Tan, with an approved venue booking at Orchard Gallery and no equipment. Registration is enabled with an opening and closing date but no capacity. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Registration Not Needed' in the list",
+        "Click the 'Readiness' tab",
+        "Click 'Mark as not required' in the 'Registration setup' item",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM33 Registration Not Needed (Planning)\nVenue: Orchard Gallery, Approved\nRegistration: enabled, capacity not set",
+      "expected_result": "Step 3: 'Orchard Gallery' shows 'Complete'. A separate item 'Registration setup' shows 'Outstanding', says registration is enabled but has no capacity, and has a 'Mark as not required' button. The message '1 arrangement still blocks confirmation' is shown.\nStep 4: 'Registration setup' shows 'Not required' and its button reads 'Mark as required'. The message changes to 'Nothing is blocking confirmation'.\nStep 5: The status badge still reads 'Planning', and the Registration card still shows Capacity as '—' with the same opening and closing dates. The registration settings were not changed."
+    },
+    {
+      "id": "SPM-33-TC10",
+      "title": "A partly reserved equipment line prevents confirmation until it is marked as not required",
+      "linked_ac": [
+        "AC11",
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm33 before and after this case. 'SPM33 Partly Reserved' is in Planning, assigned to Daniel Tan, with an approved venue booking at Orchard Gallery and one equipment requirement: 2 Audio Mixing Desks, of which Technical Support reserved 1 (status Partially fulfilled). Logged in as Daniel Tan. This case confirms the event.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Partly Reserved' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click the 'Readiness' tab",
+        "Click 'Mark as not required' in the 'Audio Mixing Desk' item",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM33 Partly Reserved (Planning)\nVenue: Orchard Gallery, Approved\nEquipment: Audio Mixing Desk, 2 requested, 1 reserved, Partially fulfilled",
+      "expected_result": "Step 4: The event is NOT confirmed. The message 'This event cannot be confirmed yet: Audio Mixing Desk for this event is only partly reserved.' is shown and the status badge still reads 'Planning'.\nStep 5: 'Audio Mixing Desk' shows 'Partially fulfilled' and 'Outstanding'. The message '1 arrangement still blocks confirmation' is shown.\nStep 6: 'Audio Mixing Desk' shows 'Not required'. The message changes to 'Nothing is blocking confirmation'.\nStep 9: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge changes to 'Confirmed'."
+    },
+    {
+      "id": "SPM-33-TC11",
+      "title": "A Coordinator who is not the assigned one can view the arrangements but cannot mark them",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). 'SPM33 Another Coordinator' is in Planning and assigned to Priya Raj, not Daniel Tan. It has a venue booking at Orchard Studio (Pending) and a Portable Stage requirement marked 'Cannot be provided'. Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Another Coordinator' in the list",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM33 Another Coordinator (Planning), coordinator Priya Raj\nVenue: Orchard Studio (Pending)\nEquipment: Portable Stage (Cannot be provided)\nAccount: daniel.tan@connectsphere.com (a Coordinator, but not the assigned one)",
+      "expected_result": "Step 3: 'Orchard Studio' and 'Portable Stage' are listed, both showing 'Outstanding', and the message '2 arrangements still block confirmation' is shown. Neither item has a 'Mark as not required' button."
+    },
+    {
+      "id": "SPM-33-TC12",
+      "title": "On a Confirmed event a not-required arrangement is shown as such and can no longer be changed",
+      "linked_ac": [
+        "AC8",
+        "AC10"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). 'SPM33 Confirmed With Waiver' is Confirmed, assigned to Daniel Tan, with an approved venue booking at Orchard Gallery and a Portable Stage requirement that is 'Cannot be provided' and was marked as not required by Daniel Tan on 1 Oct 2026 at 10:00, before the event was confirmed. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Confirmed With Waiver' in the list",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM33 Confirmed With Waiver (Confirmed)\nVenue: Orchard Gallery, Approved\nEquipment: Portable Stage (Cannot be provided), marked as not required by Daniel Tan on 1 Oct 2026, 10:00",
+      "expected_result": "Step 2: The event opens with the status badge 'Confirmed'.\nStep 3: 'Orchard Gallery' shows 'Complete'. 'Portable Stage' shows 'Not required' and 'Cannot be provided', and says 'Marked as not required by Daniel Tan on 1 Oct 2026, 10:00'. There is no 'Mark as required' or 'Mark as not required' button on any item: arrangements are marked only while the event is in Planning."
+    },
+    {
+      "id": "SPM-33-TC13",
+      "title": "An Event Organiser has no Readiness tab and cannot open it by its address",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). Rachel Ng (rachel.ng@meridianfina.com / password123) is the Event Organiser who raised 'SPM33 Two Room Conference'. Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM33 Two Room Conference' in the list",
+        "Type /events/<reference from step 3>/readiness after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/readiness) and press Enter"
+      ],
+      "test_data": "Account: rachel.ng@meridianfina.com (Event Organiser)\nEvent: SPM33 Two Room Conference",
+      "expected_result": "Step 3: The event opens with its reference (EVT- followed by six digits) shown beside the title. The tabs do not include 'Readiness'.\nStep 4: The message 'You don't have access to this event.' is shown. No venue booking or equipment arrangement is listed."
+    },
+    {
+      "id": "SPM-33-TC14",
+      "title": "A visitor who is not logged in is sent to log in",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-33 fixtures are loaded (npm run fixtures:spm33). Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM33 Two Room Conference' in the list",
+        "Click 'Log out' in the top bar",
+        "Type /events/<reference from step 2>/readiness after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>/readiness) and press Enter"
+      ],
+      "test_data": "Event: SPM33 Two Room Conference\nNo account logged in at step 4",
+      "expected_result": "Step 2: The event opens with its reference (EVT- followed by six digits) shown beside the title.\nStep 4: The Log in page is shown. No arrangements are visible."
+    }
+  ],
+  "open_questions": [
+    "Written before the code (TDD, 2026-10-08); the code was built to these cases and the automated tests on 2026-10-09. The cases have NOT yet been walked through the running app: that needs the migration 20261009100000_add_arrangement_not_required applied to the shared database and npm run fixtures:spm33 run. Entries marked DECIDED were chosen by the team rather than taken from the story; change them in code and cases together.",
+    "RESOLVED 2026-10-09: reviewed for overlap and cut from 19 cases to 14. Five cases repeated another case's steps on the same event and were merged into it, with every check kept: the equipment list and the confirm refusal into SPM-33-TC01; the missing registration item into SPM-33-TC02; the flagged-arrangement confirm refusal into SPM-33-TC04; and the incomplete-registration list into SPM-33-TC09. The fixture event 'SPM33 Registration Incomplete' is no longer needed.",
+    "BLOCKED 2026-10-08, waiting for Submit Event for Operational Safety Check (SPM-86): AC6 ('The Operational Safety Check is displayed as a required item, showing whether it is not yet submitted, awaiting review, approved, or returned with changes or a rejection') and AC9 ('The Operational Safety Check cannot be marked as not required') have no test cases and no automated tests. SPM-86 defines the status they read, and nothing for it is merged. They keep their numbers, which is why the list above goes AC5, AC7, AC8, AC10. Add their cases when SPM-86 lands.",
+    "DECIDED 2026-10-08 (Kristen): what can be marked as not required (AC8). Any single venue booking, any equipment line and the registration setup. An event (or a session) with no pending or approved booking that is still required shows 'No venue booked', and that can never be marked as not required (SPM-33-TC02, SPM-33-TC08).",
+    "DECIDED 2026-10-08 (Kristen): what Confirm enforces in this story (AC11). Confirm refuses on every arrangement the Readiness tab shows as outstanding: an unbooked or pending venue, unreserved equipment, a flagged booking or equipment reservation, and incomplete registration setup. Arrangements marked as not required do not block. The safety check does not block Confirm in this story; that gate stays with Resolve Safety Check Outcome (SPM-88).",
+    "DECIDED 2026-10-08 (Kristen): equipment Technical Support could only partly reserve (Partially fulfilled) is outstanding until the Coordinator marks the line as not required (#90, #106). This changes Confirm Event (SPM-34): SPM-34-TC05 expects such an event to confirm and now needs the same steps as SPM-33-TC10. It also changes the message in SPM-34-TC07, which now names the venue: 'Orchard Seminar Room for this event is still awaiting a decision from Venue Staff'.",
+    "DECIDED 2026-10-08, from the design not the story: the screen is the event's Readiness tab (S-18 in UI_DESIGN.md), at /events/<reference>/readiness, shown after the Equipment tab. Only coordinators have it. Any coordinator can view it; only the assigned one can mark arrangements. Every other role sees 'You don't have access to this event.' (the Equipment tab's wording).",
+    "DECIDED 2026-10-08, not in the story: arrangements can be marked as not required, or as required again, only while the event is in Planning. On a Confirmed event, reversing a decision would leave a confirmed event with something outstanding (SPM-33-TC12). The server's refusal reads 'Arrangements can only be marked as not required while the event is in Planning.'",
+    "DECIDED 2026-10-08, not in the story: only an outstanding arrangement offers 'Mark as not required'. A complete one (an approved booking, reserved equipment) has nothing to waive; to drop it the Coordinator withdraws the booking or removes the requirement. The server's refusal reads 'Only an outstanding arrangement can be marked as not required.'",
+    "DECIDED 2026-10-09 (Kristen): who marked an arrangement as not required, and when, is recorded and shown on the item: 'Marked as not required by Daniel Tan on 8 Oct 2026, 11:00' (SPM-33-TC05, SPM-33-TC12). The customer briefing asks for it: 'Significant actions are recorded, including who performed the action and when it occurred' (Activity History), 'ConnectSphere should be able to determine what was changed, who changed it, and when' (8f Auditability, and answer #14). Reversing is stamped the same way, so the record is the latest decision on each arrangement, not a full history; answer #96 says a complete audit-history function is not required for Release 1. Marking still takes one click with no confirmation dialog, and no reason is asked for: none of the documents require one. Say so if the team wants a reason kept.",
+    "DECIDED 2026-10-08, wording: the state labels 'Complete', 'Outstanding' and 'Not required'; the buttons 'Mark as not required' and 'Mark as required'; the summary '2 arrangements still block confirmation', '1 arrangement still blocks confirmation' and 'Nothing is blocking confirmation'; the items 'No venue booked' and 'Registration setup'; and the reasons 'is still awaiting a decision from Venue Staff', 'is not reserved yet', 'is only partly reserved', 'is flagged for review: <why>', 'registration is enabled but has no capacity' and 'registration is enabled but has no registration period'.",
+    "DECIDED 2026-10-08, not in the story: what is listed. One item per pending or approved venue booking (a rejected or cancelled request is not listed), one item per equipment line, and 'Registration setup' only while registration is enabled. An event with registration switched off has no registration item (SPM-33-TC02), although the mockup design/mockups/Readiness.dc.html shows one reading 'Not required'. The mockup's 'Request reviewed and approved' and 'Technical support assigned' items are not listed either: nothing assigns technical support staff to an event yet.",
+    "DECIDED 2026-10-08, not in the story: the Readiness tab has no 'Confirm event' button, although the mockup shows one. Confirming stays on the Overview (SPM-34), which is why SPM-33-TC01 and SPM-33-TC10 go back to it.",
+    "RESOLVED 2026-10-09: the fixtures are scripted. scripts/seed-spm33.ts (npm run fixtures:spm33) creates the 11 'SPM33 ...' events on 12-27 Jul 2027, raised by Rachel Ng and assigned to Daniel Tan (one to Priya Raj), and the same events are at the end of prisma/seed.ts without their arrangements.",
+    "For Kayal (SPM-81) and Janelle (equipment, SPM-86): the migration 20261009100000_add_arrangement_not_required adds not_required, not_required_by and not_required_at to venue_bookings and to equipment_requests, which are their tables. Agree it in the team chat before it is applied. When SPM-81 is merged in, SPM-33-TC01 and SPM-33-TC07 should be run again with bookings made through its screen. When SPM-86 is merged in, add the safety check item (AC6, AC9) as the header of src/lib/eventConfirmation.ts describes, and its cases here.",
+    "To check when Review Flagged Arrangements (SPM-68) is built: AC4 says a flagged arrangement is outstanding 'until the Coordinator resolves it'. Resolving is SPM-68's; in this story the only way a flagged arrangement stops blocking is to be marked as not required. Is that an acceptable way to resolve a flagged booking, or should a flagged arrangement not offer 'Mark as not required'?"
+  ],
+  "code_references": [
+    "src/lib/eventConfirmation.ts",
+    "src/lib/eventArrangements.ts",
+    "src/lib/permissions.ts",
+    "src/lib/statuses.ts",
+    "src/lib/eventTabs.ts",
+    "src/lib/validation/events.ts",
+    "src/app/api/events/[id]/arrangements/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/readiness/page.tsx",
+    "prisma/schema.prisma",
+    "prisma/migrations/20261009100000_add_arrangement_not_required/migration.sql",
+    "scripts/seed-spm33.ts",
+    "prisma/seed.ts"
+  ]
+}

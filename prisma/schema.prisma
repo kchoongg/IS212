@@ -69,6 +69,11 @@ model User {
   equipmentReviewed      EquipmentRequest[]     @relation("EquipmentReviewer")
   registrations          Registration[]
   notifications          Notification[]
+  /// Track Outstanding Arrangements (SPM-33): the arrangements this user last
+  /// marked as not required, or as required again.
+  bookingsNotRequired      VenueBooking[]     @relation("BookingNotRequiredBy")
+  equipmentNotRequired     EquipmentRequest[] @relation("EquipmentNotRequiredBy")
+  registrationsNotRequired Event[]            @relation("EventRegistrationNotRequiredBy")
 
   @@index([role])
   @@index([organisationId])
@@ -225,6 +230,14 @@ model Event {
   /// Reviewed and cleared in Review Flagged Arrangements (SPM-68); also set by
   /// Configure Event Registration (SPM-64).
   registrationReviewReason String? @map("registration_review_reason")
+  /// Track Outstanding Arrangements (SPM-33): the assigned Coordinator has
+  /// marked the registration setup as not required for this event, so an
+  /// enabled but incomplete setup no longer prevents confirmation. The
+  /// registration settings themselves are NOT changed. By/At record who made
+  /// the latest decision - marking or reversing - and when (briefing 8f).
+  registrationNotRequired   Boolean   @default(false) @map("registration_not_required")
+  registrationNotRequiredBy String?   @map("registration_not_required_by")
+  registrationNotRequiredAt DateTime? @map("registration_not_required_at")
 
   rejectionReason    String? @map("rejection_reason")
   cancellationReason String? @map("cancellation_reason")
@@ -237,6 +250,7 @@ model Event {
   organiser    User          @relation("EventOrganiser", fields: [organiserId], references: [id])
   organisation Organisation? @relation(fields: [organisationId], references: [id])
   coordinator  User?         @relation("EventCoordinator", fields: [coordinatorId], references: [id])
+  registrationNotRequiredByUser User? @relation("EventRegistrationNotRequiredBy", fields: [registrationNotRequiredBy], references: [id], onDelete: SetNull)
 
   facilityRequirements EventFacilityRequirement[]
   statusHistory        EventStatusHistory[]
@@ -415,9 +429,19 @@ model VenueBooking {
   reviewReason String?   @map("review_reason")
   flaggedAt    DateTime? @map("flagged_at")
 
+  /// Track Outstanding Arrangements (SPM-33): the assigned Coordinator has
+  /// marked this booking as not required for the event, so it no longer
+  /// prevents confirmation. The booking itself is NOT changed, withdrawn or
+  /// released - its status stays what Venue Staff made it. By/At record who
+  /// made the latest decision - marking or reversing - and when (briefing 8f).
+  notRequired   Boolean   @default(false) @map("not_required")
+  notRequiredBy String?   @map("not_required_by")
+  notRequiredAt DateTime? @map("not_required_at")
+
   event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   venue     Venue         @relation("BookingVenue", fields: [venueId], references: [id])
+  notRequiredByUser User? @relation("BookingNotRequiredBy", fields: [notRequiredBy], references: [id], onDelete: SetNull)
   suggestedVenue Venue?   @relation("BookingSuggestedVenue", fields: [suggestedVenueId], references: [id], onDelete: SetNull)
   requester User          @relation("BookingRequester", fields: [requestedBy], references: [id])
   decider   User?         @relation("BookingDecider", fields: [decidedBy], references: [id])
@@ -528,9 +552,19 @@ model EquipmentRequest {
   reviewReason String?   @map("review_reason")
   flaggedAt    DateTime? @map("flagged_at")
 
+  /// Track Outstanding Arrangements (SPM-33): the assigned Coordinator has
+  /// marked this line as not required for the event (e.g. an item Technical
+  /// Support cannot provide, agreed to be non-essential - #90, #106), so it no
+  /// longer prevents confirmation. The request itself is NOT changed: its
+  /// status and anything reserved stay as they are. By/At as on VenueBooking.
+  notRequired   Boolean   @default(false) @map("not_required")
+  notRequiredBy String?   @map("not_required_by")
+  notRequiredAt DateTime? @map("not_required_at")
+
   event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   equipment Equipment     @relation(fields: [equipmentId], references: [id])
+  notRequiredByUser User? @relation("EquipmentNotRequiredBy", fields: [notRequiredBy], references: [id], onDelete: SetNull)
   requester User          @relation("EquipmentRequester", fields: [requestedBy], references: [id])
   reviewer  User?         @relation("EquipmentReviewer", fields: [reviewedBy], references: [id])
 

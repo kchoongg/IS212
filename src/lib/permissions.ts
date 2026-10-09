@@ -452,6 +452,33 @@ export function canConfirmEvent(actor: Actor, event: EventAccessFields): boolean
 }
 
 // ---------------------------------------------------------------------------
+// TRACK OUTSTANDING ARRANGEMENTS (SPM-33)
+// ---------------------------------------------------------------------------
+
+/// The Readiness list is the coordinator's planning checklist (UI_DESIGN.md
+/// 4.3): any coordinator may read it, like the rest of an event they can see.
+/// It reuses `event:confirm`, the action the checklist gates, rather than
+/// adding one that would always be granted to the same role.
+export function canViewArrangements(actor: Actor): boolean {
+  return can(actor.role, "event:confirm");
+}
+
+/// An arrangement is marked as not required, or as required again, only while
+/// the event is being planned (decided 2026-10-08). Not once it is Confirmed:
+/// reversing a decision there would leave a confirmed event with something
+/// outstanding. An event waiting on its Operational Safety Check (SPM-86) is
+/// not here either - add its status only if the team decides arrangements may
+/// still be waived while the Safety Officer is reviewing them.
+export const ARRANGEMENT_MARKING_STATUSES: readonly string[] = ["planning"];
+
+/// SPM-33 AC8: only the coordinator assigned to the event decides that one of
+/// its arrangements is not required. The status window is checked separately,
+/// so a refusal can say which rule was broken.
+export function canMarkArrangements(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
+}
+
+// ---------------------------------------------------------------------------
 // BEGIN PLANNING (SPM-54)
 // ---------------------------------------------------------------------------
 
