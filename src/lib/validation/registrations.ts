@@ -17,6 +17,12 @@ export type CreateRegistrationInput = z.infer<typeof createRegistrationSchema>;
 export const configureRegistrationSchema = z
   .object({
     registrationEnabled: z.boolean().optional(),
+    // Messages as on the event request form (eventForm.ts).
+    registrationCapacity: z
+      .number({ invalid_type_error: "Enter a whole number, at least 1." })
+      .int("Enter a whole number, at least 1.")
+      .positive("Enter a whole number, at least 1.")
+      .optional(),
   })
   .strict();
 export type ConfigureRegistrationInput = z.infer<typeof configureRegistrationSchema>;

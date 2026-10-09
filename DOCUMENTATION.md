@@ -973,6 +973,13 @@ what changed, why, and the migration name if there is one.
   `configureRegistrationSchema` (strict) in `validation/registrations.ts`.
   23 route tests in `src/app/api/__tests__/event-registration.test.ts`; that
   file is the only place the role checks are tested.
+- **Slice 2 (AC2, AC3): capacity.** `registrationCapacity` on the same PATCH
+  (a whole number of at least 1). New pure module `src/lib/registrationSettings.ts`:
+  `liveBookings()` keeps pending and approved bookings, and `capacityError()`
+  checks the capacity against the booked layout's `VenueLayout.capacity`, reusing
+  `layoutLabel()` from `venueSuitability.ts`. A layout the room no longer offers
+  counts the same as no layout. Bookings are read only when the capacity
+  changes. 7 unit tests in `registrationSettings.test.ts`, plus 6 route tests.
 - Migration: `add_registration_venue_booking` (planned, not yet applied).
 
 ### 2026-10-06 — Jordan

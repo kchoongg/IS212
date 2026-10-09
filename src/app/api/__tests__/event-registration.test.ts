@@ -125,6 +125,67 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
   });
 });
 
+/// The event's one approved booking: Orchard Seminar Room, 70 as a classroom.
+const classroomBooking = {
+  id: ID.booking,
+  status: "approved",
+  layoutName: "classroom",
+  venue: {
+    name: "Orchard Seminar Room",
+    code: "ORC-SEM",
+    layouts: [
+      { layoutName: "theatre", capacity: 120 },
+      { layoutName: "classroom", capacity: 70 },
+    ],
+  },
+};
+
+describe("AC2 the coordinator sets a registration capacity", () => {
+  it("saves the capacity, checked against the event's own bookings (TC04)", async () => {
+    const token = given({ registrationEnabled: true });
+    db.venueBooking.findMany.mockResolvedValue([classroomBooking]);
+
+    const res = await save(token, { registrationCapacity: 60 });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
+    expect(callArg(db.event.update).data).toEqual({ registrationCapacity: 60 });
+  });
+
+  it.each([0, -5, 12.5])("refuses a capacity of %s under its field, and writes nothing (TC05)", async (capacity) => {
+    const token = given({ registrationEnabled: true });
+
+    const res = await save(token, { registrationCapacity: capacity });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.registrationCapacity).toEqual(["Enter a whole number, at least 1."]);
+    nothingWritten();
+  });
+
+  it("doesn't read the bookings when the capacity isn't being changed", async () => {
+    const token = given();
+
+    await save(token, { registrationEnabled: true });
+
+    expect(db.venueBooking.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe("AC3 the capacity cannot exceed the booked room's layout capacity", () => {
+  it("refuses a capacity over the limit as a field error, and writes nothing (TC06)", async () => {
+    const token = given({ registrationEnabled: true });
+    db.venueBooking.findMany.mockResolvedValue([classroomBooking]);
+
+    const res = await save(token, { registrationCapacity: 71 });
+
+    const message =
+      "Registration capacity can't be more than 70, the capacity of Orchard Seminar Room (ORC-SEM) in its Classroom layout.";
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationCapacity: [message] } } });
+    nothingWritten();
+  });
+});
+
 describe("AC11 only the assigned coordinator changes registration settings", () => {
   it("is 401 without a session", async () => {
     expect((await save(undefined, { registrationEnabled: true })).status).toBe(401);
