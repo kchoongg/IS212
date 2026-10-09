@@ -5,7 +5,7 @@ import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import { EVENT_INFORMATION_STATUSES, canConfigureRegistration, canViewEvent } from "@/lib/permissions";
 import { configureRegistrationSchema } from "@/lib/validation";
-import { capacityError, measuredBooking } from "@/lib/registrationSettings";
+import { capacityError, measuredBooking, periodErrors } from "@/lib/registrationSettings";
 
 // Configure Event Registration (SPM-64): the assigned coordinator sets up
 // attendee registration for an event. The rules are
@@ -65,6 +65,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       measuredBookingId = measured.booking.id;
     }
 
+    // AC5, AC6: the period as it will be once saved.
+    const opensAt = data.registrationOpensAt !== undefined ? new Date(data.registrationOpensAt) : undefined;
+    const closesAt = data.registrationClosesAt !== undefined ? new Date(data.registrationClosesAt) : undefined;
+    if (opensAt !== undefined || closesAt !== undefined) {
+      const errors = periodErrors(
+        { opensAt: opensAt ?? event.registrationOpensAt, closesAt: closesAt ?? event.registrationClosesAt },
+        event.startsAt
+      );
+      const [field] = Object.keys(errors);
+      if (field) return fieldError(field, errors[field]);
+    }
+
     // Turning registration off keeps the saved capacity and period, so turning
     // it back on restores them (decided 2026-10-09).
     const updated = await prisma.event.update({
@@ -73,6 +85,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         ...(data.registrationEnabled !== undefined ? { registrationEnabled: data.registrationEnabled } : {}),
         ...(data.registrationCapacity !== undefined ? { registrationCapacity: data.registrationCapacity } : {}),
         ...(measuredBookingId !== undefined ? { registrationVenueBookingId: measuredBookingId } : {}),
+        ...(opensAt !== undefined ? { registrationOpensAt: opensAt } : {}),
+        ...(closesAt !== undefined ? { registrationClosesAt: closesAt } : {}),
       },
     });
     return NextResponse.json({ event: updated, flagged: [] });

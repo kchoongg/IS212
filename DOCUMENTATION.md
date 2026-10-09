@@ -999,9 +999,21 @@ what changed, why, and the migration name if there is one.
   when two models are related twice; no database change and no code change.
   The unit tests are now 16 (the "no booking" check moved into
   `measuredBooking()`), with 4 more route tests.
+- **Slice 4 (AC5, AC6): the registration period.** `registrationOpensAt` and
+  `registrationClosesAt` on the same PATCH (ISO date-times). `periodErrors()`
+  checks the period with what is sent applied over what is saved, so a new
+  closing date is checked against the saved opening date. Closing at or
+  before opening is refused ("Registration closes at must be after it
+  opens."), and so is closing after the event's start ("Registration must
+  close no later than the event starts."). Closing exactly at the start is
+  allowed. An event with no start yet skips the start check. Either date can
+  be saved alone (the setup is then incomplete, AC8). The event's own date is
+  never written. 7 more unit tests, 3 more route tests.
 - Migration: `20261009120000_add_registration_venue_booking`, written by hand
-  and checked against `prisma migrate diff` (identical SQL). **Not yet applied
-  to the shared Neon database.**
+  and checked against `prisma migrate diff` (identical SQL). Applied to the
+  shared Neon database on 2026-10-09 with `npx prisma migrate deploy` (no reset,
+  no reseed; one nullable column, so existing rows and other branches are
+  unaffected). After pulling, run `npx prisma generate`.
 
 ### 2026-10-06 — Jordan
 - **SPM-44 review fixes (PR #37, raised by kayalvizhi24).** Both gaps predate

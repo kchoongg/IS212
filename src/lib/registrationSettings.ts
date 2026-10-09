@@ -91,3 +91,26 @@ export function capacityError(capacity: number, booking: BookingForCapacity): st
   }
   return null;
 }
+
+export interface RegistrationPeriod {
+  opensAt: Date | null;
+  closesAt: Date | null;
+}
+
+/// AC5, AC6: the registration period, once the payload is applied to what is
+/// saved (so changing only the closing date is still checked against the
+/// saved opening date). Separate from the event's own date (#30), but it must
+/// close no later than the event starts: closing exactly at the start is
+/// allowed, as SPM-62's guard on moving the start already assumes. A period
+/// that closes at or before it opens is no period at all. Field -> message,
+/// empty when the period is allowed.
+export function periodErrors(period: RegistrationPeriod, eventStartsAt: Date | null): Record<string, string> {
+  const { opensAt, closesAt } = period;
+  if (opensAt && closesAt && closesAt <= opensAt) {
+    return { registrationClosesAt: "Registration closes at must be after it opens." };
+  }
+  if (closesAt && eventStartsAt && closesAt > eventStartsAt) {
+    return { registrationClosesAt: "Registration must close no later than the event starts." };
+  }
+  return {};
+}

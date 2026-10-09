@@ -236,6 +236,44 @@ describe("AC4 with several bookings the coordinator chooses which one the capaci
   });
 });
 
+describe("AC5 + AC6 the registration period", () => {
+  it("saves the period on its own, leaving the event's date alone (TC11)", async () => {
+    const token = given({ registrationEnabled: true });
+
+    const res = await save(token, {
+      registrationOpensAt: "2027-02-01T01:00:00.000Z",
+      registrationClosesAt: "2027-03-10T09:00:00.000Z",
+    });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).data).toEqual({
+      registrationOpensAt: new Date("2027-02-01T01:00:00.000Z"),
+      registrationClosesAt: new Date("2027-03-10T09:00:00.000Z"),
+    });
+  });
+
+  it("checks a new closing date against the opening date already saved, under its field (TC12)", async () => {
+    const token = given({ registrationEnabled: true, registrationOpensAt: new Date("2027-03-01T01:00:00.000Z") });
+
+    const res = await save(token, { registrationClosesAt: "2027-02-01T01:00:00.000Z" });
+
+    const message = "Registration closes at must be after it opens.";
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationClosesAt: [message] } } });
+    nothingWritten();
+  });
+
+  it("refuses a date that isn't a date and time", async () => {
+    const token = given();
+
+    const res = await save(token, { registrationOpensAt: "next week" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Validation failed");
+    nothingWritten();
+  });
+});
+
 describe("AC11 only the assigned coordinator changes registration settings", () => {
   it("is 401 without a session", async () => {
     expect((await save(undefined, { registrationEnabled: true })).status).toBe(401);

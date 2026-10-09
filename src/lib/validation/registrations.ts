@@ -26,6 +26,8 @@ export const configureRegistrationSchema = z
     // AC4: which of the event's venue bookings the capacity is measured
     // against. Only needed when it has several active ones.
     registrationVenueBookingId: z.string().uuid().optional(),
+    registrationOpensAt: z.string().datetime().optional(),
+    registrationClosesAt: z.string().datetime().optional(),
   })
   .strict();
 export type ConfigureRegistrationInput = z.infer<typeof configureRegistrationSchema>;

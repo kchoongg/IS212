@@ -4,9 +4,10 @@
 //     measuredBooking(bookings, selectedId, savedId) the booking the capacity is measured against, or the
 //                                                   field and message to refuse with
 //     capacityError(capacity, booking)              null when allowed, else the message for 'Registration capacity'
-// Manual cases: docs/test-cases/SPM-64_test_cases.json (TC04, TC06-TC10, TC18; wording decided there).
+//     periodErrors({ opensAt, closesAt }, startsAt)   field -> message for the period, empty when allowed
+// Manual cases: docs/test-cases/SPM-64_test_cases.json (TC04, TC06-TC13, TC18; wording decided there).
 import { describe, it, expect } from "vitest";
-import { capacityError, liveBookings, measuredBooking, type BookingForCapacity } from "../registrationSettings";
+import { capacityError, liveBookings, measuredBooking, periodErrors, type BookingForCapacity } from "../registrationSettings";
 
 /// Orchard Seminar Room as seeded: 120 as a theatre (its maximum), 70 as a classroom.
 function booking(overrides: Partial<BookingForCapacity> = {}): BookingForCapacity {
@@ -90,6 +91,54 @@ describe("AC4 the booking the capacity is measured against", () => {
       field: "registrationCapacity",
       error: "Book a venue for this event before setting a registration capacity.",
     });
+  });
+});
+
+// The event starts 17 Mar 2027, 09:00 Singapore time.
+const START = new Date("2027-03-17T01:00:00.000Z");
+const at = (iso: string) => new Date(iso);
+
+describe("AC5 the registration period is separate from the event date", () => {
+  it("accepts a period that opens and closes before the event (TC11)", () => {
+    expect(
+      periodErrors({ opensAt: at("2027-02-01T01:00:00.000Z"), closesAt: at("2027-03-10T09:00:00.000Z") }, START)
+    ).toEqual({});
+  });
+
+  it("accepts an opening date or a closing date on its own", () => {
+    expect(periodErrors({ opensAt: at("2027-02-01T01:00:00.000Z"), closesAt: null }, START)).toEqual({});
+    expect(periodErrors({ opensAt: null, closesAt: at("2027-03-10T09:00:00.000Z") }, START)).toEqual({});
+  });
+
+  it("skips the start check for an event with no start yet", () => {
+    expect(periodErrors({ opensAt: null, closesAt: at("2028-01-01T01:00:00.000Z") }, null)).toEqual({});
+  });
+});
+
+describe("AC6 the closing date is not earlier than the opening date or later than the event's start", () => {
+  const CLOSES_BEFORE_OPENS = { registrationClosesAt: "Registration closes at must be after it opens." };
+  const CLOSES_AFTER_START = { registrationClosesAt: "Registration must close no later than the event starts." };
+
+  it("refuses closing before opening (TC12)", () => {
+    expect(
+      periodErrors({ opensAt: at("2027-03-01T01:00:00.000Z"), closesAt: at("2027-02-01T01:00:00.000Z") }, START)
+    ).toEqual(CLOSES_BEFORE_OPENS);
+  });
+
+  it("refuses closing at the same moment as opening (TC12)", () => {
+    expect(
+      periodErrors({ opensAt: at("2027-03-01T01:00:00.000Z"), closesAt: at("2027-03-01T01:00:00.000Z") }, START)
+    ).toEqual(CLOSES_BEFORE_OPENS);
+  });
+
+  it("allows closing exactly when the event starts (TC13)", () => {
+    expect(periodErrors({ opensAt: at("2027-02-01T01:00:00.000Z"), closesAt: START }, START)).toEqual({});
+  });
+
+  it("refuses closing a minute after the event starts (TC13)", () => {
+    expect(
+      periodErrors({ opensAt: at("2027-02-01T01:00:00.000Z"), closesAt: at("2027-03-17T01:01:00.000Z") }, START)
+    ).toEqual(CLOSES_AFTER_START);
   });
 });
 
