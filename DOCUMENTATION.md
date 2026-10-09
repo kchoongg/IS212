@@ -1030,6 +1030,28 @@ what changed, why, and the migration name if there is one.
   – the registration capacity was lowered below the number registered or
   waitlisted". No Registration row is ever written. 8 more unit tests, 4 more
   route tests.
+- **Slice 7 (AC8): incomplete setup is outstanding and blocks confirmation.**
+  `arrangementsFor()` (`src/lib/eventConfirmation.ts`) gains a third kind,
+  `registration`, after the venue and equipment. It's required only while
+  registration is enabled (a disabled one is listed with `required: false`),
+  and complete once there is a capacity, an opening date and a closing date,
+  and the measured booking is still pending or approved.
+  - **Wording:** the confirm refusal reuses SPM-34's message: "…registration
+    setup is incomplete (still needed: opening date, closing date)." or
+    "…registration capacity is measured against a venue booking that is no
+    longer active."
+  - **Shared helper:** `registrationGaps()` is what the hub alert will show in
+    Slice 8, so the two can't disagree. It reuses `liveBookings()`, so there's
+    no second "active booking" list.
+  - **Optional input:** `ConfirmationInput.registration` is optional, so other
+    callers are unchanged. The confirm branch of `PATCH /api/events/[id]` now
+    passes the settings and selects booking ids.
+  - **Decided:** a capacity with *no* measured booking (e.g. one the organiser
+    typed on the request form before any booking existed) isn't "lost", so it
+    doesn't block. Only a stored booking that stopped being active does.
+
+  8 more unit tests in `eventConfirmation.test.ts`, 1 more route test in
+  `event-detail.test.ts`.
 - **Slow-machine timeouts are not failures.** On a busy laptop (OneDrive
   syncing the repo, back-to-back runs), `npm test` timed out at random in the
   page tests and `auth.test.ts`. That happened on `main` without SPM-64's

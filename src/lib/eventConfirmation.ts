@@ -11,6 +11,11 @@
 //              books per session, so confirmation checks per session).
 //   equipment  required only when the coordinator recorded a requirement. An
 //              event that needs no equipment confirms with a venue alone.
+//   registration  required only while registration is enabled (SPM-64 AC8;
+//              #80: "some events may not require ... attendee registration").
+//              Complete once it has a capacity, an opening date and a closing
+//              date, and the booking the capacity was measured against is
+//              still active (Week 7 change #4: a tentative hold may expire).
 //
 // AC2 also allows the coordinator to mark an arrangement as NOT required.
 // Nothing can record that yet - it belongs to Track Outstanding Arrangements -
@@ -25,6 +30,8 @@
 //
 // Pure functions over plain data, like the rest of src/lib.
 
+import { liveBookings } from "@/lib/registrationSettings";
+
 /// Statuses that mean the arrangement is actually held, not merely asked for.
 const BOOKING_HELD = "approved";
 /// Mirrors COMMITTING_REQUEST_STATUSES in equipmentAvailability.ts: these are
@@ -34,7 +41,7 @@ const BOOKING_HELD = "approved";
 /// Coordinator's decision (#90), which they make by confirming or not.
 const EQUIPMENT_HELD = ["reserved", "partially_fulfilled"];
 
-export type ArrangementKind = "venue" | "equipment";
+export type ArrangementKind = "venue" | "equipment" | "registration";
 
 export interface SessionRef {
   id: string;
@@ -52,11 +59,50 @@ export interface Arrangement {
   missing: string;
 }
 
+/// The event's registration settings (SPM-64), as saved.
+export interface RegistrationSetup {
+  enabled: boolean;
+  capacity: number | null;
+  opensAt: Date | null;
+  closesAt: Date | null;
+  /// Event.registrationVenueBookingId: the booking the capacity is measured against.
+  measuredBookingId: string | null;
+}
+
 export interface ConfirmationInput {
   /// Empty for a single-session event.
   sessions: readonly SessionRef[];
-  bookings: readonly { sessionId: string | null; status: string }[];
+  /// `id` is needed only to tell whether registration's measured booking is
+  /// still active.
+  bookings: readonly { id?: string; sessionId: string | null; status: string }[];
   equipment: readonly { sessionId: string | null; status: string; equipmentName: string }[];
+  /// Omitted by a caller that has nothing to say about registration.
+  registration?: RegistrationSetup;
+}
+
+export interface RegistrationGaps {
+  /// In the order the form asks for them.
+  stillNeeded: ("registration capacity" | "opening date" | "closing date")[];
+  /// A capacity was measured against a booking that is no longer pending or
+  /// approved - rejected, cancelled, or an expired tentative hold.
+  bookingLost: boolean;
+}
+
+/// What registration setup still lacks. Also what the Registration card's
+/// "Registration setup is incomplete" alert shows, so the two never disagree.
+/// Only meaningful while registration is enabled.
+export function registrationGaps(
+  setup: RegistrationSetup,
+  bookings: ConfirmationInput["bookings"]
+): RegistrationGaps {
+  const stillNeeded: RegistrationGaps["stillNeeded"] = [];
+  if (setup.capacity == null) stillNeeded.push("registration capacity");
+  if (!setup.opensAt) stillNeeded.push("opening date");
+  if (!setup.closesAt) stillNeeded.push("closing date");
+  // Active means what the capacity may be measured against (SPM-64 AC3).
+  const bookingLost =
+    setup.measuredBookingId != null && !liveBookings(bookings).some((b) => b.id === setup.measuredBookingId);
+  return { stillNeeded, bookingLost };
 }
 
 /** "the Morning briefing session" / "this event" — how a refusal refers to it. */
@@ -66,7 +112,8 @@ function whose(session: SessionRef | null): string {
 }
 
 /// Every arrangement this event needs, complete or not, in the order a
-/// coordinator would work through them: the room first, then its kit.
+/// coordinator would work through them: the room first, then its kit, then
+/// registration.
 export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
   const { sessions, bookings, equipment } = input;
   const out: Arrangement[] = [];
@@ -116,6 +163,22 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
           : `${outstanding.map((i) => i.equipmentName).join(", ")} for ${whose(session)} ${
               outstanding.length === 1 ? "is" : "are"
             } not reserved yet`,
+    });
+  }
+
+  // --- Registration, only once enabled ---------------------------------------
+  if (input.registration) {
+    const { stillNeeded, bookingLost } = registrationGaps(input.registration, bookings);
+    const missing = [
+      ...(stillNeeded.length > 0 ? [`registration setup is incomplete (still needed: ${stillNeeded.join(", ")})`] : []),
+      ...(bookingLost ? ["registration capacity is measured against a venue booking that is no longer active"] : []),
+    ];
+    out.push({
+      kind: "registration",
+      session: null,
+      required: input.registration.enabled,
+      complete: missing.length === 0,
+      missing: missing.join("; "),
     });
   }
 

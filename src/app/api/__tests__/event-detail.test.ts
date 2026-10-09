@@ -555,6 +555,24 @@ describe("PATCH /api/events/[id] - status change", () => {
         expect(db.event.update).not.toHaveBeenCalled();
       });
 
+      it("refuses while registration is on but its setup is incomplete (SPM-64 AC8, TC16)", async () => {
+        const token = signIn(coordinator());
+        db.event.findUnique.mockResolvedValue(
+          event({ status: "planning", registrationEnabled: true, registrationCapacity: 60, registrationVenueBookingId: ID.booking })
+        );
+        givenUpdateSucceeds();
+        givenArrangements({ bookings: [{ id: ID.booking, sessionId: null, status: "approved" }] });
+
+        const res = await patch(token, { status: "confirmed" });
+
+        expect(res.status).toBe(400);
+        expect((await res.json()).error).toBe(
+          "This event cannot be confirmed yet: registration setup is incomplete (still needed: opening date, closing date)."
+        );
+        expect(callArg(db.venueBooking.findMany).select).toEqual({ id: true, sessionId: true, status: true });
+        expect(db.event.update).not.toHaveBeenCalled();
+      });
+
       it("needs a venue for every session of a multi-session event", async () => {
         const res = await confirm({
           sessions: [

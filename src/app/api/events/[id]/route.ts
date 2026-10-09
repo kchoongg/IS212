@@ -254,7 +254,7 @@ async function handleStatusChange(
       }),
       prisma.venueBooking.findMany({
         where: { eventId: event.id },
-        select: { sessionId: true, status: true },
+        select: { id: true, sessionId: true, status: true },
       }),
       prisma.equipmentRequest.findMany({
         where: { eventId: event.id },
@@ -270,6 +270,14 @@ async function handleStatusChange(
         status: r.status,
         equipmentName: r.equipment.name,
       })),
+      // SPM-64 AC8: required only while registration is enabled.
+      registration: {
+        enabled: event.registrationEnabled,
+        capacity: event.registrationCapacity,
+        opensAt: event.registrationOpensAt,
+        closesAt: event.registrationClosesAt,
+        measuredBookingId: event.registrationVenueBookingId,
+      },
     });
     if (!check.ok) {
       return NextResponse.json({ error: check.error, outstanding: check.outstanding }, { status: 400 });
