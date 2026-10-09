@@ -8,12 +8,23 @@
 //      200 { event, flagged }; 500 on a database failure.
 //   Writes: prisma.event.update({ where: { id }, data: <changed settings> }).
 // Manual cases: docs/test-cases/SPM-64_test_cases.json (wording decided there).
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/prisma");
 
 import { PATCH } from "@/app/api/events/[id]/registration/route";
 import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+
+// "Now" is fixed, so whether an event has started (AC7) never depends on the
+// day the tests run: 9 Oct 2026, 12:00 Singapore time.
+const NOW = new Date("2026-10-09T04:00:00.000Z");
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(NOW);
+});
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 const REF = "EVT-000007";
 const ORGANISER_ID = "organiser-id";
@@ -270,6 +281,39 @@ describe("AC5 + AC6 the registration period", () => {
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("Validation failed");
+    nothingWritten();
+  });
+});
+
+describe("AC7 a closed period can be extended or reopened until the event starts", () => {
+  it("reopens a period whose closing date has passed, before the event starts (TC14)", async () => {
+    const token = given({
+      status: "confirmed",
+      startsAt: new Date("2027-03-10T01:00:00.000Z"),
+      registrationEnabled: true,
+      registrationOpensAt: new Date("2026-08-01T01:00:00.000Z"),
+      registrationClosesAt: new Date("2026-09-30T09:00:00.000Z"),
+    });
+
+    const res = await save(token, { registrationClosesAt: "2027-02-28T09:00:00.000Z" });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).data).toEqual({ registrationClosesAt: new Date("2027-02-28T09:00:00.000Z") });
+  });
+
+  it("refuses to change the period once the event has started, and writes nothing (TC15)", async () => {
+    const token = given({
+      status: "confirmed",
+      startsAt: new Date("2026-10-01T01:00:00.000Z"),
+      registrationEnabled: true,
+      registrationClosesAt: new Date("2026-10-01T01:00:00.000Z"),
+    });
+
+    const res = await save(token, { registrationClosesAt: "2026-10-02T01:00:00.000Z" });
+
+    const message = "The event has started, so the registration period can't be changed.";
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationClosesAt: [message] } } });
     nothingWritten();
   });
 });

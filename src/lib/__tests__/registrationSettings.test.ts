@@ -5,9 +5,17 @@
 //                                                   field and message to refuse with
 //     capacityError(capacity, booking)              null when allowed, else the message for 'Registration capacity'
 //     periodErrors({ opensAt, closesAt }, startsAt)   field -> message for the period, empty when allowed
-// Manual cases: docs/test-cases/SPM-64_test_cases.json (TC04, TC06-TC13, TC18; wording decided there).
+//     startedError(startsAt, now)                   the refusal once the event has started, else null
+// Manual cases: docs/test-cases/SPM-64_test_cases.json (TC04, TC06-TC15, TC18; wording decided there).
 import { describe, it, expect } from "vitest";
-import { capacityError, liveBookings, measuredBooking, periodErrors, type BookingForCapacity } from "../registrationSettings";
+import {
+  capacityError,
+  liveBookings,
+  measuredBooking,
+  periodErrors,
+  startedError,
+  type BookingForCapacity,
+} from "../registrationSettings";
 
 /// Orchard Seminar Room as seeded: 120 as a theatre (its maximum), 70 as a classroom.
 function booking(overrides: Partial<BookingForCapacity> = {}): BookingForCapacity {
@@ -139,6 +147,26 @@ describe("AC6 the closing date is not earlier than the opening date or later tha
     expect(
       periodErrors({ opensAt: at("2027-02-01T01:00:00.000Z"), closesAt: at("2027-03-17T01:01:00.000Z") }, START)
     ).toEqual(CLOSES_AFTER_START);
+  });
+});
+
+describe("AC7 the period can be extended or reopened until the event starts", () => {
+  const STARTED = "The event has started, so the registration period can't be changed.";
+
+  it("allows a change before the event starts, even once the old closing date has passed (TC14)", () => {
+    expect(startedError(START, at("2027-03-17T00:59:00.000Z"))).toBeNull();
+  });
+
+  it("refuses a change from the moment the event starts (TC15)", () => {
+    expect(startedError(START, START)).toBe(STARTED);
+  });
+
+  it("refuses a change after the event has started (TC15)", () => {
+    expect(startedError(START, at("2027-03-17T05:00:00.000Z"))).toBe(STARTED);
+  });
+
+  it("never refuses for an event with no start yet", () => {
+    expect(startedError(null, START)).toBeNull();
   });
 });
 

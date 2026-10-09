@@ -114,3 +114,13 @@ export function periodErrors(period: RegistrationPeriod, eventStartsAt: Date | n
   }
   return {};
 }
+
+/// AC7: the period can be extended or reopened (#42, #127) - moving the
+/// closing date later, even once it has passed - but only until the event
+/// starts. From then on any change to the dates is refused.
+export function startedError(eventStartsAt: Date | null, now: Date): string | null {
+  if (eventStartsAt && now >= eventStartsAt) {
+    return "The event has started, so the registration period can't be changed.";
+  }
+  return null;
+}

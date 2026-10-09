@@ -1009,6 +1009,14 @@ what changed, why, and the migration name if there is one.
   allowed. An event with no start yet skips the start check. Either date can
   be saved alone (the setup is then incomplete, AC8). The event's own date is
   never written. 7 more unit tests, 3 more route tests.
+- **Slice 5 (AC7): extend or reopen.** No separate action: moving the closing
+  date later is an ordinary edit, allowed even after the old date has passed.
+  `startedError()` refuses any change to the dates from the moment the event
+  starts ("The event has started, so the registration period can't be
+  changed.", under the date being changed). The capacity and the on/off switch
+  are not covered by this rule. The route tests now fix the clock (9 Oct 2026),
+  so they don't depend on the day they run. 4 more unit tests, 2 more route
+  tests.
 - Migration: `20261009120000_add_registration_venue_booking`, written by hand
   and checked against `prisma migrate diff` (identical SQL). Applied to the
   shared Neon database on 2026-10-09 with `npx prisma migrate deploy` (no reset,

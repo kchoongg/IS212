@@ -5,7 +5,7 @@ import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import { EVENT_INFORMATION_STATUSES, canConfigureRegistration, canViewEvent } from "@/lib/permissions";
 import { configureRegistrationSchema } from "@/lib/validation";
-import { capacityError, measuredBooking, periodErrors } from "@/lib/registrationSettings";
+import { capacityError, measuredBooking, periodErrors, startedError } from "@/lib/registrationSettings";
 
 // Configure Event Registration (SPM-64): the assigned coordinator sets up
 // attendee registration for an event. The rules are
@@ -65,10 +65,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       measuredBookingId = measured.booking.id;
     }
 
-    // AC5, AC6: the period as it will be once saved.
+    // AC5-AC7: the period as it will be once saved.
     const opensAt = data.registrationOpensAt !== undefined ? new Date(data.registrationOpensAt) : undefined;
     const closesAt = data.registrationClosesAt !== undefined ? new Date(data.registrationClosesAt) : undefined;
     if (opensAt !== undefined || closesAt !== undefined) {
+      // AC7: shown under the date being changed.
+      const started = startedError(event.startsAt, new Date());
+      if (started) return fieldError(closesAt !== undefined ? "registrationClosesAt" : "registrationOpensAt", started);
+
       const errors = periodErrors(
         { opensAt: opensAt ?? event.registrationOpensAt, closesAt: closesAt ?? event.registrationClosesAt },
         event.startsAt
