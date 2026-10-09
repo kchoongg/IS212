@@ -69,6 +69,8 @@ model User {
   equipmentReviewed      EquipmentRequest[]     @relation("EquipmentReviewer")
   registrations          Registration[]
   notifications          Notification[]
+  safetyChecksSubmitted  SafetyCheck[]          @relation("SafetyCheckSubmitter")
+  safetyChecksDecided    SafetyCheck[]          @relation("SafetyCheckDecider")
 
   @@index([role])
   @@index([organisationId])
@@ -240,6 +242,7 @@ model Event {
 
   facilityRequirements EventFacilityRequirement[]
   statusHistory        EventStatusHistory[]
+  safetyChecks         SafetyCheck[]
   clarifications       ClarificationRequest[]
   changeRequests       EventChangeRequest[]
   sessions             EventSession[]
@@ -313,6 +316,32 @@ model EventStatusHistory {
 
   @@index([eventId, changedAt])
   @@map("event_status_history")
+}
+
+/// SPM-86: one row per submission of an event for an Operational Safety Check
+/// (Week 7 change #6). Submitting moves the event to `safety_review` and
+/// creates a `pending` row; the Safety Officer's decision (SPM-87) completes
+/// it, and a significant change while it is pending closes it (SPM-88). An
+/// event keeps every row, so the history of earlier decisions stays visible.
+///   status: pending | approved | changes_requested | rejected | closed
+model SafetyCheck {
+  id           String    @id @default(uuid())
+  eventId      String    @map("event_id")
+  status       String    @default("pending")
+  submittedBy  String    @map("submitted_by")
+  submittedAt  DateTime  @default(now()) @map("submitted_at")
+  /// SPM-87: the Safety Officer who decided, when, and the reason or the
+  /// changes required. Null while pending.
+  decidedBy    String?   @map("decided_by")
+  decidedAt    DateTime? @map("decided_at")
+  decisionNote String?   @map("decision_note")
+
+  event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  submitter User  @relation("SafetyCheckSubmitter", fields: [submittedBy], references: [id])
+  decider   User? @relation("SafetyCheckDecider", fields: [decidedBy], references: [id])
+
+  @@index([eventId, submittedAt])
+  @@map("safety_checks")
 }
 
 /// The coordinator ↔ organiser review loop. Repeats, so each round is a row.

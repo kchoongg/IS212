@@ -1,0 +1,313 @@
+{
+  "story_key": "SPM-86",
+  "story_title": "As the assigned Event Coordinator, I want to submit an event for an Operational Safety Check once its venue and technical arrangements are confirmed so that the Safety Officer can review it before the event proceeds",
+  "created_by": "Janelle",
+  "creation_date": "2026-10-09",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given all of the event's required venue bookings are confirmed and its equipment arrangements are reserved or marked as not required, when the Coordinator views the event, then they can submit it for an Operational Safety Check."
+    },
+    {
+      "id": "AC2",
+      "text": "Given a required venue booking or equipment arrangement is still outstanding or flagged for review, when the Coordinator attempts to submit, then submission is refused and the outstanding arrangement is identified."
+    },
+    {
+      "id": "AC3",
+      "text": "Submitting changes the event status to Safety Review."
+    },
+    {
+      "id": "AC4",
+      "text": "The Safety Review status is visible to the Event Organiser and other users who can view the event's status."
+    },
+    {
+      "id": "AC5",
+      "text": "The Safety Officer is notified when an event is submitted for a safety check."
+    },
+    {
+      "id": "AC6",
+      "text": "An event cannot be submitted again while a safety check is already pending for it."
+    },
+    {
+      "id": "AC7",
+      "text": "Only the assigned Event Coordinator can submit the event for a safety check."
+    },
+    {
+      "id": "AC8",
+      "text": "The date and time of submission and who submitted it are recorded against the event."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-86-TC01",
+      "title": "An event whose venue and equipment are both held can be submitted for a safety check",
+      "linked_ac": [
+        "AC1",
+        "AC3",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Harbour Safety Ready' is in Planning, assigned to Daniel Tan, with an approved venue booking at Orchard Seminar Room and one equipment requirement (Handheld Wireless Mic) with status Reserved. Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event's status - SPM-86-TC02, TC03 and TC04 read the result, so go straight to those and run npm run fixtures:spm86 after TC04.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Harbour Safety Ready' in the list",
+        "Click 'Submit for safety check'",
+        "Click 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM86 Harbour Safety Ready (Planning)\nVenue: Orchard Seminar Room, booking Approved\nEquipment: Handheld Wireless Mic, Reserved\nCoordinator: Daniel Tan",
+      "expected_result": "Step 2: The event opens with the status badge 'Planning' and a 'Submit for safety check' button in the header.\nStep 3: A dialog headed 'Submit for safety check?' appears, saying the event will move to Safety review and the Safety Officer will be notified.\nStep 4: The message 'The event has been submitted for a safety check. The Safety Officer has been notified.' is shown and the status badge changes to 'Safety review'."
+    },
+    {
+      "id": "SPM-86-TC02",
+      "title": "The submission is recorded with who submitted it and when, and the event cannot be submitted again",
+      "linked_ac": [
+        "AC8",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-86-TC01 has just been run (so 'SPM86 Harbour Safety Ready' is in Safety review) and the fixtures have NOT been reset since. Still logged in as Daniel Tan, on the event's page. Note the date and time TC01 step 4 was done.",
+      "steps": [
+        "Reload the page in the browser"
+      ],
+      "test_data": "Event: SPM86 Harbour Safety Ready, now Safety review\nSubmitted by: Daniel Tan",
+      "expected_result": "Step 1: The status badge still reads 'Safety review' after reloading, and there is no 'Submit for safety check' button anywhere on the page - a safety check is already pending. In the 'Details' card, the row under 'Status' is 'Safety check', reading 'Awaiting review · submitted by Daniel Tan, <date and time of TC01 step 4>' (e.g. 'Awaiting review · submitted by Daniel Tan, 9 Oct 2026, 14:30'), in Singapore time."
+    },
+    {
+      "id": "SPM-86-TC03",
+      "title": "The Event Organiser sees that their event is in Safety review",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-86-TC02 has just been run (so 'SPM86 Harbour Safety Ready' is in Safety review) and the fixtures have NOT been reset since. Rachel Ng (rachel.ng@meridianfina.com / password123) is the Event Organiser who raised it.",
+      "steps": [
+        "Click 'Log out' in the top bar",
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM86 Harbour Safety Ready' in the list"
+      ],
+      "test_data": "Account: rachel.ng@meridianfina.com (Event Organiser)\nEvent: SPM86 Harbour Safety Ready, Safety review",
+      "expected_result": "Step 2: The Dashboard opens and 'SPM86 Harbour Safety Ready' is listed under a 'Safety review' heading.\nStep 3: 'SPM86 Harbour Safety Ready' appears in the organiser's list with the status 'Safety review'.\nStep 4: The event opens with the status badge 'Safety review'. There is no 'Submit for safety check' button, and the 'Details' card shows 'Status: Safety review' with no 'Safety check' row - who submitted it is shown to staff only."
+    },
+    {
+      "id": "SPM-86-TC04",
+      "title": "Technical Support and the Operations Manager see the Safety review status",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-86-TC03 has just been run (so 'SPM86 Harbour Safety Ready' is in Safety review) and the fixtures have NOT been reset since. Run npm run fixtures:spm86 after this case.",
+      "steps": [
+        "Click 'Log out' in the top bar",
+        "Log in as kenji.sato@connectsphere.com with password123",
+        "Click 'Equipment Requests' in the sidebar",
+        "Click 'Log out' in the top bar",
+        "Log in as grace.lim@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar"
+      ],
+      "test_data": "Technical Support: kenji.sato@connectsphere.com\nOperations Manager: grace.lim@connectsphere.com\nEvent: SPM86 Harbour Safety Ready, Safety review",
+      "expected_result": "Step 2: Kenji Sato's Dashboard lists 'SPM86 Harbour Safety Ready' under 'Upcoming events' with the badge 'Safety review'.\nStep 3: The Equipment Requests list still includes 'SPM86 Harbour Safety Ready', with 'Safety review' in the 'Event status' column - Technical Support keep sight of the reserved mic while the check is pending.\nStep 6: 'SPM86 Harbour Safety Ready' appears in Grace Lim's list with the status 'Safety review'."
+    },
+    {
+      "id": "SPM-86-TC05",
+      "title": "Equipment Technical Support could only partly supply still allows submission",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Partly Reserved Kit' is in Planning, assigned to Daniel Tan, with an approved venue booking and one equipment requirement for 2 Handheld Wireless Mics of which only 1 was reserved, leaving it at status Partially fulfilled. Logged in as Daniel Tan. This case changes the event's status - run npm run fixtures:spm86 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Partly Reserved Kit' in the list",
+        "Click 'Submit for safety check'",
+        "Click 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM86 Partly Reserved Kit (Planning)\nEquipment: Handheld Wireless Mic, 2 requested, 1 reserved (Partially fulfilled)",
+      "expected_result": "Step 4: The message 'The event has been submitted for a safety check. The Safety Officer has been notified.' is shown and the status badge changes to 'Safety review' - a partly fulfilled request counts as arranged, the same as for Confirm event."
+    },
+    {
+      "id": "SPM-86-TC06",
+      "title": "Submission is refused while a venue request and an equipment request are still outstanding, and each is named",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Arrangements Outstanding' is in Planning, assigned to Daniel Tan, with a venue booking request at Orchard Seminar Room that is still Pending, and two equipment requirements: Handheld Wireless Mic (Reserved) and Audio Mixing Desk (Requested, not yet reviewed). Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Arrangements Outstanding' in the list",
+        "Click 'Submit for safety check'",
+        "Click 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM86 Arrangements Outstanding (Planning)\nVenue: Orchard Seminar Room, Pending\nEquipment: Handheld Wireless Mic (Reserved), Audio Mixing Desk (Requested)",
+      "expected_result": "Step 2: The 'Submit for safety check' button is shown even though arrangements are outstanding.\nStep 4: The event is NOT submitted. The message 'This event cannot be submitted for a safety check yet: the venue for this event is still awaiting a decision from Venue Staff; Audio Mixing Desk for this event is not reserved yet.' is shown. The Handheld Wireless Mic, which is reserved, is not mentioned. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-86-TC07",
+      "title": "Submission is refused while an approved venue booking is flagged for review, and the reason is given",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Flagged Venue Booking' is in Planning, assigned to Daniel Tan. Its venue booking at Orchard Seminar Room is Approved but flagged for review because the event's date or time changed, and its Handheld Wireless Mic is Reserved. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Flagged Venue Booking' in the list",
+        "Click 'Submit for safety check'",
+        "Click 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM86 Flagged Venue Booking (Planning)\nVenue: Orchard Seminar Room, Approved, flagged for review (date or time changed)\nEquipment: Handheld Wireless Mic, Reserved",
+      "expected_result": "Step 4: The event is NOT submitted. The message 'This event cannot be submitted for a safety check yet: the venue booking at Orchard Seminar Room for this event is flagged for review (the date or time changed).' is shown - an approved booking still blocks submission while it is flagged. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-86-TC08",
+      "title": "Submission is refused while reserved equipment is flagged for review, and the item is named",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Flagged Equipment' is in Planning, assigned to Daniel Tan, with an approved venue booking at Orchard Seminar Room that is not flagged. Its Handheld Wireless Mic is Reserved but flagged for review because the event's date or time changed. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Flagged Equipment' in the list",
+        "Click 'Submit for safety check'",
+        "Click 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM86 Flagged Equipment (Planning)\nVenue: Orchard Seminar Room, Approved\nEquipment: Handheld Wireless Mic, Reserved, flagged for review (date or time changed)",
+      "expected_result": "Step 4: The event is NOT submitted. The message 'This event cannot be submitted for a safety check yet: Handheld Wireless Mic for this event is flagged for review (the date or time changed).' is shown, and the venue booking is not mentioned. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-86-TC09",
+      "title": "A second submission from a page opened before the first is refused",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Two Tabs Submit' is in Planning, assigned to Daniel Tan, with an approved venue booking and its Handheld Wireless Mic Reserved. Logged in as Daniel Tan. This case changes the event's status - run npm run fixtures:spm86 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Two Tabs Submit' in the list",
+        "Copy the address from the browser address bar, open a new tab, paste it and press Enter",
+        "In the second tab, click 'Submit for safety check' and then 'Submit' in the dialog",
+        "Switch back to the first tab without reloading it",
+        "Click 'Submit for safety check' and then 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM86 Two Tabs Submit (Planning)\nTwo browser tabs on the same event",
+      "expected_result": "Step 4: The second tab shows 'The event has been submitted for a safety check. The Safety Officer has been notified.' and the badge 'Safety review'.\nStep 6: The first tab shows 'A safety check is already pending for this event.' Nothing else changes - the event was submitted once, not twice."
+    },
+    {
+      "id": "SPM-86-TC10",
+      "title": "Only the assigned Coordinator is offered the submission",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Another Coordinator' is in Planning with an approved venue booking and its Handheld Wireless Mic Reserved - nothing outstanding - but is assigned to Priya Raj, not Daniel Tan. Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Another Coordinator' in the list",
+        "Click 'Log out' in the top bar",
+        "Log in as grace.lim@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Another Coordinator' in the list"
+      ],
+      "test_data": "Event: SPM86 Another Coordinator (Planning, assigned to Priya Raj)\nCoordinator: daniel.tan@connectsphere.com\nOperations Manager: grace.lim@connectsphere.com",
+      "expected_result": "Step 2: The event opens and Daniel Tan can read it, but there is no 'Submit for safety check' button - the arrangements are all held, so only the assignment is stopping him.\nStep 6: Grace Lim can read the event but has no 'Submit for safety check' button either."
+    },
+    {
+      "id": "SPM-86-TC11",
+      "title": "An Approved event that has not begun planning cannot be submitted",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm86 has been run. 'SPM86 Not Yet Planning' is Approved (planning has not begun - no venue or equipment requested yet) and assigned to Daniel Tan. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Not Yet Planning' in the list"
+      ],
+      "test_data": "Event: SPM86 Not Yet Planning (Approved)",
+      "expected_result": "Step 2: The event opens with the status badge 'Approved' and there is no 'Submit for safety check' button - an event is submitted from Planning, once its arrangements have been made."
+    },
+    {
+      "id": "SPM-86-TC12",
+      "title": "[BLOCKED by SPM-33] Equipment the Coordinator marked as not required does not stop submission",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "BLOCKED - record Result = Blocked until SPM-33 (Track Outstanding Arrangements) is merged: nothing in the app can mark an arrangement as not required yet. When unblocked: npm run fixtures:spm86 has been run, and 'SPM86 Arrangements Outstanding' has had its venue booking approved by Venue Staff (Booking Requests), leaving only Audio Mixing Desk (Requested) outstanding. Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event's status - run npm run fixtures:spm86 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Arrangements Outstanding' in the list",
+        "Mark 'Audio Mixing Desk' as not required, using the control SPM-33 adds",
+        "Click the 'Overview' tab",
+        "Click 'Submit for safety check'",
+        "Click 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM86 Arrangements Outstanding (Planning)\nVenue: Orchard Seminar Room, Approved\nEquipment: Handheld Wireless Mic (Reserved), Audio Mixing Desk (Requested, marked not required)",
+      "expected_result": "Step 3: Audio Mixing Desk is shown as not required, distinct from both completed and outstanding arrangements.\nStep 6: The message 'The event has been submitted for a safety check. The Safety Officer has been notified.' is shown and the status badge changes to 'Safety review' - an arrangement marked as not required does not hold up submission."
+    },
+    {
+      "id": "SPM-86-TC13",
+      "title": "[BLOCKED by SPM-85 and SPM-71] The Safety Officer is notified when an event is submitted",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "BLOCKED - record Result = Blocked until both are merged: SPM-85 (Safety Officer Role and Access), which adds the safety_officer role and a Safety Officer login, and SPM-71 (View Notifications), which builds the Notifications screen. When unblocked: npm run fixtures:spm86 has been run (so 'SPM86 Harbour Safety Ready' is in Planning with everything held). Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123). Fill in the Safety Officer account SPM-85 seeds below. This case changes the event's status - run npm run fixtures:spm86 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM86 Harbour Safety Ready' in the list",
+        "Note the event reference shown under the title",
+        "Click 'Submit for safety check' and then 'Submit' in the dialog",
+        "Click 'Log out' in the top bar",
+        "Log in as the Safety Officer account added by SPM-85, with password123",
+        "Click 'Notifications' in the sidebar",
+        "Click the 'Event submitted for safety check' notification"
+      ],
+      "test_data": "Event: SPM86 Harbour Safety Ready (Planning)\nCoordinator: daniel.tan@connectsphere.com\nSafety Officer: <account seeded by SPM-85>",
+      "expected_result": "Step 4: The message 'The event has been submitted for a safety check. The Safety Officer has been notified.' is shown and the status badge changes to 'Safety review'.\nStep 7: The Notifications list has a new notification titled 'Event submitted for safety check', reading 'SPM86 Harbour Safety Ready (<reference from step 3>) is ready for an Operational Safety Check.'\nStep 8: The notification opens 'SPM86 Harbour Safety Ready', showing the status 'Safety review'."
+    }
+  ],
+  "open_questions": [
+    "OPEN: AC5 can only be checked on screen once the Safety Officer can log in (SPM-85, Jordan) and the Notifications page is built (SPM-71, Jordan). SPM-86-TC13 is written for it and recorded as Blocked until both are merged. Until then TC01 checks the message that the Safety Officer has been notified, and a unit test checks a notification is saved for every user with the role 'safety_officer' (role key agreed 2026-10-09).",
+    "OPEN: AC1's 'marked as not required' can only be tested once SPM-33 (Track Outstanding Arrangements, Kristen) lets the Coordinator mark an arrangement as not required. SPM-86-TC12 is written for it and recorded as Blocked until then; its step 3 names SPM-33's control generically, so update it to SPM-33's wording once built. In code, SPM-33 sets `required: false` in arrangementsFor() (src/lib/eventConfirmation.ts), which checkSafetySubmission() already uses, so submission picks it up with no SPM-86 change - SPM-33 should still add a unit test for it.",
+    "RESOLVED 2026-10-09: Equipment that is Partially fulfilled counts as arranged for submission, the same as for Confirm event (SPM-34), so the two never disagree (TC05).",
+    "RESOLVED 2026-10-09: The 'Submit for safety check' button is shown to the assigned Coordinator whenever the event is in Planning, as the 'Confirm event' button is. Whether the arrangements are ready is checked on submit, and a refusal names what is outstanding (TC06-TC08).",
+    "RESOLVED 2026-10-09: Besides the Safety Officer's decision (SPM-87) and a significant edit (SPM-88) returning it to Planning, an event in Safety review may only be cancelled. There is no Cancel action in the app yet (SPM-37), so this is a lifecycle rule covered by a unit test, not a manual case. SPM-37's owner has been told.",
+    "RESOLVED 2026-10-09: A flagged venue booking or flagged equipment request (VenueBooking.needsReview from SPM-39/SPM-62, EquipmentRequest.needsReview from SPM-62) blocks submission and is named with its reason (TC07, TC08). Showing a 'Flagged' badge on the Venue and Equipment tabs is left to Review Flagged Arrangements (SPM-68).",
+    "RESOLVED 2026-10-09: AC8 is shown as a 'Safety check' row under 'Status' in the Overview's 'Details' card, to internal users only; the Event Organiser sees the 'Safety review' status but not who submitted it (TC02, TC03), in line with SPM-88 keeping safety details internal.",
+    "DECIDED 2026-10-09: Wording - button 'Submit for safety check'; dialog title 'Submit for safety check?' with a 'Submit' button; success 'The event has been submitted for a safety check. The Safety Officer has been notified.'; refusal 'This event cannot be submitted for a safety check yet: ...' followed by the same reasons Confirm event gives, plus '... is flagged for review (<reason>)' for flagged items; already pending 'A safety check is already pending for this event.'; Details row 'Safety check' = 'Awaiting review · submitted by <name>, <date and time>'.",
+    "DECIDED 2026-10-09: New status label 'Safety review' (lower_snake 'safety_review'). It is added to the organiser's and coordinator's Dashboard as a 'Safety review' section after 'Planning', to the Venue Staff and Technical Support 'Upcoming events' lists, to the All Events status filter, and to the statuses in which Technical Support can see an event's equipment and the Ops Manager can reassign its coordinator.",
+    "DECIDED 2026-10-09: Who and when is stored in a new SafetyCheck record (one per submission: event, status 'pending', submitted by, submitted at) and in the event's status history (Planning -> Safety review). SPM-87 adds the decision to the same record."
+  ],
+  "code_references": [
+    "src/lib/safetyCheck.ts",
+    "src/app/api/events/[id]/safety-check/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/dashboard/page.tsx",
+    "src/app/events/page.tsx",
+    "src/lib/permissions.ts",
+    "src/lib/statuses.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/equipmentAvailability.ts",
+    "prisma/schema.prisma",
+    "scripts/seed-spm86.ts"
+  ]
+}
