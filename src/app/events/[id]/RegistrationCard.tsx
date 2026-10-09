@@ -128,7 +128,16 @@ export function RegistrationCard({ event, eventId, canChange, showOutstanding, o
     setEditing(true);
     try {
       const res = await authedFetch(`/api/events/${eventId}/registration`);
-      if (res.ok) setBookings((await res.json()).bookings);
+      if (res.ok) {
+        const list: BookingOption[] = (await res.json()).bookings;
+        setBookings(list);
+        // AC8: the booking the capacity was measured against is no longer
+        // active, and one active booking remains - use it, so pressing Save
+        // re-measures against it. With several, the coordinator chooses.
+        if (start.bookingId !== "" && list.length === 1 && list[0].id !== start.bookingId) {
+          setValues((current) => ({ ...current, bookingId: list[0].id }));
+        }
+      }
     } catch {
       // Without the list the form still works for a single booking; the
       // server picks it, and says so if a choice is needed.

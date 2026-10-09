@@ -50,7 +50,7 @@
     }
   ],
   "open_questions": [
-    "RESOLVED 2026-10-09: Written before the code (TDD, 2026-10-09). No screen exists yet, so every label, message and page address below was chosen by the team and is what the developer builds to. Change them in code and cases together. All decisions are also recorded in DOCUMENTATION.md (changelog 2026-10-09, Sammi Chua, SPM-64 decisions). Answer: noted. The second run of this skill, after the code is built, checks every label and message against the screens and updates the cases if anything changed.",
+    "RESOLVED 2026-10-09: written before the code, then checked against the built code on 2026-10-09: every message, label and page address in the cases is what the code shows (27 page tests in src/app/__tests__/event-registration-pages.test.tsx render the Overview with the cases' wording), and the server side of every case was run against the SPM64 fixtures on the shared database through the running app's API (all 29 checks as expected). Corrected while checking: the app writes September as 'Sept' (en-GB), the rejected room in TC09 is Marina Grand Hall (no 'Marina Bay Ballroom' is seeded), 'SPM64 Orchard Data Forum' moved to 18 Mar 2027 and 'SPM64 Attendee Open Day' to 13 May 2027 (their rooms were already booked on the first dates), and TC01 now lists the 'Measured against' row and the incomplete-setup alert. Not yet clicked through by a person in a browser.",
     "RESOLVED 2026-10-09: the story has 11 ACs. The draft's AC12 ('Update Event Information does not edit registration settings') was dropped: SPM-62's strict schema already refuses those fields, and no regression cases are written for it.",
     "RESOLVED 2026-10-09: where. The existing 'Registration' card on the event's Overview. For the assigned coordinator, while the event is Approved, Planning or Confirmed, the card header has a 'Change registration settings' button. It turns the card into a form with: the checkbox 'Attendees need to register for this event', 'Registration capacity', 'Capacity measured against' (only when the event has two or more pending or approved venue bookings), 'Registration opens', 'Registration closes', and the buttons 'Save registration settings' and 'Cancel'. After a save, the card is read-only again, with a green alert 'Registration settings saved.' and, if the save flagged anything, a 'Flagged for review' list in SPM-62's style. Answer: confirmed. The settings live on the existing Registration card rather than on a new page, because the organiser and every other role already see that card read-only, so AC10 and AC11 need no new screen. The button and form are only for the assigned coordinator in Approved, Planning or Confirmed. The form uses noValidate so the page's own messages show, not the browser's.",
     "RESOLVED 2026-10-09: the read-only card. 'Registration': 'Enabled' or 'Not enabled for this event'. When enabled: 'Capacity' (or '—'), 'Measured against' as '<venue name> (<code>), <Layout> layout – up to <n>' (or '—'), 'Opens' and 'Closes' as dates and times (or '—'). Disabling keeps the saved values: they show again when registration is turned back on. Answer: confirmed, with one addition. An attendee never sees 'Measured against': which booking the capacity is measured against is internal planning information, so it stays off ATTENDEE_EVENT_FIELDS. Everyone else who can see the event sees it.",
@@ -63,7 +63,7 @@
     "RESOLVED 2026-10-09: who. Only the coordinator assigned to the event, only in Approved, Planning or Confirmed (SPM-62's window; Postponed is excluded). The organiser (AC10) and everyone else (AC11) see the read-only card with no button. Answer: confirmed (agreed in step 0; same window as SPM-62).",
     "RESOLVED 2026-10-09: out of scope, so no cases. Attendee sign-up enforcing the dates and capacity, the waiting list (#26, #44), VIPs added over capacity (#99, #33), per-session capacity (#74), a derived Open/Closed label (#127), and clearing a flag (SPM-68).",
     "RESOLVED 2026-10-09: Not reachable from the screens, so covered by unit tests only: a booking from another event sent as the measured booking; a request from a non-coordinator that bypasses the hidden button; that a flag is merged into an existing registration review reason rather than replacing it; and that Registration rows are never changed by a save (no attendee list screen exists to show it). Answer: noted. Each is covered by a route or unit test in its slice.",
-    "RESOLVED 2026-10-09: Fixtures needed (scripts/seed-spm64.ts, `npm run fixtures:spm64`, to be written once the schema change exists). Every event: organiser Evelyn Chen (Straits Medical Institute), coordinator Daniel Tan.\n- 'SPM64 Orchard Data Forum': Planning, 17 Mar 2027 09:00–17:00, approved booking at Orchard Seminar Room (ORC-SEM) in Classroom layout (70; the room's maximum is 120), registration off.\n- 'SPM64 Twin Room Workshop': Planning, 24 Mar 2027 09:00–17:00, approved ORC-SEM Classroom (70), pending Orchard Studio (ORC-STU) Classroom (40), rejected Marina Bay Ballroom, registration off.\n- 'SPM64 Unbooked Strategy Day': Approved, 31 Mar 2027, no bookings, registration off.\n- 'SPM64 Layout-Free Networking Night': Planning, 7 Apr 2027, approved ORC-SEM booking with no layout, registration off.\n- 'SPM64 Closed Registration Seminar': Confirmed, 10 Mar 2027 09:00–17:00, approved ORC-SEM Classroom, registration on, capacity 50, opens 1 Aug 2026 09:00, closes 30 Sept 2026 17:00, no registrations.\n- 'SPM64 Started Showcase': Confirmed, 1 Oct 2026 09:00 – 2 Oct 2026 17:00 (already started), registration on, capacity 40, opens 1 Sept 2026, closes 1 Oct 2026 09:00.\n- 'SPM64 Full House Masterclass': Planning, 14 Apr 2027, approved ORC-SEM Classroom, registration on, capacity 20, opens 1 Jan 2027, closes 13 Apr 2027; 12 registered, 3 waitlisted, 2 withdrawn.\n- 'SPM64 Waitlist Only Briefing': Planning, 21 Apr 2027, approved ORC-STU Classroom, registration on, capacity 10 with dates; 0 registered, 4 waitlisted.\n- 'SPM64 Incomplete Setup Gala': Planning, 28 Apr 2027 18:00–22:00, approved ORC-SEM Classroom, no equipment, registration on with no capacity and no dates.\n- 'SPM64 Lost Booking Expo': Planning, 5 May 2027, approved ORC-STU Classroom, plus a rejected ORC-SEM Classroom booking that the registration capacity (40) was measured against; opens 1 Feb 2027, closes 4 May 2027.\n- 'SPM64 Attendee Open Day': Confirmed, 12 May 2027, approved ORC-SEM Classroom, registration on, capacity 60 with dates; Lee Wei Ming registered, Anita Devi withdrawn.\n- 'SPM64 Postponed Product Talk': Postponed, registration off. Answer: noted. The script is written once the AC4 migration exists, and the same events are appended to the end of prisma/seed.ts.",
+    "RESOLVED 2026-10-09: fixtures. `npm run fixtures:spm64` (scripts/seed-spm64.ts) deletes and recreates only the twelve 'SPM64 …' events (seed keys spm64_*), with their bookings, measured booking, registration settings and registrations; the same events (without those) are at the end of prisma/seed.ts. It stops without changing anything if one of its rooms is already held at that time. No pinned reference numbers: find each event by title.",
     "RESOLVED 2026-10-09: navigation in TC24. Venue Staff reach an event from 'Booking Requests' (pending requests link to the event). Technical Support has no sidebar link to any event Overview (NAV_BY_ROLE), so their step types /events. That gap is recorded in DOCUMENTATION.md Known Gaps, not fixed in SPM-64. Answer: confirmed by Sammi Chua, 2026-10-09."
   ],
   "test_cases": [
@@ -84,7 +84,7 @@
         "Reload the page"
       ],
       "test_data": "Event: SPM64 Orchard Data Forum (Planning) | Registration: off -> on",
-      "expected_result": "Step 1: The Registration card shows 'Registration: Not enabled for this event' and a 'Change registration settings' button.\nStep 2: The card shows the checkbox 'Attendees need to register for this event', not ticked, and the buttons 'Save registration settings' and 'Cancel'.\nStep 3: 'Registration capacity', 'Registration opens' and 'Registration closes' appear, empty.\nStep 4: A green alert 'Registration settings saved.' appears. The card shows 'Registration: Enabled', 'Capacity: —', 'Opens: —' and 'Closes: —'.\nStep 5: The card still shows 'Registration: Enabled'."
+      "expected_result": "Step 1: The Registration card shows 'Registration: Not enabled for this event' and a 'Change registration settings' button.\nStep 2: The card shows the checkbox 'Attendees need to register for this event', not ticked, and the buttons 'Save registration settings' and 'Cancel'.\nStep 3: 'Registration capacity', 'Registration opens' and 'Registration closes' appear, empty.\nStep 4: A green alert 'Registration settings saved.' appears. The card shows 'Registration: Enabled', 'Capacity: —', 'Measured against: —', 'Opens: —' and 'Closes: —', and an amber alert 'Registration setup is incomplete' reads 'Still needed: registration capacity, opening date, closing date.' (checked in SPM-64-TC16).\nStep 5: The card still shows 'Registration: Enabled'."
     },
     {
       "id": "SPM-64-TC02",
@@ -245,8 +245,8 @@
         "Change 'Registration capacity' to 40",
         "Click 'Save registration settings'"
       ],
-      "test_data": "Event: SPM64 Twin Room Workshop | Bookings: Orchard Seminar Room Classroom 70 (Approved), Orchard Studio Classroom 40 (Pending), Marina Bay Ballroom (Rejected) | Chosen: Orchard Studio | Capacity: 45, then 40",
-      "expected_result": "Step 3: 'Registration capacity' and 'Capacity measured against' appear. The list is set to 'Choose a booking'.\nStep 4: The list offers exactly two bookings: 'Orchard Seminar Room (ORC-SEM) · Classroom · up to 70 · Approved' and 'Orchard Studio (ORC-STU) · Classroom · up to 40 · Pending'. The rejected Marina Bay Ballroom booking is not offered.\nStep 7: 'Registration capacity can't be more than 40, the capacity of Orchard Studio (ORC-STU) in its Classroom layout.' shows under 'Registration capacity', and nothing is saved.\nStep 9: 'Registration settings saved.' appears. The card shows 'Capacity: 40' and 'Measured against: Orchard Studio (ORC-STU), Classroom layout – up to 40'."
+      "test_data": "Event: SPM64 Twin Room Workshop | Bookings: Orchard Seminar Room Classroom 70 (Approved), Orchard Studio Classroom 40 (Pending), Marina Grand Hall (Rejected) | Chosen: Orchard Studio | Capacity: 45, then 40",
+      "expected_result": "Step 3: 'Registration capacity' and 'Capacity measured against' appear. The list is set to 'Choose a booking'.\nStep 4: The list offers exactly two bookings: 'Orchard Seminar Room (ORC-SEM) · Classroom · up to 70 · Approved' and 'Orchard Studio (ORC-STU) · Classroom · up to 40 · Pending'. The rejected Marina Grand Hall booking is not offered.\nStep 7: 'Registration capacity can't be more than 40, the capacity of Orchard Studio (ORC-STU) in its Classroom layout.' shows under 'Registration capacity', and nothing is saved.\nStep 9: 'Registration settings saved.' appears. The card shows 'Capacity: 40' and 'Measured against: Orchard Studio (ORC-STU), Classroom layout – up to 40'."
     },
     {
       "id": "SPM-64-TC10",
@@ -284,8 +284,8 @@
         "Enter 10 Mar 2027, 17:00 in 'Registration closes'",
         "Click 'Save registration settings'"
       ],
-      "test_data": "Event: SPM64 Orchard Data Forum (17 Mar 2027, 09:00–17:00) | Opens: 1 Feb 2027, 09:00 | Closes: 10 Mar 2027, 17:00",
-      "expected_result": "Step 1: 'When' in the Details card shows '17 Mar 2027, 09:00–17:00'.\nStep 6: 'Registration settings saved.' appears. The card shows 'Opens: 1 Feb 2027, 09:00' and 'Closes: 10 Mar 2027, 17:00'. 'When' in the Details card still shows '17 Mar 2027, 09:00–17:00'."
+      "test_data": "Event: SPM64 Orchard Data Forum (18 Mar 2027, 09:00–17:00) | Opens: 1 Feb 2027, 09:00 | Closes: 10 Mar 2027, 17:00",
+      "expected_result": "Step 1: 'When' in the Details card shows '18 Mar 2027, 09:00–17:00'.\nStep 6: 'Registration settings saved.' appears. The card shows 'Opens: 1 Feb 2027, 09:00' and 'Closes: 10 Mar 2027, 17:00'. 'When' in the Details card still shows '18 Mar 2027, 09:00–17:00'."
     },
     {
       "id": "SPM-64-TC12",
@@ -323,13 +323,13 @@
         "Click 'Change registration settings' on the Registration card",
         "Tick 'Attendees need to register for this event'",
         "Enter 1 Feb 2027, 09:00 in 'Registration opens'",
-        "Enter 17 Mar 2027, 09:01 in 'Registration closes'",
+        "Enter 18 Mar 2027, 09:01 in 'Registration closes'",
         "Click 'Save registration settings'",
-        "Change 'Registration closes' to 17 Mar 2027, 09:00",
+        "Change 'Registration closes' to 18 Mar 2027, 09:00",
         "Click 'Save registration settings'"
       ],
-      "test_data": "Event: SPM64 Orchard Data Forum (starts 17 Mar 2027, 09:00) | Opens: 1 Feb 2027, 09:00 | Closes: 17 Mar 2027, 09:01, then 09:00",
-      "expected_result": "Step 6: 'Registration must close no later than the event starts.' shows under 'Registration closes', and nothing is saved.\nStep 8: 'Registration settings saved.' appears, and the card shows 'Closes: 17 Mar 2027, 09:00'."
+      "test_data": "Event: SPM64 Orchard Data Forum (starts 18 Mar 2027, 09:00) | Opens: 1 Feb 2027, 09:00 | Closes: 18 Mar 2027, 09:01, then 09:00",
+      "expected_result": "Step 6: 'Registration must close no later than the event starts.' shows under 'Registration closes', and nothing is saved.\nStep 8: 'Registration settings saved.' appears, and the card shows 'Closes: 18 Mar 2027, 09:00'."
     },
     {
       "id": "SPM-64-TC14",
@@ -570,5 +570,17 @@
       "test_data": "Event: SPM64 Attendee Open Day (Confirmed, registration on, capacity 60) | Attendee: Lee Wei Ming",
       "expected_result": "Step 4: The event page opens. The Registration card shows 'Registration: Enabled' and 'Capacity: 60', with no 'Change registration settings' button."
     }
+  ],
+  "code_references": [
+    "src/app/api/events/[id]/registration/route.ts",
+    "src/lib/registrationSettings.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/permissions.ts",
+    "src/lib/validation/registrations.ts",
+    "src/app/events/[id]/RegistrationCard.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/api/events/[id]/route.ts",
+    "prisma/schema.prisma",
+    "scripts/seed-spm64.ts"
   ]
 }

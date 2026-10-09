@@ -307,6 +307,26 @@ describe("AC4 choosing the booking the capacity is measured against", () => {
     expect(await screen.findByText(message)).toBeInTheDocument();
     expect(screen.getByLabelText("Capacity measured against")).toHaveAttribute("aria-invalid", "true");
   });
+  // Found while writing the TC18 fixture: with the measured booking lost and
+  // one active booking left, the coordinator only presses Save, so the form
+  // must send that booking - otherwise nothing changes and the setup stays
+  // incomplete.
+  it("moves a lost measured booking to the only active one left, so Save sends it (TC18)", async () => {
+    const lostEvent = event({
+      ...enabled,
+      registrationCapacity: 40,
+      registrationVenueBooking: { ...seminarBooking, status: "rejected" },
+    });
+    const api = asCoordinator(lostEvent, { [SETTINGS]: { bookings: [studioOption] } });
+    await startEditing();
+
+    expect(screen.queryByLabelText("Capacity measured against")).not.toBeInTheDocument();
+    api.on(SAVE, { event: lostEvent, flagged: [] });
+    await userEvent.click(saveButton());
+
+    await screen.findByText("Registration settings saved.");
+    expect(api.sent(SAVE)[0].body).toEqual({ registrationVenueBookingId: "b2" });
+  });
 });
 
 describe("AC5 - AC7 the registration period", () => {
