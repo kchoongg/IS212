@@ -245,6 +245,15 @@ export function canUpdateEventInformation(actor: Actor, event: EventAccessFields
   return isAssignedCoordinator(actor, event);
 }
 
+/// SPM-64: an event's registration settings are set up by the coordinator
+/// assigned to it - "the event coordinator would be in-charge" of the
+/// registration period (customer clarification #30). The organiser sees them
+/// read-only. The status window is EVENT_INFORMATION_STATUSES, checked
+/// separately as for SPM-62, so a refusal can say which rule was broken.
+export function canConfigureRegistration(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
+}
+
 /// SPM-47: equipment requirements are recorded and revised by the coordinator
 /// assigned to the event (SPM-30 removed the "any coordinator while it has
 /// none yet" allowance - see isAssignedCoordinator). Unlike canEditEventContent this is not restricted to draft: equipment
