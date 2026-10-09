@@ -4,18 +4,18 @@ import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { venueAvailabilityQuerySchema } from "@/lib/validation";
 import { buildAvailability, resolveAvailabilityRange } from "@/lib/venueAvailability";
-import { addDays, localDayKey, localDayStart } from "@/lib/venueSlots";
+import { addDays, localDayKey, localDayStart } from "@/lib/venueTime";
 import { TIME_ZONE } from "@/lib/format";
 
 /**
  * GET /api/venues/[id]/availability?from=YYYY-MM-DD&to=YYYY-MM-DD
  *
  * SPM-46 "View Venue Availability" - S-21 in UI_DESIGN.md. One venue, a range
- * of local calendar days, and for each day the AM / PM / Night slots with
- * whatever occupies them.
+ * of local calendar days, and for each day what occupies the room and when -
+ * since SPM-93 at actual times, setup and turnaround as their own entries.
  *
  *   AC1  select a venue and a period          - the path id, `from` and `to`
- *   AC2  per slot, including setup/turnaround - `days[].slots`, status "turnaround"
+ *   AC2  including setup/turnaround           - `days[].entries`, kinds "setup" and "turnaround"
  *   AC3  confirmed bookings are displayed     - `bookings`
  *   AC4  unavailable periods are displayed    - `unavailability`
  *   AC5  overlapping periods identifiable     - `overlaps` on each, and `hasOverlaps`
@@ -23,7 +23,7 @@ import { TIME_ZONE } from "@/lib/format";
  *   AC7  reflects confirmed bookings          - the status filter, below
  *
  * This route only loads rows. What the calendar says is decided in
- * src/lib/venueAvailability.ts and src/lib/venueSlots.ts, as pure functions
+ * src/lib/venueAvailability.ts and src/lib/venueTime.ts, as pure functions
  * with their own tests.
  */
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
@@ -80,9 +80,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const rangeEnd = localDayStart(addDays(range.to, 1));
 
   // A booking just outside the range can still reach into it through its setup
-  // or teardown, so the booking query is widened by this venue's own turnaround.
-  // Without that, a 09:00 booking the day after `to` whose 180-minute setup
-  // starts at 06:00 would be missed - and so would the slot it occupies.
+  // or turnaround, so the booking query is widened by this venue's own minutes.
+  // Without that, a 01:00 booking the day after `to` whose 180-minute setup
+  // starts at 22:00 the night before would be missed.
   const setupMs = venue.setupMinutes * 60_000;
   const teardownMs = venue.teardownMinutes * 60_000;
 
@@ -94,15 +94,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         // booking's own status is `approved`, the state that commits the room.
         // NOT Event.status = "confirmed": that reading hides an approved
         // booking whose event is still in planning (Marina Grand Hall, 1 Dec
-        // 2026, in the seed) and would let someone else book the same slot.
-        // Pending, rejected and cancelled bookings do not block a slot.
+        // 2026, in the seed) and would let someone else book the same time.
         //
-        // Pending ones are still FETCHED, as tentative holds (#41: "only one
+        // Pending ones are FETCHED too, as tentative holds (#41: "only one
         // active tentative hold or confirmed booking should exist for the same
         // venue and overlapping time period"). They are split out below and
-        // shown without changing any slot's status - a coordinator needs to
-        // see that a room has already been asked for, or the calendar itself
-        // causes the second hold the customer forbids.
+        // shown as "requested" - a coordinator needs to see that a room has
+        // already been asked for. Rejected and cancelled ones are not shown.
         status: { in: ["approved", "pending"] },
         // Overlap test from SCHEMA_REFERENCE.md, against the widened window.
         startsAt: { lt: new Date(rangeEnd.getTime() + setupMs) },

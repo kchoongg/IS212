@@ -20,29 +20,27 @@ import { SkeletonRows } from "@/components/ui/DataState";
 import { cn } from "@/lib/cn";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
-import { TIME_ZONE, formatDate, formatDateTimeRange, formatTime } from "@/lib/format";
-import { addDays, openingHoursNote } from "@/lib/venueSlots";
+import { TIME_ZONE, formatDate, formatDateTimeRange } from "@/lib/format";
+import { addDays, timeRangeLabel } from "@/lib/venueTime";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
-import type {
-  AvailabilityBlock,
-  AvailabilityBooking,
-  AvailabilityCell,
-  AvailabilityDay,
-  AvailabilityHold,
-  AvailabilityResponse,
-  CellStatus,
+import {
+  reasonLabel,
+  type AvailabilityBlock,
+  type AvailabilityBooking,
+  type AvailabilityDay,
+  type AvailabilityHold,
+  type AvailabilityResponse,
+  type EntryKind,
 } from "@/lib/venueAvailability";
 
 // S-21, the venue availability calendar - SPM-46 "View Venue Availability".
 //
-// Built to the story's acceptance criteria and to the test cases in
-// docs/test-cases/SPM-46_test_cases.json, whose on-screen wording ("View
-// availability", "Show availability", the slot and cell labels, "Room in use",
-// "Overlaps with") this screen matches. Layout follows the S-21 mockup
-// (breadcrumb, venue name and code, the range and opening hours under it, week
-// navigation at the top right, a key under the grid) - but NOT its continuous
-// hour-by-hour grid: AC2 asks for AM / PM / Night slots, and that was decided
-// over the mockup.
+// SPM-93 AC9: one row per day, listing what is on at its actual times - each
+// booking's or hold's setup, its own time and its turnaround as separate
+// entries, and unavailable periods - instead of AM / PM / Night columns.
+// Layout follows the S-21 mockup otherwise (breadcrumb, venue name and code,
+// the range and opening hours under it, week navigation at the top right, a key
+// under the table). How fine-grained the calendar is was left to us (#6).
 //
 // Everything the calendar says comes from GET /api/venues/[id]/availability.
 // This screen decides nothing about availability itself - it only lays out
@@ -63,21 +61,23 @@ interface VenueOption {
   isActive: boolean;
 }
 
-const STATUS_LABEL: Record<CellStatus, string> = {
-  free: "Free",
+const KIND_LABEL: Record<EntryKind, string> = {
+  setup: "Setup",
   booked: "Booked",
   turnaround: "Turnaround",
+  requested: "Requested",
   unavailable: "Unavailable",
-  closed: "Closed",
 };
 
-/// Colour is never the only signal - every cell also says its status in words
+/// Colour is never the only signal - every entry also says what it is in words
 /// (UI_DESIGN.md §5.2).
-const STATUS_TONE: Record<CellStatus, string> = {
-  free: "bg-tone-success-bg text-tone-success-fg ring-tone-success-ring",
+const KIND_TONE: Record<EntryKind | "free" | "closed", string> = {
   booked: "bg-tone-info-bg text-tone-info-fg ring-tone-info-ring",
+  setup: "bg-tone-warning-bg text-tone-warning-fg ring-tone-warning-ring",
   turnaround: "bg-tone-warning-bg text-tone-warning-fg ring-tone-warning-ring",
+  requested: "bg-tone-neutral-bg text-tone-neutral-fg ring-tone-neutral-ring",
   unavailable: "bg-tone-danger-bg text-tone-danger-fg ring-tone-danger-ring",
+  free: "bg-tone-success-bg text-tone-success-fg ring-tone-success-ring",
   closed: "bg-tone-neutral-bg text-tone-neutral-fg ring-tone-neutral-ring",
 };
 
@@ -90,23 +90,27 @@ function dayLabel(dayKey: string): string {
   return `${WEEKDAY.format(instant)} ${formatDate(instant)}`;
 }
 
-/// "renovation" -> "Renovation", "internal_activity" -> "Internal activity".
-function reasonLabel(value: string): string {
-  const spaced = value.replace(/_/g, " ");
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
-}
-
 /// "u_shape" -> "U-shape", matching how the venue form labels layouts.
 function layoutLabel(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1).replace(/_/g, "-");
 }
 
-/// "06:00–20:00" when the room is in use within one day, otherwise both full
-/// timestamps - a long booking's turnaround can cross midnight.
+/// "09:30–12:45" within one day, otherwise both full timestamps.
 function roomInUse(from: Date | string, to: Date | string): string {
-  return formatDate(from) === formatDate(to)
-    ? `${formatTime(from)}–${formatTime(to)}`
-    : formatDateTimeRange(from, to);
+  return timeRangeLabel({ startsAt: new Date(from), endsAt: new Date(to) });
+}
+
+function Pill({ tone, children }: { tone: keyof typeof KIND_TONE; children: React.ReactNode }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex w-fit shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
+        KIND_TONE[tone]
+      )}
+    >
+      {children}
+    </span>
+  );
 }
 
 export default function VenueAvailabilityPage() {
@@ -251,10 +255,6 @@ function VenueAvailability() {
     () => new Map((data?.bookings ?? []).map((b) => [b.id, b])),
     [data]
   );
-  const holdsById = useMemo(
-    () => new Map((data?.holds ?? []).map((h) => [h.id, h])),
-    [data]
-  );
   const blocksById = useMemo(
     () => new Map((data?.unavailability ?? []).map((u) => [u.id, u])),
     [data]
@@ -287,21 +287,11 @@ function VenueAvailability() {
       className: "w-40",
       render: (day) => <span className="font-medium">{dayLabel(day.date)}</span>,
     },
-    ...(data?.slots ?? []).map(({ slot, label }) => ({
-      key: slot,
-      header: `${slot} ${label}`,
-      render: (day: AvailabilityDay) => (
-        <SlotCellView
-          cell={day.slots[slot]}
-          hoursNote={
-            data ? openingHoursNote(slot, data.venue.opensAt, data.venue.closesAt) : null
-          }
-          bookingsById={bookingsById}
-          blocksById={blocksById}
-          holdsById={holdsById}
-        />
-      ),
-    })),
+    {
+      key: "schedule",
+      header: "Schedule",
+      render: (day) => <DaySchedule day={day} venueActive={data?.venue.isActive ?? true} />,
+    },
   ];
 
   return (
@@ -312,7 +302,7 @@ function VenueAvailability() {
           data
             ? `${formatDate(`${data.range.from}T00:00:00Z`)} – ${formatDate(`${data.range.to}T00:00:00Z`)} · ` +
               `open ${data.venue.opensAt}–${data.venue.closesAt} · ` +
-              `setup ${data.venue.setupMinutes} min, teardown ${data.venue.teardownMinutes} min`
+              `setup ${data.venue.setupMinutes} min, turnaround ${data.venue.teardownMinutes} min`
             : undefined
         }
         breadcrumbs={crumbs}
@@ -365,7 +355,7 @@ function VenueAvailability() {
         <div className="flex flex-col gap-6">
           {!data.venue.isActive && (
             <Alert variant="warning" title="This venue is retired">
-              It is no longer offered for new bookings, so no slot is shown as free. Anything already booked
+              It is no longer offered for new bookings, so no day is shown as free. Anything already booked
               here is still listed below.
             </Alert>
           )}
@@ -374,8 +364,8 @@ function VenueAvailability() {
               just because it is below the fold. */}
           {data.hasOverlaps && (
             <Alert variant="warning" title="Some bookings or unavailable periods overlap">
-              Each one is marked &lsquo;Overlaps with&rsquo; below. Overlaps are worked out from the exact times,
-              not the slots - two short bookings can share a slot without clashing.
+              Each one is marked &lsquo;Overlaps with&rsquo; below. Overlaps are worked out from the times the
+              room is in use, setup and turnaround included.
             </Alert>
           )}
 
@@ -384,14 +374,14 @@ function VenueAvailability() {
               columns={columns}
               rows={data.days}
               rowKey={(day) => day.date}
-              caption={`Availability of ${venueName}, by day and slot`}
+              caption={`Availability of ${venueName}, by day`}
             />
             <Key />
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <BookingsCard bookings={data.bookings} bookingsById={bookingsById} blocksById={blocksById} holdsById={holdsById} />
-            <UnavailabilityCard blocks={data.unavailability} bookingsById={bookingsById} blocksById={blocksById} holdsById={holdsById} />
+            <BookingsCard bookings={data.bookings} bookingsById={bookingsById} blocksById={blocksById} />
+            <UnavailabilityCard blocks={data.unavailability} bookingsById={bookingsById} blocksById={blocksById} />
             <HoldsCard holds={data.holds} />
           </div>
         </div>
@@ -405,86 +395,44 @@ function VenueAvailability() {
 type Lookups = {
   bookingsById: Map<string, AvailabilityBooking>;
   blocksById: Map<string, AvailabilityBlock>;
-  holdsById: Map<string, AvailabilityHold>;
 };
 
-/// One slot. Says its status in words, then everything occupying it - so a
-/// slot showing "Unavailable" still names the booking sharing it, and nothing
-/// is hidden behind the status that won.
-function SlotCellView({
-  cell,
-  hoursNote,
-  bookingsById,
-  blocksById,
-  holdsById,
-}: { cell: AvailabilityCell; hoursNote: string | null } & Lookups) {
-  const booked = cell.bookingIds.map((id) => bookingsById.get(id)?.eventTitle ?? "Untitled event");
-  const turnaround = cell.turnaroundBookingIds.map((id) => bookingsById.get(id)?.eventTitle ?? "Untitled event");
-  const blocks = cell.unavailabilityIds.map((id) => {
-    const block = blocksById.get(id);
-    return block ? reasonLabel(block.reason) : "Unavailable";
-  });
-
+/// One day's row: every entry at its times, in order - "Setup 09:30–10:00 ·
+/// SPM93 Morning Masterclass" - or "Free" when nothing is on ("Closed" for a
+/// retired venue, which is never offered as free).
+function DaySchedule({ day, venueActive }: { day: AvailabilityDay; venueActive: boolean }) {
+  if (day.entries.length === 0) {
+    return venueActive ? <Pill tone="free">Free</Pill> : <Pill tone="closed">Closed</Pill>;
+  }
   return (
-    <div className="flex flex-col gap-1">
-      <span
-        className={cn(
-          "inline-flex w-fit items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset",
-          STATUS_TONE[cell.status]
-        )}
-      >
-        {STATUS_LABEL[cell.status]}
-      </span>
-      {cell.status === "free" && hoursNote && (
-        <span className="text-xs text-ink-3">{hoursNote}</span>
-      )}
-      {/* AC7 keeps the slot free - a request is not a commitment - but #41
-          says only one tentative hold may exist for a venue and period, so
-          the hold has to be visible or the calendar causes the second one. */}
-      {cell.holdIds.map((id) => (
-        <span key={`h${id}`} className="text-xs text-tone-warning-fg">
-          Requested: {holdsById.get(id)?.eventTitle ?? "another event"}
-        </span>
+    <ul className="flex flex-col gap-1">
+      {day.entries.map((entry, i) => (
+        <li key={i} className="flex flex-wrap items-center gap-2 text-sm">
+          <Pill tone={entry.kind}>{KIND_LABEL[entry.kind]}</Pill>
+          <span className="tabular-nums text-ink">
+            {entry.from}–{entry.to}
+          </span>
+          <span className={entry.kind === "booked" ? "font-medium text-ink" : "text-ink-2"}>· {entry.label}</span>
+        </li>
       ))}
-      {blocks.map((label, i) => (
-        <span key={`u${i}`} className="text-xs text-ink-2">
-          {label}
-        </span>
-      ))}
-      {booked.map((title, i) => (
-        <span key={`b${i}`} className="text-xs font-medium text-ink">
-          {title}
-        </span>
-      ))}
-      {turnaround.map((title, i) => (
-        <span key={`t${i}`} className="text-xs text-ink-3">
-          Setup or teardown: {title}
-        </span>
-      ))}
-    </div>
+    </ul>
   );
 }
 
 function Key() {
-  const entries: { status: CellStatus; meaning: string }[] = [
-    { status: "free", meaning: "the room can be requested" },
-    { status: "booked", meaning: "an approved booking's own times" },
-    { status: "turnaround", meaning: "only setup or teardown time" },
-    { status: "unavailable", meaning: "a recorded unavailable period" },
-    { status: "closed", meaning: "outside opening hours, or a retired venue" },
+  const entries: { tone: keyof typeof KIND_TONE; label: string; meaning: string }[] = [
+    { tone: "booked", label: "Booked", meaning: "an approved booking's own times" },
+    { tone: "setup", label: "Setup", meaning: "the venue's setup time before a booking or request" },
+    { tone: "turnaround", label: "Turnaround", meaning: "the venue's turnaround time after it" },
+    { tone: "requested", label: "Requested", meaning: "asked for, not yet approved" },
+    { tone: "unavailable", label: "Unavailable", meaning: "a recorded unavailable period" },
+    { tone: "free", label: "Free", meaning: "nothing on that day" },
   ];
   return (
     <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-xs text-ink-2">
-      {entries.map(({ status, meaning }) => (
-        <li key={status} className="flex items-center gap-2">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 font-medium ring-1 ring-inset",
-              STATUS_TONE[status]
-            )}
-          >
-            {STATUS_LABEL[status]}
-          </span>
+      {entries.map(({ tone, label, meaning }) => (
+        <li key={label} className="flex items-center gap-2">
+          <Pill tone={tone}>{label}</Pill>
           {meaning}
         </li>
       ))}
@@ -492,7 +440,7 @@ function Key() {
   );
 }
 
-/// "Overlaps with …" - AC5, named by event or by reason and dates.
+/// "Overlaps with …" - AC5, named by event or by reason and times.
 function OverlapNote({
   overlaps,
   bookingsById,
@@ -503,7 +451,7 @@ function OverlapNote({
     ...overlaps.unavailabilityIds.map((id) => {
       const block = blocksById.get(id);
       return block
-        ? `${reasonLabel(block.reason)} (${formatDate(block.startsAt)} to ${formatDate(block.endsAt)})`
+        ? `${reasonLabel(block.reason)} (${formatDateTimeRange(block.startsAt, block.endsAt)})`
         : "an unavailable period";
     }),
   ];
@@ -526,9 +474,10 @@ function HoldsCard({ holds }: { holds: AvailabilityHold[] }) {
             <li key={h.id} className="flex flex-col gap-0.5">
               <span className="font-medium text-ink">{h.eventTitle ?? "Untitled event"}</span>
               <p className="text-sm text-ink-2">{formatDateTimeRange(h.startsAt, h.endsAt)}</p>
+              <p className="text-sm text-ink-2">Room in use {roomInUse(h.occupiedFrom, h.occupiedTo)}</p>
               <p className="text-sm text-ink-3">
-                These slots are still free, but someone has already asked for this room.
-                Check with the Event Coordinator before requesting it as well.
+                These times are not booked yet, but someone has already asked for this room. Check with the
+                Event Coordinator before requesting it as well.
               </p>
             </li>
           ))}
@@ -553,19 +502,13 @@ function BookingsCard({ bookings, ...lookups }: { bookings: AvailabilityBooking[
                   <span className="font-medium text-ink">{b.eventTitle ?? "Untitled event"}</span>
                   {/* The EVENT's status, for information. It never decides
                       whether the room is taken - the booking is approved,
-                      which is what blocks the slots above (AC3/AC7). */}
+                      which is what blocks the times above (AC3/AC7). */}
                   <StatusBadge status={b.eventStatus} />
                   {b.sessionLabel && <span className="text-sm text-ink-3">{b.sessionLabel}</span>}
                 </div>
                 <p className="text-sm text-ink-2">{formatDateTimeRange(b.startsAt, b.endsAt)}</p>
                 <p className="text-sm text-ink-2">Room in use {roomInUse(b.occupiedFrom, b.occupiedTo)}</p>
                 {b.layoutName && <p className="text-sm text-ink-3">Layout: {layoutLabel(b.layoutName)}</p>}
-                {b.minutesOutsideSlots > 0 && (
-                  <p className="text-sm text-tone-warning-fg">
-                    {b.minutesOutsideSlots} minutes of this booking fall outside the AM, PM and Night slots, so
-                    the grid above does not show all of it.
-                  </p>
-                )}
                 <OverlapNote overlaps={b.overlaps} {...lookups} />
               </li>
             ))}
@@ -589,9 +532,7 @@ function UnavailabilityCard({ blocks, ...lookups }: { blocks: AvailabilityBlock[
               <li key={u.id} className="flex flex-col gap-1 py-3 first:pt-0 last:pb-0">
                 <span className="font-medium text-ink">{reasonLabel(u.reason)}</span>
                 {u.notes && <p className="text-sm text-ink-2">{u.notes}</p>}
-                <p className="text-sm text-ink-2">
-                  {formatDate(u.startsAt)} to {formatDate(u.endsAt)}
-                </p>
+                <p className="text-sm text-ink-2">{formatDateTimeRange(u.startsAt, u.endsAt)}</p>
                 <OverlapNote overlaps={u.overlaps} {...lookups} />
               </li>
             ))}

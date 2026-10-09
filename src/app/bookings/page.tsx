@@ -23,13 +23,13 @@ import { loginUrlFor } from "@/lib/useCurrentUser";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { statusLabel } from "@/lib/statuses";
 import { layoutLabel } from "@/lib/venueSuitability";
-import { localDayKey } from "@/lib/venueSlots";
-import { requestSlotsLabel, setupAndTurnaround, slotCellLabel } from "@/lib/venueBookingRequest";
+import { localDayKey, occupiedWindow, timeRangeLabel } from "@/lib/venueTime";
+import { setupAndTurnaround } from "@/lib/venueBookingRequest";
 import { BOOKING_REJECTION_REASON_REQUIRED } from "@/lib/venueBookingReview";
 
 // S-22, Booking Requests (design/mockups/BookingQueue.dc.html). SPM-42 AC7
 // built the pending list; SPM-43 makes it the place Venue Staff decide:
-//   AC1, AC2  each pending request with its venue, date, slots and event
+//   AC1, AC2  each pending request with its venue, date, times and event
 //   AC3       Approve, behind a confirm dialog naming what it books
 //   AC4-AC6   Reject, with a required reason and an optional suggestion -
 //             another venue and/or an alternative arrangement - for the
@@ -37,7 +37,8 @@ import { BOOKING_REJECTION_REASON_REQUIRED } from "@/lib/venueBookingReview";
 //             suggestion "when rejecting" (the mockup's separate "Suggest
 //             another room" button is folded into it).
 // A request that would clash is flagged before anyone clicks Approve; the
-// server checks again either way.
+// server checks again either way. SPM-93 AC8: each request shows its times and
+// the whole time the room is in use, setup and turnaround included.
 
 interface Request {
   id: string;
@@ -88,6 +89,7 @@ export default function BookingsPage() {
 }
 
 const windowOf = (r: Request) => ({ startsAt: new Date(r.startsAt), endsAt: new Date(r.endsAt) });
+const timesOf = (r: Request) => formatDateTimeRange(r.startsAt, r.endsAt);
 const eventName = (r: Request) => `${r.event.reference} ${r.event.title ?? "Untitled event"}`;
 
 function BookingRequests() {
@@ -171,7 +173,7 @@ function BookingRequests() {
         return;
       }
 
-      const what = `${formatVenue(request.venue.name, request.venue.code)} for ${eventName(request)} on ${requestSlotsLabel(windowOf(request))}`;
+      const what = `${formatVenue(request.venue.name, request.venue.code)} for ${eventName(request)} on ${timesOf(request)}`;
       setNotice(
         body.decision === "approve"
           ? {
@@ -187,7 +189,7 @@ function BookingRequests() {
       );
       cancelReject();
       // Reloaded rather than filtered locally: an approval can put another
-      // pending request for the same room and slot into conflict.
+      // pending request for the same room into conflict.
       await load();
     } catch {
       setActionError({ id: request.id, message: "Could not save your decision. Please try again." });
@@ -283,15 +285,23 @@ function BookingRequests() {
         onConfirm={() => approving && void decide(approving, { decision: "approve" })}
         onCancel={() => setApproving(null)}
       >
-        {approving && (
-          <>
-            This books {formatVenue(approving.venue.name, approving.venue.code)} for {eventName(approving)} on{" "}
-            {requestSlotsLabel(windowOf(approving))}. No other event can then be booked into those slots, or into
-            the room&rsquo;s setup and turnaround slots around them.
-          </>
-        )}
+        {approving && <ApproveSummary request={approving} />}
       </ConfirmDialog>
     </div>
+  );
+}
+
+/// What approving books: the request's times, and the whole time the room is
+/// then out of use (SPM-93 AC8).
+function ApproveSummary({ request }: { request: Request }) {
+  const [from, to] = timeRangeLabel(occupiedWindow(windowOf(request), request.venue)).split("–").map((part) => part.trim());
+  const withTurnaround = request.venue.setupMinutes > 0 || request.venue.teardownMinutes > 0;
+  return (
+    <>
+      This books {formatVenue(request.venue.name, request.venue.code)} for {eventName(request)} on {timesOf(request)}.
+      No other event can then be booked into the room from {from} to {to}
+      {withTurnaround ? ", which includes its setup and turnaround time." : "."}
+    </>
   );
 }
 
@@ -367,11 +377,18 @@ function RequestCard({
               label: "Requested",
               value: (
                 <>
-                  {requestSlotsLabel(window)}
-                  {holds.setup && <span className="block text-xs text-ink-3">Setup: {slotCellLabel(holds.setup)}</span>}
-                  {holds.turnaround && (
-                    <span className="block text-xs text-ink-3">Turnaround: {slotCellLabel(holds.turnaround)}</span>
+                  {timesOf(request)}
+                  {holds.setup && (
+                    <span className="block text-xs text-ink-3">
+                      Setup: {timeRangeLabel(holds.setup)} ({request.venue.setupMinutes} min)
+                    </span>
                   )}
+                  {holds.turnaround && (
+                    <span className="block text-xs text-ink-3">
+                      Turnaround: {timeRangeLabel(holds.turnaround)} ({request.venue.teardownMinutes} min)
+                    </span>
+                  )}
+                  <span className="block text-xs text-ink-2">Room in use: {timeRangeLabel(holds.occupied)}</span>
                 </>
               ),
             },
@@ -445,7 +462,7 @@ function RequestCard({
             </Field>
             <Field
               label="Alternative arrangement"
-              hint="Optional. For example another date or slot, or a different layout."
+              hint="Optional. For example another date or time, or a different layout."
             >
               <Textarea
                 value={form.suggestedAlternative}

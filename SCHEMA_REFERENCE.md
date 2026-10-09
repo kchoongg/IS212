@@ -151,8 +151,8 @@ Postgres table `venues` &middot; `prisma.venue`
 | `maxCapacity` | Int | req | Absolute ceiling. The per-layout number is usually lower - use VenueLayout for suitability. |
 | `opensAt` | String |  | "HH:MM" text, 24-hour. Zero-padded so string comparison works. Defaults to `"08:00"`. |
 | `closesAt` | String |  | "HH:MM" text. Defaults to `"22:00"`. |
-| `setupMinutes` | Int |  | Optional. Ignore unless you are handling turnaround time. Defaults to `0`. |
-| `teardownMinutes` | Int |  | Optional. Defaults to `0`. |
+| `setupMinutes` | Int |  | Setup time before each booking, in 15-minute steps, zero included (SPM-93; enforced by `createVenueSchema`/`updateVenueSchema`, not the database). Defaults to `0`. |
+| `teardownMinutes` | Int |  | The customer's **turnaround** time after each booking - labelled "Turnaround time (minutes)" on screen. 15-minute steps, zero included. Defaults to `0`. |
 | `isActive` | Boolean |  | Retire a venue without orphaning its past bookings. Defaults to `true`. |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
@@ -367,7 +367,7 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `decidedAt` | DateTime |  |  |
 | `decisionReason` | String |  | Required when rejecting. |
 | `suggestedVenueId` | String |  | Another venue Venue Staff suggested when rejecting (SPM-43). A suggestion only - nothing is booked. NULL unless rejected with one; set to NULL if that venue is ever deleted. |
-| `suggestedAlternative` | String |  | An alternative arrangement in words, given when rejecting (SPM-43) - another date, slot or layout. NULL unless rejected with one. |
+| `suggestedAlternative` | String |  | An alternative arrangement in words, given when rejecting (SPM-43) - another date, time or layout. NULL unless rejected with one. |
 | `needsReview` | Boolean |  | A venue change may have invalidated this booking. The booking is NOT changed - a human decides. Defaults to `false`. |
 | `reviewReason` | String |  | Why it was flagged: comma-separated codes, see Status values. NULL when `needsReview` is false. |
 | `flaggedAt` | DateTime |  | When it was last flagged. NULL when never flagged. |
@@ -380,8 +380,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 - A booking is decided once, from `pending` only, and deciding it never touches the Event.
 - `venue` and `suggestedVenue` both point at Venue, so the relations are named (`BookingVenue`, `BookingSuggestedVenue`). On the Venue side they are `bookings` and `suggestedIn`.
 
-- Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`. The same test appears in three places - write it once and reuse it.
-- Only compare against `status: 'approved'`. Pending requests may legitimately compete for the same slot.
+- `startsAt`/`endsAt` are the requested times only, on a 15-minute grid since SPM-93 (bookings made before it hold whole-slot times such as 07:00-12:00, and are kept as stored). **Setup and turnaround are never stored on the booking**: a booking occupies the room from `startsAt` minus the venue's `setupMinutes` to `endsAt` plus its `teardownMinutes` (Week 7 Change #1). Compare occupied periods with `occupiedWindow()` in `src/lib/venueTime.ts`.
+- Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`, on occupied periods - `overlapping()` in `src/lib/venueTime.ts`. Periods that only meet end to start do not clash.
+- At **request** time a pending request blocks too (a tentative hold, #41), setup and turnaround included. At **approval** only `approved` bookings block: rival pending requests may compete for the same time, and approving one is how Venue Staff choose.
 - `needsReview` is a flag, never an action. When a venue is edited or retired, `PATCH /api/venues/[id]` sets it on affected bookings and notifies the coordinator; it does not change the booking's venue, layout, times or status, and it does not touch the Event. Only `approved` bookings that have not yet finished are candidates - a pending booking is not a commitment, so there is nothing to protect by flagging it.
 - A change to the event's own information sets it too (Update Event Information, SPM-62): `event_schedule_changed`, `event_attendance_changed`, `event_requirements_changed`, on pending and approved bookings that have not finished. Those codes share the column with the venue codes above, so every writer adds reasons through `addReviewReasons()` (`src/lib/reviewFlags.ts`), which keeps codes it does not recognise. Never parse the column into your own codes before writing it back.
 - **Nothing clears the flag yet.** There is no route for a coordinator to acknowledge or resolve one - that is a separate story. Do not assume a flagged booking is unresolved in real life.
@@ -552,7 +553,7 @@ double-booked venue. These rules live in route code:
 | Rejection reason | `api/events/[id]` PATCH | a reason is given when status becomes `rejected` |
 | Venue suitability | venues domain (to write) | layout capacity >= attendance, all mandatory facilities present |
 | Booking conflict | venues domain (to write) | no overlapping `approved` booking or unavailability |
-| Booking decision | `src/lib/venueBookingReview.ts`, applied by `api/venue-bookings/[id]` PATCH | decided once, from `pending`; approval re-checks approved bookings and unavailability (slots, setup and turnaround) under a lock on the venue row; a rejection needs a reason; a suggested venue must be active and different |
+| Booking decision | `src/lib/venueBookingReview.ts`, applied by `api/venue-bookings/[id]` PATCH | decided once, from `pending`; approval re-checks approved bookings and unavailability (times plus each venue's setup and turnaround minutes, SPM-93) under a lock on the venue row; a rejection needs a reason; a suggested venue must be active and different |
 | Venue change impact | `src/lib/venueImpact.ts`, applied by `api/venues/[id]` PATCH | which future `approved` bookings a venue edit or retirement newly breaks, so they can be flagged. Pure functions, unit tested without a database. Does NOT yet cover narrowed `opensAt`/`closesAt` - that needs a timezone convention the codebase has not settled |
 | Equipment availability | equipment domain (to write) | requested <= total - maintenance - overlapping reservations |
 | Registration | `api/registrations` POST | event confirmed, within window, not already registered, seats left |

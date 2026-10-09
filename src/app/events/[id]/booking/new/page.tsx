@@ -8,10 +8,8 @@ import {
   ButtonLink,
   Card,
   CardBody,
-  Checkbox,
   DetailList,
   Field,
-  Fieldset,
   Input,
   PageHeader,
   SkeletonRows,
@@ -22,14 +20,22 @@ import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { layoutLabel } from "@/lib/venueSuitability";
-import { SLOTS, slotRangeLabel, type Slot } from "@/lib/venueSlots";
-import { defaultSlots, requestedWindow, setupAndTurnaround, slotCellLabel } from "@/lib/venueBookingRequest";
+import { timeRangeLabel } from "@/lib/venueTime";
+import {
+  checkRequestTimes,
+  defaultTimes,
+  requestedWindow,
+  setupAndTurnaround,
+  type RequestTimeErrors,
+} from "@/lib/venueBookingRequest";
 
 // S-15, Venue booking request (SPM-42). Reached from "Request booking" on the
 // event's Venue tab, with the venue and (for a multi-session event) the
-// session in the query string. The coordinator picks a date and one or more
-// fixed slots (AC2); the setup and turnaround slots the venue adds are shown,
-// not chosen (AC3). Every rule is enforced again by the server.
+// session in the query string. Since SPM-93 the coordinator gives a date and a
+// start and end time on the 15-minute grid (AC1), starting from the event's or
+// session's own times widened to the grid (AC2). The setup and turnaround the
+// venue adds, and the whole time the room is in use, are shown, not chosen
+// (AC6). Every rule is enforced again by the server.
 
 interface Info {
   event: { title: string | null; preferredLayout: string | null };
@@ -70,7 +76,9 @@ function BookingRequestForm() {
   const [venue, setVenue] = useState<Venue | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [day, setDay] = useState("");
-  const [slots, setSlots] = useState<Slot[]>([]);
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const [timeErrors, setTimeErrors] = useState<RequestTimeErrors>({});
   const [requirementsNote, setRequirementsNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -97,12 +105,14 @@ function BookingRequestForm() {
       setInfo(loaded);
       setVenue(await venueRes.json());
 
-      // AC4: start on the session's own date and slots, or the event's.
+      // SPM-93 AC2: start on the session's own times, or the event's, widened
+      // to the 15-minute grid.
       const own = loaded.sessions.find((s) => s.id === sessionId) ?? loaded.schedule;
-      const start = own.startsAt && own.endsAt ? defaultSlots({ startsAt: new Date(own.startsAt), endsAt: new Date(own.endsAt) }) : null;
+      const start = own.startsAt && own.endsAt ? defaultTimes({ startsAt: new Date(own.startsAt), endsAt: new Date(own.endsAt) }) : null;
       if (start) {
         setDay(start.day);
-        setSlots(start.slots);
+        setStartTime(start.startTime);
+        setEndTime(start.endTime);
       }
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Something went wrong");
@@ -120,18 +130,22 @@ function BookingRequestForm() {
     }
   }, [state, load, router, eventId]);
 
+  // Only once the times themselves are acceptable - an off-grid or inverted
+  // pair has no room-in-use period worth showing.
   const holds = useMemo(() => {
-    if (!venue) return null;
-    const window = day ? requestedWindow(day, slots) : null;
+    if (!venue || Object.keys(checkRequestTimes({ startTime, endTime })).length > 0) return null;
+    const window = requestedWindow(day, startTime, endTime);
     return window ? setupAndTurnaround(window, venue) : null;
-  }, [venue, day, slots]);
-
-  function toggle(slot: Slot) {
-    setSlots((current) => (current.includes(slot) ? current.filter((s) => s !== slot) : [...current, slot]));
-  }
+  }, [venue, day, startTime, endTime]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    setSubmitError(null);
+    // AC3: an off-grid time, or an end not after the start, is named under its
+    // field. The server checks the same rule.
+    const errors = checkRequestTimes({ startTime, endTime });
+    setTimeErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     // SPM-54: the first request for an Approved event begins planning - ask first.
     if (info?.willBeginPlanning) {
       setConfirmPlanning(true);
@@ -147,7 +161,7 @@ function BookingRequestForm() {
       const res = await authedFetch(`/api/events/${eventId}/venue-bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ venueId, sessionId: sessionId ?? undefined, day, slots, requirementsNote }),
+        body: JSON.stringify({ venueId, sessionId: sessionId ?? undefined, day, startTime, endTime, requirementsNote }),
       });
       if (res.ok) {
         // SPM-54: the first request for an Approved event begins planning.
@@ -157,7 +171,11 @@ function BookingRequestForm() {
         return;
       }
       const body = await res.json().catch(() => ({}));
-      setSubmitError(body.error === "Validation failed" ? "Check the date and slots, then try again." : body.error);
+      if (body.field === "startTime" || body.field === "endTime") {
+        setTimeErrors({ [body.field]: body.error });
+        return;
+      }
+      setSubmitError(body.error === "Validation failed" ? "Check the date and times, then try again." : body.error);
     } catch {
       setSubmitError("Could not send the request. Try again.");
     } finally {
@@ -222,7 +240,7 @@ function BookingRequestForm() {
       ) : info.cannotRequest ? (
         <Alert variant="info">{info.cannotRequest}</Alert>
       ) : (
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        <form onSubmit={submit} noValidate className="flex flex-col gap-4">
           <Card>
             <CardBody>
               <DetailList
@@ -242,26 +260,40 @@ function BookingRequestForm() {
             <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} required />
           </Field>
 
-          <Fieldset legend="Slots" description="Each slot is booked in full.">
-            {SLOTS.map((slot) => (
-              <Checkbox
-                key={slot}
-                label={`${slot} (${slotRangeLabel(slot)})`}
-                checked={slots.includes(slot)}
-                onChange={() => toggle(slot)}
+          {/* No `step` on the time fields: the browser would then block an
+              off-grid time itself, before the page can say which one (AC3). */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Start time" required hint="In 15-minute steps." error={timeErrors.startTime}>
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => {
+                  setStartTime(e.target.value);
+                  setTimeErrors({});
+                }}
               />
-            ))}
-          </Fieldset>
+            </Field>
+            <Field label="End time" required error={timeErrors.endTime}>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => {
+                  setEndTime(e.target.value);
+                  setTimeErrors({});
+                }}
+              />
+            </Field>
+          </div>
 
           <div className="text-sm text-ink-2">
-            {noTurnaround ? (
-              <p>No setup or turnaround needed at this venue.</p>
-            ) : holds ? (
+            {noTurnaround && <p>No setup or turnaround needed at this venue.</p>}
+            {holds && (
               <>
-                {holds.setup && <p>Setup: {slotCellLabel(holds.setup)}</p>}
-                {holds.turnaround && <p>Turnaround: {slotCellLabel(holds.turnaround)}</p>}
+                {holds.setup && <p>Setup: {timeRangeLabel(holds.setup)} ({venue.setupMinutes} min)</p>}
+                {holds.turnaround && <p>Turnaround: {timeRangeLabel(holds.turnaround)} ({venue.teardownMinutes} min)</p>}
+                <p className="font-medium text-ink">Room in use: {timeRangeLabel(holds.occupied)}</p>
               </>
-            ) : null}
+            )}
           </div>
 
           <Field label="Venue requirements" hint="Optional. Anything Venue Staff need to set up.">
