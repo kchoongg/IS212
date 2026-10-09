@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 //
-// SPM-41 / SPM-42: the event's Venue tab and the booking request form. Times
-// are written in UTC; Singapore is UTC+8, so 05:30Z-09:00Z on 4 March is
-// 13:30-17:00 local - inside the PM slot (13:00-18:00).
+// SPM-41 / SPM-42: the event's Venue tab and the booking request form, in
+// times on a 15-minute grid since SPM-93. Times are written in UTC; Singapore
+// is UTC+8, so 05:30Z-09:00Z on 4 March is 13:30-17:00 local.
 
 import { describe, it, expect } from "vitest";
 import EventVenuePage from "@/app/events/[id]/venue/page";
@@ -162,7 +162,7 @@ describe("Event Venue tab", () => {
     expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
   });
 
-  it("lists the event's existing booking requests with their slots, layout and status", async () => {
+  it("SPM-93-TC01: lists the event's existing booking requests with their times, layout and status", async () => {
     open({
       [INFO]: info({
         bookings: [
@@ -174,9 +174,9 @@ describe("Event Venue tab", () => {
 
     const requests = (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
 
-    expect(requests).toHaveTextContent("4 Mar 2027 · PM (13:00–18:00) · Theatre");
+    expect(requests).toHaveTextContent("4 Mar 2027, 13:00–18:00 · Theatre");
     expect(requests).toHaveTextContent("Pending");
-    expect(requests).toHaveTextContent("Session · 5 Mar 2027 · PM (13:00–18:00)");
+    expect(requests).toHaveTextContent("Session · 5 Mar 2027, 13:00–18:00");
     expect(requests).toHaveTextContent("Approved");
   });
 
@@ -382,7 +382,8 @@ describe("Venue booking request form", () => {
   }
 
   const date = () => screen.findByLabelText(/^Date/);
-  const slot = (name: string) => screen.getByRole("checkbox", { name: new RegExp(`^${name} \\(`) });
+  const start = () => screen.getByLabelText(/^Start time/);
+  const end = () => screen.getByLabelText(/^End time/);
   const submit = () => userEvent.click(screen.getByRole("button", { name: "Submit request" }));
   const valueOf = (label: string) =>
     screen.getAllByRole("term").find((t) => t.textContent === label)!.nextElementSibling as HTMLElement;
@@ -435,22 +436,30 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText("Session")).not.toBeInTheDocument();
     });
 
-    it("the event's own date and the slots it runs in", async () => {
+    it("SPM-93-TC01: the event's own date and times, and no AM / PM / Night choice", async () => {
       open();
 
       expect(await date()).toHaveValue("2027-03-04");
-      expect(slot("PM")).toBeChecked();
-      expect(slot("AM")).not.toBeChecked();
-      expect(slot("Night")).not.toBeChecked();
+      expect(start()).toHaveValue("13:30");
+      expect(end()).toHaveValue("17:00");
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     });
 
-    it("a session's own date, slots and layout when one is named", async () => {
+    it("SPM-93-TC01: an event off the 15-minute grid is widened to it", async () => {
+      open({ [INFO]: info({ schedule: { startsAt: "2027-03-04T06:10:00.000Z", endsAt: "2027-03-04T07:50:00.000Z" } }) });
+
+      expect(await date()).toHaveValue("2027-03-04");
+      expect(start()).toHaveValue("14:00");
+      expect(end()).toHaveValue("16:00");
+    });
+
+    it("SPM-93-TC02: a session's own date, times and layout when one is named", async () => {
       open({ [INFO]: info({ sessions }) }, "?venue=v1&session=s2");
 
-      // 09:00-11:00 Singapore time on 5 March: the AM slot.
+      // 09:00-11:00 Singapore time on 5 March.
       expect(await date()).toHaveValue("2027-03-05");
-      expect(slot("AM")).toBeChecked();
-      expect(slot("PM")).not.toBeChecked();
+      expect(start()).toHaveValue("09:00");
+      expect(end()).toHaveValue("11:00");
       expect(valueOf("Session")).toHaveTextContent(/^Session — 5 Mar 2027/);
       expect(valueOf("Layout")).toHaveTextContent("Not set");
     });
@@ -466,58 +475,127 @@ describe("Venue booking request form", () => {
     it.each([
       ["has no dates yet", { startsAt: null, endsAt: null }],
       ["runs over more than one day", { startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-05T09:00:00.000Z" }],
-    ])("nothing chosen when the event %s", async (_case, schedule) => {
+    ])("nothing filled in when the event %s", async (_case, schedule) => {
       open({ [INFO]: info({ schedule, event: { title: null, preferredLayout: null } }) });
 
       expect(await date()).toHaveValue("");
-      expect(slot("AM")).not.toBeChecked();
-      expect(slot("PM")).not.toBeChecked();
+      expect(start()).toHaveValue("");
+      expect(end()).toHaveValue("");
       expect(valueOf("Event")).toHaveTextContent("Untitled event");
       expect(valueOf("Layout")).toHaveTextContent("Not set");
     });
   });
 
-  describe("setup and turnaround", () => {
-    it("says none is needed at a venue that needs none", async () => {
+  describe("setup, turnaround and the room in use", () => {
+    it("SPM-93-TC08: says none is needed at a venue that needs none, and the room is in use for the booked times", async () => {
       open();
       await date();
 
       expect(screen.getByText("No setup or turnaround needed at this venue.")).toBeInTheDocument();
+      expect(screen.getByText("Room in use: 13:30–17:00")).toBeInTheDocument();
+      expect(screen.queryByText(/^Setup:/)).not.toBeInTheDocument();
     });
 
-    it("shows the slots the venue will hold either side, which the coordinator does not choose", async () => {
-      open({ [VENUE]: venue({ setupMinutes: 60, teardownMinutes: 30 }) });
+    it("SPM-93-TC01: shows the times setup and turnaround take either side, which the coordinator does not choose", async () => {
+      open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
       await date();
 
-      expect(screen.getByText("Setup: 4 Mar 2027 AM (07:00–12:00)")).toBeInTheDocument();
-      expect(screen.getByText("Turnaround: 4 Mar 2027 Night (19:00–24:00)")).toBeInTheDocument();
+      expect(screen.getByText("Setup: 13:00–13:30 (30 min)")).toBeInTheDocument();
+      expect(screen.getByText("Turnaround: 17:00–17:45 (45 min)")).toBeInTheDocument();
+      expect(screen.getByText("Room in use: 13:00–17:45")).toBeInTheDocument();
     });
 
-    it("follows the chosen slots, crossing into the next day when needed", async () => {
-      open({ [VENUE]: venue({ setupMinutes: 60, teardownMinutes: 30 }) });
+    it("SPM-93-TC09: follows the times as they are changed", async () => {
+      open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
       await date();
 
-      await userEvent.click(slot("Night"));
+      set(end(), "17:15");
 
-      expect(screen.getByText("Turnaround: 5 Mar 2027 AM (07:00–12:00)")).toBeInTheDocument();
+      expect(screen.getByText("Turnaround: 17:15–18:00 (45 min)")).toBeInTheDocument();
+      expect(screen.getByText("Room in use: 13:00–18:00")).toBeInTheDocument();
     });
 
-    it("shows nothing while no slot is chosen", async () => {
-      open({ [VENUE]: venue({ setupMinutes: 60, teardownMinutes: 30 }) });
+    it("shows only setup at a venue with no turnaround", async () => {
+      open({ [VENUE]: venue({ setupMinutes: 15 }) });
       await date();
 
-      await userEvent.click(slot("PM"));
+      expect(screen.getByText("Setup: 13:15–13:30 (15 min)")).toBeInTheDocument();
+      expect(screen.queryByText(/^Turnaround:/)).not.toBeInTheDocument();
+      expect(screen.queryByText("No setup or turnaround needed at this venue.")).not.toBeInTheDocument();
+    });
+
+    it("shows nothing while the times cannot be booked", async () => {
+      open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
+      await date();
+
+      set(start(), "13:40");
 
       expect(screen.queryByText(/^Setup:/)).not.toBeInTheDocument();
-      expect(screen.queryByText(/^Turnaround:/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Room in use:/)).not.toBeInTheDocument();
+    });
+  });
+
+  describe("SPM-93-TC03: times that are refused, and named", () => {
+    it.each([
+      ["a start time off the grid", () => set(start(), "13:40"), /^Start time/, "Choose a start time on a 15-minute step (:00, :15, :30 or :45)."],
+      ["an end time off the grid", () => set(end(), "17:20"), /^End time/, "Choose an end time on a 15-minute step (:00, :15, :30 or :45)."],
+      ["an end equal to the start", () => set(end(), "13:30"), /^End time/, "The end time must be after the start time."],
+      ["an end before the start", () => set(end(), "13:15"), /^End time/, "The end time must be after the start time."],
+      ["an empty start time", () => set(start(), ""), /^Start time/, "Choose a start time on a 15-minute step (:00, :15, :30 or :45)."],
+    ])("%s: the message is under that field and nothing is sent", async (_case, breakIt, field, message) => {
+      const api = open();
+      await date();
+
+      breakIt();
+      await submit();
+
+      expect(screen.getByLabelText(field)).toHaveAccessibleDescription(expect.stringContaining(message));
+      expect(api.sent(POST)).toHaveLength(0);
+    });
+
+    it("names both times when both are off the grid", async () => {
+      open();
+      await date();
+
+      set(start(), "13:40");
+      set(end(), "17:20");
+      await submit();
+
+      expect(screen.getByText("Choose a start time on a 15-minute step (:00, :15, :30 or :45).")).toBeInTheDocument();
+      expect(screen.getByText("Choose an end time on a 15-minute step (:00, :15, :30 or :45).")).toBeInTheDocument();
+    });
+
+    it("clears the message as soon as a time is changed", async () => {
+      open();
+      await date();
+      set(start(), "13:40");
+      await submit();
+
+      set(start(), "13:30");
+
+      expect(screen.queryByText(/on a 15-minute step/)).not.toBeInTheDocument();
+    });
+
+    it("puts a refusal the server names a field for under that field", async () => {
+      open({ [POST]: reply(400, { error: "The end time must be after the start time.", field: "endTime" }) });
+      await date();
+
+      await submit();
+
+      expect(await screen.findByText("The end time must be after the start time.")).toBeInTheDocument();
+      expect(screen.getByLabelText(/^End time/)).toHaveAccessibleDescription(
+        expect.stringContaining("The end time must be after the start time.")
+      );
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
   });
 
   describe("submitting", () => {
-    it("sends the venue, date, slots and requirements, then confirms it is pending", async () => {
+    it("SPM-93-TC01: sends the venue, date, times and requirements, then confirms it is pending", async () => {
       const api = open();
       set(await date(), "2027-03-06");
-      await userEvent.click(slot("Night"));
+      set(start(), "13:15");
+      set(end(), "18:00");
       set(screen.getByLabelText("Venue requirements"), "Stage at the north end");
 
       await submit();
@@ -526,7 +604,8 @@ describe("Venue booking request form", () => {
       expect(api.sent(POST)[0].body).toEqual({
         venueId: "v1",
         day: "2027-03-06",
-        slots: ["PM", "Night"],
+        startTime: "13:15",
+        endTime: "18:00",
         requirementsNote: "Stage at the north end",
       });
       expect(screen.getByText("It is Pending until Venue Staff review it.")).toBeInTheDocument();
@@ -541,24 +620,18 @@ describe("Venue booking request form", () => {
       await submit();
 
       await waitFor(() => expect(api.sent(POST)).toHaveLength(1));
-      expect(api.sent(POST)[0].body).toMatchObject({ venueId: "v1", sessionId: "s1", day: "2027-03-04", slots: ["PM"] });
-    });
-
-    it("can un-choose a slot", async () => {
-      const api = open();
-      await date();
-
-      await userEvent.click(slot("AM"));
-      await userEvent.click(slot("PM"));
-      await submit();
-
-      await waitFor(() => expect(api.sent(POST)).toHaveLength(1));
-      expect((api.sent(POST)[0].body as { slots: string[] }).slots).toEqual(["AM"]);
+      expect(api.sent(POST)[0].body).toMatchObject({
+        venueId: "v1",
+        sessionId: "s1",
+        day: "2027-03-04",
+        startTime: "13:30",
+        endTime: "17:00",
+      });
     });
 
     it.each([
       ["the server's reason", reply(400, { error: "Hall A is already booked for this time." }), "Hall A is already booked for this time."],
-      ["plain words for a validation failure", reply(400, { error: "Validation failed", details: {} }), "Check the date and slots, then try again."],
+      ["plain words for a validation failure", reply(400, { error: "Validation failed", details: {} }), "Check the date and times, then try again."],
       ["a network failure", () => Promise.reject(new Error("offline")), "Could not send the request. Try again."],
     ])("shows %s and keeps the form", async (_case, answer, message) => {
       open({ [POST]: answer });

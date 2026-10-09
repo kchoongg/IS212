@@ -874,41 +874,56 @@ describe("recordOutOfServiceSchema (SPM-48 AC7)", () => {
   });
 });
 
-describe("createVenueBookingSchema (SPM-42)", () => {
+describe("createVenueBookingSchema (SPM-42, times from SPM-93)", () => {
   const VENUE = "11111111-1111-4111-8111-111111111111";
   const SESSION = "22222222-2222-4222-8222-222222222222";
+  const valid = { venueId: VENUE, day: "2027-06-09", startTime: "14:00", endTime: "16:00" };
 
-  it("SPM-42-TC01: accepts a venue, a date, slots and venue requirements", () => {
-    const parsed = createVenueBookingSchema.parse({
-      venueId: VENUE,
-      day: "2027-03-04",
-      slots: ["AM", "PM"],
-      requirementsNote: "  Lectern and stage riser at the front.  ",
-    });
-    expect(parsed.requirementsNote).toBe("Lectern and stage riser at the front.");
+  it("SPM-93-TC01: accepts a venue, a date, a start and end time, and venue requirements", () => {
+    const parsed = createVenueBookingSchema.parse({ ...valid, requirementsNote: "  Lectern at the front.  " });
+    expect(parsed).toMatchObject({ day: "2027-06-09", startTime: "14:00", endTime: "16:00", requirementsNote: "Lectern at the front." });
     expect(parsed.sessionId).toBeUndefined();
   });
 
-  it("SPM-42-TC09: accepts a session", () => {
-    expect(createVenueBookingSchema.parse({ venueId: VENUE, sessionId: SESSION, day: "2027-03-01", slots: ["AM"] }).sessionId).toBe(SESSION);
+  it("SPM-93-TC02: accepts a session", () => {
+    expect(createVenueBookingSchema.parse({ ...valid, sessionId: SESSION }).sessionId).toBe(SESSION);
   });
 
-  it("SPM-42-TC03: empty venue requirements become absent", () => {
-    expect(createVenueBookingSchema.parse({ venueId: VENUE, day: "2027-03-05", slots: ["AM"], requirementsNote: "   " }).requirementsNote).toBeUndefined();
+  it("empty venue requirements become absent", () => {
+    expect(createVenueBookingSchema.parse({ ...valid, requirementsNote: "   " }).requirementsNote).toBeUndefined();
   });
 
-  it("SPM-42-TC05: leaves an empty slot list to the business rule, which has the clearer message", () => {
-    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: [] }).success).toBe(true);
+  it("SPM-93-TC03: leaves off-grid and inverted times to the business rule, which names the time", () => {
+    expect(createVenueBookingSchema.safeParse({ ...valid, startTime: "10:10", endTime: "09:45" }).success).toBe(true);
+    expect(createVenueBookingSchema.safeParse({ ...valid, startTime: "", endTime: "" }).success).toBe(true);
   });
 
-  it("rejects an unknown slot, a duplicate slot, an impossible date and a missing venue", () => {
-    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["Evening"] }).success).toBe(false);
-    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["AM", "AM"] }).success).toBe(false);
-    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-02-31", slots: ["AM"] }).success).toBe(false);
-    expect(createVenueBookingSchema.safeParse({ day: "2027-03-07", slots: ["AM"] }).success).toBe(false);
+  it("no longer takes slots", () => {
+    expect(createVenueBookingSchema.parse({ ...valid, slots: ["AM"] })).not.toHaveProperty("slots");
+  });
+
+  it("rejects an impossible date, a missing time and a missing venue", () => {
+    expect(createVenueBookingSchema.safeParse({ ...valid, day: "2027-02-31" }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-06-09", startTime: "14:00" }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ day: "2027-06-09", startTime: "14:00", endTime: "16:00" }).success).toBe(false);
   });
 
   it("rejects venue requirements over 2000 characters", () => {
-    expect(createVenueBookingSchema.safeParse({ venueId: VENUE, day: "2027-03-07", slots: ["AM"], requirementsNote: "x".repeat(2001) }).success).toBe(false);
+    expect(createVenueBookingSchema.safeParse({ ...valid, requirementsNote: "x".repeat(2001) }).success).toBe(false);
+  });
+});
+
+describe("venue setup and turnaround minutes (SPM-93 AC5)", () => {
+  it.each([0, 15, 30, 45, 240])("accepts %i minutes", (minutes) => {
+    expect(updateVenueSchema.safeParse({ setupMinutes: minutes, teardownMinutes: minutes }).success).toBe(true);
+  });
+
+  it.each([20, 50, 1, 14])("SPM-93-TC07: refuses %i minutes, which is not a 15-minute step", (minutes) => {
+    expect(updateVenueSchema.safeParse({ setupMinutes: minutes }).success).toBe(false);
+    expect(updateVenueSchema.safeParse({ teardownMinutes: minutes }).success).toBe(false);
+  });
+
+  it("still refuses negative minutes", () => {
+    expect(updateVenueSchema.safeParse({ setupMinutes: -15 }).success).toBe(false);
   });
 });

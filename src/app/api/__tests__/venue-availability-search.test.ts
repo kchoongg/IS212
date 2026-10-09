@@ -1,6 +1,6 @@
 // SPM-46 (venue availability calendar) and SPM-40 (venue search). Times are
 // written in UTC; Singapore is UTC+8, so local midnight is 16:00Z the day
-// before and the PM slot (13:00-18:00) is 05:00Z-10:00Z.
+// before and 13:00-18:00 local is 05:00Z-10:00Z.
 
 import { describe, it, expect, vi, afterEach } from "vitest";
 
@@ -164,24 +164,23 @@ describe("GET /api/venues/[id]/availability", () => {
     });
   });
 
-  describe("what it shows", () => {
-    it("shows an empty day as three free slots", async () => {
+  describe("what it shows (SPM-93: actual times, not slots)", () => {
+    it("shows an empty day with nothing on it", async () => {
       const body = await (await get(given())).json();
 
-      expect(body.slots.map((s: { slot: string }) => s.slot)).toEqual(["AM", "PM", "Night"]);
-      expect(body.days).toHaveLength(1);
-      expect(body.days[0].slots.AM.status).toBe("free");
-      expect(body.days[0].slots.PM.status).toBe("free");
+      expect(body).not.toHaveProperty("slots");
+      expect(body.days).toEqual([{ date: DAY, entries: [] }]);
       expect(body).toMatchObject({ bookings: [], unavailability: [], holds: [], hasOverlaps: false });
     });
 
-    it("marks the slot of an approved booking as booked, and names the event", async () => {
+    it("shows an approved booking at its own times, and names the event", async () => {
       const token = given(venue(), [booking({ session: { label: "Day 1" } })]);
 
       const body = await (await get(token)).json();
 
-      expect(body.days[0].slots.PM).toMatchObject({ status: "booked", bookingIds: [ID.booking] });
-      expect(body.days[0].slots.AM.status).toBe("free");
+      expect(body.days[0].entries).toEqual([
+        { kind: "booked", from: "13:00", to: "18:00", label: "Town Hall", bookingId: ID.booking },
+      ]);
       expect(body.bookings).toHaveLength(1);
       expect(body.bookings[0]).toMatchObject({
         id: ID.booking,
@@ -190,48 +189,49 @@ describe("GET /api/venues/[id]/availability", () => {
         eventStatus: "planning",
         sessionLabel: "Day 1",
         layoutName: "theatre",
-        cells: [{ day: DAY, slot: "PM", via: "booking" }],
+        occupiedFrom: PM_STARTS.toISOString(),
+        occupiedTo: PM_ENDS.toISOString(),
       });
     });
 
-    it("takes the slot before for setup and the slot after for turnaround", async () => {
-      const token = given(venue({ setupMinutes: 60, teardownMinutes: 30 }), [booking()]);
+    it("SPM-93-TC15: shows the venue's setup and turnaround minutes either side, as their own entries", async () => {
+      const token = given(venue({ setupMinutes: 30, teardownMinutes: 45 }), [booking()]);
 
-      const { slots } = (await (await get(token)).json()).days[0];
+      const body = await (await get(token)).json();
 
-      expect(slots.AM).toMatchObject({ status: "turnaround", turnaroundBookingIds: [ID.booking] });
-      expect(slots.PM.status).toBe("booked");
-      expect(slots.Night).toMatchObject({ status: "turnaround", turnaroundBookingIds: [ID.booking] });
+      expect(body.days[0].entries.map((e: { kind: string; from: string; to: string }) => `${e.kind} ${e.from}–${e.to}`)).toEqual([
+        "setup 12:30–13:00",
+        "booked 13:00–18:00",
+        "turnaround 18:00–18:45",
+      ]);
+      expect(body.bookings[0]).toMatchObject({
+        occupiedFrom: new Date(PM_STARTS.getTime() - 30 * MINUTE).toISOString(),
+        occupiedTo: new Date(PM_ENDS.getTime() + 45 * MINUTE).toISOString(),
+      });
     });
 
-    it("shows a pending request as a hold without taking the slot", async () => {
+    it("shows a pending request as requested, apart from the approved bookings", async () => {
       const token = given(venue(), [booking({ status: "pending" })]);
 
       const body = await (await get(token)).json();
 
       expect(body.bookings).toEqual([]);
       expect(body.holds).toHaveLength(1);
-      expect(body.holds[0]).toMatchObject({
-        id: ID.booking,
-        eventId: ID.event,
-        eventTitle: "Town Hall",
-        cells: [{ day: DAY, slot: "PM" }],
-      });
-      expect(body.days[0].slots.PM).toMatchObject({ status: "free", holdIds: [ID.booking] });
+      expect(body.holds[0]).toMatchObject({ id: ID.booking, eventId: ID.event, eventTitle: "Town Hall" });
+      expect(body.days[0].entries).toEqual([
+        { kind: "requested", from: "13:00", to: "18:00", label: "Town Hall", holdId: ID.booking },
+      ]);
     });
 
-    it("marks the slot of an unavailable period, with its reason", async () => {
+    it("shows an unavailable period at its times, with its reason", async () => {
       const block = { id: "block-1", startsAt: PM_STARTS, endsAt: PM_ENDS, reason: "maintenance", notes: "Floor resurfacing" };
 
       const body = await (await get(given(venue(), [], [block]))).json();
 
-      expect(body.days[0].slots.PM).toMatchObject({ status: "unavailable", unavailabilityIds: ["block-1"] });
-      expect(body.unavailability[0]).toMatchObject({
-        id: "block-1",
-        reason: "maintenance",
-        notes: "Floor resurfacing",
-        cells: [{ day: DAY, slot: "PM" }],
-      });
+      expect(body.days[0].entries).toEqual([
+        { kind: "unavailable", from: "13:00", to: "18:00", label: "Maintenance", unavailabilityId: "block-1" },
+      ]);
+      expect(body.unavailability[0]).toMatchObject({ id: "block-1", reason: "maintenance", notes: "Floor resurfacing" });
     });
 
     it("flags a booking that overlaps an unavailable period", async () => {
@@ -251,7 +251,7 @@ describe("GET /api/venues/[id]/availability", () => {
 
       expect(body.hasOverlaps).toBe(true);
       expect(body.bookings[0].overlaps.bookingIds).toEqual(["second-booking"]);
-      expect(body.days[0].slots.PM.bookingIds).toEqual([ID.booking, "second-booking"]);
+      expect(body.days[0].entries.map((e: { bookingId: string }) => e.bookingId)).toEqual([ID.booking, "second-booking"]);
     });
   });
 });

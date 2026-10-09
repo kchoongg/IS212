@@ -603,7 +603,7 @@ describe("Booking Requests", () => {
   const VENUES = "GET /api/venues";
   const DECIDE = "PATCH /api/venue-bookings/b1";
 
-  // 13:00-18:00 Singapore time on 4 March 2027: the PM slot.
+  // 13:00-18:00 Singapore time on 4 March 2027.
   const request = (overrides: Record<string, unknown> = {}) => ({
     id: "b1",
     status: "pending",
@@ -663,14 +663,14 @@ describe("Booking Requests", () => {
   });
 
   describe("each request", () => {
-    it("shows its venue, event, slots, schedule, requirements, requester and status", async () => {
+    it("shows its venue, event, times, schedule, requirements, requester and status", async () => {
       open();
 
       const it_ = await card();
 
       expect(within(it_).getByRole("link", { name: "EVT-000007" })).toHaveAttribute("href", "/events/EVT-000007");
       expect(it_).toHaveTextContent("for EVT-000007 Town Hall · Acme Pte Ltd");
-      expect(valueOf(it_, "Requested")).toHaveTextContent(/^4 Mar 2027 · PM \(13:00–18:00\)$/);
+      expect(valueOf(it_, "Requested")).toHaveTextContent(/^4 Mar 2027, 13:00–18:00Room in use: 13:00–18:00$/);
       expect(valueOf(it_, "Event time")).toHaveTextContent("4 Mar 2027");
       expect(valueOf(it_, "Event time")).toHaveTextContent("14:00");
       expect(valueOf(it_, "Layout")).toHaveTextContent("U shape");
@@ -682,15 +682,18 @@ describe("Booking Requests", () => {
       expect(within(it_).queryByText("Session time")).not.toBeInTheDocument();
     });
 
-    it("shows the slots a venue's setup and turnaround take either side", async () => {
+    it("SPM-93-TC13: shows the times setup and turnaround take either side, and the whole room-in-use period", async () => {
       open({
-        [LIST]: [request({ venue: { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 60, teardownMinutes: 30 } })],
+        [LIST]: [request({ venue: { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 30, teardownMinutes: 45 } })],
       });
 
       const requested = valueOf(await card(), "Requested");
 
-      expect(requested).toHaveTextContent("Setup: 4 Mar 2027 AM (07:00–12:00)");
-      expect(requested).toHaveTextContent("Turnaround: 4 Mar 2027 Night (19:00–24:00)");
+      expect(requested).toHaveTextContent("4 Mar 2027, 13:00–18:00");
+      expect(requested).toHaveTextContent("Setup: 12:30–13:00 (30 min)");
+      expect(requested).toHaveTextContent("Turnaround: 18:00–18:45 (45 min)");
+      expect(requested).toHaveTextContent("Room in use: 12:30–18:45");
+      expect(requested).not.toHaveTextContent(/\b(AM|PM|Night)\b/);
     });
 
     it("shows no setup or turnaround line for a venue that needs neither", async () => {
@@ -788,7 +791,7 @@ describe("Booking Requests", () => {
   });
 
   describe("a request that would clash", () => {
-    const clash = "Hall A is already booked for EVT-000003 in this slot.";
+    const clash = "Hall A is already booked for EVT-000003 at this time.";
 
     it("is flagged, says why, and cannot be approved", async () => {
       open({ [LIST]: [request({ conflict: clash })] });
@@ -824,7 +827,7 @@ describe("Booking Requests", () => {
   });
 
   describe("approving", () => {
-    it("asks first, naming the room, event and slots it books", async () => {
+    it("asks first, naming the room, event and times it books", async () => {
       const api = open({ [DECIDE]: {} });
 
       await approve();
@@ -832,9 +835,22 @@ describe("Booking Requests", () => {
       expect(dialog().open).toBe(true);
       expect(dialog()).toHaveTextContent("Approve this booking?");
       expect(dialog()).toHaveTextContent(
-        "This books Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027 · PM (13:00–18:00)."
+        "This books Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027, 13:00–18:00. No other event can then be booked into the room from 13:00 to 18:00."
       );
       expect(api.sent(DECIDE)).toHaveLength(0);
+    });
+
+    it("SPM-93-TC13: names the room-in-use period, setup and turnaround included, in the question", async () => {
+      open({
+        [DECIDE]: {},
+        [LIST]: [request({ venue: { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 30, teardownMinutes: 45 } })],
+      });
+
+      await approve();
+
+      expect(dialog()).toHaveTextContent(
+        "This books Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027, 13:00–18:00. No other event can then be booked into the room from 12:30 to 18:45, which includes its setup and turnaround time."
+      );
     });
 
     it("on confirming, approves it, says the room is booked, and reloads the list", async () => {
@@ -846,7 +862,7 @@ describe("Booking Requests", () => {
 
       const notice = await screen.findByText("Booking approved");
       expect(notice.closest("[role]")).toHaveTextContent(
-        "Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027 · PM (13:00–18:00) is now Approved — the room is booked."
+        "Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027, 13:00–18:00 is now Approved — the room is booked."
       );
       expect(api.sent(DECIDE).map((c) => c.body)).toEqual([{ decision: "approve" }]);
       expect(await screen.findByText("No pending booking requests")).toBeInTheDocument();
@@ -943,7 +959,7 @@ describe("Booking Requests", () => {
 
       const notice = await screen.findByText("Booking request rejected");
       expect(notice.closest("[role]")).toHaveTextContent(
-        "Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027 · PM (13:00–18:00) is now Rejected. The Coordinator can see your reason on the event's Venue tab."
+        "Hall A (HALL-A) for EVT-000007 Town Hall on 4 Mar 2027, 13:00–18:00 is now Rejected. The Coordinator can see your reason on the event's Venue tab."
       );
       expect(api.sent(DECIDE).map((c) => c.body)).toEqual([
         { decision: "reject", reason: "The hall is being refitted." },
@@ -1055,12 +1071,12 @@ describe("Booking Requests", () => {
     });
 
     it("shows any other refusal on the request and reloads the list, which may be stale", async () => {
-      const api = open({ [DECIDE]: reply(400, { error: "Hall A is no longer free in that slot." }) });
+      const api = open({ [DECIDE]: reply(400, { error: "Hall A is no longer free at that time." }) });
       await approve();
 
       await confirmApproval();
 
-      expect(await within(await card()).findByRole("alert")).toHaveTextContent("Hall A is no longer free in that slot.");
+      expect(await within(await card()).findByRole("alert")).toHaveTextContent("Hall A is no longer free at that time.");
       await waitFor(() => expect(api.sent(LIST)).toHaveLength(2));
       expect(dialog().open).toBe(false);
       expect(screen.queryByText("Booking approved")).not.toBeInTheDocument();
@@ -1094,7 +1110,7 @@ describe("Booking Requests", () => {
     });
 
     it("clears an earlier refusal when a rejection is started", async () => {
-      open({ [DECIDE]: reply(400, { error: "Hall A is no longer free in that slot." }) });
+      open({ [DECIDE]: reply(400, { error: "Hall A is no longer free at that time." }) });
       await approve();
       await confirmApproval();
       await within(await card()).findByRole("alert");

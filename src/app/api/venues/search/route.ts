@@ -17,8 +17,8 @@ import { parseWallClock, searchVenues, type VenueSearchFilters } from "@/lib/ven
 // Every parameter is optional; none at all returns the whole active catalogue.
 
 /// Bookings and blocks further than this from the requested window cannot
-/// reach it. Setup and turnaround take at most one adjacent slot (#123), which
-/// is never more than a day away; two days is a margin, not a rule.
+/// reach it: a booking reaches only as far as its venue's setup and turnaround
+/// minutes (SPM-93), which are hours, not days. Two days is a margin, not a rule.
 const NEIGHBOUR_MS = 2 * 24 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
