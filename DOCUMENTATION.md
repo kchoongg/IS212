@@ -901,6 +901,37 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-10 — Kayal
+- **BPMN and status lifecycle diagrams brought in line with the Week 7
+  Customer Changes** (`docs/ConnectSphere_BPMN.drawio`,
+  `docs/ConnectSphere_Status_Lifecycle.drawio`). Diagrams only; no code.
+  - **#1 Setup and turnaround:** the venue search and Venue Staff's review
+    say that availability and conflicts include setup and turnaround time.
+  - **#2 Venue becomes unavailable:** the exception start reads "Venue
+    retired, marked unavailable or attributes changed" (SPM-45's wording),
+    and its "no longer suitable" end returns to venue search for a
+    replacement.
+  - **#3 Several venues for one event:** a new "Another venue needed?"
+    gateway after a booking is approved loops back to venue search, so each
+    venue is searched for, requested and decided on its own, and the venue
+    branch joins only when every venue is approved.
+  - **#4 Tentative holds expire:** a new start in "Changes and exceptions"
+    (Venue Staff lane): hold expiry reached, the venue is released, the
+    coordinator is notified, and the hold was never a booking.
+  - **#5 Event Coordinator Lead:** the Event Operations Manager lane is
+    renamed (#129), a submitted request enters the unassigned queue, and the
+    Lead assigns (and can reassign) the coordinator, who is notified.
+  - **#6 Operational Safety Check:** a new Safety Officer lane and a "Safety
+    review" status band. "Arrangements complete?" now leads to "Submit event
+    for Operational Safety Check", then the Safety Officer's check; approve
+    goes on to "Confirm event", reject or request changes goes back to
+    Planning. Everything from "Confirm event" rightwards moved 320 to the
+    right and the exceptions section 160 down to make room.
+  - **Lifecycle:** the Submitted to Under review arrow reads "Lead assigns",
+    and a second notes block covers assignment and venues. The Safety review
+    status itself was added by SPM-86.
+- Migration: none.
+
 ### 2026-10-09 — Janelle
 - **SPM-86 (Submit Event for Operational Safety Check).** Week 7 Change #6:
   the assigned coordinator submits an event in Planning for the Safety
