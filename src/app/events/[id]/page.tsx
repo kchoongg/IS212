@@ -17,6 +17,7 @@ import {
   Tabs,
 } from "@/components/ui";
 import { AssignCoordinator, type AssignResult, type CoordinatorOption } from "@/components/AssignCoordinator";
+import { RegistrationCard, type RegistrationEvent } from "./RegistrationCard";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
@@ -26,6 +27,7 @@ import {
   EVENT_INFORMATION_STATUSES,
   can,
   canAssignCoordinator,
+  canConfigureRegistration,
   canConfirmEvent,
   canReviewEvent,
   canUpdateEventInformation,
@@ -43,7 +45,7 @@ interface FacilityRequirement {
   facility: { id: string; name: string; category: string };
 }
 
-interface EventDetail {
+interface EventDetail extends RegistrationEvent {
   id: string;
   // Present for every role, including an Attendee - see ATTENDEE_EVENT_FIELDS
   // (src/lib/permissions.ts). Format with eventReference() for display.
@@ -55,10 +57,6 @@ interface EventDetail {
   status: string;
   startsAt: string | null;
   endsAt: string | null;
-  registrationEnabled: boolean;
-  registrationCapacity: number | null;
-  registrationOpensAt: string | null;
-  registrationClosesAt: string | null;
   // Absent (not just empty/null) for an Attendee: ATTENDEE_EVENT_FIELDS
   // (src/lib/permissions.ts) omits them entirely, since expected attendance,
   // preferred layout, accessibility/special requirements, the organiser's own
@@ -331,6 +329,25 @@ export default function EventOverviewPage() {
     )
   );
 
+  // SPM-64: the assigned coordinator configures registration in the same
+  // status window as the route (EVENT_INFORMATION_STATUSES).
+  const showRegistrationControls = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    EVENT_INFORMATION_STATUSES.includes(event.status) &&
+    canConfigureRegistration(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
   }
@@ -535,24 +552,15 @@ export default function EventOverviewPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader title="Registration" />
-            <CardBody>
-              <DetailList
-                items={
-                  event.registrationEnabled
-                    ? [
-                        { label: "Capacity", value: orEmpty(event.registrationCapacity) },
-                        {
-                          label: "Window",
-                          value: formatDateTimeRange(event.registrationOpensAt, event.registrationClosesAt),
-                        },
-                      ]
-                    : [{ label: "Registration", value: "Not enabled for this event" }]
-                }
-              />
-            </CardBody>
-          </Card>
+          {/* SPM-64: read-only for everyone; the assigned coordinator changes
+              the settings here. */}
+          <RegistrationCard
+            event={event}
+            eventId={eventId}
+            canChange={showRegistrationControls}
+            showOutstanding={user?.role !== "attendee"}
+            onSaved={() => void load()}
+          />
         </div>
       )}
 
