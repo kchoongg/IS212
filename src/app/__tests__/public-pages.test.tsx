@@ -5,7 +5,6 @@ import LoginPage from "@/app/login/page";
 import RegisterPage from "@/app/register/page";
 import NotificationsPage from "@/app/notifications/page";
 import EquipmentPage from "@/app/equipment/page";
-import RegistrationsPage from "@/app/registrations/page";
 import { ROLES } from "@/lib/roles";
 import { can, type Action } from "@/lib/permissions";
 import {
@@ -339,14 +338,7 @@ describe("screens that are specified but not built yet", () => {
       screenId: "S-25 (Equipment Catalogue)",
       reason: "The equipment catalogue is for ConnectSphere staff and the organisers who request from it.",
     },
-    {
-      name: "My Registrations",
-      Page: RegistrationsPage,
-      path: "/registrations",
-      action: "registration:create",
-      screenId: "S-27 (My Registrations)",
-      reason: "Registrations belong to an Attendee account.",
-    },
+    // My Registrations (S-27) was built in SPM-51: src/app/__tests__/my-registrations-page.test.tsx.
   ];
 
   describe.each(placeholders)("$name", ({ name, Page, path, action, screenId, reason }) => {

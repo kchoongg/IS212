@@ -6,6 +6,36 @@ import { createRegistrationSchema } from "@/lib/validation";
 import { REGISTRATION_REFUSALS, SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { ZodError } from "zod";
 
+/// SPM-51 AC6: the signed-in attendee's own registrations, newest first, for
+/// My Registrations (S-27). Withdrawn ones are included, with their status.
+/// Closes the gap Integration.md §5 records ("cannot serve view status").
+export async function GET(req: NextRequest) {
+  try {
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
+    }
+    if (!can(actor.role, "registration:create")) {
+      return forbidden("Registrations belong to an Attendee account.");
+    }
+
+    const registrations = await prisma.registration.findMany({
+      where: { attendeeId: actor.id },
+      orderBy: { registeredAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        registeredAt: true,
+        event: { select: { sequenceNumber: true, title: true, startsAt: true, endsAt: true } },
+      },
+    });
+    return NextResponse.json(registrations);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const actor = await getActor(req);

@@ -1002,6 +1002,19 @@ what changed, why, and the migration name if there is one.
   refused a full event ("This event is full"). Its test now also checks that
   no registration is written, so nobody is waitlisted by this story. 2 more
   page tests.
+- **Slice 4 (AC6): My Registrations.**
+  - **API:** new `GET /api/registrations` returns the signed-in attendee's
+    own registrations, newest first, with each event's reference, title and
+    times. Withdrawn ones are included. It's 401 without a session, and 403
+    "Registrations belong to an Attendee account." for any other role. This
+    closes the "cannot serve view status" gap in Integration.md §5.
+  - **Page:** My Registrations (S-27, `/registrations`) replaces the
+    placeholder. It shows Event, When and a Status badge, and a row opens the
+    event. With none: "You haven't registered for any events yet.". There is
+    no Withdraw button yet (#20).
+  - **Tests:** 8 more route tests and 12 page tests in
+    `my-registrations-page.test.tsx`. My Registrations was removed from the
+    "not built yet" placeholder tests.
 - Migration: none planned.
 
 ### 2026-10-09 — Sammi Chua (SPM-64, Configure Event Registration)

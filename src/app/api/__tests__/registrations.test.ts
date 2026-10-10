@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma");
 
-import { POST } from "@/app/api/registrations/route";
+import { GET, POST } from "@/app/api/registrations/route";
 import { callArg, db, ID, req, signIn, user } from "@/test/kit";
 
 const NOW = new Date("2026-10-02T04:00:00Z");
@@ -235,5 +235,77 @@ describe("POST /api/registrations", () => {
     db.event.findUnique.mockRejectedValue(new Error("connection lost"));
 
     expect((await register(token)).status).toBe(500);
+  });
+});
+
+// SPM-51 AC6 (TC11): an attendee's own registrations, for My Registrations.
+describe("GET /api/registrations", () => {
+  const list = (token: string | undefined) => GET(req("GET", "/api/registrations", { token }));
+
+  it("is 401 without a session", async () => {
+    expect((await list(undefined)).status).toBe(401);
+  });
+
+  it.each(["organiser", "coordinator", "ops_manager", "venue_staff", "tech_support"])(
+    "is 403 for %s, without reading any registrations",
+    async (role) => {
+      const res = await list(signIn(user(role)));
+
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ error: "Registrations belong to an Attendee account." });
+      expect(db.registration.findMany).not.toHaveBeenCalled();
+    }
+  );
+
+  it("gives an attendee their own registrations, newest first, with each event's title and time", async () => {
+    const attendee = user("attendee");
+    const token = signIn(attendee);
+    db.registration.findMany.mockResolvedValue([
+      {
+        id: "r2",
+        status: "waitlisted",
+        registeredAt: new Date("2026-10-08T02:00:00Z"),
+        event: {
+          sequenceNumber: 44,
+          title: "SPM51 Sold Out Summit",
+          startsAt: new Date("2028-01-29T01:00:00Z"),
+          endsAt: new Date("2028-01-29T09:00:00Z"),
+        },
+      },
+    ]);
+
+    const res = await list(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.registration.findMany)).toEqual({
+      where: { attendeeId: attendee.id },
+      orderBy: { registeredAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        registeredAt: true,
+        event: { select: { sequenceNumber: true, title: true, startsAt: true, endsAt: true } },
+      },
+    });
+    expect(await res.json()).toEqual([
+      {
+        id: "r2",
+        status: "waitlisted",
+        registeredAt: "2026-10-08T02:00:00.000Z",
+        event: {
+          sequenceNumber: 44,
+          title: "SPM51 Sold Out Summit",
+          startsAt: "2028-01-29T01:00:00.000Z",
+          endsAt: "2028-01-29T09:00:00.000Z",
+        },
+      },
+    ]);
+  });
+
+  it("answers 500 when the database fails", async () => {
+    const token = signIn(user("attendee"));
+    db.registration.findMany.mockRejectedValue(new Error("connection lost"));
+
+    expect((await list(token)).status).toBe(500);
   });
 });
