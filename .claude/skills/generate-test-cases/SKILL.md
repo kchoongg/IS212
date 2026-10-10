@@ -56,6 +56,7 @@ Write `docs/test-cases/<ISSUE-KEY>_test_cases.json` using exactly the structure 
 
 Rules:
 - Test case IDs: `<ISSUE-KEY>-TC01`, `<ISSUE-KEY>-TC02`, ...
+- `title` is the case's **summary**: one sentence saying what this case checks and the outcome, e.g. "A Coordinator who is not the assigned one cannot confirm the event". The script writes it on the case's own sheet, in the **Summary** row under Test Case ID, as well as on the Summary sheet, so it must make sense to a tester who reads that one sheet alone: no "as above", no reference to another case, and not just the acceptance criterion's number.
 - For each AC, write at least one Positive case, plus Negative and Boundary cases where they apply.
 - `type` is one of: Positive, Negative, Boundary.
 - `source` is "Acceptance Criteria" or "Code". Use "Code" when the case tests behaviour found only in the code, so a reviewer knows to check it.
