@@ -149,7 +149,7 @@ so an unassigned event is visible to every coordinator but managed by none.
 | Event | Allowed | Effect |
 | --- | --- | --- |
 | `submitted`, no coordinator | Assign | Coordinator recorded; status → `under_review` in the same transaction |
-| `under_review`, `approved`, `planning`, `confirmed`, `postponed` | Reassign | Coordinator replaced; status unchanged |
+| `under_review`, `approved`, `planning`, `safety_review`, `confirmed`, `postponed` | Reassign | Coordinator replaced; status unchanged |
 | `completed`, `cancelled`, `rejected`, `draft` | Neither | 400 |
 
 The new coordinator is notified; on reassignment the previous one is too. The
@@ -221,6 +221,7 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 | `under_review` | Ops Manager, Coordinator | Step 3 |
 | `approved` / `rejected` | Coordinator (assigned) | Step 5 |
 | `planning` | Coordinator (assigned), from `approved` only, by a first venue or equipment action | Step 6 |
+| `safety_review` | Coordinator (assigned), from `planning` only, through `POST /api/events/[id]/safety-check` - not in `STATUS_TRANSITION_ROLES` | Week 7 change #6; SPM-86 |
 | `confirmed` | Coordinator (assigned) | Step 10 |
 | `completed` | Coordinator (assigned) | Step 14 |
 | `postponed` | Coordinator (assigned) | §4 Rescheduling; SPM-27 AC4 |
@@ -247,6 +248,15 @@ one of those goes through `beginPlanningIfApproved()`
 status history row; `canBeginPlanning()` is the pure form of the rule. The
 coordinator is asked first ("Begin planning?"), because the move cannot be
 undone and the organiser sees it.
+
+**Safety review is entered one way only** (SPM-86, decided 2026-10-09). The
+assigned coordinator submits an event in Planning for an Operational Safety
+Check; `canSubmitForSafetyCheck()` decides who sees the button and
+`checkSafetySubmission()` (`src/lib/safetyCheck.ts`) whether the arrangements
+are ready. The status PATCH refuses `safety_review`. From Safety review the
+lifecycle allows only `planning` (the Safety Officer's decision, SPM-87, or a
+significant change, SPM-88) and `cancelled`. The Safety Officer role itself
+(`safety_officer`) is added by SPM-85.
 
 **Arrangements wait for approval.** While an event is `submitted` or
 `under_review`, the assigned coordinator may search venues but may not request
@@ -281,9 +291,11 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events` | `eventListWhere(actor)` filters in SQL; attendees get the public subset |
 | `POST /api/events` | `event:create` — organiser only |
 | `GET /api/events/[id]` | `canViewEvent()` → 404; `visibleEventFor()` narrows the fields |
-| `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403 |
+| `GET /api/events/[id]` (safety check) | `safetyCheck` (who submitted the latest Operational Safety Check, and when) is added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
+| `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403. `safety_review` is refused (400): it is entered only through `POST /api/events/[id]/safety-check` (SPM-86) |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
+| `POST /api/events/[id]/safety-check` | `canViewEvent()` → 404, then `isAssignedCoordinator()` → 403, then the event must be in Planning (400; "A safety check is already pending for this event." when it is already in Safety review), then `checkSafetySubmission()` → 400 naming what is outstanding or flagged (SPM-86) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
 | `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
 | `GET /api/venues` | `venue:view` — Coordinator, Ops Manager, Venue Staff |
@@ -293,10 +305,10 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
-| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support for Planning and Confirmed events only, the assigned Coordinator, or the owning Organiser read-only) |
+| `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support for Planning, Safety review and Confirmed events only, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |
 | `PATCH`/`DELETE /api/events/[id]/equipment/[requestId]` | Same as `POST` above, resolved from the request's own event |
-| `GET /api/equipment/requests` | `canCheckEquipmentAvailability()` — Technical Support (SPM-48 queue); Planning and Confirmed events only |
+| `GET /api/equipment/requests` | `canCheckEquipmentAvailability()` — Technical Support (SPM-48 queue); Planning, Safety review (SPM-86) and Confirmed events only |
 | `GET /api/events/[id]/equipment/availability` | `canViewEvent()` → 404, then `canCheckEquipmentAvailability()` → 403, then 404 unless the event is Planning or Confirmed — Technical Support (SPM-48) |
 | `POST /api/events/[id]/equipment/[requestId]/reserve` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403, then 404 unless Planning or Confirmed; reserving only in Planning — Technical Support (SPM-49) |
 | `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | `canViewEvent()` → 404, then `canUpdateEquipmentFulfilment()` (`equipment_request:review`) → 403 — Technical Support; 404 unless Planning or Confirmed, updating only in Planning (SPM-50) |

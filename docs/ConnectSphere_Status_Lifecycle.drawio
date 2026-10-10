@@ -37,7 +37,7 @@
         <mxCell id="n_withdrawn" parent="1" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fontSize=13;strokeWidth=1.4;fillColor=#EDE4F3;strokeColor=#B79AC9;" value="Withdrawn" vertex="1">
           <mxGeometry height="56" width="150" x="255" y="232" as="geometry" />
         </mxCell>
-        <mxCell id="n_notes" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#555555;strokeColor=none;fillColor=none;" value="Cancel: the assigned Event Coordinator may cancel at any stage; only the arrows from Planning, Confirmed and Postponed are drawn.&#xa;Withdraw: recorded by the Event Coordinator when the organiser asks, outside the system, to withdraw a request that is under review.&#xa;Significant change: a change to date / time, attendance, venue or equipment requirements on a confirmed event returns it to Planning so the affected arrangements are re-checked.&#xa;Venue retired or marked unavailable: the event keeps its status and its information; the affected venue booking is flagged for the Event Coordinator to review (Week 7 Change #2)." vertex="1">
+        <mxCell id="n_notes" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#555555;strokeColor=none;fillColor=none;" value="Cancel: the assigned Event Coordinator may cancel at any stage; only the arrows from Planning, Confirmed and Postponed are drawn.&#xa;Safety review (Week 7 change #6, SPM-86): the assigned Event Coordinator submits a Planning event whose arrangements are held for the Safety Officer&#39;s Operational Safety Check. The Safety Officer&#39;s decision (SPM-87), or a significant change while it is pending (SPM-88), returns it to Planning; an approved event is then confirmed from Planning. It can also be cancelled.&#xa;Withdraw: recorded by the Event Coordinator when the organiser asks, outside the system, to withdraw a request that is under review.&#xa;Significant change: a change to date / time, attendance, venue or equipment requirements on a confirmed event returns it to Planning so the affected arrangements are re-checked.&#xa;Venue retired or marked unavailable: the event keeps its status and its information; the affected venue booking is flagged for the Event Coordinator to review (Week 7 Change #2)." vertex="1">
           <mxGeometry height="76" width="1100" x="55" y="362" as="geometry" />
         </mxCell>
         <mxCell id="id101" edge="1" parent="1" source="n_draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_submitted" value="submit">
@@ -130,6 +130,23 @@
             <Array as="points">
               <mxPoint x="1200" y="24" />
               <mxPoint x="980" y="24" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="n_safety_review" parent="1" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fontSize=13;strokeWidth=1.4;fillColor=#DCE8F5;strokeColor=#6E9BC9;" value="Safety review" vertex="1">
+          <mxGeometry height="46" width="120" x="1062" y="146" as="geometry" />
+        </mxCell>
+        <mxCell id="e_submit_safety" edge="1" parent="1" source="n_planning" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.77;exitDx=0;exitDy=0;entryX=0.15;entryY=0;entryDx=0;entryDy=0;" target="n_safety_review" value="submit for safety check">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1080" y="105" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_safety_returned" edge="1" parent="1" source="n_safety_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.93;entryY=1;entryDx=0;entryDy=0;" target="n_planning" value="decision / significant change">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1045" y="180" />
             </Array>
           </mxGeometry>
         </mxCell>

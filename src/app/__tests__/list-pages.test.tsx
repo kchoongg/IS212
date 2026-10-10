@@ -1424,3 +1424,89 @@ describe("Assignments", () => {
     expect(await rowTexts()).toHaveLength(2);
   });
 });
+
+// SPM-86 (AC4): an event in Safety review stays visible wherever its status is
+// shown. Decided 2026-10-09: a "Safety review" list after "Planning" on the
+// organiser's and coordinator's Dashboard, Safety review in Venue Staff's and
+// Technical Support's "Upcoming events", and a "Safety review" status filter.
+describe("Safety review across the lists (SPM-86)", () => {
+  const section = (heading: string) => screen.getByRole("heading", { name: heading }).parentElement as HTMLElement;
+  const titlesIn = (heading: string) =>
+    within(section(heading))
+      .queryAllByRole("listitem")
+      .map((li) => li.querySelector("span")!.textContent);
+  const headings = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+
+  it("SPM-86-TC03: lists an organiser's event in Safety review under its own heading, after Planning", async () => {
+    mockApi({
+      ...signedInAs("organiser"),
+      "GET /api/events": [
+        event(1, { title: "Being planned", status: "planning" }),
+        event(2, { title: "Being checked", status: "safety_review" }),
+      ],
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(titlesIn("Safety review")).toEqual(["Being checked"]));
+    expect(headings().slice(0, 5)).toEqual(["Drafts", "Under review", "Approved", "Planning", "Safety review"]);
+    expect(titlesIn("Planning")).toEqual(["Being planned"]);
+  });
+
+  it("tells an organiser what the Safety review list is for when it is empty", async () => {
+    mockApi({ ...signedInAs("organiser"), "GET /api/events": [] });
+
+    render(<DashboardPage />);
+
+    await screen.findByText("No drafts");
+    expect(section("Safety review")).toHaveTextContent("Nothing in safety review");
+    expect(section("Safety review")).toHaveTextContent("Events appear here once your coordinator submits them for a safety check.");
+  });
+
+  it("lists a coordinator's own events in Safety review, after Planning", async () => {
+    const me = { id: "u1" };
+    mockApi({
+      ...signedInAs("coordinator", me),
+      "GET /api/events": [
+        event(1, { title: "Mine, being checked", status: "safety_review", coordinatorId: me.id }),
+        event(2, { title: "A colleague's, being checked", status: "safety_review", coordinatorId: "someone-else" }),
+      ],
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(titlesIn("Safety review")).toEqual(["Mine, being checked"]));
+    expect(headings().slice(0, 4)).toEqual(["Awaiting your review", "Approved", "Planning", "Safety review"]);
+  });
+
+  it("tells a coordinator what the Safety review list is for when it is empty", async () => {
+    mockApi({ ...signedInAs("coordinator"), "GET /api/events": [] });
+
+    render(<DashboardPage />);
+
+    await screen.findByText("Nothing to review");
+    expect(section("Safety review")).toHaveTextContent("Events appear here once you submit them for a safety check.");
+  });
+
+  it.each(["venue_staff", "tech_support"])(
+    "SPM-86-TC04: keeps an event in Safety review among %s's upcoming events",
+    async (role) => {
+      mockApi({ ...signedInAs(role), "GET /api/events": [event(1, { title: "Being checked", status: "safety_review" })] });
+
+      render(<DashboardPage />);
+
+      await waitFor(() => expect(titlesIn("Upcoming events")).toEqual(["Being checked"]));
+    }
+  );
+
+  it("SPM-86-TC04: offers staff a Safety review status filter", async () => {
+    mockApi({ ...signedInAs("ops_manager"), "GET /api/events": [] });
+
+    render(<EventsPage />);
+
+    await screen.findByText("No events yet");
+    const options = within(screen.getByLabelText("Filter by status")).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("Safety review");
+    expect(options.indexOf("Safety review")).toBe(options.indexOf("Planning") + 1);
+  });
+});

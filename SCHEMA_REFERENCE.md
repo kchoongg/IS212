@@ -31,7 +31,8 @@ Copy from here rather than typing from memory.
 | Field | Allowed values |
 |---|---|
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
-| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `confirmed` `completed` `cancelled` `rejected` `postponed` |
+| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `confirmed` `completed` `cancelled` `rejected` `postponed` |
+| `SafetyCheck.status` | `pending` (SPM-86) `approved` `changes_requested` `rejected` (SPM-87) `closed` (SPM-88) |
 | `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
 | `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
@@ -57,6 +58,7 @@ erDiagram
   users ||--o{ registrations : registers
   users ||--o{ notifications : receives
   events ||--o{ event_status_history : logs
+  events ||--o{ safety_checks : "submitted for"
   events ||--o{ clarification_requests : has
   events ||--o{ event_change_requests : has
   events ||--o{ event_facility_requirements : requires
@@ -84,7 +86,7 @@ erDiagram
 | Jordan | auth | `User`, `Organisation` |
 | Kristen | events | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` |
 | Kayal | venues | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` |
-| Janelle | equipment | `Equipment`, `EquipmentRequest` |
+| Janelle | equipment; safety checks | `Equipment`, `EquipmentRequest`, `SafetyCheck` |
 | Sammi | registrations | `Registration` |
 | shared | - | `Notification` - any domain may create one |
 
@@ -128,7 +130,7 @@ Postgres table `users` &middot; `prisma.user`
 | `isActive` | Boolean |  | Deactivate leavers rather than deleting them. Defaults to `true`. |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
-**Relations:** `organisation` &rarr; Organisation, `organisedEvents` &rarr; Event[], `coordinatedEvents` &rarr; Event[], `statusChanges` &rarr; EventStatusHistory[], `clarificationsRaised` &rarr; ClarificationRequest[], `changeRequestsRaised` &rarr; EventChangeRequest[], `changeRequestsReviewed` &rarr; EventChangeRequest[], `bookingsRequested` &rarr; VenueBooking[], `bookingsDecided` &rarr; VenueBooking[], `unavailabilityCreated` &rarr; VenueUnavailability[], `equipmentRequested` &rarr; EquipmentRequest[], `equipmentReviewed` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[]
+**Relations:** `organisation` &rarr; Organisation, `organisedEvents` &rarr; Event[], `coordinatedEvents` &rarr; Event[], `statusChanges` &rarr; EventStatusHistory[], `clarificationsRaised` &rarr; ClarificationRequest[], `changeRequestsRaised` &rarr; EventChangeRequest[], `changeRequestsReviewed` &rarr; EventChangeRequest[], `bookingsRequested` &rarr; VenueBooking[], `bookingsDecided` &rarr; VenueBooking[], `unavailabilityCreated` &rarr; VenueUnavailability[], `equipmentRequested` &rarr; EquipmentRequest[], `equipmentReviewed` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[], `safetyChecksSubmitted` &rarr; SafetyCheck[], `safetyChecksDecided` &rarr; SafetyCheck[]
 
 **Watch out:**
 
@@ -245,7 +247,7 @@ Postgres table `events` &middot; `prisma.event`
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 | `updatedAt` | DateTime | req |  |
 
-**Relations:** `organiser` &rarr; User, `organisation` &rarr; Organisation, `coordinator` &rarr; User, `facilityRequirements` &rarr; EventFacilityRequirement[], `statusHistory` &rarr; EventStatusHistory[], `clarifications` &rarr; ClarificationRequest[], `changeRequests` &rarr; EventChangeRequest[], `sessions` &rarr; EventSession[], `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[]
+**Relations:** `organiser` &rarr; User, `organisation` &rarr; Organisation, `coordinator` &rarr; User, `facilityRequirements` &rarr; EventFacilityRequirement[], `statusHistory` &rarr; EventStatusHistory[], `clarifications` &rarr; ClarificationRequest[], `changeRequests` &rarr; EventChangeRequest[], `sessions` &rarr; EventSession[], `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[], `safetyChecks` &rarr; SafetyCheck[]
 
 **Watch out:**
 
@@ -301,6 +303,25 @@ Audit trail of status changes. Event.status holds only the current value.
 | `reason` | String |  | Free text - "Assigned to Priya", "Client postponed". |
 
 **Relations:** `event` &rarr; Event, `user` &rarr; User
+
+### `SafetyCheck`
+
+Postgres table `safety_checks` &middot; `prisma.safetyCheck` &middot; added by SPM-86 (migration `20261009120000_add_safety_check`)
+
+One row per submission of an event for an Operational Safety Check (Week 7 change #6). Submitting moves the event to `safety_review` and creates a `pending` row; an event keeps every row, so earlier decisions stay visible.
+
+| Field | Type | | Notes |
+|---|---|---|---|
+| `id` | String |  | Defaults to `uuid()`. |
+| `eventId` | String | req | Cascade-deleted with the event. |
+| `status` | String | req | Defaults to `pending`. See Status values. |
+| `submittedBy` | String | req | The assigned coordinator who submitted it. |
+| `submittedAt` | DateTime |  | Defaults to `now()`. |
+| `decidedBy` | String |  | SPM-87: the Safety Officer who decided. NULL while pending. |
+| `decidedAt` | DateTime |  | SPM-87. NULL while pending. |
+| `decisionNote` | String |  | SPM-87: the reason for a rejection, or the changes required. Internal only (SPM-88). |
+
+**Relations:** `event` &rarr; Event, `submitter` &rarr; User, `decider` &rarr; User
 
 ### `ClarificationRequest`
 
@@ -524,7 +545,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45). |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45), `safety_check_submitted` (SPM-86, to every `safety_officer`). |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |
