@@ -19,6 +19,7 @@ const EVENT_STATUSES = [
   "under_review",
   "approved",
   "planning",
+  "safety_review",
   "confirmed",
   "completed",
   "postponed",
@@ -39,6 +40,24 @@ describe("statusLabel", () => {
     // A status added server-side before the UI knows about it should degrade,
     // not break.
     expect(statusLabel("awaiting_arrangements")).toBe("Awaiting arrangements");
+  });
+});
+
+describe("Safety review (SPM-86)", () => {
+  it("reads 'Safety review' as a status awaiting someone else's review, like Under review", () => {
+    expect(statusLabel("safety_review")).toBe("Safety review");
+    expect(statusTone("safety_review")).toBe("info");
+  });
+
+  it("cannot be confirmed straight from Safety review, nor postponed", () => {
+    expect(canTransition("safety_review", "confirmed")).toBe(false);
+    expect(canTransition("safety_review", "postponed")).toBe(false);
+  });
+
+  it("is entered from Planning only", () => {
+    for (const from of ["approved", "confirmed", "postponed", "under_review"]) {
+      expect(canTransition(from, "safety_review"), from).toBe(false);
+    }
   });
 });
 
@@ -102,6 +121,12 @@ describe("canTransition", () => {
     ["planning", "confirmed"],
     ["planning", "postponed"],
     ["planning", "cancelled"],
+    // SPM-86: submitted for an Operational Safety Check. The Safety Officer's
+    // decision (SPM-87) or a significant edit (SPM-88) returns it to Planning;
+    // otherwise it can only be cancelled (decided 2026-10-09).
+    ["planning", "safety_review"],
+    ["safety_review", "planning"],
+    ["safety_review", "cancelled"],
     ["confirmed", "completed"],
     ["confirmed", "postponed"],
     ["confirmed", "cancelled"],

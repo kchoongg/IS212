@@ -276,7 +276,10 @@ export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields)
 /// equipment is still part of the organiser's request - the Coordinator has
 /// not acted on it yet (team decision, 3 Oct 2026, Kristen). Postponed,
 /// cancelled, rejected and completed events have nothing left to arrange.
-export const TECH_SUPPORT_EQUIPMENT_STATUSES: readonly string[] = ["planning", "confirmed"];
+/// SPM-86: Safety review sits between Planning and Confirmed, so they keep
+/// sight of what they reserved while the safety check is pending (read-only:
+/// reserving stays a Planning action, eventAllowsReserving()).
+export const TECH_SUPPORT_EQUIPMENT_STATUSES: readonly string[] = ["planning", "safety_review", "confirmed"];
 
 export function techSupportSeesEquipment(eventStatus: string): boolean {
   return TECH_SUPPORT_EQUIPMENT_STATUSES.includes(eventStatus);
@@ -334,6 +337,8 @@ export const REASSIGNABLE_STATUSES: readonly string[] = [
   "under_review",
   "approved",
   "planning",
+  // SPM-86: still live while the Safety Officer reviews it.
+  "safety_review",
   "confirmed",
   "postponed",
 ];
@@ -476,6 +481,21 @@ export const ARRANGEMENT_MARKING_STATUSES: readonly string[] = ["planning"];
 /// so a refusal can say which rule was broken.
 export function canMarkArrangements(actor: Actor, event: EventAccessFields): boolean {
   return isAssignedCoordinator(actor, event);
+}
+
+// ---------------------------------------------------------------------------
+// OPERATIONAL SAFETY CHECK (SPM-86)
+// ---------------------------------------------------------------------------
+
+/// May this user submit this event for an Operational Safety Check? Only the
+/// coordinator assigned to it (AC7), and only from Planning - so not again
+/// while a check is pending (AC6). Whether the arrangements are ready is a
+/// separate question, answered by checkSafetySubmission() - like Confirm
+/// event, the button is offered and a refusal says what is outstanding.
+/// Not in STATUS_TRANSITION_ROLES: Safety review is entered only through
+/// POST /api/events/[id]/safety-check, never the status PATCH.
+export function canSubmitForSafetyCheck(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event) && event.status === "planning";
 }
 
 // ---------------------------------------------------------------------------

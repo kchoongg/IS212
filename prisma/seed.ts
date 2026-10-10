@@ -333,13 +333,13 @@ async function main() {
         "Blackout blinds", "Step-free access", "Wheelchair spaces", "Hearing induction loop", "Accessible toilet"] },
     { code: "CBP-MTG1", name: "Changi Meeting Room 1", description: "Standard meeting room for planning sessions",
       building: "Changi Business Park", floor: "L3", maxCapacity: 20, opensAt: "08:00", closesAt: "20:00",
-      setupMinutes: 20, teardownMinutes: 15,
+      setupMinutes: 30, teardownMinutes: 15, // SPM-93: was 20, rounded up to a 15-minute step
       layouts: [["boardroom", 20], ["u_shape", 14]],
       facilities: ["High-density WiFi", "Fixed ceiling projector", "Video conferencing suite",
         "Natural light", "Step-free access", "Accessible toilet"] },
     { code: "CBP-MTG2", name: "Changi Meeting Room 2", description: "Standard meeting room, adjacent to Room 1",
       building: "Changi Business Park", floor: "L3", maxCapacity: 20, opensAt: "08:00", closesAt: "20:00",
-      setupMinutes: 20, teardownMinutes: 15,
+      setupMinutes: 30, teardownMinutes: 15, // SPM-93: was 20, rounded up to a 15-minute step
       layouts: [["boardroom", 20], ["u_shape", 14]],
       facilities: ["High-density WiFi", "Fixed ceiling projector", "Video conferencing suite",
         "Natural light", "Step-free access", "Accessible toilet"] },
@@ -389,6 +389,24 @@ async function main() {
       building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "24:00",
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 60], ["theatre", 60]],
+      facilities: [] },
+    // SPM-93 fixtures (scripts/seed-spm93.ts): the Week 7 example room (30 min
+    // setup, 45 min turnaround), a room needing neither, and a room whose
+    // minutes SPM-93-TC07 edits - dedicated, so the cases' bookings meet no one else's.
+    { code: "SPM93-STU", name: "SPM93 Studio", description: "SPM-93 test venue: 30 min setup, 45 min turnaround",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 45,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM93-QCK", name: "SPM93 Quick Room", description: "SPM-93 test venue: no setup or turnaround",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM93-SET", name: "SPM93 Settings Room", description: "SPM-93 test venue: setup and turnaround edited by SPM-93-TC07",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 45,
+      layouts: [["theatre", 60], ["classroom", 40]],
       facilities: [] },
   ];
 
@@ -534,6 +552,9 @@ async function main() {
     key: string; title: string; purpose?: string; description?: string;
     category?: string; organiser: string; coordinator?: string; status: string;
     days: number; startHour?: number; durationHours?: number;
+    /// Minutes past startHour - day() truncates a fractional hour. SPM-93's
+    /// off-grid events (14:10, 09:05) need it; everything else starts on the hour.
+    startMinute?: number;
     attendance?: number; layout?: string; regEnabled?: boolean; regCapacity?: number;
     accessibilityNotes?: string; rejectionReason?: string; cancellationReason?: string;
     specialRequirements?: string;
@@ -1296,11 +1317,79 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-93 QA fixtures (Book Venues in 15-Minute Units). The SAME events as
+  // scripts/seed-spm93.ts (`npm run fixtures:spm93`) - keep the two in step.
+  //
+  // The events only. Their bookings, the Two-Day Forum's sessions and SPM93
+  // Studio's maintenance period are created by that script alone, so run it
+  // once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm93 = (key: string, title: string, date: string, from: string, to: string): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+      purpose: "SPM-93 venue booking in 15-minute units test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "theatre",
+    };
+  };
+  eventData.push(
+    spm93("spm93_masterclass", "SPM93 Morning Masterclass", "2027-06-08", "10:00", "12:00"),
+    spm93("spm93_quick_demo", "SPM93 Quick Demo", "2027-06-08", "10:00", "12:00"),
+    spm93("spm93_early_huddle", "SPM93 Early Huddle", "2027-06-08", "08:15", "08:45"),
+    spm93("spm93_afternoon_review", "SPM93 Afternoon Review", "2027-06-08", "13:15", "14:00"),
+    spm93("spm93_follow_on", "SPM93 Follow-on Session", "2027-06-08", "12:00", "13:00"),
+    spm93("spm93_product_clinic", "SPM93 Product Clinic", "2027-06-09", "14:10", "15:50"),
+    spm93("spm93_partner_lunch", "SPM93 Partner Lunch", "2027-06-10", "12:00", "13:00"),
+    spm93("spm93_team_sync", "SPM93 Team Sync", "2027-06-10", "14:15", "15:00"),
+    spm93("spm93_validation", "SPM93 Validation Workshop", "2027-06-11", "10:00", "12:00"),
+    spm93("spm93_breakfast", "SPM93 Breakfast Briefing", "2027-06-13", "07:30", "09:00"),
+    spm93("spm93_evening_forum", "SPM93 Evening Forum", "2027-06-13", "20:00", "21:15"),
+    spm93("spm93_lunch_and_learn", "SPM93 Lunch and Learn", "2027-06-14", "12:00", "13:00"),
+    spm93("spm93_sunset_talk", "SPM93 Sunset Talk", "2027-06-14", "18:00", "19:00"),
+    spm93("spm93_supplier_day", "SPM93 Supplier Day", "2027-06-15", "10:00", "12:00"),
+    spm93("spm93_vendor_qa", "SPM93 Vendor Q&A", "2027-06-15", "13:00", "14:00"),
+    spm93("spm93_buyer_briefing", "SPM93 Buyer Briefing", "2027-06-15", "13:15", "14:00"),
+    spm93("spm93_twilight_workshop", "SPM93 Twilight Workshop", "2027-06-16", "18:30", "20:00"),
+    // Runs from Day 1's start (17 Jun 09:05) to Day 2's end (18 Jun 17:30).
+    { ...spm93("spm93_two_day_forum", "SPM93 Two-Day Forum", "2027-06-17", "09:05", "17:30"), durationHours: 32 + 25 / 60 },
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-86 QA fixtures (Submit Event for Operational Safety Check). The SAME
+  // events as scripts/seed-spm86.ts (`npm run fixtures:spm86`) - keep the two
+  // in step.
+  //
+  // The events only. Their venue bookings, equipment and review flags are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm86 = (key: string, title: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-86 submit for safety check test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 40, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm86("spm86_ready", "SPM86 Harbour Safety Ready", "2027-07-19"),
+    spm86("spm86_partial", "SPM86 Partly Reserved Kit", "2027-07-20"),
+    spm86("spm86_outstanding", "SPM86 Arrangements Outstanding", "2027-07-21"),
+    spm86("spm86_flagged_venue", "SPM86 Flagged Venue Booking", "2027-07-22"),
+    spm86("spm86_flagged_equipment", "SPM86 Flagged Equipment", "2027-07-23"),
+    spm86("spm86_two_tabs", "SPM86 Two Tabs Submit", "2027-07-26"),
+    spm86("spm86_other_coordinator", "SPM86 Another Coordinator", "2027-07-27",
+      { coordinator: "priya.raj@connectsphere.com" }),
+    spm86("spm86_approved", "SPM86 Not Yet Planning", "2027-07-28", { status: "approved" }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-33 QA fixtures (Track Outstanding Arrangements). The SAME events as
   // scripts/seed-spm33.ts (`npm run fixtures:spm33`) - keep the two in step.
   //
   // The events only. The sessions, venue bookings and equipment requests that
-  // put each one in its particular state - pending, flagged, partly reserved,
+  // put each one in its particular state - pending, flagged, cannot be provided,
   // marked as not required - are created by that script alone, so run it once
   // after a full reseed or every Readiness list shows only "No venue booked".
   // Pushed LAST so no earlier event's EVT- reference number shifts. Add new
@@ -1323,7 +1412,7 @@ async function main() {
     spm33("spm33_single_pending", "SPM33 Single Pending Room", "2027-07-21"),
     // Registration on, with its dates but no capacity: outstanding setup.
     spm33("spm33_registration", "SPM33 Registration Not Needed", "2027-07-22", { regEnabled: true }),
-    spm33("spm33_partly", "SPM33 Partly Reserved", "2027-07-23"),
+    spm33("spm33_waive_confirm", "SPM33 Waive Then Confirm", "2027-07-23"),
     spm33("spm33_other_coordinator", "SPM33 Another Coordinator", "2027-07-26", { coordinator: PRIYA }),
     spm33("spm33_confirmed", "SPM33 Confirmed With Waiver", "2027-07-27", { status: "confirmed" }),
   );
@@ -1336,8 +1425,9 @@ async function main() {
       where: { id: organiserId },
       select: { organisationId: true },
     });
-    const startsAt = e.status === "draft" ? null : day(e.days, e.startHour ?? 9);
-    const endsAt = startsAt ? new Date(startsAt.getTime() + (e.durationHours ?? 4) * 3_600_000) : null;
+    const startsAt = e.status === "draft" ? null : day(e.days, e.startHour ?? 9, e.startMinute ?? 0);
+    // Rounded: a fractional duration (SPM-93: 32h25m) would otherwise end a millisecond early.
+    const endsAt = startsAt ? new Date(startsAt.getTime() + Math.round((e.durationHours ?? 4) * 3_600_000)) : null;
 
     const created = await prisma.event.create({
       data: {

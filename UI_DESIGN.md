@@ -105,7 +105,7 @@ cite.
 | --- | --- | --- | --- |
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
-| S-21 | Availability calendar | `/venues/[id]/calendar` | Bookings, holds, and blocks over time. |
+| S-21 | Availability calendar | `/venues/[id]/availability` | Bookings, holds, and blocks over time: one row per day, each entry at its actual times, with setup and turnaround as their own entries (SPM-93). |
 | S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
 | S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
 
@@ -231,6 +231,9 @@ only because managing it requires seeing it, not as a separate viewing right.
            venue staff decides                        tech support reserves
                      +---------------------+--------------------+
                                            v
+                 /events/[id] Submit for safety check (SPM-86) -> Safety Officer
+                                           |  approved (SPM-87)
+                                           v
                             /events/[id] Readiness -> Confirm event
 ```
 
@@ -285,6 +288,7 @@ maps the database string to a human label and a fixed tone:
 | `under_review` | Under review | info (blue) |
 | `approved` | Approved | progress (indigo) |
 | `planning` | Planning | progress (indigo) |
+| `safety_review` | Safety review | info (blue) — with the Safety Officer (SPM-86) |
 | `confirmed` | Confirmed | success (green) |
 | `completed` | Completed | neutral (grey) |
 | `postponed` | Postponed | warning (amber) |
@@ -403,10 +407,10 @@ every session has one.
 | S-01 Login | Email, Password | |
 | S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
 | S-13 Event review | Decision (approve / reject / request clarification), Message or Reason | Reason **required** when rejecting — enforced server-side in `events/[id]/route.ts`. |
-| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), Layout (shown), Date, Slots (AM / PM / Night), Venue requirements | Built (SPM-42). Date and slots default to the event's or session's own. Slots must be next to each other and cover that time. Setup and turnaround slots are shown, not chosen (#123). |
+| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), Layout (shown), Date, Start time, End time, Venue requirements | Built (SPM-42), in times since SPM-93. Date and times default to the event's or session's own, widened to the 15-minute grid. Times must be on the grid, the end after the start, and cover that time. The setup and turnaround times and the whole room-in-use period are shown under the fields, not chosen. |
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
 | S-10 Change request | Reason *, Proposed start, Proposed end, Proposed attendance, Other changes | At least one proposed change required. Significant-change warning shown live — see §7.4. |
-| S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup/Teardown minutes, Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. |
+| S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup time (minutes), Turnaround time (minutes), Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. Setup and turnaround in 15-minute steps, zero included (SPM-93). |
 | S-23 Block venue | Start, End, Reason (select), Notes | Warns if the block collides with an approved booking. |
 | S-24 Equipment catalogue | Name, Category, Description, Total quantity, Quantity in maintenance | Maintenance quantity ≤ total. |
 | S-26 Register for event | Dietary requirements, Accessibility requirements | Both optional and free text. |
@@ -460,7 +464,9 @@ getting right.
 | Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Capacity 200 — your event expects 250". Not hidden, but it has no "Request booking" button (SPM-42). |
 | Required facility missing | S-14 | "Missing: hearing loop" listed on the venue card; venue ranked below full matches. |
 | Venue double-booking | S-15 submit, S-22 approve | Blocking error naming the conflicting event and its times, with a link to the S-21 calendar. |
-| Booking overlaps setup/teardown | S-15 | Blocked, like any clash: setup and turnaround take a whole adjacent slot (#108, #123), so overlapping one is a double-booking (#35). |
+| Booking overlaps setup/teardown | S-15, S-22 | Blocked, like any clash: a booking occupies the room from its start minus the venue's setup to its end plus its turnaround (Week 7 Change #1, SPM-93), so overlapping either is a double-booking (#35). Periods that only meet end to start do not clash. |
+| Time off the 15-minute grid, or end not after start | S-15 | Blocked; the message sits under the time field it is about — "Choose a start time on a 15-minute step (:00, :15, :30 or :45).", "Choose an end time on a 15-minute step (:00, :15, :30 or :45).", "The end time must be after the start time." (SPM-93). |
+| Room in use outside opening hours | S-15 | Blocked: "<Venue> is open 07:00–22:00. With its 30 min setup and 45 min turnaround, choose times between 07:30 and 21:15." (SPM-93). |
 | Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
 | Equipment in maintenance | S-24, S-25 | Availability shown as `total − maintenance − reserved`; the breakdown is visible, not just the result. |
@@ -558,6 +564,7 @@ This document specifies the whole first release. What is built so far:
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
 | S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
+| Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
 
 Specified but not yet built, and why:

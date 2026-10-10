@@ -22,7 +22,6 @@ import { eventTabItemsFor } from "@/lib/eventTabs";
 import { cn } from "@/lib/cn";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { describeUnmet, layoutLabel, type UnmetRequirement } from "@/lib/venueSuitability";
-import { requestSlotsLabel } from "@/lib/venueBookingRequest";
 
 // SPM-41, "Find a venue" (design/mockups/VenueSearch.dc.html). Every active
 // venue is judged against the event's attendance, layout, facilities and
@@ -264,7 +263,7 @@ function BookingRequests({
                 <p className="font-medium text-ink">{formatVenue(b.venue.name, b.venue.code)}</p>
                 <p className="text-xs text-ink-3">
                   {b.session && `${b.session.label ?? "Session"} · `}
-                  {requestSlotsLabel({ startsAt: new Date(b.startsAt), endsAt: new Date(b.endsAt) })}
+                  {formatDateTimeRange(b.startsAt, b.endsAt)}
                   {b.layoutName && ` · ${layoutLabel(b.layoutName)}`}
                 </p>
               </div>

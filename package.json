@@ -21,11 +21,13 @@
     "fixtures:spm50": "tsx scripts/seed-spm50.ts",
     "fixtures:spm54": "tsx scripts/seed-spm54.ts",
     "fixtures:spm62": "tsx scripts/seed-spm62.ts",
+    "fixtures:spm93": "tsx scripts/seed-spm93.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "fixtures:spm34": "tsx scripts/seed-spm34.ts",
     "fixtures:spm44": "tsx scripts/seed-spm44.ts",
+    "fixtures:spm86": "tsx scripts/seed-spm86.ts",
     "fixtures:spm33": "tsx scripts/seed-spm33.ts"
   },
   "prisma": {

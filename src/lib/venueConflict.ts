@@ -1,4 +1,4 @@
-// Booking Conflict Detection (SPM-44).
+// Booking Conflict Detection (SPM-44), in times since SPM-93.
 //
 // SPM-42 already refused a clashing request, but it answered only "booked",
 // "on_hold" or "unavailable" — enough to stop the write, not enough to tell
@@ -9,26 +9,23 @@
 //
 //   request time  (AC5) — an approved booking OR another pending request
 //                         blocks, because only one active hold may exist for
-//                         a venue and slot (#41).
+//                         a venue and overlapping time period (#41).
 //   confirm time  (AC6) — only an approved booking blocks. Two pending
 //                         requests may both exist; approving one is exactly
 //                         how Venue Staff choose between them, so a pending
 //                         sibling must not stand in the way.
 //
+// SPM-93 (Week 7 Change #1, #126, #128) changed what "overlap" means: no more
+// AM / PM / Night slots. A booking - approved or pending - occupies the room
+// from its start minus the venue's setup to its end plus its turnaround
+// (occupiedWindow(), src/lib/venueTime.ts), and two bookings clash when those
+// periods overlap. Periods that only meet end to start do not.
+//
 // Pure functions over plain data, like the rest of src/lib — no Prisma here,
 // so every rule below is unit tested against object literals.
 
-import { formatDate } from "@/lib/format";
-import {
-  NO_TURNAROUND,
-  localDayStart,
-  occupiedWindow,
-  overlapping,
-  slotsCovered,
-  type Interval,
-  type SlotCell,
-  type Turnaround,
-} from "@/lib/venueSlots";
+import { formatDateTimeRange } from "@/lib/format";
+import { occupiedWindow, overlapping, type Interval, type Turnaround } from "@/lib/venueTime";
 import type { SearchBlock, SearchBooking } from "@/lib/venueSearch";
 
 /// Exactly what deciding a conflict reads - no more. Narrower than
@@ -46,10 +43,10 @@ export type ConflictKind = "unavailable" | "booked" | "on_hold";
 
 export interface VenueConflict {
   kind: ConflictKind;
-  /// The day+slot cells the two parties actually share. This is what makes the
-  /// refusal specific: a clash through setup alone names the setup slot, not
-  /// the slots the coordinator picked.
-  cells: SlotCell[];
+  /// The time the two parties actually both need. This is what makes the
+  /// refusal specific: a clash through setup alone names those minutes, not
+  /// the times the coordinator asked for.
+  shared: Interval;
   /// Set when kind is "booked" or "on_hold".
   booking?: SearchBooking;
   /// Set when kind is "unavailable".
@@ -64,8 +61,8 @@ export type ConflictScope = "active" | "approved";
 
 export interface FindConflictOptions {
   /// The event being requested or confirmed. Its own bookings never conflict
-  /// with themselves — two sessions of one event may share a room in the same
-  /// slot. Asking twice for the same thing is a different problem (a
+  /// with themselves — two sessions of one event may share a room at the same
+  /// time. Asking twice for the same thing is a different problem (a
   /// duplicate), checked by findDuplicateRequest() below.
   eventId?: string;
   /// A booking being confirmed does not conflict with itself.
@@ -81,17 +78,20 @@ const BLOCKING_STATUSES: Record<ConflictScope, readonly string[]> = {
   approved: ["approved"],
 };
 
-/// The cells two intervals share, in order. Empty when they do not overlap.
-function sharedCells(a: Interval, b: Interval): SlotCell[] {
-  const bKeys = new Set(slotsCovered(b).map((c) => `${c.day}|${c.slot}`));
-  return slotsCovered(a).filter((c) => bKeys.has(`${c.day}|${c.slot}`));
+/// The part of time two overlapping periods share.
+function sharedPeriod(a: Interval, b: Interval): Interval {
+  return {
+    startsAt: new Date(Math.max(a.startsAt.getTime(), b.startsAt.getTime())),
+    endsAt: new Date(Math.min(a.endsAt.getTime(), b.endsAt.getTime())),
+  };
 }
 
 /// The first thing stopping `window` at this venue, or null when nothing does
 /// (AC10 — a non-overlapping booking is simply allowed).
 ///
 /// Order matters: unavailability is reported before a booking, because a room
-/// closed for maintenance cannot be freed by moving one event.
+/// closed for maintenance cannot be freed by moving one event; and an approved
+/// booking before a pending one, because it is the firmer commitment.
 export function findVenueConflict(
   venue: ConflictVenue,
   window: Interval,
@@ -99,14 +99,15 @@ export function findVenueConflict(
 ): VenueConflict | null {
   const { eventId, bookingId, scope = "active" } = options;
 
-  // AC2: the request holds its own slots plus the venue's setup and
-  // turnaround, so a clash can be through a slot the coordinator never ticked.
+  // AC2, SPM-93 AC6: the request needs its own times plus the venue's setup
+  // and turnaround, so a clash can be through minutes the coordinator never
+  // asked for.
   const needed = occupiedWindow(window, venue);
 
   // AC8 — a blocked venue is a conflict like any other.
   const block = venue.unavailability.find((u) => overlapping(needed, u));
   if (block) {
-    return { kind: "unavailable", block, cells: sharedCells(needed, block) };
+    return { kind: "unavailable", block, shared: sharedPeriod(needed, block) };
   }
 
   const candidates = venue.bookings.filter(
@@ -116,21 +117,22 @@ export function findVenueConflict(
       BLOCKING_STATUSES[scope].includes(b.status)
   );
 
-  // An approved booking takes its setup and turnaround with it; a pending one
-  // holds only the slots asked for, because it is not yet a commitment to
-  // prepare the room (#41).
-  const booked = candidates.find(
-    (b) => b.status === "approved" && overlapping(needed, occupiedWindow(b, venue))
-  );
+  // SPM-93: an approved booking AND a pending request (a tentative hold) each
+  // take their setup and turnaround with them. #41 allows one hold or booking
+  // per "overlapping time period", and Week 7 Change #1 puts setup and
+  // turnaround into every availability check (decided 2026-10-08; before
+  // SPM-93 a hold held only the slots asked for).
+  const clashWith = (status: string) =>
+    candidates.find((b) => b.status === status && overlapping(needed, occupiedWindow(b, venue)));
+
+  const booked = clashWith("approved");
   if (booked) {
-    return { kind: "booked", booking: booked, cells: sharedCells(needed, occupiedWindow(booked, venue)) };
+    return { kind: "booked", booking: booked, shared: sharedPeriod(needed, occupiedWindow(booked, venue)) };
   }
 
-  const held = candidates.find(
-    (b) => b.status === "pending" && overlapping(needed, occupiedWindow(b, NO_TURNAROUND))
-  );
+  const held = clashWith("pending");
   if (held) {
-    return { kind: "on_hold", booking: held, cells: sharedCells(needed, occupiedWindow(held, NO_TURNAROUND)) };
+    return { kind: "on_hold", booking: held, shared: sharedPeriod(needed, occupiedWindow(held, venue)) };
   }
 
   return null;
@@ -150,11 +152,11 @@ export interface RequestHolder {
 /// (raised in review on PR #37).
 ///
 /// A repeat is the same holder - same event, same session or both none - at
-/// this venue, overlapping the slots asked for, while the first request is
+/// this venue, overlapping the times asked for, while the first request is
 /// still pending or approved. Two DIFFERENT sessions of one event sharing a
 /// room is allowed, which is why the exemption above stays.
 ///
-/// Only the slots each request holds are compared: setup and turnaround are
+/// Only the times each request holds are compared: setup and turnaround are
 /// about one event making way for another, and here there is only one.
 export function findDuplicateRequest(
   venue: ConflictVenue,
@@ -172,52 +174,31 @@ export function findDuplicateRequest(
   );
 }
 
-/// "21 Oct 2026, AM" · "21 Oct 2026, AM–PM" · "5 Mar 2027 Night – 6 Mar 2027 AM".
-///
-/// The slot is kept even when the span crosses days, because that is exactly
-/// the case where it is doing the most work: a clash reaching from one day's
-/// Night into the next day's AM is the setup rule (#123) at work, and a
-/// date-only label would leave the coordinator thinking both whole days are
-/// gone.
-function cellsLabel(cells: readonly SlotCell[]): string | null {
-  if (cells.length === 0) return null;
-  const first = cells[0];
-  const last = cells[cells.length - 1];
-  const day = (c: SlotCell) => formatDate(localDayStart(c.day));
-
-  if (first.day === last.day) {
-    const span = first.slot === last.slot ? first.slot : `${first.slot}–${last.slot}`;
-    return `${day(first)}, ${span}`;
-  }
-  return `${day(first)} ${first.slot} – ${day(last)} ${last.slot}`;
-}
-
 /// AC9: say what is in the way, not merely that something is.
 ///
 /// Every reader of this message is internal staff who can already open the
 /// other event, so naming it costs no privacy and saves a trip to the
 /// calendar. A booking whose event we could not label still gets its period.
+///
+///   "SPM93 Studio is already booked for EVT-000123 SPM93 Morning Masterclass on 8 Jun 2027, 09:30–09:45."
+///   "SPM93 Studio is unavailable at this time (maintenance, 16 Jun 2027, 14:00–18:00)."
 export function describeVenueConflict(venueName: string, conflict: VenueConflict): string {
-  const when = cellsLabel(conflict.cells);
+  const when = formatDateTimeRange(conflict.shared.startsAt, conflict.shared.endsAt);
 
   if (conflict.kind === "unavailable") {
     const reason = conflict.block?.reason?.replace(/_/g, " ");
-    // The room's whole closure, not just the slot asked for: a coordinator
-    // looking for another date needs to know how long it is out, and the
-    // contested slot alone would imply it reopens the next morning.
-    const period = conflict.block ? cellsLabel(slotsCovered(conflict.block)) : when;
+    // The room's whole closure, not just the minutes asked for: a coordinator
+    // looking for another time needs to know how long it is out.
+    const period = conflict.block ? formatDateTimeRange(conflict.block.startsAt, conflict.block.endsAt) : when;
     const detail = [reason, period].filter(Boolean).join(", ");
-    return detail
-      ? `${venueName} is unavailable at this time (${detail}).`
-      : `${venueName} is unavailable at this time.`;
+    return `${venueName} is unavailable at this time (${detail}).`;
   }
 
   const event = describeBookingEvent(conflict.booking);
   const verb = conflict.kind === "booked" ? "is already booked" : "is on hold";
   const forWhom = event ? ` for ${event}` : conflict.kind === "booked" ? "" : " for another event";
-  const period = when ? ` on ${when}` : "";
 
-  return `${venueName} ${verb}${forWhom}${period}.`;
+  return `${venueName} ${verb}${forWhom} on ${when}.`;
 }
 
 function describeBookingEvent(booking?: SearchBooking): string | null {
