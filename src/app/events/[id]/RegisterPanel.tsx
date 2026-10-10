@@ -40,6 +40,16 @@ function Message({ state }: { state: RegistrationStateJson }) {
       return <p>Registration closed on {formatDateTime(state.closesAt ?? null)}.</p>;
     case "no_period":
       return <p>Registration dates haven&apos;t been set for this event.</p>;
+    // AC10: offered, not joined - joining and responding to the waiting list
+    // is its own story (Join and Respond to Waiting List). No dead button
+    // (UI_DESIGN: hide a control rather than disable it).
+    case "full":
+      return (
+        <>
+          <p>This event is full. You can join the waiting list instead.</p>
+          <p className="mt-1 text-ink-3">Joining the waiting list isn&apos;t available yet.</p>
+        </>
+      );
     default:
       return <p>Registration is not enabled for this event.</p>;
   }

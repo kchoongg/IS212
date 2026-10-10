@@ -162,6 +162,26 @@ describe("AC3 + AC4 an event outside its period can't be registered for, and say
   });
 });
 
+describe("AC9 + AC10 a full event offers the waiting list instead of Register", () => {
+  it("says the event is full and offers the waiting list, with no Register button (TC05)", async () => {
+    open(publicEvent({ registrationState: { kind: "full" } }));
+
+    expect(await screen.findByText("This event is full. You can join the waiting list instead.")).toBeInTheDocument();
+    expect(screen.getByText("Joining the waiting list isn't available yet.")).toBeInTheDocument();
+    expect(registerButton()).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Dietary requirements")).not.toBeInTheDocument();
+  });
+
+  it("shows the refusal when the last seat went while the page was open (TC05)", async () => {
+    open(publicEvent(), { [REGISTER]: reply(400, { error: "This event is full" }) });
+    await screen.findByRole("heading", { name: "Your registration" });
+
+    await userEvent.click(registerButton()!);
+
+    expect(await screen.findByText("This event is full")).toBeInTheDocument();
+  });
+});
+
 describe("only an attendee gets the card (TC12)", () => {
   it.each(["coordinator", "organiser", "ops_manager", "venue_staff", "tech_support"])(
     "doesn't show it to %s",

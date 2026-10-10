@@ -995,6 +995,13 @@ what changed, why, and the migration name if there is one.
     the card needs it to stop a second registration.
   - **Tests:** 16 page tests in `register-panel-pages.test.tsx`, plus 2 more
     route tests.
+- **Slice 5 (AC10, built before Slice 4): the full event's waiting-list
+  offer.** A full event's card says "This event is full. You can join the
+  waiting list instead." and "Joining the waiting list isn't available yet.",
+  with no Register button and no dead control. The register route already
+  refused a full event ("This event is full"). Its test now also checks that
+  no registration is written, so nobody is waitlisted by this story. 2 more
+  page tests.
 - Migration: none planned.
 
 ### 2026-10-09 — Sammi Chua (SPM-64, Configure Event Registration)

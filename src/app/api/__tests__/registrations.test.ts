@@ -185,6 +185,10 @@ describe("POST /api/registrations", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "This event is full" });
     expect(db.registration.create).not.toHaveBeenCalled();
+    // SPM-51 AC10: offer only - joining the waiting list is its own story,
+    // so a full event never quietly waitlists the attendee.
+    expect(db.registration.update).not.toHaveBeenCalled();
+    expect(db.registration.upsert).not.toHaveBeenCalled();
   });
 
   it("takes the last seat, counting only registered and attended as taken", async () => {
