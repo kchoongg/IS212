@@ -902,6 +902,53 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-10 — Sammi Chua (SPM-51, Register for Event)
+- **SPM-51 (Register for Event): decisions before any code.** An Attendee
+  finds the events open for registration, registers for an eligible one, and
+  sees their registration status. Agreed with Sammi Chua, 2026-10-10.
+  Customer clarification numbers are in brackets.
+  - **Built on SPM-64**, which isn't in `main` yet: its branch is merged into
+    `SPM-51-Register-for-Event` (main untouched). SPM-64's PR should merge
+    first, and SPM-51's PR will then show only SPM-51's own changes.
+  - **Already there:** `POST /api/registrations` checks Confirmed, enabled,
+    the window, duplicates (re-registering after withdrawing reuses the row)
+    and capacity, inside a transaction. SPM-51 reuses it, moving its checks
+    into one pure rule.
+  - **Eligible (AC3):** Confirmed, registration enabled, **both** dates set,
+    and now between them. The opening moment counts, and so does the closing
+    moment itself, as the route already did. **No registration period means
+    not eligible** ("Registration dates haven't been set for this event.").
+    This is a change: the route used to allow missing dates.
+  - **Capacity (AC9):** seats are taken by `registered` and `attended`
+    attendees. Waitlisted and withdrawn ones don't take a seat. A capacity
+    that isn't set means no limit (unchanged; SPM-64 shows it as incomplete
+    setup).
+  - **Waiting list (AC10): offer only.** A full event shows "This event is
+    full. You can join the waiting list instead." where the Register form
+    would be, with a note that joining comes with *Join and Respond to Waiting
+    List*. There's no dead button (UI_DESIGN: hide, don't disable), and no
+    waitlisted rows are created. Offers, the 3-day acceptance window (#44) and
+    FIFO with manual override (#26) are that story's.
+  - **Form:** optional Dietary requirements and Accessibility requirements
+    (UI_DESIGN S-26, #22). The route already stores them.
+  - **Re-registering:** a withdrawn attendee can register again (existing
+    behaviour). Withdrawing is a separate story (#20).
+  - **Screens:** Browse Events (S-26, `/browse`) lists the Confirmed events
+    open to registration with their state (Open, Opens …, Closed, Full). The
+    event page gets a Register panel for attendees that shows the period
+    (AC4). My Registrations (S-27, `/registrations`) lists the attendee's
+    registrations and their status (AC6, through a new
+    `GET /api/registrations`).
+  - **Out of scope:** withdrawing, the waiting list itself, check-in (#38),
+    VIPs (#99), notifications (SPM-53).
+  - **Order of work:** as for SPM-64. The Excel test cases come first, then
+    slices that are each tested first. No duplicate testing.
+- **Test cases written first:** `docs/test-cases/SPM-51_Test_Cases.xlsx` (12
+  cases across AC1–AC10; the role checks are only in TC12). The screen
+  wording and the 8 fixture events (`npm run fixtures:spm51`, not built yet)
+  are in the JSON's open questions. No code yet.
+- Migration: none planned.
+
 ### 2026-10-09 — Sammi Chua (SPM-64, Configure Event Registration)
 - **SPM-64 (Configure Event Registration): decisions before any code.** The
   assigned coordinator sets up attendee registration for an event: on or off,
