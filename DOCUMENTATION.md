@@ -902,6 +902,17 @@ what changed, why, and the migration name if there is one.
 ---
 
 ### 2026-10-10 — Kristen
+- **Each test case sheet now carries its own summary.** The test case
+  template (`.claude/skills/generate-test-cases/Test_Case_Template.xlsx`)
+  has a **Summary** row under Test Case ID, and `fill_template.py` fills it
+  from the case's `title` - the same words as the Summary sheet's Title
+  column - so a tester reading one sheet knows what it checks. Applies to
+  workbooks built from now on; the existing ones are left as they are
+  (rebuilding one would add the row but wipe any recorded execution
+  results). `SKILL.md` says how to write the summary.
+- Migration: none.
+
+### 2026-10-10 — Kristen
 - **Commit messages get their Jira key automatically** —
   `.githooks/prepare-commit-msg` puts the key from the branch name at the
   front of each commit message (`SPM-33: fix the readiness count`), so a

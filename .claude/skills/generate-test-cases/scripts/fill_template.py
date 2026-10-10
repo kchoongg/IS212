@@ -13,6 +13,8 @@ warning, for rebuilding a file written before 2026-09-30 without changing it.
 
 The layout of each test case sheet comes from Test_Case_Template.xlsx (sheet "TC01").
 This script copies that sheet once per test case, so the format never drifts.
+Each sheet carries its own case's summary (the JSON "title") under the Test Case
+ID, so a tester reading one sheet knows what it checks without the Summary sheet.
 It also adds a Summary sheet (traceability + coverage) and, when any question is
 still unanswered, an Open Questions sheet. Entries starting "RESOLVED" stay in
 the JSON as the decision record and are left out of the workbook.
@@ -38,12 +40,13 @@ TEMPLATE_SHEET = "TC01"
 # Cells in the template (column B holds the values)
 FIELD_CELLS = {
     "id": "B2",
-    "preconditions": "B3",
-    "steps": "B4",
-    "test_data": "B5",
-    "expected_result": "B6",
-    "created_by": "B7",
-    "creation_date": "B8",
+    "summary": "B3",
+    "preconditions": "B4",
+    "steps": "B5",
+    "test_data": "B6",
+    "expected_result": "B7",
+    "created_by": "B8",
+    "creation_date": "B9",
 }
 REQUIRED_TC_FIELDS = ["id", "title", "linked_ac", "type", "source",
                       "preconditions", "steps", "test_data", "expected_result"]
@@ -208,6 +211,8 @@ def build(data, out_path):
 
         values = {
             "id": tc["id"],
+            # The same words as the Title column of the Summary sheet.
+            "summary": as_text(tc["title"]),
             "preconditions": as_text(tc["preconditions"]),
             "steps": steps,
             "test_data": as_text(tc["test_data"]),
