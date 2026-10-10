@@ -122,11 +122,21 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   if (actor.role === "attendee") {
     // SPM-51 AC4: whether they can register now, and if not why - the same
     // rule POST /api/registrations applies.
-    const seatsTaken = await prisma.registration.count({
-      where: { eventId: event.id, status: { in: SEAT_TAKING } },
-    });
+    // AC6, AC7: and their own registration, so the page shows it instead of
+    // offering a second one.
+    const [seatsTaken, myRegistration] = await Promise.all([
+      prisma.registration.count({ where: { eventId: event.id, status: { in: SEAT_TAKING } } }),
+      prisma.registration.findUnique({
+        where: { eventId_attendeeId: { eventId: event.id, attendeeId: actor.id } },
+        select: { status: true, registeredAt: true },
+      }),
+    ]);
     return NextResponse.json(
-      visibleEventFor(actor, { ...event, registrationState: registrationState(event, seatsTaken, new Date()) })
+      visibleEventFor(actor, {
+        ...event,
+        registrationState: registrationState(event, seatsTaken, new Date()),
+        myRegistration: myRegistration ?? null,
+      })
     );
   }
   return NextResponse.json(visibleEventFor(actor, event));

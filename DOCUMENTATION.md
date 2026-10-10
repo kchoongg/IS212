@@ -976,6 +976,25 @@ what changed, why, and the migration name if there is one.
     tests. The attendee tests in `events.test.ts` and `event-detail.test.ts`
     were updated on purpose. Browse was removed from the "not built yet"
     placeholder tests.
+- **Slice 3 (AC2, AC5, AC7): the "Your registration" card.** New
+  `src/app/events/[id]/RegisterPanel.tsx`, shown on the event page to an
+  Attendee only, below the Registration card.
+  - **Open event:** optional "Dietary requirements" and "Accessibility
+    requirements" fields and "Register", which sends `POST /api/registrations`
+    (empty fields left out). It then shows "You're registered for this
+    event." and reloads the event.
+  - **Already holding a place:** shows the status badge with "You registered
+    on <date>." or "You're on the waiting list." instead of Register. A
+    withdrawn attendee is offered Register again.
+  - **Otherwise:** a message instead of the button ("Registration opens …",
+    "Registration closed on …", "Registration dates haven't been set for this
+    event."). A refusal shows the server's message.
+  - **Data:** `GET /api/events/[id]` now also gives an attendee
+    `myRegistration` (`{ status, registeredAt } | null`, added to
+    `ATTENDEE_EVENT_FIELDS`). This was moved forward from Slice 4, because
+    the card needs it to stop a second registration.
+  - **Tests:** 16 page tests in `register-panel-pages.test.tsx`, plus 2 more
+    route tests.
 - Migration: none planned.
 
 ### 2026-10-09 — Sammi Chua (SPM-64, Configure Event Registration)

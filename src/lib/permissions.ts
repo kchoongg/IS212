@@ -518,8 +518,10 @@ export const ATTENDEE_EVENT_FIELDS = [
   "registrationOpensAt",
   "registrationClosesAt",
   "organisation",
-  // SPM-51: whether they can register now, and if not why (registrationState()).
+  // SPM-51: whether they can register now, and if not why (registrationState()),
+  // and their own registration for the event, if any.
   "registrationState",
+  "myRegistration",
 ] as const;
 
 /// Narrow an event record to the fields this actor may see. Returns a new
