@@ -48,7 +48,7 @@ describe("GET /api/assignments", () => {
 
     expect(callArg(db.event.findMany, 0).where).toEqual({ status: { in: ["submitted"] }, coordinatorId: null });
     expect(callArg(db.event.findMany, 1).where).toEqual({
-      status: { in: ["under_review", "approved", "planning", "confirmed", "postponed"] },
+      status: { in: ["under_review", "approved", "planning", "safety_review", "confirmed", "postponed"] },
       coordinatorId: { not: null },
     });
     expect(callArg(db.user.findMany).where).toEqual({ role: "coordinator", isActive: true });
@@ -130,7 +130,7 @@ describe("GET /api/equipment/requests", () => {
     expect(await res.json()).toEqual([{ sequenceNumber: 12, title: "Gala", status: "planning", requestCount: 3 }]);
   });
 
-  it("lists only events in planning or confirmed that have a request which is not cancelled", async () => {
+  it("lists only events in planning, safety review or confirmed that have a request which is not cancelled", async () => {
     const token = signIn(user("tech_support"));
     db.event.findMany.mockResolvedValue([]);
 
@@ -140,7 +140,8 @@ describe("GET /api/equipment/requests", () => {
       AND: [
         { status: { not: "draft" } },
         // Technical Support sees an event's equipment once planning has begun.
-        { status: { in: ["planning", "confirmed"] } },
+        // SPM-86: and while the Safety Officer checks it.
+        { status: { in: ["planning", "safety_review", "confirmed"] } },
         { equipmentRequests: { some: { status: { not: "cancelled" } } } },
       ],
     });

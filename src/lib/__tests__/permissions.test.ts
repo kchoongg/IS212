@@ -18,6 +18,7 @@ import {
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
+  canSubmitForSafetyCheck,
   canViewEquipmentRequests,
   techSupportSeesEquipment,
   TECH_SUPPORT_EQUIPMENT_STATUSES,
@@ -718,9 +719,41 @@ describe("canBeginPlanning (SPM-54)", () => {
 });
 
 describe("techSupportSeesEquipment (BPMN: Technical Support's lane is Planning and Confirmed)", () => {
-  it("is Planning and Confirmed only", () => {
-    expect(TECH_SUPPORT_EQUIPMENT_STATUSES).toEqual(["planning", "confirmed"]);
+  it("is Planning, Safety review and Confirmed only", () => {
+    // SPM-86: Safety review sits between Planning and Confirmed, so Technical
+    // Support keep sight of what they reserved while the check is pending.
+    expect(TECH_SUPPORT_EQUIPMENT_STATUSES).toEqual(["planning", "safety_review", "confirmed"]);
     expect(techSupportSeesEquipment("planning")).toBe(true);
+    expect(techSupportSeesEquipment("safety_review")).toBe(true);
     expect(techSupportSeesEquipment("approved")).toBe(false);
+  });
+});
+
+describe("canSubmitForSafetyCheck (SPM-86)", () => {
+  const inPlanning = event({ status: "planning", coordinatorId: "coordinator-1" });
+
+  it("lets the assigned coordinator submit an event in Planning (AC1)", () => {
+    expect(canSubmitForSafetyCheck(coordinator, inPlanning)).toBe(true);
+  });
+
+  it("only from Planning - not again while a check is pending (AC6), nor before planning begins", () => {
+    for (const status of [
+      "draft", "submitted", "under_review", "approved", "safety_review", "confirmed",
+      "postponed", "completed", "rejected", "cancelled",
+    ]) {
+      expect(canSubmitForSafetyCheck(coordinator, event({ status, coordinatorId: "coordinator-1" })), status).toBe(false);
+    }
+  });
+
+  it("not for a coordinator who is not assigned, nor any other role (AC7)", () => {
+    for (const other of [otherCoordinator, opsManager, organiserA, venueStaff, techSupport, attendee]) {
+      expect(canSubmitForSafetyCheck(other, inPlanning), other.role).toBe(false);
+    }
+  });
+});
+
+describe("REASSIGNABLE_STATUSES (SPM-86)", () => {
+  it("includes Safety review, so a coordinator can still be replaced while the check is pending", () => {
+    expect(REASSIGNABLE_STATUSES).toContain("safety_review");
   });
 });

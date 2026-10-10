@@ -20,6 +20,9 @@ const STATUS_META: Record<string, StatusMeta> = {
   under_review: { label: "Under review", tone: "info" },
   approved: { label: "Approved", tone: "progress" },
   planning: { label: "Planning", tone: "progress" },
+  // SPM-86: submitted for an Operational Safety Check, waiting on the Safety
+  // Officer - waiting on someone else's review, so the same tone as Under review.
+  safety_review: { label: "Safety review", tone: "info" },
   confirmed: { label: "Confirmed", tone: "success" },
   completed: { label: "Completed", tone: "neutral" },
   postponed: { label: "Postponed", tone: "warning" },
@@ -117,7 +120,12 @@ const EVENT_TRANSITIONS: Record<string, readonly string[]> = {
   submitted: ["under_review"],
   under_review: ["approved", "rejected", "withdrawn"],
   approved: ["planning", "cancelled"],
-  planning: ["confirmed", "postponed", "cancelled"],
+  planning: ["confirmed", "postponed", "cancelled", "safety_review"],
+  // SPM-86: the Safety Officer's decision (SPM-87) or a significant change
+  // (SPM-88) returns the event to Planning. Otherwise it can only be
+  // cancelled - not postponed, nor confirmed until approved and back in
+  // Planning (decided 2026-10-09).
+  safety_review: ["planning", "cancelled"],
   confirmed: ["completed", "postponed", "cancelled"],
   // Resuming goes back through Approved, so Planning is only ever entered
   // from Approved.

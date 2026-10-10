@@ -1359,13 +1359,39 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-86 QA fixtures (Submit Event for Operational Safety Check). The SAME
+  // events as scripts/seed-spm86.ts (`npm run fixtures:spm86`) - keep the two
+  // in step.
+  //
+  // The events only. Their venue bookings, equipment and review flags are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm86 = (key: string, title: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-86 submit for safety check test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 40, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm86("spm86_ready", "SPM86 Harbour Safety Ready", "2027-07-19"),
+    spm86("spm86_partial", "SPM86 Partly Reserved Kit", "2027-07-20"),
+    spm86("spm86_outstanding", "SPM86 Arrangements Outstanding", "2027-07-21"),
+    spm86("spm86_flagged_venue", "SPM86 Flagged Venue Booking", "2027-07-22"),
+    spm86("spm86_flagged_equipment", "SPM86 Flagged Equipment", "2027-07-23"),
+    spm86("spm86_two_tabs", "SPM86 Two Tabs Submit", "2027-07-26"),
+    spm86("spm86_other_coordinator", "SPM86 Another Coordinator", "2027-07-27",
+      { coordinator: "priya.raj@connectsphere.com" }),
+    spm86("spm86_approved", "SPM86 Not Yet Planning", "2027-07-28", { status: "approved" }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-64 QA fixtures (Configure Event Registration). The SAME events as
   // scripts/seed-spm64.ts (`npm run fixtures:spm64`) - keep the two in step.
   //
   // The events only. Their venue bookings, the booking each capacity is
   // measured against, the exact registration periods and the registered,
   // waitlisted and withdrawn attendees are created by that script alone, so
-  // run it once after a full reseed. Pushed LAST, after SPM-93, so no earlier
+  // run it once after a full reseed. Pushed LAST, after SPM-86, so no earlier
   // event's EVT- reference number shifts. SPM-51's block follows.
   // -----------------------------------------------------------------
   const spm64 = (
