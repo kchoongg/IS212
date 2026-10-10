@@ -32,20 +32,17 @@ describe("checkEventConfirmation — the happy paths", () => {
     expect(result).toEqual({ ok: true });
   });
 
-  // CHANGED (SPM-33, decided 2026-10-08): this used to confirm. Technical
-  // Support committed what they could, and whether the shortfall is essential
-  // is the Coordinator's decision (#90, #106) - which they now make by marking
-  // the line as not required, not by confirming past it unseen.
-  it("refuses partially_fulfilled equipment until the Coordinator marks the line as not required", () => {
-    const partly = { sessionId: null, status: "partially_fulfilled", equipmentName: "Portable Stage" };
-
-    const result = checkEventConfirmation(input({ bookings: [approvedVenue], equipment: [partly] }));
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("Portable Stage for this event is only partly reserved");
-
-    expect(
-      checkEventConfirmation(input({ bookings: [approvedVenue], equipment: [{ ...partly, notRequired: true }] }))
-    ).toEqual({ ok: true });
+  // Boundary: Technical Support committed what they could. Whether the
+  // shortfall is essential is the Coordinator's decision (#90). Submit for
+  // safety check holds to the same rule (SPM-86, decided 2026-10-09).
+  it("treats partially_fulfilled equipment as arranged", () => {
+    const result = checkEventConfirmation(
+      input({
+        bookings: [approvedVenue],
+        equipment: [{ sessionId: null, status: "partially_fulfilled", equipmentName: "Portable Stage" }],
+      })
+    );
+    expect(result).toEqual({ ok: true });
   });
 });
 
@@ -381,12 +378,23 @@ describe("SPM-33 arrangementsFor — equipment (AC3)", () => {
   it.each([
     ["requested", "Portable Stage for this event is not reserved yet"],
     ["under_review", "Portable Stage for this event is not reserved yet"],
-    ["partially_fulfilled", "Portable Stage for this event is only partly reserved"],
     ["unavailable", "Portable Stage for this event is not reserved yet"],
   ])("shows a %s line as outstanding", (status, missing) => {
     const list = rows({ bookings: [booking()], equipment: [line({ status, equipmentName: "Portable Stage" })] });
 
     expect(named(list, "Portable Stage")).toMatchObject({ state: "outstanding", complete: false, missing });
+  });
+
+  // Decided 2026-10-10: SPM-86's rule. A line Technical Support could only
+  // partly reserve is held, so there is nothing to mark as not required.
+  it("shows a partially_fulfilled line as complete, with its own status", () => {
+    const list = rows({ bookings: [booking()], equipment: [line({ status: "partially_fulfilled" })] });
+
+    expect(named(list, "Handheld Wireless Mic")).toMatchObject({
+      status: "partially_fulfilled",
+      state: "complete",
+      waivable: false,
+    });
   });
 
   // Like a rejected or cancelled booking: it is no longer an arrangement.

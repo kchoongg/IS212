@@ -22,7 +22,7 @@
  * this once after a full reseed, as for SPM-34 and SPM-62.
  *
  * Needs the base seed's users, venues and equipment catalogue to exist, and
- * the migration 20261009100000_add_arrangement_not_required to be applied.
+ * the migration 20261010100000_add_arrangement_not_required to be applied.
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -134,11 +134,12 @@ const FIXTURES: Fixture[] = [
     bookings: [{ venue: "ORC-GAL", status: "approved" }],
     testCases: "TC09" },
 
-  // TC10: 2 requested, 1 reserved. Confirm is refused, then succeeds once waived.
-  { key: "spm33_partly", title: "SPM33 Partly Reserved", status: "planning", coordinator: DANIEL,
+  // TC10: the desk is partly reserved (held); the stage cannot be provided.
+  // Confirm is refused on the stage alone, then succeeds once it is waived.
+  { key: "spm33_waive_confirm", title: "SPM33 Waive Then Confirm", status: "planning", coordinator: DANIEL,
     date: "2027-07-23", durationHours: 4,
     bookings: [{ venue: "ORC-GAL", status: "approved" }],
-    equipment: [{ name: "Audio Mixing Desk", status: "partially_fulfilled" }],
+    equipment: [{ name: "Audio Mixing Desk", status: "partially_fulfilled" }, { name: "Portable Stage", status: "unavailable" }],
     testCases: "TC10" },
 
   // TC11: assigned to someone else, so Daniel can look but not mark.

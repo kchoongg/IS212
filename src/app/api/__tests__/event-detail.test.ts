@@ -535,6 +535,12 @@ describe("PATCH /api/events/[id] - status change", () => {
         expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
       });
 
+      it("counts partially fulfilled equipment as arranged - the shortfall is the coordinator's call", async () => {
+        const res = await confirm({ bookings: [venueApproved], equipment: [projector("partially_fulfilled")] });
+
+        expect(res.status).toBe(200);
+      });
+
       it("confirms an event that needs no equipment", async () => {
         expect((await confirm({ bookings: [venueApproved] })).status).toBe(200);
       });
@@ -555,14 +561,6 @@ describe("PATCH /api/events/[id] - status change", () => {
           "equipment is requested but not reserved",
           { bookings: [venueApproved], equipment: [projector("requested")] },
           "This event cannot be confirmed yet: Projector for this event is not reserved yet.",
-        ],
-        // CHANGED (SPM-33, decided 2026-10-08): this used to confirm. The
-        // shortfall is the coordinator's call (#90), made by marking the line
-        // as not required.
-        [
-          "equipment is only partly reserved",
-          { bookings: [venueApproved], equipment: [projector("partially_fulfilled")] },
-          "This event cannot be confirmed yet: Projector for this event is only partly reserved.",
         ],
         [
           "both are outstanding",
@@ -614,10 +612,6 @@ describe("PATCH /api/events/[id] - status change", () => {
           [
             "an equipment line Technical Support cannot provide",
             { bookings: [venueApproved], equipment: [projector("unavailable", { notRequired: true })] },
-          ],
-          [
-            "a partly reserved equipment line",
-            { bookings: [venueApproved], equipment: [projector("partially_fulfilled", { notRequired: true })] },
           ],
           [
             "a second venue booking that is still pending",

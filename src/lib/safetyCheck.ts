@@ -14,9 +14,12 @@
 // A flag on an arrangement that is not held adds nothing: an unheld one is
 // already named, and a rejected or cancelled one is not in play.
 //
+// An arrangement the Coordinator marked as not required (SPM-33) is left out
+// of both: AC1 asks for equipment "reserved or marked as not required".
+//
 // Pure functions over plain data, like the rest of src/lib.
 
-import { arrangementsFor, type SessionRef } from "@/lib/eventConfirmation";
+import { arrangementsFor, blockingArrangements, type SessionRef } from "@/lib/eventConfirmation";
 import { CHANGE_REASON_PROSE } from "@/lib/eventChangeImpact";
 import { IMPACT_REASON_PROSE } from "@/lib/venueImpact";
 
@@ -29,6 +32,8 @@ const EQUIPMENT_HELD = ["reserved", "partially_fulfilled"];
 interface Flag {
   needsReview: boolean;
   reviewReason: string | null;
+  /// SPM-33: marked as not required by the Coordinator. Absent means required.
+  notRequired?: boolean;
 }
 
 export interface SafetySubmissionInput {
@@ -67,18 +72,30 @@ function whose(sessions: readonly SessionRef[], sessionId: string | null): strin
 export function checkSafetySubmission(input: SafetySubmissionInput): SafetySubmissionCheck {
   const { sessions, bookings, equipment } = input;
 
-  const unheld = arrangementsFor({ sessions, bookings, equipment })
-    .filter((a) => a.required && !a.complete)
-    .map((a) => a.missing);
+  // arrangementsFor() also lists flagged arrangements and names each venue
+  // (SPM-33). Here it is asked only whether each required arrangement is held:
+  // the flags are worded below, in this story's own terms.
+  const unheld = blockingArrangements(
+    arrangementsFor({
+      sessions,
+      bookings: bookings.map(({ sessionId, status, notRequired }) => ({ sessionId, status, notRequired })),
+      equipment: equipment.map(({ sessionId, status, equipmentName, notRequired }) => ({
+        sessionId,
+        status,
+        equipmentName,
+        notRequired,
+      })),
+    })
+  ).map((a) => a.missing);
 
   const flaggedBookings = bookings
-    .filter((b) => b.needsReview && BOOKING_HELD.includes(b.status))
+    .filter((b) => b.needsReview && !b.notRequired && BOOKING_HELD.includes(b.status))
     .map(
       (b) =>
         `the venue booking at ${b.venueName} for ${whose(sessions, b.sessionId)} is flagged for review${why(b.reviewReason)}`
     );
   const flaggedEquipment = equipment
-    .filter((e) => e.needsReview && EQUIPMENT_HELD.includes(e.status))
+    .filter((e) => e.needsReview && !e.notRequired && EQUIPMENT_HELD.includes(e.status))
     .map((e) => `${e.equipmentName} for ${whose(sessions, e.sessionId)} is flagged for review${why(e.reviewReason)}`);
 
   const outstanding = [...unheld, ...flaggedBookings, ...flaggedEquipment];

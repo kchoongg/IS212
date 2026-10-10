@@ -304,17 +304,34 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(desk).toHaveTextContent(/not reserved yet/i);
     });
 
-    it.each([
-      ["partially_fulfilled", "Partially fulfilled", "Portable Stage for this event is only partly reserved", /only partly reserved/i],
-      ["unavailable", "Cannot be provided", "Portable Stage for this event is not reserved yet", /not reserved yet/i],
-    ])("shows a %s equipment line as outstanding", async (status, label, missing, said) => {
-      open([auditorium, outstanding({ kind: "equipment", id: "r3", name: "Portable Stage", status, missing })]);
+    it("shows an equipment line Technical Support cannot provide as outstanding", async () => {
+      open([
+        auditorium,
+        outstanding({
+          kind: "equipment",
+          id: "r3",
+          name: "Portable Stage",
+          status: "unavailable",
+          missing: "Portable Stage for this event is not reserved yet",
+        }),
+      ]);
 
       const stage = await row("Portable Stage");
 
-      expect(stage).toHaveTextContent(label);
+      expect(stage).toHaveTextContent("Cannot be provided");
       expect(stage).toHaveTextContent("Outstanding");
-      expect(stage).toHaveTextContent(said);
+      expect(stage).toHaveTextContent(/not reserved yet/i);
+    });
+
+    // Held, as for Confirm and Submit for safety check (SPM-86): nothing to mark.
+    it("shows a partly reserved equipment line as complete, with nothing to mark", async () => {
+      open([auditorium, arrangement({ kind: "equipment", id: "r4", name: "Audio Mixing Desk", status: "partially_fulfilled" })]);
+
+      const desk = await row("Audio Mixing Desk");
+
+      expect(desk).toHaveTextContent("Partially fulfilled");
+      expect(desk).toHaveTextContent("Complete");
+      expect(within(desk).queryByRole("button")).not.toBeInTheDocument();
     });
 
     // AC4.

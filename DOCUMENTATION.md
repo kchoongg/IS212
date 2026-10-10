@@ -1080,11 +1080,11 @@ what changed, why, and the migration name if there is one.
   - **Not here, on purpose:** the Operational Safety Check (AC6, AC9)
     waits for SPM-86; clearing a flag is SPM-68; registration settings
     are SPM-64. See Known Gaps.
-- **Migration:** `20261009100000_add_arrangement_not_required` -
+- **Migration:** `20261010100000_add_arrangement_not_required` -
   `not_required` / `not_required_by` / `not_required_at` on
   `venue_bookings` and `equipment_requests`, and
   `registration_not_required` (+ `_by`, `_at`) on `events`. Additive.
-  **Not yet applied to the shared database.**
+  Applied to the shared Neon database on 2026-10-10.
 - **Test data:** `npm run fixtures:spm33` (11 events), appended to
   `prisma/seed.ts`. Not yet run.
 - **Tests:** written first, then the code to them. 2,764 tests pass. New:

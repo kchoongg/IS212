@@ -528,6 +528,12 @@ describe("PATCH /api/events/[id]/arrangements", () => {
     it.each([
       ["an approved venue booking", { bookings: [booking()] }, { kind: "venue", id: ID.booking, notRequired: true }],
       ["a reserved equipment line", { bookings: [booking()], equipment: [line()] }, waiveLine],
+      // Held, as for Confirm and Submit for safety check (SPM-86).
+      [
+        "a partly reserved equipment line",
+        { bookings: [booking()], equipment: [line({ status: "partially_fulfilled", quantityReserved: 1 })] },
+        waiveLine,
+      ],
       [
         "registration that is fully set up",
         { bookings: [booking()], event: { ...registrationIncomplete, registrationCapacity: 80 } },
@@ -567,7 +573,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
 
     // "an unfulfilled equipment item agreed with Technical Support Staff to be
     // non-essential" - the story's own example.
-    it.each(["requested", "under_review", "partially_fulfilled", "unavailable"])(
+    it.each(["requested", "under_review", "unavailable"])(
       "marks a %s equipment line as not required, and leaves its status as it was",
       async (status) => {
         const token = signIn(assignedCoordinator());

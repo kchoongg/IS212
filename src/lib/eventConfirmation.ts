@@ -23,11 +23,14 @@
 //
 // "Complete" is deliberately strict (decided 2026-10-03): a venue booking must
 // be APPROVED, because a pending request is a question Venue Staff have not
-// answered, and equipment must be RESERVED. A line Technical Support could only
-// partly reserve, or cannot provide, is outstanding until the Coordinator marks
-// it as not required (#90, #106; decided 2026-10-08). An arrangement flagged
-// for review (SPM-39, SPM-62) is outstanding too, whatever its status, until
-// it is resolved (SPM-68).
+// answered, and equipment must be RESERVED or PARTIALLY FULFILLED - Technical
+// Support have committed what they can, and the same statuses take stock from
+// other events (COMMITTING_REQUEST_STATUSES in equipmentAvailability.ts). This
+// is the rule Submit for safety check uses too (SPM-86, decided 2026-10-09), so
+// Submit and Confirm never disagree. A line that is requested, under review or
+// cannot be provided is outstanding until the Coordinator marks it as not
+// required (#90, #106). An arrangement flagged for review (SPM-39, SPM-62) is
+// outstanding too, whatever its status, until it is resolved (SPM-68).
 //
 // The Coordinator can mark any booking, equipment line or the registration
 // setup as NOT REQUIRED for this event, and reverse it. It then prevents
@@ -50,8 +53,8 @@ import { IMPACT_REASON_PROSE } from "./venueImpact";
 const BOOKING_LISTED = ["pending", "approved"];
 /// Statuses that mean the arrangement is actually held, not merely asked for.
 const BOOKING_HELD = "approved";
-const EQUIPMENT_HELD = "reserved";
-const EQUIPMENT_PARTLY_HELD = "partially_fulfilled";
+/// The same as EQUIPMENT_HELD in safetyCheck.ts (SPM-86).
+const EQUIPMENT_HELD = ["reserved", "partially_fulfilled"];
 const EQUIPMENT_DROPPED = "cancelled";
 
 export type ArrangementKind = "venue" | "equipment" | "registration";
@@ -241,14 +244,11 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
     const session = sessions.length > 0 ? sessionOf(item.sessionId) : null;
     const flagReason = flagReasonFor(item);
     const subject = `${item.equipmentName} for ${whose(session)}`;
-    const problem =
-      item.status === EQUIPMENT_PARTLY_HELD
-        ? `${subject} is only partly reserved`
-        : item.status !== EQUIPMENT_HELD
-          ? `${subject} is not reserved yet`
-          : flagReason
-            ? `${subject} is flagged for review: ${flagReason}`
-            : "";
+    const problem = !EQUIPMENT_HELD.includes(item.status)
+      ? `${subject} is not reserved yet`
+      : flagReason
+        ? `${subject} is flagged for review: ${flagReason}`
+        : "";
     out.push(
       arrangement(
         { kind: "equipment", id: item.id ?? null, name: item.equipmentName, session, status: item.status },
