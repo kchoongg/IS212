@@ -13,6 +13,7 @@ import {
 } from "@/components/ui";
 import { SkeletonRows } from "@/components/ui/DataState";
 import { VenueForm } from "@/components/VenueForm";
+import { VenueUnavailablePeriods, type PeriodAction } from "@/components/VenueUnavailablePeriods";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
 import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formErrors";
@@ -39,6 +40,10 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 // So this screen does NOT navigate away after a successful save. PATCH
 // /api/venues/[id] returns which bookings it flagged, and that is the only
 // place a person is told it happened - pushing to /venues would throw it away.
+
+/// What the page reports at the top: a save, retire or restore of the venue
+/// itself, or (SPM-45) a change to one of its unavailable periods.
+type ResultAction = "save" | "retire" | "restore" | PeriodAction;
 
 /// One entry of the PATCH response's `flaggedBookings`.
 interface FlaggedBooking {
@@ -76,7 +81,7 @@ export default function EditVenuePage() {
   // What the last successful PATCH did. null means "nothing saved yet this
   // visit"; an empty array means "saved, and nothing was affected" - which is
   // itself worth saying, so the two cases are not collapsed.
-  const [result, setResult] = useState<{ action: "save" | "retire" | "restore"; flagged: FlaggedBooking[] } | null>(null);
+  const [result, setResult] = useState<{ action: ResultAction; flagged: FlaggedBooking[] } | null>(null);
 
   const [retireOpen, setRetireOpen] = useState(false);
   const [retireReason, setRetireReason] = useState("");
@@ -278,6 +283,18 @@ export default function EditVenuePage() {
         </Alert>
       )}
 
+      {/* SPM-45: out of use for a period, which is not the same as retired -
+          so it is offered whether or not the venue is. */}
+      <VenueUnavailablePeriods
+        venueId={venueId}
+        venueName={venueName}
+        onStart={() => setResult(null)}
+        onResult={(action, flagged) => {
+          setResult({ action, flagged });
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }}
+      />
+
       <form
         ref={formRef}
         onSubmit={(e) => {
@@ -366,17 +383,35 @@ export default function EditVenuePage() {
   );
 }
 
+const RESULT_VERBS: Record<ResultAction, string> = {
+  save: "Changes saved",
+  retire: "Venue retired",
+  restore: "Venue restored",
+  period_saved: "Unavailable period saved",
+  period_changed: "Unavailable period changed",
+  period_ended: "Unavailable period ended",
+};
+
 /// What the save actually did. The flagged list is the visible half of the AC —
 /// without it, "coordinators were notified" happens silently in the database.
 function SaveResult({
   action,
   flagged,
 }: {
-  action: "save" | "retire" | "restore";
+  action: ResultAction;
   flagged: FlaggedBooking[];
 }) {
-  const verb =
-    action === "retire" ? "Venue retired" : action === "restore" ? "Venue restored" : "Changes saved";
+  const verb = RESULT_VERBS[action];
+
+  // Ending a period flags nothing and notifies nobody, so the usual "no
+  // bookings were affected" would answer a question it did not ask.
+  if (action === "period_ended") {
+    return (
+      <Alert variant="success" title={verb} className="mt-4">
+        The venue can be requested again for the time that was left in the period.
+      </Alert>
+    );
+  }
 
   if (flagged.length === 0) {
     return (

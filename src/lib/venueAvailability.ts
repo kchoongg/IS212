@@ -294,6 +294,10 @@ export function buildAvailability(input: {
   // real intervals, and against each booking's occupied window, because
   // maintenance during a booking's setup time is a genuine problem: the room
   // cannot be set up. Holds are not clashes - a request is not a commitment.
+  //
+  // Overlapping periods used to exist only in the seed. Since SPM-45 Venue
+  // Staff can record them in the app (SPM-45-TC18 does), so this runs against
+  // real data too.
   for (let i = 0; i < unavailability.length; i++) {
     for (let j = i + 1; j < unavailability.length; j++) {
       if (overlapping(input.unavailability[i], input.unavailability[j])) {
