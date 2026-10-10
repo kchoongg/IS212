@@ -1,32 +1,38 @@
-// SPM-45 (Record Venue Unavailability). Written before the code, as its contract:
+// SPM-45 (Record Venue Unavailability). Rewritten on 2026-10-09 for times on the
+// 15-minute grid (Week 7 Change #1, SPM-93), before the code was reworked. The contract:
 //   src/app/api/venues/[id]/unavailability/route.ts              exports GET, POST
 //   src/app/api/venues/[id]/unavailability/[periodId]/route.ts   exports PATCH, DELETE
 //
 //   Every handler: 401; 403 "Only Venue Staff can mark a venue unavailable" without
 //   venue:manage; 404 "Venue not found"; 500.
-//   GET    -> 200 [{ id, fromDay, fromSlot, untilDay, untilSlot, reason, otherReason }] - the venue's
+//   GET    -> 200 [{ id, fromDay, fromTime, untilDay, untilTime, reason, otherReason }] - the venue's
 //             periods that are not over yet, earliest first.
-//   POST   { fromDay, fromSlot, untilDay, untilSlot, reason, otherReason? }
+//   POST   { fromDay, fromTime, untilDay, untilTime, reason, otherReason? } - days "YYYY-MM-DD",
+//          times "HH:MM" on the 15-minute grid, Singapore time. A period that is already
+//          over (its return is not after now) is a 400 in the same shape as a validation
+//          failure, fieldErrors.untilTime ["This period is already over."]; so is PATCH.
 //          -> 201 { period, flaggedBookings }; 400 with Zod details.
 //   PATCH  the same body -> 200 { period, flaggedBookings };
 //          404 "Unavailable period not found" (missing, or another venue's).
 //   DELETE -> 200 { ended: true }; 404 as PATCH; 400 "This unavailable period is already over."
 //
-//   The period is a VenueUnavailability row: startsAt is the start of the first
-//   unavailable slot, endsAt the start of the first available slot (Singapore time).
+//   The period is a VenueUnavailability row: startsAt is the time the venue becomes
+//   unavailable, endsAt the time it is available again.
 //   otherReason is required when reason is "other" and is stored, trimmed, in the
 //   notes column; for any other reason notes is null and otherReason is ignored.
 //   The venue is read with venue.findUnique, a period with venueUnavailability.findUnique,
 //   and the bookings to judge with venueBooking.findMany - the same candidates
 //   SPM-39 uses (approved, not finished), each with its session and event.
-//   A booking is flagged when the period covers a slot it holds, setup and
-//   turnaround included: needsReview, reviewReason "venue_unavailable" (merged
-//   into any reasons already there), flaggedAt; and its coordinator notified.
+//   A booking is flagged when its room-in-use period (its times plus the venue's
+//   setup and turnaround) overlaps the period: needsReview, reviewReason
+//   "venue_unavailable" (merged into any reasons already there), flaggedAt; and its
+//   coordinator notified that alternative arrangements are needed (Week 7 Change #2).
 //   A booking is never changed in any other way.
 // Decided here, not in the story (change the test if the team wants otherwise):
 //   - the refusal and validation wording, and the notification's type and title
 //   - a change flags only the bookings the period did not cover before
-//   - ending a period under way sets its end to now; one not started is deleted
+//   - ending a period under way sets its end to now, rounded down to the 15-minute
+//     grid (deleting it if that leaves nothing); one not started is deleted
 import { describe, it, expect, vi, afterEach } from "vitest";
 
 vi.mock("@/lib/prisma");
@@ -46,12 +52,12 @@ const sgt = (day: string, time: string) => new Date(`${day}T${time}:00+08:00`);
 /// Before every fixture date below, so each booking is still to come.
 const NOW = sgt("2026-10-06", "10:00");
 
-/// Unavailable from 10 Jun 2027 PM, available again from 15 Jun 2027 PM.
+/// Unavailable from 10 Jun 2027, 13:00; available again from 15 Jun 2027, 13:00.
 const body = {
   fromDay: "2027-06-10",
-  fromSlot: "PM",
+  fromTime: "13:00",
   untilDay: "2027-06-15",
-  untilSlot: "PM",
+  untilTime: "13:00",
   reason: "equipment_failure",
 };
 /// The same period, for a reason that is not on the list.
@@ -75,9 +81,8 @@ function period(overrides: Record<string, unknown> = {}) {
   };
 }
 
-/// An approved booking of the venue holding one slot of one day.
-function booking(id: string, title: string, day: string, slot: "AM" | "PM", overrides: Record<string, unknown> = {}) {
-  const [from, to] = slot === "AM" ? ["07:00", "12:00"] : ["13:00", "18:00"];
+/// An approved booking of the venue, by its own times on one day.
+function booking(id: string, title: string, day: string, from: string, to: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
     eventId: `event-${id}`,
@@ -95,11 +100,12 @@ function booking(id: string, title: string, day: string, slot: "AM" | "PM", over
   };
 }
 
-/// The four bookings of the manual test cases: one either side of each edge.
-const before = () => booking("b-before", "Morning Briefing", "2027-06-10", "AM");
-const first = () => booking("b-first", "Afternoon Workshop", "2027-06-10", "PM");
-const last = () => booking("b-last", "Closing Seminar", "2027-06-15", "AM");
-const after = () => booking("b-after", "Return Forum", "2027-06-15", "PM");
+/// The four bookings of the manual test cases (SPM-45-TC09): each meets an edge
+/// of the period, two from outside it and two from inside.
+const before = () => booking("b-before", "Morning Briefing", "2027-06-10", "11:00", "13:00");
+const first = () => booking("b-first", "Afternoon Workshop", "2027-06-10", "13:00", "15:00");
+const last = () => booking("b-last", "Closing Seminar", "2027-06-15", "10:00", "13:00");
+const after = () => booking("b-after", "Return Forum", "2027-06-15", "13:00", "15:00");
 
 function given({ stored = venue(), bookings = [], existing = period() }: {
   stored?: object | null;
@@ -152,7 +158,7 @@ describe("GET /api/venues/[id]/unavailability", () => {
     expect(await res.json()).toEqual({ error: "Venue not found" });
   });
 
-  it("lists the periods that are not over yet, earliest first, as days and slots", async () => {
+  it("lists the periods that are not over yet, earliest first, as dates and times", async () => {
     vi.useFakeTimers({ now: NOW });
     const token = given();
 
@@ -163,9 +169,9 @@ describe("GET /api/venues/[id]/unavailability", () => {
       {
         id: PERIOD_ID,
         fromDay: "2027-06-10",
-        fromSlot: "PM",
+        fromTime: "13:00",
         untilDay: "2027-06-15",
-        untilSlot: "PM",
+        untilTime: "13:00",
         reason: "equipment_failure",
         otherReason: null,
       },
@@ -204,7 +210,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
     expect(db.venueUnavailability.create).not.toHaveBeenCalled();
   });
 
-  it("records the period from its first unavailable slot to its first available slot", async () => {
+  it("records the period from the time it becomes unavailable to the time it is available again", async () => {
     const token = given();
 
     const res = await create(token);
@@ -220,7 +226,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
     });
   });
 
-  it("answers with the period as days and slots, and nothing flagged when no booking is affected", async () => {
+  it("answers with the period as dates and times, and nothing flagged when no booking is affected", async () => {
     const json = await (await create(given())).json();
 
     expect(json.period).toEqual({ id: PERIOD_ID, ...body, otherReason: null });
@@ -244,14 +250,21 @@ describe("POST /api/venues/[id]/unavailability", () => {
     expect(callArg(db.venueUnavailability.create).data.notes).toBeNull();
   });
 
-  it("accepts a period of a single slot", async () => {
-    const res = await create(given(), { ...body, untilDay: "2027-06-10", untilSlot: "Night" });
+  it("accepts a period of a single 15-minute step", async () => {
+    const res = await create(given(), { ...body, untilDay: "2027-06-10", untilTime: "13:15" });
 
     expect(res.status).toBe(201);
     expect(callArg(db.venueUnavailability.create).data).toMatchObject({
       startsAt: sgt("2027-06-10", "13:00"),
-      endsAt: sgt("2027-06-10", "19:00"),
+      endsAt: sgt("2027-06-10", "13:15"),
     });
+  });
+
+  it("accepts a period that starts at midnight, outside any opening hours", async () => {
+    const res = await create(given(), { ...body, fromTime: "00:00" });
+
+    expect(res.status).toBe(201);
+    expect(callArg(db.venueUnavailability.create).data.startsAt).toEqual(sgt("2027-06-10", "00:00"));
   });
 
   it("leaves the venue itself active - the room is not retired", async () => {
@@ -263,15 +276,15 @@ describe("POST /api/venues/[id]/unavailability", () => {
 
   describe("what it refuses", () => {
     it.each([
-      ["the same slot", { untilDay: "2027-06-10", untilSlot: "PM" }],
-      ["an earlier slot of the same day", { untilDay: "2027-06-10", untilSlot: "AM" }],
-      ["an earlier day", { untilDay: "2027-06-09", untilSlot: "Night" }],
-    ])("a return in %s", async (_case, until) => {
+      ["at the same time", { untilDay: "2027-06-10", untilTime: "13:00" }],
+      ["earlier the same day", { untilDay: "2027-06-10", untilTime: "09:00" }],
+      ["on an earlier day, later in the day", { untilDay: "2027-06-09", untilTime: "23:45" }],
+    ])("a return %s", async (_case, until) => {
       const res = await create(given(), { ...body, ...until });
       const json = await res.json();
 
       expect(res.status).toBe(400);
-      expect(json.details.fieldErrors.untilDay).toEqual([
+      expect(json.details.fieldErrors.untilTime).toEqual([
         "The venue must become available again after it becomes unavailable.",
       ]);
       expect(db.venueUnavailability.create).not.toHaveBeenCalled();
@@ -283,7 +296,12 @@ describe("POST /api/venues/[id]/unavailability", () => {
       ["no start date", { fromDay: undefined }, "fromDay"],
       ["a start date that is not a real date", { fromDay: "2027-02-31" }, "fromDay"],
       ["no return date", { untilDay: undefined }, "untilDay"],
-      ["a slot that does not exist", { fromSlot: "Evening" }, "fromSlot"],
+      ["no start time", { fromTime: undefined }, "fromTime"],
+      ["no return time", { untilTime: undefined }, "untilTime"],
+      ["a start time off the 15-minute grid", { fromTime: "13:10" }, "fromTime"],
+      ["a return time off the 15-minute grid", { untilTime: "13:40" }, "untilTime"],
+      ["a time that does not exist", { fromTime: "24:00" }, "fromTime"],
+      ["a slot name instead of a time", { fromTime: "PM" }, "fromTime"],
       ["Other with no description", { reason: "other" }, "otherReason"],
       ["Other with a description of spaces only", { reason: "other", otherReason: "   " }, "otherReason"],
       ["Other with a description longer than 500 characters", { reason: "other", otherReason: "x".repeat(501) }, "otherReason"],
@@ -294,6 +312,41 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(res.status).toBe(400);
       expect(json.details.fieldErrors).toHaveProperty(field);
       expect(db.venueUnavailability.create).not.toHaveBeenCalled();
+    });
+
+    describe("a period that is already over", () => {
+      const past = { ...body, fromDay: "2026-09-01", fromTime: "09:00" };
+
+      it.each([
+        ["ended last month", { untilDay: "2026-09-05", untilTime: "17:00" }],
+        ["ends at this very moment", { untilDay: "2026-10-06", untilTime: "10:00" }],
+      ])("when it %s", async (_case, until) => {
+        vi.useFakeTimers({ now: NOW });
+
+        const res = await create(given({ bookings: [first()] }), { ...past, ...until });
+
+        expect(res.status).toBe(400);
+        expect(await res.json()).toEqual({
+          error: "Validation failed",
+          details: { formErrors: [], fieldErrors: { untilTime: ["This period is already over."] } },
+        });
+        expect(db.venueUnavailability.create).not.toHaveBeenCalled();
+        expect(db.venueBooking.update).not.toHaveBeenCalled();
+      });
+
+      it("but not one that began in the past and ends 15 minutes from now", async () => {
+        vi.useFakeTimers({ now: NOW });
+
+        const res = await create(given(), { ...past, untilDay: "2026-10-06", untilTime: "10:15" });
+
+        expect(res.status).toBe(201);
+      });
+    });
+
+    it("names the 15-minute grid when a time is off it", async () => {
+      const json = await (await create(given(), { ...body, fromTime: "13:10" })).json();
+
+      expect(json.details.fieldErrors.fromTime).toEqual(["Choose a time on a 15-minute step (:00, :15, :30 or :45)."]);
     });
 
     it("says what is missing when Other has no description", async () => {
@@ -316,7 +369,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       });
     });
 
-    it("flags the bookings in its first and last slots, and not the ones either side", async () => {
+    it("flags the bookings that overlap it, and not one that ends as it starts or starts as it ends", async () => {
       const token = given({ bookings: [before(), first(), last(), after()] });
 
       const json = await (await create(token)).json();
@@ -370,6 +423,8 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(notification.body).toContain("the venue is unavailable during this booking");
       expect(notification.body).toContain("The approved booking for Afternoon Workshop on ");
       expect(notification.body).toContain("nothing has been changed automatically.");
+      expect(notification.body).toContain("Alternative arrangements are needed");
+      expect(notification.body).toContain("Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00.");
       expect(notification.body).toContain("Equipment failure");
     });
 
@@ -404,22 +459,34 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(callArg(db.venueBooking.update).data.reviewReason).toBe("layout_removed,venue_unavailable");
     });
 
-    it("counts a booking whose turnaround slot falls in the period", async () => {
-      // Morning Briefing ends before the period; its turnaround takes 10 Jun PM.
-      const token = given({ stored: venue({ teardownMinutes: 30 }), bookings: [before()] });
+    it("counts a booking whose turnaround runs into the period", async () => {
+      // Morning Briefing ends at 13:00, as the period starts; its turnaround runs to 13:45.
+      const token = given({ stored: venue({ teardownMinutes: 45 }), bookings: [before()] });
 
       await create(token);
 
       expect(flaggedIds()).toEqual(["b-before"]);
     });
 
-    it("counts a booking whose setup slot falls in the period", async () => {
-      // Return Forum starts as the venue returns; its setup takes 15 Jun AM.
-      const token = given({ stored: venue({ setupMinutes: 60 }), bookings: [after()] });
+    it("counts a booking whose setup starts inside the period", async () => {
+      // Return Forum starts at 13:00, as the venue returns; its setup starts at 12:30.
+      const token = given({ stored: venue({ setupMinutes: 30 }), bookings: [after()] });
 
       await create(token);
 
       expect(flaggedIds()).toEqual(["b-after"]);
+    });
+
+    it("does not count setup and turnaround that only meet the period", async () => {
+      // Room in use 10:30-13:00 and 13:00-15:45: each meets an edge, neither overlaps.
+      const early = booking("b-early", "Early Talk", "2027-06-10", "11:00", "12:15");
+      const later = booking("b-later", "Later Talk", "2027-06-15", "13:30", "15:00");
+      const token = given({ stored: venue({ setupMinutes: 30, teardownMinutes: 45 }), bookings: [early, later] });
+
+      const json = await (await create(token)).json();
+
+      expect(json.flaggedBookings).toEqual([]);
+      expect(db.venueBooking.update).not.toHaveBeenCalled();
     });
   });
 
@@ -432,8 +499,8 @@ describe("POST /api/venues/[id]/unavailability", () => {
 });
 
 describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
-  /// 9 Jun Night to 16 Jun AM: one slot wider at each end than the stored period.
-  const wider = { ...body, fromDay: "2027-06-09", fromSlot: "Night", untilDay: "2027-06-16", untilSlot: "AM" };
+  /// 12:45 to 13:15: one 15-minute step wider at each end than the stored period.
+  const wider = { ...body, fromTime: "12:45", untilTime: "13:15" };
 
   it("is 401 without a session", async () => {
     expect((await change(undefined)).status).toBe(401);
@@ -465,7 +532,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("saves the new dates, slots and reason", async () => {
+  it("saves the new dates, times and reason", async () => {
     const token = given();
 
     const res = await change(token, { ...wider, reason: "other", otherReason: " Film crew on site " });
@@ -474,8 +541,8 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(callArg(db.venueUnavailability.update)).toEqual({
       where: { id: PERIOD_ID },
       data: {
-        startsAt: sgt("2027-06-09", "19:00"),
-        endsAt: sgt("2027-06-16", "07:00"),
+        startsAt: sgt("2027-06-10", "12:45"),
+        endsAt: sgt("2027-06-15", "13:15"),
         reason: "other",
         notes: "Film crew on site",
       },
@@ -484,8 +551,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
   });
 
   it("flags only the bookings the wider period newly covers", async () => {
-    const eveningBefore = { ...before(), startsAt: sgt("2027-06-09", "19:00"), endsAt: sgt("2027-06-10", "00:00") };
-    const token = given({ bookings: [eveningBefore, first(), last(), after()] });
+    const token = given({ bookings: [before(), first(), last(), after()] });
 
     const json = await (await change(token, wider)).json();
 
@@ -495,7 +561,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
   });
 
   it("flags nothing, and clears nothing, when the period is made shorter", async () => {
-    const shorter = { ...body, fromDay: "2027-06-11", fromSlot: "AM" };
+    const shorter = { ...body, fromDay: "2027-06-11", fromTime: "09:00" };
     const token = given({ bookings: [{ ...first(), needsReview: true, reviewReason: "venue_unavailable" }] });
 
     const json = await (await change(token, shorter)).json();
@@ -505,12 +571,30 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
   });
 
   it("refuses a return that is not later than the start", async () => {
-    const res = await change(given(), { ...body, untilDay: "2027-06-10", untilSlot: "PM" });
+    const res = await change(given(), { ...body, untilDay: "2027-06-10", untilTime: "13:00" });
 
     expect(res.status).toBe(400);
-    expect((await res.json()).details.fieldErrors.untilDay).toEqual([
+    expect((await res.json()).details.fieldErrors.untilTime).toEqual([
       "The venue must become available again after it becomes unavailable.",
     ]);
+    expect(db.venueUnavailability.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a change that would leave the period already over", async () => {
+    vi.useFakeTimers({ now: sgt("2027-06-12", "10:00") });
+
+    const res = await change(given(), { ...body, untilDay: "2027-06-12", untilTime: "09:00" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.untilTime).toEqual(["This period is already over."]);
+    expect(db.venueUnavailability.update).not.toHaveBeenCalled();
+  });
+
+  it("refuses a time that is off the 15-minute grid", async () => {
+    const res = await change(given(), { ...body, untilTime: "13:20" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors).toHaveProperty("untilTime");
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
@@ -576,17 +660,30 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
     expect(db.venueUnavailability.delete).not.toHaveBeenCalled();
   });
 
-  it("ends a period that is under way at this moment, keeping the record of it", async () => {
-    const duringIt = sgt("2027-06-12", "10:00");
-    vi.useFakeTimers({ now: duringIt });
+  it("ends a period that is under way from the 15-minute step that has begun, keeping the record of it", async () => {
+    vi.useFakeTimers({ now: sgt("2027-06-12", "10:07") });
     const token = given();
 
     const res = await end(token);
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ended: true });
-    expect(callArg(db.venueUnavailability.update)).toEqual({ where: { id: PERIOD_ID }, data: { endsAt: duringIt } });
+    expect(callArg(db.venueUnavailability.update)).toEqual({
+      where: { id: PERIOD_ID },
+      data: { endsAt: sgt("2027-06-12", "10:00") },
+    });
     expect(db.venueUnavailability.delete).not.toHaveBeenCalled();
+  });
+
+  it("removes a period ended within 15 minutes of starting, since nothing of it is left", async () => {
+    vi.useFakeTimers({ now: sgt("2027-06-10", "13:10") });
+    const token = given();
+
+    const res = await end(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.venueUnavailability.delete)).toEqual({ where: { id: PERIOD_ID } });
+    expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
   it("removes a period that has not started yet", async () => {

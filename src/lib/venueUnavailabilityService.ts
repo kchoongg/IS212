@@ -2,6 +2,7 @@
 // route files under src/app/api/venues/[id]/unavailability. The rules it
 // applies live in src/lib/venueUnavailability.ts and src/lib/venueImpact.ts.
 
+import { NextResponse } from "next/server";
 import type { Prisma } from "@prisma/client";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { notifyUser } from "@/lib/notifications";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/venueImpact";
 import type { VenueUnavailabilityInput } from "@/lib/validation";
 import {
+  PERIOD_OVER_ERROR,
   bookingInPeriod,
   describePeriod,
   periodBounds,
@@ -22,7 +24,7 @@ import {
   unavailabilityReasonLabel,
   type PeriodBounds,
 } from "@/lib/venueUnavailability";
-import type { Interval } from "@/lib/venueSlots";
+import type { Interval } from "@/lib/venueTime";
 
 const REASON: ImpactReason = "venue_unavailable";
 
@@ -43,10 +45,21 @@ interface PeriodVenue {
   teardownMinutes: number;
 }
 
-/// A period as the screens receive it: days and slots, never raw timestamps.
+/// A period as the screens receive it: Singapore dates and times, never raw
+/// timestamps.
 /// `otherReason` is the row's notes - the description of an "other" reason.
 export function periodJson(row: { id: string; startsAt: Date; endsAt: Date; reason: string; notes: string | null }) {
   return { id: row.id, ...periodBounds(row), reason: row.reason, otherReason: row.notes ?? null };
+}
+
+/// The refusal of a period that is already over. It needs the current time, so
+/// it is the routes' check rather than the schema's, but it answers in the
+/// schema's shape so the dialog shows it under the return time.
+export function periodOverResponse() {
+  return NextResponse.json(
+    { error: "Validation failed", details: { formErrors: [], fieldErrors: { untilTime: [PERIOD_OVER_ERROR] } } },
+    { status: 400 }
+  );
 }
 
 /// What to write for a validated request: the interval, the reason, and the
@@ -60,7 +73,8 @@ export function periodColumns(input: VenueUnavailabilityInput) {
 }
 
 /**
- * Flag the venue's bookings that `period` covers, and notify each one's
+ * Flag the venue's bookings whose occupied period (their times plus the
+ * venue's setup and turnaround) overlaps `period`, and notify each one's
  * coordinator - AC3: "it is flagged and the Coordinator notified as for a
  * retired venue; bookings outside the period are not flagged."
  *
@@ -68,10 +82,11 @@ export function periodColumns(input: VenueUnavailabilityInput) {
  * bookings that have not finished, the review flag and one notification each,
  * and never a change to the booking's venue, layout, times or status (#120,
  * #122; Week 7 Change #2: "the existing event itself should not automatically
- * be cancelled").
+ * be cancelled"). The notification says alternative arrangements are needed,
+ * which is what Change #2 asks the coordinator to be told.
  *
  * `previous` is the period as it stood before a change. A booking it already
- * covered was flagged then, so only newly covered bookings are flagged now.
+ * overlapped was flagged then, so only newly overlapped bookings are flagged now.
  * Nothing is ever un-flagged here: clearing a flag is the Coordinator's
  * decision (SPM-68).
  */
@@ -122,7 +137,8 @@ export async function flagBookingsInPeriod(
         `The approved booking for ${booking.event.title ?? "an event"}` +
         `${booking.session?.label ? ` (${booking.session.label})` : ""} on ` +
         `${formatDateTimeRange(booking.startsAt, booking.endsAt)} is flagged for review - ` +
-        `nothing has been changed automatically. Reason given: ${why}`,
+        `nothing has been changed automatically. Alternative arrangements are needed ` +
+        `for this booking. Reason given: ${why}`,
       eventId: booking.eventId,
     });
 

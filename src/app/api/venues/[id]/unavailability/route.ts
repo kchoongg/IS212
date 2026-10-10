@@ -3,12 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { venueUnavailabilitySchema } from "@/lib/validation";
-import { periodBounds } from "@/lib/venueUnavailability";
+import { periodBounds, periodPhase } from "@/lib/venueUnavailability";
 import {
   PERIOD_VENUE_SELECT,
   flagBookingsInPeriod,
   periodColumns,
   periodJson,
+  periodOverResponse,
 } from "@/lib/venueUnavailabilityService";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -56,15 +57,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
  * Mark a venue unavailable for a period (SPM-45; Week 7 Change #2).
  *
  * Writes one VenueUnavailability row and nothing on the venue itself: the room
- * stays active and in the catalogue, and is closed only for the slots the
+ * stays active and in the catalogue, and is closed only for the time the
  * period covers. The calendar, venue search and the booking checks already
  * read that table, so they need nothing more to respect it - and the venue is
  * "available again without any action" (AC4) simply because a period that has
- * passed no longer covers any slot.
+ * passed no longer overlaps anything.
  *
  * The period is never refused for the bookings it lands on ("this may occur
  * even when future events have already been booked"). Those are flagged for
- * review and their coordinators notified; the response says which.
+ * review and their coordinators notified; the response says which. The one
+ * period that is refused is one already over, which could never be listed or
+ * flag anything.
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -79,6 +82,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const data = venueUnavailabilitySchema.parse(await req.json());
     const columns = periodColumns(data);
+    if (periodPhase(columns, new Date()) === "past") {
+      return periodOverResponse();
+    }
 
     // One transaction, so a period is never saved without its flags and
     // notifications, or the other way round.

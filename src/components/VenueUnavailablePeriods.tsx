@@ -4,7 +4,6 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Button, ConfirmDialog, Field, Input, Select, Textarea } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { readServerError, type FieldErrors } from "@/lib/formErrors";
-import { SLOTS } from "@/lib/venueSlots";
 import {
   EMPTY_PERIOD_FORM,
   OTHER_REASON_MAX,
@@ -22,8 +21,11 @@ import type { ImpactReason } from "@/lib/venueImpact";
 //
 // Lists the venue's unavailable periods that are under way or still to come,
 // and lets Venue Staff mark the venue unavailable, change a period, or end one
-// early. A period closes the room for its slots only - the venue stays active
-// and in the catalogue, which is what separates this from "Retire venue".
+// early. A period closes the room for its own time only - the venue stays
+// active and in the catalogue, which is what separates this from "Retire
+// venue". Periods are stated as dates and times on the 15-minute grid
+// (SPM-93); the time fields take any minute, so an off-grid time gets this
+// screen's message rather than the browser's.
 //
 // This is a dialog on the editor rather than the separate "Block venue" screen
 // (S-23) UI_DESIGN.md sketched: the story was scoped down to recording a
@@ -49,7 +51,6 @@ export interface FlaggedByPeriod {
 
 export type PeriodAction = "period_saved" | "period_changed" | "period_ended";
 
-const SLOT_OPTIONS = SLOTS.map((slot) => ({ value: slot, label: slot }));
 const REASON_OPTIONS = UNAVAILABILITY_REASONS.map((reason) => ({
   value: reason,
   label: unavailabilityReasonLabel(reason),
@@ -107,9 +108,9 @@ export function VenueUnavailablePeriods({
       period
         ? {
             fromDay: period.fromDay,
-            fromSlot: period.fromSlot,
+            fromTime: period.fromTime,
             untilDay: period.untilDay,
-            untilSlot: period.untilSlot,
+            untilTime: period.untilTime,
             reason: period.reason,
             otherReason: period.otherReason ?? "",
           }
@@ -192,7 +193,7 @@ export function VenueUnavailablePeriods({
             Unavailable periods
           </h2>
           <p className="mt-1 text-sm text-ink-3">
-            When this room is out of use. It stays in the catalogue, and cannot be requested for these slots.
+            When this room is out of use. It stays in the catalogue, and cannot be requested for these times.
           </p>
         </div>
         <Button type="button" variant="secondary" onClick={() => openDialog(null)} disabled={pending !== null}>
@@ -253,8 +254,9 @@ export function VenueUnavailablePeriods({
         {dialogOpen && (
           <div className="flex flex-col gap-3">
             <p>
-              Any approved booking in these slots will be <strong>flagged for review</strong>, and the
-              coordinator responsible for it will be notified. No booking is cancelled or moved.
+              Any approved booking that needs the room during this period, setup and turnaround included,
+              will be <strong>flagged for review</strong>, and the coordinator responsible for it will be
+              notified. No booking is cancelled or moved.
             </p>
 
             {dialogError && <Alert variant="error">{dialogError}</Alert>}
@@ -263,24 +265,14 @@ export function VenueUnavailablePeriods({
               <Field label="Unavailable from" required error={errors.fromDay}>
                 <Input type="date" name="fromDay" value={values.fromDay} onChange={(e) => change("fromDay", e.target.value)} />
               </Field>
-              <Field label="First unavailable slot">
-                <Select
-                  name="fromSlot"
-                  options={SLOT_OPTIONS}
-                  value={values.fromSlot}
-                  onChange={(e) => change("fromSlot", e.target.value as PeriodFormValues["fromSlot"])}
-                />
+              <Field label="From time" required error={errors.fromTime}>
+                <Input type="time" name="fromTime" value={values.fromTime} onChange={(e) => change("fromTime", e.target.value)} />
               </Field>
               <Field label="Available again on" required error={errors.untilDay}>
                 <Input type="date" name="untilDay" value={values.untilDay} onChange={(e) => change("untilDay", e.target.value)} />
               </Field>
-              <Field label="First available slot">
-                <Select
-                  name="untilSlot"
-                  options={SLOT_OPTIONS}
-                  value={values.untilSlot}
-                  onChange={(e) => change("untilSlot", e.target.value as PeriodFormValues["untilSlot"])}
-                />
+              <Field label="Available again at" required error={errors.untilTime}>
+                <Input type="time" name="untilTime" value={values.untilTime} onChange={(e) => change("untilTime", e.target.value)} />
               </Field>
             </div>
 

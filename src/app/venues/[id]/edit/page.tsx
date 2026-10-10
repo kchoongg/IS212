@@ -283,7 +283,7 @@ export default function EditVenuePage() {
         </Alert>
       )}
 
-      {/* SPM-45: out of use for some slots, which is not the same as retired -
+      {/* SPM-45: out of use for a period, which is not the same as retired -
           so it is offered whether or not the venue is. */}
       <VenueUnavailablePeriods
         venueId={venueId}
@@ -408,7 +408,7 @@ function SaveResult({
   if (action === "period_ended") {
     return (
       <Alert variant="success" title={verb} className="mt-4">
-        The venue can be requested again for the slots that were left in the period.
+        The venue can be requested again for the time that was left in the period.
       </Alert>
     );
   }

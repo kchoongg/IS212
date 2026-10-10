@@ -1,9 +1,10 @@
-// Unavailable periods: a venue out of use from one slot until another.
+// Unavailable periods: a venue out of use from one time until another.
 //
 // SPM-45 (Record Venue Unavailability; Week 7 Change #2): Venue Staff mark a
-// venue unavailable from a date and slot until the date and slot it is
-// available again. The customer answered "can a venue be partially blocked?"
-// with the three slots (#50), so a period is stated in slots, not whole days.
+// venue unavailable from a date and time until the date and time it is
+// available again, on the 15-minute booking grid (#126, #128; SPM-93). The
+// customer answered "can a venue be partially blocked?" with part of a day
+// (#50), so a period is stated in times, not whole days.
 //
 // A period is a VenueUnavailability row. Everything that READS that table was
 // built first and needs nothing from here: the calendar (SPM-46), venue search
@@ -15,22 +16,22 @@
 // reason src/lib/venueImpact.ts is. The routes under
 // src/app/api/venues/[id]/unavailability load the rows and write the flags.
 
-import { formatDate } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import type { FieldErrors } from "@/lib/formErrors";
 import {
-  SLOTS,
-  SLOT_BOUNDARIES,
-  addDays,
+  BOOKING_STEP_MINUTES,
+  asClock,
+  atLocalTime,
   isDayKey,
+  isOnGrid,
   localDayKey,
-  localDayStart,
   localMinuteOfDay,
-  occupiedCells,
+  occupiedWindow,
+  overlapping,
+  parseClock,
   type Interval,
-  type Slot,
-  type SlotCell,
   type Turnaround,
-} from "@/lib/venueSlots";
+} from "@/lib/venueTime";
 
 // ---------------------------------------------------------------------------
 // REASONS
@@ -63,97 +64,58 @@ export function unavailabilityReasonLabel(reason: string): string {
 export const OTHER_REASON_MAX = 500;
 
 // ---------------------------------------------------------------------------
-// DAYS AND SLOTS <-> THE STORED INTERVAL
+// DATES AND TIMES <-> THE STORED INTERVAL
 // ---------------------------------------------------------------------------
 
-/// A period as Venue Staff state it: the first slot the venue is out of use,
-/// and the first slot it is back. Days are Singapore calendar days.
+/// A period as Venue Staff state it: when the venue becomes unavailable, and
+/// when it is available again. Days are Singapore calendar days ("YYYY-MM-DD")
+/// and times Singapore wall-clock times ("HH:MM").
 export interface PeriodBounds {
   fromDay: string;
-  fromSlot: Slot;
+  fromTime: string;
   untilDay: string;
-  untilSlot: Slot;
+  untilTime: string;
 }
 
-function slotStart(day: string, slot: Slot): Date {
-  return new Date(localDayStart(day).getTime() + SLOT_BOUNDARIES[slot].fromMinute * 60_000);
-}
-
-/// The interval to store: from the START of the first unavailable slot to the
-/// START of the first available one. Ending there, not at the end of the last
-/// unavailable slot, is what makes "available again from 15 Jun PM" leave
-/// 15 Jun PM free while still covering all of 15 Jun AM.
+/// The interval to store: exactly what was stated. Half-open like every
+/// interval in the venues domain, so "available again from 13:00" leaves 13:00
+/// itself free. Assumes valid days and times - check them first.
 export function periodInterval(bounds: PeriodBounds): Interval {
   return {
-    startsAt: slotStart(bounds.fromDay, bounds.fromSlot),
-    endsAt: slotStart(bounds.untilDay, bounds.untilSlot),
+    startsAt: atLocalTime(bounds.fromDay, bounds.fromTime),
+    endsAt: atLocalTime(bounds.untilDay, bounds.untilTime),
   };
 }
 
-/// A stored interval, back as days and slots. Exact for anything
-/// periodInterval() produced. A row that does not sit on slot starts - one
-/// seeded as whole days, or a period ended early part-way through a slot - is
-/// read the generous way: unavailable from the slot its start falls in (or the
-/// next one), available again from the first slot that starts at or after its
-/// end.
+/// A stored interval, back as dates and times. Exact for any row, including
+/// one seeded as whole days (midnight to midnight).
 export function periodBounds(interval: Interval): PeriodBounds {
-  const startDay = localDayKey(interval.startsAt);
-  const startMinute = localMinuteOfDay(interval.startsAt);
-  // Night ends at 24:00, so a slot ending after any minute of the day exists.
-  const fromSlot = SLOTS.find((slot) => SLOT_BOUNDARIES[slot].toMinute > startMinute) ?? SLOTS[SLOTS.length - 1];
-
-  const endDay = localDayKey(interval.endsAt);
-  const endMinute = localMinuteOfDay(interval.endsAt);
-  const untilSlot = SLOTS.find((slot) => SLOT_BOUNDARIES[slot].fromMinute >= endMinute);
-
   return {
-    fromDay: startDay,
-    fromSlot,
-    // After the last slot has started, the venue is back the next morning.
-    untilDay: untilSlot ? endDay : addDays(endDay, 1),
-    untilSlot: untilSlot ?? SLOTS[0],
+    fromDay: localDayKey(interval.startsAt),
+    fromTime: asClock(localMinuteOfDay(interval.startsAt)),
+    untilDay: localDayKey(interval.endsAt),
+    untilTime: asClock(localMinuteOfDay(interval.endsAt)),
   };
 }
 
-/// "Unavailable from 10 Jun 2027 PM. Available again from 15 Jun 2027 PM."
+/// "Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00."
 export function describePeriod(bounds: PeriodBounds): string {
-  const day = (dayKey: string) => formatDate(localDayStart(dayKey));
-  return (
-    `Unavailable from ${day(bounds.fromDay)} ${bounds.fromSlot}. ` +
-    `Available again from ${day(bounds.untilDay)} ${bounds.untilSlot}.`
-  );
+  const { startsAt, endsAt } = periodInterval(bounds);
+  return `Unavailable from ${formatDateTime(startsAt)}. Available again from ${formatDateTime(endsAt)}.`;
 }
 
 // ---------------------------------------------------------------------------
 // WHICH BOOKINGS A PERIOD AFFECTS
 // ---------------------------------------------------------------------------
 
-function overlapping(a: Interval, b: Interval): boolean {
-  return a.startsAt.getTime() < b.endsAt.getTime() && a.endsAt.getTime() > b.startsAt.getTime();
-}
-
-function cellInterval(cell: SlotCell): Interval {
-  const dayStart = localDayStart(cell.day).getTime();
-  const { fromMinute, toMinute } = SLOT_BOUNDARIES[cell.slot];
-  return {
-    startsAt: new Date(dayStart + fromMinute * 60_000),
-    endsAt: new Date(dayStart + toMinute * 60_000),
-  };
-}
-
-/// Does the period cover a slot this booking holds?
+/// AC3: does the booking's occupied period overlap the unavailable period?
 ///
-/// "Holds" includes the booking's setup and turnaround slots, because the room
-/// is committed for those too - the same rule the calendar's overlap warning
-/// and the booking conflict check use, and the one SPM-80 states for its own
-/// re-check ("a booking's setup or turnaround period now falls on a recorded
-/// unavailable period").
+/// "Occupied" is the booking's own times plus the venue's setup before and
+/// turnaround after (Week 7 Change #1), because the room is committed for
+/// those too - the same rule the calendar's overlap warning and the booking
+/// conflict check use. Periods that only meet end to start do not overlap.
 export function bookingInPeriod(booking: Interval, venue: Turnaround, period: Interval): boolean {
-  const cells = occupiedCells(booking, venue);
-  // A booking that touches no slot at all (12:15-12:45, say) still occupies
-  // the room for its own minutes.
-  if (cells.length === 0) return overlapping(booking, period);
-  return cells.some((cell) => overlapping(cellInterval(cell), period));
+  return overlapping(occupiedWindow(booking, venue), period);
 }
 
 export type PeriodPhase = "upcoming" | "current" | "past";
@@ -166,45 +128,73 @@ export function periodPhase(period: Interval, now: Date): PeriodPhase {
   return now.getTime() < period.endsAt.getTime() ? "current" : "past";
 }
 
+/// AC5, "end it early": the time a period under way ends when it is ended now.
+/// Now, rounded DOWN to the 15-minute grid - so the venue is available again
+/// straight away and the stored time stays on the grid. Null when that would
+/// leave nothing of the period (it began within the last step), in which case
+/// the caller removes it.
+///
+/// Rounding the instant itself is right for any zone whose offset is a whole
+/// number of quarter hours, which Singapore's is.
+export function endEarlyAt(period: Interval, now: Date): Date | null {
+  const step = BOOKING_STEP_MINUTES * 60_000;
+  const end = new Date(Math.floor(now.getTime() / step) * step);
+  return end.getTime() > period.startsAt.getTime() ? end : null;
+}
+
 // ---------------------------------------------------------------------------
 // THE FORM
 // ---------------------------------------------------------------------------
 
+export const TIME_GRID_ERROR = "Choose a time on a 15-minute step (:00, :15, :30 or :45).";
 export const PERIOD_ORDER_ERROR = "The venue must become available again after it becomes unavailable.";
+/// A period whose return is not still to come would be saved and then never
+/// listed - the venue page shows only periods under way or coming up - and
+/// could flag nothing, so it is refused (decided 2026-10-09). One that began
+/// in the past and is still under way is fine: a failure is often recorded
+/// after it starts.
+export const PERIOD_OVER_ERROR = "This period is already over.";
 export const OTHER_REASON_ERROR = "Describe the reason.";
 
-/// The "Mark unavailable" dialog's fields, as typed.
-export interface PeriodFormValues {
-  fromDay: string;
-  fromSlot: Slot;
-  untilDay: string;
-  untilSlot: Slot;
-  /// "" until a reason is chosen.
+/// The "Mark unavailable" dialog's fields, as typed. All "" until filled in.
+export interface PeriodFormValues extends PeriodBounds {
   reason: string;
   otherReason: string;
 }
 
 export const EMPTY_PERIOD_FORM: PeriodFormValues = {
   fromDay: "",
-  fromSlot: "AM",
+  fromTime: "",
   untilDay: "",
-  untilSlot: "AM",
+  untilTime: "",
   reason: "",
   otherReason: "",
 };
 
+/// What is wrong with a typed time, if anything.
+function timeError(value: string, missing: string): string | undefined {
+  if (parseClock(value) === null) return missing;
+  return isOnGrid(value) ? undefined : TIME_GRID_ERROR;
+}
+
 /// What the dialog refuses before sending. A convenience mirroring
 /// venueUnavailabilitySchema (src/lib/validation/venues.ts), which is the
 /// authority.
-export function validatePeriodForm(values: PeriodFormValues): FieldErrors {
+export function validatePeriodForm(values: PeriodFormValues, now: Date = new Date()): FieldErrors {
   const errors: FieldErrors = {};
 
   if (!isDayKey(values.fromDay)) errors.fromDay = "Enter the date the venue becomes unavailable.";
-  if (!isDayKey(values.untilDay)) {
-    errors.untilDay = "Enter the date the venue becomes available again.";
-  } else if (!errors.fromDay) {
-    const { startsAt, endsAt } = periodInterval(values);
-    if (endsAt.getTime() <= startsAt.getTime()) errors.untilDay = PERIOD_ORDER_ERROR;
+  const fromTime = timeError(values.fromTime, "Enter the time the venue becomes unavailable.");
+  if (fromTime) errors.fromTime = fromTime;
+  if (!isDayKey(values.untilDay)) errors.untilDay = "Enter the date the venue becomes available again.";
+  const untilTime = timeError(values.untilTime, "Enter the time the venue becomes available again.");
+  if (untilTime) errors.untilTime = untilTime;
+
+  // AC2, once there are two readable moments to compare.
+  if (Object.keys(errors).length === 0) {
+    const period = periodInterval(values);
+    if (period.endsAt.getTime() <= period.startsAt.getTime()) errors.untilTime = PERIOD_ORDER_ERROR;
+    else if (periodPhase(period, now) === "past") errors.untilTime = PERIOD_OVER_ERROR;
   }
 
   if (!values.reason) {
@@ -221,9 +211,9 @@ export function validatePeriodForm(values: PeriodFormValues): FieldErrors {
 export function periodPayload(values: PeriodFormValues) {
   return {
     fromDay: values.fromDay,
-    fromSlot: values.fromSlot,
+    fromTime: values.fromTime,
     untilDay: values.untilDay,
-    untilSlot: values.untilSlot,
+    untilTime: values.untilTime,
     reason: values.reason,
     ...(values.reason === "other" ? { otherReason: values.otherReason.trim() } : {}),
   };

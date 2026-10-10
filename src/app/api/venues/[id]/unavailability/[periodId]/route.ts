@@ -3,12 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { venueUnavailabilitySchema } from "@/lib/validation";
-import { periodBounds, periodPhase } from "@/lib/venueUnavailability";
+import { endEarlyAt, periodBounds, periodPhase } from "@/lib/venueUnavailability";
 import {
   PERIOD_VENUE_SELECT,
   flagBookingsInPeriod,
   periodColumns,
   periodJson,
+  periodOverResponse,
 } from "@/lib/venueUnavailabilityService";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
@@ -35,11 +36,11 @@ async function loadPeriod(tx: Prisma.TransactionClient, id: string, periodId: st
 }
 
 /**
- * Change an unavailable period's dates, slots or reason (SPM-45 AC5).
+ * Change an unavailable period's dates, times or reason (SPM-45 AC5).
  *
- * Bookings the changed period newly covers are flagged and their coordinators
+ * Bookings the changed period newly overlaps are flagged and their coordinators
  * notified, exactly as when a period is first recorded. A booking the period
- * covered before is not flagged a second time, and one it no longer covers
+ * overlapped before is not flagged a second time, and one it no longer overlaps
  * keeps its flag: clearing a flag is the Coordinator's decision (SPM-68), not
  * a side effect of Venue Staff shortening a period.
  */
@@ -56,6 +57,10 @@ export async function PATCH(req: NextRequest, context: Context) {
 
     const data = venueUnavailabilitySchema.parse(await req.json());
     const columns = periodColumns(data);
+    // Bringing the return into the past is "End period", not a change.
+    if (periodPhase(columns, new Date()) === "past") {
+      return periodOverResponse();
+    }
 
     const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const found = await loadPeriod(tx, id, periodId);
@@ -93,10 +98,12 @@ export async function PATCH(req: NextRequest, context: Context) {
 /**
  * End an unavailable period early (SPM-45 AC5).
  *
- * A period under way ends now - its row is kept, with its end brought
- * forward, so the calendar still shows the slots the room really was out of
- * use. A period that has not started is removed outright, since it never took
- * effect. One that is already over has nothing left to end.
+ * A period under way ends now, rounded down to the 15-minute grid
+ * (endEarlyAt) - its row is kept, with its end brought forward, so the
+ * calendar still shows the time the room really was out of use. A period that
+ * has not started, or that began within the last 15 minutes, is removed
+ * outright, since nothing of it is left. One that is already over has nothing
+ * left to end.
  *
  * Bookings are not touched and no flag is cleared (see PATCH above).
  */
@@ -122,8 +129,9 @@ export async function DELETE(req: NextRequest, context: Context) {
       if (phase === "past") {
         return refuse("This unavailable period is already over.", 400);
       }
-      if (phase === "current") {
-        await tx.venueUnavailability.update({ where: { id: periodId }, data: { endsAt: now } });
+      const endsAt = phase === "current" ? endEarlyAt(found.period, now) : null;
+      if (endsAt) {
+        await tx.venueUnavailability.update({ where: { id: periodId }, data: { endsAt } });
       } else {
         await tx.venueUnavailability.delete({ where: { id: periodId } });
       }

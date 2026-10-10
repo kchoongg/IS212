@@ -410,7 +410,7 @@ async function main() {
       facilities: [] },
     // SPM-45 fixtures (scripts/seed-spm45.ts): six rooms Venue Staff mark
     // unavailable - dedicated, so doing so flags no other story's bookings.
-    // Only SPM45-SET needs a setup and a turnaround slot.
+    // Only SPM45-SET has setup and turnaround time (the Week 7 example's).
     { code: "SPM45-DAT", name: "SPM45 Dates Room", description: "SPM-45 test venue: no unavailable period, no bookings",
       building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
       setupMinutes: 0, teardownMinutes: 0,
@@ -421,9 +421,9 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [] },
-    { code: "SPM45-SET", name: "SPM45 Setup Room", description: "SPM-45 test venue: needs a setup and a turnaround slot",
+    { code: "SPM45-SET", name: "SPM45 Setup Room", description: "SPM-45 test venue: 30 min setup, 45 min turnaround",
       building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
-      setupMinutes: 60, teardownMinutes: 60,
+      setupMinutes: 30, teardownMinutes: 45,
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [] },
     { code: "SPM45-STA", name: "SPM45 Status Room", description: "SPM-45 test venue: an approved, a pending and a finished booking",
@@ -431,12 +431,12 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [] },
-    { code: "SPM45-NOW", name: "SPM45 Closure Room", description: "SPM-45 test venue: unavailable from 1 Oct 2026 to 1 Dec 2028",
+    { code: "SPM45-NOW", name: "SPM45 Closure Room", description: "SPM-45 test venue: unavailable from 1 Oct 2026 to 1 Dec 2028, 09:00",
       building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [] },
-    { code: "SPM45-BAK", name: "SPM45 Reopened Room", description: "SPM-45 test venue: was unavailable 1 Sep to 1 Oct 2026",
+    { code: "SPM45-BAK", name: "SPM45 Reopened Room", description: "SPM-45 test venue: was unavailable 1 Sep to 1 Oct 2026, 12:00",
       building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
@@ -1398,25 +1398,27 @@ async function main() {
   // further down.
   // Pushed LAST so no earlier event's EVT- reference number shifts.
   // -----------------------------------------------------------------
-  const spm45 = (
-    key: string, title: string, date: string, startHour: number, durationHours: number,
-    options: Partial<EventSeed> = {}
-  ): EventSeed => ({
-    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
-    purpose: "SPM-45 venue unavailability test event", category: "meeting",
-    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "classroom", ...options,
-  });
+  const spm45 = (key: string, title: string, date: string, from: string, to: string, options: Partial<EventSeed> = {}): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+      purpose: "SPM-45 venue unavailability test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "classroom", ...options,
+    };
+  };
   eventData.push(
-    spm45("spm45_before", "SPM45 Morning Briefing", "2027-06-10", 9, 2),
-    spm45("spm45_first", "SPM45 Afternoon Workshop", "2027-06-10", 14, 3),
-    spm45("spm45_last", "SPM45 Closing Seminar", "2027-06-15", 9, 3),
-    spm45("spm45_after", "SPM45 Return Forum", "2027-06-15", 14, 3),
-    spm45("spm45_turnaround", "SPM45 Evening Talk", "2027-06-20", 19, 3),
-    spm45("spm45_setup", "SPM45 Afternoon Talk", "2027-06-22", 14, 3),
-    spm45("spm45_clear", "SPM45 Later Talk", "2027-06-23", 14, 3),
-    spm45("spm45_approved", "SPM45 Approved Review", "2027-07-05", 9, 3),
-    spm45("spm45_pending", "SPM45 Pending Request", "2027-07-05", 14, 3),
-    spm45("spm45_finished", "SPM45 Finished Meeting", "2026-09-15", 9, 3, { status: "completed" }),
+    spm45("spm45_before", "SPM45 Morning Briefing", "2027-06-10", "11:00", "13:00"),
+    spm45("spm45_first", "SPM45 Afternoon Workshop", "2027-06-10", "13:00", "15:00"),
+    spm45("spm45_last", "SPM45 Closing Seminar", "2027-06-15", "10:00", "13:00"),
+    spm45("spm45_after", "SPM45 Return Forum", "2027-06-15", "13:00", "15:00"),
+    spm45("spm45_turnaround", "SPM45 Early Talk", "2027-06-21", "07:30", "08:30"),
+    spm45("spm45_setup", "SPM45 Later Talk", "2027-06-22", "13:30", "14:30"),
+    spm45("spm45_approved", "SPM45 Approved Review", "2027-07-05", "09:00", "12:00"),
+    spm45("spm45_pending", "SPM45 Pending Request", "2027-07-05", "14:00", "17:00"),
+    spm45("spm45_finished", "SPM45 Finished Meeting", "2026-09-15", "09:00", "12:00", { status: "completed" }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -2172,35 +2174,35 @@ async function main() {
     },
   });
 
-  // SPM-45 fixtures, the same as scripts/seed-spm45.ts. Each booking holds one
-  // whole slot, placed against the period its test case records:
-  //   SPM45-PER  one either side of each edge of 10 Jun PM - 15 Jun PM (TC08)
-  //   SPM45-SET  a turnaround slot and a setup slot inside 21 Jun AM - 22 Jun
-  //              PM, and one booking clear of it (TC12)
-  //   SPM45-STA  an approved, a pending and a finished booking (TC13)
-  // and two periods that already exist - one under way (TC14, TC15), one that
-  // has passed (TC16).
-  const spm45Bookings: [string, string, string, number, number, string][] = [
-    ["spm45_before", "SPM45-PER", "2027-06-10", 7, 12, "approved"],
-    ["spm45_first", "SPM45-PER", "2027-06-10", 13, 18, "approved"],
-    ["spm45_last", "SPM45-PER", "2027-06-15", 7, 12, "approved"],
-    ["spm45_after", "SPM45-PER", "2027-06-15", 13, 18, "approved"],
-    ["spm45_turnaround", "SPM45-SET", "2027-06-20", 19, 24, "approved"],
-    ["spm45_setup", "SPM45-SET", "2027-06-22", 13, 18, "approved"],
-    ["spm45_clear", "SPM45-SET", "2027-06-23", 13, 18, "approved"],
-    ["spm45_approved", "SPM45-STA", "2027-07-05", 7, 12, "approved"],
-    ["spm45_pending", "SPM45-STA", "2027-07-05", 13, 18, "pending"],
-    ["spm45_finished", "SPM45-STA", "2026-09-15", 7, 12, "approved"],
+  // SPM-45 fixtures, the same as scripts/seed-spm45.ts. Each booking spans its
+  // event's own times, placed against the period its test case records:
+  //   SPM45-PER  each meets an edge of 10 Jun 13:00 - 15 Jun 13:00, two from
+  //              outside it and two from inside (TC09)
+  //   SPM45-SET  a turnaround that runs into 21 Jun 09:00 - 22 Jun 13:00, and a
+  //              setup that starts as it ends (TC13)
+  //   SPM45-STA  an approved, a pending and a finished booking (TC14)
+  // and two periods that already exist - one under way (TC15, TC16), one that
+  // has passed (TC17).
+  const spm45Bookings: [string, string, string][] = [
+    ["spm45_before", "SPM45-PER", "approved"],
+    ["spm45_first", "SPM45-PER", "approved"],
+    ["spm45_last", "SPM45-PER", "approved"],
+    ["spm45_after", "SPM45-PER", "approved"],
+    ["spm45_turnaround", "SPM45-SET", "approved"],
+    ["spm45_setup", "SPM45-SET", "approved"],
+    ["spm45_approved", "SPM45-STA", "approved"],
+    ["spm45_pending", "SPM45-STA", "pending"],
+    ["spm45_finished", "SPM45-STA", "approved"],
   ];
-  for (const [event, venueCode, date, from, to, status] of spm45Bookings) {
+  for (const [event, venueCode, status] of spm45Bookings) {
     const approved = status === "approved";
     await prisma.venueBooking.create({
       data: {
         eventId: events[event].id,
         venueId: venues[venueCode],
         layoutName: "classroom",
-        startsAt: day(daysUntil(date), from),
-        endsAt: day(daysUntil(date), to),
+        startsAt: events[event].startsAt!,
+        endsAt: events[event].endsAt!,
         status,
         requestedBy: users["daniel.tan@connectsphere.com"],
         requestedAt: day(-3),
@@ -2209,18 +2211,17 @@ async function main() {
       },
     });
   }
-  const spm45Periods: [string, string, string, string][] = [
-    ["SPM45-NOW", "2026-10-01", "2028-12-01", "renovation"],
-    ["SPM45-BAK", "2026-09-01", "2026-10-01", "maintenance"],
+  // [venue, unavailable from (date, hour), available again (date, hour), reason]
+  const spm45Periods: [string, string, number, string, number, string][] = [
+    ["SPM45-NOW", "2026-10-01", 0, "2028-12-01", 9, "renovation"],
+    ["SPM45-BAK", "2026-09-01", 0, "2026-10-01", 12, "maintenance"],
   ];
-  for (const [code, from, until, reason] of spm45Periods) {
+  for (const [code, from, fromHour, until, untilHour, reason] of spm45Periods) {
     await prisma.venueUnavailability.create({
       data: {
         venueId: venues[code],
-        // From the start of the first unavailable slot (AM) to the start of
-        // the first available one (AM).
-        startsAt: day(daysUntil(from), 7),
-        endsAt: day(daysUntil(until), 7),
+        startsAt: day(daysUntil(from), fromHour),
+        endsAt: day(daysUntil(until), untilHour),
         reason,
         createdBy: users["marcus.wong@connectsphere.com"],
       },

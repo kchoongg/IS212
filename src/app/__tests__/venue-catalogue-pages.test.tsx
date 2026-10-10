@@ -932,15 +932,16 @@ describe("Edit venue", () => {
     });
   });
 
-  // SPM-45, written before the code, as the editor's contract:
+  // SPM-45, as the editor's contract. Rewritten on 2026-10-09 for times on the
+  // 15-minute grid (SPM-93), before the code was reworked:
   //   It loads GET /api/venues/[id]/unavailability and lists each period under an
   //   "Unavailable periods" heading: reason, the description of an Other reason, and
-  //   "Unavailable from <date> <slot>.
-  //   Available again from <date> <slot>.", with "Change period" and "End period".
+  //   "Unavailable from <date>, <time>.
+  //   Available again from <date>, <time>.", with "Change period" and "End period".
   //   "Mark unavailable" opens a dialog titled "Mark <venue> unavailable" with the fields
-  //   Unavailable from, First unavailable slot, Available again on, First available slot
-  //   and Reason (required). Choosing "Other" shows a required "Other reason" text field.
-  //   It POSTs { fromDay, fromSlot, untilDay, untilSlot, reason, otherReason? }. "Change period" opens "Change unavailable period", filled in, and
+  //   Unavailable from, From time, Available again on, Available again at (all empty, all
+  //   required) and Reason (required). Choosing "Other" shows a required "Other reason" text field.
+  //   It POSTs { fromDay, fromTime, untilDay, untilTime, reason, otherReason? }. "Change period" opens "Change unavailable period", filled in, and
   //   PATCHes .../unavailability/[periodId]; "End period" DELETEs it. After each, the page
   //   says what happened (as it does for a save) and loads the periods again.
   // Decided here, not in the story (change the test if the team wants otherwise):
@@ -954,9 +955,9 @@ describe("Edit venue", () => {
     const period = (overrides: Record<string, unknown> = {}) => ({
       id: "p1",
       fromDay: "2027-06-10",
-      fromSlot: "PM",
+      fromTime: "13:00",
       untilDay: "2027-06-15",
-      untilSlot: "PM",
+      untilTime: "13:00",
       reason: "equipment_failure",
       otherReason: null,
       ...overrides,
@@ -980,15 +981,16 @@ describe("Edit venue", () => {
     const changeDialog = () => dialogTitled("Change unavailable period");
     const inDialog = (d: HTMLElement, name: string) => within(d).getByRole("button", { name, hidden: true });
 
-    function fill(d: HTMLElement, values: Partial<Record<"from" | "fromSlot" | "until" | "untilSlot" | "reason" | "otherReason", string>>) {
+    function fill(d: HTMLElement, values: Partial<Record<"from" | "fromTime" | "until" | "untilTime" | "reason" | "otherReason", string>>) {
       if (values.from !== undefined) set(field(/^Unavailable from/, d), values.from);
-      if (values.fromSlot !== undefined) set(field(/^First unavailable slot/, d), values.fromSlot);
+      if (values.fromTime !== undefined) set(field(/^From time/, d), values.fromTime);
       if (values.until !== undefined) set(field(/^Available again on/, d), values.until);
-      if (values.untilSlot !== undefined) set(field(/^First available slot/, d), values.untilSlot);
+      if (values.untilTime !== undefined) set(field(/^Available again at/, d), values.untilTime);
       if (values.reason !== undefined) set(field(/^Reason/, d), values.reason);
       if (values.otherReason !== undefined) set(field(/^Other reason/, d), values.otherReason);
     }
-    const complete = { from: "2027-06-10", fromSlot: "PM", until: "2027-06-15", untilSlot: "PM", reason: "equipment_failure" };
+    const complete = { from: "2027-06-10", fromTime: "13:00", until: "2027-06-15", untilTime: "13:00", reason: "equipment_failure" };
+    const GRID_ERROR = "Choose a time on a 15-minute step (:00, :15, :30 or :45).";
 
     async function openMarkDialog(routes: Record<string, unknown> = {}) {
       const api = await openWith({ [CREATE]: reply(201, outcome()), ...routes });
@@ -997,15 +999,15 @@ describe("Edit venue", () => {
     }
 
     describe("the list", () => {
-      it("shows each period with its reason, dates and slots, and what an Other reason is", async () => {
-        await openWith({ [PERIODS]: [period(), period({ id: "p2", fromDay: "2027-07-01", fromSlot: "AM", untilDay: "2027-07-01", untilSlot: "Night", reason: "other", otherReason: "Film crew on site" })] });
+      it("shows each period with its reason, dates and times, and what an Other reason is", async () => {
+        await openWith({ [PERIODS]: [period(), period({ id: "p2", fromDay: "2027-07-01", fromTime: "09:00", untilDay: "2027-07-01", untilTime: "17:30", reason: "other", otherReason: "Film crew on site" })] });
 
         expect(screen.getByRole("heading", { name: "Unavailable periods" })).toBeInTheDocument();
         expect(await screen.findByText("Equipment failure")).toBeInTheDocument();
-        expect(screen.getByText("Unavailable from 10 Jun 2027 PM. Available again from 15 Jun 2027 PM.")).toBeInTheDocument();
+        expect(screen.getByText("Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00.")).toBeInTheDocument();
         expect(screen.getByText("Other")).toBeInTheDocument();
         expect(screen.getByText("Film crew on site")).toBeInTheDocument();
-        expect(screen.getByText("Unavailable from 1 Jul 2027 AM. Available again from 1 Jul 2027 Night.")).toBeInTheDocument();
+        expect(screen.getByText("Unavailable from 1 Jul 2027, 09:00. Available again from 1 Jul 2027, 17:30.")).toBeInTheDocument();
         expect(screen.getAllByRole("button", { name: "Change period" })).toHaveLength(2);
         expect(screen.getAllByRole("button", { name: "End period" })).toHaveLength(2);
       });
@@ -1035,16 +1037,18 @@ describe("Edit venue", () => {
     });
 
     describe("marking the venue unavailable", () => {
-      it("asks for both dates, both slots and a reason", async () => {
+      it("asks for both dates, both times and a reason, and offers no slots", async () => {
         const api = await openMarkDialog();
         const d = markDialog();
 
         expect(field(/^Unavailable from/, d)).toHaveValue("");
         expect(field(/^Available again on/, d)).toHaveValue("");
-        for (const label of [/^First unavailable slot/, /^First available slot/]) {
-          const slots = within(field(label, d)).getAllByRole("option", { hidden: true });
-          expect(slots.map((o) => o.textContent)).toEqual(["AM", "PM", "Night"]);
+        for (const label of [/^From time/, /^Available again at/]) {
+          expect(field(label, d)).toHaveValue("");
+          expect(field(label, d)).toHaveAttribute("type", "time");
         }
+        expect(within(d).queryByLabelText(/slot/i)).not.toBeInTheDocument();
+        expect(within(d).queryByRole("option", { name: "AM", hidden: true })).not.toBeInTheDocument();
         const reasons = within(field(/^Reason/, d)).getAllByRole("option", { hidden: true });
         expect(reasons.map((o) => o.textContent)).toEqual([
           "Choose a reason",
@@ -1066,17 +1070,34 @@ describe("Edit venue", () => {
         await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
 
         expect(markDialog()).toHaveTextContent("Enter the date the venue becomes unavailable.");
+        expect(markDialog()).toHaveTextContent("Enter the time the venue becomes unavailable.");
         expect(markDialog()).toHaveTextContent("Enter the date the venue becomes available again.");
+        expect(markDialog()).toHaveTextContent("Enter the time the venue becomes available again.");
         expect(markDialog()).toHaveTextContent("Choose a reason.");
         expect(api.sent(CREATE)).toHaveLength(0);
       });
 
       it.each([
-        ["an earlier slot of the same day", "AM"],
-        ["the same slot", "PM"],
-      ])("refuses a return in %s", async (_case, untilSlot) => {
+        ["the start time", { fromTime: "13:10" }],
+        ["the return time", { untilTime: "13:40" }],
+      ])("refuses a time off the 15-minute grid, naming it: %s", async (_case, offGrid) => {
         const api = await openMarkDialog();
-        fill(markDialog(), { ...complete, until: "2027-06-10", untilSlot });
+        fill(markDialog(), { ...complete, ...offGrid });
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(markDialog()).toHaveTextContent(GRID_ERROR);
+        expect(markDialog()).not.toHaveTextContent(AFTER_ERROR);
+        expect(api.sent(CREATE)).toHaveLength(0);
+      });
+
+      it.each([
+        ["earlier the same day", "2027-06-10", "09:00"],
+        ["at the same time", "2027-06-10", "13:00"],
+        ["on an earlier day, later in the day", "2027-06-09", "23:45"],
+      ])("refuses a return %s", async (_case, until, untilTime) => {
+        const api = await openMarkDialog();
+        fill(markDialog(), { ...complete, until, untilTime });
 
         await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
 
@@ -1084,14 +1105,40 @@ describe("Edit venue", () => {
         expect(api.sent(CREATE)).toHaveLength(0);
       });
 
-      it("accepts a return in the next slot of the same day", async () => {
+      it("refuses a period that is already over", async () => {
         const api = await openMarkDialog();
-        fill(markDialog(), { ...complete, until: "2027-06-10", untilSlot: "Night" });
+        fill(markDialog(), { ...complete, from: "2020-09-01", until: "2020-09-05" });
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(markDialog()).toHaveTextContent("This period is already over.");
+        expect(api.sent(CREATE)).toHaveLength(0);
+      });
+
+      it("shows the server's refusal of a period that is already over under the return time", async () => {
+        const api = await openMarkDialog({
+          [CREATE]: reply(400, {
+            error: "Validation failed",
+            details: { formErrors: [], fieldErrors: { untilTime: ["This period is already over."] } },
+          }),
+        });
+        fill(markDialog(), complete);
 
         await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
 
         await waitFor(() => expect(api.sent(CREATE)).toHaveLength(1));
-        expect(api.sent(CREATE)[0].body).toMatchObject({ untilDay: "2027-06-10", untilSlot: "Night" });
+        await waitFor(() => expect(markDialog()).toHaveTextContent("This period is already over."));
+        expect(markDialog().open).toBe(true);
+      });
+
+      it("accepts a return 15 minutes after the start", async () => {
+        const api = await openMarkDialog();
+        fill(markDialog(), { ...complete, until: "2027-06-10", untilTime: "13:15" });
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        await waitFor(() => expect(api.sent(CREATE)).toHaveLength(1));
+        expect(api.sent(CREATE)[0].body).toMatchObject({ untilDay: "2027-06-10", untilTime: "13:15" });
       });
 
       it("sends the period, then lists it and says who was flagged", async () => {
@@ -1108,16 +1155,16 @@ describe("Edit venue", () => {
         ).toBeInTheDocument();
         expect(api.sent(CREATE)[0].body).toEqual({
           fromDay: "2027-06-10",
-          fromSlot: "PM",
+          fromTime: "13:00",
           untilDay: "2027-06-15",
-          untilSlot: "PM",
+          untilTime: "13:00",
           reason: "equipment_failure",
         });
         expect(screen.getByText(/Afternoon Workshop/).closest("li")).toHaveTextContent(
           "Afternoon Workshop: the venue is unavailable during this booking"
         );
         expect(screen.getByText(/Closing Seminar/)).toBeInTheDocument();
-        expect(await screen.findByText("Unavailable from 10 Jun 2027 PM. Available again from 15 Jun 2027 PM.")).toBeInTheDocument();
+        expect(await screen.findByText("Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00.")).toBeInTheDocument();
         expect(api.sent(PERIODS)).toHaveLength(2);
       });
 
@@ -1163,9 +1210,9 @@ describe("Edit venue", () => {
           await waitFor(() => expect(api.sent(CREATE)).toHaveLength(1));
           expect(api.sent(CREATE)[0].body).toEqual({
             fromDay: "2027-06-10",
-            fromSlot: "PM",
+            fromTime: "13:00",
             untilDay: "2027-06-15",
-            untilSlot: "PM",
+            untilTime: "13:00",
             reason: "other",
             otherReason: "Film crew on site",
           });
@@ -1227,9 +1274,9 @@ describe("Edit venue", () => {
         const d = changeDialog();
 
         expect(field(/^Unavailable from/, d)).toHaveValue("2027-06-10");
-        expect(field(/^First unavailable slot/, d)).toHaveValue("PM");
+        expect(field(/^From time/, d)).toHaveValue("13:00");
         expect(field(/^Available again on/, d)).toHaveValue("2027-06-15");
-        expect(field(/^First available slot/, d)).toHaveValue("PM");
+        expect(field(/^Available again at/, d)).toHaveValue("13:00");
         expect(field(/^Reason/, d)).toHaveValue("equipment_failure");
         expect(within(d).queryByLabelText(/^Other reason/)).not.toBeInTheDocument();
         expect(api.sent(CHANGE)).toHaveLength(0);
@@ -1243,10 +1290,10 @@ describe("Edit venue", () => {
         expect(field(/^Other reason/, changeDialog())).toHaveValue("Film crew on site");
       });
 
-      it("sends the new dates and slots, then says which bookings are newly flagged", async () => {
+      it("sends the new dates and times, then says which bookings are newly flagged", async () => {
         const api = await openChangeDialog(outcome([flagged("Morning Briefing")]));
-        fill(changeDialog(), { from: "2027-06-09", fromSlot: "Night", until: "2027-06-16", untilSlot: "AM" });
-        api.on(PERIODS, [period({ fromDay: "2027-06-09", fromSlot: "Night", untilDay: "2027-06-16", untilSlot: "AM" })]);
+        fill(changeDialog(), { fromTime: "12:45", until: "2027-06-16", untilTime: "13:15" });
+        api.on(PERIODS, [period({ fromTime: "12:45", untilDay: "2027-06-16", untilTime: "13:15" })]);
 
         await userEvent.click(inDialog(changeDialog(), "Save period"));
 
@@ -1254,18 +1301,18 @@ describe("Edit venue", () => {
           await screen.findByText("Unavailable period changed — 1 booking flagged for review, coordinators notified")
         ).toBeInTheDocument();
         expect(api.sent(CHANGE)[0].body).toEqual({
-          fromDay: "2027-06-09",
-          fromSlot: "Night",
+          fromDay: "2027-06-10",
+          fromTime: "12:45",
           untilDay: "2027-06-16",
-          untilSlot: "AM",
+          untilTime: "13:15",
           reason: "equipment_failure",
         });
-        expect(await screen.findByText("Unavailable from 9 Jun 2027 Night. Available again from 16 Jun 2027 AM.")).toBeInTheDocument();
+        expect(await screen.findByText("Unavailable from 10 Jun 2027, 12:45. Available again from 16 Jun 2027, 13:15.")).toBeInTheDocument();
       });
 
       it("refuses a return that is not later than the start", async () => {
         const api = await openChangeDialog();
-        fill(changeDialog(), { until: "2027-06-10", untilSlot: "PM" });
+        fill(changeDialog(), { until: "2027-06-10", untilTime: "13:00" });
 
         await userEvent.click(inDialog(changeDialog(), "Save period"));
 
@@ -1283,6 +1330,7 @@ describe("Edit venue", () => {
         await userEvent.click(button("End period"));
 
         expect(await screen.findByText("Unavailable period ended")).toBeInTheDocument();
+        expect(screen.getByText("The venue can be requested again for the time that was left in the period.")).toBeInTheDocument();
         expect(api.sent(END)).toHaveLength(1);
         expect(await screen.findByText("No unavailable periods under way or coming up.")).toBeInTheDocument();
       });

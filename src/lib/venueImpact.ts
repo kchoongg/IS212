@@ -25,7 +25,7 @@ export const IMPACT_REASONS = [
   "layout_capacity_below_attendance",
   "max_capacity_below_attendance",
   "mandatory_facility_removed",
-  // SPM-45: an unavailable period covers a slot the booking holds. Not a venue
+  // SPM-45: an unavailable period overlaps the booking's occupied time. Not a venue
   // EDIT, so problemsFor() below never produces it - the unavailability routes
   // add it themselves (src/lib/venueUnavailabilityService.ts). Kept apart from
   // venue_retired because SPM-68 lists "venue retired" and "venue blocked" as

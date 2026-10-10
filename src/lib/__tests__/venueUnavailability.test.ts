@@ -1,16 +1,18 @@
-// SPM-45 (Record Venue Unavailability). Written before the code; the rules
-// below were decided here, not in the story (change the test if the team wants
-// otherwise):
-//   - a period runs from the START of its first unavailable slot to the START
-//     of its first available slot, Singapore time
-//   - a booking's setup and turnaround slots count, as they do for the calendar
-//     and the conflict check
+// SPM-45 (Record Venue Unavailability). Rewritten on 2026-10-09 for times on
+// the 15-minute grid (Week 7 Change #1, SPM-93), before the code was reworked.
+// Decided here, not in the story (change the test if the team wants otherwise):
+//   - a period is stored exactly as stated, Singapore time
+//   - a booking counts when its room-in-use period (setup and turnaround
+//     included) overlaps the period; periods that only meet do not overlap
+//   - ending a period under way brings its end to now, rounded down to the grid
+//   - a period that is already over when it is saved is refused (Kayal, 2026-10-09)
 import { describe, it, expect } from "vitest";
 import {
   EMPTY_PERIOD_FORM,
   UNAVAILABILITY_REASONS,
   bookingInPeriod,
   describePeriod,
+  endEarlyAt,
   periodBounds,
   periodInterval,
   periodPayload,
@@ -23,14 +25,15 @@ import {
 /// A Singapore wall-clock time as an instant (UTC+8, no daylight saving).
 const sgt = (day: string, time: string) => new Date(`${day}T${time}:00+08:00`);
 
-/// Unavailable from 10 Jun 2027 PM, available again from 15 Jun 2027 PM.
-const BOUNDS = { fromDay: "2027-06-10", fromSlot: "PM", untilDay: "2027-06-15", untilSlot: "PM" } as const;
+/// Unavailable from 10 Jun 2027, 13:00; available again from 15 Jun 2027, 13:00.
+const BOUNDS = { fromDay: "2027-06-10", fromTime: "13:00", untilDay: "2027-06-15", untilTime: "13:00" };
 const PERIOD = { startsAt: sgt("2027-06-10", "13:00"), endsAt: sgt("2027-06-15", "13:00") };
 
 const NO_TURNAROUND = { setupMinutes: 0, teardownMinutes: 0 };
+/// The Week 7 example: 30 minutes of setup, 45 of turnaround.
+const WEEK_7 = { setupMinutes: 30, teardownMinutes: 45 };
 
-const AM = (day: string) => ({ startsAt: sgt(day, "07:00"), endsAt: sgt(day, "12:00") });
-const PM = (day: string) => ({ startsAt: sgt(day, "13:00"), endsAt: sgt(day, "18:00") });
+const on = (day: string, from: string, to: string) => ({ startsAt: sgt(day, from), endsAt: sgt(day, to) });
 
 describe("the reasons a venue can be unavailable for", () => {
   it("offers Week 7's list plus internal activity, in this order", () => {
@@ -53,33 +56,25 @@ describe("the reasons a venue can be unavailable for", () => {
   });
 });
 
-describe("periodInterval - a period stated in days and slots, as stored", () => {
-  it("runs from the start of the first unavailable slot to the start of the first available one", () => {
+describe("periodInterval - a period stated as dates and times, as stored", () => {
+  it("runs from the time the venue becomes unavailable to the time it is available again", () => {
     expect(periodInterval(BOUNDS)).toEqual(PERIOD);
   });
 
-  it.each([
-    ["AM", "07:00"],
-    ["PM", "13:00"],
-    ["Night", "19:00"],
-  ] as const)("starts a period at the %s slot's own start, %s Singapore time", (slot, time) => {
-    expect(periodInterval({ ...BOUNDS, fromSlot: slot }).startsAt).toEqual(sgt("2027-06-10", time));
+  it("can be a single 15-minute step", () => {
+    const shortest = periodInterval({ fromDay: "2027-07-20", fromTime: "14:00", untilDay: "2027-07-20", untilTime: "14:15" });
+
+    expect(shortest).toEqual(on("2027-07-20", "14:00", "14:15"));
   });
 
-  it("covers one slot when the venue is back in the next slot of the same day", () => {
-    const oneSlot = periodInterval({ fromDay: "2027-06-10", fromSlot: "PM", untilDay: "2027-06-10", untilSlot: "Night" });
+  it("reads midnight as the start of the day stated", () => {
+    const fromMidnight = periodInterval({ fromDay: "2026-09-01", fromTime: "00:00", untilDay: "2027-07-07", untilTime: "00:00" });
 
-    expect(oneSlot).toEqual({ startsAt: sgt("2027-06-10", "13:00"), endsAt: sgt("2027-06-10", "19:00") });
-  });
-
-  it("covers the whole Night slot when the venue is back the next morning", () => {
-    const overnight = periodInterval({ fromDay: "2027-06-10", fromSlot: "Night", untilDay: "2027-06-11", untilSlot: "AM" });
-
-    expect(overnight).toEqual({ startsAt: sgt("2027-06-10", "19:00"), endsAt: sgt("2027-06-11", "07:00") });
+    expect(fromMidnight).toEqual({ startsAt: sgt("2026-09-01", "00:00"), endsAt: sgt("2027-07-07", "00:00") });
   });
 });
 
-describe("periodBounds - a stored period, back as days and slots", () => {
+describe("periodBounds - a stored period, back as dates and times", () => {
   it("is the reverse of periodInterval", () => {
     expect(periodBounds(PERIOD)).toEqual(BOUNDS);
   });
@@ -88,87 +83,68 @@ describe("periodBounds - a stored period, back as days and slots", () => {
     // 07:00 on 11 Jun in Singapore is still 10 Jun in UTC.
     const bounds = periodBounds({ startsAt: sgt("2027-06-10", "19:00"), endsAt: sgt("2027-06-11", "07:00") });
 
-    expect(bounds).toEqual({ fromDay: "2027-06-10", fromSlot: "Night", untilDay: "2027-06-11", untilSlot: "AM" });
+    expect(bounds).toEqual({ fromDay: "2027-06-10", fromTime: "19:00", untilDay: "2027-06-11", untilTime: "07:00" });
   });
-});
 
-describe("periodBounds - a stored period that does not sit on slot starts", () => {
-  it("reads a period seeded as whole days as AM of its first day to AM of the day after its last", () => {
+  it("reads a period seeded as whole days as midnight to midnight", () => {
     // How the base seed and SPM-43's fixture write a period: 00:00 to 24:00.
     const wholeDay = { startsAt: sgt("2027-05-14", "00:00"), endsAt: sgt("2027-05-15", "00:00") };
 
-    expect(periodBounds(wholeDay)).toEqual({ fromDay: "2027-05-14", fromSlot: "AM", untilDay: "2027-05-15", untilSlot: "AM" });
-  });
-
-  it("reads a period ended part-way through a slot as back from the next slot", () => {
-    const endedEarly = { startsAt: sgt("2027-06-10", "13:00"), endsAt: sgt("2027-06-12", "10:00") };
-
-    expect(periodBounds(endedEarly)).toMatchObject({ untilDay: "2027-06-12", untilSlot: "PM" });
-  });
-
-  it("reads a period ended after Night has started as back the next morning", () => {
-    const endedLate = { startsAt: sgt("2027-06-10", "13:00"), endsAt: sgt("2027-06-12", "21:30") };
-
-    expect(periodBounds(endedLate)).toMatchObject({ untilDay: "2027-06-13", untilSlot: "AM" });
-  });
-
-  it("reads a period starting between two slots as starting with the later one", () => {
-    const fromLunch = { startsAt: sgt("2027-06-10", "12:30"), endsAt: sgt("2027-06-11", "07:00") };
-
-    expect(periodBounds(fromLunch)).toMatchObject({ fromDay: "2027-06-10", fromSlot: "PM" });
+    expect(periodBounds(wholeDay)).toEqual({ fromDay: "2027-05-14", fromTime: "00:00", untilDay: "2027-05-15", untilTime: "00:00" });
   });
 });
 
 describe("describePeriod", () => {
-  it("names both dates and both slots", () => {
-    expect(describePeriod(BOUNDS)).toBe("Unavailable from 10 Jun 2027 PM. Available again from 15 Jun 2027 PM.");
+  it("names both dates and both times", () => {
+    expect(describePeriod(BOUNDS)).toBe("Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00.");
   });
 });
 
 describe("bookingInPeriod - which bookings a period affects", () => {
   it.each([
-    ["the slot before the period starts", false, AM("2027-06-10")],
-    ["the first slot of the period", true, PM("2027-06-10")],
-    ["a slot in the middle of the period", true, AM("2027-06-12")],
-    ["the last slot of the period", true, AM("2027-06-15")],
-    ["the slot the venue is available again", false, PM("2027-06-15")],
-  ])("a booking in %s: %s", (_case, expected, booking) => {
+    ["ending as the period starts", false, on("2027-06-10", "11:00", "13:00")],
+    ["running 15 minutes into the period", true, on("2027-06-10", "11:15", "13:15")],
+    ["starting as the period starts", true, on("2027-06-10", "13:00", "15:00")],
+    ["in the middle of the period", true, on("2027-06-12", "09:00", "10:00")],
+    ["ending as the period ends", true, on("2027-06-15", "10:00", "13:00")],
+    ["starting 15 minutes before the venue is available again", true, on("2027-06-15", "12:45", "14:00")],
+    ["starting as the venue is available again", false, on("2027-06-15", "13:00", "15:00")],
+  ])("a booking %s: %s", (_case, expected, booking) => {
     expect(bookingInPeriod(booking, NO_TURNAROUND, PERIOD)).toBe(expected);
   });
 
-  it("counts a booking that only partly overlaps the period's slots", () => {
-    const allDay = { startsAt: sgt("2027-06-10", "09:00"), endsAt: sgt("2027-06-10", "17:00") };
+  it("counts a booking that the period falls wholly inside", () => {
+    const longBooking = { startsAt: sgt("2027-06-09", "09:00"), endsAt: sgt("2027-06-16", "17:00") };
 
-    expect(bookingInPeriod(allDay, NO_TURNAROUND, PERIOD)).toBe(true);
+    expect(bookingInPeriod(longBooking, NO_TURNAROUND, PERIOD)).toBe(true);
   });
 
-  it("counts a booking whose turnaround slot falls in the period", () => {
-    // The morning booking itself ends before the period; its turnaround takes 10 Jun PM.
-    expect(bookingInPeriod(AM("2027-06-10"), { setupMinutes: 0, teardownMinutes: 30 }, PERIOD)).toBe(true);
-  });
+  describe("at a venue with 30 minutes of setup and 45 of turnaround", () => {
+    it("counts a booking whose turnaround runs into the period", () => {
+      // Ends 12:30; the room is in use until 13:15.
+      expect(bookingInPeriod(on("2027-06-10", "11:00", "12:30"), WEEK_7, PERIOD)).toBe(true);
+    });
 
-  it("counts a booking whose setup slot falls in the period", () => {
-    // The afternoon booking starts as the venue returns; its setup takes 15 Jun AM.
-    expect(bookingInPeriod(PM("2027-06-15"), { setupMinutes: 60, teardownMinutes: 0 }, PERIOD)).toBe(true);
-  });
+    it("does not count a booking whose turnaround ends as the period starts", () => {
+      // Ends 12:15; the room is in use until 13:00.
+      expect(bookingInPeriod(on("2027-06-10", "11:00", "12:15"), WEEK_7, PERIOD)).toBe(false);
+    });
 
-  it("does not count a turnaround slot the venue does not need", () => {
-    expect(bookingInPeriod(AM("2027-06-10"), { setupMinutes: 60, teardownMinutes: 0 }, PERIOD)).toBe(false);
-  });
+    it("counts a booking whose setup starts inside the period", () => {
+      // Starts 13:15; the room is in use from 12:45.
+      expect(bookingInPeriod(on("2027-06-15", "13:15", "14:15"), WEEK_7, PERIOD)).toBe(true);
+    });
 
-  it.each([
-    ["inside the period", "2027-06-12", true],
-    ["before the period", "2027-06-10", false],
-  ])("judges a booking that touches no slot by its own minutes: %s", (_case, day, expected) => {
-    const overLunch = { startsAt: sgt(day, "12:15"), endsAt: sgt(day, "12:45") };
-
-    expect(bookingInPeriod(overLunch, NO_TURNAROUND, PERIOD)).toBe(expected);
+    it("does not count a booking whose setup starts as the venue is available again", () => {
+      // Starts 13:30; the room is in use from 13:00.
+      expect(bookingInPeriod(on("2027-06-15", "13:30", "14:30"), WEEK_7, PERIOD)).toBe(false);
+    });
   });
 });
 
 describe("periodPhase - whether a period is still to come, under way or over", () => {
   it.each([
-    ["the slot before it starts", "upcoming", sgt("2027-06-10", "12:59")],
+    ["the minute before it starts", "upcoming", sgt("2027-06-10", "12:59")],
     ["the moment it starts", "current", sgt("2027-06-10", "13:00")],
     ["the last minute before the venue returns", "current", sgt("2027-06-15", "12:59")],
     ["the moment the venue returns", "past", sgt("2027-06-15", "13:00")],
@@ -177,48 +153,115 @@ describe("periodPhase - whether a period is still to come, under way or over", (
   });
 });
 
+describe("endEarlyAt - when a period under way ends if it is ended now", () => {
+  it.each([
+    ["part-way through a 15-minute step", "10:07", "10:00"],
+    ["in the last minute of a step", "10:14", "10:00"],
+    ["exactly on a step", "10:15", "10:15"],
+  ])("ended %s, the venue is back from the step that has begun", (_case, now, end) => {
+    expect(endEarlyAt(PERIOD, sgt("2027-06-12", now))).toEqual(sgt("2027-06-12", end));
+  });
+
+  it("drops seconds as well as minutes", () => {
+    const now = new Date(sgt("2027-06-12", "10:07").getTime() + 42_500);
+
+    expect(endEarlyAt(PERIOD, now)).toEqual(sgt("2027-06-12", "10:00"));
+  });
+
+  it("is null when that would leave no period at all", () => {
+    // Started at 13:00 and ended at 13:10: there is no step for it to have covered.
+    expect(endEarlyAt(PERIOD, sgt("2027-06-10", "13:10"))).toBeNull();
+  });
+});
+
 describe("validatePeriodForm - what the dialog refuses before sending", () => {
   const filled: PeriodFormValues = { ...BOUNDS, reason: "maintenance", otherReason: "" };
+  const GRID_ERROR = "Choose a time on a 15-minute step (:00, :15, :30 or :45).";
+  const ORDER_ERROR = "The venue must become available again after it becomes unavailable.";
+  const OVER_ERROR = "This period is already over.";
+  /// Before the period in `filled`, so "today" never depends on when the tests run.
+  const NOW = sgt("2026-10-09", "10:00");
+  const validate = (values: PeriodFormValues) => validatePeriodForm(values, NOW);
 
   it("accepts a complete period", () => {
-    expect(validatePeriodForm(filled)).toEqual({});
+    expect(validate(filled)).toEqual({});
   });
 
   it("names every missing answer on an untouched form", () => {
-    expect(validatePeriodForm(EMPTY_PERIOD_FORM)).toEqual({
+    expect(validate(EMPTY_PERIOD_FORM)).toEqual({
       fromDay: "Enter the date the venue becomes unavailable.",
+      fromTime: "Enter the time the venue becomes unavailable.",
       untilDay: "Enter the date the venue becomes available again.",
+      untilTime: "Enter the time the venue becomes available again.",
       reason: "Choose a reason.",
     });
   });
 
+  it.each(["13:10", "13:01", "13:59"])("refuses a start time of %s, which is off the 15-minute grid", (fromTime) => {
+    expect(validate({ ...filled, fromTime })).toEqual({ fromTime: GRID_ERROR });
+  });
+
+  it("refuses a return time that is off the 15-minute grid", () => {
+    expect(validate({ ...filled, untilTime: "17:40" })).toEqual({ untilTime: GRID_ERROR });
+  });
+
+  it.each(["00:00", "13:15", "13:30", "23:45"])("accepts a time of %s", (fromTime) => {
+    expect(validate({ ...filled, fromTime })).toEqual({});
+  });
+
   it.each([
-    ["the same slot", "PM"],
-    ["an earlier slot of the same day", "AM"],
-  ] as const)("refuses a return in %s", (_case, untilSlot) => {
-    expect(validatePeriodForm({ ...filled, untilDay: "2027-06-10", untilSlot })).toEqual({
-      untilDay: "The venue must become available again after it becomes unavailable.",
+    ["at the same time", "2027-06-10", "13:00"],
+    ["earlier the same day", "2027-06-10", "09:00"],
+    ["on an earlier day, later in the day", "2027-06-09", "23:45"],
+  ])("refuses a return %s", (_case, untilDay, untilTime) => {
+    expect(validate({ ...filled, untilDay, untilTime })).toEqual({ untilTime: ORDER_ERROR });
+  });
+
+  it("accepts a return 15 minutes after the start", () => {
+    expect(validate({ ...filled, untilDay: "2027-06-10", untilTime: "13:15" })).toEqual({});
+  });
+
+  it("does not compare the two while one of them is missing or off the grid", () => {
+    expect(validate({ ...filled, fromDay: "", untilDay: "2027-06-01" })).toEqual({
+      fromDay: "Enter the date the venue becomes unavailable.",
+    });
+    expect(validate({ ...filled, fromTime: "13:10", untilDay: "2027-06-10", untilTime: "09:00" })).toEqual({
+      fromTime: GRID_ERROR,
     });
   });
 
-  it("accepts a return in the next slot of the same day", () => {
-    expect(validatePeriodForm({ ...filled, untilDay: "2027-06-10", untilSlot: "Night" })).toEqual({});
-  });
+  describe("a period that is already over", () => {
+    const past = { ...filled, fromDay: "2026-09-01", fromTime: "09:00" };
 
-  it("does not compare the dates while the start date is missing", () => {
-    expect(validatePeriodForm({ ...filled, fromDay: "" })).toEqual({
-      fromDay: "Enter the date the venue becomes unavailable.",
+    it.each([
+      ["ended last month", "2026-09-05", "17:00"],
+      ["ended 15 minutes ago", "2026-10-09", "09:45"],
+      ["ends at this very moment", "2026-10-09", "10:00"],
+    ])("is refused when it %s", (_case, untilDay, untilTime) => {
+      expect(validate({ ...past, untilDay, untilTime })).toEqual({ untilTime: OVER_ERROR });
+    });
+
+    it("is accepted when it began in the past and ends 15 minutes from now", () => {
+      expect(validate({ ...past, untilDay: "2026-10-09", untilTime: "10:15" })).toEqual({});
+    });
+
+    it("is reported as the wrong way round, not as over, when its return is before its start", () => {
+      expect(validate({ ...past, untilDay: "2026-08-01", untilTime: "09:00" })).toEqual({ untilTime: ORDER_ERROR });
+    });
+
+    it("is judged against the present moment when no time is passed in", () => {
+      expect(validatePeriodForm({ ...past, untilDay: "2026-09-05", untilTime: "17:00" })).toEqual({ untilTime: OVER_ERROR });
     });
   });
 
   it.each(["", "   "])("asks for a description when the reason is Other and %j was typed", (otherReason) => {
-    expect(validatePeriodForm({ ...filled, reason: "other", otherReason })).toEqual({
+    expect(validate({ ...filled, reason: "other", otherReason })).toEqual({
       otherReason: "Describe the reason.",
     });
   });
 
   it("accepts Other with a description", () => {
-    expect(validatePeriodForm({ ...filled, reason: "other", otherReason: "Film crew on site" })).toEqual({});
+    expect(validate({ ...filled, reason: "other", otherReason: "Film crew on site" })).toEqual({});
   });
 });
 
