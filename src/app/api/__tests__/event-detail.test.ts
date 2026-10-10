@@ -200,12 +200,47 @@ describe("GET /api/events/[id]", () => {
         "registrationClosesAt",
         "registrationEnabled",
         "registrationOpensAt",
+        // ADDED (SPM-51 AC4): whether they can register, and if not why.
+        "registrationState",
         "sequenceNumber",
         "startsAt",
         "status",
         "title",
       ].sort()
     );
+  });
+
+  // SPM-51 AC4, AC9 (TC05-TC07): the attendee's page says whether they can register.
+  it("tells an attendee the event's registration state, counting the seats taken", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-10T04:00:00Z"), toFake: ["Date"] });
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(
+      event({
+        status: "confirmed",
+        registrationEnabled: true,
+        registrationCapacity: 3,
+        registrationOpensAt: new Date("2026-09-01T01:00:00Z"),
+        registrationClosesAt: new Date("2027-12-31T09:00:00Z"),
+      })
+    );
+    db.registration.count.mockResolvedValue(3);
+
+    const body = await (await get(token)).json();
+    vi.useRealTimers();
+
+    expect(body.registrationState).toEqual({ kind: "full" });
+    expect(db.registration.count).toHaveBeenCalledWith({
+      where: { eventId: ID.event, status: { in: ["registered", "attended"] } },
+    });
+  });
+
+  it("doesn't work out a registration state for staff", async () => {
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+
+    const body = await (await get(token)).json();
+
+    expect(body).not.toHaveProperty("registrationState");
   });
 
   it("loads only the approved venue bookings, so a pending request is never shown as settled", async () => {

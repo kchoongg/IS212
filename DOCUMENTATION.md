@@ -956,6 +956,26 @@ what changed, why, and the migration name if there is one.
   "Registration dates haven't been set for this event" for an event with no
   period, which is now refused (AC3). The route's test event was given an
   open period and a fixed clock on purpose. 21 unit tests, 2 more route tests.
+- **Slice 2 (AC1, AC4): Browse Events and each event's registration state.**
+  - **Event APIs:** for an attendee, `GET /api/events` and
+    `GET /api/events/[id]` now return `registrationState` (added to
+    `ATTENDEE_EVENT_FIELDS`). The list also returns the company name. The
+    list counts seats for all its events in one `registration.groupBy`, the
+    single event with one count. Both only do this for attendees.
+  - **Browse Events (S-26, `/browse`)** replaces the placeholder. It lists
+    Event, When, Company and a Registration badge, soonest first, and a row
+    opens the event. Events whose registration is off are left out: an
+    attendee holding a place can still see those (#10), but they belong in My
+    Registrations.
+  - **Badges:** new keys in `statuses.ts` (`registration_open`,
+    `registration_not_open`, `registration_closed`, `registration_full`,
+    `registration_no_period`), because `StatusBadge` is the only way a status
+    is shown. A not-yet-open event's badge reads "Not open yet" with "Opens
+    <date, time>" beside it, so SPM-51-TC01's wording was updated.
+  - **Tests:** 13 page tests in `browse-page.test.tsx` and 4 more route
+    tests. The attendee tests in `events.test.ts` and `event-detail.test.ts`
+    were updated on purpose. Browse was removed from the "not built yet"
+    placeholder tests.
 - Migration: none planned.
 
 ### 2026-10-09 — Sammi Chua (SPM-64, Configure Event Registration)

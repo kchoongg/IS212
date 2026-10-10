@@ -16,6 +16,7 @@ import { notifyRole } from "@/lib/notifications";
 import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
+import { SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
@@ -118,6 +119,16 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // the public subset; the rejection reason, the assigned coordinator, the
   // client's special requirements and the venue and equipment arrangements
   // are internal planning information (briefing §8b).
+  if (actor.role === "attendee") {
+    // SPM-51 AC4: whether they can register now, and if not why - the same
+    // rule POST /api/registrations applies.
+    const seatsTaken = await prisma.registration.count({
+      where: { eventId: event.id, status: { in: SEAT_TAKING } },
+    });
+    return NextResponse.json(
+      visibleEventFor(actor, { ...event, registrationState: registrationState(event, seatsTaken, new Date()) })
+    );
+  }
   return NextResponse.json(visibleEventFor(actor, event));
 }
 
