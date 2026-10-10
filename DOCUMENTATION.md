@@ -977,7 +977,8 @@ what changed, why, and the migration name if there is one.
     45 min turnaround; one pending and one finished booking), mirrored at the
     end of `prisma/seed.ts`.
   - **Tests.** Test cases rewritten first, then the automated tests, then the
-    code: `docs/test-cases/SPM-45_Test_Cases.xlsx` (19 cases, all 6 ACs);
+    code: `docs/test-cases/SPM-45_Test_Cases.xlsx` (19 cases, all 6 ACs; all 19
+    passed when run by hand on 2026-10-10);
     `venueUnavailability.test.ts`, `venue-unavailability.test.ts` and the
     SPM-45 block of `venue-catalogue-pages.test.tsx`.
   - **Not done here:** the Coordinator's list of flagged bookings and the
