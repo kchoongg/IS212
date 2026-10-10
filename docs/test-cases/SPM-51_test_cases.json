@@ -4,33 +4,65 @@
   "created_by": "Sammi Chua",
   "creation_date": "2026-10-10",
   "acceptance_criteria": [
-    { "id": "AC1", "text": "Attendees can view events where registration is enabled." },
-    { "id": "AC2", "text": "Attendees can register for an eligible event." },
-    { "id": "AC3", "text": "An event is eligible only when it is Confirmed, registration is enabled, and the current date falls within its registration period (see: Configure Event Registration)." },
-    { "id": "AC4", "text": "Given registration has not yet opened or has closed, when an Attendee views the event, then they cannot register and the registration period is shown." },
-    { "id": "AC5", "text": "The system records the attendee's registration." },
-    { "id": "AC6", "text": "The Attendee can view their registration status." },
-    { "id": "AC7", "text": "The system prevents duplicate registrations." },
-    { "id": "AC8", "text": "Registration is not available for events where registration is disabled." },
-    { "id": "AC9", "text": "Registration is prevented once the event's registration capacity is reached." },
-    { "id": "AC10", "text": "When an event is at capacity, the Attendee is offered the waiting list instead of direct registration (see: Join and Respond to Waiting List)." }
+    {
+      "id": "AC1",
+      "text": "Attendees can view events where registration is enabled."
+    },
+    {
+      "id": "AC2",
+      "text": "Attendees can register for an eligible event."
+    },
+    {
+      "id": "AC3",
+      "text": "An event is eligible only when it is Confirmed, registration is enabled, and the current date falls within its registration period (see: Configure Event Registration)."
+    },
+    {
+      "id": "AC4",
+      "text": "Given registration has not yet opened or has closed, when an Attendee views the event, then they cannot register and the registration period is shown."
+    },
+    {
+      "id": "AC5",
+      "text": "The system records the attendee's registration."
+    },
+    {
+      "id": "AC6",
+      "text": "The Attendee can view their registration status."
+    },
+    {
+      "id": "AC7",
+      "text": "The system prevents duplicate registrations."
+    },
+    {
+      "id": "AC8",
+      "text": "Registration is not available for events where registration is disabled."
+    },
+    {
+      "id": "AC9",
+      "text": "Registration is prevented once the event's registration capacity is reached."
+    },
+    {
+      "id": "AC10",
+      "text": "When an event is at capacity, the Attendee is offered the waiting list instead of direct registration (see: Join and Respond to Waiting List)."
+    }
   ],
   "open_questions": [
-    "Written before the code (TDD, 2026-10-10). No screen exists yet, so every label, message and page address below was chosen by the team and is what the developer builds to. Decisions are also recorded in DOCUMENTATION.md (changelog 2026-10-10, Sammi Chua, SPM-51).",
-    "DECIDED 2026-10-10: Browse Events (S-26) is the attendee's 'Browse Events' sidebar link (/browse). It lists every Confirmed event with registration enabled, each with its title, date and time, company and a registration badge: 'Open', 'Opens <date, time>', 'Closed', 'Full' or 'Dates not set'. Each title links to the event page. With none: 'No events are open for registration right now.'",
-    "DECIDED 2026-10-10: on the event page an attendee sees, below the read-only Registration card (SPM-64: Registration, Capacity, Opens, Closes), a 'Your registration' card. Open: optional 'Dietary requirements' and 'Accessibility requirements' fields and a 'Register' button; after registering, a green alert 'You're registered for this event.' and the status badge 'Registered'. Already registered: the 'Registered' badge and 'You registered on <date>.'. On the waiting list: the 'Waiting list' badge and 'You're on the waiting list.'. Not yet open: 'Registration opens <date, time>.'. Closed: 'Registration closed on <date, time>.'. No dates: 'Registration dates haven't been set for this event.'. Full: 'This event is full. You can join the waiting list instead.' and 'Joining the waiting list isn't available yet.' No Register button in any of those states.",
-    "DECIDED 2026-10-10: My Registrations (S-27) is the attendee's 'My Registrations' sidebar link (/registrations): a table of Event (linking to it), When and Status (badge: 'Registered', 'Waiting list', 'Withdrawn', 'Attended'), newest registration first. With none: 'You haven't registered for any events yet.'",
-    "DECIDED 2026-10-10: refusals, as the route already words them, shown in a red alert in the 'Your registration' card: 'Already registered for this event', 'This event is full', 'Registration has not opened yet', 'Registration has closed', 'Registration dates haven't been set for this event', 'Registration is not enabled for this event'. Pages other roles can't use show the existing refusal: 'You do not have access to this' with 'Browsing and registering for events is what an Attendee account is for.' (Browse Events) or 'Registrations belong to an Attendee account.' (My Registrations).",
+    "RESOLVED 2026-10-10: Written before the code (TDD, 2026-10-10). No screen exists yet, so every label, message and page address below was chosen by the team and is what the developer builds to. Decisions are also recorded in DOCUMENTATION.md (changelog 2026-10-10, Sammi Chua, SPM-51). Answer: noted. The second run of this skill, after the build, checks every label and message against the screens and updates the cases if anything changed.",
+    "RESOLVED 2026-10-10: Browse Events (S-26) is the attendee's 'Browse Events' sidebar link (/browse). It lists every Confirmed event with registration enabled, each with its title, date and time, company and a registration badge: 'Open', 'Opens <date, time>', 'Closed', 'Full' or 'Dates not set'. Each title links to the event page. With none: 'No events are open for registration right now.' Answer: confirmed. Listing closed, not-yet-open, full and undated events too (each with its badge) follows AC1 ('events where registration is enabled'), so an attendee sees why they can't register rather than the event vanishing. The badge words are the page's own, not event statuses.",
+    "RESOLVED 2026-10-10: on the event page an attendee sees, below the read-only Registration card (SPM-64: Registration, Capacity, Opens, Closes), a 'Your registration' card. Open: optional 'Dietary requirements' and 'Accessibility requirements' fields and a 'Register' button; after registering, a green alert 'You're registered for this event.' and the status badge 'Registered'. Already registered: the 'Registered' badge and 'You registered on <date>.'. On the waiting list: the 'Waiting list' badge and 'You're on the waiting list.'. Not yet open: 'Registration opens <date, time>.'. Closed: 'Registration closed on <date, time>.'. No dates: 'Registration dates haven't been set for this event.'. Full: 'This event is full. You can join the waiting list instead.' and 'Joining the waiting list isn't available yet.' No Register button in any of those states. Answer: confirmed. The card replaces controls with a message in every non-open state, as UI_DESIGN §7 (S-26 rows) asks: 'Registration opens <date>' when not open, the status when already registered, the waiting list when full. Shown only to an attendee.",
+    "RESOLVED 2026-10-10: My Registrations (S-27) is the attendee's 'My Registrations' sidebar link (/registrations): a table of Event (linking to it), When and Status (badge: 'Registered', 'Waiting list', 'Withdrawn', 'Attended'), newest registration first. With none: 'You haven't registered for any events yet.' Answer: confirmed. The badges reuse the existing registration labels in src/lib/statuses.ts (Registered, Waiting list, Withdrawn, Attended). No Withdraw button: withdrawing is #20.",
+    "RESOLVED 2026-10-10: refusals, as the route already words them, shown in a red alert in the 'Your registration' card: 'Already registered for this event', 'This event is full', 'Registration has not opened yet', 'Registration has closed', 'Registration dates haven't been set for this event', 'Registration is not enabled for this event'. Pages other roles can't use show the existing refusal: 'You do not have access to this' with 'Browsing and registering for events is what an Attendee account is for.' (Browse Events) or 'Registrations belong to an Attendee account.' (My Registrations). Answer: confirmed. The register route's messages are kept as they are, with one added for the new no-period rule. The refusal screens reuse RequirePermission's existing wording.",
     "RESOLVED 2026-10-10: eligibility (AC3). Confirmed, registration enabled, both dates set, and now between them. The opening and closing moments themselves count. No registration period means not eligible. Seats are taken by registered and attended attendees only (withdrawn and waitlisted don't take one). A capacity that isn't set means no limit.",
     "RESOLVED 2026-10-10: waiting list (AC10) is offer only. Joining, offers, the 3-day acceptance window (#44) and FIFO with manual override (#26) belong to Join and Respond to Waiting List, so no case joins the waiting list. Withdrawing (#20), check-in (#38), VIPs (#99) and notifications (SPM-53) are out of scope too.",
-    "Not reachable from the screens, so covered by unit tests only: the exact opening and closing moments (a tester can't pick the clock), two attendees taking the last seat at the same moment, a non-attendee calling the register API directly, and re-registering after withdrawing (there is no withdraw screen yet).",
-    "Fixtures needed (scripts/seed-spm51.ts, `npm run fixtures:spm51`, to be written with the code). Every event: organiser Evelyn Chen (Straits Medical Institute), coordinator Daniel Tan, 09:00-17:00. Open period = opens 1 Sept 2026 09:00, closes 31 Dec 2027 17:00.\n- 'SPM51 Harbour Open House': Confirmed, 15 Jan 2028, on, capacity 50, open period, no registrations.\n- 'SPM51 Last Seat Masterclass': Confirmed, 22 Jan 2028, on, capacity 3, open period; Jocelyn Pang and Ravi Subramaniam registered, Bryan Chua withdrawn.\n- 'SPM51 Sold Out Summit': Confirmed, 29 Jan 2028, on, capacity 3, open period; Kavitha Menon, Daniel Lim and Amirah Rashid registered, Jocelyn Pang waitlisted, Wong Kai Xin withdrawn.\n- 'SPM51 Early Bird Seminar': Confirmed, 20 Jan 2028, on, capacity 50, opens 1 Nov 2027 09:00, closes 31 Dec 2027 17:00.\n- 'SPM51 Closed Doors Workshop': Confirmed, 10 Dec 2027, on, capacity 50, opens 1 Aug 2026 09:00, closes 30 Sept 2026 17:00.\n- 'SPM51 Undated Talk': Confirmed, 5 Feb 2028, on, capacity 50, no dates.\n- 'SPM51 Private Board Dinner': Confirmed, 12 Feb 2028, registration off.\n- 'SPM51 Planning Stage Forum': Planning, 19 Feb 2028, on, capacity 50, open period."
+    "RESOLVED 2026-10-10: Not reachable from the screens, so covered by unit tests only: the exact opening and closing moments (a tester can't pick the clock), two attendees taking the last seat at the same moment, a non-attendee calling the register API directly, and re-registering after withdrawing (there is no withdraw screen yet). Answer: noted. Each is covered by a unit or route test in its slice.",
+    "RESOLVED 2026-10-10: Fixtures needed (scripts/seed-spm51.ts, `npm run fixtures:spm51`, to be written with the code). Every event: organiser Evelyn Chen (Straits Medical Institute), coordinator Daniel Tan, 09:00-17:00. Open period = opens 1 Sept 2026 09:00, closes 31 Dec 2027 17:00.\n- 'SPM51 Harbour Open House': Confirmed, 15 Jan 2028, on, capacity 50, open period, no registrations.\n- 'SPM51 Last Seat Masterclass': Confirmed, 22 Jan 2028, on, capacity 3, open period; Jocelyn Pang and Ravi Subramaniam registered, Bryan Chua withdrawn.\n- 'SPM51 Sold Out Summit': Confirmed, 29 Jan 2028, on, capacity 3, open period; Kavitha Menon, Daniel Lim and Amirah Rashid registered, Jocelyn Pang waitlisted, Wong Kai Xin withdrawn.\n- 'SPM51 Early Bird Seminar': Confirmed, 20 Jan 2028, on, capacity 50, opens 1 Nov 2027 09:00, closes 31 Dec 2027 17:00.\n- 'SPM51 Closed Doors Workshop': Confirmed, 10 Dec 2027, on, capacity 50, opens 1 Aug 2026 09:00, closes 30 Sept 2026 17:00.\n- 'SPM51 Undated Talk': Confirmed, 5 Feb 2028, on, capacity 50, no dates.\n- 'SPM51 Private Board Dinner': Confirmed, 12 Feb 2028, registration off.\n- 'SPM51 Planning Stage Forum': Planning, 19 Feb 2028, on, capacity 50, open period. Answer: noted. The script is written with the code, and the same events are appended to the end of prisma/seed.ts."
   ],
   "test_cases": [
     {
       "id": "SPM-51-TC01",
       "title": "Browse Events lists the Confirmed events with registration enabled, each with its registration state",
-      "linked_ac": ["AC1"],
+      "linked_ac": [
+        "AC1"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nLogged in as Chua Mei Ling (chua.mei.ling@example.com / password123), an Attendee.\nNothing is saved in this case.",
@@ -43,7 +75,10 @@
     {
       "id": "SPM-51-TC02",
       "title": "An attendee registers for an eligible event, and the registration is kept",
-      "linked_ac": ["AC2", "AC5"],
+      "linked_ac": [
+        "AC2",
+        "AC5"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm51` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Chua Mei Ling (chua.mei.ling@example.com / password123), an Attendee.",
@@ -60,7 +95,9 @@
     {
       "id": "SPM-51-TC03",
       "title": "A second registration for the same event is refused",
-      "linked_ac": ["AC7"],
+      "linked_ac": [
+        "AC7"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm51` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Tan Jia Hui (tan.jia.hui@example.com / password123), an Attendee.",
@@ -77,7 +114,9 @@
     {
       "id": "SPM-51-TC04",
       "title": "An attendee takes the last seat; withdrawn attendees don't hold one",
-      "linked_ac": ["AC9"],
+      "linked_ac": [
+        "AC9"
+      ],
       "type": "Boundary",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nBefore: run `npm run fixtures:spm51`. After: go straight to SPM-51-TC05, which checks the full event, and reset after it.\nLogged in as Tom Harris (tom.harris@example.com / password123), an Attendee.",
@@ -91,7 +130,10 @@
     {
       "id": "SPM-51-TC05",
       "title": "Once the capacity is reached, registration is refused and the waiting list is offered instead",
-      "linked_ac": ["AC9", "AC10"],
+      "linked_ac": [
+        "AC9",
+        "AC10"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "SPM-51-TC04 has just been run (SPM51 Last Seat Masterclass now has 3 of 3 seats taken).\nAfter: run `npm run fixtures:spm51` (never `npx prisma db seed`, which wipes everyone's data).\nLog out, then log in as Farhan Ismail (farhan.ismail@example.com / password123), an Attendee with no registration for this event.",
@@ -105,7 +147,9 @@
     {
       "id": "SPM-51-TC06",
       "title": "Before registration opens, the attendee sees when it opens and can't register",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nLogged in as Chua Mei Ling (chua.mei.ling@example.com / password123), an Attendee.\nNothing is saved in this case.",
@@ -118,7 +162,9 @@
     {
       "id": "SPM-51-TC07",
       "title": "After registration closes, the attendee sees when it closed and can't register",
-      "linked_ac": ["AC4"],
+      "linked_ac": [
+        "AC4"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nLogged in as Chua Mei Ling (chua.mei.ling@example.com / password123), an Attendee.\nNothing is saved in this case.",
@@ -131,7 +177,9 @@
     {
       "id": "SPM-51-TC08",
       "title": "An event with no registration period can't be registered for",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nLogged in as Chua Mei Ling (chua.mei.ling@example.com / password123), an Attendee.\nNothing is saved in this case.",
@@ -144,7 +192,9 @@
     {
       "id": "SPM-51-TC09",
       "title": "An event that isn't Confirmed can't be reached by an attendee",
-      "linked_ac": ["AC3"],
+      "linked_ac": [
+        "AC3"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nNothing is saved in this case.\nStart logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator of every 'SPM51 …' event.",
@@ -160,7 +210,9 @@
     {
       "id": "SPM-51-TC10",
       "title": "An event with registration turned off can't be reached by an attendee",
-      "linked_ac": ["AC8"],
+      "linked_ac": [
+        "AC8"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nNothing is saved in this case.\nStart logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
@@ -176,7 +228,9 @@
     {
       "id": "SPM-51-TC11",
       "title": "My Registrations lists the attendee's registrations with their status",
-      "linked_ac": ["AC6"],
+      "linked_ac": [
+        "AC6"
+      ],
       "type": "Positive",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nLogged in as Jocelyn Pang (jocelyn.pang@example.com / password123), an Attendee registered for 'SPM51 Last Seat Masterclass' and on the waiting list for 'SPM51 Sold Out Summit'. (The base seed may register her for other events too; those rows are listed as well.)\nNothing is saved in this case.",
@@ -190,7 +244,10 @@
     {
       "id": "SPM-51-TC12",
       "title": "Only attendees can browse, register and see registrations",
-      "linked_ac": ["AC2", "AC6"],
+      "linked_ac": [
+        "AC2",
+        "AC6"
+      ],
       "type": "Negative",
       "source": "Acceptance Criteria",
       "preconditions": "Test data loaded: `npm run fixtures:spm51` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM51 …' events, never anyone else's data).\nNothing is saved in this case.\nStart logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), a coordinator.",

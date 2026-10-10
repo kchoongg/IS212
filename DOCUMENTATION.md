@@ -946,7 +946,16 @@ what changed, why, and the migration name if there is one.
 - **Test cases written first:** `docs/test-cases/SPM-51_Test_Cases.xlsx` (12
   cases across AC1–AC10; the role checks are only in TC12). The screen
   wording and the 8 fixture events (`npm run fixtures:spm51`, not built yet)
-  are in the JSON's open questions. No code yet.
+  are in the JSON's open questions, all now RESOLVED.
+- **Slice 1 (AC3, AC8, AC9): one eligibility rule.** New pure module
+  `src/lib/registrationEligibility.ts`: `registrationState()` says `open` or
+  why not (not_confirmed, disabled, no_period, not_open, closed, full).
+  `REGISTRATION_REFUSALS` gives each refusal's message and `SEAT_TAKING`
+  (registered, attended) says who holds a seat. `POST /api/registrations` now
+  uses it instead of its own checks. Its messages are unchanged, plus
+  "Registration dates haven't been set for this event" for an event with no
+  period, which is now refused (AC3). The route's test event was given an
+  open period and a fixed clock on purpose. 21 unit tests, 2 more route tests.
 - Migration: none planned.
 
 ### 2026-10-09 — Sammi Chua (SPM-64, Configure Event Registration)
