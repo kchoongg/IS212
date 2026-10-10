@@ -408,6 +408,24 @@ async function main() {
       setupMinutes: 30, teardownMinutes: 45,
       layouts: [["theatre", 60], ["classroom", 40]],
       facilities: [] },
+    // SPM-81 fixtures (scripts/seed-spm81.ts): a main room and two breakout
+    // rooms, so one event can ask for several - dedicated, so the cases'
+    // bookings meet no one else's.
+    { code: "SPM81-AUD", name: "SPM81 Auditorium", description: "SPM-81 test venue: the main room, 30 min setup and turnaround",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 30,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM81-BRA", name: "SPM81 Breakout Room A", description: "SPM-81 test venue: breakout room, no setup or turnaround",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM81-BRB", name: "SPM81 Breakout Room B", description: "SPM-81 test venue: breakout room, unavailable on 10 Aug 2027 (SPM-81-TC03)",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -1382,6 +1400,36 @@ async function main() {
     spm86("spm86_other_coordinator", "SPM86 Another Coordinator", "2027-07-27",
       { coordinator: "priya.raj@connectsphere.com" }),
     spm86("spm86_approved", "SPM86 Not Yet Planning", "2027-07-28", { status: "approved" }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-81 QA fixtures (Request More Than One Venue for an Event). The SAME
+  // events as scripts/seed-spm81.ts (`npm run fixtures:spm81`) - keep the two
+  // in step.
+  //
+  // The events only. Their bookings, the Two-Track Conference's sessions and
+  // SPM81 Breakout Room B's maintenance period are created by that script
+  // alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm81 = (key: string, title: string, date: string, startHour: number, durationHours: number): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-81 more than one venue for an event test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "theatre",
+  });
+  eventData.push(
+    spm81("spm81_summit", "SPM81 Leadership Summit", "2027-08-03", 9, 8),
+    // Runs from Day 1's start (5 Aug 09:00) to Day 2's end (6 Aug 12:00).
+    spm81("spm81_conference", "SPM81 Two-Track Conference", "2027-08-05", 9, 27),
+    spm81("spm81_rival", "SPM81 Rival Booking", "2027-08-10", 10, 2),
+    spm81("spm81_kickoff", "SPM81 Sales Kickoff", "2027-08-10", 10, 2),
+    spm81("spm81_repeat", "SPM81 Repeat Request", "2027-08-12", 9, 3),
+    spm81("spm81_partner_day", "SPM81 Partner Day", "2027-08-17", 9, 3),
+    spm81("spm81_showcase", "SPM81 Showcase Day", "2027-08-19", 9, 8),
+    spm81("spm81_solo", "SPM81 Solo Workshop", "2027-08-26", 9, 3),
+    spm81("spm81_parallel", "SPM81 Parallel Tracks", "2027-08-24", 9, 6),
+    spm81("spm81_second_attempt", "SPM81 Second Attempt", "2027-08-31", 9, 3),
+    spm81("spm81_twin_rooms", "SPM81 Twin Rooms", "2027-09-02", 9, 3),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

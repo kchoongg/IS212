@@ -607,7 +607,7 @@ defend under questioning.
 | **Approval re-checks the room** — refused if another *approved* booking's occupied time (setup and turnaround included) or an unavailability period overlap, if the venue is retired, or if the event is completed, cancelled or rejected. A rival *pending* request does not block: approving one is how Venue Staff choose. The venue row is locked for the check, so two approvals cannot both pass | `approvalConflict()`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
 | **Reason required when rejecting a booking**; a suggested venue must be active and not the one refused. The suggestion books nothing (#45, #110) | `checkBookingDecision()` | ✅ done (SPM-43) |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
-| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event and session cannot request overlapping slots at a venue twice (two sessions may share a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
+| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event cannot request overlapping times at a venue twice, whichever of its sessions asks (SPM-81 AC4; sessions that only meet end to start may follow each other in a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
 | Equipment availability | `src/lib/equipmentAvailability.ts` | ✅ done (SPM-48) |
 | **Reserved / Partially fulfilled are set only by Reserve** — never picked by hand, so a line never claims stock it doesn't hold; leaving them goes through Unavailable | `fulfilmentOptionsFor()`, `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | ✅ done (SPM-50) |
 | **Unavailable needs a reason** (blank or spaces-only refused); technical notes max 500 characters, saved trimmed. Marking a reserved line Unavailable frees its units (status alone does it; `quantityReserved` is cleared too) | `checkFulfilmentUpdate()`, `fulfilmentChanges()` | ✅ done (SPM-50) |
@@ -902,6 +902,38 @@ what changed, why, and the migration name if there is one.
 ---
 
 ### 2026-10-10 — Kayal
+- **SPM-81 (Request More Than One Venue for an Event).** Week 7 Change #3.
+  Most of it already worked: a request is checked against the one venue asked
+  for, and the event's own bookings never count as a clash, so nothing
+  stopped a second venue for the same event, session and times (SPM-42,
+  SPM-44, SPM-93). No schema change, no new screen, no new route.
+  - **The one rule that changed (AC4):** the same venue cannot be requested
+    twice for the same EVENT at overlapping times, whichever session asks.
+    Before, `findDuplicateRequest()` (`src/lib/venueConflict.ts`) also needed
+    the same session, so two sessions could hold one room at the same time
+    (SPM-44, PR #37). Sessions that only meet end to start may still follow
+    each other in a room, and the event's own setup and turnaround still
+    never get in its own way.
+  - **Wording:** when another session holds the room the refusal reads "This
+    event already has a pending request for … on …"; the same session asking
+    twice is still named ("Day 1 already has …").
+  - **Kept on purpose:** a request must still cover the event's (or
+    session's) whole time. Change #3 and the story both say "at the same
+    time"; a room needed for part of the day is a session.
+  - **Where the bookings are shown together (AC6):** the Venue tab's "Booking
+    requests" card and the Overview's "Venue" row, both unchanged.
+  - **Not here:** per-space purpose, attendance and layout, and "every venue
+    approved before confirming" are SPM-90 - until then an event with one
+    approved and one pending venue can still be confirmed. Withdrawing or
+    releasing one booking is SPM-67 (comment left there: its cases must check
+    the event's other booking is unchanged). The equipment availability check
+    still picks one venue per event for transfer time (`venueFor()`), which
+    is undefined with two rooms - for the team to settle.
+  - **Test data:** `npm run fixtures:spm81` (11 events, three SPM81 venues).
+    The same venues and events are appended to `prisma/seed.ts`.
+  - **Tests:** manual cases `docs/test-cases/SPM-81_Test_Cases.xlsx` (11),
+    written before the code. Three automated tests that asserted "two
+    sessions may share a room" now assert the new rule.
 - **BPMN and status lifecycle diagrams brought in line with the Week 7
   Customer Changes** (`docs/ConnectSphere_BPMN.drawio`,
   `docs/ConnectSphere_Status_Lifecycle.drawio`). Diagrams only; no code.
