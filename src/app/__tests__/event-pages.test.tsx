@@ -961,3 +961,162 @@ describe("Event overview - updating event information (SPM-62)", () => {
     });
   });
 });
+
+// SPM-86 - Submit Event for Operational Safety Check.
+//
+// CONTRACT (SPM-86, written before the code and built to it): a "Submit for safety check" button on the
+// Overview for the assigned coordinator while the event is in Planning (canSubmitForSafetyCheck);
+// a dialog "Submit for safety check?" with "Submit" / "Not yet"; POST /api/events/[id]/safety-check
+// with no body; the success message, or the server's refusal in an alert; the event reloaded.
+// A "Safety check" row under "Status" in Details when the response carries a safetyCheck
+// (staff only - the API leaves it out for the organiser).
+describe("Event overview - submitting for a safety check (SPM-86)", () => {
+  const POST = `POST /api/events/${REF}/safety-check`;
+  const BUTTON = "Submit for safety check";
+  const TITLE = "Submit for safety check?";
+  const DONE = "The event has been submitted for a safety check. The Safety Officer has been notified.";
+
+  function open(role = "coordinator", eventRow: unknown = event(), extra: Record<string, unknown> = {}, who: object = daniel) {
+    setRoute(`/events/${REF}`, { id: REF });
+    const api = mockApi({ ...signedInAs(role, who), [EVENT]: eventRow, "GET /api/users": [], ...extra });
+    render(<EventOverviewPage />);
+    return api;
+  }
+
+  const ask = async () => userEvent.click(await screen.findByRole("button", { name: BUTTON }));
+  const go = () => userEvent.click(within(dialogTitled(TITLE)).getByRole("button", { name: "Submit", hidden: true }));
+
+  it("SPM-86-TC01: is offered to the assigned coordinator while the event is in Planning", async () => {
+    open();
+
+    expect(await screen.findByRole("button", { name: BUTTON })).toBeInTheDocument();
+  });
+
+  it.each(["approved", "safety_review", "confirmed", "postponed", "under_review"])(
+    "SPM-86-TC11: is not offered while the event is %s",
+    async (status) => {
+      open("coordinator", event({ status }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+    }
+  );
+
+  it.each([
+    ["a coordinator it is not assigned to", "coordinator", priya],
+    ["the Ops Manager", "ops_manager", {}],
+    ["Technical Support", "tech_support", {}],
+    ["the organiser who owns it", "organiser", { id: "organiser-id" }],
+  ])("SPM-86-TC10: is not offered to %s", async (_who, role, who) => {
+    open(role, event(), {}, who);
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+  });
+
+  it("asks first, saying what will happen, and sends nothing yet", async () => {
+    const api = open("coordinator", event(), { [POST]: {} });
+
+    await ask();
+
+    expect(dialogTitled(TITLE).open).toBe(true);
+    expect(dialogTitled(TITLE)).toHaveTextContent("Gala Dinner will move to Safety review and the Safety Officer will be notified.");
+    expect(api.sent(POST)).toHaveLength(0);
+  });
+
+  it("does nothing when the question is declined", async () => {
+    const api = open("coordinator", event(), { [POST]: {} });
+    await ask();
+
+    await userEvent.click(within(dialogTitled(TITLE)).getByRole("button", { name: "Not yet", hidden: true }));
+
+    expect(dialogTitled(TITLE).open).toBe(false);
+    expect(api.sent(POST)).toHaveLength(0);
+  });
+
+  it("SPM-86-TC01: submits, says the Safety Officer was notified, and reloads the event", async () => {
+    const api = open("coordinator", event(), { [POST]: { status: "safety_review" } });
+    await ask();
+
+    await go();
+
+    expect(await screen.findByText(DONE)).toBeInTheDocument();
+    expect(api.sent(POST)).toHaveLength(1);
+    await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+    expect(dialogTitled(TITLE).open).toBe(false);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "SPM-86-TC06: the outstanding arrangements",
+      reply(400, {
+        error: "This event cannot be submitted for a safety check yet: the venue for this event is still awaiting a decision from Venue Staff.",
+        outstanding: ["the venue for this event is still awaiting a decision from Venue Staff"],
+      }),
+      "This event cannot be submitted for a safety check yet: the venue for this event is still awaiting a decision from Venue Staff.",
+    ],
+    ["SPM-86-TC09: that a check is already pending", reply(400, { error: "A safety check is already pending for this event." }), "A safety check is already pending for this event."],
+    ["a general message when the server gives none", reply(500, {}), "Could not submit this event for a safety check."],
+    ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
+  ])("shows %s when it is refused, and leaves the event as it was", async (_case, answer, message) => {
+    const api = open("coordinator", event(), { [POST]: answer });
+    await ask();
+
+    await go();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(dialogTitled(TITLE).open).toBe(false);
+    expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+    expect(api.sent(EVENT)).toHaveLength(1);
+  });
+
+  describe("the Safety check row (AC8)", () => {
+    const pending = () =>
+      event({
+        status: "safety_review",
+        safetyCheck: { status: "pending", submittedAt: "2026-10-09T06:30:00.000Z", submittedBy: "Daniel Tan" },
+      });
+
+    it("SPM-86-TC02: shows staff who submitted it and when, in Singapore time", async () => {
+      open("coordinator", pending());
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Status")).toHaveTextContent("Safety review");
+      expect(valueOf("Safety check")).toHaveTextContent("Awaiting review · submitted by Daniel Tan, 9 Oct 2026, 14:30");
+      expect(terms().indexOf("Safety check")).toBe(terms().indexOf("Status") + 1);
+    });
+
+    it("words a later outcome by its status, and leaves out a submitter it does not know", async () => {
+      open(
+        "coordinator",
+        event({ safetyCheck: { status: "changes_requested", submittedAt: "2026-10-09T06:30:00.000Z", submittedBy: null } })
+      );
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Safety check")).toHaveTextContent("Changes requested · submitted, 9 Oct 2026, 14:30");
+    });
+
+    it("is not shown for an event that was never submitted", async () => {
+      open("coordinator", event({ safetyCheck: null }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(terms()).not.toContain("Safety check");
+    });
+
+    it("SPM-86-TC03: is not shown to the organiser, whose event reads Safety review", async () => {
+      const { safetyCheck: _hidden, ...asOrganiserReceivesIt } = pending() as Record<string, unknown>;
+      open("organiser", asOrganiserReceivesIt, {}, { id: "organiser-id" });
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Status")).toHaveTextContent("Safety review");
+      expect(terms()).not.toContain("Safety check");
+    });
+  });
+});
