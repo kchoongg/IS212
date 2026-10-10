@@ -916,6 +916,59 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-10 — Kristen
+- **Each test case sheet now carries its own summary.** The test case
+  template (`.claude/skills/generate-test-cases/Test_Case_Template.xlsx`)
+  has a **Summary** row under Test Case ID, and `fill_template.py` fills it
+  from the case's `title` - the same words as the Summary sheet's Title
+  column - so a tester reading one sheet knows what it checks. Applies to
+  workbooks built from now on; the existing ones are left as they are
+  (rebuilding one would add the row but wipe any recorded execution
+  results). `SKILL.md` says how to write the summary.
+- Migration: none.
+
+### 2026-10-10 — Kristen
+- **Commit messages get their Jira key automatically** —
+  `.githooks/prepare-commit-msg` puts the key from the branch name at the
+  front of each commit message (`SPM-33: fix the readiness count`), so a
+  commit stays linked to its ticket after the branch is merged and deleted.
+  It skips branches with no key, messages that already have it, and merge,
+  squash and amended commits, and it never blocks a commit. Switched on by
+  `npm install`, like the pre-push hook - run it once after pulling.
+  `contributing.md` section 3 updated. Existing commits are not rewritten.
+- Migration: none.
+
+### 2026-10-10 — Kayal
+- **BPMN and status lifecycle diagrams brought in line with the Week 7
+  Customer Changes** (`docs/ConnectSphere_BPMN.drawio`,
+  `docs/ConnectSphere_Status_Lifecycle.drawio`). Diagrams only; no code.
+  - **#1 Setup and turnaround:** the venue search and Venue Staff's review
+    say that availability and conflicts include setup and turnaround time.
+  - **#2 Venue becomes unavailable:** the exception start reads "Venue
+    retired, marked unavailable or attributes changed" (SPM-45's wording),
+    and its "no longer suitable" end returns to venue search for a
+    replacement.
+  - **#3 Several venues for one event:** a new "Another venue needed?"
+    gateway after a booking is approved loops back to venue search, so each
+    venue is searched for, requested and decided on its own, and the venue
+    branch joins only when every venue is approved.
+  - **#4 Tentative holds expire:** a new start in "Changes and exceptions"
+    (Venue Staff lane): hold expiry reached, the venue is released, the
+    coordinator is notified, and the hold was never a booking.
+  - **#5 Event Coordinator Lead:** the Event Operations Manager lane is
+    renamed (#129), a submitted request enters the unassigned queue, and the
+    Lead assigns (and can reassign) the coordinator, who is notified.
+  - **#6 Operational Safety Check:** a new Safety Officer lane and a "Safety
+    review" status band. "Arrangements complete?" now leads to "Submit event
+    for Operational Safety Check", then the Safety Officer's check; approve
+    goes on to "Confirm event", reject or request changes goes back to
+    Planning. Everything from "Confirm event" rightwards moved 320 to the
+    right and the exceptions section 160 down to make room.
+  - **Lifecycle:** the Submitted to Under review arrow reads "Lead assigns",
+    and a second notes block covers assignment and venues. The Safety review
+    status itself was added by SPM-86.
+- Migration: none.
+
 ### 2026-10-09 — Kayal
 - **SPM-45 (Record Venue Unavailability): Venue Staff can mark a venue
   unavailable for a period** (Week 7 Change #2). The last missing piece of the
