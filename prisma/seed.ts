@@ -1366,7 +1366,7 @@ async function main() {
   // measured against, the exact registration periods and the registered,
   // waitlisted and withdrawn attendees are created by that script alone, so
   // run it once after a full reseed. Pushed LAST, after SPM-93, so no earlier
-  // event's EVT- reference number shifts. Add new events AFTER this block.
+  // event's EVT- reference number shifts. SPM-51's block follows.
   // -----------------------------------------------------------------
   const spm64 = (
     key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
@@ -1397,6 +1397,33 @@ async function main() {
     spm64("spm64_openday", "SPM64 Attendee Open Day", "confirmed", "2027-05-13", 9, 8, 60,
       { regEnabled: true, regCapacity: 60 }),
     spm64("spm64_postponed", "SPM64 Postponed Product Talk", "postponed", "2027-05-19", 9, 3, 30),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-51 QA fixtures (Register for Event). The SAME events as
+  // scripts/seed-spm51.ts (`npm run fixtures:spm51`) - keep the two in step.
+  //
+  // The events only. Their exact registration periods (some open, one not
+  // yet, one closed, one with none) and the registered, waitlisted and
+  // withdrawn attendees are created by that script alone, so run it once
+  // after a full reseed. Pushed LAST, after SPM-64, so no earlier event's EVT-
+  // reference number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm51 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-51 register for event test event", category: "seminar",
+    days: daysUntil(date), startHour: 9, durationHours: 8, attendance: 50, layout: "classroom",
+    regEnabled: true, regCapacity: 50, ...options,
+  });
+  eventData.push(
+    spm51("spm51_harbour", "SPM51 Harbour Open House", "confirmed", "2028-01-15"),
+    spm51("spm51_lastseat", "SPM51 Last Seat Masterclass", "confirmed", "2028-01-22", { regCapacity: 3, attendance: 3 }),
+    spm51("spm51_soldout", "SPM51 Sold Out Summit", "confirmed", "2028-01-29", { regCapacity: 3, attendance: 3 }),
+    spm51("spm51_earlybird", "SPM51 Early Bird Seminar", "confirmed", "2028-01-20"),
+    spm51("spm51_closed", "SPM51 Closed Doors Workshop", "confirmed", "2027-12-10"),
+    spm51("spm51_undated", "SPM51 Undated Talk", "confirmed", "2028-02-05"),
+    spm51("spm51_private", "SPM51 Private Board Dinner", "confirmed", "2028-02-12", { regEnabled: false, regCapacity: undefined }),
+    spm51("spm51_planning", "SPM51 Planning Stage Forum", "planning", "2028-02-19"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

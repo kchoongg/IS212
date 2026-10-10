@@ -23,6 +23,7 @@
     "fixtures:spm62": "tsx scripts/seed-spm62.ts",
     "fixtures:spm93": "tsx scripts/seed-spm93.ts",
     "fixtures:spm64": "tsx scripts/seed-spm64.ts",
+    "fixtures:spm51": "tsx scripts/seed-spm51.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
