@@ -244,6 +244,9 @@ only because managing it requires seeing it, not as a separate viewing right.
            venue staff decides                        tech support reserves
                      +---------------------+--------------------+
                                            v
+                 /events/[id] Submit for safety check (SPM-86) -> Safety Officer
+                                           |  approved (SPM-87)
+                                           v
                             /events/[id] Readiness -> Confirm event
 ```
 
@@ -298,6 +301,7 @@ maps the database string to a human label and a fixed tone:
 | `under_review` | Under review | info (blue) |
 | `approved` | Approved | progress (indigo) |
 | `planning` | Planning | progress (indigo) |
+| `safety_review` | Safety review | info (blue) — with the Safety Officer (SPM-86) |
 | `confirmed` | Confirmed | success (green) |
 | `completed` | Completed | neutral (grey) |
 | `postponed` | Postponed | warning (amber) |
@@ -572,6 +576,7 @@ This document specifies the whole first release. What is built so far:
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
+| Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
 
 Specified but not yet built, and why:

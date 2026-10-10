@@ -21,7 +21,7 @@ import { RegistrationCard, type RegistrationEvent } from "./RegistrationCard";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
-import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
+import { EMPTY, eventReference, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
 import {
   EVENT_INFORMATION_STATUSES,
@@ -30,6 +30,7 @@ import {
   canConfigureRegistration,
   canConfirmEvent,
   canReviewEvent,
+  canSubmitForSafetyCheck,
   canUpdateEventInformation,
   canWithdrawEvent,
 } from "@/lib/permissions";
@@ -89,6 +90,18 @@ interface EventDetail extends RegistrationEvent {
   // Present for an Attendee too - which company is running the event is
   // public, even though who personally organised it (above) is not.
   organisation?: { name: string } | null;
+  /// SPM-86 (AC8): the latest Operational Safety Check, null if the event was
+  /// never submitted. Absent for an external user - safety details are
+  /// internal (SPM-88), so the organiser sees the Safety review status only.
+  safetyCheck?: { status: string; submittedAt: string; submittedBy: string | null } | null;
+}
+
+/// SPM-86: "Awaiting review · submitted by Daniel Tan, 9 Oct 2026, 14:30".
+/// SPM-87 adds the Safety Officer's decision to the same row.
+function safetyCheckSummary(check: NonNullable<EventDetail["safetyCheck"]>): string {
+  const state = check.status === "pending" ? "Awaiting review" : humanise(check.status);
+  const by = check.submittedBy ? ` by ${check.submittedBy}` : "";
+  return `${state} · submitted${by}, ${formatDateTime(check.submittedAt)}`;
 }
 
 /// "Orchard Seminar Room (ORC-SEM)", or one line per session for a
@@ -125,6 +138,11 @@ export default function EventOverviewPage() {
   // asks, and shows what it says back.
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // SPM-86: the assigned coordinator submitting the event for an Operational
+  // Safety Check. As with Confirm, the server decides whether the
+  // arrangements are ready and the page shows what it says back.
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [submittingSafety, setSubmittingSafety] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -239,6 +257,28 @@ export default function EventOverviewPage() {
     }
   }
 
+  async function submitForSafetyCheck() {
+    setSubmittingSafety(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/safety-check`, { method: "POST" });
+      if (!res.ok) {
+        // The refusal names what is outstanding or flagged (AC2), or says a
+        // check is already pending (AC6) - shown as it comes.
+        setActionError((await res.json()).error ?? "Could not submit this event for a safety check.");
+        return;
+      }
+      setNotice("The event has been submitted for a safety check. The Safety Officer has been notified.");
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmittingSafety(false);
+      setSafetyOpen(false);
+    }
+  }
+
   // Same fields and checks as the PATCH route, so the button only appears
   // when withdrawing would succeed.
   const showWithdraw = Boolean(
@@ -267,6 +307,24 @@ export default function EventOverviewPage() {
     event.organiserId !== undefined &&
     event.coordinatorId !== undefined &&
     canConfirmEvent(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-86 (AC1, AC7): the assigned coordinator, while the event is in
+  // Planning. Readiness is the server's call, as for Confirm.
+  const showSafetyCheck = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canSubmitForSafetyCheck(
       { id: user.id, role: user.role, organisationId: null },
       {
         organiserId: event.organiserId,
@@ -373,6 +431,9 @@ export default function EventOverviewPage() {
         ]}
         actions={
           <>
+            {showSafetyCheck && (
+              <Button onClick={() => setSafetyOpen(true)}>Submit for safety check</Button>
+            )}
             {showConfirm && (
               <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
             )}
@@ -476,6 +537,10 @@ export default function EventOverviewPage() {
                 items={[
                   { label: "Category", value: orEmpty(event.category && humanise(event.category)) },
                   { label: "Status", value: statusLabel(event.status) },
+                  // SPM-86 (AC8): staff only - the API leaves it out for the organiser.
+                  ...(event.safetyCheck
+                    ? [{ label: "Safety check", value: safetyCheckSummary(event.safetyCheck) }]
+                    : []),
                   { label: "When", value: formatDateTimeRange(event.startsAt, event.endsAt) },
                   // Not relevant to someone deciding whether to register, and
                   // absent from an Attendee's response entirely - see the
@@ -590,6 +655,19 @@ export default function EventOverviewPage() {
         {event?.title || "This event"} will be marked Confirmed, and the organiser will be
         able to see the venue and equipment arranged for it. Anything still outstanding will
         be listed instead.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={safetyOpen}
+        title="Submit for safety check?"
+        confirmLabel="Submit"
+        cancelLabel="Not yet"
+        loading={submittingSafety}
+        onConfirm={() => void submitForSafetyCheck()}
+        onCancel={() => setSafetyOpen(false)}
+      >
+        {event?.title || "This event"} will move to Safety review and the Safety Officer will be
+        notified. Anything still outstanding or flagged for review will be listed instead.
       </ConfirmDialog>
     </div>
   );

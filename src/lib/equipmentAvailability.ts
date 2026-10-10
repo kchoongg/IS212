@@ -225,5 +225,9 @@ export function reservingClosedMessage(eventStatus: string): string {
   if (eventStatus === "confirmed") {
     return "This event is confirmed — its equipment is final. A change now goes through a change request.";
   }
+  // SPM-86: the Safety Officer is checking the arrangements as they stand.
+  if (eventStatus === "safety_review") {
+    return "This event is with the Safety Officer for a safety check — equipment can't be reserved or updated until the check is done.";
+  }
   return `This event is ${eventStatus.replace(/_/g, " ")} — equipment can be reserved and updated while the event is in planning.`;
 }

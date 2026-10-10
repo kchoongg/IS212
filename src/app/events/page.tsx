@@ -43,7 +43,8 @@ const COORDINATOR_FILTER_OPTIONS = [
 ];
 
 const ALL_STATUSES = [
-  "draft", "submitted", "under_review", "approved", "planning", "confirmed", "completed", "rejected", "cancelled",
+  "draft", "submitted", "under_review", "approved", "planning", "safety_review", "confirmed", "completed", "rejected",
+  "cancelled",
 ];
 
 export default function EventsPage() {

@@ -13,6 +13,7 @@ import {
 } from "@/lib/permissions";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
+import { isExternalRole } from "@/lib/roles";
 import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
@@ -92,6 +93,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                 venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
               },
             },
+            // ADDED (SPM-86 AC8): the latest Operational Safety Check - who
+            // submitted it and when. Reshaped to `safetyCheck` below, for
+            // internal users only.
+            safetyChecks: {
+              orderBy: { submittedAt: "desc" },
+              take: 1,
+              select: { status: true, submittedAt: true, submitter: { select: { fullName: true } } },
+            },
           },
         });
   if (!event) {
@@ -118,7 +127,21 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // the public subset; the rejection reason, the assigned coordinator, the
   // client's special requirements and the venue and equipment arrangements
   // are internal planning information (briefing §8b).
-  return NextResponse.json(visibleEventFor(actor, event));
+  // ADDED (SPM-86): the latest safety check as `safetyCheck`, or null if the
+  // event was never submitted. Safety details are internal (SPM-88): an
+  // external user (the organiser, an attendee) sees the Safety review status
+  // and nothing more.
+  const { safetyChecks, ...rest } = event;
+  const latest = safetyChecks?.[0];
+  const shaped = isExternalRole(actor.role)
+    ? rest
+    : {
+        ...rest,
+        safetyCheck: latest
+          ? { status: latest.status, submittedAt: latest.submittedAt, submittedBy: latest.submitter?.fullName ?? null }
+          : null,
+      };
+  return NextResponse.json(visibleEventFor(actor, shaped));
 }
 
 /**
@@ -200,6 +223,16 @@ async function handleStatusChange(
   // Manager assigns it, and the coordinator responsible for it approves,
   // rejects, confirms and completes it. Visibility was already checked by the
   // caller, so a refusal here is an honest 403.
+  // ADDED (SPM-86): there is one way into Safety review - POST
+  // /api/events/[id]/safety-check, which checks the arrangements and records
+  // the submission. Not this route.
+  if (data.status === "safety_review") {
+    return NextResponse.json(
+      { error: "An event is sent for a safety check with Submit for safety check" },
+      { status: 400 }
+    );
+  }
+
   if (!canSetEventStatus(actor, event, data.status)) {
     return forbidden(`Your role cannot move an event to "${data.status}"`);
   }

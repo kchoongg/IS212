@@ -90,6 +90,17 @@ const ATTENTION_BY_ROLE: Record<string, Section & { scope?: Scope; more?: Sectio
         blurb: "Events your coordinator is now planning.",
         empty: { title: "Nothing in planning", description: "Events appear here once your coordinator begins planning." },
       },
+      // SPM-86 (AC4): with the Safety Officer. Without its own list the
+      // event would drop off the organiser's dashboard while it is checked.
+      {
+        heading: "Safety review",
+        statuses: ["safety_review"],
+        blurb: "Events with the Safety Officer for an operational safety check.",
+        empty: {
+          title: "Nothing in safety review",
+          description: "Events appear here once your coordinator submits them for a safety check.",
+        },
+      },
     ],
   },
   // The coordinator's own events, by where each has got to. "Awaiting your
@@ -116,6 +127,16 @@ const ATTENTION_BY_ROLE: Record<string, Section & { scope?: Scope; more?: Sectio
         blurb: "Your events being planned and not yet confirmed.",
         empty: { title: "Nothing in planning", description: "Events appear here once you begin planning them." },
       },
+      // SPM-86: submitted, waiting on the Safety Officer.
+      {
+        heading: "Safety review",
+        statuses: ["safety_review"],
+        blurb: "Your events waiting on the Safety Officer's check.",
+        empty: {
+          title: "Nothing in safety review",
+          description: "Events appear here once you submit them for a safety check.",
+        },
+      },
     ],
   },
   ops_manager: {
@@ -126,12 +147,12 @@ const ATTENTION_BY_ROLE: Record<string, Section & { scope?: Scope; more?: Sectio
   },
   venue_staff: {
     heading: "Upcoming events",
-    statuses: ["approved", "planning", "confirmed"],
+    statuses: ["approved", "planning", "safety_review", "confirmed"],
     blurb: "Events with venue arrangements in progress or confirmed.",
   },
   tech_support: {
     heading: "Upcoming events",
-    statuses: ["approved", "planning", "confirmed"],
+    statuses: ["approved", "planning", "safety_review", "confirmed"],
     blurb: "Events that may need equipment or on-site support.",
   },
   attendee: {
