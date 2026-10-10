@@ -71,7 +71,9 @@ git commit -m "add user model and migration"
 git push -u origin PROJ-123-user-model
 ```
 
-You do **not** need the key in every commit message. The branch name already carries it, so every commit on the branch links to the ticket automatically.
+You do **not** need to type the key in your commit messages. Git adds it for you from the branch name: on `PROJ-123-user-model`, the commit above is saved as `PROJ-123: add user model and migration` (`.githooks/prepare-commit-msg`, switched on by `npm install`). That keeps every commit linked to its ticket even after the branch is merged and deleted.
+
+It leaves the message alone on a branch with no key (`main`, `docs/...`, `ci/...`), when you already typed the key, and on merge commits. Run `npm install` once after pulling this change to turn it on.
 
 (First push needs `-u origin <branch-name>`. After that, plain `git push` works.)
 

@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { BOOKING_STEP_MINUTES, isDayKey } from "@/lib/venueTime";
+import { BOOKING_STEP_MINUTES, isDayKey, isOnGrid } from "@/lib/venueTime";
+import {
+  OTHER_REASON_ERROR,
+  OTHER_REASON_MAX,
+  PERIOD_ORDER_ERROR,
+  TIME_GRID_ERROR,
+  UNAVAILABILITY_REASONS,
+  periodInterval,
+} from "@/lib/venueUnavailability";
 
 // ---- Venues ----
 
@@ -148,6 +156,37 @@ export const createVenueBookingSchema = z.object({
   requirementsNote: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
 });
 export type CreateVenueBookingInput = z.infer<typeof createVenueBookingSchema>;
+
+// ADDED (SPM-45): POST /api/venues/[id]/unavailability and PATCH
+// .../unavailability/[periodId]. A period is stated as the date and time the
+// venue becomes unavailable and the date and time it is available again, on
+// the 15-minute grid (AC1; #126, #128), and the second must be later (AC2).
+// `otherReason` only means something for "other", where it is required; the
+// routes ignore it for any other reason.
+const gridTime = z.string().refine(isOnGrid, { message: TIME_GRID_ERROR });
+
+export const venueUnavailabilitySchema = z
+  .object({
+    fromDay: availabilityDay,
+    fromTime: gridTime,
+    untilDay: availabilityDay,
+    untilTime: gridTime,
+    reason: z.enum(UNAVAILABILITY_REASONS),
+    otherReason: z.preprocess(blankToUndefined, z.string().trim().max(OTHER_REASON_MAX).optional()),
+  })
+  .superRefine((period, ctx) => {
+    // A refused day or time still reaches here; there is nothing to compare.
+    const readable =
+      isDayKey(period.fromDay) && isDayKey(period.untilDay) && isOnGrid(period.fromTime) && isOnGrid(period.untilTime);
+    const { startsAt, endsAt } = periodInterval(period);
+    if (readable && endsAt.getTime() <= startsAt.getTime()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: PERIOD_ORDER_ERROR, path: ["untilTime"] });
+    }
+    if (period.reason === "other" && !period.otherReason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: OTHER_REASON_ERROR, path: ["otherReason"] });
+    }
+  });
+export type VenueUnavailabilityInput = z.infer<typeof venueUnavailabilitySchema>;
 
 // ADDED (SPM-43): PATCH /api/venue-bookings/[id]. A blank `reason` is allowed
 // through on purpose - checkBookingDecision() (src/lib/venueBookingReview.ts)
