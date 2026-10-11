@@ -869,6 +869,24 @@ describe("Booking Requests", () => {
       expect(dialog().open).toBe(false);
     });
 
+    // SPM-81 (AC5, AC7): one event's requests are separate cards, and a
+    // decision is sent for the one request only - a PATCH for b2 has no route
+    // here and would fail the test.
+    it("SPM-81-TC05: approving one of an event's two requests decides that one alone, and the other stays Pending", async () => {
+      const other = request({ id: "b2", venue: { id: "v2", code: "HALL-B", name: "Hall B", setupMinutes: 0, teardownMinutes: 0 } });
+      const api = open({ [DECIDE]: {}, [LIST]: [request(), other] });
+      expect(await card("Hall B (HALL-B)")).toHaveTextContent("for EVT-000007 Town Hall");
+      await approve();
+      api.on(LIST, [other]);
+
+      await confirmApproval();
+
+      await screen.findByText("Booking approved");
+      expect(api.sent(DECIDE).map((c) => c.body)).toEqual([{ decision: "approve" }]);
+      await waitFor(() => expect(screen.queryByRole("heading", { name: "Hall A (HALL-A)" })).not.toBeInTheDocument());
+      expect(within(await card("Hall B (HALL-B)")).getByText("Pending")).toBeInTheDocument();
+    });
+
     it("names an untitled event as such", async () => {
       open({
         [LIST]: [request({ event: { ...request().event, title: null } })],

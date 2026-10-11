@@ -628,7 +628,7 @@ defend under questioning.
 | **A period flags the bookings it covers and changes none** — approved and not finished only; a booking counts when its occupied period (its times plus the venue's setup and turnaround) overlaps the period; meeting end to start is not an overlap. Changing a period flags only what it newly overlaps; nothing clears a flag | `bookingInPeriod()`, `flagBookingsInPeriod()` | ✅ done (SPM-45) |
 | **Ending a period early** — one under way ends now, rounded down to the 15-minute grid (the row is kept), one not started is deleted, one already over is refused (400) | `periodPhase()`, `endEarlyAt()`, `api/venues/[id]/unavailability/[periodId]` DELETE | ✅ done (SPM-45) |
 | Venue suitability (capacity + mandatory facilities) | venues domain | ❌ to write |
-| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event and session cannot request overlapping slots at a venue twice (two sessions may share a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
+| Booking conflict detection — an approved booking (with its setup and turnaround slots), another event's pending request, or an unavailability period blocks a new request; at approval only approved bookings and unavailability block. The refusal names the booking or period in the way. The same event cannot request overlapping times at a venue twice, whichever of its sessions asks (SPM-81 AC4; sessions that only meet end to start may follow each other in a room), and the request route locks the venue row so two requests at the same moment cannot both pass | `findVenueConflict()` and `findDuplicateRequest()` in `src/lib/venueConflict.ts`, called by `checkVenueBookingRequest()` (request), `approvalConflict()` (approval) and `occupancyConflict()` (venue search); the lock in `POST /api/events/[id]/venue-bookings` | ✅ done (SPM-44) |
 | Equipment availability | `src/lib/equipmentAvailability.ts` | ✅ done (SPM-48) |
 | **Reserved / Partially fulfilled are set only by Reserve** — never picked by hand, so a line never claims stock it doesn't hold; leaving them goes through Unavailable | `fulfilmentOptionsFor()`, `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | ✅ done (SPM-50) |
 | **Unavailable needs a reason** (blank or spaces-only refused); technical notes max 500 characters, saved trimmed. Marking a reserved line Unavailable frees its units (status alone does it; `quantityReserved` is cleared too) | `checkFulfilmentUpdate()`, `fulfilmentChanges()` | ✅ done (SPM-50) |
@@ -895,6 +895,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Find a venue gives no feedback when a search returns the same results** | Pressing Search with unchanged filters reloads an identical list and nothing says a search ran. Found while testing SPM-54; raised as **SPM-79** (Show Venue Search Feedback), in the backlog. | venues |
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
+| **An event with more than one venue can be confirmed while one is still pending** | Confirm Event (SPM-34) and Submit for Safety Check (SPM-86) ask only whether the event (or each session) has an approved venue booking, so an event with one Approved and one Pending room passes. Requiring every venue to be approved is **SPM-90** (Check Each Venue Against Its Own Requirements), split from SPM-81 on purpose. Found 2026-10-10. | SPM-90 |
+| **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 records what each space is for, which may be the place to settle it. Found 2026-10-10. | equipment / SPM-90 |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
 | **No Safety Officer can receive a safety-check notification yet** | Submitting an event for a safety check (SPM-86) notifies every active user with the role `safety_officer`, but that role does not exist until **SPM-85 (Safety Officer Role and Access)** adds it, so today the notification reaches nobody - the submission itself still succeeds. Once SPM-85 is in, the notification still can't be seen until the Notifications screen (**SPM-71**) is built. Role key agreed: `safety_officer` (2026-10-09). | SPM-85 / SPM-71 |
@@ -997,6 +999,41 @@ what changed, why, and the migration name if there is one.
 - Migration: none.
 
 ### 2026-10-10 — Kayal
+- **SPM-81 (Request More Than One Venue for an Event).** Week 7 Change #3.
+  Most of it already worked: a request is checked against the one venue asked
+  for, and the event's own bookings never count as a clash, so nothing
+  stopped a second venue for the same event, session and times (SPM-42,
+  SPM-44, SPM-93). No schema change, no new screen, no new route.
+  - **The one rule that changed (AC4):** the same venue cannot be requested
+    twice for the same EVENT at overlapping times, whichever session asks.
+    Before, `findDuplicateRequest()` (`src/lib/venueConflict.ts`) also needed
+    the same session, so two sessions could hold one room at the same time
+    (SPM-44, PR #37). Sessions that only meet end to start may still follow
+    each other in a room, and the event's own setup and turnaround still
+    never get in its own way.
+  - **Wording:** when another session holds the room the refusal reads "This
+    event already has a pending request for … on …"; the same session asking
+    twice is still named ("Day 1 already has …").
+  - **Kept on purpose:** a request must still cover the event's (or
+    session's) whole time. Change #3 and the story both say "at the same
+    time"; a room needed for part of the day is a session.
+  - **Where the bookings are shown together (AC6):** the Venue tab's "Booking
+    requests" card and the Overview's "Venue" row, both unchanged.
+  - **Not here:** per-space purpose, attendance and layout, and "every venue
+    approved before confirming" are SPM-90 - until then an event with one
+    approved and one pending venue can still be confirmed. Withdrawing or
+    releasing one booking is SPM-67 (comment left there: its cases must check
+    the event's other booking is unchanged). The equipment availability check
+    still picks one venue per event for transfer time (`venueFor()`), which
+    is undefined with two rooms - for the team to settle.
+  - **Test data:** `npm run fixtures:spm81` (11 events, three SPM81 venues).
+    The same venues and events are appended to `prisma/seed.ts`.
+  - **Tests:** manual cases `docs/test-cases/SPM-81_Test_Cases.xlsx` (11),
+    written before the code; all 11 passed when run by hand on 2026-10-11.
+    Three automated tests that asserted "two sessions may share a room"
+    now assert the new rule. No other story's test case relied on it.
+  - Known Gaps: two new rows (confirming with a venue still pending,
+    SPM-90; equipment transfer time with several venues).
 - **BPMN and status lifecycle diagrams brought in line with the Week 7
   Customer Changes** (`docs/ConnectSphere_BPMN.drawio`,
   `docs/ConnectSphere_Status_Lifecycle.drawio`). Diagrams only; no code.

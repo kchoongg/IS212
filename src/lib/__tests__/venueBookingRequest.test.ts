@@ -350,9 +350,11 @@ describe("checkVenueBookingRequest", () => {
       }
     });
 
-    it("the event's own bookings for another session do not block it", () => {
+    // SPM-81 AC4: the event's own booking is not a clash with another event,
+    // but it is a repeat, whichever session holds it.
+    it("the event's own booking for another session is refused as a repeat, not as a clash", () => {
       const own = { ...base, venue: { ...base.venue, bookings: [{ eventId: "workshop", sessionId: "day-2", status: "approved", ...at("2027-06-11T10:00:00", "2027-06-11T12:00:00") }] } };
-      expect(checkVenueBookingRequest(own).ok).toBe(true);
+      expect(checkVenueBookingRequest(own)).toMatchObject({ ok: false, error: expect.stringContaining("This event already has") });
     });
   });
 });
@@ -419,8 +421,18 @@ describe("a repeat of the same request (SPM-44 AC4)", () => {
     }
   });
 
-  it("lets two different sessions of one event share the room at the same time", () => {
+  // SPM-81 AC4 (decided 2026-10-10): per event, not per session. The refusal
+  // says "This event", because it is another session that holds the room.
+  it("SPM-81-TC09: refuses another session of the same event asking for the room at overlapping times", () => {
     const input = holding(own("pending", "10:00", "12:00", "day-1"));
+    expect(checkVenueBookingRequest({ ...input, sessionId: "day-2", holder: { kind: "session", name: "Day 2" } })).toEqual({
+      ok: false,
+      error: "This event already has a pending request for SPM93 Studio on 11 Jun 2027, 10:00–12:00.",
+    });
+  });
+
+  it("SPM-81-TC09: lets another session of the same event take the room as the first one ends", () => {
+    const input = holding(own("pending", "09:00", "10:00", "day-1"));
     expect(checkVenueBookingRequest({ ...input, sessionId: "day-2", holder: { kind: "session", name: "Day 2" } }).ok).toBe(true);
   });
 
