@@ -295,4 +295,13 @@ describe("impactSentence", () => {
       "the venue has been retired; the booked layout is no longer offered at this venue"
     );
   });
+
+  // SPM-45: an unavailable period flags a booking
+  // with its own reason, kept apart from "venue_retired" (SPM-68 lists "venue
+  // retired" and "venue blocked" as two reasons).
+  it("words a booking caught by an unavailable period", () => {
+    expect(impactSentence(["venue_unavailable" as ImpactReason])).toBe(
+      "the venue is unavailable during this booking"
+    );
+  });
 });
