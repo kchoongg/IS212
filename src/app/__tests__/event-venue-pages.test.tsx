@@ -180,6 +180,27 @@ describe("Event Venue tab", () => {
     expect(requests).toHaveTextContent("Approved");
   });
 
+  it("SPM-81-TC07: lists an event's requests at different venues together, each with its own times and status", async () => {
+    open({
+      [INFO]: info({
+        bookings: [
+          { id: "b1", status: "approved", startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-04T09:00:00.000Z", layoutName: "theatre", session: null, venue: { code: "HALL-A", name: "Hall A" } },
+          { id: "b2", status: "pending", startsAt: "2027-03-04T05:00:00.000Z", endsAt: "2027-03-04T09:30:00.000Z", layoutName: "theatre", session: null, venue: { code: "ROOM-B", name: "Room B" } },
+        ],
+      }),
+    });
+
+    const requests = (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
+    const row = (venue: string) => within(requests).getByText(venue).closest("div.text-sm") as HTMLElement;
+
+    expect(row("Hall A (HALL-A)")).toHaveTextContent("4 Mar 2027, 13:30–17:00 · Theatre");
+    expect(row("Hall A (HALL-A)")).toHaveTextContent("Approved");
+    expect(row("Hall A (HALL-A)")).not.toHaveTextContent("Pending");
+    expect(row("Room B (ROOM-B)")).toHaveTextContent("4 Mar 2027, 13:00–17:30 · Theatre");
+    expect(row("Room B (ROOM-B)")).toHaveTextContent("Pending");
+    expect(row("Room B (ROOM-B)")).not.toHaveTextContent("Approved");
+  });
+
   describe("a rejected booking request", () => {
     const rejected = (overrides: Record<string, unknown> = {}) => ({
       id: "b1",

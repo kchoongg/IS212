@@ -61,9 +61,10 @@ export type ConflictScope = "active" | "approved";
 
 export interface FindConflictOptions {
   /// The event being requested or confirmed. Its own bookings never conflict
-  /// with themselves — two sessions of one event may share a room at the same
-  /// time. Asking twice for the same thing is a different problem (a
-  /// duplicate), checked by findDuplicateRequest() below.
+  /// with themselves — one session's turnaround must not shut the event's next
+  /// session out of the same room. The event asking for a room it already
+  /// holds at that time is a different problem (a duplicate), checked by
+  /// findDuplicateRequest() below.
   eventId?: string;
   /// A booking being confirmed does not conflict with itself.
   bookingId?: string;
@@ -141,7 +142,8 @@ export function findVenueConflict(
 /// Who a request is for: the event, and the session when it has sessions.
 export interface RequestHolder {
   eventId: string;
-  /// Null for an event without sessions.
+  /// Null for an event without sessions. Not part of the rule since SPM-81;
+  /// the caller uses it to word the refusal.
   sessionId: string | null;
 }
 
@@ -151,13 +153,16 @@ export interface RequestHolder {
 /// a coordinator submit the same request twice and get two pending rows
 /// (raised in review on PR #37).
 ///
-/// A repeat is the same holder - same event, same session or both none - at
-/// this venue, overlapping the times asked for, while the first request is
-/// still pending or approved. Two DIFFERENT sessions of one event sharing a
-/// room is allowed, which is why the exemption above stays.
+/// A repeat is the same EVENT at this venue, overlapping the times asked for,
+/// while the first request is still pending or approved - whichever of its
+/// sessions asks (SPM-81 AC4, decided 2026-10-10: "the same venue cannot be
+/// requested twice for the same event for overlapping times"). Before SPM-81
+/// it had to be the same session too, so two sessions could hold one room at
+/// the same time.
 ///
 /// Only the times each request holds are compared: setup and turnaround are
-/// about one event making way for another, and here there is only one.
+/// about one event making way for another, and here there is only one. So a
+/// session that starts as another ends may follow it in the same room.
 export function findDuplicateRequest(
   venue: ConflictVenue,
   window: Interval,
@@ -167,7 +172,6 @@ export function findDuplicateRequest(
     venue.bookings.find(
       (b) =>
         b.eventId === holder.eventId &&
-        (b.sessionId ?? null) === holder.sessionId &&
         BLOCKING_STATUSES.active.includes(b.status) &&
         overlapping(window, b)
     ) ?? null
