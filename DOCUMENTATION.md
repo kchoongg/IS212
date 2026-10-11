@@ -970,9 +970,8 @@ what changed, why, and the migration name if there is one.
     `docs/test-cases/SPM-55_Test_Cases.xlsx` (11).
   - **Docs:** `docs/PERMISSIONS.md`, `SCHEMA_REFERENCE.md`, `UI_DESIGN.md`
     (S-24), `docs/CUSTOMER_CLARIFICATIONS.md` (new Equipment section: #9, #23,
-    #86). The BPMN's equipment exception still reads "Returned equipment
-    damaged or missing"; widening it to any unavailable, damaged or
-    maintenance unit is raised with its owner (Kristen) rather than changed here.
+    #86), and the BPMN's equipment exception now starts from any unavailable,
+    damaged or maintenance unit and flags short reservations (labels only).
     Known Gaps: "No equipment catalogue screen" closed; review-flag and
     notifications rows updated.
 
