@@ -447,7 +447,8 @@ model VenueBooking {
   needsReview  Boolean   @default(false) @map("needs_review")
   /// Which impact rules fired, as comma-separated codes: venue_retired |
   /// layout_removed | layout_capacity_below_attendance |
-  /// max_capacity_below_attendance | mandatory_facility_removed. A later edit
+  /// max_capacity_below_attendance | mandatory_facility_removed |
+  /// venue_unavailable (an unavailable period covers it, SPM-45). A later edit
   /// merges its reasons into this list rather than overwriting it.
   reviewReason String?   @map("review_reason")
   flaggedAt    DateTime? @map("flagged_at")
@@ -476,8 +477,10 @@ model VenueUnavailability {
   venueId   String   @map("venue_id")
   startsAt  DateTime @map("starts_at")
   endsAt    DateTime @map("ends_at")
-  /// maintenance | renovation | safety | internal_activity | other
+  /// maintenance | equipment_failure | renovation | safety | internal_activity
+  /// | other (UNAVAILABILITY_REASONS in src/lib/venueUnavailability.ts, SPM-45)
   reason    String
+  /// What the reason is, when `reason` is "other" - required then, by the routes.
   notes     String?
   createdBy String   @map("created_by")
   createdAt DateTime @default(now()) @map("created_at")

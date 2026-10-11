@@ -28,6 +28,7 @@
     "prisma:studio": "prisma studio",
     "fixtures:spm34": "tsx scripts/seed-spm34.ts",
     "fixtures:spm44": "tsx scripts/seed-spm44.ts",
+    "fixtures:spm45": "tsx scripts/seed-spm45.ts",
     "fixtures:spm86": "tsx scripts/seed-spm86.ts"
   },
   "prisma": {

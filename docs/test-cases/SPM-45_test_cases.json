@@ -1,0 +1,517 @@
+{
+  "story_key": "SPM-45",
+  "story_title": "As Venue Staff, I want to mark a venue unavailable for a stated period and state when it will be available again so that it is only out of use for that period and comes back without me having to remember",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-09",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Venue Staff can mark a venue unavailable, stating the date and time it becomes unavailable and the date and time it becomes available again, on the 15-minute booking grid (see: Book Venues in 15-Minute Units, SPM-93)."
+    },
+    {
+      "id": "AC2",
+      "text": "The date and time it becomes available again must be later than the date and time it becomes unavailable."
+    },
+    {
+      "id": "AC3",
+      "text": "Given a venue is unavailable for a stated period, when a booking's occupied period (its times plus the venue's setup and turnaround) overlaps that period, then it is flagged and the Coordinator notified as for a retired venue; bookings outside the period are not flagged."
+    },
+    {
+      "id": "AC4",
+      "text": "Given the date and time the venue becomes available again is reached, when that time arrives, then the venue is available again from that time without any action by Venue Staff."
+    },
+    {
+      "id": "AC5",
+      "text": "Venue Staff can change the dates and times of an unavailable period, or end it early."
+    },
+    {
+      "id": "AC6",
+      "text": "Venue Staff must select the reason for an unavailable period (maintenance, equipment failure, renovation, safety, internal activity or other); when Other is selected, they must describe the reason."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-45-TC01",
+      "title": "A venue is marked unavailable for part of a day, by date and time, with a reason",
+      "linked_ac": [
+        "AC1",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active, has no setup or turnaround time, no bookings and no unavailable period.\nIf it is missing, or has periods left by an earlier run, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case records a period. The Dates Room cases (SPM-45-TC01 to TC08) can be run one after another without a reset; run npm run fixtures:spm45 after the last one you run.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 10 Jun 2027 and 'From time' to 09:00",
+        "Set 'Available again on' to 10 Jun 2027 and 'Available again at' to 17:30",
+        "In 'Reason', choose 'Maintenance'",
+        "In the dialog, click 'Mark unavailable'",
+        "Click 'View availability'",
+        "Set 'From' to 9 Jun 2027 and 'To' to 11 Jun 2027",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nUnavailable from: 10 Jun 2027, 09:00\nAvailable again: 10 Jun 2027, 17:30\nReason: Maintenance",
+      "expected_result": "Step 3: The page has an 'Unavailable periods' section with a 'Mark unavailable' button and the text 'No unavailable periods under way or coming up.'\nStep 4: A dialog titled 'Mark SPM45 Dates Room unavailable' appears. It has the empty date fields 'Unavailable from' and 'Available again on', the empty time fields 'From time' and 'Available again at', and a 'Reason' picker showing 'Choose a reason' and offering Maintenance, Equipment failure, Renovation, Safety, Internal activity and Other. There are no AM, PM or Night options. It says that no booking is cancelled or moved.\nStep 8: The dialog closes. A green 'Unavailable period saved' message reads 'No approved bookings were affected, so nobody needed to be notified.' Under 'Unavailable periods' a period is listed: 'Maintenance', 'Unavailable from 10 Jun 2027, 09:00. Available again from 10 Jun 2027, 17:30.', with the buttons 'Change period' and 'End period'. There is no 'Retired' label beside the venue's name.\nStep 11: The 9 Jun 2027 row shows 'Free'. The 10 Jun 2027 row lists 'Unavailable 09:00–17:30 · Maintenance' and nothing else. The 11 Jun 2027 row shows 'Free'. The 'Unavailable periods' card lists 'Maintenance' with '10 Jun 2027, 09:00–17:30'."
+    },
+    {
+      "id": "SPM-45-TC02",
+      "title": "An empty form is refused, naming each missing answer",
+      "linked_ac": [
+        "AC1",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings.\nIf it is missing, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case changes nothing.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "In the dialog, click 'Mark unavailable'",
+        "In the dialog, click 'Cancel'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nAll fields left as the dialog opens",
+      "expected_result": "Step 5: The dialog stays open. Under 'Unavailable from' the message 'Enter the date the venue becomes unavailable.' appears, under 'From time' the message 'Enter the time the venue becomes unavailable.', under 'Available again on' the message 'Enter the date the venue becomes available again.', under 'Available again at' the message 'Enter the time the venue becomes available again.', and under 'Reason' the message 'Choose a reason.'\nStep 6: The dialog closes. No 'Unavailable period saved' message appears, and no period has been added under 'Unavailable periods'."
+    },
+    {
+      "id": "SPM-45-TC03",
+      "title": "A time that is not on the 15-minute grid is refused, and the time is named",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings.\nIf it is missing, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case changes nothing: every save is refused.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 20 Jul 2027 and 'From time' to 09:10",
+        "Set 'Available again on' to 20 Jul 2027 and 'Available again at' to 17:00",
+        "In 'Reason', choose 'Safety'",
+        "In the dialog, click 'Mark unavailable'",
+        "Change 'From time' to 09:15 and 'Available again at' to 17:40",
+        "In the dialog, click 'Mark unavailable'",
+        "In the dialog, click 'Cancel'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nDate: 20 Jul 2027 for both\nTimes tried: from 09:10 (off the grid) to 17:00; then from 09:15 to 17:40 (off the grid)\nReason: Safety",
+      "expected_result": "Step 8: The dialog stays open. Under 'From time' the message 'Choose a time on a 15-minute step (:00, :15, :30 or :45).' appears. 'Available again at' has no message.\nStep 10: The dialog stays open. The message under 'From time' is gone, and under 'Available again at' the message 'Choose a time on a 15-minute step (:00, :15, :30 or :45).' appears.\nStep 11: The dialog closes. No period for 20 Jul 2027 has been added under 'Unavailable periods'."
+    },
+    {
+      "id": "SPM-45-TC04",
+      "title": "A return earlier than the start is refused",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings.\nIf it is missing, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case changes nothing: every save is refused.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 20 Jul 2027 and 'From time' to 14:00",
+        "Set 'Available again on' to 20 Jul 2027 and 'Available again at' to 09:00",
+        "In 'Reason', choose 'Safety'",
+        "In the dialog, click 'Mark unavailable'",
+        "Change 'Available again on' to 19 Jul 2027 and 'Available again at' to 23:45",
+        "In the dialog, click 'Mark unavailable'",
+        "In the dialog, click 'Cancel'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nUnavailable from: 20 Jul 2027, 14:00\nAvailable again: 20 Jul 2027, 09:00 (earlier time, same day), then 19 Jul 2027, 23:45 (earlier day, later time of day)\nReason: Safety",
+      "expected_result": "Step 8: The dialog stays open. Under 'Available again at' the message 'The venue must become available again after it becomes unavailable.' appears.\nStep 10: The dialog stays open with the same message: the date is earlier, even though 23:45 is later in the day than 14:00.\nStep 11: The dialog closes. No period for 20 Jul 2027 has been added under 'Unavailable periods'."
+    },
+    {
+      "id": "SPM-45-TC05",
+      "title": "A return at the same time as the start is refused, and 15 minutes later is accepted",
+      "linked_ac": [
+        "AC2",
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings. It has no unavailable period on 20 Jul 2027.\nIf it is missing, or has periods left by an earlier run, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case records a 15-minute period. Run npm run fixtures:spm45 after the last Dates Room case you run.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 20 Jul 2027 and 'From time' to 14:00",
+        "Set 'Available again on' to 20 Jul 2027 and 'Available again at' to 14:00",
+        "In 'Reason', choose 'Safety'",
+        "In the dialog, click 'Mark unavailable'",
+        "Change 'Available again at' to 14:15",
+        "In the dialog, click 'Mark unavailable'",
+        "Click 'View availability'",
+        "Set 'From' and 'To' to 20 Jul 2027",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nUnavailable from: 20 Jul 2027, 14:00\nAvailable again: 20 Jul 2027, 14:00 (same time, refused), then 14:15 (one 15-minute step later, accepted)\nReason: Safety",
+      "expected_result": "Step 8: The dialog stays open. Under 'Available again at' the message 'The venue must become available again after it becomes unavailable.' appears: a period of no time is refused.\nStep 10: The dialog closes. A green 'Unavailable period saved' message appears. Under 'Unavailable periods' a period is listed: 'Safety', 'Unavailable from 20 Jul 2027, 14:00. Available again from 20 Jul 2027, 14:15.'\nStep 13: The 20 Jul 2027 row lists 'Unavailable 14:00–14:15 · Safety' and nothing else: the shortest period, one 15-minute step."
+    },
+    {
+      "id": "SPM-45-TC06",
+      "title": "Choosing Other asks for the reason, and refuses to save without it",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings.\nIf it is missing, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case changes nothing: every save is refused.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 25 Jul 2027 and 'From time' to 09:00",
+        "Set 'Available again on' to 26 Jul 2027 and 'Available again at' to 09:00",
+        "In 'Reason', choose 'Renovation'",
+        "In 'Reason', choose 'Other'",
+        "In the dialog, click 'Mark unavailable'",
+        "Type three spaces into 'Other reason'",
+        "In the dialog, click 'Mark unavailable'",
+        "In the dialog, click 'Cancel'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nUnavailable from: 25 Jul 2027, 09:00\nAvailable again: 26 Jul 2027, 09:00\nReason: Renovation, then Other\nOther reason: left empty, then three spaces",
+      "expected_result": "Step 7: No 'Other reason' field is shown: it is only asked for when the reason is Other.\nStep 8: An empty text field 'Other reason' appears under 'Reason'.\nStep 9: The dialog stays open. Under 'Other reason' the message 'Describe the reason.' appears.\nStep 11: The dialog stays open with the same message: spaces alone are not a reason.\nStep 12: The dialog closes. No period for 25 Jul 2027 has been added under 'Unavailable periods'."
+    },
+    {
+      "id": "SPM-45-TC07",
+      "title": "A period with an Other reason is saved and shows what was typed",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings. It has no unavailable period on 25 Jul 2027.\nIf it is missing, or has periods left by an earlier run, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case records a period. Go straight on to SPM-45-TC08; run npm run fixtures:spm45 after the last Dates Room case you run.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 25 Jul 2027 and 'From time' to 09:00",
+        "Set 'Available again on' to 26 Jul 2027 and 'Available again at' to 09:00",
+        "In 'Reason', choose 'Other'",
+        "Type the reason into 'Other reason'",
+        "In the dialog, click 'Mark unavailable'",
+        "Click 'View availability'",
+        "Set 'From' and 'To' to 25 Jul 2027",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nUnavailable from: 25 Jul 2027, 09:00\nAvailable again: 26 Jul 2027, 09:00\nReason: Other\nOther reason: Film crew on site",
+      "expected_result": "Step 9: The dialog closes. A green 'Unavailable period saved' message appears. Under 'Unavailable periods' a period is listed: 'Other', 'Film crew on site', 'Unavailable from 25 Jul 2027, 09:00. Available again from 26 Jul 2027, 09:00.'\nStep 12: The 25 Jul 2027 row lists 'Unavailable 09:00–24:00 · Other'. The 'Unavailable periods' card lists 'Other', 'Film crew on site', '25 Jul 2027, 09:00 – 26 Jul 2027, 09:00'."
+    },
+    {
+      "id": "SPM-45-TC08",
+      "title": "Changing a period's reason from Other to a listed one drops the typed reason",
+      "linked_ac": [
+        "AC5",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-45-TC07 has just been run (SPM45 Dates Room has the period 25 Jul 2027, 09:00 to 26 Jul 2027, 09:00, reason Other, 'Film crew on site').\nStill logged in as Venue Staff Marcus Wong.\nAfter this case run npm run fixtures:spm45: it removes every period the Dates Room cases recorded.",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Change period' on the period for 25 Jul 2027",
+        "In 'Reason', choose 'Internal activity'",
+        "In the dialog, click 'Save period'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nPeriod: 25 Jul 2027, 09:00 to 26 Jul 2027, 09:00\nReason: Other changed to Internal activity",
+      "expected_result": "Step 3: A dialog titled 'Change unavailable period' appears, filled in with 25 Jul 2027 and 09:00; 26 Jul 2027 and 09:00; the reason 'Other' and 'Film crew on site' in 'Other reason'.\nStep 4: The 'Other reason' field disappears.\nStep 5: The dialog closes. A green 'Unavailable period changed' message reads 'No approved bookings were affected, so nobody needed to be notified.' The period now reads 'Internal activity', 'Unavailable from 25 Jul 2027, 09:00. Available again from 26 Jul 2027, 09:00.', and 'Film crew on site' is no longer shown."
+    },
+    {
+      "id": "SPM-45-TC09",
+      "title": "Only bookings whose times overlap the period are flagged; a booking that ends as it starts, or starts as it ends, is not",
+      "linked_ac": [
+        "AC3",
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Period Room' (SPM45-PER) is active, has no unavailable period and no setup or turnaround time, so a booking occupies the room for its own times only. It has four Approved bookings, none of them flagged, all with coordinator Daniel Tan:\n- 'SPM45 Morning Briefing', 10 Jun 2027, 11:00–13:00: ends as the period starts\n- 'SPM45 Afternoon Workshop', 10 Jun 2027, 13:00–15:00: starts as the period starts\n- 'SPM45 Closing Seminar', 15 Jun 2027, 10:00–13:00: ends as the period ends\n- 'SPM45 Return Forum', 15 Jun 2027, 13:00–15:00: starts as the venue is available again\nIf any of it is missing, or the room already has an unavailable period because an earlier run was not reset, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case flags two bookings and records a period. Go straight on to SPM-45-TC10, TC11 and TC12, then run npm run fixtures:spm45. If you stop here, run it now.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Period Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 10 Jun 2027 and 'From time' to 13:00",
+        "Set 'Available again on' to 15 Jun 2027 and 'Available again at' to 13:00",
+        "In 'Reason', choose 'Equipment failure'",
+        "In the dialog, click 'Mark unavailable'",
+        "Click 'View availability'",
+        "Set 'From' to 10 Jun 2027 and 'To' to 15 Jun 2027",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Period Room (SPM45-PER), setup 0 min, turnaround 0 min\nUnavailable from: 10 Jun 2027, 13:00\nAvailable again: 15 Jun 2027, 13:00\nReason: Equipment failure",
+      "expected_result": "Step 8: An amber message titled 'Unavailable period saved — 2 bookings flagged for review, coordinators notified' appears. It says the bookings have not been changed, and lists exactly two: 'SPM45 Afternoon Workshop: the venue is unavailable during this booking' and 'SPM45 Closing Seminar: the venue is unavailable during this booking'. 'SPM45 Morning Briefing' and 'SPM45 Return Forum' are not listed. Under 'Unavailable periods' the period is listed: 'Equipment failure', 'Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00.'\nStep 11: The 10 Jun 2027 row lists 'Booked 11:00–13:00 · SPM45 Morning Briefing', 'Unavailable 13:00–24:00 · Equipment failure' and 'Booked 13:00–15:00 · SPM45 Afternoon Workshop'. The rows for 11, 12, 13 and 14 Jun 2027 each list 'Unavailable 00:00–24:00 · Equipment failure'. The 15 Jun 2027 row lists 'Unavailable 00:00–13:00 · Equipment failure', 'Booked 10:00–13:00 · SPM45 Closing Seminar' and 'Booked 13:00–15:00 · SPM45 Return Forum'. The warning 'Some bookings or unavailable periods overlap' is shown, because the two flagged bookings sit inside the period."
+    },
+    {
+      "id": "SPM-45-TC10",
+      "title": "Widening a period by 15 minutes at each end flags only the bookings it newly overlaps",
+      "linked_ac": [
+        "AC5",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-45-TC09 has just been run (SPM45 Period Room is unavailable from 10 Jun 2027, 13:00 and available again from 15 Jun 2027, 13:00; 'SPM45 Afternoon Workshop' and 'SPM45 Closing Seminar' are flagged).\nStill logged in as Venue Staff Marcus Wong.\nGo straight on to SPM-45-TC11 and TC12, then run npm run fixtures:spm45. If you stop here, run it now.",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Period Room' row",
+        "Click 'Change period'",
+        "Change 'From time' to 12:45",
+        "Change 'Available again at' to 13:15",
+        "In the dialog, click 'Save period'"
+      ],
+      "test_data": "Venue: SPM45 Period Room (SPM45-PER)\nUnavailable from: 10 Jun 2027, 13:00 changed to 12:45\nAvailable again: 15 Jun 2027, 13:00 changed to 13:15",
+      "expected_result": "Step 3: A dialog titled 'Change unavailable period' appears, filled in with 10 Jun 2027 and 13:00; 15 Jun 2027 and 13:00; and the reason 'Equipment failure'.\nStep 6: The dialog closes. An amber message titled 'Unavailable period changed — 2 bookings flagged for review, coordinators notified' lists exactly two: 'SPM45 Morning Briefing: the venue is unavailable during this booking' (its last 15 minutes, 12:45–13:00, are now in the period) and 'SPM45 Return Forum: the venue is unavailable during this booking' (its first 15 minutes, 13:00–13:15). 'SPM45 Afternoon Workshop' and 'SPM45 Closing Seminar' are not listed again: they were already flagged. The period now reads 'Unavailable from 10 Jun 2027, 12:45. Available again from 15 Jun 2027, 13:15.'"
+    },
+    {
+      "id": "SPM-45-TC11",
+      "title": "Shortening a period flags nothing",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-45-TC10 has just been run (SPM45 Period Room is unavailable from 10 Jun 2027, 12:45 and available again from 15 Jun 2027, 13:15; all four bookings are flagged).\nStill logged in as Venue Staff Marcus Wong, on the 'SPM45 Period Room' page.\nGo straight on to SPM-45-TC12, then run npm run fixtures:spm45. If you stop here, run it now.",
+      "steps": [
+        "Click 'Change period'",
+        "Change 'Unavailable from' to 12 Jun 2027 and 'From time' to 09:00",
+        "Change 'Available again on' to 12 Jun 2027 and 'Available again at' to 17:00",
+        "In the dialog, click 'Save period'",
+        "Click 'View availability'",
+        "Set 'From' to 10 Jun 2027 and 'To' to 15 Jun 2027",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Period Room (SPM45-PER)\nPeriod: 10 Jun 2027, 12:45 to 15 Jun 2027, 13:15, shortened to 12 Jun 2027, 09:00 to 12 Jun 2027, 17:00",
+      "expected_result": "Step 4: The dialog closes. A green 'Unavailable period changed' message reads 'No approved bookings were affected, so nobody needed to be notified.' and no booking is listed. The period now reads 'Unavailable from 12 Jun 2027, 09:00. Available again from 12 Jun 2027, 17:00.'\nStep 7: The 12 Jun 2027 row lists 'Unavailable 09:00–17:00 · Equipment failure' and nothing else. The 10 Jun 2027 row lists only 'Booked 11:00–13:00 · SPM45 Morning Briefing' and 'Booked 13:00–15:00 · SPM45 Afternoon Workshop'; the 15 Jun 2027 row lists only 'Booked 10:00–13:00 · SPM45 Closing Seminar' and 'Booked 13:00–15:00 · SPM45 Return Forum'. The rows for 11, 13 and 14 Jun 2027 show 'Free', and there is no overlap warning."
+    },
+    {
+      "id": "SPM-45-TC12",
+      "title": "A period that has not started yet can be ended, which removes it",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-45-TC11 has just been run (SPM45 Period Room is unavailable from 12 Jun 2027, 09:00 and available again from 12 Jun 2027, 17:00).\nStill logged in as Venue Staff Marcus Wong.\nAfter this case run npm run fixtures:spm45: it removes the flags SPM-45-TC09 and TC10 put on the four bookings.",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Period Room' row",
+        "Click 'End period'",
+        "Click 'View availability'",
+        "Set 'From' and 'To' to 12 Jun 2027",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Period Room (SPM45-PER)\nPeriod: 12 Jun 2027, 09:00 to 12 Jun 2027, 17:00",
+      "expected_result": "Step 3: A green 'Unavailable period ended' message appears. Under 'Unavailable periods' the text 'No unavailable periods under way or coming up.' is shown, and there is no 'Change period' or 'End period' button.\nStep 6: The 12 Jun 2027 row shows 'Free', and the 'Unavailable periods' card reads 'No unavailable periods in this range.'"
+    },
+    {
+      "id": "SPM-45-TC13",
+      "title": "A booking is flagged when only its setup or turnaround time overlaps the period, and not when its setup starts as the period ends",
+      "linked_ac": [
+        "AC3",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Setup Room' (SPM45-SET) has a setup time of 30 minutes and a turnaround time of 45 minutes. It has no unavailable period and two Approved bookings, neither flagged, both with coordinator Daniel Tan:\n- 'SPM45 Early Talk', 21 Jun 2027, 07:30–08:30: room in use 07:00–09:15 (turnaround 08:30–09:15)\n- 'SPM45 Later Talk', 22 Jun 2027, 13:30–14:30: room in use 13:00–15:15 (setup 13:00–13:30)\nIf any of it is missing, or the room already has an unavailable period, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nRun npm run fixtures:spm45 after this case: it removes the period and the two flags.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Setup Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 21 Jun 2027 and 'From time' to 09:00",
+        "Set 'Available again on' to 22 Jun 2027 and 'Available again at' to 13:00",
+        "In 'Reason', choose 'Maintenance'",
+        "In the dialog, click 'Mark unavailable'",
+        "Click 'Change period'",
+        "Change 'Available again at' to 13:15",
+        "In the dialog, click 'Save period'"
+      ],
+      "test_data": "Venue: SPM45 Setup Room (SPM45-SET), setup 30 min, turnaround 45 min\nUnavailable from: 21 Jun 2027, 09:00\nAvailable again: 22 Jun 2027, 13:00, then changed to 13:15\nReason: Maintenance",
+      "expected_result": "Step 8: An amber message titled 'Unavailable period saved — 1 booking flagged for review, coordinators notified' lists only 'SPM45 Early Talk: the venue is unavailable during this booking'. The talk itself ends at 08:30, before the period; its turnaround runs to 09:15, 15 minutes into it. 'SPM45 Later Talk' is not listed: its setup starts at 13:00, exactly when the venue is available again.\nStep 11: An amber message titled 'Unavailable period changed — 1 booking flagged for review, coordinators notified' lists only 'SPM45 Later Talk: the venue is unavailable during this booking'. The talk itself starts at 13:30, after the period; the first 15 minutes of its setup (13:00–13:15) are now in it. 'SPM45 Early Talk' is not listed again."
+    },
+    {
+      "id": "SPM-45-TC14",
+      "title": "A pending request and a finished booking are not flagged",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Status Room' (SPM45-STA) has no unavailable period, no setup or turnaround time, and three bookings, none flagged, all with coordinator Daniel Tan:\n- 'SPM45 Finished Meeting', 15 Sep 2026, 09:00–12:00: Approved, and already over\n- 'SPM45 Approved Review', 5 Jul 2027, 09:00–12:00: Approved\n- 'SPM45 Pending Request', 5 Jul 2027, 14:00–17:00: Pending, not yet approved\nIf any of it is missing, or the room already has an unavailable period, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nRun npm run fixtures:spm45 after this case: it removes the period and the flag.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Status Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 1 Sep 2026 and 'From time' to 00:00",
+        "Set 'Available again on' to 7 Jul 2027 and 'Available again at' to 00:00",
+        "In 'Reason', choose 'Renovation'",
+        "In the dialog, click 'Mark unavailable'"
+      ],
+      "test_data": "Venue: SPM45 Status Room (SPM45-STA)\nUnavailable from: 1 Sep 2026, 00:00 (already in the past)\nAvailable again: 7 Jul 2027, 00:00 (the period covers all three bookings)\nReason: Renovation",
+      "expected_result": "Step 8: An amber message titled 'Unavailable period saved — 1 booking flagged for review, coordinators notified' lists only 'SPM45 Approved Review: the venue is unavailable during this booking'. 'SPM45 Pending Request' is not listed, because a request is not yet a commitment, and 'SPM45 Finished Meeting' is not listed, because it has already taken place. Under 'Unavailable periods' the period is listed: 'Renovation', 'Unavailable from 1 Sep 2026, 00:00. Available again from 7 Jul 2027, 00:00.'"
+    },
+    {
+      "id": "SPM-45-TC15",
+      "title": "During its period the room stays in the catalogue, and is offered again from the exact time it is available",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Closure Room' (SPM45-NOW) has an unavailable period that is under way: Renovation, unavailable from 1 Oct 2026, 00:00, available again from 1 Dec 2028, 09:00. It is open 07:00–23:00, has no setup or turnaround time and no bookings.\nIf it is missing, or its period was already ended by an earlier run, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case changes nothing. Run it before SPM-45-TC16, which ends the period.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click 'Find a venue'",
+        "Set 'From' to 1 Dec 2028, 08:00 and 'To' to 1 Dec 2028, 09:00, leave every other filter empty, and click 'Search'",
+        "Change 'From' to 1 Dec 2028, 09:00 and 'To' to 1 Dec 2028, 10:00 and click 'Search'"
+      ],
+      "test_data": "Account: daniel.tan@connectsphere.com (Event Coordinator)\nVenue: SPM45 Closure Room (SPM45-NOW)\nLast hour of the period: 1 Dec 2028, 08:00–09:00\nFirst hour it is available: 1 Dec 2028, 09:00–10:00",
+      "expected_result": "Step 2: 'SPM45 Closure Room' is in the Venues list: a room with an unavailable period is not retired.\nStep 4: 'SPM45 Closure Room' is not among the results: 08:00–09:00 is still inside its period.\nStep 5: 'SPM45 Closure Room' is among the results: 09:00 is the time it is available again, and nobody ended the period."
+    },
+    {
+      "id": "SPM-45-TC16",
+      "title": "An unavailable period that is under way can be ended early",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Closure Room' (SPM45-NOW) has an unavailable period that is under way: Renovation, unavailable from 1 Oct 2026, 00:00, available again from 1 Dec 2028, 09:00. It has no bookings.\nIf it is missing, or its period was already ended by an earlier run, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nRun npm run fixtures:spm45 after this case to put the period back.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Closure Room' row",
+        "Click 'End period'",
+        "Click 'View availability'",
+        "Set 'From' and 'To' to tomorrow's date",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Closure Room (SPM45-NOW)\nPeriod (set by the fixture script): Renovation, 1 Oct 2026, 00:00 to 1 Dec 2028, 09:00\nCalendar date: tomorrow",
+      "expected_result": "Step 3: Under 'Unavailable periods' one period is listed: 'Renovation', 'Unavailable from 1 Oct 2026, 00:00. Available again from 1 Dec 2028, 09:00.', with the buttons 'Change period' and 'End period'.\nStep 4: A green 'Unavailable period ended' message appears, and the period is no longer listed: the text 'No unavailable periods under way or coming up.' is shown.\nStep 7: Tomorrow's row shows 'Free', and the 'Unavailable periods' card reads 'No unavailable periods in this range.': the room did not wait for 1 Dec 2028."
+    },
+    {
+      "id": "SPM-45-TC17",
+      "title": "A venue is available again from the stated time without anyone ending the period",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Reopened Room' (SPM45-BAK) has an unavailable period that has passed: Maintenance, unavailable from 1 Sep 2026, 00:00, available again from 1 Oct 2026, 12:00. Nobody has ended or changed it, and the room has no bookings.\nIf it is missing, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case changes nothing.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Reopened Room' row",
+        "Click 'View availability'",
+        "Set 'From' to 30 Sep 2026 and 'To' to 1 Oct 2026",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Reopened Room (SPM45-BAK)\nPeriod (set by the fixture script): Maintenance, 1 Sep 2026, 00:00 to 1 Oct 2026, 12:00\nCalendar range: 30 Sep 2026 to 1 Oct 2026",
+      "expected_result": "Step 2: 'SPM45 Reopened Room' is listed with the status 'Active'.\nStep 3: Under 'Unavailable periods' the text 'No unavailable periods under way or coming up.' is shown: the period is over, so there is nothing to end.\nStep 6: The 30 Sep 2026 row lists 'Unavailable 00:00–24:00 · Maintenance'. The 1 Oct 2026 row lists 'Unavailable 00:00–12:00 · Maintenance' and nothing after 12:00: the room came back at the time that was stated."
+    },
+    {
+      "id": "SPM-45-TC18",
+      "title": "Two periods that overlap can both be recorded, and the calendar identifies the overlap",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings. It has no unavailable period in August 2027.\nIf it is missing, or has periods left by an earlier run, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nRun npm run fixtures:spm45 after this case to remove both periods.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 2 Aug 2027 and 'From time' to 09:00",
+        "Set 'Available again on' to 4 Aug 2027 and 'Available again at' to 09:00",
+        "In 'Reason', choose 'Maintenance'",
+        "In the dialog, click 'Mark unavailable'",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 3 Aug 2027 and 'From time' to 14:00",
+        "Set 'Available again on' to 5 Aug 2027 and 'Available again at' to 09:00",
+        "In 'Reason', choose 'Safety'",
+        "In the dialog, click 'Mark unavailable'",
+        "Click 'View availability'",
+        "Set 'From' to 2 Aug 2027 and 'To' to 5 Aug 2027",
+        "Click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nFirst period: Maintenance, 2 Aug 2027, 09:00 to 4 Aug 2027, 09:00\nSecond period: Safety, 3 Aug 2027, 14:00 to 5 Aug 2027, 09:00",
+      "expected_result": "Step 8: A green 'Unavailable period saved' message appears and the Maintenance period is listed.\nStep 13: A green 'Unavailable period saved' message appears. Both periods are listed under 'Unavailable periods', the Maintenance one first: 'Unavailable from 2 Aug 2027, 09:00. Available again from 4 Aug 2027, 09:00.' and 'Unavailable from 3 Aug 2027, 14:00. Available again from 5 Aug 2027, 09:00.'\nStep 16: The 2 Aug 2027 row lists 'Unavailable 09:00–24:00 · Maintenance'. The 3 Aug 2027 row lists 'Unavailable 00:00–24:00 · Maintenance' and 'Unavailable 14:00–24:00 · Safety'. The 4 Aug 2027 row lists 'Unavailable 00:00–09:00 · Maintenance' and 'Unavailable 00:00–24:00 · Safety'. The 5 Aug 2027 row lists 'Unavailable 00:00–09:00 · Safety'. The warning 'Some bookings or unavailable periods overlap' is shown, and in the 'Unavailable periods' card the Maintenance and Safety periods each carry an 'Overlaps with' note."
+    },
+    {
+      "id": "SPM-45-TC19",
+      "title": "A period that is already over is refused",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Fixtures: 'SPM45 Dates Room' (SPM45-DAT) is active and has no bookings.\nIf it is missing, run: npm run fixtures:spm45 (adds or resets the SPM45 test data without a reseed).\nThis case changes nothing: the save is refused.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM45 Dates Room' row",
+        "Click 'Mark unavailable'",
+        "Set 'Unavailable from' to 1 Sep 2026 and 'From time' to 09:00",
+        "Set 'Available again on' to 5 Sep 2026 and 'Available again at' to 17:00",
+        "In 'Reason', choose 'Maintenance'",
+        "In the dialog, click 'Mark unavailable'",
+        "In the dialog, click 'Cancel'"
+      ],
+      "test_data": "Venue: SPM45 Dates Room (SPM45-DAT)\nUnavailable from: 1 Sep 2026, 09:00\nAvailable again: 5 Sep 2026, 17:00 (later than the start, but already in the past)\nReason: Maintenance",
+      "expected_result": "Step 8: The dialog stays open. Under 'Available again at' the message 'This period is already over.' appears. No 'Unavailable period saved' message appears.\nStep 9: The dialog closes. Under 'Unavailable periods' no period for September 2026 has been added."
+    }
+  ],
+  "open_questions": [
+    "Rewritten on 2026-10-09, before the code was reworked (test cases first). The 17 cases of 2026-10-06 were written for AM / PM / Night slots. SPM-45 was drafted before the Week 7 Customer Changes; Change #1 and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid (SPM-93, Done), and SPM-45's acceptance criteria were reworded in Jira to match, so every case is new. The automated tests were rewritten next and the code then reworked to them (2026-10-09): every label and message quoted in the cases is what the code now shows. All 19 cases passed when run by hand on 2026-10-10 (Kayal). Entries marked DECIDED were chosen here rather than taken from the story; change them in code and cases together.",
+    "RESOLVED 2026-10-09 (Kayal): a period that is already over when it is saved, its return not still to come, is refused with 'This period is already over.' under 'Available again at' (TC19). The story does not say; it was refused because such a period would be saved and then never shown on the venue page, which lists only periods under way or coming up, and could flag nothing. The same applies to changing a period so that its return is in the past: that is what 'End period' is for. A period that started in the past and is still under way is allowed (TC14), because a failure is often recorded after it has begun.",
+    "RESOLVED 2026-10-09: checked against all six Week 7 Customer Changes. Change #1 (setup and turnaround count as time the venue is occupied): a booking is flagged on its room-in-use period, not its own times alone (TC13). Change #2 (venue becomes unavailable after booking): this story - the reasons offered are the ones it lists, bookings are identified and never cancelled, and the coordinator's notification says alternative arrangements are needed; searching for and requesting a replacement venue is SPM-68. Change #3 (several venues for one event): flagging is per booking, so only the booking at the unavailable venue is flagged and an event's bookings elsewhere are untouched. Change #4 (holds expire): a pending request is not a commitment and is not flagged (TC14), expired or not. Change #5 (Event Coordinator Lead) and Change #6 (Safety Officer): neither role can mark a venue unavailable; that stays with Venue Staff. #129's rename does not appear on these screens.",
+    "DECIDED 2026-10-09 (AC1): the 'Mark <venue> unavailable' dialog replaces the two slot pickers with time fields. Fields: 'Unavailable from' (date), 'From time' (time), 'Available again on' (date), 'Available again at' (time), 'Reason' (picker, required), 'Other reason' (text, shown and required only when the reason is Other; 500 characters at most). All four date and time fields open empty and are required. The time fields accept any minute, as on the booking request page (SPM-93), so an off-grid time reaches the page's own message.",
+    "DECIDED 2026-10-09: messages, each shown under its field. 'Enter the date the venue becomes unavailable.', 'Enter the time the venue becomes unavailable.', 'Enter the date the venue becomes available again.', 'Enter the time the venue becomes available again.', 'Choose a time on a 15-minute step (:00, :15, :30 or :45).' (under whichever time is off the grid; the wording follows SPM-93's), 'The venue must become available again after it becomes unavailable.' (under 'Available again at'), 'This period is already over.' (under 'Available again at'), 'Choose a reason.', 'Describe the reason.' The server applies the same checks.",
+    "DECIDED 2026-10-09: a period is stored exactly as stated, from the time the venue becomes unavailable to the time it is available again, Singapore time (#36). The shortest period is one 15-minute step (TC05). A period is not limited to the venue's opening hours: 00:00 is accepted (TC14), since a renovation does not stop when the room closes. The latest time that can be typed is 23:45; a period running to midnight is stated as 00:00 the next day.",
+    "DECIDED 2026-10-09: on the venue page each period under way or still to come is listed as its reason, the typed reason when it is Other, and 'Unavailable from <date>, <time>. Available again from <date>, <time>.' (e.g. 'Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00.'), with 'Change period' and 'End period'. Periods that are over are not listed. Kept from the earlier build: the section title 'Unavailable periods', 'No unavailable periods under way or coming up.', the message titles 'Unavailable period saved', 'Unavailable period changed' and 'Unavailable period ended', the dialog 'Change unavailable period' with 'Save period', and the flag wording 'the venue is unavailable during this booking'. Wording that says 'slots' becomes 'times' (the section's description, the dialog's first sentence, and the 'ended' message).",
+    "DECIDED 2026-10-09 (AC3): a booking is flagged when its room-in-use period, from its start minus the venue's setup time to its end plus the venue's turnaround time, overlaps the unavailable period. This is the rule SPM-93 uses everywhere (AC6, AC7): periods that only meet end to start do not overlap, so a booking that ends as the period starts, or whose setup starts as the venue is available again, is not flagged (TC09, TC13). Only Approved bookings that have not finished are flagged (TC14), as when a venue is retired (SPM-39).",
+    "DECIDED 2026-10-09 (AC5): 'End period' on a period that has not started removes it (TC12). On a period under way it brings the return time forward to the current time, rounded down to the 15-minute grid, so the room is free straight away and the stored time stays on the grid; the calendar keeps showing the time it really was unavailable. TC16 checks tomorrow rather than today for that reason. There is no confirmation dialog: ending loses nothing, and a period can be marked again. Widening a period flags the bookings it newly overlaps and does not flag an already-flagged booking again (TC10, TC13); shortening one flags nothing (TC11).",
+    "RESOLVED 2026-10-06, still stands: AC4 needs no scheduled job. A period that has passed simply no longer overlaps anything. TC17 uses a period that ended on 1 Oct 2026 at 12:00, since a tester cannot wait for a time to arrive, and TC15 checks the last hour of a period and the first hour after it in Find a venue.",
+    "RESOLVED 2026-10-06 (Kayal), still stands: the screens say 'unavailable', not 'retired' or 'blocked' (Week 7 Change #2, 'mark a venue temporarily unavailable'). Retiring stays SPM-39's separate action; a venue with an unavailable period stays Active and in the catalogue (TC01, TC15). 'Mark unavailable' is a button on the venue page (S-20) that opens a dialog, not the separate Block venue screen (S-23) that UI_DESIGN.md first sketched.",
+    "RESOLVED 2026-10-06 (Kayal), still stands: the reason picker is part of SPM-45 (AC6). The reasons are Week 7 Change #2's list plus the Week 1 briefing's 'internal activities'. 'Equipment failure' is a new stored value and the typed reason is kept in the period's existing notes column, so no schema change is needed. A period is a row in the existing unavailable-periods table (VenueUnavailability); what reads that table was built by other stories: the calendar (SPM-46, SPM-93), venue search (SPM-40), and the booking request and approval checks (SPM-42, SPM-43, SPM-44). Those refusals are not repeated here (SPM-93-TC12 covers a request refused for an unavailable period).",
+    "RESOLVED 2026-10-06, still stands: a venue may have more than one period, and they may overlap (TC18). SPM-46 AC5 expects overlapping unavailable periods to exist and be identifiable, and the story does not ask for them to be refused.",
+    "RESOLVED 2026-10-04 (Kristen, Jira comment on SPM-45), still stands: clearing flags when a period is shortened or ended is not in this story, so no case covers it. No screen shows a booking's flag yet, so TC11 and TC12 can only check that nothing new is flagged. Flags raised by the cases stay until npm run fixtures:spm45 is run; in the app they will be cleared by the Coordinator in SPM-68 (Review Flagged Arrangements).",
+    "RESOLVED 2026-10-06, still stands: 'the Coordinator notified' is checked by hand only through the words 'coordinators notified'. The Notifications screen is not built (SPM-53, SPM-71). The notification itself is left to the automated tests. Finding a replacement venue belongs to SPM-68.",
+    "RESOLVED 2026-10-06, still stands: already built in SPM-39 and not repeated here: a flagged booking is not cancelled or changed (#120, #122), and a Coordinator cannot open the venue page where 'Mark unavailable' is (SPM-39-TC14).",
+    "Fixtures: scripts/seed-spm45.ts (npm run fixtures:spm45) and its copy at the end of prisma/seed.ts were reworked to times on 2026-10-09. No schema change. Rooms, all open 07:00–23:00: 'SPM45 Dates Room' (SPM45-DAT; setup 0, turnaround 0; no bookings, no period); 'SPM45 Period Room' (SPM45-PER; 0 and 0; four Approved bookings on 10 and 15 Jun 2027); 'SPM45 Setup Room' (SPM45-SET; setup 30, turnaround 45; two Approved bookings on 21 and 22 Jun 2027); 'SPM45 Status Room' (SPM45-STA; 0 and 0; an Approved, a Pending and a finished booking); 'SPM45 Closure Room' (SPM45-NOW; period Renovation, 1 Oct 2026 00:00 to 1 Dec 2028 09:00); 'SPM45 Reopened Room' (SPM45-BAK; period Maintenance, 1 Sep 2026 00:00 to 1 Oct 2026 12:00). Nine events (seed keys spm45_…), coordinator Daniel Tan, each event's own times the same as its booking's. Every run resets the rooms' periods and the events' bookings and notifications in place, and removes the one fixture event the slot-based set had that this one does not ('SPM45 Later Talk' of 23 Jun 2027). The script must be run once against the shared database before the cases can be run."
+  ],
+  "code_references": [
+    "prisma/schema.prisma",
+    "src/lib/venueUnavailability.ts",
+    "src/lib/venueUnavailabilityService.ts",
+    "src/lib/venueImpact.ts",
+    "src/lib/venueTime.ts",
+    "src/lib/venueAvailability.ts",
+    "src/lib/validation/venues.ts",
+    "src/app/api/venues/[id]/unavailability/route.ts",
+    "src/app/api/venues/[id]/unavailability/[periodId]/route.ts",
+    "src/components/VenueUnavailablePeriods.tsx",
+    "src/app/venues/[id]/edit/page.tsx",
+    "src/app/venues/[id]/availability/page.tsx",
+    "src/app/venues/page.tsx",
+    "src/lib/roles.ts",
+    "scripts/seed-spm45.ts",
+    "prisma/seed.ts"
+  ]
+}
