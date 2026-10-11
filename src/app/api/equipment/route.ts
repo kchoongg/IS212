@@ -28,6 +28,14 @@ export async function GET(req: NextRequest) {
   const items = await prisma.equipment.findMany({
     where: includeInactive ? undefined : { isActive: true },
   });
+  // ADDED (SPM-55 AC6): operational status - how many units are out of
+  // service, which kind and why - is internal. The organiser's request form
+  // only needs to know what can be asked for.
+  if (!can(actor.role, "equipment:view_status")) {
+    return NextResponse.json(
+      items.map(({ quantityInMaintenance: _q, outOfServiceType: _t, outOfServiceReason: _r, ...rest }) => rest)
+    );
+  }
   return NextResponse.json(items);
 }
 

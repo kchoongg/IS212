@@ -19,6 +19,7 @@
 import { arrangementsFor, type SessionRef } from "@/lib/eventConfirmation";
 import { CHANGE_REASON_PROSE } from "@/lib/eventChangeImpact";
 import { IMPACT_REASON_PROSE } from "@/lib/venueImpact";
+import { EQUIPMENT_REASON_PROSE } from "@/lib/equipmentOutOfService";
 
 export const SAFETY_CHECK_PENDING_MESSAGE = "A safety check is already pending for this event.";
 
@@ -42,9 +43,14 @@ export type SafetySubmissionCheck =
   | { ok: true }
   | { ok: false; error: string; outstanding: string[] };
 
-/// Every reason code a flag may carry, in words. Venue edits (SPM-39) and event
-/// changes (SPM-62) share the reviewReason columns.
-const REASON_PROSE: Record<string, string> = { ...CHANGE_REASON_PROSE, ...IMPACT_REASON_PROSE };
+/// Every reason code a flag may carry, in words. Venue edits (SPM-39), event
+/// changes (SPM-62) and equipment out of service (SPM-55) share the
+/// reviewReason columns.
+const REASON_PROSE: Record<string, string> = {
+  ...CHANGE_REASON_PROSE,
+  ...IMPACT_REASON_PROSE,
+  ...EQUIPMENT_REASON_PROSE,
+};
 
 /** " (the date or time changed, the venue has been retired)", or "" when none is known. */
 function why(reviewReason: string | null): string {

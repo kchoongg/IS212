@@ -39,6 +39,9 @@ export const ACTIONS = [
   "venue_booking:request",
   "venue_booking:decide",
   "equipment:view",
+  // SPM-55: an item's operational status - how many units are out of
+  // service, which kind and why. Internal, unlike the catalogue itself.
+  "equipment:view_status",
   "equipment:manage",
   "equipment_request:manage",
   "equipment_request:review",
@@ -76,6 +79,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "venue:view",
     "venue_booking:request",
     "equipment:view",
+    "equipment:view_status",
     // ADDED (SPM-47): recording equipment requirements on an event is the
     // coordinator's job, same footing as requesting a venue booking above —
     // neither existed when this file was first written (docs/PERMISSIONS.md
@@ -89,6 +93,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "event:assign_coordinator",
     "venue:view",
     "equipment:view",
+    "equipment:view_status",
     "facility:view",
   ],
   venue_staff: [
@@ -101,6 +106,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
   tech_support: [
     "event:view",
     "equipment:view",
+    "equipment:view_status",
     "equipment:manage",
     "equipment_request:review",
     "facility:view",

@@ -138,6 +138,17 @@ describe("the role matrix", () => {
     expect(can("coordinator", "venue:view")).toBe(true);
   });
 
+  it("SPM-55: shows equipment's operational status to internal staff only", () => {
+    for (const role of ["coordinator", "ops_manager", "tech_support"]) {
+      expect(can(role, "equipment:view_status"), role).toBe(true);
+    }
+    // The organiser may pick from the catalogue (equipment:view) but not see
+    // what is out of service, or why.
+    for (const role of ["organiser", "venue_staff", "attendee"]) {
+      expect(can(role, "equipment:view_status"), role).toBe(false);
+    }
+  });
+
   it("lets no role write a catalogue it does not own", () => {
     for (const role of ROLES) {
       if (role !== "venue_staff") expect(can(role, "venue:manage")).toBe(false);

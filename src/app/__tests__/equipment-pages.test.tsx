@@ -985,7 +985,7 @@ describe("Equipment request (availability and reserve)", () => {
 
       const row = await lineRow();
 
-      expect(row).toHaveTextContent("10 total − 1 in maintenance − 2 reserved elsewhere = 7 available for these dates");
+      expect(row).toHaveTextContent("10 total − 1 out of service − 2 reserved elsewhere = 7 available for these dates");
       expect(row).toHaveTextContent("Available");
       expect(screen.getByText(/Gala Dinner · /)).toBeInTheDocument();
     });

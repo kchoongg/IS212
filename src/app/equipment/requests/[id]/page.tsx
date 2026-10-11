@@ -420,7 +420,7 @@ function LineRow({
         {result ? (
           <>
             <p className="text-xs text-ink-2">
-              {result.total} total − {result.inMaintenance} in maintenance − {result.reservedElsewhere} reserved
+              {result.total} total − {result.inMaintenance} out of service − {result.reservedElsewhere} reserved
               elsewhere = <span className="font-medium text-ink">{result.available} available</span> for these dates
             </p>
             {result.status === "partial" && (

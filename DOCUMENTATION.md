@@ -158,6 +158,7 @@ IS212/
 │   ├── seed-spm62.ts            # `npm run fixtures:spm62` — SPM-62 test data, no reseed
 │   ├── seed-spm93.ts            # `npm run fixtures:spm93` — SPM-93 test data, no reseed
 │   ├── seed-spm86.ts            # `npm run fixtures:spm86` — SPM-86 test data, no reseed
+│   ├── seed-spm55.ts            # `npm run fixtures:spm55` — SPM-55 test data (own "SPM55 …" items), no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -259,7 +260,9 @@ IS212/
     │       │                                venue-bookings/[id] (Kayal, SPM-43) — PATCH:
     │       │                                Venue Staff approve or reject one request
     │       ├── facilities/                (Kayal — reference data for forms + venue search)
-    │       ├── equipment/                  (Janelle)
+    │       ├── equipment/                  (Janelle) — incl. equipment/[id]/out-of-service
+    │       │                                (PATCH: record or return units, flag short
+    │       │                                reservations and notify, SPM-48/SPM-55)
     │       └── registrations/               (Sammi)
     │
     ├── components/
@@ -340,6 +343,9 @@ IS212/
         │                                   the list AND the decision route
         ├── equipment.ts                  # equipmentWindowFor() (pre-SPM-47) + checkOutOfService()/
         │                                  outOfServiceReasonFor() (SPM-48 AC7)
+        ├── equipmentOutOfService.ts       # SPM-55 (pure): the three kinds of unavailability,
+        │                                  an item's operational status, and which reservations
+        │                                  a change leaves short (newlyShortReservations())
         ├── equipmentAvailability.ts       # SPM-48 rules, pure — no Prisma. D-1 → Return Day+1
         │                                  (Singapore calendar days), the fixed 2h transfer/prep
         │                                  time, and which requests count against stock.
@@ -381,7 +387,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
 | **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
 | **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list, availability calendar (S-21, SPM-46 — read-only), venue search + filters (SPM-40), booking decision (S-22, SPM-43), unavailable periods (SPM-45, on S-20) |
-| **Janelle** | `src/app/api/equipment/`, `src/app/api/events/[id]/equipment/` | Equipment catalogue, requests, availability, reservations | `Equipment`, `EquipmentRequest` | 🟢 list + create, out-of-service (SPM-48), event requests (SPM-47), availability (SPM-48), reserve (SPM-49), fulfilment status + technical notes (SPM-50) |
+| **Janelle** | `src/app/api/equipment/`, `src/app/api/events/[id]/equipment/` | Equipment catalogue, requests, availability, reservations | `Equipment`, `EquipmentRequest` | 🟢 list + create, out-of-service (SPM-48), event requests (SPM-47), availability (SPM-48), reserve (SPM-49), fulfilment status + technical notes (SPM-50), Equipment page + record/return units out of service, flagging short reservations (SPM-55); also Submit for safety check (SPM-86, `events/[id]/safety-check`, `SafetyCheck`) |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
 Stick to your own folder for new *route* files. `prisma/schema.prisma` is
@@ -871,9 +877,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
 | **A decided booking cannot be undone or released** | Once approved or rejected (SPM-43) a request stays that way: nothing cancels an approved booking, and Venue Staff have no list of what they have already decided. Releasing bookings belongs to cancelling and postponing an event (SPM-37, SPM-38). | venues / events |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
-| **No way to see or clear review flags after they are raised** | Venue changes (SPM-39) flag bookings; event information changes (SPM-62) flag bookings, equipment requests (`EquipmentRequest.needsReview`) and registrations (`Event.registrationReviewReason`). Nothing clears any of them, and SPM-62 shows its flags only on the save screen at the moment of saving — afterwards they are visible only in the database, and they do not yet block confirmation. They do block submitting an event for a safety check (SPM-86), and the refusal names each flagged booking or equipment item with its reason. **SPM-68 (Review Flagged Arrangements, Sprint 3)** lists them, keeps or replaces each, and makes an open flag block confirmation. Until then a coordinator must act on the "Flagged for review" list straight away. Marking a venue unavailable (SPM-45) sets the same booking flag, and changing or ending the period does not clear it. | SPM-68 |
+| **No way to see or clear review flags after they are raised** | Venue changes (SPM-39) flag bookings; event information changes (SPM-62) flag bookings, equipment requests (`EquipmentRequest.needsReview`) and registrations (`Event.registrationReviewReason`); marking equipment out of service (SPM-55) flags the reservations it leaves short. SPM-55's Equipment page lists what one save flagged, at the moment of saving only. Nothing clears any of them, and SPM-62 shows its flags only on the save screen at the moment of saving — afterwards they are visible only in the database, and they do not yet block confirmation. They do block submitting an event for a safety check (SPM-86), and the refusal names each flagged booking or equipment item with its reason. **SPM-68 (Review Flagged Arrangements, Sprint 3)** lists them, keeps or replaces each, and makes an open flag block confirmation. Until then a coordinator must act on the "Flagged for review" list straight away. Marking a venue unavailable (SPM-45) sets the same booking flag, and changing or ending the period does not clear it. | SPM-68 |
 | **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
-| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39; a safety check submitted, SPM-86) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
+| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39; a safety check submitted, SPM-86; a reservation left short by equipment out of service, SPM-55) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
@@ -890,7 +896,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
 | **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
-| **No equipment catalogue screen** | The sidebar's "Equipment" link (Coordinator + Technical Support) points at `/equipment`, which doesn't exist — no story in the backlog builds it, so it 404s. The catalogue exists as data (`prisma/seed.ts`) and is read by every equipment picker; only *editing* it (or an item's location/status) has no screen. Candidate owner is SPM-55 (Record Equipment Unavailability), whose ACs need a status screen anyway. Flagged 2026-09-27. | unclaimed |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
 | **No Safety Officer can receive a safety-check notification yet** | Submitting an event for a safety check (SPM-86) notifies every active user with the role `safety_officer`, but that role does not exist until **SPM-85 (Safety Officer Role and Access)** adds it, so today the notification reaches nobody - the submission itself still succeeds. Once SPM-85 is in, the notification still can't be seen until the Notifications screen (**SPM-71**) is built. Role key agreed: `safety_officer` (2026-10-09). | SPM-85 / SPM-71 |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
@@ -915,6 +920,59 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-11 — Janelle
+- **SPM-55 (Record Equipment Unavailability).** Technical Support record how
+  many of an item's units are unavailable, damaged or under maintenance, and
+  return them; a reservation that leaves short is flagged, never cancelled.
+  - **New screen:** the sidebar's **Equipment** page (`/equipment`, was "not
+    built yet") - every item with Total units, Out of service, a status badge
+    (Available / Partly out of service / Out of service) and the reason (AC6).
+    Technical Support get "Record unavailability" (units, Type, Reason
+    (optional)) and "Return all to available" (AC1, AC2, AC5). After a save
+    that flags anything, an amber panel lists each reservation ("… 4 reserved,
+    3 available") and says the coordinators were notified (AC4).
+  - **Route:** `PATCH /api/equipment/[id]/out-of-service` (SPM-48's) now takes
+    a `type` - unavailable / damaged / under_maintenance, required while any
+    unit is out ("Choose a type."). In one transaction it flags every Reserved
+    or Partially fulfilled request of an event that has not ended which the
+    units left can no longer cover - but could before this change (so no
+    repeat flags or notifications) - and notifies the event's coordinator (or
+    the requester). When several share the same days and cannot all be
+    covered, all are flagged (decided 2026-10-11). The request's status and
+    quantities never change. Answers the item plus `flaggedReservations`.
+  - **The rule** (pure, `src/lib/equipmentOutOfService.ts`):
+    `newlyShortReservations()` reuses SPM-48's `checkAvailability()`, so a
+    reservation is short on exactly the days the availability check would say.
+    Flag reason code `equipment_unavailable`, merged with any already there via
+    `addReviewReasons()`; SPM-86's safety check refusal words it.
+  - **Permissions:** new action `equipment:view_status` (Coordinator, Ops
+    Manager, Technical Support). The organiser keeps `equipment:view` for the
+    request form, but `GET /api/equipment` no longer sends them the
+    out-of-service count, type or reason (AC6).
+  - **Wording:** Technical Support's availability line reads "… out of
+    service …" instead of "… in maintenance …".
+  - **No return date or pre-booking** - customer #23: not specified.
+  - **Migration:** `20261011120000_add_equipment_out_of_service_type` - one
+    nullable column, `equipment.out_of_service_type`. Units recorded before it
+    show their reason alone.
+  - **Test data:** `npm run fixtures:spm55` - four dedicated "SPM55 …" items
+    and 7 events, so no other story's equipment changes. The events are
+    appended to `prisma/seed.ts`.
+  - **Tests:** written first, then the code to them. New:
+    `equipmentOutOfService.test.ts`, `equipment-catalogue-page.test.tsx`;
+    extended: `equipment.test.ts`, `validation.test.ts`,
+    `permissions.test.ts`, `safetyCheck.test.ts`. Changed on purpose:
+    `equipment-pages.test.tsx` ("out of service") and `public-pages.test.tsx`
+    (Equipment is no longer a "not built yet" screen). Manual cases:
+    `docs/test-cases/SPM-55_Test_Cases.xlsx` (11).
+  - **Docs:** `docs/PERMISSIONS.md`, `SCHEMA_REFERENCE.md`, `UI_DESIGN.md`
+    (S-24), `docs/CUSTOMER_CLARIFICATIONS.md` (new Equipment section: #9, #23,
+    #86). The BPMN's equipment exception still reads "Returned equipment
+    damaged or missing"; widening it to any unavailable, damaged or
+    maintenance unit is raised with its owner (Kristen) rather than changed here.
+    Known Gaps: "No equipment catalogue screen" closed; review-flag and
+    notifications rows updated.
 
 ### 2026-10-10 — Kristen
 - **Each test case sheet now carries its own summary.** The test case
