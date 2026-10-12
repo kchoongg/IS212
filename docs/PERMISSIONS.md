@@ -82,6 +82,7 @@ the model, deliberately blind to which event is involved.
 | `venue_booking:request` | — | ✅ | — | — | — | — |
 | `venue_booking:decide` | — | — | — | ✅ | — | — |
 | `equipment:view` | ✅ | ✅ | ✅ | — | ✅ | — |
+| `equipment:view_status` | — | ✅ | ✅ | — | ✅ | — |
 | `equipment:manage` | — | — | — | — | ✅ | — |
 | `equipment_request:manage` | — | ✅ | — | — | — | — |
 | `equipment_request:review` | — | — | — | — | ✅ | — |
@@ -99,6 +100,10 @@ Three entries are worth explaining:
 - **`equipment:view` includes the organiser.** The event request form (S-08)
   asks the organiser to pick the equipment they need from the catalogue, so the
   catalogue is part of making a request, not internal planning information.
+- **`equipment:view_status` does not** (SPM-55). How many units are out of
+  service, which kind and why is ConnectSphere's operational business: the
+  Equipment page and that part of `GET /api/equipment` are for Coordinators,
+  the Ops Manager and Technical Support.
 - **`venue:view` excludes the organiser.** Venue selection is the coordinator's
   job (§5 Step 6). An organiser learns their venue through the confirmed event,
   not by browsing the catalogue.
@@ -305,7 +310,8 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET`/`POST /api/venues/[id]/unavailability` | `venue:manage` — Venue Staff (SPM-45) |
 | `PATCH`/`DELETE /api/venues/[id]/unavailability/[periodId]` | `venue:manage` — Venue Staff (SPM-45) |
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
-| `GET /api/equipment` | `equipment:view` |
+| `GET /api/equipment` | `equipment:view`; the out-of-service count, type and reason only with `equipment:view_status` - never to the organiser (SPM-55) |
+| `PATCH /api/equipment/[id]/out-of-service` | `equipment:manage` — Technical Support (SPM-48, SPM-55) |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
 | `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support for Planning, Safety review and Confirmed events only, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |

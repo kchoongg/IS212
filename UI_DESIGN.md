@@ -113,7 +113,7 @@ cite.
 
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
-| S-24 | Equipment catalogue | `/equipment` | Stock, categories, maintenance quantities. |
+| S-24 | Equipment catalogue | `/equipment` | Stock, categories, units out of service and why; Technical Support record and return them (SPM-55). |
 | S-25 | Equipment request queue | `/equipment/requests` | Review requests, check availability, reserve. |
 
 ### 3.6 Attendee
@@ -482,7 +482,7 @@ getting right.
 | Room in use outside opening hours | S-15 | Blocked: "<Venue> is open 07:00–22:00. With its 30 min setup and 45 min turnaround, choose times between 07:30 and 21:15." (SPM-93). |
 | Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
-| Equipment in maintenance | S-24, S-25 | Availability shown as `total − maintenance − reserved`; the breakdown is visible, not just the result. |
+| Equipment out of service | S-24, S-25 | Availability shown as `total − out of service − reserved`; the breakdown is visible, not just the result. Marking units out of service flags the reservations it leaves short and lists them (SPM-55). |
 | Registration full | S-26 | Register button becomes "Join waiting list" with the current waiting-list position. |
 | Registration not open or closed | S-26 | Button disabled with the date: "Registration opens 1 Oct 2026". |
 | Already registered | S-26 | Button replaced by registration status plus Withdraw. |
@@ -577,6 +577,7 @@ This document specifies the whole first release. What is built so far:
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
+| S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
 
 Specified but not yet built, and why:

@@ -5,7 +5,6 @@ import LoginPage from "@/app/login/page";
 import RegisterPage from "@/app/register/page";
 import NotificationsPage from "@/app/notifications/page";
 import BrowsePage from "@/app/browse/page";
-import EquipmentPage from "@/app/equipment/page";
 import RegistrationsPage from "@/app/registrations/page";
 import { ROLES } from "@/lib/roles";
 import { can, type Action } from "@/lib/permissions";
@@ -339,14 +338,7 @@ describe("screens that are specified but not built yet", () => {
       screenId: "S-26 (Attendee Event Browsing)",
       reason: "Browsing and registering for events is what an Attendee account is for.",
     },
-    {
-      name: "Equipment",
-      Page: EquipmentPage,
-      path: "/equipment",
-      action: "equipment:view",
-      screenId: "S-25 (Equipment Catalogue)",
-      reason: "The equipment catalogue is for ConnectSphere staff and the organisers who request from it.",
-    },
+    // Equipment (S-24 Equipment Catalogue) was built by SPM-55 - see equipment-catalogue-page.test.tsx.
     {
       name: "My Registrations",
       Page: RegistrationsPage,

@@ -1536,6 +1536,31 @@ async function main() {
     spm64("spm64_postponed", "SPM64 Postponed Product Talk", "postponed", "2027-05-19", 9, 3, 30),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-55 QA fixtures (Record Equipment Unavailability). The SAME events as
+  // scripts/seed-spm55.ts (`npm run fixtures:spm55`) - keep the two in step.
+  //
+  // The events only. Their dedicated "SPM55 …" equipment items and the
+  // reservations on them are created by that script alone, so run it once
+  // after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm55 = (key: string, title: string, date: string, startHour: number, durationHours: number,
+    options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-55 record equipment unavailability test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 40, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm55("spm55_availability_check", "SPM55 Availability Check Forum", "2027-08-09", 9, 4),
+    spm55("spm55_return_check", "SPM55 Return Check Seminar", "2027-08-23", 9, 4),
+    spm55("spm55_harbour_launch", "SPM55 Harbour Product Launch", "2027-08-10", 9, 6),
+    spm55("spm55_quiet_board", "SPM55 Quiet Board Meeting", "2027-08-24", 14, 2),
+    spm55("spm55_past_roadshow", "SPM55 Past Roadshow", "2026-09-01", 9, 6, { status: "completed" }),
+    spm55("spm55_morning_showcase", "SPM55 Morning Showcase", "2027-08-17", 9, 3),
+    spm55("spm55_evening_showcase", "SPM55 Evening Showcase", "2027-08-17", 18, 3),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
