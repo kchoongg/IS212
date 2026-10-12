@@ -36,18 +36,27 @@
 // setup as NOT REQUIRED for this event, and reverse it. It then prevents
 // nothing, and is shown as such with who decided and when (briefing 8f).
 //
-// ADDING AN ARRANGEMENT (e.g. the Operational Safety Check, SPM-86): add its
-// kind to ArrangementKind, its data to ConfirmationInput, and a block in
-// arrangementsFor() that builds its row with arrangement(). Leave the kind out
-// of WAIVABLE_KINDS and pass `waivable: false` if it can never be marked as not
-// required. The route, the Readiness tab and the blocking count need no change.
-// A row that must be SHOWN as required without yet stopping Confirm needs a
-// decision in checkEventConfirmation() - today every required row stops it.
+// The OPERATIONAL SAFETY CHECK (SPM-86) is the last row, from the event's
+// latest SafetyCheck: required, complete only once approved, and never
+// waivable (SPM-33 AC9). While the check is PENDING it blocks confirmation:
+// the event is in Safety review, which cannot move to Confirmed until the
+// Safety Officer decides (SPM-86's lifecycle). Otherwise it does not stop
+// Confirm yet: that gate is Resolve Safety Check Outcome's (SPM-88, decided
+// 2026-10-08), and the Safety Officer's decision (SPM-87) is not built, so
+// nothing could ever be confirmed if it did. SPM-88 turns it on by setting
+// SAFETY_CHECK_BLOCKS_CONFIRMATION to true.
+//
+// ADDING AN ARRANGEMENT: add its kind to ArrangementKind, its data to
+// ConfirmationInput, and a block in arrangementsFor() that builds its row with
+// arrangement(). Leave the kind out of WAIVABLE_KINDS and pass `waivable:
+// false` if it can never be marked as not required. The route, the Readiness
+// tab and the blocking count need no change.
 //
 // Pure functions over plain data, like the rest of src/lib.
 
 import { CHANGE_REASON_PROSE } from "./eventChangeImpact";
 import { IMPACT_REASON_PROSE } from "./venueImpact";
+import { formatDateTime } from "./format";
 
 /// Bookings that are arrangements at all: asked for, or held.
 const BOOKING_LISTED = ["pending", "approved"];
@@ -57,7 +66,11 @@ const BOOKING_HELD = "approved";
 const EQUIPMENT_HELD = ["reserved", "partially_fulfilled"];
 const EQUIPMENT_DROPPED = "cancelled";
 
-export type ArrangementKind = "venue" | "equipment" | "registration";
+export type ArrangementKind = "venue" | "equipment" | "registration" | "safety_check";
+
+/// Whether an outstanding Operational Safety Check stops Confirm. False until
+/// Resolve Safety Check Outcome (SPM-88) adds that gate - see the header.
+export const SAFETY_CHECK_BLOCKS_CONFIRMATION = false;
 
 /// The kinds a Coordinator may mark as not required. The route's request
 /// schema is built from this list, so a kind that is not here cannot be waived
@@ -96,6 +109,11 @@ export interface Arrangement {
   /// Who marked it as not required, and when. Null unless it is marked.
   notRequiredBy: string | null;
   notRequiredAt: Date | null;
+  /// Whether, while outstanding, it stops Confirm. False only for the
+  /// Operational Safety Check, until SPM-88.
+  blocksConfirmation: boolean;
+  /// A line of context, e.g. who submitted the safety check and when. "" for none.
+  note: string;
 }
 
 /// The Coordinator's decision that an arrangement is not required.
@@ -134,6 +152,16 @@ export interface RegistrationInput extends Waiver {
   closesAt: Date | null;
 }
 
+/// The event's latest Operational Safety Check (SPM-86).
+export interface SafetyCheckInput {
+  id: string;
+  /// pending | approved | changes_requested | rejected | closed
+  status: string;
+  /// The person's name, for display.
+  submittedBy: string | null;
+  submittedAt: Date;
+}
+
 export interface ConfirmationInput {
   /// Empty for a single-session event.
   sessions: readonly SessionRef[];
@@ -141,6 +169,9 @@ export interface ConfirmationInput {
   equipment: readonly EquipmentInput[];
   /// Absent means "not enabled": nothing is asked of registration.
   registration?: RegistrationInput;
+  /// Null when the event was never submitted for a safety check. Absent means
+  /// "not asked": no safety row - how Submit for safety check uses this list.
+  safetyCheck?: SafetyCheckInput | null;
 }
 
 /** "the Morning briefing session" / "this event" — how a refusal refers to it. */
@@ -171,7 +202,13 @@ function flagReasonFor(flag: ReviewFlag): string {
 function arrangement(
   row: Pick<Arrangement, "kind" | "id" | "name" | "session" | "status">,
   problem: string,
-  { waiver = {}, flagReason = "", waivable = true }: { waiver?: Waiver; flagReason?: string; waivable?: boolean } = {}
+  {
+    waiver = {},
+    flagReason = "",
+    waivable = true,
+    blocksConfirmation = true,
+    note = "",
+  }: { waiver?: Waiver; flagReason?: string; waivable?: boolean; blocksConfirmation?: boolean; note?: string } = {}
 ): Arrangement {
   const notRequired = waiver.notRequired === true;
   const outstanding = !notRequired && problem !== "";
@@ -185,7 +222,46 @@ function arrangement(
     waivable: outstanding && waivable,
     notRequiredBy: notRequired ? (waiver.notRequiredBy ?? null) : null,
     notRequiredAt: notRequired ? (waiver.notRequiredAt ?? null) : null,
+    blocksConfirmation,
+    note,
   };
+}
+
+const SAFETY = "the Operational Safety Check";
+
+/// How each SafetyCheck status is shown, and what is missing while it is not
+/// approved (SPM-33 AC6). A check closed by a change (SPM-88) has to be
+/// submitted again, so it reads as not submitted.
+const SAFETY_STATES: Record<string, { shown: string; missing: string }> = {
+  pending: { shown: "awaiting_review", missing: `${SAFETY} is awaiting the Safety Officer's review` },
+  approved: { shown: "approved", missing: "" },
+  changes_requested: { shown: "changes_requested", missing: `the Safety Officer asked for changes in ${SAFETY}` },
+  rejected: { shown: "rejected", missing: "the Safety Officer rejected the safety arrangement" },
+  closed: { shown: "not_submitted", missing: `${SAFETY} has to be submitted again` },
+};
+
+function safetyRow(check: SafetyCheckInput | null): Arrangement {
+  const state = check
+    ? (SAFETY_STATES[check.status] ?? { shown: check.status, missing: `${SAFETY} is not approved yet` })
+    : { shown: "not_submitted", missing: `${SAFETY} has not been submitted yet` };
+  const note = check
+    ? `Submitted${check.submittedBy ? ` by ${check.submittedBy}` : ""} on ${formatDateTime(check.submittedAt)}`
+    : "";
+  return arrangement(
+    {
+      kind: "safety_check",
+      id: check?.id ?? null,
+      name: "Operational Safety Check",
+      session: null,
+      status: `safety_${state.shown}`,
+    },
+    state.missing,
+    {
+      waivable: false,
+      blocksConfirmation: SAFETY_CHECK_BLOCKS_CONFIRMATION || check?.status === "pending",
+      note,
+    }
+  );
 }
 
 /// Every arrangement of this event, complete or not, in the order a
@@ -272,12 +348,18 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
     );
   }
 
+  // --- The Operational Safety Check, last: it reviews everything above -------
+  if (input.safetyCheck !== undefined) {
+    out.push(safetyRow(input.safetyCheck));
+  }
+
   return out;
 }
 
-/// The rows preventing confirmation: required, and not complete.
+/// The rows preventing confirmation: required, not complete, and of a kind
+/// Confirm waits for.
 export function blockingArrangements(arrangements: readonly Arrangement[]): Arrangement[] {
-  return arrangements.filter((a) => a.required && !a.complete);
+  return arrangements.filter((a) => a.required && !a.complete && a.blocksConfirmation);
 }
 
 export type ConfirmationCheck =

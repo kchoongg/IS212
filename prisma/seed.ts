@@ -1526,6 +1526,14 @@ async function main() {
     spm33("spm33_waive_confirm", "SPM33 Waive Then Confirm", "2027-07-23"),
     spm33("spm33_other_coordinator", "SPM33 Another Coordinator", "2027-07-26", { coordinator: PRIYA }),
     spm33("spm33_confirmed", "SPM33 Confirmed With Waiver", "2027-07-27", { status: "confirmed" }),
+    // Added 2026-10-12, after SPM-81 and SPM-86 reached main: a second venue
+    // requested through the Venue tab, and the safety check's four states.
+    // Their bookings, equipment and safety checks come from the script.
+    spm33("spm33_add_breakout", "SPM33 Add A Breakout Room", "2027-08-02"),
+    spm33("spm33_safety_pending", "SPM33 Awaiting Safety Review", "2027-07-28", { status: "safety_review" }),
+    spm33("spm33_safety_approved", "SPM33 Safety Approved", "2027-07-29"),
+    spm33("spm33_safety_changes", "SPM33 Safety Changes Requested", "2027-07-30"),
+    spm33("spm33_safety_rejected", "SPM33 Safety Rejected", "2027-07-31"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

@@ -61,6 +61,14 @@ const STATUS_META: Record<string, StatusMeta> = {
   complete: { label: "Complete", tone: "success" },
   outstanding: { label: "Outstanding", tone: "warning" },
   not_required: { label: "Not required", tone: "neutral" },
+  // The Operational Safety Check on the Readiness tab (SPM-33 AC6), from its
+  // latest SafetyCheck (SPM-86). Prefixed so a pending check reads "Awaiting
+  // review", never a booking's "Pending".
+  safety_not_submitted: { label: "Not submitted", tone: "warning" },
+  safety_awaiting_review: { label: "Awaiting review", tone: "info" },
+  safety_approved: { label: "Approved", tone: "success" },
+  safety_changes_requested: { label: "Changes requested", tone: "warning" },
+  safety_rejected: { label: "Rejected", tone: "danger" },
 
   // --- Clarification ---
   open: { label: "Open", tone: "warning" },

@@ -6,8 +6,8 @@
 // is shown and the refusal they get on confirming always come from the same
 // rows.
 //
-// When an arrangement is added (e.g. the Operational Safety Check, SPM-86),
-// load its data here and add it to ConfirmationInput - both callers get it.
+// When an arrangement is added, load its data here and add it to
+// ConfirmationInput - both callers get it.
 
 import { prisma } from "./prisma";
 import type { ConfirmationInput } from "./eventConfirmation";
@@ -29,7 +29,7 @@ export interface EventArrangementFields {
 }
 
 export async function loadConfirmationInput(event: EventArrangementFields): Promise<ConfirmationInput> {
-  const [sessions, bookings, equipment] = await Promise.all([
+  const [sessions, bookings, equipment, safetyCheck] = await Promise.all([
     prisma.eventSession.findMany({
       where: { eventId: event.id },
       orderBy: { startsAt: "asc" },
@@ -66,6 +66,13 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
         equipment: { select: { name: true } },
       },
     }),
+    // SPM-33 AC6: the latest Operational Safety Check (SPM-86). Earlier ones
+    // are history; only the latest says where the event stands.
+    prisma.safetyCheck.findFirst({
+      where: { eventId: event.id },
+      orderBy: { submittedAt: "desc" },
+      select: { id: true, status: true, submittedAt: true, submitter: BY },
+    }),
   ]);
 
   return {
@@ -101,5 +108,13 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
       notRequiredBy: event.registrationNotRequiredByUser?.fullName ?? null,
       notRequiredAt: event.registrationNotRequiredAt ?? null,
     },
+    safetyCheck: safetyCheck
+      ? {
+          id: safetyCheck.id,
+          status: safetyCheck.status,
+          submittedBy: safetyCheck.submitter?.fullName ?? null,
+          submittedAt: safetyCheck.submittedAt,
+        }
+      : null,
   };
 }

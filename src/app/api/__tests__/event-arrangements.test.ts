@@ -48,8 +48,11 @@
 //   - the record is the latest decision on each arrangement, not a full history,
 //     and no reason is asked for (decided 2026-10-09)
 //
-// Not covered yet, on purpose (decided 2026-10-08): the Operational Safety
-// Check (AC6) and refusing to mark it as not required (AC9) wait for SPM-86.
+// The Operational Safety Check (AC6, AC9; added 2026-10-12): the route also
+// reads the event's latest SafetyCheck (SPM-86) with
+// prisma.safetyCheck.findFirst({ where: { eventId }, orderBy: { submittedAt: "desc" } })
+// and lists it as the last arrangement. "safety_check" is not a kind PATCH
+// accepts, so it can never be marked as not required.
 
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 
@@ -136,15 +139,19 @@ interface Given {
   sessions?: Row[];
   bookings?: Row[];
   equipment?: Row[];
+  /// The event's latest SafetyCheck; null (the default) = never submitted.
+  safetyCheck?: Row | null;
 }
 
 /// The event and what is arranged for it, as the database would answer. Writes
 /// change these rows, so a list read after a write shows the change.
-function given({ event: overrides = {}, sessions = [], bookings = [], equipment = [] }: Given = {}) {
+function given({ event: overrides = {}, sessions = [], bookings = [], equipment = [], safetyCheck = null }: Given = {}) {
   const row: Record<string, unknown> = event(overrides);
   row.sessions = sessions;
   row.venueBookings = bookings;
   row.equipmentRequests = equipment;
+  row.safetyChecks = safetyCheck ? [safetyCheck] : [];
+  db.safetyCheck.findFirst.mockResolvedValue(safetyCheck);
 
   const byId = (rows: Row[]) => async (args: { where: { id?: string } }) =>
     rows.find((r) => r.id === args.where.id) ?? null;
@@ -173,10 +180,17 @@ interface ListedArrangement {
   missing: string;
   flagReason: string;
   waivable: boolean;
+  blocksConfirmation: boolean;
+  note: string;
 }
 
 const named = (body: { arrangements: ListedArrangement[] }, name: string) =>
   body.arrangements.find((a) => a.name === name)!;
+
+/// Every arrangement but the Operational Safety Check, which every event has
+/// (AC6) and which has tests of its own below.
+const listed = (body: { arrangements: ListedArrangement[] }) =>
+  body.arrangements.filter((a) => a.kind !== "safety_check");
 
 function expectNothingWritten() {
   expect(db.venueBooking.update).not.toHaveBeenCalled();
@@ -244,7 +258,7 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(body.event).toEqual({ sequenceNumber: 7, title: "Town Hall", status: "planning" });
     expect(body.canManage).toBe(true);
     expect(body.blocking).toBe(1);
-    expect(body.arrangements.map((a: ListedArrangement) => [a.kind, a.name, a.status, a.state])).toEqual([
+    expect(listed(body).map((a: ListedArrangement) => [a.kind, a.name, a.status, a.state])).toEqual([
       ["venue", "Hall A", "approved", "complete"],
       ["equipment", "Projector", "reserved", "complete"],
       ["equipment", "Lectern", "requested", "outstanding"],
@@ -271,8 +285,8 @@ describe("GET /api/events/[id]/arrangements", () => {
 
     const body = await (await get(token)).json();
 
-    expect(body.arrangements).toHaveLength(1);
-    expect(body.arrangements[0]).toMatchObject({
+    expect(listed(body)).toHaveLength(1);
+    expect(listed(body)[0]).toMatchObject({
       kind: "venue",
       id: null,
       name: "No venue booked",
@@ -318,7 +332,7 @@ describe("GET /api/events/[id]/arrangements", () => {
 
     const body = await (await get(token)).json();
 
-    expect(body.arrangements.map((a: ListedArrangement) => a.kind)).toEqual(["venue"]);
+    expect(listed(body).map((a: ListedArrangement) => a.kind)).toEqual(["venue"]);
     expect(body.blocking).toBe(0);
   });
 
@@ -333,7 +347,7 @@ describe("GET /api/events/[id]/arrangements", () => {
 
     const body = await (await get(token)).json();
 
-    expect(body.arrangements.map((a: ListedArrangement) => [a.name, a.state])).toEqual([
+    expect(listed(body).map((a: ListedArrangement) => [a.name, a.state])).toEqual([
       ["Hall A", "complete"],
       ["Room B", "not_required"],
       ["Projector", "not_required"],
@@ -385,7 +399,7 @@ describe("GET /api/events/[id]/arrangements", () => {
 
     expect(res.status).toBe(200);
     expect(body.canManage).toBe(false);
-    expect(body.arrangements).toHaveLength(1);
+    expect(listed(body)).toHaveLength(1);
   });
 
   it.each(["approved", "confirmed", "completed", "cancelled"])(
@@ -397,6 +411,114 @@ describe("GET /api/events/[id]/arrangements", () => {
       expect((await (await get(token)).json()).canManage).toBe(false);
     }
   );
+});
+
+describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6, AC9)", () => {
+  function get(token: string) {
+    return GET(req("GET", `/api/events/${REF}/arrangements`, { token }), params({ id: REF }));
+  }
+  const SUBMITTED = new Date("2026-10-09T06:30:00.000Z"); // 14:30 in Singapore
+  const check = (status: string): Row => ({
+    id: ID.request.replace(/9/g, "5"),
+    eventId: ID.event,
+    status,
+    submittedAt: SUBMITTED,
+    submitter: { fullName: "Daniel Tan" },
+  });
+  const safety = (body: { arrangements: ListedArrangement[] }) => named(body, "Operational Safety Check");
+
+  it("reads the event's latest safety check", async () => {
+    const token = signIn(assignedCoordinator());
+    given({ bookings: [booking()] });
+
+    await get(token);
+
+    expect(callArg(db.safetyCheck.findFirst)).toMatchObject({
+      where: { eventId: ID.event },
+      orderBy: { submittedAt: "desc" },
+    });
+  });
+
+  it("lists a check that was never submitted, last, as a required item that is not submitted", async () => {
+    const token = signIn(assignedCoordinator());
+    given({ bookings: [booking()], equipment: [line()] });
+
+    const body = await (await get(token)).json();
+
+    expect(body.arrangements.map((a: ListedArrangement) => a.kind)).toEqual(["venue", "equipment", "safety_check"]);
+    expect(safety(body)).toMatchObject({
+      kind: "safety_check",
+      id: null,
+      status: "safety_not_submitted",
+      state: "outstanding",
+      required: true,
+      waivable: false,
+      blocksConfirmation: false,
+      missing: "the Operational Safety Check has not been submitted yet",
+    });
+  });
+
+  it.each([
+    ["pending", "safety_awaiting_review", "outstanding"],
+    ["approved", "safety_approved", "complete"],
+    ["changes_requested", "safety_changes_requested", "outstanding"],
+    ["rejected", "safety_rejected", "outstanding"],
+  ])("shows a %s check as %s, with who submitted it and when", async (status, shown, state) => {
+    const token = signIn(assignedCoordinator());
+    given({ event: { status: status === "pending" ? "safety_review" : "planning" }, bookings: [booking()], safetyCheck: check(status) });
+
+    const body = await (await get(token)).json();
+
+    expect(safety(body)).toMatchObject({
+      status: shown,
+      state,
+      waivable: false,
+      note: "Submitted by Daniel Tan on 9 Oct 2026, 14:30",
+    });
+  });
+
+  // Decided 2026-10-08: the gate on Confirm is Resolve Safety Check Outcome's (SPM-88).
+  it("does not count an outstanding safety check as blocking confirmation", async () => {
+    const token = signIn(assignedCoordinator());
+    given({ bookings: [booking()] });
+
+    expect((await (await get(token)).json()).blocking).toBe(0);
+  });
+
+  // Safety review cannot move to Confirmed until the Safety Officer decides.
+  it("counts a check awaiting the Safety Officer's review as blocking confirmation", async () => {
+    const token = signIn(assignedCoordinator());
+    given({ event: { status: "safety_review" }, bookings: [booking()], safetyCheck: check("pending") });
+
+    const body = await (await get(token)).json();
+
+    expect(body.blocking).toBe(1);
+    expect(safety(body).blocksConfirmation).toBe(true);
+  });
+
+  it("does not offer marking while the event is with the Safety Officer", async () => {
+    const token = signIn(assignedCoordinator());
+    given({ event: { status: "safety_review" }, bookings: [booking({ status: "pending" })], safetyCheck: check("pending") });
+
+    expect((await (await get(token)).json()).canManage).toBe(false);
+  });
+});
+
+describe("PATCH /api/events/[id]/arrangements - the Operational Safety Check (AC9)", () => {
+  it.each([
+    ["with no id", { kind: "safety_check", notRequired: true }],
+    ["by the check's id", { kind: "safety_check", id: ID.request, notRequired: true }],
+  ])("refuses to mark the safety check as not required, %s, and writes nothing", async (_case, body) => {
+    const token = signIn(assignedCoordinator());
+    given({ bookings: [booking()] });
+
+    const res = await PATCH(req("PATCH", `/api/events/${REF}/arrangements`, { token, body }), params({ id: REF }));
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Validation failed");
+    expectNothingWritten();
+    expect(db.safetyCheck.update).not.toHaveBeenCalled();
+  });
 });
 
 describe("PATCH /api/events/[id]/arrangements", () => {
@@ -611,7 +733,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
 
       const body = await (await patch(token, { kind: "venue", id: ID.booking, notRequired: true })).json();
 
-      expect(body.arrangements.map((a: ListedArrangement) => [a.name, a.state])).toEqual([
+      expect(listed(body).map((a: ListedArrangement) => [a.name, a.state])).toEqual([
         ["Hall A", "not_required"],
         ["No venue booked", "outstanding"],
       ]);

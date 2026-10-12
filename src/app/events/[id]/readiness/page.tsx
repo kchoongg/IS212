@@ -35,6 +35,9 @@ interface Arrangement {
   waivable: boolean;
   notRequiredBy: string | null;
   notRequiredAt: string | null;
+  /// False for the Operational Safety Check until SPM-88: shown, not counted.
+  blocksConfirmation: boolean;
+  note: string;
 }
 
 interface Readiness {
@@ -221,6 +224,12 @@ export default function EventReadinessPage() {
                       <p className="font-medium text-ink">{arrangement.name}</p>
                       {arrangement.missing && (
                         <p className="mt-1 text-sm text-ink-2">{sentence(arrangement.missing)}</p>
+                      )}
+                      {arrangement.note && <p className="mt-1 text-sm text-ink-3">{arrangement.note}</p>}
+                      {/* The Operational Safety Check, until SPM-88 makes
+                          Confirm wait for it: why it is not in the count. */}
+                      {arrangement.state === "outstanding" && !arrangement.blocksConfirmation && (
+                        <p className="mt-1 text-sm text-ink-3">Confirm event does not wait for it yet.</p>
                       )}
                       {/* Briefing 8f: who decided, and when. */}
                       {marked && arrangement.notRequiredAt && (

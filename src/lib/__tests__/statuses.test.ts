@@ -231,3 +231,19 @@ describe("arrangement states (SPM-33)", () => {
     expect(statusTone("not_required")).toBe("neutral");
   });
 });
+
+// SPM-33 AC6 (written before the code): what the Readiness tab calls each
+// state of the Operational Safety Check. Kept apart from the booking statuses
+// - a pending check reads "Awaiting review", never "Pending".
+describe("safety check labels on the Readiness tab (SPM-33)", () => {
+  it.each([
+    ["safety_not_submitted", "Not submitted", "warning"],
+    ["safety_awaiting_review", "Awaiting review", "info"],
+    ["safety_approved", "Approved", "success"],
+    ["safety_changes_requested", "Changes requested", "warning"],
+    ["safety_rejected", "Rejected", "danger"],
+  ])("shows %s as %s", (key, label, tone) => {
+    expect(statusLabel(key)).toBe(label);
+    expect(statusTone(key)).toBe(tone);
+  });
+});

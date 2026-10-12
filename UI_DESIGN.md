@@ -97,7 +97,7 @@ cite.
 | S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
-| S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required. Confirm event stays on the Overview (SPM-34). |
+| S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). |
 
 ### 3.4 Venue Staff
 

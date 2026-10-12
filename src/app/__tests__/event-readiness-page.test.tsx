@@ -30,8 +30,11 @@
 //   - marking takes one click and asks nothing first: it is undone the same way
 //   - there is no Confirm event button here; it stays on the Overview (SPM-34)
 //
-// Not covered yet, on purpose (decided 2026-10-08): the Operational Safety
-// Check row (AC6, AC9) waits for SPM-86.
+// The Operational Safety Check (AC6, AC9; added 2026-10-12) is one more item
+// in the list, with its own status ("Awaiting review", "Changes requested"...)
+// and the note of who submitted it. It never has a button. While Confirm does
+// not wait for it (SPM-88), it is not counted in the summary, and its item
+// says "Confirm event does not wait for it yet.".
 
 import { describe, it, expect } from "vitest";
 import EventReadinessPage from "@/app/events/[id]/readiness/page";
@@ -70,6 +73,8 @@ interface Arrangement {
   waivable: boolean;
   notRequiredBy: string | null;
   notRequiredAt: string | null;
+  blocksConfirmation: boolean;
+  note: string;
 }
 
 const MARKED_AT = "2026-10-08T03:00:00.000Z";
@@ -89,6 +94,8 @@ function arrangement(overrides: Partial<Arrangement> = {}): Arrangement {
     waivable: false,
     notRequiredBy: null,
     notRequiredAt: null,
+    blocksConfirmation: true,
+    note: "",
     ...overrides,
   };
 }
@@ -152,7 +159,7 @@ function payload(arrangements: Arrangement[], overrides: Record<string, unknown>
   return {
     event: { sequenceNumber: 7, title: "Gala Dinner", status: "planning" },
     canManage: true,
-    blocking: arrangements.filter((a) => a.required && !a.complete).length,
+    blocking: arrangements.filter((a) => a.required && !a.complete && a.blocksConfirmation).length,
     arrangements,
     ...overrides,
   };
@@ -443,6 +450,73 @@ describe("Event Readiness tab (SPM-33)", () => {
 
       expect(await screen.findByText("Nothing is blocking confirmation")).toBeInTheDocument();
       expect(screen.queryByText(/still block/)).not.toBeInTheDocument();
+    });
+  });
+
+  // AC6, AC9.
+  describe("the Operational Safety Check", () => {
+    const safety = (status: string, overrides: Partial<Arrangement> = {}) =>
+      arrangement({
+        kind: "safety_check",
+        id: status === "safety_not_submitted" ? null : "sc1",
+        name: "Operational Safety Check",
+        status,
+        state: status === "safety_approved" ? "complete" : "outstanding",
+        complete: status === "safety_approved",
+        missing: status === "safety_approved" ? "" : "the Operational Safety Check has not been submitted yet",
+        blocksConfirmation: false,
+        note: status === "safety_not_submitted" ? "" : "Submitted by Daniel Tan on 9 Oct 2026, 14:30",
+        ...overrides,
+      });
+
+    it.each([
+      ["safety_not_submitted", "Not submitted", "Outstanding"],
+      ["safety_awaiting_review", "Awaiting review", "Outstanding"],
+      ["safety_approved", "Approved", "Complete"],
+      ["safety_changes_requested", "Changes requested", "Outstanding"],
+      ["safety_rejected", "Rejected", "Outstanding"],
+    ])("shows a check that is %s as '%s'", async (status, label, state) => {
+      open([auditorium, safety(status)]);
+
+      const item = await row("Operational Safety Check");
+
+      expect(item).toHaveTextContent(label);
+      expect(item).toHaveTextContent(state);
+    });
+
+    it("says who submitted it and when", async () => {
+      open([auditorium, safety("safety_awaiting_review")]);
+
+      expect(await row("Operational Safety Check")).toHaveTextContent("Submitted by Daniel Tan on 9 Oct 2026, 14:30");
+    });
+
+    it("never offers to mark it as not required, even to the assigned coordinator", async () => {
+      open([deskRequested, safety("safety_not_submitted")]);
+
+      const item = await row("Operational Safety Check");
+
+      expect(within(item).queryByRole("button")).not.toBeInTheDocument();
+      expect(markNotRequired(await row("Audio Mixing Desk"))).toBeEnabled();
+    });
+
+    it("says Confirm does not wait for it yet, and leaves it out of the count", async () => {
+      open([auditorium, safety("safety_not_submitted")]);
+
+      expect(await row("Operational Safety Check")).toHaveTextContent("Confirm event does not wait for it yet.");
+      expect(await screen.findByText("Nothing is blocking confirmation")).toBeInTheDocument();
+    });
+
+    it("counts a check awaiting review as blocking, without saying Confirm does not wait", async () => {
+      open([auditorium, safety("safety_awaiting_review", { blocksConfirmation: true })]);
+
+      expect(await screen.findByText("1 arrangement still blocks confirmation")).toBeInTheDocument();
+      expect(await row("Operational Safety Check")).not.toHaveTextContent("does not wait for it");
+    });
+
+    it("does not say so once the check is approved", async () => {
+      open([auditorium, safety("safety_approved")]);
+
+      expect(await row("Operational Safety Check")).not.toHaveTextContent("does not wait for it");
     });
   });
 

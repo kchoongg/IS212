@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { arrangementsFor, checkEventConfirmation } from "../eventConfirmation";
+import { arrangementsFor, blockingArrangements, checkEventConfirmation } from "../eventConfirmation";
 import type { ConfirmationInput } from "../eventConfirmation";
 
 // Confirm Event (SPM-34). What must be in place before an event can be
@@ -214,9 +214,8 @@ describe("arrangementsFor — what the list itself looks like", () => {
 //     with a capacity and both ends of the registration period
 //   - the wording of every `missing` and `flagReason` below
 //
-// Not covered yet, on purpose (decided 2026-10-08): the Operational Safety
-// Check row (AC6) and the rule that it cannot be marked as not required (AC9)
-// wait for SPM-86, which defines the data they read.
+// The Operational Safety Check row (AC6, AC9) is at the end of this file:
+// it reads the SafetyCheck record SPM-86 added.
 
 const booking = (over: Record<string, unknown> = {}) => ({
   id: "b1",
@@ -697,5 +696,148 @@ describe("SPM-33 checkEventConfirmation — what prevents confirmation (AC11)", 
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.outstanding.map((a) => a.name)).toEqual(["Audio Mixing Desk"]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SPM-33 AC6 and AC9: the Operational Safety Check (SPM-86)
+// ---------------------------------------------------------------------------
+//
+// CONTRACT (added 2026-10-12, written before the code):
+//   ConfirmationInput.safetyCheck?  the event's LATEST SafetyCheck as
+//     { id, status, submittedBy (name or null), submittedAt }, or null when it
+//     was never submitted. Left out (undefined) = no safety row at all, which
+//     is how Submit for safety check (safetyCheck.ts) asks its own question.
+//   One row, last: kind "safety_check", name "Operational Safety Check",
+//     id = the check's id (null when never submitted), status = one of the
+//     display keys below, never waivable (AC9).
+//   Arrangement gains
+//     blocksConfirmation  true for every row except the safety row, which
+//       blocks only while its check is PENDING: an event with the Safety
+//       Officer is in Safety review, which cannot move to Confirmed until the
+//       Safety Officer decides (SPM-86's lifecycle). Otherwise Confirm does not
+//       wait for the safety check until Resolve Safety Check Outcome (SPM-88)
+//       adds that gate - decided 2026-10-08. Confirm refuses, and the blocking
+//       count counts, only rows that block.
+//     note  "Submitted by Daniel Tan on 9 Oct 2026, 14:30" for a submitted
+//       check, "" otherwise.
+//
+//   SafetyCheck.status  ->  status (label)                     state
+//   (never submitted)       safety_not_submitted (Not submitted)  outstanding
+//   pending                 safety_awaiting_review (Awaiting review) outstanding
+//   approved                safety_approved (Approved)              complete
+//   changes_requested       safety_changes_requested (Changes requested) outstanding
+//   rejected                safety_rejected (Rejected)              outstanding
+//   closed (SPM-88)         safety_not_submitted (Not submitted)  outstanding
+//
+// Decided here, not in the story: the display keys, the wording of `missing`
+// and `note`, and that a check closed by a change (SPM-88) reads as not
+// submitted, since it has to be submitted again.
+
+describe("SPM-33 arrangementsFor — the Operational Safety Check (AC6, AC9)", () => {
+  const SUBMITTED = new Date("2026-10-09T06:30:00.000Z"); // 14:30 in Singapore
+  const check = (status: string) => ({ id: "sc1", status, submittedBy: "Daniel Tan", submittedAt: SUBMITTED });
+  const safetyRow = (safetyCheck: ConfirmationInput["safetyCheck"]) =>
+    named(rows({ bookings: [booking()], safetyCheck }), "Operational Safety Check");
+
+  it("has no safety row when it is not asked about", () => {
+    expect(rows({ bookings: [booking()] }).map((a) => a.kind)).toEqual(["venue"]);
+  });
+
+  it("shows the safety check as a required item, after everything else", () => {
+    const list = rows({ bookings: [booking()], equipment: [line()], registration: registration(), safetyCheck: null });
+
+    expect(list.map((a) => a.kind)).toEqual(["venue", "equipment", "registration", "safety_check"]);
+  });
+
+  it("shows a check that was never submitted as not submitted and outstanding", () => {
+    expect(safetyRow(null)).toMatchObject({
+      kind: "safety_check",
+      id: null,
+      name: "Operational Safety Check",
+      session: null,
+      status: "safety_not_submitted",
+      state: "outstanding",
+      required: true,
+      complete: false,
+      missing: "the Operational Safety Check has not been submitted yet",
+      note: "",
+    });
+  });
+
+  it.each([
+    ["pending", "safety_awaiting_review", "outstanding", "the Operational Safety Check is awaiting the Safety Officer's review"],
+    ["approved", "safety_approved", "complete", ""],
+    ["changes_requested", "safety_changes_requested", "outstanding", "the Safety Officer asked for changes in the Operational Safety Check"],
+    ["rejected", "safety_rejected", "outstanding", "the Safety Officer rejected the safety arrangement"],
+    ["closed", "safety_not_submitted", "outstanding", "the Operational Safety Check has to be submitted again"],
+  ])("shows a %s check as %s", (status, shown, state, missing) => {
+    expect(safetyRow(check(status))).toMatchObject({ id: "sc1", status: shown, state, missing });
+  });
+
+  it("still lists a check whose status it does not recognise, as outstanding", () => {
+    expect(safetyRow(check("something_new"))).toMatchObject({
+      status: "safety_something_new",
+      state: "outstanding",
+      missing: "the Operational Safety Check is not approved yet",
+    });
+  });
+
+  it("says who submitted the check and when", () => {
+    expect(safetyRow(check("pending")).note).toBe("Submitted by Daniel Tan on 9 Oct 2026, 14:30");
+  });
+
+  it("still says when it was submitted if the submitter cannot be named", () => {
+    expect(safetyRow({ ...check("pending"), submittedBy: null }).note).toBe("Submitted on 9 Oct 2026, 14:30");
+  });
+
+  // AC9.
+  it.each([null, "pending", "approved", "changes_requested", "rejected", "closed"])(
+    "can never be marked as not required (latest check: %s)",
+    (status) => {
+      expect(safetyRow(status === null ? null : check(status)).waivable).toBe(false);
+    }
+  );
+
+  it("does not stop confirmation yet - Resolve Safety Check Outcome (SPM-88) adds that", () => {
+    expect(safetyRow(null).blocksConfirmation).toBe(false);
+    expect(checkEventConfirmation(input({ bookings: [booking()], safetyCheck: null }))).toEqual({ ok: true });
+  });
+
+  // Decided 2026-10-12: while the Safety Officer has it, the event is in
+  // Safety review and cannot be confirmed, so the list says what is in the way.
+  it("blocks confirmation while the check is awaiting the Safety Officer's review", () => {
+    expect(safetyRow(check("pending")).blocksConfirmation).toBe(true);
+    const result = checkEventConfirmation(input({ bookings: [booking()], safetyCheck: check("pending") }));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe(
+        "This event cannot be confirmed yet: the Operational Safety Check is awaiting the Safety Officer's review."
+      );
+    }
+  });
+
+  it.each(["approved", "changes_requested", "rejected", "closed"])(
+    "does not block confirmation once the check is %s",
+    (status) => {
+      expect(safetyRow(check(status)).blocksConfirmation).toBe(false);
+    }
+  );
+
+  it("leaves the safety check out of what blocks confirmation, and keeps everything else in", () => {
+    const list = rows({ bookings: [booking({ status: "pending" })], equipment: [line()], safetyCheck: null });
+
+    expect(list.map((a) => [a.kind, a.blocksConfirmation])).toEqual([
+      ["venue", true],
+      ["equipment", true],
+      ["safety_check", false],
+    ]);
+    expect(blockingArrangements(list).map((a) => a.kind)).toEqual(["venue"]);
+  });
+
+  it("gives every other row an empty note", () => {
+    const list = rows({ bookings: [booking()], equipment: [line()], registration: registration() });
+
+    expect(list.map((a) => a.note)).toEqual(["", "", ""]);
   });
 });

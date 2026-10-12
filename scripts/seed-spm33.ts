@@ -37,7 +37,8 @@ const SGT_OFFSET_HOURS = 8;
 /** A fixed calendar date at a Singapore wall-clock hour. */
 function sgt(isoDate: string, hour: number): Date {
   const [year, month, date] = isoDate.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, date, hour - SGT_OFFSET_HOURS));
+  // Fractional hours allowed: 14.5 is 14:30.
+  return new Date(Date.UTC(year, month - 1, date, 0, Math.round((hour - SGT_OFFSET_HOURS) * 60)));
 }
 
 function addDays(d: Date, n: number): Date {
@@ -66,10 +67,19 @@ type Equip = {
   notRequiredAt?: Date;
 };
 
+/// The event's latest Operational Safety Check (SPM-86). Submitted by its
+/// coordinator on 9 Oct 2026 at 14:30; a decided one was decided on 10 Oct 2026
+/// with no Safety Officer named - nothing in the app records that decision
+/// until SPM-87, and no Safety Officer account exists yet.
+type Safety = {
+  status: "pending" | "approved" | "changes_requested" | "rejected";
+  note?: string;
+};
+
 type Fixture = {
   key: string;
   title: string;
-  status: "planning" | "confirmed";
+  status: "planning" | "confirmed" | "safety_review";
   coordinator: string;
   date: string; // YYYY-MM-DD, Singapore
   durationHours: number;
@@ -79,6 +89,7 @@ type Fixture = {
   equipment?: Equip[];
   /// Registration switched on with an opening and closing date but no capacity.
   registrationWithoutCapacity?: boolean;
+  safety?: Safety;
   testCases: string; // which SPM-33 cases use it - for whoever reads the output
 };
 
@@ -89,7 +100,7 @@ const FIXTURES: Fixture[] = [
     date: "2027-07-12", durationHours: 4,
     bookings: [{ venue: "MAR-AUD", status: "approved" }, { venue: "ORC-STU", status: "pending" }],
     equipment: [{ name: "Handheld Wireless Mic", status: "reserved" }, { name: "Audio Mixing Desk", status: "requested" }],
-    testCases: "TC01 TC13 TC14" },
+    testCases: "TC01 TC16 TC17" },
 
   // Nothing arranged at all, and registration off.
   { key: "spm33_nothing", title: "SPM33 Nothing Booked", status: "planning", coordinator: DANIEL,
@@ -107,66 +118,103 @@ const FIXTURES: Fixture[] = [
     date: "2027-07-16", durationHours: 4,
     bookings: [{ venue: "ORC-SEM", status: "approved", flagged: true }],
     equipment: [{ name: "Handheld Wireless Mic", status: "reserved", flagged: true }],
-    testCases: "TC04" },
+    testCases: "TC05" },
 
-  // TC05 marks the stage as not required; TC06 reverses it.
+  // TC08 marks the stage as not required; TC09 reverses it.
   { key: "spm33_stage", title: "SPM33 Stage Unavailable", status: "planning", coordinator: DANIEL,
     date: "2027-07-19", durationHours: 4,
     bookings: [{ venue: "ORC-GAL", status: "approved" }],
     equipment: [{ name: "Handheld Wireless Mic", status: "reserved" }, { name: "Portable Stage", status: "unavailable" }],
-    testCases: "TC05 TC06" },
+    testCases: "TC08 TC09" },
 
-  // TC07 marks the pending room as not required; the approved one must not change.
+  // TC10 marks the pending room as not required; the approved one must not change.
   { key: "spm33_breakout", title: "SPM33 Breakout Not Needed", status: "planning", coordinator: DANIEL,
     date: "2027-07-20", durationHours: 4,
     bookings: [{ venue: "MAR-AUD", status: "approved" }, { venue: "ORC-STU", status: "pending" }],
-    testCases: "TC07" },
+    testCases: "TC10" },
 
-  // TC08 marks its only room as not required: it still has no venue.
+  // TC11 marks its only room as not required: it still has no venue.
   { key: "spm33_single_pending", title: "SPM33 Single Pending Room", status: "planning", coordinator: DANIEL,
     date: "2027-07-21", durationHours: 4,
     bookings: [{ venue: "ORC-STU", status: "pending" }],
-    testCases: "TC08" },
+    testCases: "TC11" },
 
-  // TC09: registration is on but has no capacity.
+  // TC12: registration is on but has no capacity.
   { key: "spm33_registration", title: "SPM33 Registration Not Needed", status: "planning", coordinator: DANIEL,
     date: "2027-07-22", durationHours: 4, registrationWithoutCapacity: true,
     bookings: [{ venue: "ORC-GAL", status: "approved" }],
-    testCases: "TC09" },
+    testCases: "TC12" },
 
-  // TC10: the desk is partly reserved (held); the stage cannot be provided.
+  // TC13: the desk is partly reserved (held); the stage cannot be provided.
   // Confirm is refused on the stage alone, then succeeds once it is waived.
   { key: "spm33_waive_confirm", title: "SPM33 Waive Then Confirm", status: "planning", coordinator: DANIEL,
     date: "2027-07-23", durationHours: 4,
     bookings: [{ venue: "ORC-GAL", status: "approved" }],
     equipment: [{ name: "Audio Mixing Desk", status: "partially_fulfilled" }, { name: "Portable Stage", status: "unavailable" }],
-    testCases: "TC10" },
+    testCases: "TC13" },
 
-  // TC11: assigned to someone else, so Daniel can look but not mark.
+  // TC14: assigned to someone else, so Daniel can look but not mark.
   { key: "spm33_other_coordinator", title: "SPM33 Another Coordinator", status: "planning", coordinator: PRIYA,
     date: "2027-07-26", durationHours: 4,
     bookings: [{ venue: "ORC-STU", status: "pending" }],
     equipment: [{ name: "Portable Stage", status: "unavailable" }],
-    testCases: "TC11" },
+    testCases: "TC14" },
 
-  // TC12: confirmed with a line waived beforehand. Read-only from here on.
+  // TC04: a second venue is requested through the Venue tab (SPM-81).
+  { key: "spm33_add_breakout", title: "SPM33 Add A Breakout Room", status: "planning", coordinator: DANIEL,
+    date: "2027-08-02", durationHours: 4,
+    bookings: [{ venue: "MAR-AUD", status: "approved" }],
+    testCases: "TC04" },
+
+  // TC06: with the Safety Officer. Venue and equipment held.
+  { key: "spm33_safety_pending", title: "SPM33 Awaiting Safety Review", status: "safety_review", coordinator: DANIEL,
+    date: "2027-07-28", durationHours: 4,
+    bookings: [{ venue: "ORC-GAL", status: "approved" }],
+    equipment: [{ name: "Handheld Wireless Mic", status: "reserved" }],
+    safety: { status: "pending" },
+    testCases: "TC06" },
+
+  // TC07: the Safety Officer's three decisions, each back in Planning.
+  { key: "spm33_safety_approved", title: "SPM33 Safety Approved", status: "planning", coordinator: DANIEL,
+    date: "2027-07-29", durationHours: 4,
+    bookings: [{ venue: "ORC-GAL", status: "approved" }],
+    safety: { status: "approved" },
+    testCases: "TC07" },
+  { key: "spm33_safety_changes", title: "SPM33 Safety Changes Requested", status: "planning", coordinator: DANIEL,
+    date: "2027-07-30", durationHours: 4,
+    bookings: [{ venue: "ORC-GAL", status: "approved" }],
+    safety: { status: "changes_requested", note: "Move the registration desk clear of the fire exit." },
+    testCases: "TC07" },
+  { key: "spm33_safety_rejected", title: "SPM33 Safety Rejected", status: "planning", coordinator: DANIEL,
+    date: "2027-07-31", durationHours: 4,
+    bookings: [{ venue: "ORC-GAL", status: "approved" }],
+    safety: { status: "rejected", note: "The room has one exit for 30 people standing." },
+    testCases: "TC07" },
+
+  // TC15: confirmed with a line waived beforehand. Read-only from here on.
   { key: "spm33_confirmed", title: "SPM33 Confirmed With Waiver", status: "confirmed", coordinator: DANIEL,
     date: "2027-07-27", durationHours: 4,
     bookings: [{ venue: "ORC-GAL", status: "approved" }],
     equipment: [{ name: "Portable Stage", status: "unavailable", notRequiredAt: sgt("2026-10-01", 10) }],
-    testCases: "TC12" },
+    testCases: "TC15" },
 ];
 
 /** Same status chains and reasons as prisma/seed.ts. */
 const CHAIN: Record<Fixture["status"], string[]> = {
   planning: ["submitted", "under_review", "approved", "planning"],
   confirmed: ["submitted", "under_review", "approved", "planning", "confirmed"],
+  safety_review: ["submitted", "under_review", "approved", "planning", "safety_review"],
 };
+/// A decided check returned the event to Planning (SPM-87).
+const DECIDED_CHAIN = ["submitted", "under_review", "approved", "planning", "safety_review", "planning"];
+const SUBMITTED_AT = sgt("2026-10-09", 14.5);
+const DECIDED_AT = sgt("2026-10-10", 10);
 const REASONS: Record<string, string> = {
   under_review: "Coordinator assigned",
   approved: "Requirements sufficiently clear",
   planning: "Venue search started",
   confirmed: "Essential arrangements complete",
+  safety_review: "Submitted for an operational safety check",
 };
 
 async function main() {
@@ -239,7 +287,8 @@ async function main() {
   for (const f of FIXTURES) {
     const coordinatorId = coordinators.get(f.coordinator)!;
     const { startsAt, endsAt } = times(f);
-    const chain = CHAIN[f.status];
+    const decided = f.safety && f.safety.status !== "pending";
+    const chain = decided ? DECIDED_CHAIN : CHAIN[f.status];
     // History 5 days a step, ending in the past.
     const historyStart = addDays(now, -(chain.length * 5 + 2));
 
@@ -270,7 +319,7 @@ async function main() {
             // Assignment (-> under_review) is the Ops Manager's; later steps the coordinator's.
             changedBy: to === "submitted" ? organiser.id : to === "under_review" ? opsManager : coordinatorId,
             changedAt: addDays(historyStart, i * 5),
-            reason: REASONS[to],
+            reason: i > 0 && chain[i - 1] === "safety_review" ? "Safety check decided" : REASONS[to],
           })),
         },
         sessions: f.sessions && {
@@ -326,6 +375,18 @@ async function main() {
           ...(e.notRequiredAt
             ? { notRequired: true, notRequiredBy: coordinatorId, notRequiredAt: e.notRequiredAt }
             : {}),
+        },
+      });
+    }
+
+    if (f.safety) {
+      await prisma.safetyCheck.create({
+        data: {
+          eventId: created.id,
+          status: f.safety.status,
+          submittedBy: coordinatorId,
+          submittedAt: SUBMITTED_AT,
+          ...(decided ? { decidedAt: DECIDED_AT, decisionNote: f.safety.note } : {}),
         },
       });
     }
