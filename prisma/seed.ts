@@ -1561,6 +1561,47 @@ async function main() {
     spm55("spm55_evening_showcase", "SPM55 Evening Showcase", "2027-08-17", 18, 3),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-33 QA fixtures (Track Outstanding Arrangements). The SAME events as
+  // scripts/seed-spm33.ts (`npm run fixtures:spm33`) - keep the two in step.
+  //
+  // The events only. The sessions, venue bookings and equipment requests that
+  // put each one in its particular state - pending, flagged, cannot be provided,
+  // marked as not required - are created by that script alone, so run it once
+  // after a full reseed or every Readiness list shows only "No venue booked".
+  // Pushed LAST so no earlier event's EVT- reference number shifts. Add new
+  // events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm33 = (
+    key: string, title: string, date: string, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-33 track outstanding arrangements test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 30, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm33("spm33_two_room", "SPM33 Two Room Conference", "2027-07-12"),
+    spm33("spm33_nothing", "SPM33 Nothing Booked", "2027-07-13"),
+    spm33("spm33_sessions", "SPM33 Two Day Forum", "2027-07-14", { durationHours: 27 }),
+    spm33("spm33_date_changed", "SPM33 Date Changed", "2027-07-16"),
+    spm33("spm33_stage", "SPM33 Stage Unavailable", "2027-07-19"),
+    spm33("spm33_breakout", "SPM33 Breakout Not Needed", "2027-07-20"),
+    spm33("spm33_single_pending", "SPM33 Single Pending Room", "2027-07-21"),
+    // Registration on, with its dates but no capacity: outstanding setup.
+    spm33("spm33_registration", "SPM33 Registration Not Needed", "2027-07-22", { regEnabled: true }),
+    spm33("spm33_waive_confirm", "SPM33 Waive Then Confirm", "2027-07-23"),
+    spm33("spm33_other_coordinator", "SPM33 Another Coordinator", "2027-07-26", { coordinator: PRIYA }),
+    spm33("spm33_confirmed", "SPM33 Confirmed With Waiver", "2027-07-27", { status: "confirmed" }),
+    // Added 2026-10-12, after SPM-81 and SPM-86 reached main: a second venue
+    // requested through the Venue tab, and the safety check's four states.
+    // Their bookings, equipment and safety checks come from the script.
+    spm33("spm33_add_breakout", "SPM33 Add A Breakout Room", "2027-08-02"),
+    spm33("spm33_safety_pending", "SPM33 Awaiting Safety Review", "2027-07-28", { status: "safety_review" }),
+    spm33("spm33_safety_approved", "SPM33 Safety Approved", "2027-07-29"),
+    spm33("spm33_safety_changes", "SPM33 Safety Changes Requested", "2027-07-30"),
+    spm33("spm33_safety_rejected", "SPM33 Safety Rejected", "2027-07-31"),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {

@@ -97,7 +97,7 @@ cite.
 | S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
-| S-18 | Readiness & confirm | `/events/[id]` → Readiness tab | Checklist gating confirmation. |
+| S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). |
 
 ### 3.4 Venue Staff
 
@@ -575,6 +575,7 @@ This document specifies the whole first release. What is built so far:
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
+| S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
@@ -584,7 +585,7 @@ Specified but not yet built, and why:
 
 | Not built | Blocked on |
 | --- | --- |
-| S-06 event detail, S-12–S-15, S-17–S-18, S-19–S-24, S-26–S-28. | Their endpoints do not exist yet. |
+| S-06 event detail, S-12–S-15, S-17, S-19–S-24, S-26–S-28. | Their endpoints do not exist yet. |
 
 **Requirements are now rows, not prose.** An organiser ticks facilities and
 accessibility needs from `GET /api/facilities`, and they are written to
