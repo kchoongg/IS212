@@ -172,7 +172,8 @@ function open(arrangements: Arrangement[] = [auditorium], routes: Record<string,
   return api;
 }
 
-const list = () => screen.findByRole("list", { name: "Arrangements" });
+/// Every arrangement, whichever section it is in (venue bookings, equipment...).
+const list = () => screen.findByRole("region", { name: "Arrangements" });
 /// The list item for one arrangement, found by its name.
 async function row(name: string): Promise<HTMLElement> {
   const items = within(await list()).getAllByRole("listitem");
@@ -450,6 +451,67 @@ describe("Event Readiness tab (SPM-33)", () => {
 
       expect(await screen.findByText("Nothing is blocking confirmation")).toBeInTheDocument();
       expect(screen.queryByText(/still block/)).not.toBeInTheDocument();
+    });
+  });
+
+  // Cleaned up 2026-10-12 so a first-time user can read it.
+  describe("how it is laid out", () => {
+    it("groups the arrangements into sections, in the order they are worked through", async () => {
+      open([auditorium, deskRequested, registrationIncomplete]);
+
+      await row("Marina Auditorium");
+      expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent)).toEqual([
+        "Venue bookings",
+        "Equipment",
+        "Registration",
+      ]);
+      expect(within(screen.getByRole("list", { name: "Equipment" })).getByText("Audio Mixing Desk")).toBeInTheDocument();
+    });
+
+    it("says what each state means", async () => {
+      open();
+
+      await row("Marina Auditorium");
+      const key = screen.getByText("In place.").closest("dl") as HTMLElement;
+      expect(key).toHaveTextContent("CompleteIn place.");
+      expect(key).toHaveTextContent("OutstandingStill to be done.");
+      expect(key).toHaveTextContent("Not requiredMarked as not needed for this event.");
+    });
+
+    it("says what an arrangement's own status is the status of", async () => {
+      open([
+        auditorium,
+        arrangement({ session: { id: "s1", label: "Day 1" }, id: "b9", name: "Orchard Studio", status: "pending" }),
+        deskRequested,
+      ]);
+
+      expect(await row("Marina Auditorium")).toHaveTextContent("Booking status: Approved");
+      expect(await row("Orchard Studio")).toHaveTextContent("Session: Day 1 · Booking status: Pending");
+      expect(await row("Audio Mixing Desk")).toHaveTextContent("Request status: Requested");
+    });
+
+    it("says when the event has no equipment, or registration is not enabled", async () => {
+      open([auditorium]);
+
+      expect(await screen.findByText("No equipment has been recorded for this event.")).toBeInTheDocument();
+      expect(screen.getByText("Registration is not enabled for this event.")).toBeInTheDocument();
+    });
+
+    it("gives an arrangement of a kind it does not know a section of its own", async () => {
+      open([auditorium, arrangement({ kind: "catering", id: "c1", name: "Lunch for 30", status: null })]);
+
+      expect(await row("Lunch for 30")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Catering" })).toBeInTheDocument();
+    });
+
+    it("tells a confirmed event that it is confirmed, not what blocks confirmation", async () => {
+      open([], {
+        [LIST]: payload([auditorium], { canManage: false, event: { sequenceNumber: 7, title: "Gala Dinner", status: "confirmed" } }),
+      });
+
+      expect(await screen.findByText("This event is confirmed")).toBeInTheDocument();
+      expect(screen.getByText("What this event was confirmed with.")).toBeInTheDocument();
+      expect(screen.queryByText("Nothing is blocking confirmation")).not.toBeInTheDocument();
     });
   });
 

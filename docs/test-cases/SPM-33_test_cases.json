@@ -92,7 +92,7 @@
         "Click the 'Readiness' tab"
       ],
       "test_data": "Event: SPM33 Nothing Booked (Planning)\nVenue bookings: none\nEquipment: none\nRegistration: not enabled",
-      "expected_result": "Step 3: Apart from the 'Operational Safety Check' (Not submitted), the list has one item, 'No venue booked', showing 'Outstanding' and saying no venue is booked for this event. It has no 'Mark as not required' button. No equipment item and no 'Registration setup' item is listed. The message '1 arrangement still blocks confirmation' is shown."
+      "expected_result": "Step 3: Apart from the 'Operational Safety Check' (Not submitted), the list has one item, 'No venue booked', showing 'Outstanding' and saying no venue is booked for this event. It has no 'Mark as not required' button. The Equipment section says 'No equipment has been recorded for this event.' and the Registration section says 'Registration is not enabled for this event.' The message '1 arrangement still blocks confirmation' is shown."
     },
     {
       "id": "SPM-33-TC03",
@@ -349,7 +349,7 @@
         "Click the 'Readiness' tab"
       ],
       "test_data": "Event: SPM33 Confirmed With Waiver (Confirmed)\nVenue: Orchard Gallery, Approved\nEquipment: Portable Stage (Cannot be provided), marked as not required by Daniel Tan on 1 Oct 2026, 10:00",
-      "expected_result": "Step 2: The event opens with the status badge 'Confirmed'.\nStep 3: 'Orchard Gallery' shows 'Complete'. 'Portable Stage' shows 'Not required' and 'Cannot be provided', and says 'Marked as not required by Daniel Tan on 1 Oct 2026, 10:00'. There is no 'Mark as required' or 'Mark as not required' button on any item: arrangements are marked only while the event is in Planning."
+      "expected_result": "Step 2: The event opens with the status badge 'Confirmed'.\nStep 3: The message 'This event is confirmed' is shown in place of the count of blocking arrangements. 'Orchard Gallery' shows 'Complete'. 'Portable Stage' shows 'Not required' and 'Cannot be provided', and says 'Marked as not required by Daniel Tan on 1 Oct 2026, 10:00'. There is no 'Mark as required' or 'Mark as not required' button on any item: arrangements are marked only while the event is in Planning."
     },
     {
       "id": "SPM-33-TC16",
@@ -408,7 +408,8 @@
     "RESOLVED 2026-10-12: merged with main on 2026-10-10 (SPM-86) and 2026-10-12 (SPM-45, SPM-81). An arrangement marked as not required here no longer stops 'Submit for safety check' either (SPM-86 AC1: 'reserved or marked as not required').",
     "DECIDED 2026-10-12 (Kristen): the safety check does not stop Confirm yet, as decided on 2026-10-08 - that gate is Resolve Safety Check Outcome's (SPM-88), and the Safety Officer's decision (SPM-87) is not built, so nothing could be confirmed if it did. So it is not counted in '... still block confirmation', and its item says 'Confirm event does not wait for it yet.' The one exception is a check awaiting review: the event is then in Safety review, which cannot move to Confirmed until the Safety Officer decides, so it IS counted (SPM-33-TC06). SPM-88 makes it always count by setting SAFETY_CHECK_BLOCKS_CONFIRMATION in src/lib/eventConfirmation.ts.",
     "DECIDED 2026-10-12, wording: 'Operational Safety Check'; 'Not submitted', 'Awaiting review', 'Approved', 'Changes requested', 'Rejected'; 'the Operational Safety Check has not been submitted yet', 'is awaiting the Safety Officer's review', 'has to be submitted again', 'the Safety Officer asked for changes in the Operational Safety Check', 'the Safety Officer rejected the safety arrangement'; 'Submitted by <name> on <date>, <time>'; 'Confirm event does not wait for it yet.' The Safety Officer's reason or required changes are not shown here - viewing the decision is SPM-88's (its AC1).",
-    "For SPM-87 (Conduct Operational Safety Check): there is no Safety Officer account or role in the app yet, so the fixtures for SPM-33-TC07 write the decision straight into the database with no Safety Officer named. Once SPM-87 is built, SPM-33-TC07 can be run on decisions made through its screen instead."
+    "For SPM-87 (Conduct Operational Safety Check): there is no Safety Officer account or role in the app yet, so the fixtures for SPM-33-TC07 write the decision straight into the database with no Safety Officer named. Once SPM-87 is built, SPM-33-TC07 can be run on decisions made through its screen instead.",
+    "DECIDED 2026-10-12, layout (cleaned up for a first-time user): the Readiness tab groups its items into 'Venue bookings', 'Equipment', 'Registration' and 'Safety check' sections. Every item shows where it stands ('Complete', 'Outstanding' or 'Not required') first, in the same place, then its name, then the action. Its own status is written out with what it is the status of - 'Booking status: Pending', 'Request status: Reserved', 'Safety check status: Awaiting review' - so it is not mistaken for whether it is done. A key under the summary says what the three states mean: 'In place.', 'Still to be done.', 'Marked as not needed for this event.' An empty section says 'No equipment has been recorded for this event.' or 'Registration is not enabled for this event.' A confirmed event shows 'This event is confirmed' instead of the blocking count, and its subtitle reads 'What this event was confirmed with.'"
   ],
   "code_references": [
     "prisma/migrations/20261010100000_add_arrangement_not_required/migration.sql",
