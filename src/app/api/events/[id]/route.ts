@@ -16,6 +16,7 @@ import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
 import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
+import { loadConfirmationInput } from "@/lib/eventArrangements";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
 import { SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
@@ -319,40 +320,13 @@ async function handleStatusChange(
   // actually needs are in place (#80), and a refusal names the ones that are
   // not. The rule is in src/lib/eventConfirmation.ts so it can be unit tested
   // without a database; this route only gathers what it reads.
+  //
+  // CHANGED (SPM-33): what it reads is loadConfirmationInput(), shared with
+  // the Readiness tab, so the two can never disagree about what is
+  // outstanding - including review flags, registration setup and anything the
+  // coordinator marked as not required.
   if (data.status === "confirmed") {
-    const [sessions, bookings, equipment] = await Promise.all([
-      prisma.eventSession.findMany({
-        where: { eventId: event.id },
-        orderBy: { startsAt: "asc" },
-        select: { id: true, label: true },
-      }),
-      prisma.venueBooking.findMany({
-        where: { eventId: event.id },
-        select: { id: true, sessionId: true, status: true },
-      }),
-      prisma.equipmentRequest.findMany({
-        where: { eventId: event.id },
-        select: { sessionId: true, status: true, equipment: { select: { name: true } } },
-      }),
-    ]);
-
-    const check = checkEventConfirmation({
-      sessions,
-      bookings,
-      equipment: equipment.map((r) => ({
-        sessionId: r.sessionId,
-        status: r.status,
-        equipmentName: r.equipment.name,
-      })),
-      // SPM-64 AC8: required only while registration is enabled.
-      registration: {
-        enabled: event.registrationEnabled,
-        capacity: event.registrationCapacity,
-        opensAt: event.registrationOpensAt,
-        closesAt: event.registrationClosesAt,
-        measuredBookingId: event.registrationVenueBookingId,
-      },
-    });
+    const check = checkEventConfirmation(await loadConfirmationInput(event));
     if (!check.ok) {
       return NextResponse.json({ error: check.error, outstanding: check.outstanding }, { status: 400 });
     }

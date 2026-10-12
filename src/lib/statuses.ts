@@ -48,6 +48,10 @@ const STATUS_META: Record<string, StatusMeta> = {
   // availabilityStatusKey() below), so it never reads
   // the same as a request Technical Support marked "Cannot be provided".
   none_available: { label: "None available", tone: "danger" },
+  // SPM-55: an equipment item's operational status (Equipment page). Worked
+  // out from how many units are out of service, so not a request status.
+  partly_out_of_service: { label: "Partly out of service", tone: "warning" },
+  out_of_service: { label: "Out of service", tone: "danger" },
 
   // --- Registration ---
   registered: { label: "Registered", tone: "success" },
@@ -63,6 +67,21 @@ const STATUS_META: Record<string, StatusMeta> = {
   registration_closed: { label: "Closed", tone: "neutral" },
   registration_full: { label: "Full", tone: "danger" },
   registration_no_period: { label: "Dates not set", tone: "neutral" },
+
+  // --- Arrangement, on the Readiness tab (SPM-33) ---
+  // Not stored anywhere: worked out by arrangementsFor() in
+  // eventConfirmation.ts. Three states that must never look alike (AC7, AC10).
+  complete: { label: "Complete", tone: "success" },
+  outstanding: { label: "Outstanding", tone: "warning" },
+  not_required: { label: "Not required", tone: "neutral" },
+  // The Operational Safety Check on the Readiness tab (SPM-33 AC6), from its
+  // latest SafetyCheck (SPM-86). Prefixed so a pending check reads "Awaiting
+  // review", never a booking's "Pending".
+  safety_not_submitted: { label: "Not submitted", tone: "warning" },
+  safety_awaiting_review: { label: "Awaiting review", tone: "info" },
+  safety_approved: { label: "Approved", tone: "success" },
+  safety_changes_requested: { label: "Changes requested", tone: "warning" },
+  safety_rejected: { label: "Rejected", tone: "danger" },
 
   // --- Clarification ---
   open: { label: "Open", tone: "warning" },

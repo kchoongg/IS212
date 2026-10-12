@@ -150,7 +150,8 @@ describe("Event overview", () => {
 
   it.each([
     ["organiser", ["Overview", "Equipment"]],
-    ["coordinator", ["Overview", "Venue", "Equipment"]],
+    // SPM-33: the Readiness tab is built, for coordinators only.
+    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
     ["venue_staff", ["Overview", "Venue"]],
     ["tech_support", ["Overview", "Equipment"]],
     ["ops_manager", ["Overview"]],
@@ -363,6 +364,22 @@ describe("Event overview", () => {
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
       expect(valueOf("Venue")).toHaveTextContent("Day 1: Hall A (HALL-A) · Room B (ROOM-B)");
+    });
+
+    it("SPM-81-TC07: names every approved room when the event is booked into more than one", async () => {
+      open(
+        "organiser",
+        event({
+          venueBookings: [
+            { session: null, venue: { name: "Room B", code: "ROOM-B" } },
+            { session: null, venue: { name: "Hall A", code: "HALL-A" } },
+          ],
+        })
+      );
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Venue")).toHaveTextContent(/^Room B \(ROOM-B\) · Hall A \(HALL-A\)$/);
     });
 
     it("reads 'Not booked yet' until one is", async () => {

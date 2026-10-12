@@ -37,6 +37,17 @@ Numbers below are discussion numbers: `#50` is
 | **#110** | 2026-09-07 | Venue Staff **cannot approve with amended details**. They suggest; the coordinator updates the request before approval. So the suggestion exists only on a rejection. |
 | **#83** | 2026-08-31 | Filtering finds candidate venues; **suitability checking** assesses one already chosen. They are different things (SPM-41). |
 
+## Equipment
+
+Only the answers SPM-55 relied on are recorded here so far; the other equipment
+answers (#2, #5, #19, #87, #90, #113, #114) are cited in `src/lib/equipmentAvailability.ts`.
+
+| # | Date | The ruling |
+|---|---|---|
+| **#9** | 2026-08-25 | **Only Technical Support Staff decide equipment status:** "Technical Support Staff are responsible for maintaining equipment status." Coordinators cannot mark equipment damaged or unavailable (SPM-55). |
+| **#23** | 2026-08-25 | **No expected return date, no automatic pre-booking.** "Equipment can be recorded as unavailable, damaged or under maintenance. Expected return date and automatic pre-booking are not specified; please propose if appropriate." We record no date: units stay out of service until Technical Support return them (SPM-55, decided 2026-10-11). |
+| **#86** | 2026-08-31 | Defects found when equipment is **returned after an event** are recorded by Technical Support, and "the operational status of the affected equipment should be updated accordingly." Logging the defect is SPM-70; updating the status is SPM-55's screen. |
+
 ## Events
 
 | # | Date | The ruling |
@@ -87,3 +98,5 @@ differently later, that ruling wins.
 | Does a pending request (tentative hold) hold its setup and turnaround too? | **Yes.** #41 allows one hold or booking per "overlapping time period", and Week 7 Change #1 puts setup and turnaround into every availability check. | 2026-10-08 |
 | What happens to venues whose setup or turnaround is not a 15-minute step (two seeded rooms had 20)? | **Rounded up**, never down, so Venue Staff keep at least the time they recorded (`scripts/spm93-round-turnaround.ts`). Bookings that then clash are listed, not changed (Week 7 Change #1); flagging them for the coordinator is SPM-80. | 2026-10-08 |
 | How does the availability calendar show times now that there are no slots? #6 leaves it to us. | **One row per day listing each entry at its times** — "Setup 09:30–10:00", "Booked 10:00–12:00", "Turnaround 12:00–12:45", plus "Requested" for a hold and "Unavailable" — instead of AM / PM / Night columns. | 2026-10-08 |
+| May two sessions of one event hold the same room at overlapping times? SPM-44 allowed it; SPM-81 AC4 says the same venue cannot be requested twice for the same event for overlapping times. | **No** — AC4 as written, per event (SPM-81). One room cannot host two of an event's sessions at once. Sessions that only meet end to start may follow each other in the room, and the event's own setup and turnaround never block it. | 2026-10-10 |
+| With several venues per event (Week 7 Change #3), may a second venue be requested for only part of the event's time? | **No.** Every request still covers the event's (or session's) whole time, and may be wider. Change #3 describes spaces used "at the same time"; a room needed for part of the day is a session, which is booked for its own times. | 2026-10-10 |

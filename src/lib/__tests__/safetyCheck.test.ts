@@ -122,6 +122,16 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
+  it("words a reason SPM-55 stored when units went out of service", () => {
+    const flagged = item({ needsReview: true, reviewReason: "equipment_unavailable" });
+
+    const result = check({ bookings: [booking()], equipment: [flagged] });
+
+    expect(!result.ok && result.error).toBe(
+      PREFIX + `${MIC} for this event is flagged for review (units of the equipment were marked out of service).`
+    );
+  });
+
   it("lists every reason a flag carries", () => {
     const flagged = booking({ needsReview: true, reviewReason: "event_schedule_changed,event_attendance_changed" });
 
@@ -193,5 +203,51 @@ describe("checkSafetySubmission - refused (AC2)", () => {
 describe("SAFETY_CHECK_PENDING_MESSAGE (AC6)", () => {
   it("is the message for a second submission", () => {
     expect(SAFETY_CHECK_PENDING_MESSAGE).toBe("A safety check is already pending for this event.");
+  });
+});
+
+// Added when SPM-33 (Track Outstanding Arrangements) was merged in. AC1:
+// "equipment arrangements are reserved or marked as not required".
+describe("checkSafetySubmission - arrangements marked as not required (SPM-33)", () => {
+  it("accepts an event whose only unreserved item is marked as not required", () => {
+    const result = checkSafetySubmission({
+      sessions: [],
+      bookings: [booking()],
+      equipment: [item(), item({ equipmentName: "Portable Stage", status: "unavailable", notRequired: true })],
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("accepts a spare venue request that is marked as not required while another venue is approved", () => {
+    const result = checkSafetySubmission({
+      sessions: [],
+      bookings: [booking(), booking({ status: "pending", venueName: "Orchard Studio", notRequired: true })],
+      equipment: [],
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("does not name a flagged booking or item that is marked as not required", () => {
+    const flag = { needsReview: true, reviewReason: "event_schedule_changed", notRequired: true };
+    const result = checkSafetySubmission({
+      sessions: [],
+      bookings: [booking(), booking({ venueName: "Orchard Studio", ...flag })],
+      equipment: [item({ ...flag })],
+    });
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  it("still refuses an event whose only venue booking is marked as not required", () => {
+    const result = checkSafetySubmission({
+      sessions: [],
+      bookings: [booking({ notRequired: true })],
+      equipment: [],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.outstanding).toEqual(["no venue is booked for this event"]);
   });
 });

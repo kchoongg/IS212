@@ -213,3 +213,37 @@ describe("equipment labels (SPM-50)", () => {
     expect(statusLabel(availabilityStatusKey("partial"))).toBe("Partial");
   });
 });
+
+// SPM-33 (written before the code): the three states of an arrangement on the
+// Readiness tab go through statuses.ts like every other status, so a
+// completed, an outstanding and a not-required arrangement never look alike
+// (AC7, AC10). The wording and tones are decided here, not in the story.
+describe("arrangement states (SPM-33)", () => {
+  it("labels the three states an arrangement can be in", () => {
+    expect(statusLabel("complete")).toBe("Complete");
+    expect(statusLabel("outstanding")).toBe("Outstanding");
+    expect(statusLabel("not_required")).toBe("Not required");
+  });
+
+  it("gives each state its own tone, so they can be told apart at a glance", () => {
+    expect(statusTone("complete")).toBe("success");
+    expect(statusTone("outstanding")).toBe("warning");
+    expect(statusTone("not_required")).toBe("neutral");
+  });
+});
+
+// SPM-33 AC6 (written before the code): what the Readiness tab calls each
+// state of the Operational Safety Check. Kept apart from the booking statuses
+// - a pending check reads "Awaiting review", never "Pending".
+describe("safety check labels on the Readiness tab (SPM-33)", () => {
+  it.each([
+    ["safety_not_submitted", "Not submitted", "warning"],
+    ["safety_awaiting_review", "Awaiting review", "info"],
+    ["safety_approved", "Approved", "success"],
+    ["safety_changes_requested", "Changes requested", "warning"],
+    ["safety_rejected", "Rejected", "danger"],
+  ])("shows %s as %s", (key, label, tone) => {
+    expect(statusLabel(key)).toBe(label);
+    expect(statusTone(key)).toBe(tone);
+  });
+});

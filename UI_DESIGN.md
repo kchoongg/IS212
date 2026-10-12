@@ -97,7 +97,7 @@ cite.
 | S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
-| S-18 | Readiness & confirm | `/events/[id]` → Readiness tab | Checklist gating confirmation. |
+| S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). |
 
 ### 3.4 Venue Staff
 
@@ -107,13 +107,13 @@ cite.
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/availability` | Bookings, holds, and blocks over time: one row per day, each entry at its actual times, with setup and turnaround as their own entries (SPM-93). |
 | S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
-| S-23 | Block venue | `/venues/[id]/block` | Record maintenance/renovation unavailability. |
+| S-23 | Block venue | — (on S-20) | Record a period the venue is unavailable for. Built in SPM-45 as the "Unavailable periods" section and "Mark unavailable" dialog on the venue editor (S-20), not as a page of its own: the date and time it becomes unavailable and is available again (15-minute grid), a reason, and a typed reason when it is Other. |
 
 ### 3.5 Technical Support
 
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
-| S-24 | Equipment catalogue | `/equipment` | Stock, categories, maintenance quantities. |
+| S-24 | Equipment catalogue | `/equipment` | Stock, categories, units out of service and why; Technical Support record and return them (SPM-55). |
 | S-25 | Equipment request queue | `/equipment/requests` | Review requests, check availability, reserve. |
 
 ### 3.6 Attendee
@@ -424,7 +424,7 @@ every session has one.
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
 | S-10 Change request | Reason *, Proposed start, Proposed end, Proposed attendance, Other changes | At least one proposed change required. Significant-change warning shown live — see §7.4. |
 | S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup time (minutes), Turnaround time (minutes), Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. Setup and turnaround in 15-minute steps, zero included (SPM-93). |
-| S-23 Block venue | Start, End, Reason (select), Notes | Warns if the block collides with an approved booking. |
+| S-23 Mark unavailable (dialog on S-20, SPM-45) | Unavailable from + From time, Available again on + Available again at, Reason (select), Other reason (only when the reason is Other) | All four dates and times required, times on the 15-minute grid (SPM-93). The return must be later than the start, and still to come. A period is never refused for the bookings it lands on: they are flagged for review and listed after saving. |
 | S-24 Equipment catalogue | Name, Category, Description, Total quantity, Quantity in maintenance | Maintenance quantity ≤ total. |
 | S-26 Register for event | Dietary requirements, Accessibility requirements | Both optional and free text. |
 
@@ -482,7 +482,7 @@ getting right.
 | Room in use outside opening hours | S-15 | Blocked: "<Venue> is open 07:00–22:00. With its 30 min setup and 45 min turnaround, choose times between 07:30 and 21:15." (SPM-93). |
 | Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
-| Equipment in maintenance | S-24, S-25 | Availability shown as `total − maintenance − reserved`; the breakdown is visible, not just the result. |
+| Equipment out of service | S-24, S-25 | Availability shown as `total − out of service − reserved`; the breakdown is visible, not just the result. Marking units out of service flags the reservations it leaves short and lists them (SPM-55). |
 | Registration full | S-06 "Your registration" | No Register button: "This event is full. You can join the waiting list instead." and, until Join and Respond to Waiting List is built, "Joining the waiting list isn't available yet." (SPM-51). |
 | Registration not open or closed | S-06 "Your registration" | No Register button (hidden, not disabled): "Registration opens 1 Nov 2027, 09:00." or "Registration closed on 30 Sept 2026, 17:00." With no dates: "Registration dates haven't been set for this event." (SPM-51). |
 | Already registered | S-06 "Your registration" | Register replaced by the status badge and "You registered on <date>." or "You're on the waiting list." Withdraw comes with #20 (SPM-51). |
@@ -575,15 +575,17 @@ This document specifies the whole first release. What is built so far:
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
+| S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
+| S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
 
 Specified but not yet built, and why:
 
 | Not built | Blocked on |
 | --- | --- |
-| S-06 event detail, S-12–S-15, S-17–S-18, S-19–S-24, S-28. | Their endpoints do not exist yet. (S-26 and S-27 were built in SPM-51.) |
+| S-06 event detail, S-12–S-15, S-17, S-19–S-24, S-28. | Their endpoints do not exist yet. (S-26 and S-27 were built in SPM-51.) |
 
 **Requirements are now rows, not prose.** An organiser ticks facilities and
 accessibility needs from `GET /api/facilities`, and they are written to

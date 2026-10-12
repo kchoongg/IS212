@@ -1,44 +1,50 @@
 <mxfile host="app.diagrams.net">
   <diagram name="ConnectSphere BPMN" id="connectsphere-bpmn">
-    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="3150" pageHeight="1090" math="0" shadow="0">
+    <mxGraphModel grid="1" page="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" pageScale="1" pageWidth="3470" pageHeight="1250" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
         <mxCell id="lane_org_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF3FE;strokeColor=#B7D6F7;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="160" width="4020" x="4450" y="2750" as="geometry" />
+          <mxGeometry height="160" width="4340" x="4450" y="2750" as="geometry" />
         </mxCell>
         <mxCell id="lane_org_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Event Organiser" vertex="1">
           <mxGeometry height="160" width="200" x="4250" y="2750" as="geometry" />
         </mxCell>
         <mxCell id="lane_ops_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FDF3E4;strokeColor=#F5D9A4;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="100" width="4020" x="4450" y="2910" as="geometry" />
+          <mxGeometry height="100" width="4340" x="4450" y="2910" as="geometry" />
         </mxCell>
-        <mxCell id="lane_ops_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Event Operations&#xa;Manager" vertex="1">
+        <mxCell id="lane_ops_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Event Coordinator&#xa;Lead" vertex="1">
           <mxGeometry height="100" width="200" x="4250" y="2910" as="geometry" />
         </mxCell>
         <mxCell id="lane_co_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF7F1;strokeColor=#B7E4CC;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="390" width="4020" x="4450" y="3010" as="geometry" />
+          <mxGeometry height="390" width="4340" x="4450" y="3010" as="geometry" />
         </mxCell>
         <mxCell id="lane_co_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Event Coordinator" vertex="1">
           <mxGeometry height="390" width="200" x="4250" y="3010" as="geometry" />
         </mxCell>
         <mxCell id="lane_ven_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7EEF9;strokeColor=#E0C6EA;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="160" width="4020" x="4450" y="3400" as="geometry" />
+          <mxGeometry height="160" width="4340" x="4450" y="3400" as="geometry" />
         </mxCell>
         <mxCell id="lane_ven_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Venue Staff" vertex="1">
           <mxGeometry height="160" width="200" x="4250" y="3400" as="geometry" />
         </mxCell>
         <mxCell id="lane_tech_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FBEDEC;strokeColor=#F0C6C3;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="160" width="4020" x="4450" y="3560" as="geometry" />
+          <mxGeometry height="160" width="4340" x="4450" y="3560" as="geometry" />
         </mxCell>
         <mxCell id="lane_tech_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Technical Support&#xa;Staff" vertex="1">
           <mxGeometry height="160" width="200" x="4250" y="3560" as="geometry" />
         </mxCell>
         <mxCell id="lane_att_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F1F1EC;strokeColor=#D8D6C9;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="150" width="4020" x="4450" y="3720" as="geometry" />
+          <mxGeometry height="150" width="4340" x="4450" y="3720" as="geometry" />
         </mxCell>
         <mxCell id="lane_att_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Attendee" vertex="1">
           <mxGeometry height="150" width="200" x="4250" y="3720" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_safety_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EEF3FA;strokeColor=#C5D6EA;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="160" width="4340" x="4450" y="3870" as="geometry" />
+        </mxCell>
+        <mxCell id="lane_safety_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Safety Officer" vertex="1">
+          <mxGeometry height="160" width="200" x="4250" y="3870" as="geometry" />
         </mxCell>
         <mxCell id="band_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Event status" vertex="1">
           <mxGeometry height="56" width="200" x="4250" y="2690" as="geometry" />
@@ -56,13 +62,16 @@
           <mxGeometry height="56" width="125" x="5475" y="2690" as="geometry" />
         </mxCell>
         <mxCell id="band_planning" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E3EFD9;strokeColor=#bbbbbb;fontSize=12;" value="Planning" vertex="1">
-          <mxGeometry height="56" width="1955" x="5600" y="2690" as="geometry" />
+          <mxGeometry height="56" width="1935" x="5600" y="2690" as="geometry" />
+        </mxCell>
+        <mxCell id="band_safety" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#DCE8F5;strokeColor=#bbbbbb;fontSize=12;" value="Safety review" vertex="1">
+          <mxGeometry height="56" width="340" x="7535" y="2690" as="geometry" />
         </mxCell>
         <mxCell id="band_confirmed" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D8EEE6;strokeColor=#bbbbbb;fontSize=12;" value="Confirmed" vertex="1">
-          <mxGeometry height="56" width="560" x="7555" y="2690" as="geometry" />
+          <mxGeometry height="56" width="560" x="7875" y="2690" as="geometry" />
         </mxCell>
         <mxCell id="band_completed" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E4E2D8;strokeColor=#bbbbbb;fontSize=12;" value="Completed" vertex="1">
-          <mxGeometry height="56" width="355" x="8115" y="2690" as="geometry" />
+          <mxGeometry height="56" width="355" x="8435" y="2690" as="geometry" />
         </mxCell>
         <mxCell id="ev_start" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Start" vertex="1">
           <mxGeometry height="48" width="48" x="4470" y="2806" as="geometry" />
@@ -76,10 +85,10 @@
         <mxCell id="t_amend" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Amend request per&#xa;clarification" vertex="1">
           <mxGeometry height="64" width="170" x="5300" y="2798" as="geometry" />
         </mxCell>
-        <mxCell id="t_receive" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Receive submitted&#xa;request" vertex="1">
+        <mxCell id="t_receive" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="View request in&#xa;unassigned queue" vertex="1">
           <mxGeometry height="64" width="150" x="4940" y="2928" as="geometry" />
         </mxCell>
-        <mxCell id="t_assign" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Assign event&#xa;coordinator" vertex="1">
+        <mxCell id="t_assign" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Assign Event Coordinator&#xa;(can reassign later)" vertex="1">
           <mxGeometry height="64" width="150" x="5130" y="2928" as="geometry" />
         </mxCell>
         <mxCell id="t_review" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Review event&#xa;request" vertex="1">
@@ -109,13 +118,13 @@
         <mxCell id="m_reg" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;" value="" vertex="1">
           <mxGeometry height="40" width="40" x="6050" y="3050" as="geometry" />
         </mxCell>
-        <mxCell id="t_search" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Search venues &amp;&#xa;check suitability" vertex="1">
+        <mxCell id="t_search" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Search venues &amp; check&#xa;suitability, availability" vertex="1">
           <mxGeometry height="64" width="170" x="5640" y="3293" as="geometry" />
         </mxCell>
         <mxCell id="t_book" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Submit venue&#xa;booking request" vertex="1">
           <mxGeometry height="64" width="170" x="5860" y="3293" as="geometry" />
         </mxCell>
-        <mxCell id="t_vreview" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Review booking &amp;&#xa;check conflicts" vertex="1">
+        <mxCell id="t_vreview" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Review booking; check conflicts&#xa;incl. setup &amp; turnaround" vertex="1">
           <mxGeometry height="64" width="170" x="5860" y="3448" as="geometry" />
         </mxCell>
         <mxCell id="g_vok" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=top;verticalAlign=bottom;" value="Booking&#xa;approved?" vertex="1">
@@ -155,181 +164,181 @@
           <mxGeometry height="64" width="170" x="7375" y="3293" as="geometry" />
         </mxCell>
         <mxCell id="t_confirm" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Confirm event" vertex="1">
-          <mxGeometry height="64" width="170" x="7570" y="3163" as="geometry" />
+          <mxGeometry height="64" width="170" x="7890" y="3163" as="geometry" />
         </mxCell>
         <mxCell id="t_view" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="View confirmed&#xa;event info" vertex="1">
-          <mxGeometry height="64" width="170" x="7525" y="3763" as="geometry" />
+          <mxGeometry height="64" width="170" x="7845" y="3763" as="geometry" />
         </mxCell>
         <mxCell id="t_register" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Register /&#xa;withdraw" vertex="1">
-          <mxGeometry height="64" width="150" x="7745" y="3763" as="geometry" />
+          <mxGeometry height="64" width="150" x="8065" y="3763" as="geometry" />
         </mxCell>
         <mxCell id="ev_registered" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Registered" vertex="1">
-          <mxGeometry height="48" width="48" x="7955" y="3771" as="geometry" />
+          <mxGeometry height="48" width="48" x="8275" y="3771" as="geometry" />
         </mxCell>
         <mxCell id="t_prepvenue" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Prepare venue for&#xa;event day" vertex="1">
-          <mxGeometry height="64" width="160" x="7790" y="3448" as="geometry" />
+          <mxGeometry height="64" width="160" x="8110" y="3448" as="geometry" />
         </mxCell>
         <mxCell id="t_prepequip" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Prepare equipment /&#xa;on-site support" vertex="1">
-          <mxGeometry height="64" width="170" x="7790" y="3608" as="geometry" />
+          <mxGeometry height="64" width="170" x="8110" y="3608" as="geometry" />
         </mxCell>
         <mxCell id="g_delivery" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;labelPosition=right;align=left;verticalLabelPosition=bottom;verticalAlign=top;" value="Delivery&#xa;ready" vertex="1">
-          <mxGeometry height="60" width="60" x="8000" y="3165" as="geometry" />
+          <mxGeometry height="60" width="60" x="8320" y="3165" as="geometry" />
         </mxCell>
         <mxCell id="t_complete" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Mark event&#xa;completed" vertex="1">
-          <mxGeometry height="64" width="160" x="8130" y="3163" as="geometry" />
+          <mxGeometry height="64" width="160" x="8450" y="3163" as="geometry" />
         </mxCell>
         <mxCell id="ev_timer" parent="1" style="ellipse;shape=doubleEllipse;html=1;fillColor=#ffffff;strokeColor=#B0562A;strokeWidth=1.4;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="7 days after event end:&#xa;auto-complete if still open" vertex="1">
-          <mxGeometry height="48" width="48" x="8186" y="3046" as="geometry" />
+          <mxGeometry height="48" width="48" x="8506" y="3046" as="geometry" />
         </mxCell>
         <mxCell id="ev_completed" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Event&#xa;completed" vertex="1">
-          <mxGeometry height="48" width="48" x="8350" y="3171" as="geometry" />
+          <mxGeometry height="48" width="48" x="8670" y="3171" as="geometry" />
         </mxCell>
         <mxCell id="x_title" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#333333;strokeColor=none;fillColor=none;" value="Changes and exceptions — any of these can start at any time after submission" vertex="1">
-          <mxGeometry height="30" width="1150" x="4450" y="3892" as="geometry" />
+          <mxGeometry height="30" width="1150" x="4450" y="4052" as="geometry" />
         </mxCell>
         <mxCell id="x_other" parent="1" style="text;html=1;align=left;verticalAlign=middle;fontSize=14;fontStyle=1;fontColor=#333333;strokeColor=none;fillColor=none;" value="Other statuses:" vertex="1">
-          <mxGeometry height="30" width="120" x="5700" y="3892" as="geometry" />
+          <mxGeometry height="30" width="120" x="5700" y="4052" as="geometry" />
         </mxCell>
         <mxCell id="chip_postponed" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#F2E7D5;strokeColor=#C9A15E;fontSize=12;" value="Postponed" vertex="1">
-          <mxGeometry height="30" width="110" x="5830" y="3892" as="geometry" />
+          <mxGeometry height="30" width="110" x="5830" y="4052" as="geometry" />
         </mxCell>
         <mxCell id="chip_cancelled" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#ECECEC;strokeColor=#9C9C9C;fontSize=12;" value="Cancelled" vertex="1">
-          <mxGeometry height="30" width="110" x="5955" y="3892" as="geometry" />
+          <mxGeometry height="30" width="110" x="5955" y="4052" as="geometry" />
         </mxCell>
         <mxCell id="chip_rejected" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#FBE3E3;strokeColor=#D97A7A;fontSize=12;" value="Rejected" vertex="1">
-          <mxGeometry height="30" width="110" x="6080" y="3892" as="geometry" />
+          <mxGeometry height="30" width="110" x="6080" y="4052" as="geometry" />
         </mxCell>
         <mxCell id="chip_withdrawn" parent="1" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EDE4F3;strokeColor=#B79AC9;fontSize=12;" value="Withdrawn" vertex="1">
-          <mxGeometry height="30" width="110" x="6205" y="3892" as="geometry" />
+          <mxGeometry height="30" width="110" x="6205" y="4052" as="geometry" />
         </mxCell>
         <mxCell id="xlane_org_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF3FE;strokeColor=#B7D6F7;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="160" width="4020" x="4450" y="3950" as="geometry" />
+          <mxGeometry height="160" width="4340" x="4450" y="4110" as="geometry" />
         </mxCell>
         <mxCell id="xlane_org_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Event Organiser" vertex="1">
-          <mxGeometry height="160" width="200" x="4250" y="3950" as="geometry" />
+          <mxGeometry height="160" width="200" x="4250" y="4110" as="geometry" />
         </mxCell>
         <mxCell id="xlane_co_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#EAF7F1;strokeColor=#B7E4CC;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="310" width="4020" x="4450" y="4110" as="geometry" />
+          <mxGeometry height="310" width="4340" x="4450" y="4270" as="geometry" />
         </mxCell>
         <mxCell id="xlane_co_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Event Coordinator" vertex="1">
-          <mxGeometry height="310" width="200" x="4250" y="4110" as="geometry" />
+          <mxGeometry height="310" width="200" x="4250" y="4270" as="geometry" />
         </mxCell>
         <mxCell id="xlane_ven_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F7EEF9;strokeColor=#E0C6EA;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="160" width="4020" x="4450" y="4420" as="geometry" />
+          <mxGeometry height="160" width="4340" x="4450" y="4580" as="geometry" />
         </mxCell>
         <mxCell id="xlane_ven_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Venue Staff" vertex="1">
-          <mxGeometry height="160" width="200" x="4250" y="4420" as="geometry" />
-        </mxCell>
-        <mxCell id="xlane_tech_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FBEDEC;strokeColor=#F0C6C3;strokeWidth=1;" value="" vertex="1">
-          <mxGeometry height="160" width="4020" x="4450" y="4580" as="geometry" />
-        </mxCell>
-        <mxCell id="xlane_tech_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Technical Support&#xa;Staff" vertex="1">
           <mxGeometry height="160" width="200" x="4250" y="4580" as="geometry" />
         </mxCell>
+        <mxCell id="xlane_tech_bg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FBEDEC;strokeColor=#F0C6C3;strokeWidth=1;" value="" vertex="1">
+          <mxGeometry height="160" width="4340" x="4450" y="4740" as="geometry" />
+        </mxCell>
+        <mxCell id="xlane_tech_label" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F4F3EE;strokeColor=#D9D7CC;fontStyle=1;fontSize=14;verticalAlign=middle;align=center;" value="Technical Support&#xa;Staff" vertex="1">
+          <mxGeometry height="160" width="200" x="4250" y="4740" as="geometry" />
+        </mxCell>
         <mxCell id="xs_change" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Change&#xa;needed" vertex="1">
-          <mxGeometry height="48" width="48" x="4480" y="4006" as="geometry" />
+          <mxGeometry height="48" width="48" x="4480" y="4166" as="geometry" />
         </mxCell>
         <mxCell id="xt_submitcr" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Submit event&#xa;change request" vertex="1">
-          <mxGeometry height="64" width="170" x="4580" y="3998" as="geometry" />
+          <mxGeometry height="64" width="170" x="4580" y="4158" as="geometry" />
         </mxCell>
         <mxCell id="xt_reviewcr" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Review change&#xa;request" vertex="1">
-          <mxGeometry height="64" width="170" x="4580" y="4153" as="geometry" />
+          <mxGeometry height="64" width="170" x="4580" y="4313" as="geometry" />
         </mxCell>
         <mxCell id="xg_decision" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=top;verticalAlign=bottom;" value="Decision?" vertex="1">
-          <mxGeometry height="60" width="60" x="4810" y="4155" as="geometry" />
+          <mxGeometry height="60" width="60" x="4810" y="4315" as="geometry" />
         </mxCell>
         <mxCell id="xe_declined" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Change declined&#xa;(reason sent to organiser)" vertex="1">
-          <mxGeometry height="48" width="48" x="4816" y="4290" as="geometry" />
+          <mxGeometry height="48" width="48" x="4816" y="4450" as="geometry" />
         </mxCell>
         <mxCell id="xg_affects" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=top;verticalAlign=bottom;" value="Affects existing&#xa;arrangements?" vertex="1">
-          <mxGeometry height="60" width="60" x="5080" y="4155" as="geometry" />
+          <mxGeometry height="60" width="60" x="5080" y="4315" as="geometry" />
         </mxCell>
         <mxCell id="xt_update" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Update info&#xa;(no re-check)" vertex="1">
-          <mxGeometry height="64" width="150" x="5290" y="4153" as="geometry" />
+          <mxGeometry height="64" width="150" x="5290" y="4313" as="geometry" />
         </mxCell>
         <mxCell id="xe_updated" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Event updated&#xa;(status unchanged)" vertex="1">
-          <mxGeometry height="48" width="48" x="5500" y="4161" as="geometry" />
+          <mxGeometry height="48" width="48" x="5500" y="4321" as="geometry" />
         </mxCell>
         <mxCell id="xt_replan" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Return event to Planning;&#xa;notify organiser (and attendees&#xa;if date / time changes)" vertex="1">
-          <mxGeometry height="72" width="210" x="5005" y="4278" as="geometry" />
+          <mxGeometry height="72" width="210" x="5005" y="4438" as="geometry" />
         </mxCell>
         <mxCell id="xe_replan" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Resume main flow at Planning&#xa;(re-check affected arrangements)" vertex="1">
-          <mxGeometry height="48" width="48" x="5306" y="4290" as="geometry" />
+          <mxGeometry height="48" width="48" x="5306" y="4450" as="geometry" />
         </mxCell>
         <mxCell id="xs_post" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Postponement&#xa;needed" vertex="1">
-          <mxGeometry height="48" width="48" x="5700" y="4006" as="geometry" />
+          <mxGeometry height="48" width="48" x="5700" y="4166" as="geometry" />
         </mxCell>
         <mxCell id="xt_reqpost" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Request&#xa;postponement" vertex="1">
-          <mxGeometry height="64" width="170" x="5800" y="3998" as="geometry" />
+          <mxGeometry height="64" width="170" x="5800" y="4158" as="geometry" />
         </mxCell>
         <mxCell id="xg_newdate" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;labelPosition=left;align=right;verticalLabelPosition=middle;verticalAlign=middle;" value="New date&#xa;known?" vertex="1">
-          <mxGeometry height="60" width="60" x="5855" y="4155" as="geometry" />
+          <mxGeometry height="60" width="60" x="5855" y="4315" as="geometry" />
         </mxCell>
         <mxCell id="xt_resched" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Treat as reschedule: return&#xa;event to Planning; notify&#xa;organiser and attendees" vertex="1">
-          <mxGeometry height="72" width="210" x="6035" y="4149" as="geometry" />
+          <mxGeometry height="72" width="210" x="6035" y="4309" as="geometry" />
         </mxCell>
         <mxCell id="xe_resched" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Resume main flow&#xa;at Planning" vertex="1">
-          <mxGeometry height="48" width="48" x="6306" y="4161" as="geometry" />
+          <mxGeometry height="48" width="48" x="6306" y="4321" as="geometry" />
         </mxCell>
         <mxCell id="xt_release" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Release venue booking and&#xa;equipment reservations&#xa;(status: Postponed)" vertex="1">
-          <mxGeometry height="72" width="210" x="5780" y="4278" as="geometry" />
+          <mxGeometry height="72" width="210" x="5780" y="4438" as="geometry" />
         </mxCell>
         <mxCell id="xe_newdate" parent="1" style="ellipse;shape=doubleEllipse;html=1;fillColor=#ffffff;strokeColor=#B0562A;strokeWidth=1.4;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="New date provided" vertex="1">
-          <mxGeometry height="48" width="48" x="6116" y="4290" as="geometry" />
+          <mxGeometry height="48" width="48" x="6116" y="4450" as="geometry" />
         </mxCell>
         <mxCell id="xs_cancel" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Cancellation&#xa;needed" vertex="1">
-          <mxGeometry height="48" width="48" x="6560" y="4006" as="geometry" />
+          <mxGeometry height="48" width="48" x="6560" y="4166" as="geometry" />
         </mxCell>
         <mxCell id="xt_reqcancel" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Request event&#xa;cancellation" vertex="1">
-          <mxGeometry height="64" width="170" x="6660" y="3998" as="geometry" />
+          <mxGeometry height="64" width="170" x="6660" y="4158" as="geometry" />
         </mxCell>
         <mxCell id="xt_cancel" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Coordinator cancels event&#xa;(authorised; any stage)" vertex="1">
-          <mxGeometry height="64" width="180" x="6655" y="4153" as="geometry" />
+          <mxGeometry height="64" width="180" x="6655" y="4313" as="geometry" />
         </mxCell>
         <mxCell id="xt_crelease" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Release venue booking and&#xa;equipment reservations" vertex="1">
-          <mxGeometry height="64" width="190" x="6880" y="4153" as="geometry" />
+          <mxGeometry height="64" width="190" x="6880" y="4313" as="geometry" />
         </mxCell>
         <mxCell id="xe_cancelled" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Event&#xa;cancelled" vertex="1">
-          <mxGeometry height="48" width="48" x="7126" y="4161" as="geometry" />
+          <mxGeometry height="48" width="48" x="7126" y="4321" as="geometry" />
         </mxCell>
-        <mxCell id="xs_venue" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Venue retired, blocked&#xa;or attributes changed" vertex="1">
-          <mxGeometry height="48" width="48" x="7300" y="4476" as="geometry" />
-        </mxCell>
-        <mxCell id="xt_vupdate" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Update venue; flag affected&#xa;bookings for review" vertex="1">
-          <mxGeometry height="64" width="180" x="7410" y="4468" as="geometry" />
-        </mxCell>
-        <mxCell id="xt_vrev" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Review affected booking&#xa;with Venue Staff" vertex="1">
-          <mxGeometry height="64" width="180" x="7410" y="4282" as="geometry" />
-        </mxCell>
-        <mxCell id="xg_vsuit" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=bottom;verticalAlign=top;" value="Still suitable&#xa;and available?" vertex="1">
-          <mxGeometry height="60" width="60" x="7650" y="4284" as="geometry" />
-        </mxCell>
-        <mxCell id="xe_vkept" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Booking kept" vertex="1">
-          <mxGeometry height="48" width="48" x="7786" y="4290" as="geometry" />
-        </mxCell>
-        <mxCell id="xe_vsearch" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=top;verticalAlign=bottom;" value="Return to venue search&#xa;(main flow)" vertex="1">
-          <mxGeometry height="48" width="48" x="7656" y="4161" as="geometry" />
-        </mxCell>
-        <mxCell id="xs_equip" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Returned equipment&#xa;damaged or missing" vertex="1">
+        <mxCell id="xs_venue" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Venue retired, marked unavailable&#xa;or attributes changed" vertex="1">
           <mxGeometry height="48" width="48" x="7300" y="4636" as="geometry" />
         </mxCell>
-        <mxCell id="xt_eupdate" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Record issue; update&#xa;equipment status" vertex="1">
+        <mxCell id="xt_vupdate" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Update venue or mark it&#xa;unavailable; flag affected&#xa;bookings for review" vertex="1">
           <mxGeometry height="64" width="180" x="7410" y="4628" as="geometry" />
         </mxCell>
-        <mxCell id="xt_echeck" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Re-check affected&#xa;reservations" vertex="1">
-          <mxGeometry height="64" width="170" x="7670" y="4628" as="geometry" />
+        <mxCell id="xt_vrev" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Review affected booking&#xa;with Venue Staff" vertex="1">
+          <mxGeometry height="64" width="180" x="7410" y="4442" as="geometry" />
+        </mxCell>
+        <mxCell id="xg_vsuit" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=bottom;verticalAlign=top;" value="Still suitable&#xa;and available?" vertex="1">
+          <mxGeometry height="60" width="60" x="7650" y="4444" as="geometry" />
+        </mxCell>
+        <mxCell id="xe_vkept" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Booking kept" vertex="1">
+          <mxGeometry height="48" width="48" x="7786" y="4450" as="geometry" />
+        </mxCell>
+        <mxCell id="xe_vsearch" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=top;verticalAlign=bottom;" value="Return to venue search&#xa;for a replacement (main flow)" vertex="1">
+          <mxGeometry height="48" width="48" x="7656" y="4321" as="geometry" />
+        </mxCell>
+        <mxCell id="xs_equip" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Equipment unavailable, damaged&#xa;or under maintenance&#xa;(incl. found on return)" vertex="1">
+          <mxGeometry height="48" width="48" x="7300" y="4796" as="geometry" />
+        </mxCell>
+        <mxCell id="xt_eupdate" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Record issue; update&#xa;equipment status" vertex="1">
+          <mxGeometry height="64" width="180" x="7410" y="4788" as="geometry" />
+        </mxCell>
+        <mxCell id="xt_echeck" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Re-check affected&#xa;reservations; flag short&#xa;ones for review" vertex="1">
+          <mxGeometry height="64" width="170" x="7670" y="4788" as="geometry" />
         </mxCell>
         <mxCell id="xg_efull" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=bottom;verticalAlign=top;" value="Still&#xa;fulfilled?" vertex="1">
-          <mxGeometry height="60" width="60" x="7920" y="4630" as="geometry" />
+          <mxGeometry height="60" width="60" x="7920" y="4790" as="geometry" />
         </mxCell>
         <mxCell id="xe_ekept" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Reservation kept" vertex="1">
-          <mxGeometry height="48" width="48" x="8056" y="4636" as="geometry" />
+          <mxGeometry height="48" width="48" x="8056" y="4796" as="geometry" />
         </mxCell>
         <mxCell id="xe_eresume" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=top;verticalAlign=bottom;" value="Resume equipment branch&#xa;(main flow)" vertex="1">
-          <mxGeometry height="48" width="48" x="7926" y="4290" as="geometry" />
+          <mxGeometry height="48" width="48" x="7926" y="4450" as="geometry" />
         </mxCell>
         <mxCell id="x_legend" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11.5;fontColor=#555555;strokeColor=none;fillColor=none;" value="Legend:  + gateway = parallel split / join (all branches run; the join waits for every branch)  ·  other gateways = decision; unlabelled small gateway = merge  ·  dashed line = rework, exception or hand-off outside the normal path  ·  double circle = waits for an event  ·  an end event named “Resume …” or “Return …” hands back to the main flow above." vertex="1">
-          <mxGeometry height="40" width="2600" x="4450" y="4755" as="geometry" />
+          <mxGeometry height="40" width="2600" x="4450" y="4915" as="geometry" />
         </mxCell>
         <mxCell id="f_start_draft" edge="1" parent="1" source="ev_start" target="t_draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry" />
@@ -347,8 +356,10 @@
         <mxCell id="f_receive_assign" edge="1" parent="1" source="t_receive" target="t_assign" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="f_assign_review" edge="1" parent="1" source="t_assign" target="t_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.406;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="f_assign_review" edge="1" parent="1" source="t_assign" target="t_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.406;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" value="coordinator notified">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-66" y="0" as="offset" />
+          </mxGeometry>
         </mxCell>
         <mxCell id="f_review_gw" edge="1" parent="1" source="t_review" target="g_approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry" />
@@ -502,7 +513,7 @@
         <mxCell id="f_join_ready" edge="1" parent="1" source="g_join" target="g_ready" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="f_ready_yes" edge="1" parent="1" source="g_ready" target="t_confirm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="yes">
+        <mxCell id="f_ready_yes" edge="1" parent="1" source="g_ready" target="t_safety_submit" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="yes">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="0" y="-11" as="offset" />
           </mxGeometry>
@@ -525,14 +536,14 @@
         <mxCell id="f_confirm_prepequip" edge="1" parent="1" source="t_confirm" target="t_prepequip" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="7655" y="3640" />
+              <mxPoint x="7975" y="3640" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="f_confirm_prepvenue" edge="1" parent="1" source="t_confirm" target="t_prepvenue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=0.765;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="7700" y="3480" />
+              <mxPoint x="8020" y="3480" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -545,15 +556,15 @@
         <mxCell id="f_prepvenue_gw" edge="1" parent="1" source="t_prepvenue" target="g_delivery" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="7975" y="3480" />
-              <mxPoint x="7975" y="3195" />
+              <mxPoint x="8295" y="3480" />
+              <mxPoint x="8295" y="3195" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="f_prepequip_gw" edge="1" parent="1" source="t_prepequip" target="g_delivery" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="8030" y="3640" />
+              <mxPoint x="8350" y="3640" />
             </Array>
           </mxGeometry>
         </mxCell>
@@ -566,23 +577,24 @@
         <mxCell id="f_delivery_timer" edge="1" parent="1" source="g_delivery" target="ev_timer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="8030" y="3070" />
+              <mxPoint x="8350" y="3070" />
             </Array>
           </mxGeometry>
         </mxCell>
         <mxCell id="f_timer_end" edge="1" parent="1" source="ev_timer" target="ev_completed" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="8374" y="3070" />
+              <mxPoint x="8694" y="3070" />
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="f_venue_approved" edge="1" parent="1" source="g_vok" target="g_join" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;jumpStyle=arc;jumpSize=8;" value="approved">
+        <mxCell id="f_venue_approved" edge="1" parent="1" source="g_vok" target="g_morevenue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="approved">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
-              <mxPoint x="7330" y="3480" />
+              <mxPoint x="6180" y="3480" />
+              <mxPoint x="6180" y="3325" />
             </Array>
-            <mxPoint x="-667.5" y="-11" as="offset" />
+            <mxPoint x="-34" y="-20" as="offset" />
           </mxGeometry>
         </mxCell>
         <mxCell id="xf_a1" edge="1" parent="1" source="xs_change" target="xt_submitcr" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
@@ -696,10 +708,79 @@
             <mxPoint x="0" y="-11" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="xf_e5" edge="1" parent="1" source="xg_efull" target="xe_eresume" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11.5;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" value="no – coordinator notified">
+        <mxCell id="xf_e5" edge="1" parent="1" source="xg_efull" target="xe_eresume" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11.5;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" value="no – flagged, coordinator&#xa;notified (SPM-55)">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="85" y="76" as="offset" />
           </mxGeometry>
+        </mxCell>
+        <mxCell id="t_safety_submit" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Submit event for&#xa;Operational Safety Check" vertex="1">
+          <mxGeometry height="64" width="170" x="7550" y="3163" as="geometry" />
+        </mxCell>
+        <mxCell id="t_safety_check" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Conduct Operational&#xa;Safety Check" vertex="1">
+          <mxGeometry height="64" width="170" x="7550" y="3918" as="geometry" />
+        </mxCell>
+        <mxCell id="g_safety" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;labelPosition=right;align=left;verticalLabelPosition=middle;verticalAlign=middle;spacingLeft=6;" value="Safety&#xa;decision?" vertex="1">
+          <mxGeometry height="60" width="60" x="7780" y="3920" as="geometry" />
+        </mxCell>
+        <mxCell id="f_safety_submit" edge="1" parent="1" source="t_safety_submit" target="t_safety_check" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" value="Safety Officers notified">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="78" y="0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_safety_decide" edge="1" parent="1" source="t_safety_check" target="g_safety" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_safety_approve" edge="1" parent="1" source="g_safety" target="t_confirm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="approve">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="7810" y="3195" />
+            </Array>
+            <mxPoint x="-30" y="0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_safety_return" edge="1" parent="1" source="g_safety" target="t_resolve" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11.5;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" value="reject or request changes: back to Planning">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="7810" y="4008" />
+              <mxPoint x="7460" y="4008" />
+            </Array>
+            <mxPoint x="175" y="125" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="g_morevenue" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=bottom;verticalAlign=top;" value="Another venue&#xa;needed?" vertex="1">
+          <mxGeometry height="60" width="60" x="6240" y="3295" as="geometry" />
+        </mxCell>
+        <mxCell id="f_morevenue_no" edge="1" parent="1" source="g_morevenue" target="g_join" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;jumpStyle=arc;jumpSize=8;" value="no – every venue approved">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="7330" y="3325" />
+            </Array>
+            <mxPoint x="-500" y="-11" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f_morevenue_yes" edge="1" parent="1" source="g_morevenue" target="t_search" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11.5;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;entryPerimeter=0;" value="yes – each venue is booked and checked on its own">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="6270" y="3268" />
+              <mxPoint x="5725" y="3268" />
+            </Array>
+            <mxPoint x="0" y="-11" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="xs_hold" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Tentative hold&#xa;expiry reached" vertex="1">
+          <mxGeometry height="48" width="48" x="4480" y="4636" as="geometry" />
+        </mxCell>
+        <mxCell id="xt_holdexp" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Hold expires: release venue&#xa;for other requests; notify&#xa;Event Coordinator" vertex="1">
+          <mxGeometry height="72" width="210" x="4580" y="4624" as="geometry" />
+        </mxCell>
+        <mxCell id="xe_hold" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Hold expired – never a booking&#xa;(request again from venue search)" vertex="1">
+          <mxGeometry height="48" width="48" x="4850" y="4636" as="geometry" />
+        </mxCell>
+        <mxCell id="xf_f1" edge="1" parent="1" source="xs_hold" target="xt_holdexp" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="xf_f2" edge="1" parent="1" source="xt_holdexp" target="xe_hold" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

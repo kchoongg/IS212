@@ -106,8 +106,9 @@ export const NOT_APPROVED_MESSAGE = "A venue can be requested once this request 
 
 export interface BookingRequestInput {
   eventId: string;
-  /// The session asked for; null for an event without sessions. Two sessions
-  /// may share a room, the same session may not ask twice (SPM-44 AC4).
+  /// The session asked for; null for an event without sessions. No session of
+  /// an event may ask for a room the event already holds at overlapping times
+  /// (SPM-44 AC4, widened from the session to the event by SPM-81 AC4).
   sessionId: string | null;
   eventStatus: string;
   /// Who the request is for - the event, or one of its sessions.
@@ -161,7 +162,15 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
   // SPM-44 AC4: the same request a second time. Checked before clashes with
   // other events, because "you have already asked" is the more useful answer.
   const duplicate = findDuplicateRequest(venue, window, { eventId: input.eventId, sessionId: input.sessionId });
-  if (duplicate) return refuse(describeDuplicateRequest(holder, venue.name, duplicate));
+  if (duplicate) {
+    // SPM-81 AC4: another session of the event may be the one holding the
+    // room. Naming the session that is asking would then be wrong, so the
+    // refusal speaks for the event.
+    const sameHolder = (duplicate.sessionId ?? null) === input.sessionId;
+    return refuse(
+      describeDuplicateRequest(sameHolder ? holder : { kind: "event", name: holder.name }, venue.name, duplicate)
+    );
+  }
 
   // #35, #41: a clash is blocked, not warned about. SPM-44 (AC9) also says
   // WHAT it clashes with, so the coordinator can go and look at that event or

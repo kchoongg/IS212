@@ -82,6 +82,7 @@ the model, deliberately blind to which event is involved.
 | `venue_booking:request` | — | ✅ | — | — | — | — |
 | `venue_booking:decide` | — | — | — | ✅ | — | — |
 | `equipment:view` | ✅ | ✅ | ✅ | — | ✅ | — |
+| `equipment:view_status` | — | ✅ | ✅ | — | ✅ | — |
 | `equipment:manage` | — | — | — | — | ✅ | — |
 | `equipment_request:manage` | — | ✅ | — | — | — | — |
 | `equipment_request:review` | — | — | — | — | ✅ | — |
@@ -99,6 +100,10 @@ Three entries are worth explaining:
 - **`equipment:view` includes the organiser.** The event request form (S-08)
   asks the organiser to pick the equipment they need from the catalogue, so the
   catalogue is part of making a request, not internal planning information.
+- **`equipment:view_status` does not** (SPM-55). How many units are out of
+  service, which kind and why is ConnectSphere's operational business: the
+  Equipment page and that part of `GET /api/equipment` are for Coordinators,
+  the Ops Manager and Technical Support.
 - **`venue:view` excludes the organiser.** Venue selection is the coordinator's
   job (§5 Step 6). An organiser learns their venue through the confirmed event,
   not by browsing the catalogue.
@@ -297,13 +302,18 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
 | `GET /api/events/[id]/registration` | Same 404 / 403 checks; the assigned coordinator's list of bookings to measure the capacity against (SPM-64) |
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
+| `GET /api/events/[id]/arrangements` | `canViewArrangements()` (`event:confirm` - any coordinator) → 403, then `canViewEvent()` → 404. The answer's `canManage` is true only for the assigned coordinator while the event is in Planning (SPM-33) |
+| `PATCH /api/events/[id]/arrangements` | `canViewEvent()` → 404, then `canMarkArrangements()` → 403 (the assigned coordinator only), then `ARRANGEMENT_MARKING_STATUSES` → 400 (Planning only). Records who decided and when (SPM-33) |
 | `POST /api/events/[id]/safety-check` | `canViewEvent()` → 404, then `isAssignedCoordinator()` → 403, then the event must be in Planning (400; "A safety check is already pending for this event." when it is already in Safety review), then `checkSafetySubmission()` → 400 naming what is outstanding or flagged (SPM-86) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
 | `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
 | `GET /api/venues` | `venue:view` — Coordinator, Ops Manager, Venue Staff |
 | `POST /api/venues` | `venue:manage` — Venue Staff |
+| `GET`/`POST /api/venues/[id]/unavailability` | `venue:manage` — Venue Staff (SPM-45) |
+| `PATCH`/`DELETE /api/venues/[id]/unavailability/[periodId]` | `venue:manage` — Venue Staff (SPM-45) |
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
-| `GET /api/equipment` | `equipment:view` |
+| `GET /api/equipment` | `equipment:view`; the out-of-service count, type and reason only with `equipment:view_status` - never to the organiser (SPM-55) |
+| `PATCH /api/equipment/[id]/out-of-service` | `equipment:manage` — Technical Support (SPM-48, SPM-55) |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
 | `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support for Planning, Safety review and Confirmed events only, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |

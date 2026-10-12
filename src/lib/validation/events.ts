@@ -209,6 +209,25 @@ export const updateEventStatusSchema = z.object({
 });
 export type UpdateEventStatusInput = z.infer<typeof updateEventStatusSchema>;
 
+// SPM-33: marking one arrangement of an event as not required, or as required
+// again. A venue booking and an equipment line are named by their own id, so
+// an event's other bookings are never touched; registration setup belongs to
+// the event itself. The kinds are WAIVABLE_KINDS (src/lib/eventConfirmation.ts)
+// - an arrangement that may never be waived, such as the Operational Safety
+// Check (SPM-86), is simply not a kind this accepts.
+export const markArrangementSchema = z.union([
+  z.object({
+    kind: z.enum(["venue", "equipment"]),
+    id: z.string().uuid(),
+    notRequired: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal("registration"),
+    notRequired: z.boolean(),
+  }),
+]);
+export type MarkArrangementInput = z.infer<typeof markArrangementSchema>;
+
 // SPM-24: editing a saved draft. Every field is optional — the organiser may
 // only be changing one thing — so this cannot reuse createEventSchema, which
 // requires a title. Cross-field rules that depend on values already stored on

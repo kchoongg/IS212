@@ -34,13 +34,13 @@ Copy from here rather than typing from memory.
 | `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `SafetyCheck.status` | `pending` (SPM-86) `approved` `changes_requested` `rejected` (SPM-87) `closed` (SPM-88) |
 | `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
-| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` — comma-separated, one or more |
+| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
 | `ClarificationRequest.status` | `open` `answered` `closed` |
 | `EventChangeRequest.status` | `pending` `approved` `rejected` `withdrawn` |
 | `Facility.category` | `facility` `accessibility` |
-| `VenueUnavailability.reason` | `maintenance` `renovation` `safety` `internal_activity` `other` |
+| `VenueUnavailability.reason` | `maintenance` `equipment_failure` `renovation` `safety` `internal_activity` `other` |
 | layout names | `theatre` `classroom` `boardroom` `banquet` `exhibition` `u_shape` `cabaret` |
 
 The Zod schemas in `src/lib/validation/` (one file per domain) enforce most of
@@ -241,6 +241,9 @@ Postgres table `events` &middot; `prisma.event`
 | `registrationClosesAt` | DateTime |  | No later than `startsAt` (SPM-64); can be moved later to reopen registration until the event starts. |
 | `registrationVenueBookingId` | String |  | VenueBooking id (SET NULL if the booking is deleted). The booking the registration capacity is measured against (SPM-64): the capacity can't exceed that room's capacity in the booked layout. Set with the capacity; NULL until one is set. A booking that is no longer pending or approved leaves registration setup incomplete. |
 | `registrationReviewReason` | String |  | Set when a change to the event may affect attendees already registered or waitlisted (SPM-62: the date or time changed; SPM-64: capacity lowered below them or registration turned off). Comma-separated reason codes, as `VenueBooking.reviewReason`. NULL = not flagged. Registrations themselves are not changed. |
+| `registrationNotRequired` | Boolean |  | SPM-33: the assigned coordinator marked the registration setup as not required, so an enabled but incomplete setup no longer prevents confirmation. The settings are NOT changed. Defaults to `false`. |
+| `registrationNotRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `registrationNotRequiredByUser`. NULL when never decided. |
+| `registrationNotRequiredAt` | DateTime |  | When that decision was made. |
 | `rejectionReason` | String |  | Required when rejecting - the route enforces it. |
 | `cancellationReason` | String |  |  |
 | `submittedAt` | DateTime |  |  |
@@ -393,6 +396,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `needsReview` | Boolean |  | A venue change may have invalidated this booking. The booking is NOT changed - a human decides. Defaults to `false`. |
 | `reviewReason` | String |  | Why it was flagged: comma-separated codes, see Status values. NULL when `needsReview` is false. |
 | `flaggedAt` | DateTime |  | When it was last flagged. NULL when never flagged. |
+| `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this booking as not required for the event, so it no longer prevents confirmation. The booking is NOT changed, withdrawn or released. Defaults to `false`. |
+| `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
+| `notRequiredAt` | DateTime |  | When that decision was made. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `suggestedVenue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
 
@@ -422,8 +428,8 @@ Maintenance blocks. No event, no requester, no approval step — which is why th
 | `venueId` | String | req |  |
 | `startsAt` | DateTime | req |  |
 | `endsAt` | DateTime | req |  |
-| `reason` | String | req | maintenance \| renovation \| safety \| internal_activity \| other |
-| `notes` | String |  |  |
+| `reason` | String | req | maintenance \| equipment_failure \| renovation \| safety \| internal_activity \| other (`UNAVAILABILITY_REASONS`, SPM-45) |
+| `notes` | String |  | What the reason is when `reason` is `other` - required then, by the routes; null for a listed reason written through the app. |
 | `createdBy` | String | req |  |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
@@ -444,6 +450,7 @@ Tracked by quantity, not by serial number: a coordinator requests "3 projectors"
 | `totalQuantity` | Int | req | How many ConnectSphere owns. |
 | `quantityInMaintenance` | Int |  | Out of service - unavailable, damaged or under maintenance. Set by Technical Support through `PATCH /api/equipment/[id]/out-of-service` (SPM-48 AC7), never more than `totalQuantity`. Available = total - maintenance - reserved. Defaults to `0`. |
 | `outOfServiceReason` | String |  | Why those units are out of service. NULL when none are - recording 0 clears it. |
+| `outOfServiceType` | String |  | SPM-55: `unavailable` \| `damaged` \| `under_maintenance`, required while any unit is out. NULL when none are (and for units recorded before SPM-55). |
 | `isActive` | Boolean |  | Defaults to `true`. `false` retires an item: it is not offered for new requests (`GET /api/equipment` and the add-equipment routes), and an existing request for it shows as Unavailable with 0 available. |
 | `locationVenueId` | String |  | SPM-48. Where the item is kept. NULL means ConnectSphere storage - the default, because equipment is returned there after every event (customer Q&A #2, #5). Set to a `Venue` only for kit that lives at that venue: no transfer time is then added for an event at the same venue. `ON DELETE SET NULL`. |
 
@@ -479,8 +486,11 @@ Request and reservation in one table: a reservation only ever comes from a reque
 | `reviewedAt` | DateTime |  |  |
 | `staffNotes` | String |  |  |
 | `needsReview` | Boolean |  | A change to the event (SPM-62: its date or time) may have invalidated this request. The request is NOT changed - the coordinator keeps or replaces it (SPM-68). Defaults to `false`. |
-| `reviewReason` | String |  | Why it was flagged: comma-separated codes, merged with any already there. |
+| `reviewReason` | String |  | Why it was flagged: comma-separated codes, merged with any already there. SPM-62's event codes, and `equipment_unavailable` when units of the item were marked out of service and the units left no longer cover this reservation (SPM-55). |
 | `flaggedAt` | DateTime |  | When it was last flagged. |
+| `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this line as not required (e.g. an item Technical Support cannot provide, agreed to be non-essential), so it no longer prevents confirmation. Its status and anything reserved are NOT changed. Defaults to `false`. |
+| `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
+| `notRequiredAt` | DateTime |  | When that decision was made. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User
 
@@ -546,7 +556,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `safety_check_submitted` (SPM-86, to every `safety_officer`). |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45), `safety_check_submitted` (SPM-86, to every `safety_officer`), `equipment_unavailable` (SPM-55, to the coordinator of each reservation left short). |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |

@@ -4,7 +4,6 @@ import HomePage from "@/app/page";
 import LoginPage from "@/app/login/page";
 import RegisterPage from "@/app/register/page";
 import NotificationsPage from "@/app/notifications/page";
-import EquipmentPage from "@/app/equipment/page";
 import { ROLES } from "@/lib/roles";
 import { can, type Action } from "@/lib/permissions";
 import {
@@ -330,14 +329,7 @@ describe("screens that are specified but not built yet", () => {
   }> = [
     { name: "Notifications", Page: NotificationsPage, path: "/notifications", screenId: "S-04 (Notification Centre)" },
     // Browse Events (S-26) was built in SPM-51: src/app/__tests__/browse-page.test.tsx.
-    {
-      name: "Equipment",
-      Page: EquipmentPage,
-      path: "/equipment",
-      action: "equipment:view",
-      screenId: "S-25 (Equipment Catalogue)",
-      reason: "The equipment catalogue is for ConnectSphere staff and the organisers who request from it.",
-    },
+    // Equipment (S-24 Equipment Catalogue) was built by SPM-55 - see equipment-catalogue-page.test.tsx.
     // My Registrations (S-27) was built in SPM-51: src/app/__tests__/my-registrations-page.test.tsx.
   ];
 
