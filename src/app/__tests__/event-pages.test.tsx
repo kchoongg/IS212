@@ -150,7 +150,8 @@ describe("Event overview", () => {
 
   it.each([
     ["organiser", ["Overview", "Equipment"]],
-    ["coordinator", ["Overview", "Venue", "Equipment"]],
+    // SPM-33: the Readiness tab is built, for coordinators only.
+    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
     ["venue_staff", ["Overview", "Venue"]],
     ["tech_support", ["Overview", "Equipment"]],
     ["ops_manager", ["Overview"]],

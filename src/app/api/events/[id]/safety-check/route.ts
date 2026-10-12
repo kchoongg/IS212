@@ -57,11 +57,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       }),
       prisma.venueBooking.findMany({
         where: { eventId: event.id },
-        select: { sessionId: true, status: true, needsReview: true, reviewReason: true, venue: { select: { name: true } } },
+        // notRequired: an arrangement the coordinator waived on the Readiness tab (SPM-33).
+        select: { sessionId: true, status: true, needsReview: true, reviewReason: true, notRequired: true, venue: { select: { name: true } } },
       }),
       prisma.equipmentRequest.findMany({
         where: { eventId: event.id },
-        select: { sessionId: true, status: true, needsReview: true, reviewReason: true, equipment: { select: { name: true } } },
+        select: { sessionId: true, status: true, needsReview: true, reviewReason: true, notRequired: true, equipment: { select: { name: true } } },
       }),
     ]);
 

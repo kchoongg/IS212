@@ -325,6 +325,8 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
 | `GET /api/events/[id]/registration` | Same 404 / 403 checks; the assigned coordinator's list of bookings to measure the capacity against (SPM-64) |
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
+| `GET /api/events/[id]/arrangements` | `canViewArrangements()` (`event:confirm` - any coordinator) → 403, then `canViewEvent()` → 404. The answer's `canManage` is true only for the assigned coordinator while the event is in Planning (SPM-33) |
+| `PATCH /api/events/[id]/arrangements` | `canViewEvent()` → 404, then `canMarkArrangements()` → 403 (the assigned coordinator only), then `ARRANGEMENT_MARKING_STATUSES` → 400 (Planning only). Records who decided and when (SPM-33) |
 | `POST /api/events/[id]/safety-check` | `canViewEvent()` → 404, then `isAssignedCoordinator()` → 403, then the event must be in Planning (400; "A safety check is already pending for this event." when it is already in Safety review), then `checkSafetySubmission()` → 400 naming what is outstanding or flagged (SPM-86) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
 | `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
