@@ -10,6 +10,9 @@ import {
   can,
   canAssignCoordinator,
   canBeginPlanning,
+  canConfigureRegistration,
+  canConfirmEvent,
+  canUpdateEventInformation,
   canReviewEvent,
   canCheckEquipmentAvailability,
   canReserveEquipment,
@@ -766,5 +769,78 @@ describe("canSubmitForSafetyCheck (SPM-86)", () => {
 describe("REASSIGNABLE_STATUSES (SPM-86)", () => {
   it("includes Safety review, so a coordinator can still be replaced while the check is pending", () => {
     expect(REASSIGNABLE_STATUSES).toContain("safety_review");
+  });
+});
+
+// SPM-85 (Week 7 change #6). The Safety Officer reviews the operational safety
+// of planned events: they read what a review needs and change nothing.
+describe("the Safety Officer (SPM-85)", () => {
+  const safetyOfficer = actor("safety_officer");
+  // The kind of event they review: assigned, arranged, and in Safety review.
+  const underCheck = event({ coordinatorId: "coordinator-1", status: "safety_review" });
+
+  it("AC1: has a defined set of permissions of its own", () => {
+    expect(ROLE_PERMISSIONS.safety_officer).toEqual(["event:view", "event:safety_check", "facility:view"]);
+  });
+
+  it("AC3: sees every event that has left Draft, like the rest of ConnectSphere's staff", () => {
+    for (const status of ["submitted", "under_review", "approved", "planning", "safety_review", "confirmed", "completed"]) {
+      expect(canViewEvent(safetyOfficer, event({ status })), status).toBe(true);
+    }
+    expect(eventListWhere(safetyOfficer)).toEqual({ status: { not: "draft" } });
+  });
+
+  it("AC3: never sees an organiser's draft", () => {
+    expect(canViewEvent(safetyOfficer, event({ status: "draft" }))).toBe(false);
+  });
+
+  it("AC3: sees an event's equipment arrangements, whatever stage it is at", () => {
+    for (const status of ["approved", "planning", "safety_review", "confirmed"]) {
+      expect(canViewEquipmentRequests(safetyOfficer, event({ coordinatorId: "coordinator-1", status })), status).toBe(true);
+    }
+  });
+
+  it("AC3: is given the whole event record, not the attendee's public subset", () => {
+    const record = { id: "e1", title: "Forum", expectedAttendance: 200, accessibilityNotes: "Step-free", sessions: [] };
+    expect(visibleEventFor(safetyOfficer, record)).toEqual(record);
+  });
+
+  it("AC4: cannot change an event's information, venue bookings, equipment or registration", () => {
+    expect(canEditEventContent(safetyOfficer, event({ status: "draft" }))).toBe(false);
+    expect(canUpdateEventInformation(safetyOfficer, underCheck)).toBe(false);
+    expect(canRequestVenueBooking(safetyOfficer, underCheck)).toBe(false);
+    expect(canManageEquipmentRequests(safetyOfficer, underCheck)).toBe(false);
+    expect(canConfigureRegistration(safetyOfficer, underCheck)).toBe(false);
+    for (const action of ["event:edit_draft", "venue:manage", "venue_booking:request", "equipment:manage", "equipment_request:manage"] as const) {
+      expect(can("safety_officer", action), action).toBe(false);
+    }
+  });
+
+  it("AC5: cannot assign coordinators, review requests, approve bookings, reserve equipment or confirm events", () => {
+    expect(canAssignCoordinator(safetyOfficer, event({ status: "submitted" }))).toBe(false);
+    expect(canReviewEvent(safetyOfficer, event({ coordinatorId: "safety_officer-1", status: "under_review" }))).toBe(false);
+    expect(can("safety_officer", "venue_booking:decide")).toBe(false);
+    expect(canReserveEquipment(safetyOfficer)).toBe(false);
+    expect(canUpdateEquipmentFulfilment(safetyOfficer)).toBe(false);
+    expect(canCheckEquipmentAvailability(safetyOfficer)).toBe(false);
+    expect(canConfirmEvent(safetyOfficer, event({ coordinatorId: "safety_officer-1", status: "planning" }))).toBe(false);
+    expect(canSubmitForSafetyCheck(safetyOfficer, event({ coordinatorId: "safety_officer-1", status: "planning" }))).toBe(false);
+  });
+
+  it("AC5: cannot move an event to any status", () => {
+    for (const to of Object.keys(STATUS_TRANSITION_ROLES)) {
+      expect(canSetEventStatus(safetyOfficer, underCheck, to), to).toBe(false);
+    }
+  });
+
+  it("AC6: cannot see who is registered for an event", () => {
+    expect(can("safety_officer", "registration:view_list")).toBe(false);
+    expect(can("safety_officer", "registration:create")).toBe(false);
+  });
+
+  it("AC8: is the only role that works the Operational Safety Check", () => {
+    for (const role of ROLES) {
+      expect(can(role, "event:safety_check"), role).toBe(role === "safety_officer");
+    }
   });
 });

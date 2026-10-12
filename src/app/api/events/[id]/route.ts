@@ -65,13 +65,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             // is not an arrangement anyone should be shown as settled.
             // Stripped for an Attendee by visibleEventFor(), which allow-lists
             // fields and so drops this one without needing to name it.
+            // CHANGED (SPM-85 AC3): with the layout booked and the seats each of
+            // the room's layouts holds, so a safety review can read the
+            // capacity of the arrangement actually made.
             venueBookings: {
               where: { status: "approved" },
               select: {
                 startsAt: true,
                 endsAt: true,
+                layoutName: true,
                 session: { select: { label: true } },
-                venue: { select: { name: true, code: true } },
+                venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
               },
               orderBy: { startsAt: "asc" },
             },

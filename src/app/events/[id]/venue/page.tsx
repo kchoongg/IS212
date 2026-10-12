@@ -19,6 +19,7 @@ import {
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
+import { RequirePermission } from "@/components/RequirePermission";
 import { cn } from "@/lib/cn";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { describeUnmet, layoutLabel, type UnmetRequirement } from "@/lib/venueSuitability";
@@ -78,7 +79,29 @@ const MISSING_LABEL = {
   preferredLayout: "preferred layout",
 } as const;
 
+// SPM-85 (AC7): a role without venue:view who types this address - the Safety
+// Officer, Technical Support, an organiser or attendee - is refused before
+// anything is fetched, so no venue, booking or suitability result reaches the
+// page. Venue Staff and the Operations Manager keep the read-only view.
 export default function EventVenuePage() {
+  const params = useParams<{ id: string }>();
+  return (
+    <RequirePermission
+      action="venue:view"
+      title="Find a venue"
+      breadcrumbs={[
+        { label: "Events", href: "/events" },
+        { label: "Event", href: `/events/${params.id}` },
+        { label: "Venue" },
+      ]}
+      reason="Finding and booking a venue is for the Event Coordinator. The rooms booked for this event are on its Overview."
+    >
+      <EventVenueScreen />
+    </RequirePermission>
+  );
+}
+
+function EventVenueScreen() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const eventId = params.id;

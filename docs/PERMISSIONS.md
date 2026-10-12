@@ -31,6 +31,7 @@ else's event; owning an event does not let you approve your own.
 | `tech_support` | Technical Support Staff | Internal | Briefing §3 |
 | `attendee` | Attendee | External | Briefing §3 |
 | `ops_manager` | Event Operations Manager | Internal | **Our addition** — see below |
+| `safety_officer` | Safety Officer | Internal | Week 7 change #6 (SPM-85) — see below |
 
 The briefing names five roles. `ops_manager` is a sixth that we added: §5 Step 3
 says an event "is assigned" to a coordinator without saying by whom, and a
@@ -38,6 +39,13 @@ coordinator cannot assign themselves before they are responsible for the event.
 We model that assigner as an internal admin variant of Coordinator — identical
 chrome, one extra screen (`/assignments`). This is a design decision, not a
 requirement; it is worth confirming at a customer Q&A.
+
+`safety_officer` came with the Week 7 changes (change #6, clarification #128:
+"a new role and requirement due to regulation"). The Safety Officer reviews the
+operational safety of an event once its arrangements are made: SPM-86 submits
+an event for that Operational Safety Check, SPM-85 gives the role its access,
+and SPM-87 adds its decision. It reads what a review needs and changes nothing
+— see `event:safety_check` below, and SPM-85 in DOCUMENTATION.md.
 
 Roles are stored as a plain string on `users.role`. The allowed values are
 listed in `ROLES` in `src/lib/roles.ts`. There is no database CHECK constraint,
@@ -58,8 +66,9 @@ document enforced faithfully against a role the caller had picked for
 themselves. A permission model is only as good as the weakest way of acquiring
 a role.
 
-The four internal roles are created by `npx prisma db seed` today; an admin
-screen for them is an open item (§8).
+The five internal roles are created by `npx prisma db seed` today (the Safety
+Officer, Hana Yusof, also by `npm run fixtures:spm85`, which needs no reseed);
+an admin screen for them is an open item (§8).
 
 ---
 
@@ -68,27 +77,28 @@ screen for them is an open item (§8).
 `can(role, action)` answers this table and nothing else — it is the role half of
 the model, deliberately blind to which event is involved.
 
-| Action | Organiser | Coordinator | Ops Manager | Venue Staff | Tech Support | Attendee |
-| --- | :-: | :-: | :-: | :-: | :-: | :-: |
-| `event:create` | ✅ | — | — | — | — | — |
-| `event:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `event:edit_draft` | ✅ | — | — | — | — | — |
-| `event:review` (clarify / approve / reject) | — | ✅ | — | — | — | — |
-| `event:assign_coordinator` | — | — | ✅ | — | — | — |
-| `event:confirm` | — | ✅ | — | — | — | — |
-| `event:cancel` | — | ✅ | — | — | — | — |
-| `venue:view` | — | ✅ | ✅ | ✅ | — | — |
-| `venue:manage` | — | — | — | ✅ | — | — |
-| `venue_booking:request` | — | ✅ | — | — | — | — |
-| `venue_booking:decide` | — | — | — | ✅ | — | — |
-| `equipment:view` | ✅ | ✅ | ✅ | — | ✅ | — |
-| `equipment:view_status` | — | ✅ | ✅ | — | ✅ | — |
-| `equipment:manage` | — | — | — | — | ✅ | — |
-| `equipment_request:manage` | — | ✅ | — | — | — | — |
-| `equipment_request:review` | — | — | — | — | ✅ | — |
-| `registration:create` | — | — | — | — | — | ✅ |
-| `registration:view_list` | ✅ | ✅ | — | — | — | — |
-| `facility:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Action | Organiser | Coordinator | Ops Manager | Venue Staff | Tech Support | Attendee | Safety Officer |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| `event:create` | ✅ | — | — | — | — | — | — |
+| `event:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `event:edit_draft` | ✅ | — | — | — | — | — | — |
+| `event:review` (clarify / approve / reject) | — | ✅ | — | — | — | — | — |
+| `event:assign_coordinator` | — | — | ✅ | — | — | — | — |
+| `event:confirm` | — | ✅ | — | — | — | — | — |
+| `event:cancel` | — | ✅ | — | — | — | — | — |
+| `event:safety_check` (the Operational Safety Check) | — | — | — | — | — | — | ✅ |
+| `venue:view` | — | ✅ | ✅ | ✅ | — | — | — |
+| `venue:manage` | — | — | — | ✅ | — | — | — |
+| `venue_booking:request` | — | ✅ | — | — | — | — | — |
+| `venue_booking:decide` | — | — | — | ✅ | — | — | — |
+| `equipment:view` | ✅ | ✅ | ✅ | — | ✅ | — | — |
+| `equipment:view_status` | — | ✅ | ✅ | — | ✅ | — | — |
+| `equipment:manage` | — | — | — | — | ✅ | — | — |
+| `equipment_request:manage` | — | ✅ | — | — | — | — | — |
+| `equipment_request:review` | — | — | — | — | ✅ | — | — |
+| `registration:create` | — | — | — | — | — | ✅ | — |
+| `registration:view_list` | ✅ | ✅ | — | — | — | — | — |
+| `facility:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Each row traces to the briefing's §5 process: the organiser drafts and submits
 (Steps 1-2), the Ops Manager assigns (Step 3), the coordinator reviews, approves
@@ -121,6 +131,19 @@ Three entries are worth explaining:
   seeing it, and the owning Organiser read-only (confirmed 2026-09-19 —
   broader than AC6's literal wording, but an Organiser reasonably wants to
   see what's recorded against their own event; see `UI_DESIGN.md` §4.3).
+
+- **`event:safety_check` is the Safety Officer's alone** (SPM-85). Today it
+  opens the Safety Checks page (`/safety-checks`, the events in Safety review);
+  SPM-87's decision — approve, reject, request changes — uses the same action.
+  Everything else the Safety Officer reads comes through `event:view` and the
+  relationship rules in §3: every event that has left Draft, its full record
+  (§4 narrows only the Attendee's), and its equipment read-only
+  (`canViewEquipmentRequests`). They hold no venue, equipment, registration or
+  status action, so every "change" rule refuses them without naming them. Not
+  `venue:view` — the catalogue and the Find a venue search are not part of a
+  safety review; the rooms an event actually has are on its Overview (the
+  "Venue bookings" card). Not `registration:view_list` — who registered, and
+  their dietary and accessibility needs, are attendee personal details (AC6).
 
 An unknown role — anything not in `ROLES` — is granted nothing.
 
@@ -166,7 +189,7 @@ organiser is not.
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
 | Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10) |
-| Coordinator, Ops Manager, Venue Staff, Tech Support | Every event that has left `draft` |
+| Coordinator, Ops Manager, Venue Staff, Tech Support, Safety Officer | Every event that has left `draft` |
 | Anyone | Never another organiser's draft |
 
 A draft is private to the organiser who owns it — from ConnectSphere staff as
