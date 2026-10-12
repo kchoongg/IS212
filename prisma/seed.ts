@@ -134,6 +134,8 @@ async function main() {
     ["Aisha Omar", "aisha.omar", "tech_support", "Technical Services"],
     ["Vikram Nair", "vikram.nair", "tech_support", "Technical Services"],
     ["Chloe Teo", "chloe.teo", "tech_support", "Technical Services"],
+    // SPM-85 (Week 7 change #6). Same account as scripts/seed-spm85.ts.
+    ["Hana Yusof", "hana.yusof", "safety_officer", "Safety & Compliance"],
   ];
   for (const [fullName, handle, role, department] of staff) {
     const email = `${handle}@connectsphere.com`;
@@ -1602,6 +1604,30 @@ async function main() {
     spm33("spm33_safety_rejected", "SPM33 Safety Rejected", "2027-07-31"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-85 QA fixtures (Safety Officer Role and Access). The SAME events as
+  // scripts/seed-spm85.ts (`npm run fixtures:spm85`) - keep the two in step.
+  //
+  // The events only. Their sessions, venue bookings, equipment, facility
+  // requirements, the Harbour forum's safety check submission and the launch's
+  // registrations are created by that script alone, so run it once after a
+  // full reseed. The Safety Officer account is in the staff list above.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm85 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-85 Safety Officer role and access test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm85("spm85_forum", "SPM85 Harbour Safety Forum", "safety_review", "2027-09-27", 9, 8, 200,
+      { accessibilityNotes: "Two wheelchair users attending; keep the aisle beside row A clear." }),
+    spm85("spm85_launch", "SPM85 Riverside Product Launch", "confirmed", "2027-09-24", 19, 3, 80,
+      { regEnabled: true, regCapacity: 80 }),
+    spm85("spm85_planning", "SPM85 Marina Networking Night", "planning", "2027-09-20", 18, 3, 50),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -1708,6 +1734,8 @@ async function main() {
     cancelled: ["submitted", "under_review", "approved", "planning", "cancelled"],
     // SPM-30's postponed fixture; same chain as scripts/seed-spm30.ts.
     postponed: ["submitted", "under_review", "approved", "planning", "postponed"],
+    // SPM-85's forum is waiting for its Operational Safety Check (SPM-86).
+    safety_review: ["submitted", "under_review", "approved", "planning", "safety_review"],
   };
   const REASONS: Record<string, string> = {
     under_review: "Coordinator assigned",
@@ -1719,6 +1747,7 @@ async function main() {
     cancelled: "Client withdrew the request",
     postponed: "Client requested a later date",
     withdrawn: "Organiser asked to withdraw; coordinator recorded it",
+    safety_review: "Submitted for an Operational Safety Check",
   };
   for (const e of eventData) {
     const chain = e.chain ?? CHAIN[e.status];

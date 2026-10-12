@@ -11,6 +11,9 @@ export const ROLES = [
   "tech_support",
   "attendee",
   "ops_manager",
+  // SPM-85 (Week 7 change #6): reviews the operational safety of planned
+  // events. SPM-86 already notifies users with this key.
+  "safety_officer",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -24,6 +27,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   tech_support: "Technical Support",
   attendee: "Attendee",
   ops_manager: "Operations Manager",
+  safety_officer: "Safety Officer",
 };
 
 /// External users belong to a client organisation and must never see internal
@@ -114,6 +118,15 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { href: "/venues", label: "Venues" },
     NOTIFICATIONS,
   ],
+  // SPM-85 (AC2). Safety Checks is the role's own work list, as Review Queue
+  // is the coordinator's. No Venues: the rooms an event actually has are on
+  // the event itself, and the catalogue is not part of a safety review.
+  safety_officer: [
+    DASHBOARD,
+    { href: "/safety-checks", label: "Safety Checks" },
+    { href: "/events", label: "All Events" },
+    NOTIFICATIONS,
+  ],
 };
 
 export function navFor(role: string): NavItem[] {
@@ -157,6 +170,10 @@ const EVENT_TABS_BY_ROLE: Record<Role, EventTab[]> = {
   tech_support: ["overview", "equipment"],
   attendee: ["overview"],
   ops_manager: ["overview", "discussion", "history"],
+  // SPM-85 (AC3, AC6): what a safety review reads, read-only. No Attendees
+  // (who registered is personal), and no Venue - that tab is the
+  // coordinator's search for a room; the rooms booked are on the Overview.
+  safety_officer: ["overview", "equipment"],
 };
 
 export function eventTabsFor(role: string): EventTab[] {
