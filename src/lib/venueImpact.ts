@@ -25,6 +25,12 @@ export const IMPACT_REASONS = [
   "layout_capacity_below_attendance",
   "max_capacity_below_attendance",
   "mandatory_facility_removed",
+  // SPM-45: an unavailable period overlaps the booking's occupied time. Not a venue
+  // EDIT, so problemsFor() below never produces it - the unavailability routes
+  // add it themselves (src/lib/venueUnavailabilityService.ts). Kept apart from
+  // venue_retired because SPM-68 lists "venue retired" and "venue blocked" as
+  // two reasons. Last, so the stored order of the older codes does not move.
+  "venue_unavailable",
 ] as const;
 
 export type ImpactReason = (typeof IMPACT_REASONS)[number];
@@ -38,6 +44,7 @@ export const IMPACT_REASON_PROSE: Record<ImpactReason, string> = {
     "the venue's maximum capacity is now below the expected attendance",
   mandatory_facility_removed:
     "a facility this event requires is no longer available at this venue",
+  venue_unavailable: "the venue is unavailable during this booking",
 };
 
 /// The parts of a venue an impact decision depends on, before or after an

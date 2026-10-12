@@ -230,9 +230,17 @@ describe("findDuplicateRequest — the same request twice (AC4)", () => {
     expect(findDuplicateRequest(v, at("2026-10-21", "10:00", "11:00"), holder)).toBeNull();
   });
 
-  it("lets two different sessions of one event share a room", () => {
+  // SPM-81 AC4 (decided 2026-10-10): a repeat is per event, not per session.
+  // Before SPM-81 two sessions of one event could hold a room at the same time.
+  it("SPM-81-TC09: finds another session's request for the same room at overlapping times", () => {
     const day1 = booking({ ...MORNING("2026-10-21"), eventId: "mine", sessionId: "day-1", status: "pending" });
-    expect(findDuplicateRequest(venue({ bookings: [day1] }), MORNING("2026-10-21"), { eventId: "mine", sessionId: "day-2" })).toBeNull();
+    expect(findDuplicateRequest(venue({ bookings: [day1] }), MORNING("2026-10-21"), { eventId: "mine", sessionId: "day-2" })).toBe(day1);
+  });
+
+  it("SPM-81-TC09: lets two sessions of one event use a room one after the other", () => {
+    const first = booking({ ...at("2026-10-21", "09:00", "10:00"), eventId: "mine", sessionId: "day-1", status: "pending" });
+    const v = venue({ setupMinutes: 30, teardownMinutes: 30, bookings: [first] });
+    expect(findDuplicateRequest(v, at("2026-10-21", "10:00", "11:00"), { eventId: "mine", sessionId: "day-2" })).toBeNull();
   });
 });
 
