@@ -16,6 +16,7 @@ import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
 import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
+import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
@@ -80,6 +81,18 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             // (id/label/startsAt/endsAt), so it's reused here rather than
             // duplicating a second, narrower select shape.
             sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
+            // ADDED (SPM-64 AC4): the booking the registration capacity is
+            // measured against, so the Registration card can name it and say
+            // when it is no longer active. Stripped for an Attendee by
+            // visibleEventFor() - which room caps the capacity is internal.
+            registrationVenueBooking: {
+              select: {
+                id: true,
+                status: true,
+                layoutName: true,
+                venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+              },
+            },
             // ADDED (SPM-86 AC8): the latest Operational Safety Check - who
             // submitted it and when. Reshaped to `safetyCheck` below, for
             // internal users only.
@@ -99,7 +112,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // organiser sees only their own client's events, and an attendee sees an
   // event only once it is confirmed and open for registration. An event the
   // user may not see is 404, not 403: a 403 would confirm it exists.
-  if (!canViewEvent(actor, event)) {
+  // SPM-64 (#10): an attendee who holds a place keeps seeing the event once
+  // its registration is turned off. Counted only for an attendee.
+  const attendeeHoldsPlace =
+    actor.role === "attendee" &&
+    (await prisma.registration.count({
+      where: { eventId: event.id, attendeeId: actor.id, status: { in: HOLDING_A_PLACE } },
+    })) > 0;
+  if (!canViewEvent(actor, { ...event, attendeeHoldsPlace })) {
     return hidden();
   }
 
@@ -287,7 +307,7 @@ async function handleStatusChange(
       }),
       prisma.venueBooking.findMany({
         where: { eventId: event.id },
-        select: { sessionId: true, status: true },
+        select: { id: true, sessionId: true, status: true },
       }),
       prisma.equipmentRequest.findMany({
         where: { eventId: event.id },
@@ -303,6 +323,14 @@ async function handleStatusChange(
         status: r.status,
         equipmentName: r.equipment.name,
       })),
+      // SPM-64 AC8: required only while registration is enabled.
+      registration: {
+        enabled: event.registrationEnabled,
+        capacity: event.registrationCapacity,
+        opensAt: event.registrationOpensAt,
+        closesAt: event.registrationClosesAt,
+        measuredBookingId: event.registrationVenueBookingId,
+      },
     });
     if (!check.ok) {
       return NextResponse.json({ error: check.error, outstanding: check.outstanding }, { status: 400 });

@@ -55,7 +55,8 @@ describe("GET /api/events", () => {
     expect(await res.json()).toEqual(events);
   });
 
-  it("shows an attendee only confirmed events open for registration, and only their public fields", async () => {
+  // CHANGED (SPM-64, #10): plus the confirmed events they hold a place in.
+  it("shows an attendee confirmed events open for registration or that they hold a place in, and only their public fields", async () => {
     const token = signIn(user("attendee"));
     db.event.findMany.mockResolvedValue([
       {
@@ -76,7 +77,13 @@ describe("GET /api/events", () => {
 
     const res = await GET(req("GET", "/api/events", { token }));
 
-    expect(callArg(db.event.findMany).where).toEqual({ status: "confirmed", registrationEnabled: true });
+    expect(callArg(db.event.findMany).where).toEqual({
+      status: "confirmed",
+      OR: [
+        { registrationEnabled: true },
+        { registrations: { some: { attendeeId: ID.user, status: { in: ["registered", "waitlisted"] } } } },
+      ],
+    });
     expect(await res.json()).toEqual([
       {
         id: ID.event,
