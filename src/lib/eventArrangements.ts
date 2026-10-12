@@ -23,6 +23,8 @@ export interface EventArrangementFields {
   registrationCapacity: number | null;
   registrationOpensAt: Date | null;
   registrationClosesAt: Date | null;
+  /// SPM-64: the booking the registration capacity is measured against.
+  registrationVenueBookingId?: string | null;
   registrationNotRequired?: boolean;
   registrationNotRequiredAt?: Date | null;
   registrationNotRequiredByUser?: { fullName: string } | null;
@@ -104,6 +106,7 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
       capacity: event.registrationCapacity,
       opensAt: event.registrationOpensAt,
       closesAt: event.registrationClosesAt,
+      measuredBookingId: event.registrationVenueBookingId ?? null,
       notRequired: event.registrationNotRequired ?? false,
       notRequiredBy: event.registrationNotRequiredByUser?.fullName ?? null,
       notRequiredAt: event.registrationNotRequiredAt ?? null,

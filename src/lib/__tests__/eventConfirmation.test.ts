@@ -210,8 +210,10 @@ describe("arrangementsFor — what the list itself looks like", () => {
 //     never be marked as not required
 //   - one row per equipment line, not one per session
 //   - only an OUTSTANDING row is waivable
-//   - registration has a row only while registration is enabled; it is complete
-//     with a capacity and both ends of the registration period
+//   - registration (SPM-64's rule, kept when the two stories met on
+//     2026-10-12): required only while enabled - while off, the row is "Not
+//     required" and not `waived`; complete with a capacity, both ends of the
+//     registration period and a measured booking that is still active
 //   - the wording of every `missing` and `flagReason` below
 //
 // The Operational Safety Check row (AC6, AC9) is at the end of this file:
@@ -464,10 +466,34 @@ describe("SPM-33 arrangementsFor — flagged for review (AC4)", () => {
 });
 
 describe("SPM-33 arrangementsFor — registration setup (AC5)", () => {
-  it("has no registration row when registration is not enabled", () => {
+  // SPM-64's rule (kept when the two stories met, 2026-10-12): registration
+  // that is off is not required - but nobody waived it, so it cannot be
+  // "marked as required" again.
+  it("shows registration that is not enabled as not required, and not as waived", () => {
     const list = rows({ bookings: [booking()], registration: registration({ enabled: false, capacity: null }) });
 
-    expect(list.map((a) => a.kind)).toEqual(["venue"]);
+    expect(named(list, "Registration setup")).toMatchObject({
+      state: "not_required",
+      required: false,
+      waived: false,
+      waivable: false,
+      notRequiredBy: null,
+      note: "Registration is not enabled for this event.",
+    });
+    expect(checkEventConfirmation(input({ bookings: [booking()], registration: registration({ enabled: false, capacity: null }) }))).toEqual({ ok: true });
+  });
+
+  it("marks only what the Coordinator waived as waived", () => {
+    const list = rows({
+      bookings: [booking()],
+      equipment: [line({ status: "unavailable", notRequired: true }), line({ id: "r2", equipmentName: "Lectern" })],
+    });
+
+    expect(list.map((a) => [a.name, a.waived])).toEqual([
+      ["Marina Auditorium", false],
+      ["Handheld Wireless Mic", true],
+      ["Lectern", false],
+    ]);
   });
 
   it("shows registration setup as complete once it has a capacity and a registration period", () => {
@@ -484,13 +510,13 @@ describe("SPM-33 arrangementsFor — registration setup (AC5)", () => {
   });
 
   it.each([
-    ["no capacity", { capacity: null }, "registration is enabled but has no capacity"],
-    ["no opening date", { opensAt: null }, "registration is enabled but has no registration period"],
-    ["no closing date", { closesAt: null }, "registration is enabled but has no registration period"],
+    ["no capacity", { capacity: null }, "registration setup is incomplete (still needed: registration capacity)"],
+    ["no opening date", { opensAt: null }, "registration setup is incomplete (still needed: opening date)"],
+    ["no closing date", { closesAt: null }, "registration setup is incomplete (still needed: closing date)"],
     [
       "neither",
       { capacity: null, opensAt: null, closesAt: null },
-      "registration is enabled but has no capacity or registration period",
+      "registration setup is incomplete (still needed: registration capacity, opening date, closing date)",
     ],
   ])("shows registration that is enabled with %s as outstanding", (_case, over, missing) => {
     const list = rows({ bookings: [booking()], registration: registration(over) });
@@ -662,7 +688,9 @@ describe("SPM-33 checkEventConfirmation — what prevents confirmation (AC11)", 
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error).toBe("This event cannot be confirmed yet: registration is enabled but has no capacity.");
+      expect(result.error).toBe(
+        "This event cannot be confirmed yet: registration setup is incomplete (still needed: registration capacity)."
+      );
     }
   });
 
@@ -839,5 +867,82 @@ describe("SPM-33 arrangementsFor — the Operational Safety Check (AC6, AC9)", (
     const list = rows({ bookings: [booking()], equipment: [line()], registration: registration() });
 
     expect(list.map((a) => a.note)).toEqual(["", "", ""]);
+  });
+});
+
+// SPM-64 AC8: registration setup is an arrangement the event needs only when
+// registration is enabled. Incomplete while the capacity, the opening date or
+// the closing date is missing, or while the booking the capacity was measured
+// against is no longer active. Manual cases SPM-64-TC16 to TC18.
+describe("AC8 incomplete registration setup is outstanding and blocks confirmation", () => {
+  const MEASURED = "booking-1";
+  const venue = { id: MEASURED, sessionId: null, status: "approved" };
+  const setup = (over: Partial<NonNullable<ConfirmationInput["registration"]>> = {}) => ({
+    enabled: true,
+    capacity: 60,
+    opensAt: new Date("2027-03-01T01:00:00.000Z"),
+    closesAt: new Date("2027-04-27T09:00:00.000Z"),
+    measuredBookingId: MEASURED,
+    ...over,
+  });
+  const registrationOf = (over = {}) =>
+    arrangementsFor(input({ bookings: [venue], registration: setup(over) })).find((a) => a.kind === "registration");
+
+  it.each([
+    ["the capacity", { capacity: null, measuredBookingId: null }, "registration capacity"],
+    ["the opening date", { opensAt: null }, "opening date"],
+    ["the closing date", { closesAt: null }, "closing date"],
+  ])("is outstanding while %s is missing, naming it (TC16)", (_what, over, named) => {
+    expect(registrationOf(over)).toMatchObject({
+      required: true,
+      complete: false,
+      missing: `registration setup is incomplete (still needed: ${named})`,
+    });
+  });
+
+  it("names everything missing in one go, and refuses confirmation with it (TC16)", () => {
+    const result = checkEventConfirmation(
+      input({ bookings: [venue], registration: setup({ capacity: null, opensAt: null, closesAt: null, measuredBookingId: null }) })
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error:
+        "This event cannot be confirmed yet: registration setup is incomplete (still needed: registration capacity, opening date, closing date).",
+    });
+  });
+
+  it("is outstanding while the booking the capacity was measured against is no longer active (TC18)", () => {
+    const result = checkEventConfirmation(
+      input({
+        bookings: [{ id: MEASURED, sessionId: null, status: "rejected" }, { id: "booking-2", sessionId: null, status: "approved" }],
+        registration: setup(),
+      })
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error:
+        "This event cannot be confirmed yet: registration capacity is measured against a venue booking that is no longer active.",
+    });
+  });
+
+  it("is complete once every setting is in place, and confirmation goes ahead (TC16)", () => {
+    expect(registrationOf()).toMatchObject({ required: true, complete: true, missing: "" });
+    expect(checkEventConfirmation(input({ bookings: [venue], registration: setup() }))).toEqual({ ok: true });
+  });
+
+  it("is not required while registration is turned off, however incomplete (TC17)", () => {
+    const off = setup({ enabled: false, capacity: null, opensAt: null, closesAt: null, measuredBookingId: null });
+
+    expect(registrationOf(off)).toMatchObject({ required: false });
+    expect(checkEventConfirmation(input({ bookings: [venue], registration: off }))).toEqual({ ok: true });
+  });
+
+  it("comes after the venue and equipment in the list", () => {
+    const list = arrangementsFor(
+      input({ bookings: [venue], equipment: [reserved("Portable Stage")], registration: setup() })
+    );
+    expect(list.map((a) => a.kind)).toEqual(["venue", "equipment", "registration"]);
   });
 });

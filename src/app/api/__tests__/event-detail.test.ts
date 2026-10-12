@@ -136,6 +136,41 @@ describe("GET /api/events/[id]", () => {
     expect((await get(token)).status).toBe(404);
   });
 
+  // SPM-64 (AC4, TC23): the booking the capacity is measured against comes
+  // with the event, so the Registration card can say "Measured against".
+  it("includes the booking the registration capacity is measured against, with its room's layouts", async () => {
+    const token = signIn(user("coordinator"));
+    db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
+
+    await get(token);
+
+    expect(callArg(db.event.findUnique).include.registrationVenueBooking).toEqual({
+      select: {
+        id: true,
+        status: true,
+        layoutName: true,
+        venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+      },
+    });
+  });
+
+  // SPM-64 (#10), manual case TC22: registration turned off doesn't hide the
+  // event from an attendee who already holds a place.
+  it("shows a confirmed event with registration off to an attendee who holds a place in it", async () => {
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: false }));
+    db.registration.count.mockResolvedValue(1);
+
+    const res = await get(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.registration.count).where).toEqual({
+      eventId: ID.event,
+      attendeeId: ID.thirdUser,
+      status: { in: ["registered", "waitlisted"] },
+    });
+  });
+
   it("gives an attendee only the public fields of a confirmed, open event", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(
@@ -591,6 +626,27 @@ describe("PATCH /api/events/[id] - status change", () => {
         expect(db.event.update).not.toHaveBeenCalled();
       });
 
+      it("refuses while registration is on but its setup is incomplete (SPM-64 AC8, TC16)", async () => {
+        const token = signIn(coordinator());
+        db.event.findUnique.mockResolvedValue(
+          event({ status: "planning", registrationEnabled: true, registrationCapacity: 60, registrationVenueBookingId: ID.booking })
+        );
+        givenUpdateSucceeds();
+        // CHANGED when SPM-33 was merged in: the confirm path now reads its rows
+        // through SPM-33's loadConfirmationInput(), which also needs the venue's
+        // name - venue() is SPM-33's full booking row, approved, with this id.
+        givenArrangements({ bookings: [venue("approved")] });
+
+        const res = await patch(token, { status: "confirmed" });
+
+        expect(res.status).toBe(400);
+        expect((await res.json()).error).toBe(
+          "This event cannot be confirmed yet: registration setup is incomplete (still needed: opening date, closing date)."
+        );
+        expect(callArg(db.venueBooking.findMany).select).toMatchObject({ id: true, sessionId: true, status: true });
+        expect(db.event.update).not.toHaveBeenCalled();
+      });
+
       it("needs a venue for every session of a multi-session event", async () => {
         const res = await confirm({
           sessions: [
@@ -653,7 +709,7 @@ describe("PATCH /api/events/[id] - status change", () => {
 
           expect(res.status).toBe(400);
           expect((await res.json()).error).toBe(
-            "This event cannot be confirmed yet: registration is enabled but has no capacity."
+            "This event cannot be confirmed yet: registration setup is incomplete (still needed: registration capacity)."
           );
           expect(db.event.update).not.toHaveBeenCalled();
         });

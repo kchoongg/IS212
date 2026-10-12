@@ -180,6 +180,7 @@ interface ListedArrangement {
   missing: string;
   flagReason: string;
   waivable: boolean;
+  waived: boolean;
   blocksConfirmation: boolean;
   note: string;
 }
@@ -187,10 +188,13 @@ interface ListedArrangement {
 const named = (body: { arrangements: ListedArrangement[] }, name: string) =>
   body.arrangements.find((a) => a.name === name)!;
 
-/// Every arrangement but the Operational Safety Check, which every event has
-/// (AC6) and which has tests of its own below.
+/// Every arrangement but the two every event has, which have tests of their
+/// own: the Operational Safety Check (AC6), and "Registration setup" while
+/// registration is off (SPM-64: then it is simply not required).
 const listed = (body: { arrangements: ListedArrangement[] }) =>
-  body.arrangements.filter((a) => a.kind !== "safety_check");
+  body.arrangements.filter(
+    (a) => a.kind !== "safety_check" && !(a.kind === "registration" && a.state === "not_required" && !a.waived)
+  );
 
 function expectNothingWritten() {
   expect(db.venueBooking.update).not.toHaveBeenCalled();
@@ -321,19 +325,35 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(named(body, "Registration setup")).toMatchObject({
       kind: "registration",
       state: "outstanding",
-      missing: "registration is enabled but has no capacity",
+      missing: "registration setup is incomplete (still needed: registration capacity)",
     });
     expect(body.blocking).toBe(1);
   });
 
-  it("leaves registration off the list when it is not enabled", async () => {
+  // SPM-64's rule: registration that is off is not required, and nobody waived it.
+  it("shows registration that is not enabled as not required, without counting it", async () => {
     const token = signIn(assignedCoordinator());
     given({ bookings: [booking()] });
 
     const body = await (await get(token)).json();
 
-    expect(listed(body).map((a: ListedArrangement) => a.kind)).toEqual(["venue"]);
+    expect(named(body, "Registration setup")).toMatchObject({ state: "not_required", waived: false, waivable: false });
     expect(body.blocking).toBe(0);
+  });
+
+  it("reads the booking the registration capacity is measured against (SPM-64)", async () => {
+    const token = signIn(assignedCoordinator());
+    given({
+      event: { ...registrationIncomplete, registrationCapacity: 80, registrationVenueBookingId: ID.otherVenue },
+      bookings: [booking()],
+    });
+
+    const body = await (await get(token)).json();
+
+    expect(named(body, "Registration setup")).toMatchObject({
+      state: "outstanding",
+      missing: "registration capacity is measured against a venue booking that is no longer active",
+    });
   });
 
   // AC10, AC11.
@@ -445,7 +465,12 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
 
     const body = await (await get(token)).json();
 
-    expect(body.arrangements.map((a: ListedArrangement) => a.kind)).toEqual(["venue", "equipment", "safety_check"]);
+    expect(body.arrangements.map((a: ListedArrangement) => a.kind)).toEqual([
+      "venue",
+      "equipment",
+      "registration",
+      "safety_check",
+    ]);
     expect(safety(body)).toMatchObject({
       kind: "safety_check",
       id: null,
@@ -766,6 +791,16 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expect(callArg(db.equipmentRequest.update)).toEqual({ where: { id: ID.request }, data: { notRequired: false, ...decided } });
       expect(named(body, "Projector").state).toBe("outstanding");
       expect(body.blocking).toBe(1);
+    });
+
+    it("writes nothing when asked to mark registration that is switched off as required", async () => {
+      const token = signIn(assignedCoordinator());
+      given({ bookings: [booking()] });
+
+      const res = await patch(token, { kind: "registration", notRequired: false });
+
+      expect(res.status).toBe(200);
+      expectNothingWritten();
     });
 
     it("marks registration setup as required again", async () => {

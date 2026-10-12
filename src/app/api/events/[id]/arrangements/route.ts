@@ -117,7 +117,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
 
     // Reversing a decision that was never made changes nothing, and must not
     // stamp the record as though it had.
-    if (data.notRequired || target?.state === "not_required") {
+    if (data.notRequired || target?.waived) {
       // Who decided, and when - on marking and on reversing (briefing 8f,
       // customer answer #14). The arrangement itself is not touched.
       const by = actor.id;

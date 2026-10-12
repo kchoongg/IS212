@@ -160,7 +160,7 @@ organiser is not.
 | Role | Sees |
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
-| Attendee | Only events that are `confirmed` **and** have registration enabled |
+| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10) |
 | Coordinator, Ops Manager, Venue Staff, Tech Support | Every event that has left `draft` |
 | Anyone | Never another organiser's draft |
 
@@ -294,6 +294,8 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]` (safety check) | `safetyCheck` (who submitted the latest Operational Safety Check, and when) is added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403. `safety_review` is refused (400): it is entered only through `POST /api/events/[id]/safety-check` (SPM-86) |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
+| `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
+| `GET /api/events/[id]/registration` | Same 404 / 403 checks; the assigned coordinator's list of bookings to measure the capacity against (SPM-64) |
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
 | `GET /api/events/[id]/arrangements` | `canViewArrangements()` (`event:confirm` - any coordinator) → 403, then `canViewEvent()` → 404. The answer's `canManage` is true only for the assigned coordinator while the event is in Planning (SPM-33) |
 | `PATCH /api/events/[id]/arrangements` | `canViewEvent()` → 404, then `canMarkArrangements()` → 403 (the assigned coordinator only), then `ARRANGEMENT_MARKING_STATUSES` → 400 (Planning only). Records who decided and when (SPM-33) |

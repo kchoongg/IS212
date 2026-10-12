@@ -207,6 +207,27 @@ describe("canViewEvent", () => {
     expect(canViewEvent(attendee, event({ status: "rejected", registrationEnabled: true }))).toBe(false);
   });
 
+  // SPM-64 (#10: attendees "can view events that they register for"):
+  // turning registration off must not hide the event from the people already
+  // holding a place. Manual case SPM-64-TC22.
+  it("keeps showing a confirmed event to an attendee who holds a place after registration is turned off", () => {
+    expect(
+      canViewEvent(attendee, event({ status: "confirmed", registrationEnabled: false, attendeeHoldsPlace: true }))
+    ).toBe(true);
+  });
+
+  it("doesn't show it to an attendee who holds no place (withdrawn, or never registered)", () => {
+    expect(
+      canViewEvent(attendee, event({ status: "confirmed", registrationEnabled: false, attendeeHoldsPlace: false }))
+    ).toBe(false);
+  });
+
+  it("still hides an event that is not confirmed from an attendee who holds a place", () => {
+    expect(
+      canViewEvent(attendee, event({ status: "planning", registrationEnabled: false, attendeeHoldsPlace: true }))
+    ).toBe(false);
+  });
+
   it("shows internal staff every event that has left draft", () => {
     for (const staff of [coordinator, opsManager, venueStaff, techSupport]) {
       expect(canViewEvent(staff, event({ status: "submitted" }))).toBe(true);
@@ -239,8 +260,15 @@ describe("eventListWhere", () => {
     expect(where.OR).toEqual([{ organiserId: "organiser-7" }]);
   });
 
-  it("gives an attendee only confirmed, registerable events", () => {
-    expect(eventListWhere(attendee)).toEqual({ status: "confirmed", registrationEnabled: true });
+  // CHANGED (SPM-64, #10): plus the confirmed events they hold a place in.
+  it("gives an attendee confirmed events open for registration, or that they hold a place in", () => {
+    expect(eventListWhere(attendee)).toEqual({
+      status: "confirmed",
+      OR: [
+        { registrationEnabled: true },
+        { registrations: { some: { attendeeId: "attendee-1", status: { in: ["registered", "waitlisted"] } } } },
+      ],
+    });
   });
 
   it("matches nothing for a role that cannot view events at all", () => {

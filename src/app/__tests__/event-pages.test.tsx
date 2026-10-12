@@ -179,17 +179,20 @@ describe("Event overview", () => {
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
-      expect(terms()).toEqual(["Category", "Status", "When", "Description", "Company", "Capacity", "Window"]);
+      // CHANGED (SPM-64): 'Window' became 'Opens' and 'Closes' on the Registration card.
+      expect(terms()).toEqual(["Category", "Status", "When", "Description", "Company", "Registration", "Capacity", "Opens", "Closes"]);
       expect(screen.queryByRole("heading", { name: "Venue requirements" })).not.toBeInTheDocument();
     });
 
-    it("the registration capacity and window", async () => {
+    // CHANGED (SPM-64): the period is shown as 'Opens' and 'Closes'.
+    it("the registration capacity and period", async () => {
       open("attendee", publicEvent());
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
       expect(valueOf("Capacity")).toHaveTextContent("150");
-      expect(valueOf("Window")).not.toHaveTextContent("—");
+      expect(valueOf("Opens")).not.toHaveTextContent("—");
+      expect(valueOf("Closes")).not.toHaveTextContent("—");
     });
   });
 

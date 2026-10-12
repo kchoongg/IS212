@@ -40,6 +40,9 @@ interface Arrangement {
   state: string;
   missing: string;
   waivable: boolean;
+  /// Marked as not required by the Coordinator (registration that is off is
+  /// not required too, but nobody can mark it as required again here).
+  waived: boolean;
   notRequiredBy: string | null;
   notRequiredAt: string | null;
   /// False for the Operational Safety Check until SPM-88: shown, not counted.
@@ -302,7 +305,7 @@ export default function EventReadinessPage() {
                             >
                               Mark as not required
                             </Button>
-                          ) : data.canManage && marked ? (
+                          ) : data.canManage && arrangement.waived ? (
                             <Button
                               variant="secondary"
                               size="sm"

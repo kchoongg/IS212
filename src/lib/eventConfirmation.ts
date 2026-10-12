@@ -19,7 +19,14 @@
 //                 happens somewhere, so that row can never be waived.
 //   equipment     one row per equipment line the coordinator recorded. An
 //                 event that needs no equipment has none.
-//   registration  one row, only while registration is enabled (SPM-64).
+//   registration  one row (SPM-64 AC8). Required only while registration is
+//                 enabled (#80: "some events may not require ... attendee
+//                 registration"); while it is off the row is "Not required",
+//                 and it was not the Coordinator who decided that. Complete
+//                 once it has a capacity, an opening date and a closing date,
+//                 and the booking the capacity was measured against is still
+//                 active (Week 7 change #4: a tentative hold may expire).
+//                 SPM-64's rule and wording, kept when the two stories met.
 //
 // "Complete" is deliberately strict (decided 2026-10-03): a venue booking must
 // be APPROVED, because a pending request is a question Venue Staff have not
@@ -57,6 +64,7 @@
 import { CHANGE_REASON_PROSE } from "./eventChangeImpact";
 import { IMPACT_REASON_PROSE } from "./venueImpact";
 import { formatDateTime } from "./format";
+import { liveBookings } from "@/lib/registrationSettings";
 
 /// Bookings that are arrangements at all: asked for, or held.
 const BOOKING_LISTED = ["pending", "approved"];
@@ -106,6 +114,10 @@ export interface Arrangement {
   flagReason: string;
   /// Whether it may be marked as not required now: only an outstanding one.
   waivable: boolean;
+  /// True only when the Coordinator marked it as not required - so it can be
+  /// marked as required again. Registration that is switched off is not
+  /// required too, but nobody waived it.
+  waived: boolean;
   /// Who marked it as not required, and when. Null unless it is marked.
   notRequiredBy: string | null;
   notRequiredAt: Date | null;
@@ -145,11 +157,41 @@ export interface EquipmentInput extends Waiver, ReviewFlag {
   equipmentName: string;
 }
 
-export interface RegistrationInput extends Waiver {
+/// The event's registration settings (SPM-64), as saved.
+export interface RegistrationSetup {
   enabled: boolean;
   capacity: number | null;
   opensAt: Date | null;
   closesAt: Date | null;
+  /// Event.registrationVenueBookingId: the booking the capacity is measured against.
+  measuredBookingId?: string | null;
+}
+
+export interface RegistrationInput extends RegistrationSetup, Waiver {}
+
+export interface RegistrationGaps {
+  /// In the order the form asks for them.
+  stillNeeded: ("registration capacity" | "opening date" | "closing date")[];
+  /// A capacity was measured against a booking that is no longer pending or
+  /// approved - rejected, cancelled, or an expired tentative hold.
+  bookingLost: boolean;
+}
+
+/// What registration setup still lacks (SPM-64). Also what the Registration
+/// card's "Registration setup is incomplete" alert shows, so the two never
+/// disagree. Only meaningful while registration is enabled.
+export function registrationGaps(
+  setup: RegistrationSetup,
+  bookings: readonly { id?: string; status: string }[]
+): RegistrationGaps {
+  const stillNeeded: RegistrationGaps["stillNeeded"] = [];
+  if (setup.capacity == null) stillNeeded.push("registration capacity");
+  if (!setup.opensAt) stillNeeded.push("opening date");
+  if (!setup.closesAt) stillNeeded.push("closing date");
+  // Active means what the capacity may be measured against (SPM-64 AC3).
+  const bookingLost =
+    setup.measuredBookingId != null && !liveBookings(bookings).some((b) => b.id === setup.measuredBookingId);
+  return { stillNeeded, bookingLost };
 }
 
 /// The event's latest Operational Safety Check (SPM-86).
@@ -167,7 +209,7 @@ export interface ConfirmationInput {
   sessions: readonly SessionRef[];
   bookings: readonly BookingInput[];
   equipment: readonly EquipmentInput[];
-  /// Absent means "not enabled": nothing is asked of registration.
+  /// Omitted by a caller that has nothing to say about registration.
   registration?: RegistrationInput;
   /// Null when the event was never submitted for a safety check. Absent means
   /// "not asked": no safety row - how Submit for safety check uses this list.
@@ -208,9 +250,19 @@ function arrangement(
     waivable = true,
     blocksConfirmation = true,
     note = "",
-  }: { waiver?: Waiver; flagReason?: string; waivable?: boolean; blocksConfirmation?: boolean; note?: string } = {}
+    notNeeded = false,
+  }: {
+    waiver?: Waiver;
+    flagReason?: string;
+    waivable?: boolean;
+    blocksConfirmation?: boolean;
+    note?: string;
+    /// Not required, but not by the Coordinator's decision (registration off).
+    notNeeded?: boolean;
+  } = {}
 ): Arrangement {
-  const notRequired = waiver.notRequired === true;
+  const waived = waiver.notRequired === true;
+  const notRequired = waived || notNeeded;
   const outstanding = !notRequired && problem !== "";
   return {
     ...row,
@@ -220,8 +272,9 @@ function arrangement(
     missing: outstanding ? problem : "",
     flagReason,
     waivable: outstanding && waivable,
-    notRequiredBy: notRequired ? (waiver.notRequiredBy ?? null) : null,
-    notRequiredAt: notRequired ? (waiver.notRequiredAt ?? null) : null,
+    waived,
+    notRequiredBy: waived ? (waiver.notRequiredBy ?? null) : null,
+    notRequiredAt: waived ? (waiver.notRequiredAt ?? null) : null,
     blocksConfirmation,
     note,
   };
@@ -334,16 +387,20 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
     );
   }
 
-  // --- Registration: only where it is switched on ----------------------------
-  if (registration?.enabled) {
-    const noCapacity = registration.capacity == null;
-    const noPeriod = registration.opensAt == null || registration.closesAt == null;
-    const lacking = [noCapacity && "capacity", noPeriod && "registration period"].filter(Boolean).join(" or ");
+  // --- Registration (SPM-64 AC8) ---------------------------------------------
+  if (registration) {
+    const { stillNeeded, bookingLost } = registrationGaps(registration, bookings);
+    const lacking = [
+      ...(stillNeeded.length > 0 ? [`registration setup is incomplete (still needed: ${stillNeeded.join(", ")})`] : []),
+      ...(bookingLost ? ["registration capacity is measured against a venue booking that is no longer active"] : []),
+    ];
     out.push(
       arrangement(
         { kind: "registration", id: null, name: "Registration setup", session: null, status: null },
-        lacking ? `registration is enabled but has no ${lacking}` : "",
-        { waiver: registration }
+        registration.enabled ? lacking.join("; ") : "",
+        registration.enabled
+          ? { waiver: registration }
+          : { notNeeded: true, note: "Registration is not enabled for this event." }
       )
     );
   }

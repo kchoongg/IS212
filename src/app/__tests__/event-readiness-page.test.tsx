@@ -71,6 +71,7 @@ interface Arrangement {
   missing: string;
   flagReason: string;
   waivable: boolean;
+  waived: boolean;
   notRequiredBy: string | null;
   notRequiredAt: string | null;
   blocksConfirmation: boolean;
@@ -92,6 +93,7 @@ function arrangement(overrides: Partial<Arrangement> = {}): Arrangement {
     missing: "",
     flagReason: "",
     waivable: false,
+    waived: false,
     notRequiredBy: null,
     notRequiredAt: null,
     blocksConfirmation: true,
@@ -119,6 +121,7 @@ const notRequired = (overrides: Partial<Arrangement>) =>
     required: false,
     complete: false,
     waivable: false,
+    waived: true,
     missing: "",
     notRequiredBy: "Daniel Tan",
     notRequiredAt: MARKED_AT,
@@ -495,6 +498,32 @@ describe("Event Readiness tab (SPM-33)", () => {
 
       expect(await screen.findByText("No equipment has been recorded for this event.")).toBeInTheDocument();
       expect(screen.getByText("Registration is not enabled for this event.")).toBeInTheDocument();
+    });
+
+    // SPM-64: registration that is off is not required, but nobody waived it.
+    it("shows registration that is not enabled as not required, with nothing to mark", async () => {
+      open([
+        auditorium,
+        arrangement({
+          state: "not_required",
+          required: false,
+          complete: false,
+          kind: "registration",
+          id: null,
+          name: "Registration setup",
+          status: null,
+          waived: false,
+          notRequiredBy: null,
+          notRequiredAt: null,
+          note: "Registration is not enabled for this event.",
+        }),
+      ]);
+
+      const item = await row("Registration setup");
+
+      expect(item).toHaveTextContent("Not required");
+      expect(item).toHaveTextContent("Registration is not enabled for this event.");
+      expect(within(item).queryByRole("button")).not.toBeInTheDocument();
     });
 
     it("gives an arrangement of a kind it does not know a section of its own", async () => {
