@@ -462,17 +462,17 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     };
   }
 
-  it("is not blocked by the event's own earlier request for the same time", async () => {
-    // The event's own bookings never conflict with it: here Day 1 already holds
-    // the room at that time, and Day 2 of the same event may share it. (Before
-    // SPM-44 this used a single-session event asking for the same time again;
-    // that is now refused as a repeat - see the next two tests.)
+  // SPM-81 AC4 (decided 2026-10-10): a repeat is per event, not per session.
+  // Before SPM-81, Day 2 could share the room Day 1 already held at that time.
+  it("SPM-81-TC09: refuses another session of the event asking for a room one of its sessions already holds then", async () => {
     const token = given(
       event({ sessions: [session(), session({ id: ID.otherSession, label: "Day 2" })] }),
       venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }], bookings: [ownBooking("pending", ID.session)] })
     );
 
-    expect((await post(token, { ...valid, sessionId: ID.otherSession })).status).toBe(201);
+    expect(await refusal(token, { ...valid, sessionId: ID.otherSession })).toBe(
+      "This event already has a pending request for Hall A on 4 Mar 2027, 13:30–17:00."
+    );
   });
 
   // SPM-44 AC4, raised in review on PR #37: only one active request or booking
@@ -493,6 +493,24 @@ describe("POST /api/events/[id]/venue-bookings", () => {
 
     expect(await refusal(token, { ...valid, sessionId: ID.session })).toBe(
       "Day 1 already has Hall A booked on 4 Mar 2027, 13:30–17:00."
+    );
+  });
+
+  // SPM-81 (AC2, AC3): each venue is checked on its own bookings alone, so
+  // what the event holds at another venue is never read and cannot block it.
+  it("SPM-81-TC01: checks only the requested venue, whatever the event holds elsewhere", async () => {
+    const res = await post(given(), valid);
+
+    expect(res.status).toBe(201);
+    expect(callArg(db.venue.findUnique).where).toEqual({ id: ID.venue });
+    expect(db.venueBooking.findMany).not.toHaveBeenCalled();
+  });
+
+  it("SPM-81-TC04: refuses the same venue again at wider, overlapping times, naming the earlier request's own", async () => {
+    const token = given(event(), venue({ bookings: [ownBooking("pending")] }));
+
+    expect(await refusal(token, { ...valid, startTime: "13:00", endTime: "18:00" })).toBe(
+      "This event already has a pending request for Hall A on 4 Mar 2027, 13:30–17:00."
     );
   });
 
