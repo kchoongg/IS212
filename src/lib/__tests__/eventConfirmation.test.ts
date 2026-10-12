@@ -172,3 +172,80 @@ describe("arrangementsFor — what the list itself looks like", () => {
     expect(list.map((a) => a.kind)).toEqual(["venue"]);
   });
 });
+
+// SPM-64 AC8: registration setup is an arrangement the event needs only when
+// registration is enabled. Incomplete while the capacity, the opening date or
+// the closing date is missing, or while the booking the capacity was measured
+// against is no longer active. Manual cases SPM-64-TC16 to TC18.
+describe("AC8 incomplete registration setup is outstanding and blocks confirmation", () => {
+  const MEASURED = "booking-1";
+  const venue = { id: MEASURED, sessionId: null, status: "approved" };
+  const setup = (over: Partial<NonNullable<ConfirmationInput["registration"]>> = {}) => ({
+    enabled: true,
+    capacity: 60,
+    opensAt: new Date("2027-03-01T01:00:00.000Z"),
+    closesAt: new Date("2027-04-27T09:00:00.000Z"),
+    measuredBookingId: MEASURED,
+    ...over,
+  });
+  const registrationOf = (over = {}) =>
+    arrangementsFor(input({ bookings: [venue], registration: setup(over) })).find((a) => a.kind === "registration");
+
+  it.each([
+    ["the capacity", { capacity: null, measuredBookingId: null }, "registration capacity"],
+    ["the opening date", { opensAt: null }, "opening date"],
+    ["the closing date", { closesAt: null }, "closing date"],
+  ])("is outstanding while %s is missing, naming it (TC16)", (_what, over, named) => {
+    expect(registrationOf(over)).toMatchObject({
+      required: true,
+      complete: false,
+      missing: `registration setup is incomplete (still needed: ${named})`,
+    });
+  });
+
+  it("names everything missing in one go, and refuses confirmation with it (TC16)", () => {
+    const result = checkEventConfirmation(
+      input({ bookings: [venue], registration: setup({ capacity: null, opensAt: null, closesAt: null, measuredBookingId: null }) })
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error:
+        "This event cannot be confirmed yet: registration setup is incomplete (still needed: registration capacity, opening date, closing date).",
+    });
+  });
+
+  it("is outstanding while the booking the capacity was measured against is no longer active (TC18)", () => {
+    const result = checkEventConfirmation(
+      input({
+        bookings: [{ id: MEASURED, sessionId: null, status: "rejected" }, { id: "booking-2", sessionId: null, status: "approved" }],
+        registration: setup(),
+      })
+    );
+
+    expect(result).toMatchObject({
+      ok: false,
+      error:
+        "This event cannot be confirmed yet: registration capacity is measured against a venue booking that is no longer active.",
+    });
+  });
+
+  it("is complete once every setting is in place, and confirmation goes ahead (TC16)", () => {
+    expect(registrationOf()).toMatchObject({ required: true, complete: true, missing: "" });
+    expect(checkEventConfirmation(input({ bookings: [venue], registration: setup() }))).toEqual({ ok: true });
+  });
+
+  it("is not required while registration is turned off, however incomplete (TC17)", () => {
+    const off = setup({ enabled: false, capacity: null, opensAt: null, closesAt: null, measuredBookingId: null });
+
+    expect(registrationOf(off)).toMatchObject({ required: false });
+    expect(checkEventConfirmation(input({ bookings: [venue], registration: off }))).toEqual({ ok: true });
+  });
+
+  it("comes after the venue and equipment in the list", () => {
+    const list = arrangementsFor(
+      input({ bookings: [venue], equipment: [reserved("Portable Stage")], registration: setup() })
+    );
+    expect(list.map((a) => a.kind)).toEqual(["venue", "equipment", "registration"]);
+  });
+});

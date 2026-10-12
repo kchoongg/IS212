@@ -237,8 +237,9 @@ Postgres table `events` &middot; `prisma.event`
 | `specialRequirements` | String |  |  |
 | `registrationEnabled` | Boolean |  | Defaults to `false`. |
 | `registrationCapacity` | Int |  | Seats open to the public. NOT the same as expectedAttendance. |
-| `registrationOpensAt` | DateTime |  |  |
-| `registrationClosesAt` | DateTime |  |  |
+| `registrationOpensAt` | DateTime |  | Separate from the event date (SPM-64): opens before it closes. |
+| `registrationClosesAt` | DateTime |  | No later than `startsAt` (SPM-64); can be moved later to reopen registration until the event starts. |
+| `registrationVenueBookingId` | String |  | VenueBooking id (SET NULL if the booking is deleted). The booking the registration capacity is measured against (SPM-64): the capacity can't exceed that room's capacity in the booked layout. Set with the capacity; NULL until one is set. A booking that is no longer pending or approved leaves registration setup incomplete. |
 | `registrationReviewReason` | String |  | Set when a change to the event may affect attendees already registered or waitlisted (SPM-62: the date or time changed; SPM-64: capacity lowered below them or registration turned off). Comma-separated reason codes, as `VenueBooking.reviewReason`. NULL = not flagged. Registrations themselves are not changed. |
 | `rejectionReason` | String |  | Required when rejecting - the route enforces it. |
 | `cancellationReason` | String |  |  |

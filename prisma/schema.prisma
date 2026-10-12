@@ -227,6 +227,13 @@ model Event {
   /// Reviewed and cleared in Review Flagged Arrangements (SPM-68); also set by
   /// Configure Event Registration (SPM-64).
   registrationReviewReason String? @map("registration_review_reason")
+  /// Configure Event Registration (SPM-64, AC4): the venue booking the
+  /// registration capacity is measured against - the booked room's capacity
+  /// in its layout caps it. Set with the capacity; the only active booking is
+  /// used when there is one. NULL when no capacity has been set, or when the
+  /// booking was deleted. A booking that is no longer pending or approved
+  /// leaves the setup incomplete (src/lib/eventConfirmation.ts).
+  registrationVenueBookingId String? @map("registration_venue_booking_id")
 
   rejectionReason    String? @map("rejection_reason")
   cancellationReason String? @map("cancellation_reason")
@@ -239,6 +246,7 @@ model Event {
   organiser    User          @relation("EventOrganiser", fields: [organiserId], references: [id])
   organisation Organisation? @relation(fields: [organisationId], references: [id])
   coordinator  User?         @relation("EventCoordinator", fields: [coordinatorId], references: [id])
+  registrationVenueBooking VenueBooking? @relation("RegistrationMeasuredBooking", fields: [registrationVenueBookingId], references: [id], onDelete: SetNull)
 
   facilityRequirements EventFacilityRequirement[]
   statusHistory        EventStatusHistory[]
@@ -246,7 +254,7 @@ model Event {
   clarifications       ClarificationRequest[]
   changeRequests       EventChangeRequest[]
   sessions             EventSession[]
-  venueBookings        VenueBooking[]
+  venueBookings        VenueBooking[] @relation("EventVenueBookings")
   equipmentRequests    EquipmentRequest[]
   registrations        Registration[]
   notifications        Notification[]
@@ -445,9 +453,11 @@ model VenueBooking {
   reviewReason String?   @map("review_reason")
   flaggedAt    DateTime? @map("flagged_at")
 
-  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event     Event         @relation("EventVenueBookings", fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   venue     Venue         @relation("BookingVenue", fields: [venueId], references: [id])
+  /// SPM-64: events whose registration capacity is measured against this booking.
+  measuredForRegistration Event[] @relation("RegistrationMeasuredBooking")
   suggestedVenue Venue?   @relation("BookingSuggestedVenue", fields: [suggestedVenueId], references: [id], onDelete: SetNull)
   requester User          @relation("BookingRequester", fields: [requestedBy], references: [id])
   decider   User?         @relation("BookingDecider", fields: [decidedBy], references: [id])

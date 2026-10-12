@@ -22,6 +22,7 @@
 import type { Role } from "./roles";
 import { isRole } from "./roles";
 import { canTransition } from "./statuses";
+import { HOLDING_A_PLACE } from "./registrationSettings";
 
 /// Every distinct thing a user can try to do. Keep the `domain:verb` shape -
 /// it groups the matrix by the domain that owns the route (DOCUMENTATION.md
@@ -140,6 +141,9 @@ export interface EventAccessFields {
   coordinatorId: string | null;
   status: string;
   registrationEnabled?: boolean;
+  /// For an attendee: whether they are registered or waitlisted for this
+  /// event (SPM-64). Set by the caller, which knows who is asking.
+  attendeeHoldsPlace?: boolean;
 }
 
 const INTERNAL_ROLES: readonly string[] = [
@@ -194,9 +198,11 @@ export function canViewEvent(actor: Actor, event: EventAccessFields): boolean {
 
   // An attendee is a member of the public, not a planning participant: they
   // see an event only once it is confirmed and open to registration
-  // (briefing §4 "Attendee Registration": register for *confirmed* events).
+  // (briefing §4 "Attendee Registration": register for *confirmed* events) -
+  // or, once registration is turned off, if they already hold a place in it
+  // (SPM-64; #10: attendees "can view events that they register for").
   if (actor.role === "attendee") {
-    return event.status === "confirmed" && event.registrationEnabled === true;
+    return event.status === "confirmed" && (event.registrationEnabled === true || event.attendeeHoldsPlace === true);
   }
 
   return INTERNAL_ROLES.includes(actor.role);
@@ -222,7 +228,13 @@ export function eventListWhere(actor: Actor): Record<string, unknown> {
   }
 
   if (actor.role === "attendee") {
-    return { status: "confirmed", registrationEnabled: true };
+    return {
+      status: "confirmed",
+      OR: [
+        { registrationEnabled: true },
+        { registrations: { some: { attendeeId: actor.id, status: { in: HOLDING_A_PLACE } } } },
+      ],
+    };
   }
 
   return { status: { not: "draft" } };
@@ -248,6 +260,15 @@ export const EVENT_INFORMATION_STATUSES: readonly string[] = ["approved", "plann
 /// clarification #102). The status window is checked separately, so a refusal
 /// can say which rule was broken.
 export function canUpdateEventInformation(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
+}
+
+/// SPM-64: an event's registration settings are set up by the coordinator
+/// assigned to it - "the event coordinator would be in-charge" of the
+/// registration period (customer clarification #30). The organiser sees them
+/// read-only. The status window is EVENT_INFORMATION_STATUSES, checked
+/// separately as for SPM-62, so a refusal can say which rule was broken.
+export function canConfigureRegistration(actor: Actor, event: EventAccessFields): boolean {
   return isAssignedCoordinator(actor, event);
 }
 

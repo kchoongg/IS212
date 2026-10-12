@@ -1333,8 +1333,8 @@ async function main() {
   // hold plus the room's maintenance period (AC8) are created after the SPM-43
   // bookings below, so a full reseed leaves the conflict cases ready to run.
   // Pushed LAST - after SPM-54 (pinned to EVT-000145..154), SPM-62 and every
-  // other story's fixtures - so no earlier event's EVT- reference number shifts. Add
-  // new events AFTER this block.
+  // other story's fixtures - so no earlier event's EVT- reference number shifts.
+  // SPM-64's block follows.
   // -----------------------------------------------------------------
   const spm44 = (
     key: string, title: string, date: string, startHour: number, durationHours: number,
@@ -1493,6 +1493,47 @@ async function main() {
     spm81("spm81_parallel", "SPM81 Parallel Tracks", "2027-08-24", 9, 6),
     spm81("spm81_second_attempt", "SPM81 Second Attempt", "2027-08-31", 9, 3),
     spm81("spm81_twin_rooms", "SPM81 Twin Rooms", "2027-09-02", 9, 3),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-64 QA fixtures (Configure Event Registration). The SAME events as
+  // scripts/seed-spm64.ts (`npm run fixtures:spm64`) - keep the two in step.
+  //
+  // The events only. Their venue bookings, the booking each capacity is
+  // measured against, the exact registration periods and the registered,
+  // waitlisted and withdrawn attendees are created by that script alone, so
+  // run it once after a full reseed. Pushed LAST, after SPM-81, so no earlier
+  // event's EVT- reference number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm64 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    attendance: number, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-64 configure event registration test event", category: "seminar",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "classroom", ...options,
+  });
+  eventData.push(
+    spm64("spm64_orchard", "SPM64 Orchard Data Forum", "planning", "2027-03-18", 9, 8, 60, { category: "conference" }),
+    spm64("spm64_twin", "SPM64 Twin Room Workshop", "planning", "2027-03-24", 9, 8, 60, { category: "workshop" }),
+    spm64("spm64_unbooked", "SPM64 Unbooked Strategy Day", "approved", "2027-03-31", 9, 8, 30, { category: "meeting" }),
+    spm64("spm64_layoutfree", "SPM64 Layout-Free Networking Night", "planning", "2027-04-07", 18, 4, 50,
+      { category: "networking", layout: undefined }),
+    spm64("spm64_closed", "SPM64 Closed Registration Seminar", "confirmed", "2027-03-10", 9, 8, 50,
+      { regEnabled: true, regCapacity: 50 }),
+    spm64("spm64_started", "SPM64 Started Showcase", "confirmed", "2026-10-01", 9, 32, 40,
+      { category: "exhibition", regEnabled: true, regCapacity: 40 }),
+    spm64("spm64_fullhouse", "SPM64 Full House Masterclass", "planning", "2027-04-14", 9, 8, 20,
+      { category: "training", regEnabled: true, regCapacity: 20 }),
+    spm64("spm64_waitlist", "SPM64 Waitlist Only Briefing", "planning", "2027-04-21", 9, 3, 10,
+      { regEnabled: true, regCapacity: 10 }),
+    spm64("spm64_incomplete", "SPM64 Incomplete Setup Gala", "planning", "2027-04-28", 18, 4, 60,
+      { category: "networking", regEnabled: true }),
+    spm64("spm64_lost", "SPM64 Lost Booking Expo", "planning", "2027-05-05", 9, 8, 40,
+      { category: "exhibition", regEnabled: true, regCapacity: 40 }),
+    spm64("spm64_openday", "SPM64 Attendee Open Day", "confirmed", "2027-05-13", 9, 8, 60,
+      { regEnabled: true, regCapacity: 60 }),
+    spm64("spm64_postponed", "SPM64 Postponed Product Talk", "postponed", "2027-05-19", 9, 3, 30),
   );
 
   // -----------------------------------------------------------------

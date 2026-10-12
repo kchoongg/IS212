@@ -165,7 +165,7 @@ organiser is not.
 | Role | Sees |
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
-| Attendee | Only events that are `confirmed` **and** have registration enabled |
+| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10) |
 | Coordinator, Ops Manager, Venue Staff, Tech Support | Every event that has left `draft` |
 | Anyone | Never another organiser's draft |
 
@@ -299,6 +299,8 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]` (safety check) | `safetyCheck` (who submitted the latest Operational Safety Check, and when) is added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403. `safety_review` is refused (400): it is entered only through `POST /api/events/[id]/safety-check` (SPM-86) |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
+| `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
+| `GET /api/events/[id]/registration` | Same 404 / 403 checks; the assigned coordinator's list of bookings to measure the capacity against (SPM-64) |
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
 | `POST /api/events/[id]/safety-check` | `canViewEvent()` → 404, then `isAssignedCoordinator()` → 403, then the event must be in Planning (400; "A safety check is already pending for this event." when it is already in Safety review), then `checkSafetySubmission()` → 400 naming what is outstanding or flagged (SPM-86) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |

@@ -189,6 +189,19 @@ per role, one screen renders the tabs the user is entitled to:
 | Readiness | — | yes | — | — | — |
 | History | — | yes | — | — | — |
 
+**The Overview's Registration card** (SPM-64) is read-only for every role
+that can see the event: Registration (Enabled / Not enabled for this event),
+then Capacity, Measured against, Opens and Closes. Attendees don't see
+"Measured against", which room caps the capacity, or the amber "Registration
+setup is incomplete" alert. Only the assigned coordinator, while the event is
+Approved, Planning or Confirmed, gets "Change registration settings", which
+turns the card into a form: "Attendees need to register for this event",
+Registration capacity, Capacity measured against (only with two or more active
+venue bookings), Registration opens, Registration closes, and "Save
+registration settings" / "Cancel". Each server refusal shows under its own
+field, and a save that flags the registrations lists them under "Flagged for
+review".
+
 A tab the role cannot see is **not rendered** — not rendered-and-disabled.
 Disabled tabs leak the existence of internal planning information, which §8b of
 the briefing forbids.
