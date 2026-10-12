@@ -122,6 +122,16 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
+  it("words a reason SPM-55 stored when units went out of service", () => {
+    const flagged = item({ needsReview: true, reviewReason: "equipment_unavailable" });
+
+    const result = check({ bookings: [booking()], equipment: [flagged] });
+
+    expect(!result.ok && result.error).toBe(
+      PREFIX + `${MIC} for this event is flagged for review (units of the equipment were marked out of service).`
+    );
+  });
+
   it("lists every reason a flag carries", () => {
     const flagged = booking({ needsReview: true, reviewReason: "event_schedule_changed,event_attendance_changed" });
 

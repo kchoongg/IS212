@@ -450,6 +450,19 @@ describe("SPM-33 arrangementsFor — flagged for review (AC4)", () => {
     expect(list[0].flagReason).toBe("the venue has been retired; the expected attendance changed");
   });
 
+  // SPM-55: Technical Support took units out of service, leaving a reservation short.
+  it("words a flag raised when equipment was marked out of service (SPM-55)", () => {
+    const list = rows({
+      bookings: [booking()],
+      equipment: [line({ needsReview: true, reviewReason: "equipment_unavailable" })],
+    });
+
+    expect(named(list, "Handheld Wireless Mic")).toMatchObject({
+      state: "outstanding",
+      flagReason: "units of the equipment were marked out of service",
+    });
+  });
+
   it("still shows a flag whose reason it does not recognise, rather than hiding it", () => {
     const list = rows({ bookings: [booking({ needsReview: true, reviewReason: "something_new" })] });
 

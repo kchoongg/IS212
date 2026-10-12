@@ -29,7 +29,7 @@ interface BookingRef {
 
 /// The venue for the whole event (session-less booking) or for one session,
 /// falling back to the whole-event booking when a session has none of its own.
-function venueFor(bookings: BookingRef[], sessionId: string | null): string | null {
+export function venueFor(bookings: BookingRef[], sessionId: string | null): string | null {
   const usable = bookings.filter((b) => VENUE_CHOSEN_STATUSES.includes(b.status));
   const pick = (id: string | null) =>
     usable.find((b) => b.sessionId === id && b.status === "approved") ??

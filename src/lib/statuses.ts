@@ -48,6 +48,10 @@ const STATUS_META: Record<string, StatusMeta> = {
   // availabilityStatusKey() below), so it never reads
   // the same as a request Technical Support marked "Cannot be provided".
   none_available: { label: "None available", tone: "danger" },
+  // SPM-55: an equipment item's operational status (Equipment page). Worked
+  // out from how many units are out of service, so not a request status.
+  partly_out_of_service: { label: "Partly out of service", tone: "warning" },
+  out_of_service: { label: "Out of service", tone: "danger" },
 
   // --- Registration ---
   registered: { label: "Registered", tone: "success" },

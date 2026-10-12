@@ -63,6 +63,7 @@
 
 import { CHANGE_REASON_PROSE } from "./eventChangeImpact";
 import { IMPACT_REASON_PROSE } from "./venueImpact";
+import { EQUIPMENT_REASON_PROSE } from "./equipmentOutOfService";
 import { formatDateTime } from "./format";
 import { liveBookings } from "@/lib/registrationSettings";
 
@@ -222,7 +223,14 @@ function whose(session: SessionRef | null): string {
   return session.label ? `the ${session.label} session` : "one session";
 }
 
-const REASON_PROSE: Record<string, string> = { ...IMPACT_REASON_PROSE, ...CHANGE_REASON_PROSE };
+/// Every reason code a flag may carry, in words: venue edits and unavailable
+/// periods (SPM-39, SPM-45), event changes (SPM-62) and equipment taken out of
+/// service (SPM-55). The same three sources as safetyCheck.ts.
+const REASON_PROSE: Record<string, string> = {
+  ...IMPACT_REASON_PROSE,
+  ...CHANGE_REASON_PROSE,
+  ...EQUIPMENT_REASON_PROSE,
+};
 
 /// "the venue has been retired; the date or time changed". Every writer of a
 /// reviewReason column knows only its own codes (src/lib/reviewFlags.ts), so a

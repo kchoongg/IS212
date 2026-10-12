@@ -536,6 +536,9 @@ model Equipment {
   /// Why those units are out of service, as recorded by Technical Support
   /// (SPM-48 AC7 / SPM-55). NULL when none are.
   outOfServiceReason    String? @map("out_of_service_reason")
+  /// SPM-55: which of AC1's three it is - unavailable | damaged |
+  /// under_maintenance. NULL when no units are out of service.
+  outOfServiceType      String? @map("out_of_service_type")
 
   isActive Boolean @default(true) @map("is_active")
 
