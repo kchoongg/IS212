@@ -24,7 +24,9 @@
 //   - keeping writes { needsReview: false, reviewReason: null } and leaves flaggedAt as history;
 //     reviewing registrations writes { registrationReviewReason: null }
 //   - the wording of every message
-// NOT here: releasing the flagged booking (AC12) waits for SPM-67 to be in main.
+// AC12's release needs nothing new here: the page calls SPM-67's own
+// PATCH /api/events/[id]/venue-bookings/[bookingId]. A withdrawn or released booking
+// leaves this list because only pending and approved bookings are read.
 
 import { describe, it, expect, vi } from "vitest";
 
@@ -42,8 +44,8 @@ const keep = (body: unknown, token?: string) => POST(req("POST", PATH, { token, 
 const coordinator = () => signIn(user("coordinator"));
 const OTHER_ROLES = ROLES.filter((role) => !can(role, "event:confirm"));
 
-/// 8 Sep 2027 at a Singapore wall-clock hour.
-const at = (hour: number, day = 8) => new Date(Date.UTC(2027, 8, day, hour - 8));
+/// 8 Oct 2027 at a Singapore wall-clock hour.
+const at = (hour: number, day = 8) => new Date(Date.UTC(2027, 9, day, hour - 8));
 const FLAGGED_AT = new Date("2026-10-12T02:00:00.000Z");
 
 const NOT_ASSIGNED = "Only the assigned Coordinator can review this event's flagged arrangements.";
@@ -189,6 +191,7 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
+  // AC12: so a booking the coordinator withdrew or released (SPM-67) is gone from the list.
   it("leaves out a booking or equipment line that no longer holds anything", async () => {
     given();
 
@@ -230,8 +233,8 @@ describe("GET /api/flagged-arrangements", () => {
       {
         id: ID.booking,
         status: "approved",
-        startsAt: "2027-09-08T01:00:00.000Z",
-        endsAt: "2027-09-08T09:00:00.000Z",
+        startsAt: "2027-10-08T01:00:00.000Z",
+        endsAt: "2027-10-08T09:00:00.000Z",
         layoutName: "theatre",
         flaggedAt: "2026-10-12T02:00:00.000Z",
         reasons: ["the date or time changed", "the expected attendance changed"],
@@ -294,7 +297,7 @@ describe("GET /api/flagged-arrangements", () => {
 
     expect(bookings[0]).toMatchObject({
       reasons: ["the venue is unavailable during this booking"],
-      availability: { ok: false, unmet: ["Hall is unavailable at this time (maintenance, 8 Sep 2027, 08:00–18:00)."] },
+      availability: { ok: false, unmet: ["Hall is unavailable at this time (maintenance, 8 Oct 2027, 08:00–18:00)."] },
     });
     expect(bookings[1]).toMatchObject({
       reasons: ["the venue has been retired"],
@@ -309,7 +312,7 @@ describe("GET /api/flagged-arrangements", () => {
 
     expect(booking.availability).toEqual({
       ok: false,
-      unmet: ["The booking (8 Sep 2027, 09:00–17:00) does not cover the event's time (9 Sep 2027, 09:00–17:00)."],
+      unmet: ["The booking (8 Oct 2027, 09:00–17:00) does not cover the event's time (9 Oct 2027, 09:00–17:00)."],
     });
   });
 
@@ -496,7 +499,7 @@ describe("POST /api/flagged-arrangements", () => {
 
       expect(res.status).toBe(400);
       expect((await res.json()).error).toBe(
-        "Hall no longer meets this event's requirements: Hall is unavailable at this time (maintenance, 8 Sep 2027, 08:00–18:00)."
+        "Hall no longer meets this event's requirements: Hall is unavailable at this time (maintenance, 8 Oct 2027, 08:00–18:00)."
       );
       nothingWritten();
     });

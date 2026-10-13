@@ -29,7 +29,7 @@ import {
 const at = (day: string, hour: number, minute = 0) =>
   new Date(Date.UTC(Number(day.slice(0, 4)), Number(day.slice(5, 7)) - 1, Number(day.slice(8, 10)), hour - 8, minute));
 
-const DAY = "2027-09-08";
+const DAY = "2027-10-08";
 
 function input(overrides: Partial<FlaggedBookingInput> = {}): FlaggedBookingInput {
   return {
@@ -166,13 +166,13 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
 
     expect(result.availability).toEqual({
       ok: false,
-      unmet: ["Hall is unavailable at this time (maintenance, 8 Sep 2027, 08:00–18:00)."],
+      unmet: ["Hall is unavailable at this time (maintenance, 8 Oct 2027, 08:00–18:00)."],
     });
   });
 
   it("ignores an unavailable period on another day", () => {
     const result = assessFlaggedBooking(
-      input({ venue: venue({ unavailability: [{ startsAt: at("2027-09-09", 8), endsAt: at("2027-09-09", 18), reason: "maintenance" }] }) })
+      input({ venue: venue({ unavailability: [{ startsAt: at("2027-10-09", 8), endsAt: at("2027-10-09", 18), reason: "maintenance" }] }) })
     );
 
     expect(result.availability).toEqual({ ok: true, unmet: [] });
@@ -199,7 +199,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
 
     expect(result.availability).toEqual({
       ok: false,
-      unmet: ["Hall is already booked for EVT-000050 Other Event on 8 Sep 2027, 12:00–14:00."],
+      unmet: ["Hall is already booked for EVT-000050 Other Event on 8 Oct 2027, 12:00–14:00."],
     });
   });
 
@@ -241,12 +241,12 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
 
   it("says so when the booking no longer covers the event's time", () => {
     const result = assessFlaggedBooking(
-      input({ schedule: { startsAt: at("2027-09-09", 9), endsAt: at("2027-09-09", 17) } })
+      input({ schedule: { startsAt: at("2027-10-09", 9), endsAt: at("2027-10-09", 17) } })
     );
 
     expect(result.availability).toEqual({
       ok: false,
-      unmet: ["The booking (8 Sep 2027, 09:00–17:00) does not cover the event's time (9 Sep 2027, 09:00–17:00)."],
+      unmet: ["The booking (8 Oct 2027, 09:00–17:00) does not cover the event's time (9 Oct 2027, 09:00–17:00)."],
     });
   });
 
@@ -256,7 +256,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     );
 
     expect(result.availability.unmet).toEqual([
-      "The booking (8 Sep 2027, 09:00–17:00) does not cover the session's time (8 Sep 2027, 09:00–18:00).",
+      "The booking (8 Oct 2027, 09:00–17:00) does not cover the session's time (8 Oct 2027, 09:00–18:00).",
     ]);
   });
 
