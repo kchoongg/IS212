@@ -2,7 +2,7 @@
   "story_key": "SPM-51",
   "story_title": "As an Attendee, I want to register for an eligible event so that I can reserve a place to attend it",
   "created_by": "Sammi Chua",
-  "creation_date": "2026-10-10",
+  "creation_date": "2026-10-12",
   "acceptance_criteria": [
     {
       "id": "AC1",
