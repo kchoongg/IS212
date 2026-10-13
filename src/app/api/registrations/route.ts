@@ -3,7 +3,38 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canViewEvent } from "@/lib/permissions";
 import { createRegistrationSchema } from "@/lib/validation";
+import { REGISTRATION_REFUSALS, SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { ZodError } from "zod";
+
+/// SPM-51 AC6: the signed-in attendee's own registrations, newest first, for
+/// My Registrations (S-27). Withdrawn ones are included, with their status.
+/// Closes the gap Integration.md §5 records ("cannot serve view status").
+export async function GET(req: NextRequest) {
+  try {
+    const actor = await getActor(req);
+    if (!actor) {
+      return unauthenticated();
+    }
+    if (!can(actor.role, "registration:create")) {
+      return forbidden("Registrations belong to an Attendee account.");
+    }
+
+    const registrations = await prisma.registration.findMany({
+      where: { attendeeId: actor.id },
+      orderBy: { registeredAt: "desc" },
+      select: {
+        id: true,
+        status: true,
+        registeredAt: true,
+        event: { select: { sequenceNumber: true, title: true, startsAt: true, endsAt: true } },
+      },
+    });
+    return NextResponse.json(registrations);
+  } catch (err) {
+    console.error(err);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -32,20 +63,14 @@ export async function POST(req: NextRequest) {
     if (!canViewEvent(actor, event)) {
       return hidden();
     }
-    if (event.status !== "confirmed") {
-      return NextResponse.json({ error: "Event is not open for registration yet" }, { status: 400 });
-    }
-    if (!event.registrationEnabled) {
-      return NextResponse.json({ error: "Registration is not enabled for this event" }, { status: 400 });
-    }
-
-    // ADDED: registration window, if one is set.
+    // CHANGED (SPM-51): eligibility is registrationState()
+    // (src/lib/registrationEligibility.ts) - Confirmed, enabled, and inside a
+    // registration period, which must now exist (AC3). Seats are counted
+    // below, inside the transaction.
     const now = new Date();
-    if (event.registrationOpensAt && now < event.registrationOpensAt) {
-      return NextResponse.json({ error: "Registration has not opened yet" }, { status: 400 });
-    }
-    if (event.registrationClosesAt && now > event.registrationClosesAt) {
-      return NextResponse.json({ error: "Registration has closed" }, { status: 400 });
+    const state = registrationState(event, 0, now);
+    if (state.kind !== "open") {
+      return NextResponse.json({ error: REGISTRATION_REFUSALS[state.kind] }, { status: 400 });
     }
 
     // The @@unique([eventId, attendeeId]) constraint means a withdrawn attendee
@@ -63,9 +88,9 @@ export async function POST(req: NextRequest) {
     const registration = await prisma.$transaction(async (tx) => {
       if (event.registrationCapacity != null) {
         const taken = await tx.registration.count({
-          where: { eventId: data.eventId, status: { in: ["registered", "attended"] } },
+          where: { eventId: data.eventId, status: { in: SEAT_TAKING } },
         });
-        if (taken >= event.registrationCapacity) {
+        if (registrationState(event, taken, now).kind === "full") {
           throw new Error("EVENT_FULL");
         }
       }
@@ -102,7 +127,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
     if (err instanceof Error && err.message === "EVENT_FULL") {
-      return NextResponse.json({ error: "This event is full" }, { status: 400 });
+      return NextResponse.json({ error: REGISTRATION_REFUSALS.full }, { status: 400 });
     }
     // Unique constraint = already registered for this event. Kept as a backstop
     // for the race where two requests pass the check above simultaneously.

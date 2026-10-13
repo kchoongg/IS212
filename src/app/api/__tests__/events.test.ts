@@ -56,8 +56,10 @@ describe("GET /api/events", () => {
   });
 
   // CHANGED (SPM-64, #10): plus the confirmed events they hold a place in.
+  // CHANGED (SPM-51 AC1): each with its registration state and company.
   it("shows an attendee confirmed events open for registration or that they hold a place in, and only their public fields", async () => {
     const token = signIn(user("attendee"));
+    db.registration.groupBy.mockResolvedValue([]);
     db.event.findMany.mockResolvedValue([
       {
         id: ID.event,
@@ -92,8 +94,47 @@ describe("GET /api/events", () => {
         status: "confirmed",
         registrationEnabled: true,
         organisation: { name: "Meridian" },
+        registrationState: { kind: "no_period" },
       },
     ]);
+    expect(callArg(db.event.findMany).include.organisation).toEqual({ select: { name: true } });
+  });
+
+  // SPM-51 AC1, AC9 (TC01): one grouped count gives every event's seats taken.
+  it("gives an attendee each event's registration state, counting seats once for all of them", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-10T04:00:00Z"), toFake: ["Date"] });
+    const token = signIn(user("attendee"));
+    const period = {
+      registrationOpensAt: new Date("2026-09-01T01:00:00Z"),
+      registrationClosesAt: new Date("2027-12-31T09:00:00Z"),
+    };
+    db.event.findMany.mockResolvedValue([
+      { id: "open-event", status: "confirmed", registrationEnabled: true, registrationCapacity: 3, ...period },
+      { id: "full-event", status: "confirmed", registrationEnabled: true, registrationCapacity: 3, ...period },
+    ]);
+    db.registration.groupBy.mockResolvedValue([{ eventId: "full-event", _count: { _all: 3 } }]);
+
+    const body = await (await GET(req("GET", "/api/events", { token }))).json();
+    vi.useRealTimers();
+
+    expect(callArg(db.registration.groupBy)).toEqual({
+      by: ["eventId"],
+      where: { eventId: { in: ["open-event", "full-event"] }, status: { in: ["registered", "attended"] } },
+      _count: { _all: true },
+    });
+    expect(body.map((e: { registrationState: unknown }) => e.registrationState)).toEqual([
+      { kind: "open" },
+      { kind: "full" },
+    ]);
+  });
+
+  it("doesn't count registrations for staff", async () => {
+    const token = signIn(user("coordinator"));
+    db.event.findMany.mockResolvedValue([]);
+
+    await GET(req("GET", "/api/events", { token }));
+
+    expect(db.registration.groupBy).not.toHaveBeenCalled();
   });
 });
 
