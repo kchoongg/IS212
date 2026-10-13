@@ -973,11 +973,6 @@ what changed, why, and the migration name if there is one.
   showing the list. Their event page `/events/<reference>`, where they
   register, is unchanged, and so is `/events` for every other role. 1 more
   page test in `list-pages.test.tsx`.
-- **Browse Events shows a date beside every badge that has one.** Only "Not
-  open yet" had its date ("Opens …"), so Open and Closed read inconsistently.
-  Now Open shows "Closes <date, time>" and Closed "Closed on <date, time>".
-  `registrationState()` returns `closesAt` with `open` too. SPM-51-TC01's
-  expected result was updated to match.
 - Migration: none.
 
 ### 2026-10-12 — Jordan
