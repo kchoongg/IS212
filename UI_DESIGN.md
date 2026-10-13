@@ -98,7 +98,7 @@ cite.
 | S-12 | Review queue | `/queue` | Events assigned to me, grouped by what they need. |
 | S-13 | Event review | `/events/[id]/review` | Approve, reject, or request clarification. |
 | S-14 | Venue search | `/venues/search?event=EVT-000123` | Filter venues against this event's requirements. Built (SPM-40): shows only matching venues; the greyed "not suitable, and why" view is the event's Venue tab (SPM-41). |
-| S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
+| S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. The event's requests are listed on its Venue tab ("Booking requests" card), where the assigned coordinator can **Withdraw request** (Pending) or **Release booking** (Approved), each behind a confirmation with an optional reason (SPM-67). The row stays, as Withdrawn or Released (grey), with "Reason for withdrawal/release: …"; a release notifies Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
 | S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). |
@@ -110,7 +110,7 @@ cite.
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/availability` | Bookings, holds, and blocks over time: one row per day, each entry at its actual times, with setup and turnaround as their own entries (SPM-93). |
-| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
+| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. A request the coordinator withdraws leaves the list (SPM-67). |
 | S-23 | Block venue | — (on S-20) | Record a period the venue is unavailable for. Built in SPM-45 as the "Unavailable periods" section and "Mark unavailable" dialog on the venue editor (S-20), not as a page of its own: the date and time it becomes unavailable and is available again (15-minute grid), a reason, and a typed reason when it is Other. |
 
 ### 3.5 Technical Support
