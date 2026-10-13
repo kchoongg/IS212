@@ -43,7 +43,7 @@ const COORDINATOR_FILTER_OPTIONS = [
 ];
 
 const ALL_STATUSES = [
-  "draft", "submitted", "under_review", "approved", "planning", "safety_review", "confirmed", "completed", "rejected",
+  "draft", "submitted", "under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "completed", "rejected",
   "cancelled",
 ];
 

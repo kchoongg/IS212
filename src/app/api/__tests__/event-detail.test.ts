@@ -293,7 +293,17 @@ describe("GET /api/events/[id]", () => {
       endsAt: true,
       layoutName: true,
       session: { select: { label: true } },
-      venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+      // CHANGED (SPM-87 AC2): with id and opening hours, for the venue restrictions.
+      venue: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          opensAt: true,
+          closesAt: true,
+          layouts: { select: { layoutName: true, capacity: true } },
+        },
+      },
     });
   });
 

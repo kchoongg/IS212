@@ -31,8 +31,9 @@ Copy from here rather than typing from memory.
 | Field | Allowed values |
 |---|---|
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
-| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `confirmed` `completed` `cancelled` `rejected` `postponed` |
+| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `safety_cleared` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `SafetyCheck.status` | `pending` (SPM-86) `approved` `changes_requested` `rejected` (SPM-87) `closed` (SPM-88) |
+| *(note)* | `Event.status = safety_cleared` is shown as **"Safety approved"** (SPM-87). It is not `safety_approved`, which is the Readiness tab's safety-check badge key (SPM-33). |
 | `VenueBooking.status` | `pending` `approved` `rejected` `withdrawn` `released` |
 | `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
@@ -559,7 +560,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45), `safety_check_submitted` (SPM-86, to every `safety_officer`), `equipment_unavailable` (SPM-55, to the coordinator of each reservation left short). |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45), `safety_check_submitted` (SPM-86, to every `safety_officer`), `equipment_unavailable` (SPM-55, to the coordinator of each reservation left short), `safety_check_decided` (SPM-87, to the assigned coordinator, with the reason or changes). |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |
