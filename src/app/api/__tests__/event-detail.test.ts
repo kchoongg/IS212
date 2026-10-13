@@ -230,6 +230,8 @@ describe("GET /api/events/[id]", () => {
       startsAt: true,
       endsAt: true,
       layoutName: true,
+      // SPM-90 (AC5): what each booked space is for.
+      purpose: true,
       session: { select: { label: true } },
       venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
     });

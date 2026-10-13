@@ -115,7 +115,8 @@ export interface BookingRequestInput {
   holder: { kind: "event" | "session"; name: string };
   /// The holder's own times.
   schedule: Interval;
-  /// Session attendance and layout where there is a session; facilities are
+  /// The attendance and layout of the space being asked for (SPM-90) - the
+  /// session's or event's own unless the Coordinator set them; facilities are
   /// always the event's.
   needs: EventNeeds;
   venue: SearchableVenue;
@@ -156,7 +157,7 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
 
   const { unmet } = checkVenueSuitability(input.needs, venue);
   if (unmet.length > 0) {
-    return refuse(`${venue.name} is not suitable for this event: ${unmet.map(describeUnmet).join(" ")}`);
+    return refuse(`${venue.name} is not suitable for this space: ${unmet.map(describeUnmet).join(" ")}`);
   }
 
   // SPM-44 AC4: the same request a second time. Checked before clashes with

@@ -11,6 +11,7 @@ import {
   CardHeader,
   ConfirmDialog,
   Field,
+  Input,
   PageHeader,
   Select,
   SkeletonRows,
@@ -25,7 +26,14 @@ import { RequirePermission } from "@/components/RequirePermission";
 import { cn } from "@/lib/cn";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { statusLabel } from "@/lib/statuses";
-import { describeUnmet, layoutLabel, type UnmetRequirement } from "@/lib/venueSuitability";
+import { LAYOUTS, toOptions } from "@/lib/eventForm";
+import {
+  SPACE_ATTENDANCE_ERROR,
+  describeUnmet,
+  layoutLabel,
+  parseSpaceAttendance,
+  type UnmetRequirement,
+} from "@/lib/venueSuitability";
 
 // SPM-41, "Find a venue" (design/mockups/VenueSearch.dc.html). Every active
 // venue is judged against the event's attendance, layout, facilities and
@@ -34,6 +42,13 @@ import { describeUnmet, layoutLabel, type UnmetRequirement } from "@/lib/venueSu
 // SPM-42: a suitable venue gets "Request booking" (S-15); an unsuitable one
 // does not (team decision, 2026-10-01). A multi-session event picks a session
 // first, and venues are then judged on that session's attendance and layout.
+//
+// SPM-90: an event may book several rooms, each for its own use, so the venues
+// are judged for one SPACE at a time. "The space you need" starts on the
+// event's (or session's) own attendance and layout; the Coordinator changes
+// them for a smaller space - a breakout room - and checks again, and "Request
+// booking" carries them to the request form. Facilities and accessibility
+// needs stay the event's. Each request is listed with what its space is for.
 //
 // SPM-67: the assigned Coordinator withdraws a pending request or releases an
 // approved booking from the "Booking requests" card, with an optional reason.
@@ -76,6 +91,10 @@ interface BookingInfo {
     startsAt: string;
     endsAt: string;
     layoutName: string | null;
+    /// SPM-90: what the space is for, and how many people it is for. Null on
+    /// a booking made before they were recorded.
+    purpose?: string | null;
+    expectedAttendance?: number | null;
     decisionReason: string | null;
     suggestedAlternative: string | null;
     suggestedVenue: { id: string; code: string; name: string; isActive: boolean } | null;
@@ -117,6 +136,15 @@ function describeBooking(b: Booking): string {
   return `${formatVenue(b.venue.name, b.venue.code)}${session} on ${formatDateTimeRange(b.startsAt, b.endsAt)}`;
 }
 
+/// SPM-90: the space the venues were last checked for.
+interface Space {
+  attendance: number;
+  /// "" when no layout is set.
+  layout: string;
+}
+
+const LAYOUT_OPTIONS = [{ value: "", label: "Not set" }, ...toOptions(LAYOUTS)];
+
 const MISSING_LABEL = {
   expectedAttendance: "expected attendance",
   preferredLayout: "preferred layout",
@@ -154,6 +182,12 @@ function EventVenueScreen() {
   const [booking, setBooking] = useState<BookingInfo | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // SPM-90: the space the Coordinator asked the venues to be checked for (null
+  // = the event's or session's own), and what is typed in its two fields.
+  const [space, setSpace] = useState<Space | null>(null);
+  const [spaceAttendance, setSpaceAttendance] = useState("");
+  const [spaceLayout, setSpaceLayout] = useState("");
+  const [spaceError, setSpaceError] = useState<string | null>(null);
   // SPM-67: the booking being withdrawn or released, and what happened.
   const [changing, setChanging] = useState<{ booking: Booking; action: ChangeAction } | null>(null);
   const [reason, setReason] = useState("");
@@ -180,7 +214,11 @@ function EventVenueScreen() {
       const session = sessionId ?? bookingInfo.sessions[0]?.id ?? null;
       setSessionId(session);
 
-      const query = session ? `?session=${session}` : "";
+      const asked = [
+        ...(session ? [`session=${session}`] : []),
+        ...(space ? [`attendance=${space.attendance}`, `layout=${encodeURIComponent(space.layout)}`] : []),
+      ];
+      const query = asked.length > 0 ? `?${asked.join("&")}` : "";
       const res = await authedFetch(`/api/events/${eventId}/venue-suitability${query}`);
       if (res.status === 401) {
         router.push(loginUrlFor(`/events/${eventId}/venue`));
@@ -195,12 +233,19 @@ function EventVenueScreen() {
         return;
       }
       if (!res.ok) throw new Error("Could not check venues for this event.");
-      setData(await res.json());
+      const payload: Payload = await res.json();
+      setData(payload);
+      // SPM-90 (AC2): until the Coordinator asks for a space of their own, the
+      // fields show what was checked - the event's or session's own.
+      if (!space) {
+        setSpaceAttendance(payload.event.expectedAttendance?.toString() ?? "");
+        setSpaceLayout(payload.event.preferredLayout ?? "");
+      }
     } catch (err) {
       setData(null);
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [eventId, router, sessionId]);
+  }, [eventId, router, sessionId, space]);
 
   useEffect(() => {
     if (state === "anonymous") {
@@ -212,6 +257,21 @@ function EventVenueScreen() {
       void load();
     }
   }, [state, load, router, eventId]);
+
+  /// SPM-90: check every venue again, for the space in the two fields.
+  function checkSpace(e: React.FormEvent) {
+    e.preventDefault();
+    const attendance = parseSpaceAttendance(spaceAttendance);
+    if (attendance === null) {
+      setSpaceError(SPACE_ATTENDANCE_ERROR);
+      return;
+    }
+    setSpaceError(null);
+    setSpace({ attendance, layout: spaceLayout });
+  }
+
+  /// The space in the address of the request form, once one has been checked.
+  const spaceQuery = space ? `&attendance=${space.attendance}&layout=${encodeURIComponent(space.layout)}` : "";
 
   function startChange(target: Booking, action: ChangeAction) {
     setReason("");
@@ -266,7 +326,7 @@ function EventVenueScreen() {
     <div className="max-w-3xl">
       <PageHeader
         title="Find a venue"
-        subtitle="Each venue is checked against this event's attendance, layout, facilities and accessibility needs."
+        subtitle="Each venue is checked against the attendance and layout of the space you need, and this event's facilities and accessibility needs."
         breadcrumbs={[
           { label: user?.role === "organiser" ? "My Events" : "Events", href: "/events" },
           { label: "Event", href: `/events/${eventId}` },
@@ -303,7 +363,12 @@ function EventVenueScreen() {
             <Field label="Session">
               <Select
                 value={sessionId ?? ""}
-                onChange={(e) => setSessionId(e.target.value)}
+                onChange={(e) => {
+                  // Another session has its own attendance and layout to start on.
+                  setSpace(null);
+                  setSpaceError(null);
+                  setSessionId(e.target.value);
+                }}
                 options={booking.sessions.map((s) => ({
                   value: s.id,
                   label: `${s.label ?? "Session"} — ${formatDateTimeRange(s.startsAt, s.endsAt)}`,
@@ -334,6 +399,38 @@ function EventVenueScreen() {
             />
           )}
 
+          <Card>
+            <CardHeader
+              title="The space you need"
+              subtitle={`Starts on this ${booking && booking.sessions.length > 0 ? "session" : "event"}'s own attendance and layout. Change them to check venues for a smaller space, such as a breakout room.`}
+            />
+            <CardBody>
+              <form onSubmit={checkSpace} noValidate className="flex flex-col gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Expected attendance for this space" error={spaceError ?? undefined}>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={spaceAttendance}
+                      onChange={(e) => {
+                        setSpaceAttendance(e.target.value);
+                        setSpaceError(null);
+                      }}
+                    />
+                  </Field>
+                  <Field label="Room layout">
+                    <Select value={spaceLayout} onChange={(e) => setSpaceLayout(e.target.value)} options={LAYOUT_OPTIONS} />
+                  </Field>
+                </div>
+                <div>
+                  <Button type="submit" variant="secondary">
+                    Check venues
+                  </Button>
+                </div>
+              </form>
+            </CardBody>
+          </Card>
+
           {data.event.missing.length > 0 && (
             <Alert variant="info" title="This check is incomplete">
               The event has no {data.event.missing.map((m) => MISSING_LABEL[m]).join(" or ")} yet, so
@@ -351,7 +448,7 @@ function EventVenueScreen() {
               result={result}
               requestHref={
                 booking && !booking.cannotRequest && result.suitable
-                  ? `/events/${eventId}/booking/new?venue=${result.venue.id}${sessionId ? `&session=${sessionId}` : ""}`
+                  ? `/events/${eventId}/booking/new?venue=${result.venue.id}${sessionId ? `&session=${sessionId}` : ""}${spaceQuery}`
                   : null
               }
             />
@@ -387,6 +484,8 @@ function EventVenueScreen() {
 /// SPM-43 AC6: a rejected one carries Venue Staff's reason and any suggested
 /// alternative. The suggestion books nothing (#45) - "Request this venue"
 /// only opens the request form on the suggested room, for the same session.
+/// SPM-90 AC5: each row says what its space is for, with that space's layout
+/// and attendance.
 /// SPM-67: a pending row can be withdrawn and an approved one released; a
 /// withdrawn or released row shows the Coordinator's reason.
 function BookingRequests({
@@ -409,10 +508,18 @@ function BookingRequests({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="font-medium text-ink">{formatVenue(b.venue.name, b.venue.code)}</p>
+                {/* SPM-90 (AC5): what the space is for first, then its own
+                    layout and attendance. */}
                 <p className="text-xs text-ink-3">
-                  {b.session && `${b.session.label ?? "Session"} · `}
-                  {formatDateTimeRange(b.startsAt, b.endsAt)}
-                  {b.layoutName && ` · ${layoutLabel(b.layoutName)}`}
+                  {[
+                    b.purpose?.trim(),
+                    b.session && (b.session.label ?? "Session"),
+                    formatDateTimeRange(b.startsAt, b.endsAt),
+                    b.layoutName && layoutLabel(b.layoutName),
+                    b.expectedAttendance != null && `${b.expectedAttendance} attendees`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
                 </p>
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">

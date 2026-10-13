@@ -381,7 +381,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `eventId` | String | req |  |
 | `sessionId` | String |  | Set only for a multi-session event's session-specific booking. NULL means the booking applies to the whole event, as before EventSession existed. |
 | `venueId` | String | req |  |
-| `layoutName` | String |  | What Venue Staff physically set up. |
+| `layoutName` | String |  | What Venue Staff physically set up. Since SPM-90 the layout of THIS space, which may differ from the event's preferred layout. |
+| `purpose` | String |  | What this space is for, in the Coordinator's words - "Main programme", "Breakout room" (SPM-90). Up to 100 characters. NULL on a booking made before SPM-90. |
+| `expectedAttendance` | Int |  | How many people THIS space is for - what the venue was judged against, not the event's total (SPM-90). Copied at request time. Existing bookings were filled from their session or event. |
 | `startsAt` | DateTime | req | COPIED from the event (or session) at request time. Do not read it live - changing an event must not silently move an approved booking. |
 | `endsAt` | DateTime | req |  |
 | `status` | String |  | pending \| approved \| rejected \| withdrawn \| released. `pending` and `approved` hold the venue (see Watch out); `withdrawn` (was pending) and `released` (was approved) are the assigned Coordinator taking it back (SPM-67) and hold nothing. Defaults to `"pending"`. |
