@@ -59,6 +59,15 @@ const STATUS_META: Record<string, StatusMeta> = {
   withdrawn: { label: "Withdrawn", tone: "neutral" },
   attended: { label: "Attended", tone: "success" },
 
+  // --- Whether an attendee can register now (SPM-51, registrationState()) ---
+  // Not stored anywhere: worked out from the event and its seats, so these
+  // keys are prefixed to stay apart from the clarification "open"/"closed".
+  registration_open: { label: "Open", tone: "success" },
+  registration_not_open: { label: "Not open yet", tone: "info" },
+  registration_closed: { label: "Closed", tone: "neutral" },
+  registration_full: { label: "Full", tone: "danger" },
+  registration_no_period: { label: "Dates not set", tone: "neutral" },
+
   // --- Arrangement, on the Readiness tab (SPM-33) ---
   // Not stored anywhere: worked out by arrangementsFor() in
   // eventConfirmation.ts. Three states that must never look alike (AC7, AC10).

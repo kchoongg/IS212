@@ -4,8 +4,6 @@ import HomePage from "@/app/page";
 import LoginPage from "@/app/login/page";
 import RegisterPage from "@/app/register/page";
 import NotificationsPage from "@/app/notifications/page";
-import BrowsePage from "@/app/browse/page";
-import RegistrationsPage from "@/app/registrations/page";
 import { ROLES } from "@/lib/roles";
 import { can, type Action } from "@/lib/permissions";
 import {
@@ -330,23 +328,9 @@ describe("screens that are specified but not built yet", () => {
     reason?: string;
   }> = [
     { name: "Notifications", Page: NotificationsPage, path: "/notifications", screenId: "S-04 (Notification Centre)" },
-    {
-      name: "Browse Events",
-      Page: BrowsePage,
-      path: "/browse",
-      action: "registration:create",
-      screenId: "S-26 (Attendee Event Browsing)",
-      reason: "Browsing and registering for events is what an Attendee account is for.",
-    },
+    // Browse Events (S-26) was built in SPM-51: src/app/__tests__/browse-page.test.tsx.
     // Equipment (S-24 Equipment Catalogue) was built by SPM-55 - see equipment-catalogue-page.test.tsx.
-    {
-      name: "My Registrations",
-      Page: RegistrationsPage,
-      path: "/registrations",
-      action: "registration:create",
-      screenId: "S-27 (My Registrations)",
-      reason: "Registrations belong to an Attendee account.",
-    },
+    // My Registrations (S-27) was built in SPM-51: src/app/__tests__/my-registrations-page.test.tsx.
   ];
 
   describe.each(placeholders)("$name", ({ name, Page, path, action, screenId, reason }) => {
