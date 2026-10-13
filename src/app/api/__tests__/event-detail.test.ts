@@ -200,12 +200,74 @@ describe("GET /api/events/[id]", () => {
         "registrationClosesAt",
         "registrationEnabled",
         "registrationOpensAt",
+        // ADDED (SPM-51 AC4): whether they can register, and if not why.
+        "registrationState",
+        // ADDED (SPM-51 AC6, AC7): their own registration, if any.
+        "myRegistration",
         "sequenceNumber",
         "startsAt",
         "status",
         "title",
       ].sort()
     );
+  });
+
+  // SPM-51 AC4, AC9 (TC05-TC07): the attendee's page says whether they can register.
+  it("tells an attendee the event's registration state, counting the seats taken", async () => {
+    vi.useFakeTimers({ now: new Date("2026-10-10T04:00:00Z"), toFake: ["Date"] });
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(
+      event({
+        status: "confirmed",
+        registrationEnabled: true,
+        registrationCapacity: 3,
+        registrationOpensAt: new Date("2026-09-01T01:00:00Z"),
+        registrationClosesAt: new Date("2027-12-31T09:00:00Z"),
+      })
+    );
+    db.registration.count.mockResolvedValue(3);
+
+    const body = await (await get(token)).json();
+    vi.useRealTimers();
+
+    expect(body.registrationState).toEqual({ kind: "full" });
+    expect(db.registration.count).toHaveBeenCalledWith({
+      where: { eventId: ID.event, status: { in: ["registered", "attended"] } },
+    });
+  });
+
+  // SPM-51 AC6, AC7 (TC02, TC03, TC11): the page shows their own registration
+  // instead of a Register button.
+  it("gives an attendee their own registration for the event", async () => {
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+    db.registration.findUnique.mockResolvedValue({ status: "waitlisted", registeredAt: new Date("2026-10-05T02:00:00Z") });
+
+    const body = await (await get(token)).json();
+
+    expect(body.myRegistration).toEqual({ status: "waitlisted", registeredAt: "2026-10-05T02:00:00.000Z" });
+    expect(callArg(db.registration.findUnique)).toEqual({
+      where: { eventId_attendeeId: { eventId: ID.event, attendeeId: ID.thirdUser } },
+      select: { status: true, registeredAt: true },
+    });
+  });
+
+  it("gives an attendee with no registration null", async () => {
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+    db.registration.findUnique.mockResolvedValue(null);
+
+    expect((await (await get(token)).json()).myRegistration).toBeNull();
+  });
+
+  it("doesn't work out a registration state for staff", async () => {
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+
+    const body = await (await get(token)).json();
+
+    expect(body).not.toHaveProperty("registrationState");
+    expect(body).not.toHaveProperty("myRegistration");
   });
 
   it("loads only the approved venue bookings, so a pending request is never shown as settled", async () => {

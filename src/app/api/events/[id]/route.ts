@@ -18,6 +18,7 @@ import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
+import { SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
@@ -148,6 +149,26 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
           ? { status: latest.status, submittedAt: latest.submittedAt, submittedBy: latest.submitter?.fullName ?? null }
           : null,
       };
+  if (actor.role === "attendee") {
+    // SPM-51 AC4: whether they can register now, and if not why - the same
+    // rule POST /api/registrations applies.
+    // AC6, AC7: and their own registration, so the page shows it instead of
+    // offering a second one.
+    const [seatsTaken, myRegistration] = await Promise.all([
+      prisma.registration.count({ where: { eventId: event.id, status: { in: SEAT_TAKING } } }),
+      prisma.registration.findUnique({
+        where: { eventId_attendeeId: { eventId: event.id, attendeeId: actor.id } },
+        select: { status: true, registeredAt: true },
+      }),
+    ]);
+    return NextResponse.json(
+      visibleEventFor(actor, {
+        ...shaped,
+        registrationState: registrationState(event, seatsTaken, new Date()),
+        myRegistration: myRegistration ?? null,
+      })
+    );
+  }
   return NextResponse.json(visibleEventFor(actor, shaped));
 }
 

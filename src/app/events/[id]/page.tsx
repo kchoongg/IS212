@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { AssignCoordinator, type AssignResult, type CoordinatorOption } from "@/components/AssignCoordinator";
 import { RegistrationCard, type RegistrationEvent } from "./RegistrationCard";
+import { RegisterPanel, type MyRegistration, type RegistrationStateJson } from "./RegisterPanel";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
@@ -49,6 +50,10 @@ interface FacilityRequirement {
 
 interface EventDetail extends RegistrationEvent {
   id: string;
+  // SPM-51: an Attendee's only - whether they can register now, and their
+  // own registration for the event, if any.
+  registrationState?: RegistrationStateJson;
+  myRegistration?: MyRegistration | null;
   // Present for every role, including an Attendee - see ATTENDEE_EVENT_FIELDS
   // (src/lib/permissions.ts). Format with eventReference() for display.
   sequenceNumber: number;
@@ -702,6 +707,16 @@ export default function EventOverviewPage() {
             showOutstanding={user?.role !== "attendee"}
             onSaved={() => void load()}
           />
+
+          {/* SPM-51: registering is the Attendee's action, so only they get it. */}
+          {user?.role === "attendee" && event.registrationState && (
+            <RegisterPanel
+              eventId={event.id}
+              state={event.registrationState}
+              myRegistration={event.myRegistration ?? null}
+              onRegistered={() => void load()}
+            />
+          )}
         </div>
       )}
 

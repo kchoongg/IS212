@@ -516,6 +516,21 @@ describe("Events page", () => {
     });
   });
 
+  describe("for an attendee", () => {
+    // Their list is Browse Events; the event page /events/<ref> stays theirs.
+    it("is taken to Browse Events, without the events list being shown or loaded", async () => {
+      const api = mockApi({ ...signedInAs("attendee"), "GET /api/events": [event(1, { status: "confirmed" })] });
+
+      render(<EventsPage />);
+
+      await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/browse"));
+      expect(screen.queryByRole("heading", { name: "All events" })).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Filter by status")).not.toBeInTheDocument();
+      expect(screen.queryByRole("table")).not.toBeInTheDocument();
+      expect(api.sent("GET /api/events")).toHaveLength(0);
+    });
+  });
+
   it("sends the user to log in when their session has expired", async () => {
     mockApi({ ...signedInAs("organiser"), "GET /api/events": reply(401, {}) });
 
