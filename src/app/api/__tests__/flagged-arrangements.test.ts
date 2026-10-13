@@ -24,9 +24,9 @@
 //   - keeping writes { needsReview: false, reviewReason: null } and leaves flaggedAt as history;
 //     reviewing registrations writes { registrationReviewReason: null }
 //   - the wording of every message
-// AC12's release needs nothing new here: the page calls SPM-67's own
-// PATCH /api/events/[id]/venue-bookings/[bookingId]. A withdrawn or released booking
-// leaves this list because only pending and approved bookings are read.
+// AC12's release needs nothing here: it is done on the event's Venue tab (SPM-67). A
+// withdrawn or released booking leaves this list because only pending and approved
+// bookings are read.
 
 import { describe, it, expect, vi } from "vitest";
 

@@ -1755,7 +1755,6 @@ async function main() {
     spm68("spm68_off", "SPM68 Registration Off", "2027-10-18", 40),
     spm68("spm68_ready", "SPM68 Ready To Confirm", "2027-10-20", 40, { regEnabled: true, regCapacity: 30 }),
     spm68("spm68_partner", "SPM68 Partner Briefing", "2027-10-21", 40, { coordinator: "priya.raj@connectsphere.com" }),
-    spm68("spm68_pending", "SPM68 Pending Request", "2027-10-22", 40),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

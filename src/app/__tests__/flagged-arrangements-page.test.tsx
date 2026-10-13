@@ -13,20 +13,20 @@
 //     "Flagged registrations". Opened without a tab, the page shows the first kind that has
 //     something flagged
 //   - every label, button and message asserted below
+//   - Keep is offered only while the arrangement still meets the event's requirements (changed
+//     2026-10-13). Where it does not, the item lists what is unmet, says it can't be kept and
+//     has no Keep button. The server's refusal (AC7) still shows if the page's result was stale
 //   - after a keep or a review the list is read again, and "Flag cleared" says what was kept
-//   - AC12's release (added 2026-10-13, once SPM-67 was in main): a flagged booking has
-//     "Release booking" when approved and "Withdraw request" when pending. Both ask first, in
-//     SPM-67's dialog and words, and send SPM-67's own
-//     PATCH /api/events/<ref>/venue-bookings/<id> { action, reason? } - no new route. The
-//     dialog's other button is "Cancel", not the Venue tab's "Keep booking": on this page
-//     "Keep booking" is the button that clears the flag.
+//   - AC12's release (changed 2026-10-13): this page clears flags and never changes an
+//     arrangement. A flagged booking links to its event's Venue tab ("Open Venue tab"), where
+//     SPM-67's Release booking / Withdraw request already are. There is no release or
+//     withdraw button here.
 
 import { describe, it, expect } from "vitest";
 import FlaggedArrangementsPage from "@/app/flagged/page";
 import { can } from "@/lib/permissions";
 import { ROLES } from "@/lib/roles";
 import {
-  fireEvent,
   mockApi,
   render,
   reply,
@@ -178,8 +178,52 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(item).toHaveTextContent("Theatre capacity is 100 - your event expects 150.");
       expect(item).toHaveTextContent("Availability: Not available");
       expect(item).toHaveTextContent("Hall has been retired.");
-      // Still offered: the server decides, and its refusal names the requirement (AC7).
+    });
+
+    // AC7: a booking that no longer fits is not offered Keep at all.
+    it.each([
+      ["not suitable", { suitability: { ok: false, unmet: ["Theatre capacity is 100 - your event expects 150."] } }],
+      ["not available", { availability: { ok: false, unmet: ["Hall has been retired."] } }],
+    ])("offers no Keep booking for a booking that is %s, and says why it can't be kept", async (_what, result) => {
+      open(flagged({ venueBookings: [booking(result)] }));
+
+      const [item] = itemsOf(await bookings());
+      expect(within(item).queryByRole("button", { name: "Keep booking" })).not.toBeInTheDocument();
+      expect(item).toHaveTextContent("This booking can't be kept while it doesn't meet the event's requirements.");
+      // The ways out are still there.
+      expect(within(item).getByRole("link", { name: "Find a replacement venue" })).toBeInTheDocument();
+      expect(within(item).getByRole("link", { name: "Open Venue tab" })).toBeInTheDocument();
+    });
+
+    it("says nothing about keeping a booking that still fits", async () => {
+      open(flagged({ venueBookings: [booking()] }));
+
+      const [item] = itemsOf(await bookings());
+      expect(item).not.toHaveTextContent("can't be kept");
       expect(within(item).getByRole("button", { name: "Keep booking" })).toBeInTheDocument();
+    });
+
+    it("offers no Keep reservation for equipment that can no longer be covered, and links to the Equipment tab", async () => {
+      open(
+        flagged({
+          equipmentRequests: [
+            equipment({ id: "q1" }),
+            equipment({ id: "q2", availability: { ok: false, summary: "2 reserved, 1 available for these dates." } }),
+          ],
+        })
+      );
+
+      const [covered, short] = itemsOf(await kit());
+      expect(within(covered).getByRole("button", { name: "Keep reservation" })).toBeInTheDocument();
+      expect(covered).not.toHaveTextContent("can't be kept");
+      expect(within(short).queryByRole("button", { name: "Keep reservation" })).not.toBeInTheDocument();
+      expect(short).toHaveTextContent("This reservation can't be kept while it doesn't meet the event's requirements.");
+      for (const item of [covered, short]) {
+        expect(within(item).getByRole("link", { name: "Open Equipment tab" })).toHaveAttribute(
+          "href",
+          "/events/EVT-000041/equipment"
+        );
+      }
     });
 
     it("says which session a session's booking is for", async () => {
@@ -250,6 +294,8 @@ describe("Flagged Arrangements (SPM-68)", () => {
       );
       expect(within(item).getByRole("button", { name: "Mark as reviewed" })).toBeInTheDocument();
       expect(within(item).queryByRole("button", { name: /^Keep/ })).not.toBeInTheDocument();
+      // Where the registration settings are changed (SPM-64).
+      expect(within(item).getByRole("link", { name: "Open Overview" })).toHaveAttribute("href", "/events/EVT-000041");
     });
 
     it("says which session an unnamed session's booking is for", async () => {
@@ -397,12 +443,12 @@ describe("Flagged Arrangements (SPM-68)", () => {
     });
 
     // AC7.
+    // The booking fitted when the page loaded; the event's attendance was raised since.
     it("shows the server's refusal in the item, and leaves it listed", async () => {
       const refusal = "Hall no longer meets this event's requirements: Theatre capacity is 100 - your event expects 150.";
-      const api = open(
-        flagged({ venueBookings: [booking({ suitability: { ok: false, unmet: ["Theatre capacity is 100 - your event expects 150."] } })] }),
-        { [KEEP]: reply(400, { error: refusal, unmet: ["Theatre capacity is 100 - your event expects 150."] }) }
-      );
+      const api = open(flagged({ venueBookings: [booking()] }), {
+        [KEEP]: reply(400, { error: refusal, unmet: ["Theatre capacity is 100 - your event expects 150."] }),
+      });
       const [item] = itemsOf(await bookings());
 
       await click("Keep booking", item);
@@ -513,167 +559,38 @@ describe("Flagged Arrangements (SPM-68)", () => {
     });
   });
 
-  // AC12, on Withdraw or Release Venue Booking (SPM-67).
+  // AC12: the flagged booking stays until the coordinator releases it - on
+  // the event's Venue tab (SPM-67), not here.
   describe("releasing or withdrawing a flagged booking", () => {
-    const CHANGE = "PATCH /api/events/EVT-000041/venue-bookings/b1";
-    const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
-    const inDialog = (name: string) => within(dialog()).getByRole("button", { name, hidden: true });
-
-    it("offers Release booking on an approved booking and Withdraw request on a pending one", async () => {
+    it("links each flagged booking to its event's Venue tab, where it is released or withdrawn", async () => {
       open(
         flagged({
-          venueBookings: [booking({ id: "b1" }), booking({ id: "b2", status: "pending", venue: { id: "v2", code: "ANX", name: "Annex" } })],
+          venueBookings: [booking({ id: "b1" }), booking({ id: "b2", status: "pending", event: { ...EVENT, reference: "EVT-000052" } })],
         })
       );
 
       const [approved, pending] = itemsOf(await bookings());
-      expect(within(approved).getByRole("button", { name: "Release booking" })).toBeInTheDocument();
-      expect(within(approved).queryByRole("button", { name: "Withdraw request" })).not.toBeInTheDocument();
-      expect(within(pending).getByRole("button", { name: "Withdraw request" })).toBeInTheDocument();
-      expect(within(pending).queryByRole("button", { name: "Release booking" })).not.toBeInTheDocument();
+      expect(within(approved).getByRole("link", { name: "Open Venue tab" })).toHaveAttribute("href", "/events/EVT-000041/venue");
+      expect(within(pending).getByRole("link", { name: "Open Venue tab" })).toHaveAttribute("href", "/events/EVT-000052/venue");
     });
 
-    it("offers neither on an equipment reservation or on registrations", async () => {
-      open(flagged({ equipmentRequests: [equipment()], registrations: [registrations()] }));
+    it("has no button that releases or withdraws a booking", async () => {
+      open(flagged({ venueBookings: [booking(), booking({ id: "b2", status: "pending" })] }));
 
-      await kit();
+      await bookings();
       expect(screen.queryByRole("button", { name: "Release booking" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Withdraw request" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { hidden: true })).not.toBeInTheDocument();
     });
 
-    it("asks before releasing, naming the booking and what releasing does", async () => {
-      const api = open(flagged({ venueBookings: [booking()] }));
+    it.each([
+      ["an equipment reservation", "equipment"],
+      ["registrations", "registrations"],
+    ])("offers no Venue tab link on %s", async (_what, tab) => {
+      open(flagged({ equipmentRequests: [equipment()], registrations: [registrations()] }), {}, tab);
 
-      await click("Release booking", itemsOf(await bookings())[0]);
-
-      expect(dialog().open).toBe(true);
-      expect(dialog()).toHaveTextContent("Release this booking?");
-      expect(dialog()).toHaveTextContent(
-        "Hall (HALL) on 8 Oct 2027, 09:00–17:00 will be freed for other events, and Venue Staff will be notified."
-      );
-      expect(within(dialog()).getByLabelText("Reason (optional)")).toHaveValue("");
-      expect(inDialog("Cancel")).toBeInTheDocument();
-      expect(api.sent(CHANGE)).toHaveLength(0);
-    });
-
-    it("names the session of a session's booking in the question", async () => {
-      open(flagged({ venueBookings: [booking({ session: { id: "s1", label: "Day 1" } })] }));
-
-      await click("Release booking", itemsOf(await bookings())[0]);
-
-      expect(dialog()).toHaveTextContent("Hall (HALL) for Day 1 on 8 Oct 2027, 09:00–17:00 will be freed");
-    });
-
-    it("on Cancel, releases nothing and leaves the booking listed", async () => {
-      const api = open(flagged({ venueBookings: [booking()] }));
-      await click("Release booking", itemsOf(await bookings())[0]);
-
-      await userEvent.click(inDialog("Cancel"));
-
-      expect(dialog().open).toBe(false);
-      expect(api.sent(CHANGE)).toHaveLength(0);
-      expect(itemsOf(await bookings())).toHaveLength(1);
-    });
-
-    it("releases the booking, says Venue Staff have been notified, and reads the list again", async () => {
-      const api = open(flagged({ venueBookings: [booking()] }), { [CHANGE]: { id: "b1", status: "released" } });
-      await click("Release booking", itemsOf(await bookings())[0]);
-      api.on(LIST, flagged());
-
-      await userEvent.click(inDialog("Release booking"));
-
-      await waitFor(() => expect(api.sent(CHANGE)).toHaveLength(1));
-      expect(api.sent(CHANGE)[0].body).toEqual({ action: "release" });
-      expect(await screen.findByText("Booking released")).toBeInTheDocument();
-      expect(
-        screen.getByText("Hall (HALL) on 8 Oct 2027, 09:00–17:00 is now Released. Venue Staff have been notified.")
-      ).toBeInTheDocument();
-      // A released booking holds nothing, so it is no longer there to review.
-      expect(await screen.findByText("Nothing is flagged")).toBeInTheDocument();
-      // Releasing is not keeping: the flag route is never called.
-      expect(api.sent(KEEP)).toHaveLength(0);
-    });
-
-    it("sends the reason the coordinator typed", async () => {
-      const api = open(flagged({ venueBookings: [booking()] }), { [CHANGE]: { id: "b1", status: "released" } });
-      await click("Release booking", itemsOf(await bookings())[0]);
-
-      fireEvent.change(within(dialog()).getByLabelText("Reason (optional)"), { target: { value: "  Room is too small.  " } });
-      await userEvent.click(inDialog("Release booking"));
-
-      await waitFor(() => expect(api.sent(CHANGE)[0].body).toEqual({ action: "release", reason: "Room is too small." }));
-    });
-
-    it("withdraws a pending request, in the words for a withdrawal", async () => {
-      const api = open(flagged({ venueBookings: [booking({ status: "pending" })] }), {
-        [CHANGE]: { id: "b1", status: "withdrawn" },
-      });
-      await click("Withdraw request", itemsOf(await bookings())[0]);
-
-      expect(dialog()).toHaveTextContent("Withdraw this request?");
-      expect(dialog()).toHaveTextContent(
-        "Hall (HALL) on 8 Oct 2027, 09:00–17:00 will no longer be requested, and Venue Staff will no longer see it on their Booking Requests list."
-      );
-      api.on(LIST, flagged());
-      await userEvent.click(inDialog("Withdraw request"));
-
-      await waitFor(() => expect(api.sent(CHANGE)[0].body).toEqual({ action: "withdraw" }));
-      expect(await screen.findByText("Request withdrawn")).toBeInTheDocument();
-      expect(screen.getByText("Hall (HALL) on 8 Oct 2027, 09:00–17:00 is now Withdrawn.")).toBeInTheDocument();
-    });
-
-    it("shows the server's refusal in the item, closes the question and reads the list again", async () => {
-      const refusal = "This request has already been approved, so it can no longer be withdrawn. Release the booking instead.";
-      const api = open(flagged({ venueBookings: [booking({ status: "pending" })] }), {
-        [CHANGE]: reply(400, { error: refusal }),
-      });
-      await click("Withdraw request", itemsOf(await bookings())[0]);
-      // What Venue Staff did meanwhile: the reload shows it, and the right button with it.
-      api.on(LIST, flagged({ venueBookings: [booking({ status: "approved" })] }));
-
-      await userEvent.click(inDialog("Withdraw request"));
-
-      expect(await within(itemsOf(await bookings())[0]).findByRole("alert")).toHaveTextContent(refusal);
-      expect(dialog().open).toBe(false);
-      expect(screen.queryByText("Request withdrawn")).not.toBeInTheDocument();
-      expect(await within(itemsOf(await bookings())[0]).findByRole("button", { name: "Release booking" })).toBeInTheDocument();
-    });
-
-    it("says so in the item when the server gives no reason, or the network fails", async () => {
-      const api = open(flagged({ venueBookings: [booking()] }), { [CHANGE]: reply(500, {}) });
-      await click("Release booking", itemsOf(await bookings())[0]);
-      await userEvent.click(inDialog("Release booking"));
-
-      const failed = "Could not save the change. Please try again.";
-      expect(await within(itemsOf(await bookings())[0]).findByRole("alert")).toHaveTextContent(failed);
-
-      api.on(CHANGE, () => {
-        throw new Error("offline");
-      });
-      await click("Release booking", itemsOf(await bookings())[0]);
-      // Asking again clears the last refusal.
-      expect(within(itemsOf(await bookings())[0]).queryByRole("alert")).not.toBeInTheDocument();
-      await userEvent.click(inDialog("Release booking"));
-
-      expect(await within(itemsOf(await bookings())[0]).findByRole("alert")).toHaveTextContent(failed);
-      expect(dialog().open).toBe(false);
-    });
-
-    it("names an unnamed session as 'Session' in the question", async () => {
-      open(flagged({ venueBookings: [booking({ session: { id: "s1", label: null } })] }));
-
-      await click("Release booking", itemsOf(await bookings())[0]);
-
-      expect(dialog()).toHaveTextContent("Hall (HALL) for Session on 8 Oct 2027, 09:00–17:00 will be freed");
-    });
-
-    it("sends the user to log in when their session has expired", async () => {
-      open(flagged({ venueBookings: [booking()] }), { [CHANGE]: reply(401, {}) });
-      await click("Release booking", itemsOf(await bookings())[0]);
-
-      await userEvent.click(inDialog("Release booking"));
-
-      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fflagged"));
+      await screen.findByRole("list");
+      expect(screen.queryByRole("link", { name: "Open Venue tab" })).not.toBeInTheDocument();
     });
   });
 

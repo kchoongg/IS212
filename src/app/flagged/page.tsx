@@ -9,20 +9,16 @@ import {
   ButtonLink,
   Card,
   CardBody,
-  ConfirmDialog,
   EmptyState,
-  Field,
   PageHeader,
   SkeletonRows,
   StatusBadge,
   Tabs,
-  Textarea,
 } from "@/components/ui";
 import { RequirePermission } from "@/components/RequirePermission";
 import { registrationCountLine } from "@/lib/flaggedArrangements";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { authedFetch } from "@/lib/session";
-import { statusLabel } from "@/lib/statuses";
 import { loginUrlFor } from "@/lib/useCurrentUser";
 import { layoutLabel } from "@/lib/venueSuitability";
 
@@ -34,9 +30,17 @@ import { layoutLabel } from "@/lib/venueSuitability";
 //
 // Each one is kept as it is (the flag is cleared; the server refuses if it no
 // longer meets the event's requirements, and says what is unmet) or, for a
-// venue booking, replaced: search for another room, request it, and release
-// or withdraw this one (SPM-67). Nothing here changes an arrangement on its
-// own - that is the point of flagging.
+// venue booking, replaced: search for another room and request it from here.
+//
+// Keep is offered only while the arrangement still meets the event's
+// requirements (decided 2026-10-13): where it does not, the item says what is
+// unmet and that it cannot be kept, and offers the ways out instead. The
+// server refuses all the same - the page may be showing an older result.
+//
+// This page clears flags; it never changes an arrangement. Releasing or
+// withdrawing the booking being replaced is done where every other change to
+// an event's bookings is made - its Venue tab (SPM-67) - and each booking
+// links there (decided 2026-10-13). Once released it is no longer listed.
 //
 // The same flags make a booking or equipment line Outstanding on the event's
 // Readiness tab (SPM-33); this page is where they are resolved.
@@ -106,38 +110,7 @@ const KINDS = [
 type Kind = (typeof KINDS)[number]["key"];
 
 type ClearKind = "venue_booking" | "equipment_request" | "registrations";
-type ChangeAction = "withdraw" | "release";
-
-/// SPM-67's wording for taking a booking back, as on the event's Venue tab.
-/// Two differences here: the question's other button is "Cancel" (on this
-/// page "Keep booking" is the button that clears the flag), and what follows
-/// does not point at a venue list below.
-const CHANGE = {
-  withdraw: {
-    button: "Withdraw request",
-    title: "Withdraw this request?",
-    consequence: "will no longer be requested, and Venue Staff will no longer see it on their Booking Requests list.",
-    done: "Request withdrawn",
-    status: "withdrawn",
-    afterwards: "",
-  },
-  release: {
-    button: "Release booking",
-    title: "Release this booking?",
-    consequence: "will be freed for other events, and Venue Staff will be notified.",
-    done: "Booking released",
-    status: "released",
-    afterwards: " Venue Staff have been notified.",
-  },
-} as const;
-
 const titleOf = (event: EventRef) => event.title || "Untitled event";
-
-/// "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00", with the session if it has one.
-function describeBooking(b: FlaggedBooking): string {
-  const session = b.session ? ` for ${b.session.label ?? "Session"}` : "";
-  return `${formatVenue(b.venue.name, b.venue.code)}${session} on ${formatDateTimeRange(b.startsAt, b.endsAt)}`;
-}
 
 export default function FlaggedArrangementsPage() {
   return (
@@ -165,10 +138,6 @@ function FlaggedArrangementsScreen() {
   const [refusal, setRefusal] = useState<{ key: string; message: string } | null>(null);
   /// The item whose flag is being cleared.
   const [busy, setBusy] = useState<string | null>(null);
-  /// The booking being withdrawn or released, while the question is open.
-  const [changing, setChanging] = useState<{ booking: FlaggedBooking; action: ChangeAction } | null>(null);
-  const [reason, setReason] = useState("");
-  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -218,51 +187,6 @@ function FlaggedArrangementsScreen() {
       setRefusal({ key, message: failed });
     } finally {
       setBusy(null);
-    }
-  }
-
-  function startChange(booking: FlaggedBooking, action: ChangeAction) {
-    setReason("");
-    setNotice(null);
-    setRefusal(null);
-    setChanging({ booking, action });
-  }
-
-  /// AC12: withdraw or release the flagged booking, through SPM-67's route.
-  async function confirmChange() {
-    if (!changing) return;
-    const { booking, action } = changing;
-    const failed = "Could not save the change. Please try again.";
-    const key = `booking:${booking.id}`;
-    setSaving(true);
-    try {
-      const res = await authedFetch(`/api/events/${booking.event.reference}/venue-bookings/${booking.id}`, {
-        method: "PATCH",
-        body: JSON.stringify(reason.trim() ? { action, reason: reason.trim() } : { action }),
-      });
-      if (res.status === 401) {
-        router.push(loginUrlFor(SELF));
-        return;
-      }
-      if (!res.ok) {
-        // The refusal says what to do instead (e.g. release a request Venue
-        // Staff approved meanwhile), and the reload below shows why.
-        const body = await res.json().catch(() => null);
-        setRefusal({ key, message: body?.error ?? failed });
-      } else {
-        const words = CHANGE[action];
-        setNotice({
-          title: words.done,
-          body: `${describeBooking(booking)} is now ${statusLabel(words.status)}.${words.afterwards}`,
-        });
-      }
-      setChanging(null);
-      await load();
-    } catch {
-      setRefusal({ key, message: failed });
-      setChanging(null);
-    } finally {
-      setSaving(false);
     }
   }
 
@@ -332,7 +256,7 @@ function FlaggedArrangementsScreen() {
             <Section label="Flagged venue bookings">
               {data.venueBookings.map((b) => {
                 const key = `booking:${b.id}`;
-                const change: ChangeAction = b.status === "pending" ? "withdraw" : "release";
+                const fits = b.suitability.ok && b.availability.ok;
                 return (
                   <Item
                     key={b.id}
@@ -348,17 +272,25 @@ function FlaggedArrangementsScreen() {
                   >
                     <Result label="Suitability" verdict={b.suitability} good="Suitable" bad="Not suitable" />
                     <Result label="Availability" verdict={b.availability} good="Available" bad="Not available" />
+                    {!fits && <CannotKeep what="booking" />}
                     {refusalFor(key)}
                     <div className="flex flex-wrap gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        loading={busy === key}
-                        onClick={() =>
-                          void clearFlag("venue_booking", b.id, key, `${b.venue.name} for ${titleOf(b.event)} was kept as it is.`)
-                        }
-                      >
-                        Keep booking
-                      </Button>
+                      {fits && (
+                        <Button
+                          size="sm"
+                          loading={busy === key}
+                          onClick={() =>
+                            void clearFlag(
+                              "venue_booking",
+                              b.id,
+                              key,
+                              `${b.venue.name} for ${titleOf(b.event)} was kept as it is.`
+                            )
+                          }
+                        >
+                          Keep booking
+                        </Button>
+                      )}
                       <ButtonLink
                         href={`/venues/search?event=${b.event.reference}&booking=${b.id}`}
                         variant="secondary"
@@ -366,9 +298,11 @@ function FlaggedArrangementsScreen() {
                       >
                         Find a replacement venue
                       </ButtonLink>
-                      <Button variant="secondary" size="sm" onClick={() => startChange(b, change)}>
-                        {CHANGE[change].button}
-                      </Button>
+                      {/* Releasing or withdrawing it is a change to the event's
+                          bookings, made on the event itself (SPM-67). */}
+                      <ButtonLink href={`/events/${b.event.reference}/venue`} variant="secondary" size="sm">
+                        Open Venue tab
+                      </ButtonLink>
                     </div>
                   </Item>
                 );
@@ -392,22 +326,29 @@ function FlaggedArrangementsScreen() {
                     <p className={r.availability.ok ? "text-ink-2" : "text-tone-warning-fg"}>
                       <span className="font-medium text-ink">Availability:</span> {r.availability.summary}
                     </p>
+                    {!r.availability.ok && <CannotKeep what="reservation" />}
                     {refusalFor(key)}
                     <div className="flex flex-wrap gap-2 pt-1">
-                      <Button
-                        size="sm"
-                        loading={busy === key}
-                        onClick={() =>
-                          void clearFlag(
-                            "equipment_request",
-                            r.id,
-                            key,
-                            `${r.equipment.name} for ${titleOf(r.event)} was kept as it is.`
-                          )
-                        }
-                      >
-                        Keep reservation
-                      </Button>
+                      {r.availability.ok && (
+                        <Button
+                          size="sm"
+                          loading={busy === key}
+                          onClick={() =>
+                            void clearFlag(
+                              "equipment_request",
+                              r.id,
+                              key,
+                              `${r.equipment.name} for ${titleOf(r.event)} was kept as it is.`
+                            )
+                          }
+                        >
+                          Keep reservation
+                        </Button>
+                      )}
+                      {/* Changing what is requested is done on the event itself (SPM-47). */}
+                      <ButtonLink href={`/events/${r.event.reference}/equipment`} variant="secondary" size="sm">
+                        Open Equipment tab
+                      </ButtonLink>
                     </div>
                   </Item>
                 );
@@ -442,6 +383,11 @@ function FlaggedArrangementsScreen() {
                       >
                         Mark as reviewed
                       </Button>
+                      {/* The capacity, and whether registration is on at all, are
+                          changed on the event's Overview (its Registration card, SPM-64). */}
+                      <ButtonLink href={`/events/${r.event.reference}`} variant="secondary" size="sm">
+                        Open Overview
+                      </ButtonLink>
                     </div>
                   </Item>
                 );
@@ -450,26 +396,6 @@ function FlaggedArrangementsScreen() {
           )}
         </div>
       )}
-
-      <ConfirmDialog
-        open={changing !== null}
-        title={changing ? CHANGE[changing.action].title : ""}
-        confirmLabel={changing ? CHANGE[changing.action].button : ""}
-        loading={saving}
-        onConfirm={() => void confirmChange()}
-        onCancel={() => setChanging(null)}
-      >
-        {changing && (
-          <div className="flex flex-col gap-3">
-            <p>
-              {describeBooking(changing.booking)} {CHANGE[changing.action].consequence}
-            </p>
-            <Field label="Reason (optional)">
-              <Textarea value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} />
-            </Field>
-          </div>
-        )}
-      </ConfirmDialog>
     </div>
   );
 }
@@ -527,6 +453,16 @@ function Item({
       </p>
       {children}
     </li>
+  );
+}
+
+/// AC7: an arrangement that no longer meets the event's requirements is not
+/// offered Keep. What is unmet is listed just above this line.
+function CannotKeep({ what }: { what: "booking" | "reservation" }) {
+  return (
+    <p className="font-medium text-tone-warning-fg">
+      This {what} can&apos;t be kept while it doesn&apos;t meet the event&apos;s requirements.
+    </p>
   );
 }
 

@@ -185,10 +185,6 @@ const FIXTURES: Fixture[] = [
   { key: "spm68_partner", title: "SPM68 Partner Briefing", date: "2027-10-21", attendance: 40, coordinator: PRIYA,
     bookings: [{ venueCode: "SPM68-ANX", status: "approved", flagged: "event_attendance_changed" }],
     testCases: "TC02" },
-  // Venue Staff have not decided this one: withdrawn, not released.
-  { key: "spm68_pending", title: "SPM68 Pending Request", date: "2027-10-22", attendance: 40,
-    bookings: [{ venueCode: "SPM68-ANX", status: "pending", flagged: "event_schedule_changed" }],
-    testCases: "TC15" },
 ];
 
 const CHAIN = ["submitted", "under_review", "approved", "planning"];

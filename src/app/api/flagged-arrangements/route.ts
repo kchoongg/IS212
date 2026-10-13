@@ -30,9 +30,9 @@ import {
 // unmet (AC7). Every rule is in src/lib/flaggedArrangements.ts.
 //
 // Replacing a booking needs nothing here: the page searches with
-// /venues/search, requests with POST /api/events/[id]/venue-bookings, and
-// releases with SPM-67's PATCH /api/events/[id]/venue-bookings/[bookingId].
-// A withdrawn or released booking is no longer read, so it leaves the list.
+// /venues/search and requests with POST /api/events/[id]/venue-bookings; the
+// old booking is released on the event's Venue tab (SPM-67). A withdrawn or
+// released booking is no longer read, so it leaves the list.
 
 const ONLY_COORDINATORS = "Flagged arrangements are for Event Coordinators";
 const NOT_ASSIGNED = "Only the assigned Coordinator can review this event's flagged arrangements.";
