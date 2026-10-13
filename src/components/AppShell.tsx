@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { activeNavHref, navFor, roleLabel } from "@/lib/roles";
 import { useCurrentUser } from "@/lib/useCurrentUser";
+import { NOTIFICATIONS_CHANGED, unreadBadge } from "@/lib/notificationView";
+import { authedFetch } from "@/lib/session";
 import { Skeleton } from "./ui/DataState";
 
 // The chrome from UI_DESIGN.md §4.1: a top bar identical for every role, and a
@@ -20,8 +22,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || "/";
   const { user, state, logout } = useCurrentUser();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const bare = BARE_ROUTES.includes(pathname);
+  const badge = unreadBadge(useUnreadCount(state === "authenticated" && !!user && !bare, pathname));
 
-  if (BARE_ROUTES.includes(pathname)) {
+  if (bare) {
     return (
       <div className="min-h-screen bg-ground">
         <PublicTopBar />
@@ -40,12 +44,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         onLogout={logout}
         onToggleNav={() => setMobileNavOpen((open) => !open)}
         navOpen={mobileNavOpen}
+        unreadBadge={badge}
       />
 
       <div className="mx-auto flex max-w-7xl">
         {/* Desktop sidebar */}
         <aside className="hidden w-60 shrink-0 border-r border-line bg-surface md:block">
-          <SidebarNav items={items} pathname={pathname} loading={state === "loading"} />
+          <SidebarNav items={items} pathname={pathname} loading={state === "loading"} unreadBadge={badge} />
         </aside>
 
         {/* Mobile slide-over */}
@@ -65,6 +70,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 pathname={pathname}
                 loading={state === "loading"}
                 onNavigate={() => setMobileNavOpen(false)}
+                unreadBadge={badge}
               />
             </aside>
           </div>
@@ -107,9 +113,11 @@ interface TopBarProps {
   navOpen: boolean;
   onToggleNav: () => void;
   onLogout: () => void;
+  /// SPM-71 (AC3): the unread count as shown, or null for none.
+  unreadBadge: string | null;
 }
 
-function TopBar({ user, loading, navOpen, onToggleNav, onLogout }: TopBarProps) {
+function TopBar({ user, loading, navOpen, onToggleNav, onLogout, unreadBadge }: TopBarProps) {
   const router = useRouter();
 
   function handleLogout() {
@@ -139,9 +147,10 @@ function TopBar({ user, loading, navOpen, onToggleNav, onLogout }: TopBarProps) 
         <div className="ml-auto flex items-center gap-3">
           <Link
             href="/notifications"
-            className="rounded-md p-2 text-ink-2 hover:bg-surface-2 hover:text-ink"
-            aria-label="Notifications"
+            className="relative rounded-md p-2 text-ink-2 hover:bg-surface-2 hover:text-ink"
+            aria-label={unreadBadge ? `Notifications, ${unreadBadge} unread` : "Notifications"}
           >
+            {unreadBadge && <CountBadge className="absolute -right-1 -top-1">{unreadBadge}</CountBadge>}
             <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
               <path d="M13.7 21a2 2 0 0 1-3.4 0" />
@@ -202,9 +211,11 @@ interface SidebarNavProps {
   loading: boolean;
   /// Set by the mobile slide-over so following a link dismisses it.
   onNavigate?: () => void;
+  /// SPM-71 (AC3): shown on the Notifications link; null for none.
+  unreadBadge?: string | null;
 }
 
-function SidebarNav({ items, pathname, loading, onNavigate }: SidebarNavProps) {
+function SidebarNav({ items, pathname, loading, onNavigate, unreadBadge = null }: SidebarNavProps) {
   if (loading) {
     return (
       <nav className="flex flex-col gap-2 p-4">
@@ -240,9 +251,62 @@ function SidebarNav({ items, pathname, loading, onNavigate }: SidebarNavProps) {
             )}
           >
             {item.label}
+            {item.href === "/notifications" && unreadBadge && (
+              <>
+                <CountBadge className="ml-2">{unreadBadge}</CountBadge>
+                <span className="sr-only">, {unreadBadge} unread</span>
+              </>
+            )}
           </Link>
         );
       })}
     </nav>
   );
+}
+
+/// SPM-71 (AC3): the number on the bell and the sidebar's Notifications link.
+/// Hidden from assistive technology - each link says ", 3 unread" in words.
+function CountBadge({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-brand-600 px-1.5 text-[11px] font-semibold leading-5 text-white",
+        className
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+/// SPM-71 (AC3): how many of the signed-in user's notifications are unread.
+/// Asked again on every page change, and as soon as the Notifications page
+/// marks something read (NOTIFICATIONS_CHANGED). The count is a courtesy: if it
+/// cannot be loaded the shell carries on and simply shows no number.
+function useUnreadCount(signedIn: boolean, pathname: string): number {
+  const [count, setCount] = useState(0);
+
+  useEffect(() => {
+    if (!signedIn) return;
+    let cancelled = false;
+    const refresh = async () => {
+      try {
+        const res = await authedFetch("/api/notifications/unread-count");
+        if (!res.ok) return;
+        const body: { unread?: unknown } = await res.json();
+        if (!cancelled) setCount(typeof body.unread === "number" ? body.unread : 0);
+      } catch {
+        // Leave the last count in place.
+      }
+    };
+    void refresh();
+    window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
+    };
+  }, [signedIn, pathname]);
+
+  return signedIn ? count : 0;
 }

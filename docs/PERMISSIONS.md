@@ -145,6 +145,14 @@ Three entries are worth explaining:
   "Venue bookings" card). Not `registration:view_list` — who registered, and
   their dietary and accessibility needs, are attendee personal details (AC6).
 
+- **Notifications need no action** (SPM-71). They are personal: every signed-in
+  user, of any role, reads and marks only their own. That is enforced in the
+  query, not in this table - each notifications route scopes to
+  `recipientId = <the caller>`, and marking someone else's one is 404 (the
+  update's own where clause does not match), never 403. Selecting a
+  notification grants nothing: the screen it opens decides access as if the
+  address had been typed.
+
 An unknown role — anything not in `ROLES` — is granted nothing.
 
 ---
