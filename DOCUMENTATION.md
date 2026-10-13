@@ -160,6 +160,7 @@ IS212/
 │   ├── seed-spm93.ts            # `npm run fixtures:spm93` — SPM-93 test data, no reseed
 │   ├── seed-spm86.ts            # `npm run fixtures:spm86` — SPM-86 test data, no reseed
 │   ├── seed-spm55.ts            # `npm run fixtures:spm55` — SPM-55 test data (own "SPM55 …" items), no reseed
+│   ├── seed-spm85.ts            # `npm run fixtures:spm85` — the Safety Officer account + SPM-85 test data, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -786,6 +787,7 @@ traceability the module asks for.
 | `npm run fixtures:spm33` | Adds or resets SPM-33's 16 test events ("SPM33 …", 12 Jul–2 Aug 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm33_`, with the sessions, venue bookings and equipment lines that put each one in its own state (two rooms, nothing booked, flagged, cannot be provided, another coordinator's, confirmed with a line already marked as not required). No pinned reference numbers. Stops without changing anything if one of its rooms is already booked at that time. Needs the migration `add_arrangement_not_required`. Run it before and after any case that requests a venue, marks an arrangement or confirms (TC04, TC08 to TC13). The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm93` | Adds or resets SPM-93's 18 test events ("SPM93 …") and its three test venues (SPM93 Studio, Quick Room, Settings Room) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm93_`, with their bookings and sessions, and puts the three venues back to their starting values with one maintenance period. Run it before and after any case that sends, approves or edits (docs/test-cases/SPM-93_Test_Cases.xlsx). The same venues and events, without bookings, sessions or maintenance, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm64` | Adds or resets SPM-64's 12 test events ("SPM64 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm64_`, with their venue bookings (approved, pending, rejected and one with no layout), the booking each capacity is measured against, the registration settings, and registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Stops without changing anything if one of its rooms is already held at that time. Run it before and after any case that saves. The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm85` | Creates or refreshes the Safety Officer account (Hana Yusof, `hana.yusof@connectsphere.com`, `password123`) and resets SPM-85's 3 test events ("SPM85 …") without reseeding — upserts that one user, and deletes and recreates only events whose `seedKey` starts with `spm85_`, with the Harbour forum's two sessions, their approved bookings at Marina Auditorium and Orchard Seminar Room, its reserved equipment, required facilities and pending safety check, and the Riverside launch's approved booking and two registrations. No pinned reference numbers: the cases find events by title. SPM-85's cases only read, so one run before a test pass is enough. The account is in the seed's staff list and the events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm51` | Adds or resets SPM-51's 8 test events ("SPM51 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm51_`, with their registration settings (open until 31 Dec 2027, not yet open, closed, no dates, off) and their registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Run it before and after any case that registers. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -916,7 +918,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
 | **No route-level tests outside auth/permissions** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
-| **No admin screen for staff accounts** | Since 2026-09-18 the four internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff or tech support account either. `npx prisma db seed` is the only route today. Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
+| **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
@@ -932,7 +934,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **An event with more than one venue can be confirmed while one is still pending** | Confirm Event (SPM-34) and Submit for Safety Check (SPM-86) ask only whether the event (or each session) has an approved venue booking, so an event with one Approved and one Pending room passes. Requiring every venue to be approved is **SPM-90** (Check Each Venue Against Its Own Requirements), split from SPM-81 on purpose. Found 2026-10-10. | SPM-90 |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 records what each space is for, which may be the place to settle it. Found 2026-10-10. | equipment / SPM-90 |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
-| **No Safety Officer can receive a safety-check notification yet** | Submitting an event for a safety check (SPM-86) notifies every active user with the role `safety_officer`, but that role does not exist until **SPM-85 (Safety Officer Role and Access)** adds it, so today the notification reaches nobody - the submission itself still succeeds. Once SPM-85 is in, the notification still can't be seen until the Notifications screen (**SPM-71**) is built. Role key agreed: `safety_officer` (2026-10-09). | SPM-85 / SPM-71 |
+| **A Safety Officer cannot see a safety-check notification yet** | Submitting an event for a safety check (SPM-86) notifies every active user with the role `safety_officer`. Since SPM-85 (2026-10-12) that role exists and the Safety Officer (Hana Yusof) receives the notification, but it can't be seen until the Notifications screen (**SPM-71**) is built - SPM-86-TC13 stays Blocked on that alone. Until then the Safety Officer finds submitted events on the Safety Checks page and the Dashboard. | SPM-71 |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
 | **Confirm event does not yet require an approved safety check** | An event in Safety review cannot be confirmed (the lifecycle has no Safety review → Confirmed move), but an event still in Planning that was never submitted can be confirmed as before. Requiring the Safety Officer's approval first is **SPM-88**'s AC8/AC9. | SPM-88 |
 | **Nothing can cancel an event in Safety review yet** | The lifecycle allows Safety review → Cancelled (decided 2026-10-09), but no screen cancels any event. **SPM-37 (Cancel Event)** builds it and should offer it in Safety review too; its owner has been told. | SPM-37 |
@@ -962,6 +964,47 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-12 — Jordan
+- **SPM-85 (Safety Officer Role and Access, Week 7 change #6).** A new internal
+  role, `safety_officer` ("Safety Officer"), for the person who reviews the
+  operational safety of planned events. SPM-86 already notified users with
+  that key; now one can log in. Not self-registerable — the Create an account
+  form still offers only Event Organiser and Attendee.
+  - **Sidebar:** Dashboard · Safety Checks · All Events · Notifications.
+  - **New screen, Safety Checks** (`/safety-checks`, S-29) and
+    `GET /api/safety-checks`: the events in Safety review, with Client, When,
+    Expected attendance and who submitted each for its check and when, oldest
+    first. The Dashboard's "Awaiting your safety check" list links to it.
+  - **New permission, `event:safety_check`**, held by the Safety Officer alone.
+    It opens Safety Checks today; SPM-87's decision (approve, reject, request
+    changes) should use the same action. Every other role is refused the page
+    and the API (403) - that is what "other roles cannot perform Safety Officer
+    actions" means until SPM-87.
+  - **What they read:** every event that has left Draft (like the rest of the
+    staff), its Overview and its Equipment tab, read-only. They hold no venue,
+    equipment, registration or status action, so every existing "change" rule
+    refuses them without naming them, and no Attendees tab and no
+    `registration:view_list` - attendee details are personal.
+  - **The Overview gained two staff-only cards**, because AC3 needs them and
+    nothing showed them before: **Sessions** (each session's time, attendance
+    and layout) and **Venue bookings** (each approved booking's room, layout,
+    and the seats that layout holds). `GET /api/events/[id]` now selects each
+    approved booking's `layoutName` and the room's layouts with capacities.
+    The coordinator sees both cards too; the organiser does not.
+  - **The Venue tab's address now refuses every role without `venue:view`
+    before loading** (`RequirePermission`), instead of loading and then
+    showing an error - the Safety Officer, Technical Support, an organiser or
+    an attendee typing it see "You do not have access to this". Nobody loses
+    anything: the tab was never offered to those roles.
+  - **`prisma/seed.ts`:** Hana Yusof joins the staff list; SPM-85's three events
+    are appended last; `CHAIN` and `REASONS` gain `safety_review`, which no
+    seeded event had needed before (a full reseed would have crashed on one).
+  - **Test data:** `npm run fixtures:spm85` - the Safety Officer account and
+    three "SPM85 …" events, no reseed. Test cases:
+    `docs/test-cases/SPM-85_Test_Cases.xlsx` (15 cases). SPM-86-TC13, Blocked
+    until a Safety Officer could log in, is now unblocked on that side (it
+    still needs the Notifications page, SPM-71).
+  - Migration: none (`users.role` is a plain string).
 ### 2026-10-12 — Kristen
 - **SPM-33: the Operational Safety Check is on the Readiness tab** (AC6,
   AC9), now that SPM-86 and SPM-81 are on main. It is the last item, from

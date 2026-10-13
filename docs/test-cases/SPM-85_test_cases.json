@@ -1,0 +1,332 @@
+{
+  "story_key": "SPM-85",
+  "story_title": "SPM-85: As a Safety Officer, I want to log in and see only what I need to review the operational safety of planned events so that I can do my job without access to functions that are not mine.",
+  "created_by": "TAN JORDAN",
+  "creation_date": "2026-10-12",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Safety Officer exists as a separate internal role that a user can log in with."
+    },
+    {
+      "id": "AC2",
+      "text": "Given I am logged in as a Safety Officer, when I view the main navigation, then only the items defined for the Safety Officer role are shown."
+    },
+    {
+      "id": "AC3",
+      "text": "A Safety Officer can view the information needed for a safety review of an event: expected attendance, sessions and timings, accessibility requirements, venue bookings with capacity and layout, and equipment arrangements."
+    },
+    {
+      "id": "AC4",
+      "text": "A Safety Officer cannot edit event information, venue bookings, equipment arrangements or registrations."
+    },
+    {
+      "id": "AC5",
+      "text": "A Safety Officer cannot assign Coordinators, review event requests, approve venue bookings, reserve equipment or confirm events."
+    },
+    {
+      "id": "AC6",
+      "text": "A Safety Officer cannot view attendee personal details."
+    },
+    {
+      "id": "AC7",
+      "text": "Given a Safety Officer navigates directly to a screen outside their permissions, when the page loads, then they see an access-denied state and no restricted data is rendered."
+    },
+    {
+      "id": "AC8",
+      "text": "Users in other roles cannot perform Safety Officer actions."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-85-TC01",
+      "title": "A Safety Officer can log in and is shown as a Safety Officer",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run (it creates the Safety Officer account Hana Yusof without reseeding). Logged out.",
+      "steps": [
+        "Open the Log in page",
+        "Type hana.yusof@connectsphere.com in Email",
+        "Type password123 in Password",
+        "Click 'Log in'"
+      ],
+      "test_data": "Email: hana.yusof@connectsphere.com\nPassword: password123\nRole: Safety Officer",
+      "expected_result": "Step 4: The Dashboard opens. The account menu at the top shows 'Hana Yusof' with the role 'Safety Officer' underneath."
+    },
+    {
+      "id": "SPM-85-TC02",
+      "title": "The public Create an account form does not offer the Safety Officer role",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Logged out.",
+      "steps": [
+        "Open the Log in page",
+        "Click 'Register'",
+        "Open the 'Role' dropdown"
+      ],
+      "test_data": "Role dropdown on the Create an account page",
+      "expected_result": "Step 2: The Create an account page opens, and under 'Role' it says 'ConnectSphere staff accounts are created internally, not here.'\nStep 3: The dropdown offers only 'Event Organiser' and 'Attendee'. 'Safety Officer' is not an option, because it is an internal role."
+    },
+    {
+      "id": "SPM-85-TC03",
+      "title": "A Safety Officer's sidebar shows only Dashboard, Safety Checks, All Events and Notifications",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Look at the sidebar",
+        "Click 'All Events' in the sidebar"
+      ],
+      "test_data": "Safety Officer: hana.yusof@connectsphere.com\nEvent: SPM85 Marina Networking Night (Planning)",
+      "expected_result": "Step 1: The sidebar lists exactly 'Dashboard', 'Safety Checks', 'All Events' and 'Notifications'. 'Review Queue', 'Assignments', 'Venues', 'Booking Requests', 'Equipment', 'Equipment Requests', 'My Events', 'Browse Events' and 'My Registrations' are not shown.\nStep 2: The All Events list opens and includes 'SPM85 Marina Networking Night' with the status 'Planning'."
+    },
+    {
+      "id": "SPM-85-TC04",
+      "title": "The Safety Checks list shows the events waiting for a safety check, and not events still being planned",
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. 'SPM85 Harbour Safety Forum' is in Safety review, submitted by Daniel Tan on 10 Oct 2026. 'SPM85 Marina Networking Night' is still in Planning. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar"
+      ],
+      "test_data": "In Safety review: SPM85 Harbour Safety Forum (Meridian Financial Group, 27 Sept 2027, 200 expected)\nIn Planning: SPM85 Marina Networking Night",
+      "expected_result": "Step 1: The Safety Checks page lists 'SPM85 Harbour Safety Forum' with Client 'Meridian Financial Group', When '27 Sept 2027, 09:00–17:00', Expected attendance '200' and Submitted '10 Oct 2026 by Daniel Tan'. 'SPM85 Marina Networking Night' is not listed, because it has not been submitted for a safety check."
+    },
+    {
+      "id": "SPM-85-TC05",
+      "title": "A Safety Officer sees the attendance, sessions, accessibility requirements and booked venues with capacity and layout on the event's Overview",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM85 Harbour Safety Forum'"
+      ],
+      "test_data": "Event: SPM85 Harbour Safety Forum\nSessions: Main programme (27 Sept 2027 09:00-12:00, 200 people, Theatre) at Marina Auditorium (MAR-AUD), Theatre for 220; Breakout workshop (27 Sept 2027 13:00-17:00, 60 people, Classroom) at Orchard Seminar Room (ORC-SEM), Classroom for 70\nAccessibility: Step-free access (required), Hearing induction loop (nice-to-have)",
+      "expected_result": "Step 2: The event's Overview opens. Details shows Status 'Safety review' and Expected attendance '200'. A 'Sessions' card lists 'Main programme' as '27 Sept 2027, 09:00–12:00 · 200 people · Theatre' and 'Breakout workshop' as '27 Sept 2027, 13:00–17:00 · 60 people · Classroom'. A 'Venue bookings' card lists 'Main programme' as 'Marina Auditorium (MAR-AUD) · Theatre · seats 220' and 'Breakout workshop' as 'Orchard Seminar Room (ORC-SEM) · Classroom · seats 70'. 'Venue requirements' shows Required facilities 'Step-free access' and 'Hearing induction loop (nice-to-have)', and Accessibility notes 'Two wheelchair users attending; keep the aisle beside row A clear.'"
+    },
+    {
+      "id": "SPM-85-TC06",
+      "title": "A Safety Officer sees the event's equipment arrangements read-only",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM85 Harbour Safety Forum'",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM85 Harbour Safety Forum\nEquipment: Handheld Wireless Mic x4 (Main programme, Reserved), Wheelchair Access Ramp x1 (Main programme, Reserved)",
+      "expected_result": "Step 2: The tab bar shows only 'Overview' and 'Equipment'.\nStep 3: The Equipment requirements page lists 'Handheld Wireless Mic' (quantity 4) and 'Wheelchair Access Ramp' (quantity 1), each with the status 'Reserved'. There is no 'Add equipment' section and no 'Remove' button on either row."
+    },
+    {
+      "id": "SPM-85-TC07",
+      "title": "A Safety Officer is offered no button that changes an event, its venue, its equipment or its registration",
+      "linked_ac": [
+        "AC4",
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. 'SPM85 Riverside Product Launch' is Confirmed, open for registration, with an approved booking at Orchard Gallery. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM85 Riverside Product Launch'"
+      ],
+      "test_data": "Event: SPM85 Riverside Product Launch (Confirmed, registration open, Orchard Gallery (ORC-GAL), Theatre for 110)",
+      "expected_result": "Step 2: The Overview opens with Status 'Confirmed', and the 'Venue bookings' card lists 'Whole event' as 'Orchard Gallery (ORC-GAL) · Theatre · seats 110'. There is no 'Edit event information', 'Submit for safety check', 'Confirm event', 'Review request' or 'Record withdrawal' button, and the 'Registration' card has no 'Change registration settings' button. The tab bar shows only 'Overview' and 'Equipment', so there is no Venue tab to request or change a booking from."
+    },
+    {
+      "id": "SPM-85-TC08",
+      "title": "A Safety Officer who types the address of the Edit event information page is refused and shown no form",
+      "linked_ac": [
+        "AC4",
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM85 Riverside Product Launch' and note its reference (EVT-…) shown beside the title",
+        "Type /events/<reference from step 2>/update after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>/update) and press Enter"
+      ],
+      "test_data": "Event: SPM85 Riverside Product Launch\nAddress: /events/<reference>/update",
+      "expected_result": "Step 3: The page shows 'You can't edit this event's information' with 'Only the coordinator assigned to this event can change its information.' No information form and no 'Save' button are shown."
+    },
+    {
+      "id": "SPM-85-TC09",
+      "title": "A Safety Officer who types the address of an assigning, reviewing or venue-approving screen sees an access-denied page",
+      "linked_ac": [
+        "AC5",
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Type /assignments after the site address in the browser address bar (e.g. http://localhost:3000/assignments) and press Enter",
+        "Type /queue after the site address in the browser address bar (e.g. http://localhost:3000/queue) and press Enter",
+        "Type /bookings after the site address in the browser address bar (e.g. http://localhost:3000/bookings) and press Enter",
+        "Type /venues after the site address in the browser address bar (e.g. http://localhost:3000/venues) and press Enter"
+      ],
+      "test_data": "Addresses: /assignments (assign Coordinators), /queue (review event requests), /bookings (approve venue bookings), /venues (venue catalogue)",
+      "expected_result": "Step 1: The Assignments page shows 'You do not have access to this' and a 'Back to Dashboard' button. No events or coordinators are listed.\nStep 2: The Review Queue page shows 'You do not have access to this'. No requests are listed.\nStep 3: The Booking Requests page shows 'You do not have access to this'. No booking requests are listed.\nStep 4: The Venues page shows 'You do not have access to this'. No venues are listed."
+    },
+    {
+      "id": "SPM-85-TC10",
+      "title": "A Safety Officer cannot reach the screens for reserving equipment or finding a venue, and sees why",
+      "linked_ac": [
+        "AC4",
+        "AC5",
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Type /equipment/requests after the site address in the browser address bar (e.g. http://localhost:3000/equipment/requests) and press Enter",
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM85 Harbour Safety Forum' and note its reference (EVT-…) shown beside the title",
+        "Type /events/<reference from step 3>/venue after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/venue) and press Enter"
+      ],
+      "test_data": "Addresses: /equipment/requests (reserve equipment), /events/<reference>/venue (find and request a venue)\nEvent: SPM85 Harbour Safety Forum",
+      "expected_result": "Step 1: The Equipment requests page shows 'Only Technical Support Staff can view equipment requests.' No events or equipment are listed, and there is no way to reserve anything.\nStep 4: The Find a venue page shows 'You do not have access to this' with 'Finding and booking a venue is for the Event Coordinator. The rooms booked for this event are on its Overview.' No venues are listed and there is no 'Request booking' button."
+    },
+    {
+      "id": "SPM-85-TC11",
+      "title": "A Safety Officer never sees the names or needs of the people registered for an event",
+      "linked_ac": [
+        "AC6",
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. 'SPM85 Riverside Product Launch' has two registrations: Lee Wei Ming (dietary 'Vegetarian', accessibility 'Wheelchair user - front row please') and Anita Devi. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM85 Riverside Product Launch'",
+        "Click the 'Equipment' tab",
+        "Type /registrations after the site address in the browser address bar (e.g. http://localhost:3000/registrations) and press Enter"
+      ],
+      "test_data": "Event: SPM85 Riverside Product Launch\nRegistered attendees: Lee Wei Ming, Anita Devi",
+      "expected_result": "Step 2: The Overview has no 'Attendees' tab, and 'Lee Wei Ming', 'Anita Devi', 'Vegetarian' and 'Wheelchair user - front row please' appear nowhere on the page.\nStep 3: None of those names or needs appear on the Equipment requirements page either.\nStep 4: The My Registrations page shows 'You do not have access to this'. No registrations are listed."
+    },
+    {
+      "id": "SPM-85-TC12",
+      "title": "The Safety Officer's Dashboard lists the events awaiting their safety check",
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Hana Yusof (Safety Officer).",
+      "steps": [
+        "Click 'Dashboard' in the sidebar"
+      ],
+      "test_data": "In Safety review: SPM85 Harbour Safety Forum\nIn Planning: SPM85 Marina Networking Night",
+      "expected_result": "Step 1: The Dashboard has a list headed 'Awaiting your safety check' that includes 'SPM85 Harbour Safety Forum' with the status 'Safety review'. 'SPM85 Marina Networking Night' is not in that list."
+    },
+    {
+      "id": "SPM-85-TC13",
+      "title": "An Event Coordinator has no Safety Checks link and is refused the Safety Checks page",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Daniel Tan (Event Coordinator), who submitted 'SPM85 Harbour Safety Forum' for its safety check.",
+      "steps": [
+        "Look at the sidebar",
+        "Type /safety-checks after the site address in the browser address bar (e.g. http://localhost:3000/safety-checks) and press Enter"
+      ],
+      "test_data": "Coordinator: daniel.tan@connectsphere.com / password123\nAddress: /safety-checks",
+      "expected_result": "Step 1: The sidebar has no 'Safety Checks' link.\nStep 2: The Safety Checks page shows 'You do not have access to this' with 'The Operational Safety Check is the Safety Officer's role. You can still see the events you are involved in from your Dashboard.' 'SPM85 Harbour Safety Forum' is not listed."
+    },
+    {
+      "id": "SPM-85-TC14",
+      "title": "The Operations Manager has no Safety Checks link and is refused the Safety Checks page",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Grace Lim (Operations Manager).",
+      "steps": [
+        "Look at the sidebar",
+        "Type /safety-checks after the site address in the browser address bar (e.g. http://localhost:3000/safety-checks) and press Enter"
+      ],
+      "test_data": "Operations Manager: grace.lim@connectsphere.com / password123\nAddress: /safety-checks",
+      "expected_result": "Step 1: The sidebar has no 'Safety Checks' link.\nStep 2: The Safety Checks page shows 'You do not have access to this' with 'The Operational Safety Check is the Safety Officer's role. You can still see the events you are involved in from your Dashboard.' No events are listed."
+    },
+    {
+      "id": "SPM-85-TC15",
+      "title": "Technical Support, who has no venue access, is refused the Find a venue page before anything loads",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "npm run fixtures:spm85 has been run. Logged in as Kenji Sato (Technical Support).",
+      "steps": [
+        "Click 'Dashboard' in the sidebar",
+        "Click 'SPM85 Harbour Safety Forum' in the 'Upcoming events' list and note its reference (EVT-…) shown beside the title",
+        "Type /events/<reference from step 2>/venue after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>/venue) and press Enter"
+      ],
+      "test_data": "Technical Support: kenji.sato@connectsphere.com / password123\nEvent: SPM85 Harbour Safety Forum\nAddress: /events/<reference>/venue",
+      "expected_result": "Step 3: The Find a venue page shows 'You do not have access to this' with 'Finding and booking a venue is for the Event Coordinator. The rooms booked for this event are on its Overview.' No venues and no 'Request booking' button are shown."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-12: The role is stored as 'safety_officer' (the key SPM-86 already notifies, agreed 2026-10-09) and shown as 'Safety Officer'. It is an internal role: like every other staff account it is created internally (the seed, or npm run fixtures:spm85), never through the public Create an account form.",
+    "DECIDED 2026-10-12: A Safety Officer's sidebar is Dashboard, Safety Checks (/safety-checks), All Events and Notifications. Safety Checks is the role's own work list, the same way Review Queue is the coordinator's and Booking Requests is Venue Staff's. The venue catalogue (Venues) is not on it: the rooms an event actually has are shown on the event itself (TC05).",
+    "DECIDED 2026-10-12: A new permission, 'event:safety_check', is held by the Safety Officer alone. Today it opens the Safety Checks page; SPM-87 (the Safety Officer's decision: approve, reject or request changes) uses the same permission. That is what AC8's 'Safety Officer actions' refers to until SPM-87 adds the decision itself.",
+    "DECIDED 2026-10-12: Wording - Safety Checks page heading 'Safety Checks', columns Event, Client, When, Expected attendance and Submitted ('10 Oct 2026 by Daniel Tan'), oldest submission first; empty state 'Nothing to check' / 'Events appear here once a coordinator submits them for a safety check.'; refusal for any other role 'You do not have access to this' with 'The Operational Safety Check is the Safety Officer's role. You can still see the events you are involved in from your Dashboard.' Dashboard list 'Awaiting your safety check'.",
+    "DECIDED 2026-10-12: A Safety Officer sees every event that has left Draft, like the other internal roles (customer clarification #66: staff access follows the role, not a particular venue or event). Narrowing it to events from Planning onwards would be a small change if the team prefers it.",
+    "DECIDED 2026-10-12: On an event, a Safety Officer has the Overview and Equipment tabs only. The Venue tab is the coordinator's 'Find a venue' search over the whole catalogue, which is not part of a safety review. Instead the Overview gains a 'Sessions' card (each session's time, attendance and layout - not shown anywhere on the Overview before) and a 'Venue bookings' card (each approved booking's room, layout and the seats that layout holds), shown to ConnectSphere staff. The Equipment tab is read-only for them. Typing the Venue tab's address shows 'You do not have access to this' with 'Finding and booking a venue is for the Event Coordinator. The rooms booked for this event are on its Overview.'",
+    "DECIDED 2026-10-12: 'Attendee personal details' (AC6) are the people registered for an event and what they told us - name, email, dietary and accessibility needs. A Safety Officer is given none of them: no Attendees tab and no 'registration:view_list' permission. The event's own accessibility notes and required facilities (AC3) are the organiser's description of the event, not an attendee's personal details, so they are shown.",
+    "DECIDED 2026-10-12: Found while building AC7. The Find a venue page (the Venue tab's address) now refuses every role without venue access before it loads anything - the Safety Officer, Technical Support, an organiser or an attendee - instead of loading and then showing an error. Technical Support could never use the page (it was never in their tabs), so nothing they could do is lost; SPM-85-TC15 records the new refusal. The two new Overview cards (Sessions, Venue bookings) are shown to every ConnectSphere staff role, the event's coordinator included, not only the Safety Officer.",
+    "OPEN: The Week 7 change also lists emergency access, crowd movement and known venue restrictions as factors a Safety Officer considers. None is recorded in the system today, and AC3 does not list them, so SPM-85 shows nothing for them. Should a later story (SPM-87, or a venue story) record them?",
+    "OPEN: An aggregate of the registered attendees' accessibility needs (for example, '3 attendees need step-free access') might help a safety review without exposing who they are. AC6 rules out personal details; an anonymous count is not built here. Is it wanted?",
+    "RESOLVED 2026-10-12: The Safety Officer's decision on a safety check (approve, reject, request changes) is SPM-87, and seeing the Safety Officer's notifications needs the Notifications page (SPM-71). Neither is tested here."
+  ],
+  "code_references": [
+    "src/lib/roles.ts",
+    "src/lib/permissions.ts",
+    "src/app/api/safety-checks/route.ts",
+    "src/app/safety-checks/page.tsx",
+    "src/app/dashboard/page.tsx",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/events/[id]/update/page.tsx",
+    "src/app/equipment/requests/page.tsx",
+    "src/app/register/page.tsx",
+    "src/components/RequirePermission.tsx",
+    "src/app/api/events/[id]/safety-check/route.ts",
+    "scripts/seed-spm85.ts",
+    "prisma/seed.ts"
+  ]
+}

@@ -45,7 +45,10 @@ The customer briefing names five roles. The database (`users.role`) carries a
 sixth, `ops_manager`, because someone has to assign a coordinator to a
 submitted event — a coordinator cannot assign themselves before they are
 responsible for the event. Treated as an internal admin variant of Coordinator:
-identical chrome, one extra screen.
+identical chrome, one extra screen. A seventh, `safety_officer`, came with the
+Week 7 changes (change #6, SPM-85): it reviews the operational safety of an
+event once its arrangements are made, reading what a review needs and
+changing nothing.
 
 | Key | Label in UI | Internal/External | Home screen after login |
 | --- | --- | --- | --- |
@@ -55,6 +58,7 @@ identical chrome, one extra screen.
 | `tech_support` | Technical Support | Internal | `/dashboard` — pending equipment requests |
 | `attendee` | Attendee | External | `/dashboard` — my registrations + open events |
 | `ops_manager` | Operations Manager | Internal | `/dashboard` — unassigned submitted events |
+| `safety_officer` | Safety Officer | Internal | `/dashboard` — events awaiting their safety check |
 
 **Never show a raw role key to a user.** `venue_staff` is a database value;
 "Venue Staff" is what a person reads. Labels live in `src/lib/roles.ts`.
@@ -132,6 +136,12 @@ attendee variant — see §4.3.)*
 | --- | --- | --- | --- |
 | S-28 | Assignment queue | `/assignments` | Submitted events with no coordinator. |
 
+### 3.8 Safety Officer
+
+| ID | Screen | Route | Purpose |
+| --- | --- | --- | --- |
+| S-29 | Safety Checks | `/safety-checks` | Events submitted for an Operational Safety Check (SPM-85): Event, Client, When, Expected attendance and Submitted ("10 Oct 2026 by Daniel Tan"), oldest first. Each opens the event's Overview. Every other role sees "You do not have access to this". |
+
 ---
 
 ## 4. Navigation
@@ -173,21 +183,37 @@ attendee variant — see §4.3.)*
 | Tech Support | Dashboard · Equipment · Equipment Requests · Notifications |
 | Attendee | Dashboard · Browse Events · My Registrations · Notifications |
 | Ops Manager | Dashboard · Assignments · All Events · Notifications |
+| Safety Officer | Dashboard · Safety Checks · All Events · Notifications |
 
 ### 4.3 Event detail as the hub
 
 S-06 is where the roles converge. Rather than building a separate event screen
 per role, one screen renders the tabs the user is entitled to:
 
-| Tab | Organiser | Coordinator | Venue Staff | Tech Support | Attendee |
-| --- | --- | --- | --- | --- | --- |
-| Overview | yes | yes | yes | yes | public subset |
-| Discussion | yes | yes | — | — | — |
-| Venue | read-only | yes | yes | — | name only, once confirmed |
-| Equipment | read-only | yes | — | yes | — |
-| Attendees | yes | yes | — | — | — |
-| Readiness | — | yes | — | — | — |
-| History | — | yes | — | — | — |
+| Tab | Organiser | Coordinator | Venue Staff | Tech Support | Attendee | Safety Officer |
+| --- | --- | --- | --- | --- | --- | --- |
+| Overview | yes | yes | yes | yes | public subset | yes |
+| Discussion | yes | yes | — | — | — | — |
+| Venue | read-only | yes | yes | — | name only, once confirmed | — |
+| Equipment | read-only | yes | — | yes | — | read-only |
+| Attendees | yes | yes | — | — | — | — |
+| Readiness | — | yes | — | — | — | — |
+| History | — | yes | — | — | — | — |
+
+**What a safety review reads** (SPM-85). The Overview gives ConnectSphere staff
+two cards beside Details: **Sessions** (each session's label, then "27 Sept
+2027, 09:00–12:00 · 200 people · Theatre"; a session with no label is "Session
+1", and a missing value reads "Attendance not set" / "Layout not set") and
+**Venue bookings** (each approved booking, labelled with its session or "Whole
+event": "Marina Auditorium (MAR-AUD) · Theatre · seats 220" — the seats the
+booked layout holds, not the room's largest; "Layout not set" or "capacity not
+recorded" where that is missing; "No venue is booked yet." when there is none).
+Neither card is shown to the organiser, who learns the room from the Venue row,
+or to an Attendee. The Safety Officer has no Venue tab: it is the coordinator's
+Find a venue search, and its address refuses every role without venue access
+before anything loads — "You do not have access to this", "Finding and booking
+a venue is for the Event Coordinator. The rooms booked for this event are on
+its Overview."
 
 **The Overview's Registration card** (SPM-64) is read-only for every role
 that can see the event: Registration (Enabled / Not enabled for this event),
@@ -568,6 +594,8 @@ This document specifies the whole first release. What is built so far:
 | S-01 Login, including the `?next=` return path | `src/app/login/page.tsx` |
 | S-02 Register — reference implementation of the validation pattern | `src/app/register/page.tsx` |
 | S-03 Dashboard, role-aware | `src/app/dashboard/page.tsx` |
+| S-29 Safety Checks, the Safety Officer's list (SPM-85) | `src/app/safety-checks/page.tsx`, `src/app/api/safety-checks/route.ts` |
+| Overview "Sessions" and "Venue bookings" cards for staff (SPM-85) | `src/app/events/[id]/page.tsx` |
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |
 | S-08 Sessions section (multi-session events) | `src/components/SessionFields.tsx`, `src/lib/eventSessions.ts` |

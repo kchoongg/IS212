@@ -35,6 +35,9 @@ export const ACTIONS = [
   "event:assign_coordinator",
   "event:confirm",
   "event:cancel",
+  // SPM-85: work the Operational Safety Check - today the Safety Checks list,
+  // and SPM-87's decision (approve, reject, request changes) once it lands.
+  "event:safety_check",
   "venue:view",
   "venue:manage",
   "venue_booking:request",
@@ -113,6 +116,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "facility:view",
   ],
   attendee: ["event:view", "registration:create", "facility:view"],
+  // SPM-85 (Week 7 change #6). Reads what a safety review needs and changes
+  // none of it (AC4, AC5): no venue, equipment or registration action, and no
+  // registration:view_list - who registered is personal (AC6). What they may
+  // see of one event is canViewEvent() and canViewEquipmentRequests() below.
+  safety_officer: ["event:view", "event:safety_check", "facility:view"],
 };
 
 /// An unknown role gets nothing. A role key that is not in ROLES cannot have
@@ -151,6 +159,9 @@ const INTERNAL_ROLES: readonly string[] = [
   "ops_manager",
   "venue_staff",
   "tech_support",
+  // SPM-85: every event that has left Draft, as for the rest of the staff -
+  // access follows the role, not a particular event (clarification #66).
+  "safety_officer",
 ];
 
 // ---------------------------------------------------------------------------
@@ -292,6 +303,9 @@ export function canManageEquipmentRequests(actor: Actor, event: EventAccessField
 /// independent viewing right.
 export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
   if (actor.role === "tech_support") return techSupportSeesEquipment(event.status);
+  // SPM-85 (AC3): equipment placement is part of a safety review. Read-only -
+  // they hold no equipment action - and on any event they can see at all.
+  if (actor.role === "safety_officer") return true;
   if (actor.role === "organiser") return ownsEvent(actor, event);
   return canManageEquipmentRequests(actor, event);
 }

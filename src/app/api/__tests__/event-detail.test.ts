@@ -279,6 +279,34 @@ describe("GET /api/events/[id]", () => {
     expect(callArg(db.event.findUnique).include.venueBookings.where).toEqual({ status: "approved" });
   });
 
+  // SPM-85 (AC3): a safety review needs each booked room's layout and the
+  // seats that layout holds, not only the room's name.
+  it("loads each approved booking's layout and the capacity of every layout the room has", async () => {
+    const token = signIn(user("safety_officer"));
+    db.event.findUnique.mockResolvedValue(event());
+
+    const res = await get(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.findUnique).include.venueBookings.select).toEqual({
+      startsAt: true,
+      endsAt: true,
+      layoutName: true,
+      session: { select: { label: true } },
+      venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+    });
+  });
+
+  it("gives the Safety Officer the whole record and the latest safety check, like other staff", async () => {
+    const token = signIn(user("safety_officer"));
+    db.event.findUnique.mockResolvedValue(event({ expectedAttendance: 200, accessibilityNotes: "Step-free" }));
+
+    const body = await (await get(token)).json();
+
+    expect(body).toMatchObject({ expectedAttendance: 200, accessibilityNotes: "Step-free" });
+    expect(body).toHaveProperty("safetyCheck");
+  });
+
   it("gives staff the whole record, including the internal fields", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event({ coordinator: { fullName: "Daniel Tan" } }));

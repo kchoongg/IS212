@@ -160,6 +160,15 @@ const ATTENTION_BY_ROLE: Record<string, Section & { scope?: Scope; more?: Sectio
     statuses: ["confirmed"],
     blurb: "Confirmed events you can register for.",
   },
+  // SPM-85: the events a coordinator has submitted for an Operational Safety
+  // Check (SPM-86). The full list is the Safety Checks page.
+  safety_officer: {
+    heading: "Awaiting your safety check",
+    statuses: ["safety_review"],
+    blurb: "Events submitted for an Operational Safety Check.",
+    empty: { title: "Nothing to check", description: "Events appear here once a coordinator submits them for a safety check." },
+    all: { href: "/safety-checks", label: "Safety Checks" },
+  },
 };
 
 export default function DashboardPage() {
