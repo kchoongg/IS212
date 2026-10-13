@@ -70,7 +70,7 @@
         "Click 'Browse Events' in the sidebar"
       ],
       "test_data": "Attendee: Chua Mei Ling | Today: after 1 Sept 2026 and before 1 Nov 2027",
-      "expected_result": "Step 1: The 'Browse Events' page opens. Among the events listed are 'SPM51 Harbour Open House' and 'SPM51 Last Seat Masterclass' with the badge 'Open', 'SPM51 Early Bird Seminar' with 'Not open yet' and 'Opens 1 Nov 2027, 09:00' beside it, 'SPM51 Closed Doors Workshop' with 'Closed', 'SPM51 Undated Talk' with 'Dates not set' and 'SPM51 Sold Out Summit' with 'Full'. Each shows its date and time and the company 'Straits Medical Institute'. 'SPM51 Private Board Dinner' (registration off) and 'SPM51 Planning Stage Forum' (not Confirmed) are not listed."
+      "expected_result": "Step 1: The 'Browse Events' page opens. Among the events listed are 'SPM51 Harbour Open House' and 'SPM51 Last Seat Masterclass' with the badge 'Open' and 'Closes 31 Dec 2027, 17:00' beside it, 'SPM51 Early Bird Seminar' with 'Not open yet' and 'Opens 1 Nov 2027, 09:00' beside it, 'SPM51 Closed Doors Workshop' with 'Closed' and 'Closed on 30 Sept 2026, 17:00' beside it, 'SPM51 Undated Talk' with 'Dates not set' and 'SPM51 Sold Out Summit' with 'Full'. Each shows its date and time and the company 'Straits Medical Institute'. 'SPM51 Private Board Dinner' (registration off) and 'SPM51 Planning Stage Forum' (not Confirmed) are not listed."
     },
     {
       "id": "SPM-51-TC02",

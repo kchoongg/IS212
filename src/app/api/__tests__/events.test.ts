@@ -123,7 +123,7 @@ describe("GET /api/events", () => {
       _count: { _all: true },
     });
     expect(body.map((e: { registrationState: unknown }) => e.registrationState)).toEqual([
-      { kind: "open" },
+      { kind: "open", closesAt: "2027-12-31T09:00:00.000Z" },
       { kind: "full" },
     ]);
   });

@@ -124,7 +124,7 @@ cite.
 
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
-| S-26 | Browse events | `/browse` | Confirmed, registration-enabled events, each with a registration badge (Open, Not open yet + "Opens <date>", Closed, Full, Dates not set), soonest first (SPM-51). Registering happens on the event page's "Your registration" card. |
+| S-26 | Browse events | `/browse` | Confirmed, registration-enabled events, each with a registration badge (Open + "Closes <date>", Not open yet + "Opens <date>", Closed + "Closed on <date>", Full, Dates not set), soonest first (SPM-51). Registering happens on the event page's "Your registration" card. |
 | S-27 | My registrations | `/registrations` | My registrations and their status (SPM-51); withdraw is #20, not built. |
 
 *(Attendees reach a public view of an event through S-06, rendered with the

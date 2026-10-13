@@ -1,6 +1,6 @@
 // SPM-51 Register for Event - who may register for an event right now (written test-first):
 //   src/lib/registrationEligibility.ts
-//     registrationState(event, seatsTaken, now) -> { kind: "open" } or the reason it isn't, checked in order:
+//     registrationState(event, seatsTaken, now) -> { kind: "open", closesAt } or the reason it isn't, checked in order:
 //       not_confirmed, disabled, no_period, not_open { opensAt }, closed { closesAt }, full
 //     REGISTRATION_REFUSALS[kind] - the message the register route answers with
 //     SEAT_TAKING - the registration statuses that take a seat
@@ -26,7 +26,7 @@ function event(overrides: Record<string, unknown> = {}) {
 
 describe("AC3 an event is eligible only when Confirmed, enabled and within its registration period", () => {
   it("is open for a Confirmed event with registration on, inside its period, with a seat left (TC02)", () => {
-    expect(registrationState(event(), 0, NOW)).toEqual({ kind: "open" });
+    expect(registrationState(event(), 0, NOW)).toEqual({ kind: "open", closesAt: CLOSES });
   });
 
   it.each(["approved", "planning", "postponed", "completed", "cancelled"])("is not open while the event is %s (TC09)", (status) => {
@@ -54,11 +54,11 @@ describe("AC4 before the period opens or after it closes, nobody can register", 
   });
 
   it("is open from the moment it opens", () => {
-    expect(registrationState(event(), 0, OPENS)).toEqual({ kind: "open" });
+    expect(registrationState(event(), 0, OPENS)).toEqual({ kind: "open", closesAt: CLOSES });
   });
 
   it("is still open at the moment it closes", () => {
-    expect(registrationState(event(), 0, CLOSES)).toEqual({ kind: "open" });
+    expect(registrationState(event(), 0, CLOSES)).toEqual({ kind: "open", closesAt: CLOSES });
   });
 
   it("is closed a minute after, saying when it closed (TC07)", () => {
@@ -74,7 +74,7 @@ describe("AC8 registration is not available when it is turned off", () => {
 
 describe("AC9 registration stops once the capacity is reached", () => {
   it("is open with one seat left (TC04)", () => {
-    expect(registrationState(event(), 2, NOW)).toEqual({ kind: "open" });
+    expect(registrationState(event(), 2, NOW)).toEqual({ kind: "open", closesAt: CLOSES });
   });
 
   it("is full once every seat is taken (TC05)", () => {
@@ -82,7 +82,7 @@ describe("AC9 registration stops once the capacity is reached", () => {
   });
 
   it("has no limit when no capacity is set", () => {
-    expect(registrationState(event({ registrationCapacity: null }), 500, NOW)).toEqual({ kind: "open" });
+    expect(registrationState(event({ registrationCapacity: null }), 500, NOW)).toEqual({ kind: "open", closesAt: CLOSES });
   });
 
   it("counts registered and attended attendees as taking a seat, not waitlisted or withdrawn ones (TC04)", () => {
