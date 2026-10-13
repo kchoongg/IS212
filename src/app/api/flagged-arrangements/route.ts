@@ -5,6 +5,7 @@ import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can, type Actor } from "@/lib/permissions";
 import { reviewFlaggedArrangementSchema } from "@/lib/validation";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
+import { TERMINAL_EVENT_STATUSES } from "@/lib/statuses";
 import { flagReasons, keepRefusal } from "@/lib/flaggedArrangements";
 import {
   FLAGGED_BOOKING_SELECT,
@@ -64,8 +65,10 @@ export async function GET(req: NextRequest) {
     }
 
     // AC16: only this Coordinator's events. AC3: only what is flagged, so an
-    // event's other bookings are never read.
-    const mine = { coordinatorId: actor.id };
+    // event's other bookings are never read. Not an event that is over or
+    // called off: there is nothing left for a flag to go wrong with, and the
+    // stories that raise flags skip finished arrangements for the same reason.
+    const mine = { coordinatorId: actor.id, status: { notIn: TERMINAL_EVENT_STATUSES } };
     const [bookings, equipment, events] = await Promise.all([
       prisma.venueBooking.findMany({
         where: { needsReview: true, status: { in: REVIEWABLE_BOOKING_STATUSES }, event: mine },
@@ -96,6 +99,9 @@ export async function GET(req: NextRequest) {
       equipment.map(async (r) => ({
         id: r.id,
         status: r.status,
+        // Marked as not required on the Readiness tab (SPM-33): it no longer
+        // blocks confirmation, but it is still flagged, so it is still listed.
+        notRequired: r.notRequired === true,
         quantityRequested: r.quantityRequested,
         quantityReserved: r.quantityReserved,
         flaggedAt: r.flaggedAt,
@@ -111,6 +117,7 @@ export async function GET(req: NextRequest) {
       venueBookings: bookings.map((b) => ({
         id: b.id,
         status: b.status,
+        notRequired: b.notRequired === true,
         startsAt: b.startsAt,
         endsAt: b.endsAt,
         layoutName: b.layoutName,

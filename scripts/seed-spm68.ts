@@ -110,6 +110,8 @@ type Booking = {
   flagged?: string;
   /** The booking's own date, when it is not the event's (SPM-68-TC08). */
   date?: string;
+  /** Marked as not required on the Readiness tab by the coordinator (SPM-33). */
+  notRequired?: boolean;
 };
 
 type Fixture = {
@@ -117,7 +119,8 @@ type Fixture = {
   title: string;
   date: string; // YYYY-MM-DD, Singapore
   attendance: number;
-  status?: "planning";
+  /** Planning unless it says otherwise. */
+  status?: "cancelled";
   coordinator?: string;
   facilities?: string[];
   bookings?: Booking[];
@@ -136,7 +139,7 @@ type Fixture = {
 const DANIEL = "daniel.tan@connectsphere.com";
 const PRIYA = "priya.raj@connectsphere.com";
 
-/** Every event is Planning, theatre, and Rachel Ng's; Daniel Tan's unless it says otherwise. */
+/** Every event is theatre and Rachel Ng's; Planning, and Daniel Tan's, unless it says otherwise. */
 const FIXTURES: Fixture[] = [
   // Read-only: one of everything, and a second booking that is NOT flagged (AC3).
   { key: "spm68_listing", title: "SPM68 Listing Summit", date: "2027-10-07", attendance: 50,
@@ -185,6 +188,14 @@ const FIXTURES: Fixture[] = [
   { key: "spm68_partner", title: "SPM68 Partner Briefing", date: "2027-10-21", attendance: 40, coordinator: PRIYA,
     bookings: [{ venueCode: "SPM68-ANX", status: "approved", flagged: "event_attendance_changed" }],
     testCases: "TC02" },
+  // Waived, not resolved: still flagged, so still listed, and labelled.
+  { key: "spm68_waived", title: "SPM68 Waived Room", date: "2027-10-23", attendance: 40,
+    bookings: [{ venueCode: "SPM68-ANX", status: "approved", flagged: "event_attendance_changed", notRequired: true }],
+    testCases: "TC15" },
+  // Called off: nothing left for its flag to go wrong with, so it is not listed.
+  { key: "spm68_cancelled", title: "SPM68 Cancelled Day", date: "2027-10-24", attendance: 40, status: "cancelled",
+    bookings: [{ venueCode: "SPM68-ANX", status: "approved", flagged: "event_attendance_changed" }],
+    testCases: "TC15" },
 ];
 
 const CHAIN = ["submitted", "under_review", "approved", "planning"];
@@ -192,6 +203,7 @@ const REASONS: Record<string, string> = {
   under_review: "Coordinator assigned",
   approved: "Requirements sufficiently clear",
   planning: "Venue search started",
+  cancelled: "Client called the event off",
 };
 
 async function main() {
@@ -303,7 +315,8 @@ async function main() {
     const coordinator = coordinators.get(f.coordinator ?? DANIEL)!;
     const startsAt = sgt(f.date, FROM);
     const endsAt = sgt(f.date, TO);
-    const historyStart = addDays(now, -(CHAIN.length * 5 + 2));
+    const chain = f.status ? [...CHAIN, f.status] : CHAIN;
+    const historyStart = addDays(now, -(chain.length * 5 + 2));
     const reg = f.registration;
 
     const created = await prisma.event.create({
@@ -315,7 +328,7 @@ async function main() {
         organiserId: organiser.id,
         organisationId: organiser.organisationId,
         coordinatorId: coordinator,
-        status: "planning",
+        status: f.status ?? "planning",
         startsAt,
         endsAt,
         expectedAttendance: f.attendance,
@@ -332,8 +345,8 @@ async function main() {
           create: f.facilities.map((name) => ({ facilityId: facilityIds.get(name)!, isMandatory: true })),
         },
         statusHistory: {
-          create: CHAIN.map((to, i) => ({
-            fromStatus: i === 0 ? "draft" : CHAIN[i - 1],
+          create: chain.map((to, i) => ({
+            fromStatus: i === 0 ? "draft" : chain[i - 1],
             toStatus: to,
             changedBy: to === "submitted" ? organiser.id : to === "under_review" ? opsManager : coordinator,
             changedAt: addDays(historyStart, i * 5),
@@ -385,6 +398,9 @@ async function main() {
           requestedAt: new Date(addDays(now, -4).getTime() + i * 60_000),
           decidedBy: approved ? venueStaff : undefined,
           decidedAt: approved ? addDays(now, -3) : undefined,
+          notRequired: b.notRequired ?? false,
+          notRequiredBy: b.notRequired ? coordinator : undefined,
+          notRequiredAt: b.notRequired ? addDays(now, -1) : undefined,
           needsReview: b.flagged !== undefined,
           reviewReason: b.flagged,
           // A minute apart again: the page lists the most recently flagged first.

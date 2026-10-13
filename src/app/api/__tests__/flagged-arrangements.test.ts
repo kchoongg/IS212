@@ -204,6 +204,28 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
+  it("leaves out events that are over or called off", async () => {
+    given();
+
+    await list(coordinator());
+
+    const closed = { notIn: ["completed", "cancelled", "rejected", "withdrawn"] };
+    expect(callArg(db.venueBooking.findMany).where.event.status).toEqual(closed);
+    const flaggedEquipment = db.equipmentRequest.findMany.mock.calls.map(([args]) => args).find((args) => args.where.needsReview);
+    expect(flaggedEquipment.where.event.status).toEqual(closed);
+    expect(callArg(db.event.findMany).where.status).toEqual(closed);
+  });
+
+  // Marking as not required (SPM-33) waives it for confirmation; it does not clear the flag.
+  it("still lists a flagged arrangement that was marked as not required, and says so", async () => {
+    given({ bookings: [bookingRow({ notRequired: true })], equipment: [equipmentRow({ notRequired: true })] });
+
+    const body = await (await list(coordinator())).json();
+
+    expect(body.venueBookings[0].notRequired).toBe(true);
+    expect(body.equipmentRequests[0].notRequired).toBe(true);
+  });
+
   it("reads the most recently flagged first", async () => {
     given();
 
@@ -233,6 +255,7 @@ describe("GET /api/flagged-arrangements", () => {
       {
         id: ID.booking,
         status: "approved",
+        notRequired: false,
         startsAt: "2027-10-08T01:00:00.000Z",
         endsAt: "2027-10-08T09:00:00.000Z",
         layoutName: "theatre",
@@ -374,6 +397,7 @@ describe("GET /api/flagged-arrangements", () => {
       {
         id: ID.request,
         status: "reserved",
+        notRequired: false,
         quantityRequested: 2,
         quantityReserved: 2,
         flaggedAt: "2026-10-12T02:00:00.000Z",

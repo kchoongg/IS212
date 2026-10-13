@@ -789,7 +789,7 @@ traceability the module asks for.
 | `npm run fixtures:spm64` | Adds or resets SPM-64's 12 test events ("SPM64 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm64_`, with their venue bookings (approved, pending, rejected and one with no layout), the booking each capacity is measured against, the registration settings, and registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Stops without changing anything if one of its rooms is already held at that time. Run it before and after any case that saves. The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm85` | Creates or refreshes the Safety Officer account (Hana Yusof, `hana.yusof@connectsphere.com`, `password123`) and resets SPM-85's 3 test events ("SPM85 …") without reseeding — upserts that one user, and deletes and recreates only events whose `seedKey` starts with `spm85_`, with the Harbour forum's two sessions, their approved bookings at Marina Auditorium and Orchard Seminar Room, its reserved equipment, required facilities and pending safety check, and the Riverside launch's approved booking and two registrations. No pinned reference numbers: the cases find events by title. SPM-85's cases only read, so one run before a test pass is enough. The account is in the seed's staff list and the events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm51` | Adds or resets SPM-51's 8 test events ("SPM51 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm51_`, with their registration settings (open until 31 Dec 2027, not yet open, closed, no dates, off) and their registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Run it before and after any case that registers. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
-| `npm run fixtures:spm68` | Adds or resets SPM-68's 11 test events ("SPM68 …", 6–21 Oct 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm68_`, puts its five SPM68 test venues and two SPM68 equipment items back to their starting state, and writes the review flags the Flagged Arrangements page lists. Run it after each case that keeps, reviews, requests, releases or confirms (SPM-68-TC14 releases on the Venue tab). |
+| `npm run fixtures:spm68` | Adds or resets SPM-68's 13 test events ("SPM68 …", 6–24 Oct 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm68_`, puts its five SPM68 test venues and two SPM68 equipment items back to their starting state, and writes the review flags the Flagged Arrangements page lists. Run it after each case that keeps, reviews, requests, releases or confirms (SPM-68-TC14 releases on the Venue tab). |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -1018,13 +1018,27 @@ what changed, why, and the migration name if there is one.
     `Event.registrationReviewReason`) are written.
   - **A withdrawn or released booking keeps its flag columns** but is never
     listed or counted: only pending and approved bookings are.
-  - **Readiness and Confirm needed no change:** a flagged booking or equipment
-    line was already Outstanding there (SPM-33), and flagged registrations
-    never blocked confirmation.
+  - **The Readiness tab can keep too; Confirm needed no change.** A flagged
+    booking or equipment line was already Outstanding on the Readiness tab
+    (SPM-33), and flagged registrations never blocked confirmation. Its row
+    now gives the assigned coordinator **Keep booking** / **Keep reservation**
+    under the same rule as the page - only while it still fits, otherwise what
+    is unmet and that it can't be kept - and a **Review in Flagged
+    Arrangements** link (`/flagged?tab=venue` or `?tab=equipment`) for finding
+    a replacement. The tab reads `GET /api/flagged-arrangements` for the live
+    result, so both screens always show the same verdict, and keeps through
+    the same `POST`. `GET /api/events/[id]/arrangements` adds `canReviewFlags`
+    for it: the assigned coordinator of an event still going ahead, at any
+    status, unlike `canManage`.
+  - **Left out, and labelled:** an event that is completed, cancelled,
+    rejected or withdrawn is not listed. A flagged arrangement marked as not
+    required on Readiness is still listed - waiving it does not clear the flag
+    - with "Marked as not required for this event, so it does not block
+    confirmation."
   - **Standalone page, not the Readiness tab:** Readiness is one event at a
     time, and the story asks for the list across events.
   - **Test data:** `npm run fixtures:spm68` - five "SPM68 …" rooms, two
-    equipment items and 11 events, dated October 2027 (the app writes
+    equipment items and 13 events, dated October 2027 (the app writes
     September as "Sept"). It writes the flags directly; what the page shows
     for each is worked out live. The rooms and events are in `prisma/seed.ts`
     after SPM-67's; run the script once after a full reseed.
@@ -1033,7 +1047,7 @@ what changed, why, and the migration name if there is one.
     `flagged-arrangements.test.ts` and `flagged-arrangements-page.test.tsx`;
     extended `venueSearchForm.test.ts`, `venue-search-page.test.tsx` and
     `roles.test.ts`. Manual cases:
-    `docs/test-cases/SPM-68_Test_Cases.xlsx` (14), **not yet run** - they need
+    `docs/test-cases/SPM-68_Test_Cases.xlsx` (15), **not yet run** - they need
     the fixtures. The route was read against the shared database through a
     local server, signed in as two coordinators.
   - **Docs:** `UI_DESIGN.md` (S-30, the coordinator's sidebar),

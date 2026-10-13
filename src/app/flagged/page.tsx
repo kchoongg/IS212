@@ -66,6 +66,8 @@ interface Verdict {
 interface FlaggedBooking {
   id: string;
   status: string;
+  /// Marked as not required on the event's Readiness tab (SPM-33).
+  notRequired?: boolean;
   startsAt: string;
   endsAt: string;
   layoutName: string | null;
@@ -80,6 +82,7 @@ interface FlaggedBooking {
 interface FlaggedEquipment {
   id: string;
   status: string;
+  notRequired?: boolean;
   reasons: string[];
   event: EventRef;
   session: { id: string; label: string | null } | null;
@@ -270,6 +273,7 @@ function FlaggedArrangementsScreen() {
                       b.layoutName && layoutLabel(b.layoutName),
                     ]}
                   >
+                    {b.notRequired && <NotRequired />}
                     <Result label="Suitability" verdict={b.suitability} good="Suitable" bad="Not suitable" />
                     <Result label="Availability" verdict={b.availability} good="Available" bad="Not available" />
                     {!fits && <CannotKeep what="booking" />}
@@ -323,6 +327,7 @@ function FlaggedArrangementsScreen() {
                     name={r.equipment.name}
                     detail={[r.session && (r.session.label ?? "Session")]}
                   >
+                    {r.notRequired && <NotRequired />}
                     <p className={r.availability.ok ? "text-ink-2" : "text-tone-warning-fg"}>
                       <span className="font-medium text-ink">Availability:</span> {r.availability.summary}
                     </p>
@@ -454,6 +459,13 @@ function Item({
       {children}
     </li>
   );
+}
+
+/// Marked as not required on the event's Readiness tab (SPM-33). It no longer
+/// blocks confirmation, but that waives it - the flag is still there, so it is
+/// still listed (AC1) until it is kept, replaced or released.
+function NotRequired() {
+  return <p className="text-ink-3">Marked as not required for this event, so it does not block confirmation.</p>;
 }
 
 /// AC7: an arrangement that no longer meets the event's requirements is not

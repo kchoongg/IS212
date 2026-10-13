@@ -28,6 +28,7 @@ const EVENT_SUMMARY = { id: true, sequenceNumber: true, title: true, status: tru
 export const FLAGGED_BOOKING_SELECT = {
   id: true,
   status: true,
+  notRequired: true,
   needsReview: true,
   reviewReason: true,
   flaggedAt: true,
@@ -82,6 +83,7 @@ export type FlaggedBookingRow = Prisma.VenueBookingGetPayload<{ select: typeof F
 export const FLAGGED_EQUIPMENT_SELECT = {
   id: true,
   status: true,
+  notRequired: true,
   needsReview: true,
   reviewReason: true,
   flaggedAt: true,

@@ -226,6 +226,22 @@ describe("Flagged Arrangements (SPM-68)", () => {
       }
     });
 
+    it("says when a flagged booking or reservation is marked as not required, and still offers to keep it", async () => {
+      const note = "Marked as not required for this event, so it does not block confirmation.";
+      open(flagged({ venueBookings: [booking({ notRequired: true }), booking({ id: "b2" })] }));
+
+      const [waived, required] = itemsOf(await bookings());
+      expect(waived).toHaveTextContent(note);
+      expect(within(waived).getByRole("button", { name: "Keep booking" })).toBeInTheDocument();
+      expect(required).not.toHaveTextContent("Marked as not required");
+    });
+
+    it("says so for equipment marked as not required too", async () => {
+      open(flagged({ equipmentRequests: [equipment({ notRequired: true })] }));
+
+      expect(itemsOf(await kit())[0]).toHaveTextContent("Marked as not required for this event");
+    });
+
     it("says which session a session's booking is for", async () => {
       open(flagged({ venueBookings: [booking({ session: { id: "s1", label: "Day 1" } })] }));
 
