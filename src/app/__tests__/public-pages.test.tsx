@@ -3,7 +3,6 @@ import { describe, it, expect } from "vitest";
 import HomePage from "@/app/page";
 import LoginPage from "@/app/login/page";
 import RegisterPage from "@/app/register/page";
-import NotificationsPage from "@/app/notifications/page";
 import { ROLES } from "@/lib/roles";
 import { can, type Action } from "@/lib/permissions";
 import {
@@ -318,56 +317,8 @@ describe("Register page", () => {
   });
 });
 
-describe("screens that are specified but not built yet", () => {
-  const placeholders: Array<{
-    name: string;
-    Page: () => React.ReactNode;
-    path: string;
-    action?: Action;
-    screenId: string;
-    reason?: string;
-  }> = [
-    { name: "Notifications", Page: NotificationsPage, path: "/notifications", screenId: "S-04 (Notification Centre)" },
-    // Browse Events (S-26) was built in SPM-51: src/app/__tests__/browse-page.test.tsx.
-    // Equipment (S-24 Equipment Catalogue) was built by SPM-55 - see equipment-catalogue-page.test.tsx.
-    // My Registrations (S-27) was built in SPM-51: src/app/__tests__/my-registrations-page.test.tsx.
-  ];
-
-  describe.each(placeholders)("$name", ({ name, Page, path, action, screenId, reason }) => {
-    const allowed = ROLES.filter((role) => !action || can(role, action));
-    const refused = ROLES.filter((role) => action && !can(role, action));
-
-    it("sends an anonymous visitor to log in", async () => {
-      setRoute(path);
-      mockApi(signedOut());
-
-      render(<Page />);
-
-      await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/login?next=${encodeURIComponent(path)}`));
-      expect(screen.queryByRole("heading")).not.toBeInTheDocument();
-    });
-
-    it.each(allowed)("tells %s the screen exists but is not built", async (role) => {
-      setRoute(path);
-      mockApi(signedInAs(role));
-
-      render(<Page />);
-
-      expect(await screen.findByRole("status")).toHaveTextContent("This screen is not built yet");
-      expect(screen.getByRole("status")).toHaveTextContent(screenId);
-      expect(screen.getByRole("heading", { level: 1, name })).toBeInTheDocument();
-    });
-
-    if (refused.length > 0) {
-      it.each(refused)("refuses %s, with the reason", async (role) => {
-        setRoute(path);
-        mockApi(signedInAs(role));
-
-        render(<Page />);
-
-        expect(await screen.findByRole("alert")).toHaveTextContent(reason!);
-        expect(screen.queryByText("This screen is not built yet")).not.toBeInTheDocument();
-      });
-    }
-  });
-});
+// "Screens that are specified but not built yet" lived here: one placeholder
+// test per unbuilt sidebar screen. The last of them, Notifications (S-04), was
+// built in SPM-71 (src/app/__tests__/notifications-page.test.tsx), after Browse
+// Events and My Registrations (SPM-51) and Equipment (SPM-55). The placeholder
+// itself, NotBuiltYet, keeps its own test in src/components/__tests__/shell.test.tsx.

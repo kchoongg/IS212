@@ -161,6 +161,7 @@ IS212/
 │   ├── seed-spm86.ts            # `npm run fixtures:spm86` — SPM-86 test data, no reseed
 │   ├── seed-spm55.ts            # `npm run fixtures:spm55` — SPM-55 test data (own "SPM55 …" items), no reseed
 │   ├── seed-spm85.ts            # `npm run fixtures:spm85` — the Safety Officer account + SPM-85 test data, no reseed
+│   ├── seed-spm71.ts            # `npm run fixtures:spm71` — SPM-71 test accounts, notifications and events, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -790,6 +791,7 @@ traceability the module asks for.
 | `npm run fixtures:spm85` | Creates or refreshes the Safety Officer account (Hana Yusof, `hana.yusof@connectsphere.com`, `password123`) and resets SPM-85's 3 test events ("SPM85 …") without reseeding — upserts that one user, and deletes and recreates only events whose `seedKey` starts with `spm85_`, with the Harbour forum's two sessions, their approved bookings at Marina Auditorium and Orchard Seminar Room, its reserved equipment, required facilities and pending safety check, and the Riverside launch's approved booking and two registrations. No pinned reference numbers: the cases find events by title. SPM-85's cases only read, so one run before a test pass is enough. The account is in the seed's staff list and the events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm51` | Adds or resets SPM-51's 8 test events ("SPM51 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm51_`, with their registration settings (open until 31 Dec 2027, not yet open, closed, no dates, off) and their registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Run it before and after any case that registers. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm68` | Adds or resets SPM-68's 13 test events ("SPM68 …", 6–24 Oct 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm68_`, puts its five SPM68 test venues and two SPM68 equipment items back to their starting state, and writes the review flags the Flagged Arrangements page lists. Run it after each case that keeps, reviews, requests, releases or confirms (SPM-68-TC14 releases on the Venue tab). |
+| `npm run fixtures:spm71` | Creates or refreshes SPM-71's four test accounts (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee; all `password123`), deletes and recreates every notification they hold, and resets SPM-71's 4 events ("SPM71 …", Nov 2027) without reseeding - only those accounts and events whose `seedKey` starts with `spm71_` are touched. The accounts are the story's own so the unread counts the cases quote never move with other testers' work. No pinned reference numbers. Run it before and after any case that marks or opens a notification. The accounts and events, without the notifications or arrangements, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -935,7 +937,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **An event with more than one venue can be confirmed while one is still pending** | Confirm Event (SPM-34) and Submit for Safety Check (SPM-86) ask only whether the event (or each session) has an approved venue booking, so an event with one Approved and one Pending room passes. Requiring every venue to be approved is **SPM-90** (Check Each Venue Against Its Own Requirements), split from SPM-81 on purpose. Found 2026-10-10. | SPM-90 |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 records what each space is for, which may be the place to settle it. Found 2026-10-10. | equipment / SPM-90 |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
-| **A Safety Officer cannot see a safety-check notification yet** | Submitting an event for a safety check (SPM-86) notifies every active user with the role `safety_officer`. Since SPM-85 (2026-10-12) that role exists and the Safety Officer (Hana Yusof) receives the notification, but it can't be seen until the Notifications screen (**SPM-71**) is built - SPM-86-TC13 stays Blocked on that alone. Until then the Safety Officer finds submitted events on the Safety Checks page and the Dashboard. | SPM-71 |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
 | **Confirm event does not yet require an approved safety check** | An event in Safety review cannot be confirmed (the lifecycle has no Safety review → Confirmed move), but an event still in Planning that was never submitted can be confirmed as before. Requiring the Safety Officer's approval first is **SPM-88**'s AC8/AC9. | SPM-88 |
 | **Nothing can cancel an event in Safety review yet** | The lifecycle allows Safety review → Cancelled (decided 2026-10-09), but no screen cancels any event. **SPM-37 (Cancel Event)** builds it and should offer it in Safety review too; its owner has been told. | SPM-37 |
@@ -1060,6 +1061,40 @@ what changed, why, and the migration name if there is one.
   - Merged main (SPM-51, SPM-67) into the branch.
 - Migration: none.
 
+### 2026-10-13 — Jordan
+- **SPM-71 (View Notifications), S-04 built.** The Notifications page lists
+  the signed-in user's own notifications, newest first, each with what
+  happened, the event and its reference, and when. Unread ones are bold with
+  an "Unread" label and a "Mark as read" button; "Mark all as read" sits in
+  the header while any is unread; "No notifications" when there are none.
+  - **Unread count in the navigation:** on the top-bar bell (as UI_DESIGN.md
+    §4.1 always specified) and on the sidebar's Notifications link, "99+" past
+    99, nothing at zero. Recounted on every page change and as soon as the page
+    marks something read (`NOTIFICATIONS_CHANGED`). If the count can't load,
+    the shell carries on without a number.
+  - **Selecting a notification** marks it read and opens what it is about -
+    `notificationHref()` in `src/lib/notificationView.ts`: a booking that needs
+    review opens the event's Venue tab, equipment that needs review its
+    Equipment tab, anything else the Overview (including types only the base
+    seed writes). Access is the target screen's own decision, so someone who
+    has lost access sees that screen's refusal (AC6).
+  - **New routes**, signed-in only, every one scoped to the caller:
+    `GET /api/notifications`, `GET /api/notifications/unread-count`,
+    `PATCH /api/notifications/[id]` (`{ isRead: true }`; someone else's is
+    404) and `POST /api/notifications/read-all`.
+  - **A stale-list bug found in the browser and fixed:** React's development
+    mode loads a page twice, and a slower, older answer could overwrite a
+    notification just marked read. Only the latest load may now update the
+    page, and marking retires older loads; a unit test reproduces it.
+  - **Test data:** `npm run fixtures:spm71` - four test accounts of the
+    story's own and 4 "SPM71 …" events, no reseed.
+    `docs/test-cases/SPM-71_Test_Cases.xlsx` (11 cases, all run in a browser).
+  - Retired the "not built yet" placeholder test for Notifications in
+    `public-pages.test.tsx` - it was the last unbuilt sidebar screen.
+  - Closes two Known Gaps: "No notifications screen", and the Safety
+    Officer not seeing safety-check notifications. **SPM-86-TC13** (the Safety
+    Officer is notified) is no longer blocked.
+  - Migration: none - the `notifications` table already existed.
 ### 2026-10-13 — Kayal
 - **SPM-67 (Withdraw or Release Venue Booking).** On the event's Venue tab the
   assigned coordinator can **Withdraw request** on a Pending booking or

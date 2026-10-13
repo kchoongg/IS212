@@ -207,6 +207,22 @@ async function main() {
     attendeeIds.push(u.id);
   }
 
+  // SPM-71 (View Notifications) test accounts - the same four as
+  // scripts/seed-spm71.ts, which also gives them their notifications. Kept out
+  // of attendeeIds on purpose: its length decides which attendee the base seed
+  // registers for which event, so adding to it would reshuffle every story's
+  // registrations.
+  const spm71Accounts: [string, string, string, string | null][] = [
+    ["Leon Koh", "leon.koh@connectsphere.com", "coordinator", "Event Management"],
+    ["Ivy Lim", "ivy.lim@connectsphere.com", "coordinator", "Event Management"],
+    ["Owen Teo", "owen.teo@connectsphere.com", "venue_staff", "Venue Operations"],
+    ["Zara Ong", "zara.ong@example.com", "attendee", null],
+  ];
+  for (const [fullName, email, role, department] of spm71Accounts) {
+    const u = await prisma.user.create({ data: { email, passwordHash, fullName, role, department } });
+    users[email] = u.id;
+  }
+
   // -------------------------------------------------------------------
   // FACILITIES
   // -------------------------------------------------------------------
@@ -1663,6 +1679,28 @@ async function main() {
     spm85("spm85_launch", "SPM85 Riverside Product Launch", "confirmed", "2027-09-24", 19, 3, 80,
       { regEnabled: true, regCapacity: 80 }),
     spm85("spm85_planning", "SPM85 Marina Networking Night", "planning", "2027-09-20", 18, 3, 50),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-71 QA fixtures (View Notifications). The SAME events as
+  // scripts/seed-spm71.ts (`npm run fixtures:spm71`) - keep the two in step.
+  //
+  // The events only. Their booking, equipment, Zara Ong's registration and
+  // every notification the cases read are created by that script alone, so
+  // run it once after a full reseed. The test accounts are created above.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm71 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number, coordinator: string, layout: string): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator,
+    purpose: "SPM-71 view notifications test event", category: "networking",
+    days: daysUntil(date), startHour, durationHours, attendance, layout,
+  });
+  eventData.push(
+    spm71("spm71_gala", "SPM71 Harbour Lights Gala", "planning", "2027-11-08", 18, 4, 120, "leon.koh@connectsphere.com", "theatre"),
+    spm71("spm71_fair", "SPM71 Riverside Tech Fair", "planning", "2027-11-15", 9, 8, 60, "leon.koh@connectsphere.com", "classroom"),
+    spm71("spm71_showcase", "SPM71 Reassigned Showcase", "planning", "2027-11-22", 10, 6, 80, "ivy.lim@connectsphere.com", "theatre"),
+    spm71("spm71_supper", "SPM71 Postponed Supper Club", "postponed", "2027-11-29", 19, 3, 40, "leon.koh@connectsphere.com", "banquet"),
   );
 
   // -----------------------------------------------------------------
