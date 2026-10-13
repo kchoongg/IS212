@@ -33,7 +33,7 @@ Copy from here rather than typing from memory.
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
 | `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `SafetyCheck.status` | `pending` (SPM-86) `approved` `changes_requested` `rejected` (SPM-87) `closed` (SPM-88) |
-| `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
+| `VenueBooking.status` | `pending` `approved` `rejected` `withdrawn` `released` |
 | `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
@@ -130,7 +130,7 @@ Postgres table `users` &middot; `prisma.user`
 | `isActive` | Boolean |  | Deactivate leavers rather than deleting them. Defaults to `true`. |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
-**Relations:** `organisation` &rarr; Organisation, `organisedEvents` &rarr; Event[], `coordinatedEvents` &rarr; Event[], `statusChanges` &rarr; EventStatusHistory[], `clarificationsRaised` &rarr; ClarificationRequest[], `changeRequestsRaised` &rarr; EventChangeRequest[], `changeRequestsReviewed` &rarr; EventChangeRequest[], `bookingsRequested` &rarr; VenueBooking[], `bookingsDecided` &rarr; VenueBooking[], `unavailabilityCreated` &rarr; VenueUnavailability[], `equipmentRequested` &rarr; EquipmentRequest[], `equipmentReviewed` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[], `safetyChecksSubmitted` &rarr; SafetyCheck[], `safetyChecksDecided` &rarr; SafetyCheck[]
+**Relations:** `organisation` &rarr; Organisation, `organisedEvents` &rarr; Event[], `coordinatedEvents` &rarr; Event[], `statusChanges` &rarr; EventStatusHistory[], `clarificationsRaised` &rarr; ClarificationRequest[], `changeRequestsRaised` &rarr; EventChangeRequest[], `changeRequestsReviewed` &rarr; EventChangeRequest[], `bookingsRequested` &rarr; VenueBooking[], `bookingsDecided` &rarr; VenueBooking[], `bookingsCancelled` &rarr; VenueBooking[], `unavailabilityCreated` &rarr; VenueUnavailability[], `equipmentRequested` &rarr; EquipmentRequest[], `equipmentReviewed` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[], `safetyChecksSubmitted` &rarr; SafetyCheck[], `safetyChecksDecided` &rarr; SafetyCheck[]
 
 **Watch out:**
 
@@ -384,7 +384,7 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `layoutName` | String |  | What Venue Staff physically set up. |
 | `startsAt` | DateTime | req | COPIED from the event (or session) at request time. Do not read it live - changing an event must not silently move an approved booking. |
 | `endsAt` | DateTime | req |  |
-| `status` | String |  | pending \| approved \| rejected \| cancelled. Only `approved` blocks a venue. Defaults to `"pending"`. |
+| `status` | String |  | pending \| approved \| rejected \| withdrawn \| released. `pending` and `approved` hold the venue (see Watch out); `withdrawn` (was pending) and `released` (was approved) are the assigned Coordinator taking it back (SPM-67) and hold nothing. Defaults to `"pending"`. |
 | `requestedBy` | String | req |  |
 | `requestedAt` | DateTime |  | Defaults to `now()`. |
 | `requirementsNote` | String |  |  |
@@ -399,13 +399,16 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this booking as not required for the event, so it no longer prevents confirmation. The booking is NOT changed, withdrawn or released. Defaults to `false`. |
 | `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
 | `notRequiredAt` | DateTime |  | When that decision was made. |
+| `cancelledBy` | String |  | SPM-67: the Coordinator who withdrew or released it. Relation `canceller`. NULL unless `withdrawn` or `released`. |
+| `cancelledAt` | DateTime |  | When it was withdrawn or released. |
+| `cancellationReason` | String |  | The Coordinator's reason - optional. Shown on the Venue tab as 'Reason for withdrawal' or 'Reason for release'. |
 
-**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `suggestedVenue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
+**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `suggestedVenue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User, `canceller` &rarr; User
 
 **Watch out:**
 
 - **`approved` is the confirmed booking.** There is no separate "confirmed" value: Venue Staff approving a pending request (`PATCH /api/venue-bookings/[id]`, SPM-43) is what books the room. The screens label it "Approved"; "Confirmed" is an *event* status.
-- A booking is decided once, from `pending` only, and deciding it never touches the Event.
+- A booking is decided once, from `pending` only, and deciding it never touches the Event. Withdrawing (from `pending`) or releasing (from `approved`; Venue Staff are notified) never touches it either (SPM-67, `PATCH /api/events/[id]/venue-bookings/[bookingId]`).
 - `venue` and `suggestedVenue` both point at Venue, so the relations are named (`BookingVenue`, `BookingSuggestedVenue`). On the Venue side they are `bookings` and `suggestedIn`.
 
 - `startsAt`/`endsAt` are the requested times only, on a 15-minute grid since SPM-93 (bookings made before it hold whole-slot times such as 07:00-12:00, and are kept as stored). **Setup and turnaround are never stored on the booking**: a booking occupies the room from `startsAt` minus the venue's `setupMinutes` to `endsAt` plus its `teardownMinutes` (Week 7 Change #1). Compare occupied periods with `occupiedWindow()` in `src/lib/venueTime.ts`.

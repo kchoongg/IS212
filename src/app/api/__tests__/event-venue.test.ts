@@ -126,6 +126,8 @@ describe("GET /api/events/[id]/venue-bookings", () => {
       cannotRequest: null,
       // Already in planning, so requesting begins nothing.
       willBeginPlanning: false,
+      // SPM-67: the assigned coordinator may withdraw or release.
+      canChangeBookings: true,
       bookings,
     });
     expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
@@ -143,7 +145,10 @@ describe("GET /api/events/[id]/venue-bookings", () => {
     const res = await get(token);
 
     expect(res.status).toBe(200);
-    expect((await res.json()).cannotRequest).toBe("Only the assigned Coordinator can request a venue booking.");
+    const body = await res.json();
+    expect(body.cannotRequest).toBe("Only the assigned Coordinator can request a venue booking.");
+    // SPM-67 AC9: nor withdraw or release one.
+    expect(body.canChangeBookings).toBe(false);
   });
 
   it("says a request on an approved event will begin planning", async () => {
@@ -192,8 +197,28 @@ describe("GET /api/events/[id]/venue-bookings", () => {
       const body = await (await get(token)).json();
 
       expect(body.cannotRequest).toBe("A venue cannot be requested for a completed, cancelled or rejected event.");
+      // SPM-67: nor can its bookings be withdrawn or released.
+      expect(body.canChangeBookings).toBe(false);
     }
   );
+
+  it("SPM-67: lets the assigned coordinator withdraw or release on an event that is not approved yet", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "under_review" }));
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    expect((await (await get(token)).json()).canChangeBookings).toBe(true);
+  });
+
+  it("SPM-67-TC07: returns the reason a booking was withdrawn or released", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event());
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    await get(token);
+
+    expect(callArg(db.venueBooking.findMany).select).toMatchObject({ cancellationReason: true });
+  });
 });
 
 describe("POST /api/events/[id]/venue-bookings", () => {

@@ -906,14 +906,14 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Two booking requests submitted at the same moment can both pass the clash check** | `POST /api/events/[id]/venue-bookings` (SPM-42) checks and writes without a lock, so two holds on one room for overlapping times can exist. Approval is not affected: `PATCH /api/venue-bookings/[id]` (SPM-43) locks the venue row and re-checks, so only one of them can be approved and the other then shows as a Conflict on `/bookings`. | venues |
 | **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
-| **A decided booking cannot be undone or released** | Once approved or rejected (SPM-43) a request stays that way: nothing cancels an approved booking, and Venue Staff have no list of what they have already decided. Releasing bookings belongs to cancelling and postponing an event (SPM-37, SPM-38). | venues / events |
+| **Cancelling or postponing an event does not release its bookings** | Since SPM-67 the assigned coordinator can withdraw a pending request or release an approved booking one at a time, from the Venue tab. Releasing every booking when the event itself is cancelled or postponed without a date (#69) belongs to SPM-37 and SPM-38. Venue Staff still have no list of what they have already decided. | SPM-37 / SPM-38 |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **A review flag cannot be cleared** | Venue changes (SPM-39) flag bookings; event information changes (SPM-62) flag bookings, equipment requests (`EquipmentRequest.needsReview`) and registrations (`Event.registrationReviewReason`); Configure Event Registration (SPM-64) also flags registrations when capacity is lowered below the attendees holding a place, or registration is disabled; marking equipment out of service (SPM-55) flags the reservations it leaves short. Since SPM-33 a flagged booking or equipment line is shown on the event's Readiness tab as Outstanding with why, and **blocks confirmation**; it also blocks submitting the event for a safety check (SPM-86), and both refusals name it with its reason. But nothing clears a flag yet, so the only way past one is to mark the arrangement as not required. **SPM-68 (Review Flagged Arrangements, Sprint 3)** lists them across events and keeps or replaces each. Flagged registrations are still visible only in the database. Marking a venue unavailable (SPM-45) sets the same booking flag, and changing or ending the period does not clear it. | SPM-68 |
 | **Confirm does not wait for the Operational Safety Check yet** | The Readiness tab shows it as a required item (SPM-33), but an outstanding check stops Confirm only while it is awaiting review, when the event is in Safety review. Otherwise Confirm goes ahead without it: that gate is **SPM-88**'s, which sets `SAFETY_CHECK_BLOCKS_CONFIRMATION` in `src/lib/eventConfirmation.ts`. No Safety Officer can decide a check yet (SPM-87), so SPM-33's fixtures write the decisions straight into the database. | SPM-88 |
 | **SPM-34-TC07 is out of date after SPM-33** | Its message now names the venue ("Orchard Seminar Room for this event is still awaiting a decision from Venue Staff"). | SPM-34's owner |
 | **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
 | **Venue Staff and Technical Support can view events but have no event list link** | Both hold `event:view`, but `NAV_BY_ROLE` has no "All Events" for either. Venue Staff can reach an event only through a pending request on Booking Requests. Technical Support's Equipment Requests open their own equipment screen, never the event Overview, so for them typing `/events` is the only way in. Found while writing SPM-64-TC24 (2026-10-09), which types the address for Technical Support. | unclaimed |
-| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39; a safety check submitted, SPM-86; a reservation left short by equipment out of service, SPM-55) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
+| **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39; a safety check submitted, SPM-86; a reservation left short by equipment out of service, SPM-55; a venue booking released, to Venue Staff, SPM-67) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
@@ -963,6 +963,50 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-13 — Kayal
+- **SPM-67 (Withdraw or Release Venue Booking).** On the event's Venue tab the
+  assigned coordinator can **Withdraw request** on a Pending booking or
+  **Release booking** on an Approved one, each behind a confirmation with an
+  optional reason. The booking stays on the event as **Withdrawn** or
+  **Released** (grey badges, new label "Released"), with "Reason for
+  withdrawal/release: …".
+  - **Route:** `PATCH /api/events/[id]/venue-bookings/[bookingId]`,
+    `{ action: "withdraw" | "release", reason? }`. 404 for an event the user
+    can't see, 403 for anyone but the assigned coordinator, 400 for the wrong
+    status (e.g. "This request has already been approved, so it can no longer
+    be withdrawn. Release the booking instead.") or a closed event. Locks the
+    venue row like Venue Staff's decision, so a withdrawal and an approval
+    can't both succeed. Never changes the event or its other bookings.
+  - **A release notifies every active Venue Staff user** ("Venue booking
+    released"); a withdrawal notifies no one - the request just leaves
+    Booking Requests. Not visible until the Notifications screen (SPM-71).
+  - **Nothing else needed changing:** availability, conflicts, duplicates,
+    Readiness (SPM-33), Confirm (SPM-34) and registration capacity (SPM-64)
+    already count only pending and approved bookings, so the freed period -
+    setup and turnaround included - is free again, and an event left with no
+    booking shows "No venue booked" as Outstanding.
+  - **Rules:** `src/lib/venueBookingChange.ts` (pure). `GET
+    /api/events/[id]/venue-bookings` adds `canChangeBookings` and each
+    booking's `cancellationReason`.
+  - **Also fixed:** `DetailList` (`src/components/ui/Card.tsx`) keyed rows by
+    label, so the Overview's Venue bookings card (SPM-85) warned about a
+    duplicate key for two rooms both booked for the "Whole event".
+  - **Migration:** `20261011120000_add_venue_booking_withdrawal` - three
+    nullable columns on `venue_bookings`: `cancelled_by`, `cancelled_at`,
+    `cancellation_reason`. Applied to the shared database; no reseed.
+  - **Test data:** `npm run fixtures:spm67` - three "SPM67 …" rooms and eight
+    events, dated November 2027 (the app writes September as "Sept"). The
+    events are appended to `prisma/seed.ts` after SPM-51's.
+  - **Tests:** written first. New `venueBookingChange.test.ts` and
+    `venue-booking-change.test.ts`; extended `event-venue.test.ts`,
+    `event-venue-pages.test.tsx`, `statuses.test.ts`, `ui.test.tsx`. Manual
+    cases: `docs/test-cases/SPM-67_Test_Cases.xlsx` (10), all passed
+    2026-10-13. They include SPM-81's AC7 checks for withdrawing and releasing
+    (TC01-TC03).
+  - **Docs:** `docs/PERMISSIONS.md`, `SCHEMA_REFERENCE.md`, `UI_DESIGN.md`
+    (S-15, S-22). Known Gaps: "A decided booking cannot be undone or released"
+    narrowed to cancelling and postponing (SPM-37, SPM-38).
 
 ### 2026-10-13 — Sammi Chua (bug found while testing SPM-51)
 - **An Attendee who types `/events` is taken to Browse Events.** The events

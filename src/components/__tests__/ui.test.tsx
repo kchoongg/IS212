@@ -208,6 +208,28 @@ describe("DetailList", () => {
     expect(terms).toEqual(["Category", "Attendance"]);
     expect(values).toEqual(["Conference", "200"]);
   });
+
+  it("shows rows that share a label without a duplicate-key warning", () => {
+    // The Overview's Venue bookings card: two rooms booked for the whole event
+    // (SPM-81) are both labelled "Whole event".
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <DetailList
+        columns={1}
+        items={[
+          { label: "Whole event", value: "SPM67 Hall (SPM67-HAL)" },
+          { label: "Whole event", value: "SPM67 Studio (SPM67-STU)" },
+        ]}
+      />
+    );
+
+    expect(screen.getAllByRole("definition").map((d) => d.textContent)).toEqual([
+      "SPM67 Hall (SPM67-HAL)",
+      "SPM67 Studio (SPM67-STU)",
+    ]);
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
 });
 
 describe("Breadcrumb and PageHeader", () => {
