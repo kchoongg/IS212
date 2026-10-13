@@ -132,7 +132,7 @@ describe("searchFormErrors", () => {
   });
 });
 
-// CONTRACT (SPM-68, written before the code): searchFromBooking(event, booking)
+// SPM-68 (written before the code): searchFromBooking(event, booking)
 // in src/lib/venueSearchForm.ts - what S-14 fills in when it is opened to
 // replace a flagged venue booking (AC11). `booking` is a row of
 // GET /api/events/[id]/venue-bookings. Decided here, not in the story: the

@@ -1,4 +1,4 @@
-// CONTRACT (SPM-68, written before the code) - what these tests expect to exist:
+// SPM-68, Review Flagged Arrangements. Written before the code; what these tests hold it to:
 //   src/app/api/flagged-arrangements/route.ts   exports GET and POST
 //
 //   GET  -> 200 { venueBookings, equipmentRequests, registrations } - the flagged arrangements of the
@@ -316,6 +316,36 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
+  it("names the other event when its approved booking now holds the room at the same time", async () => {
+    const other = {
+      id: "other-booking",
+      eventId: ID.otherUser,
+      status: "approved",
+      startsAt: at(12),
+      endsAt: at(14),
+      sessionId: null,
+      event: { sequenceNumber: 50, title: "Other Event" },
+    };
+    // The booking's own row is among the venue's bookings too, and never counts against itself.
+    const own = { ...other, id: ID.booking, eventId: ID.event, startsAt: at(9), endsAt: at(17) };
+    given({ bookings: [bookingRow({ venue: venueOf({ bookings: [own, other] }) })] });
+
+    const [booking] = (await (await list(coordinator())).json()).venueBookings;
+
+    expect(booking.availability).toEqual({
+      ok: false,
+      unmet: ["Hall is already booked for EVT-000050 Other Event on 8 Oct 2027, 12:00–14:00."],
+    });
+  });
+
+  it("has no time to hold a booking to while the event has no dates", async () => {
+    given({ bookings: [bookingRow({ event: eventOf({ startsAt: null, endsAt: null }) })] });
+
+    const [booking] = (await (await list(coordinator())).json()).venueBookings;
+
+    expect(booking.availability).toEqual({ ok: true, unmet: [] });
+  });
+
   it("judges a session's booking by that session's own time, attendance and layout", async () => {
     const session = {
       id: ID.session,
@@ -354,6 +384,27 @@ describe("GET /api/flagged-arrangements", () => {
         availability: { ok: true, needed: 2, available: 4, summary: "2 reserved, 4 available for these dates." },
       },
     ]);
+  });
+
+  it("says which session a session's equipment line is for", async () => {
+    given({ equipment: [equipmentRow({ sessionId: ID.session, session: { id: ID.session, label: "Day 1" } })] });
+
+    const [request] = (await (await list(coordinator())).json()).equipmentRequests;
+
+    expect(request.session).toEqual({ id: ID.session, label: "Day 1" });
+  });
+
+  it("cannot check a line whose event has no dates, and says so", async () => {
+    given({ equipment: [equipmentRow({ event: { ...eventOf({ startsAt: null, endsAt: null }), venueBookings: [] } })] });
+
+    const [request] = (await (await list(coordinator())).json()).equipmentRequests;
+
+    expect(request.availability).toEqual({
+      ok: false,
+      needed: 2,
+      available: null,
+      summary: "Availability could not be checked: this event has no dates yet.",
+    });
   });
 
   it("shows a reservation the units left can no longer cover", async () => {

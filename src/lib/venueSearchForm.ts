@@ -73,6 +73,34 @@ export function searchFromEvent(event: SearchableEvent, sessionId?: string): Sea
   };
 }
 
+/// The parts of a booking (a row of GET /api/events/[id]/venue-bookings) that
+/// a replacement search reads.
+export interface ReplaceableBooking {
+  startsAt: string;
+  endsAt: string;
+  layoutName: string | null;
+  session: { id: string } | null;
+}
+
+/// SPM-68 (AC11): opening S-14 to replace a flagged venue booking fills the
+/// form from THAT booking - its date, start and end times and its layout -
+/// with the attendance, facilities and accessibility requirements the event
+/// has now. The room being replaced was booked for those times, which may be
+/// wider than the event's own, and the replacement has to cover the same.
+///   - attendance is the session's for a session's booking, else the event's;
+///   - a booking made without a layout falls back to the session's, then the
+///     event's;
+///   - facilities are the event's mandatory ones, as searchFromEvent().
+export function searchFromBooking(event: SearchableEvent, booking: ReplaceableBooking): SearchFormValues {
+  const fromEvent = searchFromEvent(event, booking.session?.id);
+  return {
+    ...fromEvent,
+    from: toWallClock(new Date(booking.startsAt)),
+    to: toWallClock(new Date(booking.endsAt)),
+    layout: booking.layoutName ?? fromEvent.layout,
+  };
+}
+
 /// The form -> "from=...&to=...&attendance=..." for GET /api/venues/search.
 /// Unset filters are left out entirely, so the URL says only what was asked.
 export function searchQuery(values: SearchFormValues, eventReference?: string): string {

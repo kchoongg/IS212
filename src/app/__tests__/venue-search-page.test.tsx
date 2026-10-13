@@ -468,7 +468,7 @@ describe("Find a venue", () => {
       );
     });
 
-    // CONTRACT (SPM-68, written before the code): opened as
+    // SPM-68 (written before the code): opened as
     // /venues/search?event=<ref>&booking=<id> the page also reads
     // GET /api/events/<ref>/venue-bookings, fills the form from that booking
     // (searchFromBooking, AC11) and gives each result a "Request booking" link
@@ -553,6 +553,53 @@ describe("Find a venue", () => {
           "href",
           `/events/${REF}/booking/new?venue=v1&session=s1`
         );
+      });
+
+      it("falls back to the event's own requirements when the booking is not among its bookings", async () => {
+        openToReplace([flagged({ id: "b-someone-elses" })]);
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-04T13:30");
+        expect(screen.getByText("Filled in from Town Hall's requirements. Change any filter and search again.")).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
+      });
+
+      it("falls back to the event's own requirements when its bookings cannot be read", async () => {
+        open(
+          { [EVENT]: event(), [BOOKINGS]: reply(403, {}) },
+          { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } }
+        );
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-04T13:30");
+      });
+
+      it("copes with a bookings answer that lists none", async () => {
+        open({ [EVENT]: event(), [BOOKINGS]: {} }, { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } });
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-04T13:30");
+      });
+
+      it("sends the user to log in when the session expired before the bookings were read", async () => {
+        open(
+          { [EVENT]: event(), [BOOKINGS]: reply(401, {}) },
+          { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } }
+        );
+
+        await waitFor(() =>
+          expect(router.push).toHaveBeenCalledWith(
+            "/login?next=%2Fvenues%2Fsearch%3Fevent%3DEVT-000007%26booking%3Db-flagged"
+          )
+        );
+      });
+
+      it("ignores a booking named without an event", async () => {
+        const api = open({}, { query: "?booking=b-flagged" });
+        await ready();
+
+        expect(api.sent(BOOKINGS)).toHaveLength(0);
+        expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
       });
 
       it("remembers the booking being replaced across the login", async () => {

@@ -1,4 +1,4 @@
-// CONTRACT (SPM-68, written before the code) - what these tests expect to exist:
+// SPM-68, Review Flagged Arrangements. Written before the code; what these tests hold it to:
 //   src/lib/flaggedArrangements.ts, pure functions over plain data:
 //     flagReasons(reviewReason)            the stored reason codes, in words
 //     assessFlaggedBooking(input)          { suitability: { ok, unmet }, availability: { ok, unmet } }

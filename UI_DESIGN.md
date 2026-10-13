@@ -102,6 +102,7 @@ cite.
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
 | S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). |
+| S-30 | Flagged Arrangements | `/flagged` | Built (SPM-68): every venue booking, equipment reservation and registration list on the coordinator's own events that a change has flagged for review, most recently flagged first, on three tabs - "Venue bookings", "Equipment reservations" and "Registrations" (`?tab=venue`, `?tab=equipment`, `?tab=registrations`), each with how many are flagged. Opened without a tab it shows the first one with something in it; an empty tab says "No venue bookings are flagged" (and likewise), and the page says "Nothing is flagged", with no tabs, when there is nothing at all. Each item shows the event, the arrangement, "Flagged because: …" and how it stands against the event now: "Suitability: Suitable / Not suitable" and "Availability: Available / Not available" with what is unmet, "Availability: 2 reserved, 4 available for these dates.", or "12 registered, 3 on the waiting list". **Keep booking** / **Keep reservation** / **Mark as reviewed** clear the flag and change nothing else; a booking or reservation that no longer meets the event's requirements is refused inside its item, naming what is unmet. A booking also has **Find a replacement venue** (S-14, filled in from that booking) and **Release booking** or, while still pending, **Withdraw request** (SPM-67's question and reason; its other button is "Cancel" here). Every other role sees "You do not have access to this". |
 
 ### 3.4 Venue Staff
 
@@ -178,7 +179,7 @@ attendee variant — see §4.3.)*
 | Role | Sidebar items |
 | --- | --- |
 | Organiser | Dashboard · My Events · Notifications |
-| Coordinator | Dashboard · Review Queue · All Events · Venues · Equipment · Notifications |
+| Coordinator | Dashboard · Review Queue · Flagged Arrangements · All Events · Venues · Equipment · Notifications |
 | Venue Staff | Dashboard · Venues · Booking Requests · Notifications |
 | Tech Support | Dashboard · Equipment · Equipment Requests · Notifications |
 | Attendee | Dashboard · Browse Events · My Registrations · Notifications |
@@ -595,6 +596,7 @@ This document specifies the whole first release. What is built so far:
 | S-02 Register — reference implementation of the validation pattern | `src/app/register/page.tsx` |
 | S-03 Dashboard, role-aware | `src/app/dashboard/page.tsx` |
 | S-29 Safety Checks, the Safety Officer's list (SPM-85) | `src/app/safety-checks/page.tsx`, `src/app/api/safety-checks/route.ts` |
+| S-30 Flagged Arrangements, the coordinator's list (SPM-68); and S-14 opened to replace a flagged booking (`?event=…&booking=…`: filled in from the booking, "Request booking" on each result) | `src/app/flagged/page.tsx`, `src/app/api/flagged-arrangements/route.ts`, `src/lib/flaggedArrangements.ts`, `src/lib/flaggedArrangementsService.ts`, `src/app/venues/search/page.tsx` |
 | Overview "Sessions" and "Venue bookings" cards for staff (SPM-85) | `src/app/events/[id]/page.tsx` |
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |

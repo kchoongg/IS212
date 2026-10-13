@@ -1,14 +1,17 @@
 // @vitest-environment jsdom
 //
-// CONTRACT (SPM-68, written before the code) - what these tests expect to exist:
+// SPM-68, Review Flagged Arrangements. Written before the code; what these tests hold it to:
 //   src/app/flagged/page.tsx   the Event Coordinator's "Flagged Arrangements" page, at /flagged
 //   It reads GET /api/flagged-arrangements and sends POST /api/flagged-arrangements { kind, id }
 //   (the shapes are in src/app/api/__tests__/flagged-arrangements.test.ts).
 // Decided here, not in the story (change the test if the team wants otherwise):
 //   - gated on event:confirm with <RequirePermission>, like Safety Checks (SPM-85)
-//   - one list per kind - "Flagged venue bookings", "Flagged equipment reservations",
-//     "Flagged registrations" - under the headings "Venue bookings", "Equipment reservations"
-//     and "Registrations"; a kind with nothing flagged has no heading and no list
+//   - one tab per kind (changed 2026-10-13, from three stacked sections): "Venue bookings",
+//     "Equipment reservations" and "Registrations", each a link to /flagged?tab=venue,
+//     ?tab=equipment or ?tab=registrations with how many are flagged. Only the open tab's
+//     list is on the page: "Flagged venue bookings", "Flagged equipment reservations" or
+//     "Flagged registrations". Opened without a tab, the page shows the first kind that has
+//     something flagged
 //   - every label, button and message asserted below
 //   - after a keep or a review the list is read again, and "Flag cleared" says what was kept
 //   - AC12's release (added 2026-10-13, once SPM-67 was in main): a flagged booking has
@@ -95,8 +98,9 @@ const flagged = (parts: { venueBookings?: object[]; equipmentRequests?: object[]
   ...parts,
 });
 
-function open(payload: unknown = flagged(), routes: Record<string, unknown> = {}) {
-  setRoute("/flagged");
+/// `tab` is the address's ?tab=…; without one the page picks the first kind with something in it.
+function open(payload: unknown = flagged(), routes: Record<string, unknown> = {}, tab?: string) {
+  setRoute(tab ? `/flagged?tab=${tab}` : "/flagged");
   const api = mockApi({ ...signedInAs("coordinator"), [LIST]: payload, ...routes });
   render(<FlaggedArrangementsPage />);
   return api;
@@ -106,6 +110,8 @@ const bookings = () => screen.findByRole("list", { name: "Flagged venue bookings
 const kit = () => screen.findByRole("list", { name: "Flagged equipment reservations" });
 const registrationList = () => screen.findByRole("list", { name: "Flagged registrations" });
 const itemsOf = (list: HTMLElement) => within(list).getAllByRole("listitem");
+/// A tab is a link; its name is its label followed by how many are flagged.
+const tabLink = (label: string) => screen.findByRole("link", { name: new RegExp(`^${label}`) });
 const click = (name: string, inside: HTMLElement) => userEvent.click(within(inside).getByRole("button", { name }));
 
 describe("Flagged Arrangements (SPM-68)", () => {
@@ -141,7 +147,8 @@ describe("Flagged Arrangements (SPM-68)", () => {
       open(flagged({ venueBookings: [booking({ reasons: ["the date or time changed", "the expected attendance changed"] })] }));
 
       expect(await screen.findByRole("heading", { name: "Flagged Arrangements" })).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Venue bookings" })).toBeInTheDocument();
+      // The title is there before the list has loaded; the tabs come with it.
+      expect(await tabLink("Venue bookings")).toHaveAttribute("aria-current", "page");
       const [item] = itemsOf(await bookings());
       expect(within(item).getByRole("link", { name: "Harbour Summit" })).toHaveAttribute("href", "/events/EVT-000041");
       expect(item).toHaveTextContent("EVT-000041");
@@ -214,7 +221,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
     it("shows a flagged equipment reservation with its event, the item, why and its current availability", async () => {
       open(flagged({ equipmentRequests: [equipment()] }));
 
-      expect(await screen.findByRole("heading", { name: "Equipment reservations" })).toBeInTheDocument();
+      expect(await tabLink("Equipment reservations")).toHaveAttribute("aria-current", "page");
       const [item] = itemsOf(await kit());
       expect(within(item).getByRole("link", { name: "Harbour Summit" })).toHaveAttribute("href", "/events/EVT-000041");
       expect(item).toHaveTextContent("Projector");
@@ -234,7 +241,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
         })
       );
 
-      expect(await screen.findByRole("heading", { name: "Registrations" })).toBeInTheDocument();
+      expect(await tabLink("Registrations")).toHaveAttribute("aria-current", "page");
       const [item] = itemsOf(await registrationList());
       expect(within(item).getByRole("link", { name: "Harbour Summit" })).toHaveAttribute("href", "/events/EVT-000041");
       expect(item).toHaveTextContent("12 registered, 3 on the waiting list");
@@ -245,13 +252,26 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(within(item).queryByRole("button", { name: /^Keep/ })).not.toBeInTheDocument();
     });
 
-    it("leaves out the heading and list of a kind with nothing flagged", async () => {
-      open(flagged({ registrations: [registrations()] }));
+    it("says which session an unnamed session's booking is for", async () => {
+      open(flagged({ venueBookings: [booking({ session: { id: "s2", label: null }, layoutName: null })] }));
 
-      await registrationList();
-      expect(screen.queryByRole("heading", { name: "Venue bookings" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("list", { name: "Flagged venue bookings" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("heading", { name: "Equipment reservations" })).not.toBeInTheDocument();
+      expect(itemsOf(await bookings())[0]).toHaveTextContent("Session · 8 Oct 2027, 09:00–17:00");
+    });
+
+    it("says which session an equipment line is for, and calls an unnamed session 'Session'", async () => {
+      open(
+        flagged({
+          equipmentRequests: [
+            equipment({ id: "q1", session: { id: "s1", label: "Day 1" } }),
+            equipment({ id: "q2", session: { id: "s2", label: null }, availability: { ok: false, summary: "2 reserved, 1 available for these dates." } }),
+          ],
+        })
+      );
+
+      const [named, unnamed] = itemsOf(await kit());
+      expect(named).toHaveTextContent("Day 1");
+      expect(unnamed).toHaveTextContent("Session");
+      expect(unnamed).toHaveTextContent("Availability: 2 reserved, 1 available for these dates.");
     });
 
     it("copes with an event that has no title", async () => {
@@ -271,6 +291,92 @@ describe("Flagged Arrangements (SPM-68)", () => {
     });
   });
 
+  describe("the tabs", () => {
+    const everything = () =>
+      flagged({
+        venueBookings: [booking({ id: "b1" }), booking({ id: "b2" })],
+        equipmentRequests: [equipment()],
+        registrations: [registrations()],
+      });
+
+    it("has one tab per kind, each a link saying how many are flagged", async () => {
+      open(everything());
+
+      const venue = await tabLink("Venue bookings");
+      expect(venue).toHaveAttribute("href", "/flagged?tab=venue");
+      expect(venue).toHaveTextContent(/Venue bookings\s*2$/);
+      const kitTab = await tabLink("Equipment reservations");
+      expect(kitTab).toHaveAttribute("href", "/flagged?tab=equipment");
+      expect(kitTab).toHaveTextContent(/Equipment reservations\s*1$/);
+      const registrationTab = await tabLink("Registrations");
+      expect(registrationTab).toHaveAttribute("href", "/flagged?tab=registrations");
+      expect(registrationTab).toHaveTextContent(/Registrations\s*1$/);
+    });
+
+    it("opens on Venue bookings, and shows that kind alone", async () => {
+      open(everything());
+
+      expect(itemsOf(await bookings())).toHaveLength(2);
+      expect(await tabLink("Venue bookings")).toHaveAttribute("aria-current", "page");
+      expect(await tabLink("Equipment reservations")).not.toHaveAttribute("aria-current");
+      expect(screen.queryByRole("list", { name: "Flagged equipment reservations" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Flagged registrations" })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["equipment", "Equipment reservations", "Flagged equipment reservations"],
+      ["registrations", "Registrations", "Flagged registrations"],
+      ["venue", "Venue bookings", "Flagged venue bookings"],
+    ])("shows the tab named in the address: %s", async (tab, label, list) => {
+      open(everything(), {}, tab);
+
+      expect(await screen.findByRole("list", { name: list })).toBeInTheDocument();
+      expect(await tabLink(label)).toHaveAttribute("aria-current", "page");
+      expect(screen.getAllByRole("list")).toHaveLength(1);
+    });
+
+    it("opens on the first kind that has something flagged when no tab is named", async () => {
+      open(flagged({ registrations: [registrations()] }));
+
+      expect(itemsOf(await registrationList())).toHaveLength(1);
+      expect(await tabLink("Registrations")).toHaveAttribute("aria-current", "page");
+      // The other tabs are still there to open, with no count beside them.
+      expect(await tabLink("Venue bookings")).toHaveTextContent(/^Venue bookings$/);
+      expect(await tabLink("Equipment reservations")).toHaveTextContent(/^Equipment reservations$/);
+    });
+
+    it("says so on a tab with nothing flagged, when it is the one asked for", async () => {
+      open(flagged({ registrations: [registrations()] }), {}, "venue");
+
+      expect(await screen.findByText("No venue bookings are flagged")).toBeInTheDocument();
+      expect(screen.getByText("Nothing of this kind needs another look right now.")).toBeInTheDocument();
+      expect(screen.queryByRole("list", { name: "Flagged registrations" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Nothing is flagged")).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["equipment", "No equipment reservations are flagged"],
+      ["registrations", "No registrations are flagged"],
+    ])("words the empty %s tab for its own kind", async (tab, words) => {
+      open(flagged({ venueBookings: [booking()] }), {}, tab);
+
+      expect(await screen.findByText(words)).toBeInTheDocument();
+    });
+
+    it("ignores a tab it does not know, and opens the first kind with something flagged", async () => {
+      open(flagged({ equipmentRequests: [equipment()] }), {}, "safety");
+
+      expect(itemsOf(await kit())).toHaveLength(1);
+    });
+
+    it("has no tabs when nothing at all is flagged", async () => {
+      open();
+
+      expect(await screen.findByText("Nothing is flagged")).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^Venue bookings/ })).not.toBeInTheDocument();
+    });
+  });
+
   describe("keeping a venue booking", () => {
     // AC6.
     it("asks the server to keep it, then says the flag is cleared and reads the list again", async () => {
@@ -285,8 +391,9 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(api.sent(KEEP)).toHaveLength(1);
       expect(api.sent(KEEP)[0].body).toEqual({ kind: "venue_booking", id: "b1" });
       await waitFor(() => expect(screen.queryByRole("list", { name: "Flagged venue bookings" })).not.toBeInTheDocument());
-      // What was not touched is still there.
+      // No tab was named, so the page moves on to what is still flagged.
       expect(itemsOf(await registrationList())).toHaveLength(1);
+      expect(await tabLink("Registrations")).toHaveAttribute("aria-current", "page");
     });
 
     // AC7.
@@ -326,6 +433,29 @@ describe("Flagged Arrangements (SPM-68)", () => {
       await click("Keep booking", item);
 
       expect(await within(item).findByRole("alert")).toHaveTextContent("Could not clear the flag. Try again.");
+    });
+
+    it("says so when the network fails", async () => {
+      open(flagged({ venueBookings: [booking()] }), {
+        [KEEP]: () => {
+          throw new Error("offline");
+        },
+      });
+      const [item] = itemsOf(await bookings());
+
+      await click("Keep booking", item);
+
+      expect(await within(item).findByRole("alert")).toHaveTextContent("Could not clear the flag. Try again.");
+    });
+
+    it("names an untitled event as such in what it says afterwards", async () => {
+      const api = open(flagged({ venueBookings: [booking({ event: { ...EVENT, title: null } })] }), { [KEEP]: { cleared: true } });
+      const [item] = itemsOf(await bookings());
+      api.on(LIST, flagged());
+
+      await click("Keep booking", item);
+
+      expect(await screen.findByText("Hall for Untitled event was kept as it is.")).toBeInTheDocument();
     });
 
     it("sends the user to log in when their session has expired", async () => {
@@ -509,6 +639,34 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await within(itemsOf(await bookings())[0]).findByRole("button", { name: "Release booking" })).toBeInTheDocument();
     });
 
+    it("says so in the item when the server gives no reason, or the network fails", async () => {
+      const api = open(flagged({ venueBookings: [booking()] }), { [CHANGE]: reply(500, {}) });
+      await click("Release booking", itemsOf(await bookings())[0]);
+      await userEvent.click(inDialog("Release booking"));
+
+      const failed = "Could not save the change. Please try again.";
+      expect(await within(itemsOf(await bookings())[0]).findByRole("alert")).toHaveTextContent(failed);
+
+      api.on(CHANGE, () => {
+        throw new Error("offline");
+      });
+      await click("Release booking", itemsOf(await bookings())[0]);
+      // Asking again clears the last refusal.
+      expect(within(itemsOf(await bookings())[0]).queryByRole("alert")).not.toBeInTheDocument();
+      await userEvent.click(inDialog("Release booking"));
+
+      expect(await within(itemsOf(await bookings())[0]).findByRole("alert")).toHaveTextContent(failed);
+      expect(dialog().open).toBe(false);
+    });
+
+    it("names an unnamed session as 'Session' in the question", async () => {
+      open(flagged({ venueBookings: [booking({ session: { id: "s1", label: null } })] }));
+
+      await click("Release booking", itemsOf(await bookings())[0]);
+
+      expect(dialog()).toHaveTextContent("Hall (HALL) for Session on 8 Oct 2027, 09:00–17:00 will be freed");
+    });
+
     it("sends the user to log in when their session has expired", async () => {
       open(flagged({ venueBookings: [booking()] }), { [CHANGE]: reply(401, {}) });
       await click("Release booking", itemsOf(await bookings())[0]);
@@ -524,6 +682,14 @@ describe("Flagged Arrangements (SPM-68)", () => {
       open(reply(401, {}));
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fflagged"));
+    });
+
+    it("says so when the network fails", async () => {
+      open(() => {
+        throw new Error("offline");
+      });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("offline");
     });
 
     it("shows the failure with a Retry that loads again", async () => {
