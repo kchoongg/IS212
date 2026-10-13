@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   EMPTY_SEARCH,
   searchFormErrors,
+  searchFromBooking,
   searchFromEvent,
   searchQuery,
   shouldStartPlanning,
@@ -128,6 +129,71 @@ describe("searchFormErrors", () => {
     expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "0" }).attendance).toBeTruthy();
     expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "12.5" }).attendance).toBeTruthy();
     expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "12" })).toEqual({});
+  });
+});
+
+// CONTRACT (SPM-68, written before the code): searchFromBooking(event, booking)
+// in src/lib/venueSearchForm.ts - what S-14 fills in when it is opened to
+// replace a flagged venue booking (AC11). `booking` is a row of
+// GET /api/events/[id]/venue-bookings. Decided here, not in the story: the
+// layout is the booking's own, falling back to the session's, then the
+// event's; the attendance is the session's for a session's booking.
+describe("searchFromBooking - replacing a flagged venue booking (SPM-68)", () => {
+  const flagged = (overrides: Partial<Parameters<typeof searchFromBooking>[1]> = {}) => ({
+    startsAt: "2026-12-10T00:30:00.000Z", // 08:30 Singapore, the day after the event's own start
+    endsAt: "2026-12-10T11:00:00.000Z", // 19:00 Singapore
+    layoutName: "classroom",
+    session: null,
+    ...overrides,
+  });
+
+  it("fills the date and the start and end times from the booking, not the event", () => {
+    const values = searchFromBooking(event(), flagged());
+
+    expect(values.from).toBe("2026-12-10T08:30");
+    expect(values.to).toBe("2026-12-10T19:00");
+  });
+
+  it("fills the layout that was booked", () => {
+    expect(searchFromBooking(event(), flagged()).layout).toBe("classroom");
+  });
+
+  it("falls back to the event's layout for a booking made without one", () => {
+    expect(searchFromBooking(event(), flagged({ layoutName: null })).layout).toBe("theatre");
+  });
+
+  it("fills the event's present attendance", () => {
+    expect(searchFromBooking(event({ expectedAttendance: 260 }), flagged()).attendance).toBe("260");
+  });
+
+  it("fills the event's mandatory facilities and accessibility requirements, not its nice-to-haves", () => {
+    expect(searchFromBooking(event(), flagged()).facilityIds).toEqual(["loop", "livestream"]);
+  });
+
+  it("leaves location as any building", () => {
+    expect(searchFromBooking(event(), flagged()).building).toBe("");
+  });
+
+  it("uses the session's own attendance and layout for a session's booking", () => {
+    const sessions = [
+      { id: "s1", startsAt: "2026-12-09T01:00:00.000Z", endsAt: "2026-12-09T04:00:00.000Z", expectedAttendance: 40, preferredLayout: "boardroom" },
+    ];
+    const values = searchFromBooking(event({ sessions }), flagged({ layoutName: null, session: { id: "s1" } }));
+
+    expect(values.attendance).toBe("40");
+    expect(values.layout).toBe("boardroom");
+    // Still the booking's own times, not the session's.
+    expect(values.from).toBe("2026-12-10T08:30");
+  });
+
+  it("falls back to the event's attendance for a session that gives none", () => {
+    const sessions = [
+      { id: "s1", startsAt: "2026-12-09T01:00:00.000Z", endsAt: "2026-12-09T04:00:00.000Z", expectedAttendance: null, preferredLayout: null },
+    ];
+    const values = searchFromBooking(event({ sessions }), flagged({ layoutName: null, session: { id: "s1" } }));
+
+    expect(values.attendance).toBe("200");
+    expect(values.layout).toBe("theatre");
   });
 });
 

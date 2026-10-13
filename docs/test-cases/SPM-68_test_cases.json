@@ -1,0 +1,340 @@
+{
+  "story_key": "SPM-68",
+  "story_title": "As an Event Coordinator, I want to see every venue booking, equipment reservation and registration list that has been flagged for review across my events so that I can re-check each one and keep or replace it before it causes a problem",
+  "created_by": "kchoongg",
+  "creation_date": "2026-10-13",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Event Coordinator can view a list of flagged venue bookings, equipment reservations and registrations for the events assigned to them."
+    },
+    {
+      "id": "AC2",
+      "text": "Each flagged arrangement shows the event, the arrangement, and why it was flagged (e.g. event date changed, attendance changed, venue attributes updated, venue setup or turnaround time changed, venue retired, venue blocked, equipment marked unavailable)."
+    },
+    {
+      "id": "AC3",
+      "text": "Given an event has more than one venue booking, when one of them is flagged, then only the flagged booking is listed."
+    },
+    {
+      "id": "AC4",
+      "text": "For a flagged venue booking, the current suitability and availability result for the event's present requirements is shown."
+    },
+    {
+      "id": "AC5",
+      "text": "For a flagged equipment reservation, the current availability result for the event's present dates and quantities is shown."
+    },
+    {
+      "id": "AC6",
+      "text": "Given the arrangement still meets the event's requirements, when the Coordinator keeps it, then the flag is cleared and the arrangement is unchanged."
+    },
+    {
+      "id": "AC7",
+      "text": "Given the arrangement no longer meets the event's requirements, when the Coordinator attempts to keep it, then the flag is not cleared and the unmet requirement is identified."
+    },
+    {
+      "id": "AC8",
+      "text": "For flagged registrations, the number of attendees registered or on the waiting list is shown, with why they were flagged: the event's date or time changed (see: Update Event Information, SPM-62), or the registration capacity was lowered below the number registered or registration was turned off (see: Configure Event Registration, SPM-64)."
+    },
+    {
+      "id": "AC9",
+      "text": "Given registrations are flagged, when the Coordinator marks them as reviewed, then the flag is cleared and no registration is changed."
+    },
+    {
+      "id": "AC10",
+      "text": "Flagged registrations do not prevent confirmation."
+    },
+    {
+      "id": "AC11",
+      "text": "From a flagged venue booking, the Coordinator can search for a replacement venue, with the search pre-filled from that booking's date, start and end times, attendance, layout, accessibility and facility requirements."
+    },
+    {
+      "id": "AC12",
+      "text": "The Coordinator can request the replacement venue; the flagged booking stays on the event record until the Coordinator releases it (see: Withdraw or Release Venue Booking)."
+    },
+    {
+      "id": "AC13",
+      "text": "Replacing a venue does not change the event's own information or status."
+    },
+    {
+      "id": "AC14",
+      "text": "A flagged arrangement is never changed or cancelled automatically."
+    },
+    {
+      "id": "AC15",
+      "text": "A flagged venue booking or equipment reservation counts as outstanding and prevents confirmation until it is resolved (see: Track Outstanding Arrangements)."
+    },
+    {
+      "id": "AC16",
+      "text": "A Coordinator does not see flagged arrangements for events assigned to other Coordinators."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-68-TC01",
+      "title": "The Flagged Arrangements page lists a flagged venue booking, equipment reservation and registrations with the event, the arrangement, why it was flagged and its current result, and leaves out the event's unflagged booking",
+      "linked_ac": ["AC1", "AC2", "AC3", "AC4", "AC5", "AC8"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Listing Summit' is in Planning, assigned to Daniel Tan, on 7 Sep 2027, 09:00-17:00, for 50 people in Theatre layout. It has two approved venue bookings: SPM68 Hall (flagged for review) and SPM68 Annex (not flagged). Its reservation of 2 SPM68 Projector is flagged, and so are its registrations (12 registered, 3 on the waiting list). Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123). Nothing is changed in this case. Other stories' fixtures may add items to the same page; check only the items named here.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'SPM68 Listing Summit' in its item under 'Venue bookings'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM68 Listing Summit (Planning), 7 Sep 2027, 09:00-17:00, 50 people, Theatre\nVenue bookings: SPM68 Hall (Approved, flagged), SPM68 Annex (Approved, not flagged)\nEquipment: SPM68 Projector x 2 (Reserved, flagged); 4 in stock\nRegistrations: 12 registered, 3 on the waiting list (flagged)\nCoordinator: Daniel Tan",
+      "expected_result": "Step 1: The 'Flagged Arrangements' page opens, with the link after 'Review Queue' in the sidebar. Under 'Venue bookings' there is an item for 'SPM68 Listing Summit' showing 'SPM68 Hall (SPM68-HAL)', '7 Sep 2027, 09:00–17:00', 'Theatre', 'Flagged because: the date or time changed; the venue requirements changed', 'Suitability: Suitable' and 'Availability: Available', with the buttons 'Keep booking' and 'Find a replacement venue'. There is no item for SPM68 Annex. Under 'Equipment reservations' there is an item for 'SPM68 Listing Summit' showing 'SPM68 Projector', 'Flagged because: the date or time changed' and 'Availability: 2 reserved, 4 available for these dates.', with the button 'Keep reservation'. Under 'Registrations' there is an item for 'SPM68 Listing Summit' showing '12 registered, 3 on the waiting list' and 'Flagged because: the date or time changed', with the button 'Mark as reviewed'.\nStep 2: The event's Overview opens, with the status badge 'Planning'.\nStep 3: Under 'Booking requests', both SPM68 Hall and SPM68 Annex are listed as 'Approved'."
+    },
+    {
+      "id": "SPM-68-TC02",
+      "title": "A Coordinator sees flagged arrangements only for the events assigned to them, not another Coordinator's",
+      "linked_ac": ["AC16", "AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Listing Summit' is assigned to Daniel Tan and has a flagged booking at SPM68 Hall. 'SPM68 Partner Briefing' is assigned to Priya Raj and has a flagged booking at SPM68 Annex on 21 Sep 2027. Logged in as Daniel Tan. Nothing is changed in this case.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Log out'",
+        "Log in as Priya Raj",
+        "Click 'Flagged Arrangements' in the sidebar"
+      ],
+      "test_data": "Daniel Tan: daniel.tan@connectsphere.com / password123 (assigned to SPM68 Listing Summit)\nPriya Raj: priya.raj@connectsphere.com / password123 (assigned to SPM68 Partner Briefing)",
+      "expected_result": "Step 1: 'SPM68 Listing Summit' is listed under 'Venue bookings'. No item for 'SPM68 Partner Briefing' appears anywhere on the page.\nStep 4: 'SPM68 Partner Briefing' is listed under 'Venue bookings' with 'SPM68 Annex (SPM68-ANX)'. No item for 'SPM68 Listing Summit', or for any other event titled 'SPM68 …', appears anywhere on the page."
+    },
+    {
+      "id": "SPM-68-TC03",
+      "title": "Users who are not Event Coordinators have no Flagged Arrangements link and are refused when they type the address",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). Logged in as Operations Manager Grace Lim. Nothing is changed in this case.",
+      "steps": [
+        "Look at the sidebar links",
+        "Type /flagged after the site address in the browser address bar (e.g. http://localhost:3000/flagged) and press Enter",
+        "Click 'Log out'",
+        "Log in as Rachel Ng",
+        "Type /flagged after the site address in the browser address bar (e.g. http://localhost:3000/flagged) and press Enter"
+      ],
+      "test_data": "Operations Manager: grace.lim@connectsphere.com / password123\nEvent Organiser: rachel.ng@meridianfina.com / password123",
+      "expected_result": "Step 1: The sidebar shows Dashboard, Assignments, All Events, Venues and Notifications. There is no 'Flagged Arrangements' link.\nStep 2: The page title 'Flagged Arrangements' is shown with the message 'You do not have access to this' and 'Reviewing flagged arrangements is the Event Coordinator's role. You can still see the events you are involved in from your Dashboard.' No flagged arrangement is shown. A 'Back to Dashboard' button is shown.\nStep 5: The same message 'You do not have access to this' is shown and no flagged arrangement is listed. The organiser's sidebar (Dashboard, My Events, Notifications) has no 'Flagged Arrangements' link."
+    },
+    {
+      "id": "SPM-68-TC04",
+      "title": "A visitor who is not logged in is sent to log in, then lands on the Flagged Arrangements page",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). Not logged in (click 'Log out' first if a session is open). Nothing is changed in this case.",
+      "steps": [
+        "Type /flagged after the site address in the browser address bar (e.g. http://localhost:3000/flagged) and press Enter",
+        "Enter Daniel Tan's email and password",
+        "Click 'Log in'"
+      ],
+      "test_data": "Email: daniel.tan@connectsphere.com\nPassword: password123",
+      "expected_result": "Step 1: The login page opens. No flagged arrangement is shown.\nStep 3: The 'Flagged Arrangements' page opens (not the Dashboard) and lists 'SPM68 Listing Summit'."
+    },
+    {
+      "id": "SPM-68-TC05",
+      "title": "An event with a flagged venue booking cannot be confirmed, and the refusal names the flagged booking and why",
+      "linked_ac": ["AC15", "AC14"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Attendance Review' is in Planning, assigned to Daniel Tan, on 6 Sep 2027, 09:00-17:00, for 80 people in Theatre layout. Its only venue booking, SPM68 Hall (Approved, Theatre seats 100), is flagged because the expected attendance changed. It has no equipment and registration is not enabled. Logged in as Daniel Tan. Confirmation is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM68 Attendance Review' in the list",
+        "Click the 'Readiness' tab",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM68 Attendance Review (Planning), 6 Sep 2027, 09:00-17:00, 80 people, Theatre\nVenue booking: SPM68 Hall (Approved, flagged: the expected attendance changed)",
+      "expected_result": "Step 3: 'SPM68 Hall' shows 'Approved' and 'Outstanding', and says it is flagged for review: the expected attendance changed. The message '1 arrangement still blocks confirmation' is shown.\nStep 6: The event is NOT confirmed. The message 'This event cannot be confirmed yet: SPM68 Hall for this event is flagged for review: the expected attendance changed.' is shown. The status badge still reads 'Planning'.\nStep 7: Under 'Booking requests', SPM68 Hall is still listed as 'Approved' for 6 Sep 2027, 09:00–17:00. It was not changed or cancelled."
+    },
+    {
+      "id": "SPM-68-TC06",
+      "title": "Keeping a flagged venue booking that still meets the event's requirements clears the flag, leaves the booking unchanged and stops it blocking confirmation",
+      "linked_ac": ["AC6", "AC4", "AC14", "AC15"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm68 before and after this case. 'SPM68 Attendance Review' is in Planning, assigned to Daniel Tan, on 6 Sep 2027, 09:00-17:00, for 80 people in Theatre layout. Its only venue booking, SPM68 Hall (Approved, Theatre seats 100), is flagged because the expected attendance changed. It has no equipment and registration is not enabled. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Keep booking' in the 'SPM68 Attendance Review' item",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM68 Attendance Review' in the list",
+        "Click the 'Venue' tab",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM68 Attendance Review (Planning), 6 Sep 2027, 09:00-17:00, 80 people, Theatre\nVenue booking: SPM68 Hall (Approved, Theatre seats 100, flagged: the expected attendance changed)",
+      "expected_result": "Step 1: Under 'Venue bookings', the 'SPM68 Attendance Review' item shows 'SPM68 Hall (SPM68-HAL)', 'Flagged because: the expected attendance changed', 'Suitability: Suitable' and 'Availability: Available'.\nStep 2: The message 'Flag cleared' is shown with 'SPM68 Hall for SPM68 Attendance Review was kept as it is.' The 'SPM68 Attendance Review' item is no longer listed.\nStep 5: Under 'Booking requests', SPM68 Hall is still listed as 'Approved' for 6 Sep 2027, 09:00–17:00 in Theatre layout. Its venue, times, layout and status are unchanged.\nStep 6: 'SPM68 Hall' shows 'Approved' and 'Complete', with no mention of being flagged. The message 'Nothing is blocking confirmation' is shown."
+    },
+    {
+      "id": "SPM-68-TC07",
+      "title": "A flagged venue booking whose room is now too small cannot be kept: the flag stays and the unmet requirement is named",
+      "linked_ac": ["AC7", "AC4", "AC14"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Outgrown Room' is in Planning, assigned to Daniel Tan, on 8 Sep 2027, 09:00-17:00, for 150 people in Theatre layout. Its only venue booking, SPM68 Hall (Approved, Theatre seats 100), is flagged because the expected attendance changed. Logged in as Daniel Tan. Keeping is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Keep booking' in the 'SPM68 Outgrown Room' item",
+        "Refresh the page in the browser",
+        "Click 'SPM68 Outgrown Room' in its item",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM68 Outgrown Room (Planning), 8 Sep 2027, 09:00-17:00, 150 people, Theatre\nVenue booking: SPM68 Hall (Approved, Theatre seats 100, flagged: the expected attendance changed)",
+      "expected_result": "Step 1: The 'SPM68 Outgrown Room' item shows 'Flagged because: the expected attendance changed', 'Suitability: Not suitable' with 'Theatre capacity is 100 - your event expects 150.', and 'Availability: Available'.\nStep 2: The flag is NOT cleared. The message 'SPM68 Hall no longer meets this event's requirements: Theatre capacity is 100 - your event expects 150.' is shown in the item. The item is still listed, with 'Keep booking' and 'Find a replacement venue'.\nStep 3: The 'SPM68 Outgrown Room' item is still listed with 'Suitability: Not suitable'.\nStep 5: Under 'Booking requests', SPM68 Hall is still listed as 'Approved' for 8 Sep 2027, 09:00–17:00. It was not changed or cancelled."
+    },
+    {
+      "id": "SPM-68-TC08",
+      "title": "Flagged bookings at a blocked venue and at a retired venue are shown as not available with the reason, and neither can be kept",
+      "linked_ac": ["AC2", "AC4", "AC7", "AC14"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Venue Trouble Day' is in Planning, assigned to Daniel Tan, on 9 Sep 2027, 09:00-17:00, for 40 people in Theatre layout. It has two approved venue bookings, both flagged: SPM68 Closed Room, which Venue Staff marked unavailable for maintenance from 9 Sep 2027, 08:00 to 9 Sep 2027, 18:00; and SPM68 Retired Room, which has been retired. Logged in as Daniel Tan. Keeping is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Keep booking' in the 'SPM68 Venue Trouble Day' item for SPM68 Closed Room",
+        "Click 'Keep booking' in the 'SPM68 Venue Trouble Day' item for SPM68 Retired Room",
+        "Click 'SPM68 Venue Trouble Day' in either item",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM68 Venue Trouble Day (Planning), 9 Sep 2027, 09:00-17:00, 40 people, Theatre\nSPM68 Closed Room (Approved, flagged): unavailable for maintenance 9 Sep 2027, 08:00-18:00\nSPM68 Retired Room (Approved, flagged): retired",
+      "expected_result": "Step 1: Two separate items are listed for 'SPM68 Venue Trouble Day'. The SPM68 Closed Room item shows 'Flagged because: the venue is unavailable during this booking', 'Suitability: Suitable' and 'Availability: Not available' with 'SPM68 Closed Room is unavailable at this time (maintenance, 9 Sep 2027, 08:00–18:00).' The SPM68 Retired Room item shows 'Flagged because: the venue has been retired' and 'Availability: Not available' with 'SPM68 Retired Room has been retired.'\nStep 2: The flag is NOT cleared. The message 'SPM68 Closed Room no longer meets this event's requirements: SPM68 Closed Room is unavailable at this time (maintenance, 9 Sep 2027, 08:00–18:00).' is shown in that item, and the item is still listed.\nStep 3: The flag is NOT cleared. The message 'SPM68 Retired Room no longer meets this event's requirements: SPM68 Retired Room has been retired.' is shown in that item, and the item is still listed.\nStep 5: Under 'Booking requests', SPM68 Closed Room and SPM68 Retired Room are both still listed as 'Approved' for 9 Sep 2027, 09:00–17:00. Neither was changed or cancelled."
+    },
+    {
+      "id": "SPM-68-TC09",
+      "title": "A flagged venue booking that no longer covers the event's new date is shown as not available and cannot be kept",
+      "linked_ac": ["AC2", "AC4", "AC7"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Moved Date' is in Planning, assigned to Daniel Tan, for 40 people in Theatre layout. The event was moved to 14 Sep 2027, 09:00-17:00, but its approved booking at SPM68 Annex is still for 13 Sep 2027, 09:00-17:00 and is flagged because the date or time changed. Logged in as Daniel Tan. Keeping is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Keep booking' in the 'SPM68 Moved Date' item"
+      ],
+      "test_data": "Event: SPM68 Moved Date (Planning), now 14 Sep 2027, 09:00-17:00, 40 people, Theatre\nVenue booking: SPM68 Annex (Approved, flagged), 13 Sep 2027, 09:00-17:00",
+      "expected_result": "Step 1: The 'SPM68 Moved Date' item shows 'SPM68 Annex (SPM68-ANX)', '13 Sep 2027, 09:00–17:00', 'Flagged because: the date or time changed', 'Suitability: Suitable' and 'Availability: Not available' with 'The booking (13 Sep 2027, 09:00–17:00) does not cover the event's time (14 Sep 2027, 09:00–17:00).'\nStep 2: The flag is NOT cleared. The message 'SPM68 Annex no longer meets this event's requirements: The booking (13 Sep 2027, 09:00–17:00) does not cover the event's time (14 Sep 2027, 09:00–17:00).' is shown in the item, and the item is still listed with the booking still on 13 Sep 2027."
+    },
+    {
+      "id": "SPM-68-TC10",
+      "title": "Keeping a flagged equipment reservation that is still available clears the flag and leaves the reservation unchanged",
+      "linked_ac": ["AC6", "AC5", "AC14"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm68 before and after this case. 'SPM68 Kit Recheck' is in Planning, assigned to Daniel Tan, on 15 Sep 2027, 09:00-17:00. Its reservation of 2 SPM68 Projector (Reserved; 4 in stock, none out of service, no other event holds any that day) is flagged because the date or time changed. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Keep reservation' in the 'SPM68 Kit Recheck' item",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM68 Kit Recheck' in the list",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM68 Kit Recheck (Planning), 15 Sep 2027, 09:00-17:00\nEquipment: SPM68 Projector x 2 (Reserved, flagged: the date or time changed); 4 in stock",
+      "expected_result": "Step 1: Under 'Equipment reservations', the 'SPM68 Kit Recheck' item shows 'SPM68 Projector', 'Flagged because: the date or time changed' and 'Availability: 2 reserved, 4 available for these dates.'\nStep 2: The message 'Flag cleared' is shown with 'SPM68 Projector for SPM68 Kit Recheck was kept as it is.' The 'SPM68 Kit Recheck' item is no longer listed.\nStep 5: SPM68 Projector is still listed with quantity 2 and the status 'Reserved'. Its quantity and status are unchanged."
+    },
+    {
+      "id": "SPM-68-TC11",
+      "title": "A flagged equipment reservation that can no longer be covered cannot be kept: the flag stays and the shortfall is named",
+      "linked_ac": ["AC7", "AC5", "AC2", "AC14"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Short Kit' is in Planning, assigned to Daniel Tan, on 16 Sep 2027, 09:00-17:00. Its reservation of 2 SPM68 Speaker (Reserved) is flagged because Technical Support marked 1 of the 2 in stock out of service. Logged in as Daniel Tan. Keeping is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Keep reservation' in the 'SPM68 Short Kit' item",
+        "Click 'SPM68 Short Kit' in its item",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM68 Short Kit (Planning), 16 Sep 2027, 09:00-17:00\nEquipment: SPM68 Speaker x 2 (Reserved, flagged); 2 in stock, 1 out of service",
+      "expected_result": "Step 1: Under 'Equipment reservations', the 'SPM68 Short Kit' item shows 'SPM68 Speaker', 'Flagged because: units of the equipment were marked out of service' and 'Availability: 2 reserved, 1 available for these dates.'\nStep 2: The flag is NOT cleared. The message 'SPM68 Speaker no longer meets this event's requirements: 2 reserved, 1 available for these dates.' is shown in the item, and the item is still listed.\nStep 4: SPM68 Speaker is still listed with quantity 2 and the status 'Reserved'. It was not changed or cancelled."
+    },
+    {
+      "id": "SPM-68-TC12",
+      "title": "Flagged registrations show how many attendees are registered or waitlisted and why, and marking them as reviewed clears the flag without changing the registration settings",
+      "linked_ac": ["AC8", "AC9"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm68 before and after this case. 'SPM68 Capacity Cut' is in Planning, assigned to Daniel Tan, with registration enabled and a registration capacity of 10; it has 12 attendees registered and 3 on the waiting list, flagged because the capacity was lowered. 'SPM68 Registration Off' is in Planning, assigned to Daniel Tan, with registration not enabled and 5 attendees registered, flagged because registration was turned off. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Mark as reviewed' in the 'SPM68 Capacity Cut' item",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM68 Capacity Cut' in the list"
+      ],
+      "test_data": "SPM68 Capacity Cut: registration enabled, capacity 10, 12 registered, 3 on the waiting list\nSPM68 Registration Off: registration not enabled, 5 registered, 0 on the waiting list",
+      "expected_result": "Step 1: Under 'Registrations', the 'SPM68 Capacity Cut' item shows '12 registered, 3 on the waiting list' and 'Flagged because: the registration capacity was lowered below the number registered or waitlisted'. The 'SPM68 Registration Off' item shows '5 registered, 0 on the waiting list' and 'Flagged because: registration was turned off'. Each has a 'Mark as reviewed' button and no 'Keep' button.\nStep 2: The message 'Flag cleared' is shown with 'Registrations for SPM68 Capacity Cut were marked as reviewed. No registration was changed.' The 'SPM68 Capacity Cut' item is no longer listed. The 'SPM68 Registration Off' item is still listed.\nStep 4: On the Overview, the Registration card still shows Registration 'Enabled' and Capacity '10'. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-68-TC13",
+      "title": "An event whose only flag is on its registrations can still be confirmed",
+      "linked_ac": ["AC10"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm68 before and after this case. 'SPM68 Ready To Confirm' is in Planning, assigned to Daniel Tan, on 20 Sep 2027, 09:00-17:00. It has one approved venue booking at SPM68 Annex that is not flagged, no equipment, and registration enabled with a capacity of 30 and an opening and closing date. Its registrations (8 registered) are flagged because the date or time changed. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'SPM68 Ready To Confirm' in its item under 'Registrations'",
+        "Click the 'Readiness' tab",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click 'Flagged Arrangements' in the sidebar"
+      ],
+      "test_data": "Event: SPM68 Ready To Confirm (Planning), 20 Sep 2027, 09:00-17:00\nVenue booking: SPM68 Annex (Approved, not flagged)\nRegistrations: 8 registered, 0 on the waiting list (flagged: the date or time changed)",
+      "expected_result": "Step 1: Under 'Registrations', the 'SPM68 Ready To Confirm' item shows '8 registered, 0 on the waiting list' and 'Flagged because: the date or time changed'. The event has no item under 'Venue bookings' or 'Equipment reservations'.\nStep 3: 'SPM68 Annex' and 'Registration setup' both show 'Complete'. The message 'Nothing is blocking confirmation' is shown.\nStep 6: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge reads 'Confirmed'.\nStep 7: The 'SPM68 Ready To Confirm' item is still listed under 'Registrations': confirming did not clear the flag."
+    },
+    {
+      "id": "SPM-68-TC14",
+      "title": "Searching for a replacement venue from a flagged booking opens the venue search pre-filled from that booking and the event's requirements",
+      "linked_ac": ["AC11"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "The SPM-68 fixtures are loaded (npm run fixtures:spm68). 'SPM68 Outgrown Room' is in Planning, assigned to Daniel Tan, on 8 Sep 2027, 09:00-17:00, for 150 people in Theatre layout, and requires 'Fixed ceiling projector' and 'Step-free access'. Its approved booking at SPM68 Hall (8 Sep 2027, 09:00-17:00, Theatre, seats 100) is flagged. SPM68 Spare Room seats 200 in Theatre layout, has both required features and is free that day. Logged in as Daniel Tan. Nothing is changed in this case.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Find a replacement venue' in the 'SPM68 Outgrown Room' item"
+      ],
+      "test_data": "Event: SPM68 Outgrown Room, 150 people, Theatre; requires Fixed ceiling projector and Step-free access\nFlagged booking: SPM68 Hall, 8 Sep 2027, 09:00-17:00, Theatre\nReplacement candidate: SPM68 Spare Room (Theatre seats 200)",
+      "expected_result": "Step 2: The 'Find a venue' page opens, saying 'Filled in from the flagged booking at SPM68 Hall. Change any filter and search again.' 'From' reads 8 Sep 2027, 09:00 and 'To' reads 8 Sep 2027, 17:00. 'Expected attendance' reads 150. 'Room layout' reads 'Theatre'. 'Step-free access' is ticked under 'Accessibility requirements' and 'Fixed ceiling projector' is ticked under 'Required facilities'; nothing else is ticked. The results include 'SPM68 Spare Room (SPM68-SPR)' with a 'Request booking' button, and do not include SPM68 Hall."
+    },
+    {
+      "id": "SPM-68-TC15",
+      "title": "Requesting a replacement venue adds a pending request and leaves the flagged booking, the event's information and its status unchanged",
+      "linked_ac": ["AC12", "AC13", "AC14"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm68 before and after this case. 'SPM68 Outgrown Room' is in Planning, assigned to Daniel Tan, on 8 Sep 2027, 09:00-17:00, for 150 people in Theatre layout. Its approved booking at SPM68 Hall is flagged. SPM68 Spare Room seats 200 in Theatre layout and is free that day. Logged in as Daniel Tan.",
+      "steps": [
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Find a replacement venue' in the 'SPM68 Outgrown Room' item",
+        "Click 'Request booking' on the 'SPM68 Spare Room (SPM68-SPR)' result",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'",
+        "Click the 'Overview' tab",
+        "Click 'Flagged Arrangements' in the sidebar"
+      ],
+      "test_data": "Event: SPM68 Outgrown Room (Planning), 8 Sep 2027, 09:00-17:00, 150 people, Theatre\nFlagged booking: SPM68 Hall (Approved)\nReplacement: SPM68 Spare Room, 8 Sep 2027, 09:00-17:00",
+      "expected_result": "Step 3: The 'Request a venue booking' page opens for SPM68 Spare Room, with Date 8 Sep 2027, Start time 09:00 and End time 17:00 filled in.\nStep 4: The message 'Booking request sent to Venue Staff.' is shown.\nStep 5: Under 'Booking requests', SPM68 Spare Room is listed as 'Pending' and SPM68 Hall is still listed as 'Approved', both for 8 Sep 2027, 09:00–17:00.\nStep 6: The status badge still reads 'Planning'. The event still shows 8 Sep 2027, 09:00–17:00, an expected attendance of 150 and Theatre layout.\nStep 7: The 'SPM68 Outgrown Room' item for SPM68 Hall is still listed under 'Venue bookings', still flagged, with 'Keep booking' and 'Find a replacement venue'."
+    }
+  ],
+  "open_questions": [
+    "Written before the code (TDD, 2026-10-13). Every case's wording is what the developer builds to; entries marked DECIDED were chosen here rather than taken from the story, so change them now, in the cases and the automated tests together, if the team wants otherwise. The cases have not been walked through the app.",
+    "RESOLVED 2026-10-13 (Kristen): the part of AC12 that depends on Withdraw or Release Venue Booking (SPM-67) is not built or tested until SPM-67 is in main. That is: releasing the flagged booking from the Flagged Arrangements page, the flag being resolved by the release, and the released booking leaving the list. No case covers them. SPM-68-TC15 stops at 'the flagged booking stays on the event record'. Add the release cases, and a 'Release booking' action on the item, when SPM-67 merges.",
+    "The fixture script scripts/seed-spm68.ts (npm run fixtures:spm68) is NOT written yet, although the schema it needs exists. It is left to the build step because several fixture states only mean something once the live check is built (a booking that does not cover the event's time, a reservation left short), and it cannot be tried against the shared database blind. It needs, all titled 'SPM68 …' with seed keys 'spm68_…', organiser Rachel Ng, coordinator Daniel Tan unless said, status Planning: (1) dedicated venues, upserted as scripts/seed-spm81.ts does: SPM68 Hall (SPM68-HAL; Theatre 100, Classroom 60), SPM68 Annex (SPM68-ANX; Theatre 60), SPM68 Spare Room (SPM68-SPR; Theatre 200), SPM68 Closed Room (SPM68-CLS; Theatre 60; unavailable for maintenance 9 Sep 2027 08:00-18:00), SPM68 Retired Room (SPM68-RET; Theatre 60; retired) - all 07:00-22:00, no setup or turnaround, all with 'Fixed ceiling projector' and 'Step-free access'; (2) dedicated equipment: SPM68 Projector (4 in stock), SPM68 Speaker (2 in stock, 1 out of service); (3) events: Listing Summit (7 Sep 2027; Hall approved + flagged event_schedule_changed,event_requirements_changed; Annex approved, not flagged; Projector x 2 reserved + flagged event_schedule_changed; 12 registered + 3 waitlisted, flagged event_schedule_changed), Attendance Review (6 Sep; 80 people; Hall flagged event_attendance_changed), Outgrown Room (8 Sep; 150 people; requires both facilities; Hall flagged event_attendance_changed), Venue Trouble Day (9 Sep; Closed Room flagged venue_unavailable; Retired Room flagged venue_retired), Moved Date (event 14 Sep, Annex booking 13 Sep, flagged event_schedule_changed), Kit Recheck (15 Sep; Projector x 2 reserved, flagged event_schedule_changed), Short Kit (16 Sep; Speaker x 2 reserved, flagged equipment_unavailable), Capacity Cut (17 Sep; registration capacity 10; 12 registered + 3 waitlisted; flagged registration_capacity_lowered), Registration Off (18 Sep; registration off; 5 registered; flagged registration_disabled), Ready To Confirm (20 Sep; Annex approved, not flagged; registration capacity 30 with opening and closing dates; 8 registered; flagged event_schedule_changed), Partner Briefing (21 Sep; coordinator Priya Raj; Annex flagged event_attendance_changed). All times 09:00-17:00.",
+    "AC2 lists 'venue setup or turnaround time changed' as a reason. Nothing writes that reason yet: it belongs to Re-check Bookings (SPM-80), which is not built, so there is no case for it. The page is to show a reason code it does not know in plain words rather than hide it (as the Readiness tab does), so SPM-80's reason will appear without a change here. Should SPM-68 wait for SPM-80's code name, or is this enough?",
+    "AC9 says no registration is changed. No built screen lists an event's registrations (the Attendees tab is not built), so SPM-68-TC12 can only check that the registration settings are unchanged. That no registration row is written is covered by the automated route test.",
+    "SPM-68-TC13 relies on Confirm not waiting for the Operational Safety Check. When Resolve Safety Check Outcome (SPM-88) turns that gate on, the fixture event 'SPM68 Ready To Confirm' needs an approved safety check or the case will be refused for a different reason.",
+    "No manual case covers the empty page ('Nothing is flagged'): on the shared database every coordinator may have flagged arrangements from other stories' fixtures. It is covered by the automated page test.",
+    "DECIDED 2026-10-13, from the design not the story: the screen is a new page, 'Flagged Arrangements', at /flagged, with a 'Flagged Arrangements' link in the Event Coordinator's sidebar straight after 'Review Queue' (the next free screen number in UI_DESIGN.md is S-30). No other role has the link. It follows the Safety Checks page (SPM-85): a visitor who is not logged in is sent to log in and brought back (SPM-68-TC04); any other role sees 'You do not have access to this' with 'Reviewing flagged arrangements is the Event Coordinator's role. You can still see the events you are involved in from your Dashboard.' (SPM-68-TC03).",
+    "DECIDED 2026-10-13: the page layout and wording. Three sections, shown only when they have something: 'Venue bookings', 'Equipment reservations', 'Registrations'. Each item shows the event's title (a link to its Overview) and reference, the arrangement, and 'Flagged because: <reasons joined by ; >' in the same words the Readiness tab uses. Most recently flagged first. A venue item shows the venue as 'Name (CODE)', the booking's own date and times, its layout, 'Suitability: Suitable' or 'Not suitable' and 'Availability: Available' or 'Not available', each followed by what is unmet. An equipment item shows 'Availability: <n> reserved, <n> available for these dates.' ('<n> requested, …' for a request Technical Support have not reserved yet). A registrations item shows '<n> registered, <n> on the waiting list'. Buttons: 'Keep booking', 'Find a replacement venue', 'Keep reservation', 'Mark as reviewed'. When nothing is flagged: 'Nothing is flagged' with 'Arrangements appear here when a change to an event, a venue or equipment means they need another look.'",
+    "DECIDED 2026-10-13: what 'still meets the event's requirements' means for a venue booking (AC4, AC6, AC7). Suitability is the existing check (SPM-41) for the event's present attendance, layout and mandatory facilities - the session's attendance and layout for a session's booking. Availability is: the venue has not been retired; the booking's own times still cover the event's (or session's) present time, the rule a new request must pass (SPM-93); and nothing else holds or blocks the room for the booking's occupied time (the existing conflict check, SPM-44: an unavailable period, or another event's approved booking). Keep is refused unless both pass (SPM-68-TC07 to SPM-68-TC09).",
+    "DECIDED 2026-10-13: what 'still meets the event's requirements' means for an equipment reservation (AC5, AC6, AC7). The existing availability check (SPM-48) for the event's present dates, not counting this reservation's own units: a Reserved or Partially fulfilled line can be kept when the units available cover the quantity it has reserved; a line Technical Support have not reserved yet, when they cover the quantity requested (SPM-68-TC10, SPM-68-TC11).",
+    "DECIDED 2026-10-13: the messages. Kept: 'Flag cleared' with '<arrangement> for <event> was kept as it is.' Registrations reviewed: 'Flag cleared' with 'Registrations for <event> were marked as reviewed. No registration was changed.' Refused: '<arrangement> no longer meets this event's requirements: <each unmet requirement>', shown inside the item, which stays listed. The unmet venue requirements use the existing wording ('Theatre capacity is 100 - your event expects 150.', '<Venue> is unavailable at this time (maintenance, …).') plus two new ones: '<Venue> has been retired.' and 'The booking (<its times>) does not cover the event's time (<the event's times>).' Keeping asks for no confirmation: it changes nothing but the flag.",
+    "DECIDED 2026-10-13: keeping clears the flag and its reasons only. It does not change the event's status: a Confirmed event that Update Event Information (SPM-62) moved back to Planning stays in Planning until the Coordinator confirms it again. Which arrangements are listed: flagged venue bookings that are Pending or Approved, and flagged equipment lines that are Requested, Under review, Reserved or Partially fulfilled - a rejected or cancelled one holds nothing to review.",
+    "DECIDED 2026-10-13: the replacement search (AC11 to AC13). 'Find a replacement venue' opens the existing Find a venue page (SPM-40) for the event with the flagged booking named in the address. The form is filled from the booking's date, start and end times and layout, the attendance of the booking's session or the event, and the event's mandatory facilities and accessibility requirements; the page says 'Filled in from the flagged booking at <venue>. Change any filter and search again.' In that mode each result has a 'Request booking' button that opens the existing Request a venue booking form (SPM-42) for that venue. The request is an ordinary pending request; nothing about the flagged booking, the event's information or its status changes (SPM-68-TC14, SPM-68-TC15)."
+  ],
+  "code_references": []
+}
