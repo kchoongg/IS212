@@ -294,6 +294,177 @@ describe("Event Venue tab", () => {
     });
   });
 
+  describe("SPM-67: withdrawing or releasing a booking", () => {
+    const PATCH_B1 = `PATCH /api/events/${REF}/venue-bookings/b1`;
+    const row = (overrides: Record<string, unknown> = {}) => ({
+      id: "b1",
+      status: "pending",
+      startsAt: "2027-03-04T05:30:00.000Z",
+      endsAt: "2027-03-04T09:00:00.000Z",
+      layoutName: "theatre",
+      session: null,
+      venue: { code: "HALL-A", name: "Hall A" },
+      decisionReason: null,
+      suggestedAlternative: null,
+      suggestedVenue: null,
+      cancellationReason: null,
+      ...overrides,
+    });
+    const requests = async () =>
+      (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
+    const dialog = () => screen.getByRole("dialog", { hidden: true });
+
+    it("SPM-67-TC07: offers Withdraw request on a pending row and Release booking on an approved one, and nothing on the rest", async () => {
+      open({
+        [INFO]: info({
+          canChangeBookings: true,
+          bookings: [
+            row({ id: "p", status: "pending" }),
+            row({ id: "a", status: "approved", venue: { code: "ROOM-B", name: "Room B" } }),
+            row({ id: "r", status: "rejected", venue: { code: "ROOM-C", name: "Room C" } }),
+            row({ id: "w", status: "withdrawn", venue: { code: "ROOM-D", name: "Room D" }, cancellationReason: "Wrong room." }),
+            row({ id: "x", status: "released", venue: { code: "ROOM-E", name: "Room E" }, cancellationReason: "Merged sessions." }),
+          ],
+        }),
+      });
+
+      const card = await requests();
+      const line = (venue: string) => within(card).getByText(venue).closest("div.text-sm") as HTMLElement;
+
+      expect(within(line("Hall A (HALL-A)")).getByRole("button", { name: "Withdraw request" })).toBeInTheDocument();
+      expect(within(line("Hall A (HALL-A)")).queryByRole("button", { name: "Release booking" })).not.toBeInTheDocument();
+      expect(within(line("Room B (ROOM-B)")).getByRole("button", { name: "Release booking" })).toBeInTheDocument();
+      expect(within(line("Room B (ROOM-B)")).queryByRole("button", { name: "Withdraw request" })).not.toBeInTheDocument();
+      for (const done of ["Room C (ROOM-C)", "Room D (ROOM-D)", "Room E (ROOM-E)"]) {
+        expect(within(line(done)).queryByRole("button")).not.toBeInTheDocument();
+      }
+      expect(line("Room D (ROOM-D)")).toHaveTextContent("Withdrawn");
+      expect(line("Room D (ROOM-D)")).toHaveTextContent("Reason for withdrawal: Wrong room.");
+      expect(line("Room E (ROOM-E)")).toHaveTextContent("Released");
+      expect(line("Room E (ROOM-E)")).toHaveTextContent("Reason for release: Merged sessions.");
+    });
+
+    it("SPM-67-TC08: offers neither to a user who may not change the bookings", async () => {
+      open({
+        [INFO]: info({
+          canChangeBookings: false,
+          cannotRequest: "Only the assigned Coordinator can request a venue booking.",
+          bookings: [row(), row({ id: "a", status: "approved" })],
+        }),
+      });
+
+      const card = await requests();
+
+      expect(within(card).queryByRole("button", { name: "Withdraw request" })).not.toBeInTheDocument();
+      expect(within(card).queryByRole("button", { name: "Release booking" })).not.toBeInTheDocument();
+    });
+
+    it("SPM-67-TC06: shows no reason line when none was given", async () => {
+      open({ [INFO]: info({ bookings: [row({ status: "withdrawn" })] }) });
+
+      const card = await requests();
+
+      expect(card).toHaveTextContent("Withdrawn");
+      expect(card).not.toHaveTextContent("Reason for withdrawal");
+    });
+
+    it("SPM-67-TC01: asks before withdrawing, sends the reason, and says what happened", async () => {
+      const api = open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
+        [PATCH_B1]: { id: "b1", status: "withdrawn" },
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+
+      expect(dialog()).toHaveTextContent("Withdraw this request?");
+      expect(dialog()).toHaveTextContent(
+        "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 will no longer be requested, and Venue Staff will no longer see it on their Booking Requests list."
+      );
+      expect(within(dialog()).getByRole("button", { name: "Keep request", hidden: true })).toBeInTheDocument();
+
+      api.on(INFO, info({ canChangeBookings: true, bookings: [row({ status: "withdrawn", cancellationReason: "Not needed." })] }));
+      fireEvent.change(within(dialog()).getByLabelText("Reason (optional)"), { target: { value: "Not needed." } });
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      await waitFor(() => expect(api.sent(PATCH_B1)[0].body).toEqual({ action: "withdraw", reason: "Not needed." }));
+      expect(await screen.findByText("Request withdrawn")).toBeInTheDocument();
+      expect(
+        screen.getByText("Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 is now Withdrawn. You can request another venue below.")
+      ).toBeInTheDocument();
+      expect(await screen.findByText("Not needed.", { exact: false })).toHaveTextContent("Reason for withdrawal: Not needed.");
+    });
+
+    it("SPM-67-TC03: asks before releasing, and says Venue Staff have been notified", async () => {
+      const api = open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row({ status: "approved" })] }),
+        [PATCH_B1]: { id: "b1", status: "released" },
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Release booking" }));
+
+      expect(dialog()).toHaveTextContent("Release this booking?");
+      expect(dialog()).toHaveTextContent(
+        "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 will be freed for other events, and Venue Staff will be notified."
+      );
+      expect(within(dialog()).getByRole("button", { name: "Keep booking", hidden: true })).toBeInTheDocument();
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Release booking", hidden: true }));
+
+      await waitFor(() => expect(api.sent(PATCH_B1)[0].body).toEqual({ action: "release" }));
+      expect(await screen.findByText("Booking released")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 is now Released. Venue Staff have been notified. You can request another venue below."
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("sends nothing when the Coordinator keeps the request", async () => {
+      const api = open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: {} });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Keep request", hidden: true }));
+
+      expect(api.sent(PATCH_B1)).toHaveLength(0);
+    });
+
+    it("shows the server's refusal and reloads the bookings, which may have changed meanwhile", async () => {
+      const refusal = "This request has already been approved, so it can no longer be withdrawn. Release the booking instead.";
+      const api = open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
+        [PATCH_B1]: reply(400, { error: refusal }),
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      api.on(INFO, info({ canChangeBookings: true, bookings: [row({ status: "approved" })] }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText(refusal)).toBeInTheDocument();
+      expect(await within(await requests()).findByRole("button", { name: "Release booking" })).toBeInTheDocument();
+    });
+
+    it("says the change was not saved when the server cannot be reached", async () => {
+      open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
+        [PATCH_B1]: () => Promise.reject(new TypeError("Failed to fetch")),
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText("Could not save the change. Please try again.")).toBeInTheDocument();
+    });
+
+    it("sends the user to log in when the session has expired", async () => {
+      open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(401, {}) });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fvenue"));
+    });
+  });
+
   it("shows no booking requests card when there are none", async () => {
     open();
 

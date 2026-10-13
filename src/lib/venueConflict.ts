@@ -71,8 +71,8 @@ export interface FindConflictOptions {
   scope?: ConflictScope;
 }
 
-/// AC7: a rejected or cancelled booking holds nothing. The customer's
-/// "withdrawn" and "released" are both stored as `cancelled` — see
+/// AC7: a rejected, withdrawn or released booking holds nothing (SPM-67
+/// stores the customer's "withdrawn" and "released" as themselves) — see
 /// VenueBooking.status in prisma/schema.prisma.
 const BLOCKING_STATUSES: Record<ConflictScope, readonly string[]> = {
   active: ["approved", "pending"],

@@ -8,11 +8,13 @@ import { createVenueBookingSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { CLOSED_EVENT_MESSAGE, NOT_APPROVED_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
 import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
+import { canChangeBookingsOf } from "@/lib/venueBookingChange";
 
 // SPM-42, Request Venue Booking. GET is what the Venue tab needs to offer a
 // request: the event's sessions, its existing requests, and whether this user
 // may request at all. POST creates a pending request; every rule lives in
-// checkVenueBookingRequest() (src/lib/venueBookingRequest.ts).
+// checkVenueBookingRequest() (src/lib/venueBookingRequest.ts). Withdrawing or
+// releasing one is PATCH ./[bookingId] (SPM-67).
 
 const ONLY_ASSIGNED = "Only the assigned Coordinator can request a venue booking.";
 
@@ -28,6 +30,8 @@ const BOOKING_FIELDS = {
   decisionReason: true,
   suggestedAlternative: true,
   suggestedVenue: { select: { id: true, code: true, name: true, isActive: true } },
+  // SPM-67 (AC5): the Coordinator's reason for withdrawing or releasing it.
+  cancellationReason: true,
   session: { select: { id: true, label: true } },
   venue: { select: { id: true, code: true, name: true, setupMinutes: true, teardownMinutes: true } },
 } as const;
@@ -88,6 +92,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     cannotRequest,
     // SPM-54: the form asks before a request that would begin planning.
     willBeginPlanning: cannotRequest === null && canBeginPlanning(actor, event),
+    // SPM-67: whether this user may withdraw a pending request or release an
+    // approved booking (PATCH .../venue-bookings/[bookingId]). Unlike a new
+    // request, an event awaiting approval may still let one go.
+    canChangeBookings: canRequestVenueBooking(actor, event) && canChangeBookingsOf(event.status),
     bookings,
   });
 }

@@ -477,6 +477,24 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["theatre", 60], ["classroom", 40]],
       facilities: [] },
+    // SPM-67 fixtures (scripts/seed-spm67.ts): a room with setup and
+    // turnaround, and two without - dedicated, so the bookings the cases
+    // withdraw, release and request meet no one else's.
+    { code: "SPM67-HAL", name: "SPM67 Hall", description: "SPM-67 test venue: 30 min setup and turnaround",
+      building: "Orchard Hub", floor: "L4", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 30,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM67-STU", name: "SPM67 Studio", description: "SPM-67 test venue: no setup or turnaround",
+      building: "Orchard Hub", floor: "L4", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM67-ANX", name: "SPM67 Annex", description: "SPM-67 test venue: no setup or turnaround",
+      building: "Orchard Hub", floor: "L4", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -1675,7 +1693,7 @@ async function main() {
   // yet, one closed, one with none) and the registered, waitlisted and
   // withdrawn attendees are created by that script alone, so run it once
   // after a full reseed. Pushed LAST, after SPM-85, so no earlier event's EVT-
-  // reference number shifts. Add new events AFTER this block.
+  // reference number shifts. SPM-67's block follows.
   // -----------------------------------------------------------------
   const spm51 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
     key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
@@ -1692,6 +1710,39 @@ async function main() {
     spm51("spm51_undated", "SPM51 Undated Talk", "confirmed", "2028-02-05"),
     spm51("spm51_private", "SPM51 Private Board Dinner", "confirmed", "2028-02-12", { regEnabled: false, regCapacity: undefined }),
     spm51("spm51_planning", "SPM51 Planning Stage Forum", "planning", "2028-02-19"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-67 QA fixtures (Withdraw or Release Venue Booking). The SAME events
+  // as scripts/seed-spm67.ts (`npm run fixtures:spm67`) - keep the two in
+  // step.
+  //
+  // The events only. Their bookings - pending, approved, rejected, withdrawn
+  // and released - are created by that script alone, so run it once after a
+  // full reseed.
+  // Pushed LAST, after SPM-51, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm67 = (key: string, title: string, date: string, from: string, to: string): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+      purpose: "SPM-67 withdraw or release venue booking test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "theatre",
+    };
+  };
+  eventData.push(
+    spm67("spm67_pending_pair", "SPM67 Pending Pair", "2027-11-02", "09:00", "12:00"),
+    spm67("spm67_release_pair", "SPM67 Release Pair", "2027-11-04", "09:00", "12:00"),
+    spm67("spm67_held_hall", "SPM67 Held Hall", "2027-11-09", "10:00", "12:00"),
+    spm67("spm67_booked_hall", "SPM67 Booked Hall", "2027-11-09", "15:00", "16:00"),
+    spm67("spm67_afternoon_briefing", "SPM67 Afternoon Briefing", "2027-11-09", "12:15", "14:15"),
+    spm67("spm67_only_room", "SPM67 Only Room", "2027-11-16", "09:00", "12:00"),
+    spm67("spm67_fresh_start", "SPM67 Fresh Start", "2027-11-18", "09:00", "12:00"),
+    spm67("spm67_status_mix", "SPM67 Status Mix", "2027-11-23", "09:00", "12:00"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

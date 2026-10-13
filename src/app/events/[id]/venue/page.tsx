@@ -9,12 +9,14 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   Field,
   PageHeader,
   Select,
   SkeletonRows,
   StatusBadge,
   Tabs,
+  Textarea,
 } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
@@ -22,6 +24,7 @@ import { eventTabItemsFor } from "@/lib/eventTabs";
 import { RequirePermission } from "@/components/RequirePermission";
 import { cn } from "@/lib/cn";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { statusLabel } from "@/lib/statuses";
 import { describeUnmet, layoutLabel, type UnmetRequirement } from "@/lib/venueSuitability";
 
 // SPM-41, "Find a venue" (design/mockups/VenueSearch.dc.html). Every active
@@ -31,6 +34,11 @@ import { describeUnmet, layoutLabel, type UnmetRequirement } from "@/lib/venueSu
 // SPM-42: a suitable venue gets "Request booking" (S-15); an unsuitable one
 // does not (team decision, 2026-10-01). A multi-session event picks a session
 // first, and venues are then judged on that session's attendance and layout.
+//
+// SPM-67: the assigned Coordinator withdraws a pending request or releases an
+// approved booking from the "Booking requests" card, with an optional reason.
+// The booking stays listed with its new status, and the venues below still
+// offer "Request booking", so a different room can be asked for straight away.
 
 interface Result {
   venue: {
@@ -60,6 +68,8 @@ interface Payload {
 interface BookingInfo {
   sessions: { id: string; label: string | null; startsAt: string; endsAt: string }[];
   cannotRequest: string | null;
+  /// SPM-67: whether this user may withdraw or release the event's bookings.
+  canChangeBookings?: boolean;
   bookings: {
     id: string;
     status: string;
@@ -69,9 +79,42 @@ interface BookingInfo {
     decisionReason: string | null;
     suggestedAlternative: string | null;
     suggestedVenue: { id: string; code: string; name: string; isActive: boolean } | null;
+    /// SPM-67: the Coordinator's reason, on a withdrawn or released booking.
+    cancellationReason?: string | null;
     session: { id: string; label: string | null } | null;
     venue: { code: string; name: string };
   }[];
+}
+
+type Booking = BookingInfo["bookings"][number];
+type ChangeAction = "withdraw" | "release";
+
+/// SPM-67: the wording of each action, from its button to what it says after.
+const CHANGE = {
+  withdraw: {
+    button: "Withdraw request",
+    title: "Withdraw this request?",
+    keep: "Keep request",
+    consequence: "will no longer be requested, and Venue Staff will no longer see it on their Booking Requests list.",
+    done: "Request withdrawn",
+    status: "withdrawn",
+    afterwards: "You can request another venue below.",
+  },
+  release: {
+    button: "Release booking",
+    title: "Release this booking?",
+    keep: "Keep booking",
+    consequence: "will be freed for other events, and Venue Staff will be notified.",
+    done: "Booking released",
+    status: "released",
+    afterwards: "Venue Staff have been notified. You can request another venue below.",
+  },
+} as const;
+
+/// "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00", with the session if it has one.
+function describeBooking(b: Booking): string {
+  const session = b.session ? ` for ${b.session.label ?? "Session"}` : "";
+  return `${formatVenue(b.venue.name, b.venue.code)}${session} on ${formatDateTimeRange(b.startsAt, b.endsAt)}`;
 }
 
 const MISSING_LABEL = {
@@ -111,6 +154,12 @@ function EventVenueScreen() {
   const [booking, setBooking] = useState<BookingInfo | null>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // SPM-67: the booking being withdrawn or released, and what happened.
+  const [changing, setChanging] = useState<{ booking: Booking; action: ChangeAction } | null>(null);
+  const [reason, setReason] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null);
+  const [changeError, setChangeError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -163,6 +212,48 @@ function EventVenueScreen() {
       void load();
     }
   }, [state, load, router, eventId]);
+
+  function startChange(target: Booking, action: ChangeAction) {
+    setReason("");
+    setNotice(null);
+    setChangeError(null);
+    setChanging({ booking: target, action });
+  }
+
+  async function confirmChange() {
+    if (!changing) return;
+    const { booking: target, action } = changing;
+    setSaving(true);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/venue-bookings/${target.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(reason.trim() ? { action, reason: reason.trim() } : { action }),
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor(`/events/${eventId}/venue`));
+        return;
+      }
+      if (!res.ok) {
+        // The refusal says what to do instead (e.g. release a request Venue
+        // Staff approved meanwhile), and the reload below shows why.
+        const failure = await res.json().catch(() => null);
+        setChangeError(failure?.error ?? "Could not save the change. Please try again.");
+      } else {
+        const words = CHANGE[action];
+        setNotice({
+          title: words.done,
+          body: `${describeBooking(target)} is now ${statusLabel(words.status)}. ${words.afterwards}`,
+        });
+      }
+      setChanging(null);
+      await load();
+    } catch {
+      setChangeError("Could not save the change. Please try again.");
+      setChanging(null);
+    } finally {
+      setSaving(false);
+    }
+  }
 
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
@@ -223,9 +314,17 @@ function EventVenueScreen() {
 
           {booking?.cannotRequest && <Alert variant="info">{booking.cannotRequest}</Alert>}
 
+          {notice && (
+            <Alert variant="success" title={notice.title}>
+              {notice.body}
+            </Alert>
+          )}
+          {changeError && <Alert variant="error">{changeError}</Alert>}
+
           {booking && booking.bookings.length > 0 && (
             <BookingRequests
               bookings={booking.bookings}
+              onChange={booking.canChangeBookings ? startChange : null}
               requestHrefFor={
                 booking.cannotRequest
                   ? null
@@ -259,6 +358,27 @@ function EventVenueScreen() {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={changing !== null}
+        title={changing ? CHANGE[changing.action].title : ""}
+        confirmLabel={changing ? CHANGE[changing.action].button : ""}
+        cancelLabel={changing ? CHANGE[changing.action].keep : undefined}
+        loading={saving}
+        onConfirm={() => void confirmChange()}
+        onCancel={() => setChanging(null)}
+      >
+        {changing && (
+          <div className="flex flex-col gap-3">
+            <p>
+              {describeBooking(changing.booking)} {CHANGE[changing.action].consequence}
+            </p>
+            <Field label="Reason (optional)">
+              <Textarea value={reason} maxLength={2000} onChange={(e) => setReason(e.target.value)} />
+            </Field>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }
@@ -267,11 +387,16 @@ function EventVenueScreen() {
 /// SPM-43 AC6: a rejected one carries Venue Staff's reason and any suggested
 /// alternative. The suggestion books nothing (#45) - "Request this venue"
 /// only opens the request form on the suggested room, for the same session.
+/// SPM-67: a pending row can be withdrawn and an approved one released; a
+/// withdrawn or released row shows the Coordinator's reason.
 function BookingRequests({
   bookings,
+  onChange,
   requestHrefFor,
 }: {
   bookings: BookingInfo["bookings"];
+  /// Null when this user cannot withdraw or release the event's bookings.
+  onChange: ((booking: Booking, action: ChangeAction) => void) | null;
   /// Null when this user cannot request a booking for the event.
   requestHrefFor: ((venueId: string, sessionId: string | null) => string) | null;
 }) {
@@ -290,8 +415,27 @@ function BookingRequests({
                   {b.layoutName && ` · ${layoutLabel(b.layoutName)}`}
                 </p>
               </div>
-              <StatusBadge status={b.status} />
+              <div className="flex shrink-0 flex-col items-end gap-2">
+                <StatusBadge status={b.status} />
+                {onChange && (b.status === "pending" || b.status === "approved") && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onChange(b, b.status === "pending" ? "withdraw" : "release")}
+                  >
+                    {CHANGE[b.status === "pending" ? "withdraw" : "release"].button}
+                  </Button>
+                )}
+              </div>
             </div>
+            {(b.status === "withdrawn" || b.status === "released") && b.cancellationReason && (
+              <p className="mt-2 rounded-md bg-surface-2 px-3 py-2 text-ink-2">
+                <span className="font-medium text-ink">
+                  {b.status === "withdrawn" ? "Reason for withdrawal:" : "Reason for release:"}
+                </span>{" "}
+                {b.cancellationReason}
+              </p>
+            )}
             {b.status === "rejected" && (b.decisionReason || b.suggestedVenue || b.suggestedAlternative) && (
               <div className="mt-2 flex flex-col gap-1 rounded-md bg-surface-2 px-3 py-2 text-ink-2">
                 {b.decisionReason && (

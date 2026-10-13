@@ -202,3 +202,14 @@ export const decideVenueBookingSchema = z.discriminatedUnion("decision", [
   }),
 ]);
 export type DecideVenueBookingInput = z.infer<typeof decideVenueBookingSchema>;
+
+// ADDED (SPM-67): PATCH /api/events/[id]/venue-bookings/[bookingId]. The
+// assigned Coordinator withdraws a pending request or releases an approved
+// booking. The reason is optional (AC5 "can record"); a blank one is none.
+export const changeVenueBookingSchema = z
+  .object({
+    action: z.enum(["withdraw", "release"]),
+    reason: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+  })
+  .strict();
+export type ChangeVenueBookingInput = z.infer<typeof changeVenueBookingSchema>;
