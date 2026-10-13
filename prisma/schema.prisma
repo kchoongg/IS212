@@ -72,6 +72,11 @@ model User {
   notifications          Notification[]
   safetyChecksSubmitted  SafetyCheck[]          @relation("SafetyCheckSubmitter")
   safetyChecksDecided    SafetyCheck[]          @relation("SafetyCheckDecider")
+  /// Track Outstanding Arrangements (SPM-33): the arrangements this user last
+  /// marked as not required, or as required again.
+  bookingsNotRequired      VenueBooking[]     @relation("BookingNotRequiredBy")
+  equipmentNotRequired     EquipmentRequest[] @relation("EquipmentNotRequiredBy")
+  registrationsNotRequired Event[]            @relation("EventRegistrationNotRequiredBy")
 
   @@index([role])
   @@index([organisationId])
@@ -228,6 +233,21 @@ model Event {
   /// Reviewed and cleared in Review Flagged Arrangements (SPM-68); also set by
   /// Configure Event Registration (SPM-64).
   registrationReviewReason String? @map("registration_review_reason")
+  /// Track Outstanding Arrangements (SPM-33): the assigned Coordinator has
+  /// marked the registration setup as not required for this event, so an
+  /// enabled but incomplete setup no longer prevents confirmation. The
+  /// registration settings themselves are NOT changed. By/At record who made
+  /// the latest decision - marking or reversing - and when (briefing 8f).
+  registrationNotRequired   Boolean   @default(false) @map("registration_not_required")
+  registrationNotRequiredBy String?   @map("registration_not_required_by")
+  registrationNotRequiredAt DateTime? @map("registration_not_required_at")
+  /// Configure Event Registration (SPM-64, AC4): the venue booking the
+  /// registration capacity is measured against - the booked room's capacity
+  /// in its layout caps it. Set with the capacity; the only active booking is
+  /// used when there is one. NULL when no capacity has been set, or when the
+  /// booking was deleted. A booking that is no longer pending or approved
+  /// leaves the setup incomplete (src/lib/eventConfirmation.ts).
+  registrationVenueBookingId String? @map("registration_venue_booking_id")
 
   rejectionReason    String? @map("rejection_reason")
   cancellationReason String? @map("cancellation_reason")
@@ -240,6 +260,8 @@ model Event {
   organiser    User          @relation("EventOrganiser", fields: [organiserId], references: [id])
   organisation Organisation? @relation(fields: [organisationId], references: [id])
   coordinator  User?         @relation("EventCoordinator", fields: [coordinatorId], references: [id])
+  registrationVenueBooking VenueBooking? @relation("RegistrationMeasuredBooking", fields: [registrationVenueBookingId], references: [id], onDelete: SetNull)
+  registrationNotRequiredByUser User? @relation("EventRegistrationNotRequiredBy", fields: [registrationNotRequiredBy], references: [id], onDelete: SetNull)
 
   facilityRequirements EventFacilityRequirement[]
   statusHistory        EventStatusHistory[]
@@ -247,7 +269,7 @@ model Event {
   clarifications       ClarificationRequest[]
   changeRequests       EventChangeRequest[]
   sessions             EventSession[]
-  venueBookings        VenueBooking[]
+  venueBookings        VenueBooking[] @relation("EventVenueBookings")
   equipmentRequests    EquipmentRequest[]
   registrations        Registration[]
   notifications        Notification[]
@@ -450,6 +472,15 @@ model VenueBooking {
   reviewReason String?   @map("review_reason")
   flaggedAt    DateTime? @map("flagged_at")
 
+  /// Track Outstanding Arrangements (SPM-33): the assigned Coordinator has
+  /// marked this booking as not required for the event, so it no longer
+  /// prevents confirmation. The booking itself is NOT changed, withdrawn or
+  /// released - its status stays what Venue Staff made it. By/At record who
+  /// made the latest decision - marking or reversing - and when (briefing 8f).
+  notRequired   Boolean   @default(false) @map("not_required")
+  notRequiredBy String?   @map("not_required_by")
+  notRequiredAt DateTime? @map("not_required_at")
+
   /// Withdraw or Release Venue Booking (SPM-67): who withdrew or released it,
   /// when, and the Coordinator's reason - optional (AC5). All NULL on a
   /// booking that is still pending, approved or rejected.
@@ -457,9 +488,12 @@ model VenueBooking {
   cancelledAt        DateTime? @map("cancelled_at")
   cancellationReason String?   @map("cancellation_reason")
 
-  event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  event     Event         @relation("EventVenueBookings", fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   venue     Venue         @relation("BookingVenue", fields: [venueId], references: [id])
+  /// SPM-64: events whose registration capacity is measured against this booking.
+  measuredForRegistration Event[] @relation("RegistrationMeasuredBooking")
+  notRequiredByUser User? @relation("BookingNotRequiredBy", fields: [notRequiredBy], references: [id], onDelete: SetNull)
   suggestedVenue Venue?   @relation("BookingSuggestedVenue", fields: [suggestedVenueId], references: [id], onDelete: SetNull)
   requester User          @relation("BookingRequester", fields: [requestedBy], references: [id])
   decider   User?         @relation("BookingDecider", fields: [decidedBy], references: [id])
@@ -515,6 +549,9 @@ model Equipment {
   /// Why those units are out of service, as recorded by Technical Support
   /// (SPM-48 AC7 / SPM-55). NULL when none are.
   outOfServiceReason    String? @map("out_of_service_reason")
+  /// SPM-55: which of AC1's three it is - unavailable | damaged |
+  /// under_maintenance. NULL when no units are out of service.
+  outOfServiceType      String? @map("out_of_service_type")
 
   isActive Boolean @default(true) @map("is_active")
 
@@ -573,9 +610,19 @@ model EquipmentRequest {
   reviewReason String?   @map("review_reason")
   flaggedAt    DateTime? @map("flagged_at")
 
+  /// Track Outstanding Arrangements (SPM-33): the assigned Coordinator has
+  /// marked this line as not required for the event (e.g. an item Technical
+  /// Support cannot provide, agreed to be non-essential - #90, #106), so it no
+  /// longer prevents confirmation. The request itself is NOT changed: its
+  /// status and anything reserved stay as they are. By/At as on VenueBooking.
+  notRequired   Boolean   @default(false) @map("not_required")
+  notRequiredBy String?   @map("not_required_by")
+  notRequiredAt DateTime? @map("not_required_at")
+
   event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   equipment Equipment     @relation(fields: [equipmentId], references: [id])
+  notRequiredByUser User? @relation("EquipmentNotRequiredBy", fields: [notRequiredBy], references: [id], onDelete: SetNull)
   requester User          @relation("EquipmentRequester", fields: [requestedBy], references: [id])
   reviewer  User?         @relation("EquipmentReviewer", fields: [reviewedBy], references: [id])
 

@@ -150,7 +150,8 @@ describe("Event overview", () => {
 
   it.each([
     ["organiser", ["Overview", "Equipment"]],
-    ["coordinator", ["Overview", "Venue", "Equipment"]],
+    // SPM-33: the Readiness tab is built, for coordinators only.
+    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
     ["venue_staff", ["Overview", "Venue"]],
     ["tech_support", ["Overview", "Equipment"]],
     ["ops_manager", ["Overview"]],
@@ -178,17 +179,20 @@ describe("Event overview", () => {
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
-      expect(terms()).toEqual(["Category", "Status", "When", "Description", "Company", "Capacity", "Window"]);
+      // CHANGED (SPM-64): 'Window' became 'Opens' and 'Closes' on the Registration card.
+      expect(terms()).toEqual(["Category", "Status", "When", "Description", "Company", "Registration", "Capacity", "Opens", "Closes"]);
       expect(screen.queryByRole("heading", { name: "Venue requirements" })).not.toBeInTheDocument();
     });
 
-    it("the registration capacity and window", async () => {
+    // CHANGED (SPM-64): the period is shown as 'Opens' and 'Closes'.
+    it("the registration capacity and period", async () => {
       open("attendee", publicEvent());
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
       expect(valueOf("Capacity")).toHaveTextContent("150");
-      expect(valueOf("Window")).not.toHaveTextContent("—");
+      expect(valueOf("Opens")).not.toHaveTextContent("—");
+      expect(valueOf("Closes")).not.toHaveTextContent("—");
     });
   });
 
@@ -1134,5 +1138,209 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
       expect(valueOf("Status")).toHaveTextContent("Safety review");
       expect(terms()).not.toContain("Safety check");
     });
+  });
+});
+
+// SPM-85: the Safety Officer reads what an Operational Safety Check needs -
+// attendance, sessions, accessibility needs, the rooms booked with their
+// layout and seats, and the equipment - and is offered nothing that changes it.
+describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
+  function open(role: string, eventRow: unknown) {
+    setRoute(`/events/${REF}`, { id: REF });
+    const api = mockApi({ ...signedInAs(role), [EVENT]: eventRow });
+    render(<EventOverviewPage />);
+    return api;
+  }
+
+  /// One card on the page: everything under its heading.
+  const card = (title: string) =>
+    screen.getByRole("heading", { level: 2, name: title }).closest(".rounded-lg") as HTMLElement;
+  const termsIn = (title: string) => within(card(title)).getAllByRole("term").map((t) => t.textContent);
+  const valueIn = (title: string, label: string) => {
+    const term = within(card(title)).getAllByRole("term").find((t) => t.textContent === label);
+    return term!.nextElementSibling as HTMLElement;
+  };
+  const tabLabels = () =>
+    within(screen.getByRole("navigation", { name: "Sections" }))
+      .getAllByRole("link")
+      .map((link) => link.textContent);
+
+  // 09:00-12:00 and 13:00-17:00 on 14 Jun 2027, Singapore time.
+  const sessions = [
+    {
+      id: "s1",
+      label: "Main programme",
+      startsAt: "2027-06-14T01:00:00.000Z",
+      endsAt: "2027-06-14T04:00:00.000Z",
+      expectedAttendance: 200,
+      preferredLayout: "theatre",
+    },
+    {
+      id: "s2",
+      label: "Breakout workshop",
+      startsAt: "2027-06-14T05:00:00.000Z",
+      endsAt: "2027-06-14T09:00:00.000Z",
+      expectedAttendance: 60,
+      preferredLayout: "classroom",
+    },
+  ];
+  const booking = (session: string | null, name: string, code: string, layoutName: string | null, layouts: object[]) => ({
+    startsAt: "2027-06-14T01:00:00.000Z",
+    endsAt: "2027-06-14T04:00:00.000Z",
+    layoutName,
+    session: session ? { label: session } : null,
+    venue: { name, code, layouts },
+  });
+  const forum = (overrides: Record<string, unknown> = {}) =>
+    event({
+      status: "safety_review",
+      sessions,
+      venueBookings: [
+        booking("Main programme", "Marina Auditorium", "MAR-AUD", "theatre", [{ layoutName: "theatre", capacity: 220 }]),
+        booking("Breakout workshop", "Orchard Seminar Room", "ORC-SEM", "classroom", [
+          { layoutName: "theatre", capacity: 120 },
+          { layoutName: "classroom", capacity: 70 },
+        ]),
+      ],
+      ...overrides,
+    });
+
+  it("AC3, AC6: offers the Overview and Equipment tabs only - no Attendees, and no venue search", async () => {
+    open("safety_officer", forum());
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(tabLabels()).toEqual(["Overview", "Equipment"]);
+  });
+
+  it("AC3: shows each session's time, attendance and layout", async () => {
+    open("safety_officer", forum());
+
+    await screen.findByRole("heading", { level: 2, name: "Sessions" });
+
+    expect(termsIn("Sessions")).toEqual(["Main programme", "Breakout workshop"]);
+    expect(valueIn("Sessions", "Main programme")).toHaveTextContent("14 Jun 2027, 09:00–12:00 · 200 people · Theatre");
+    expect(valueIn("Sessions", "Breakout workshop")).toHaveTextContent("14 Jun 2027, 13:00–17:00 · 60 people · Classroom");
+  });
+
+  it("AC3: shows each booked room with its layout and the seats that layout holds", async () => {
+    open("safety_officer", forum());
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(valueIn("Venue bookings", "Main programme")).toHaveTextContent(
+      "Marina Auditorium (MAR-AUD) · Theatre · seats 220"
+    );
+    // The capacity of the layout booked, not the room's largest.
+    expect(valueIn("Venue bookings", "Breakout workshop")).toHaveTextContent(
+      "Orchard Seminar Room (ORC-SEM) · Classroom · seats 70"
+    );
+  });
+
+  it("AC3: still shows the attendance and the accessibility needs it has always shown staff", async () => {
+    open(
+      "safety_officer",
+      forum({ facilityRequirements: [{ facilityId: "f1", isMandatory: true, facility: { name: "Step-free access" } }] })
+    );
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(valueOf("Expected attendance")).toHaveTextContent("200");
+    expect(valueIn("Venue requirements", "Required facilities")).toHaveTextContent("Step-free access");
+    expect(valueIn("Venue requirements", "Accessibility notes")).toHaveTextContent("Step-free access");
+  });
+
+  it("names a whole-event booking 'Whole event', and says when no layout was booked", async () => {
+    open(
+      "safety_officer",
+      forum({
+        sessions: [],
+        venueBookings: [booking(null, "Orchard Gallery", "ORC-GAL", null, [{ layoutName: "theatre", capacity: 110 }])],
+      })
+    );
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(valueIn("Venue bookings", "Whole event")).toHaveTextContent("Orchard Gallery (ORC-GAL) · Layout not set");
+    expect(screen.queryByRole("heading", { level: 2, name: "Sessions" })).not.toBeInTheDocument();
+  });
+
+  it("says when the layout booked has no recorded capacity", async () => {
+    open("safety_officer", forum({ venueBookings: [booking(null, "Orchard Gallery", "ORC-GAL", "banquet", [])] }));
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(valueIn("Venue bookings", "Whole event")).toHaveTextContent(
+      "Orchard Gallery (ORC-GAL) · Banquet · capacity not recorded"
+    );
+  });
+
+  it("says so when no room is booked yet", async () => {
+    open("safety_officer", forum({ venueBookings: [] }));
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(within(card("Venue bookings")).getByText("No venue is booked yet.")).toBeInTheDocument();
+  });
+
+  it("shows a session's missing label, attendance or layout as not set", async () => {
+    open(
+      "safety_officer",
+      forum({
+        sessions: [
+          {
+            id: "s1",
+            label: null,
+            startsAt: "2027-06-14T01:00:00.000Z",
+            endsAt: "2027-06-14T04:00:00.000Z",
+            expectedAttendance: null,
+            preferredLayout: null,
+          },
+        ],
+      })
+    );
+
+    await screen.findByRole("heading", { level: 2, name: "Sessions" });
+
+    expect(valueIn("Sessions", "Session 1")).toHaveTextContent(
+      "14 Jun 2027, 09:00–12:00 · Attendance not set · Layout not set"
+    );
+  });
+
+  it("gives the same two cards to the event's coordinator", async () => {
+    open("coordinator", forum());
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(screen.getByRole("heading", { level: 2, name: "Sessions" })).toBeInTheDocument();
+  });
+
+  it("keeps both cards from the organiser, who learns the room from the Venue row", async () => {
+    open("organiser", forum());
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByRole("heading", { level: 2, name: "Sessions" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Venue bookings" })).not.toBeInTheDocument();
+  });
+
+  it("AC4, AC5: offers the Safety Officer nothing that changes the event, its venue, its equipment or its registration", async () => {
+    // Every one of these is offered to the event's own coordinator (c1) on a
+    // Planning event with registration open.
+    open("safety_officer", forum({ status: "planning", registrationEnabled: true, registrationCapacity: 150 }));
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    for (const name of [
+      "Edit event information",
+      "Submit for safety check",
+      "Confirm event",
+      "Review request",
+      "Record withdrawal",
+      "Change registration settings",
+    ]) {
+      expect(screen.queryByRole("button", { name }), name).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name }), name).not.toBeInTheDocument();
+    }
   });
 });

@@ -31,6 +31,7 @@ else's event; owning an event does not let you approve your own.
 | `tech_support` | Technical Support Staff | Internal | Briefing §3 |
 | `attendee` | Attendee | External | Briefing §3 |
 | `ops_manager` | Event Operations Manager | Internal | **Our addition** — see below |
+| `safety_officer` | Safety Officer | Internal | Week 7 change #6 (SPM-85) — see below |
 
 The briefing names five roles. `ops_manager` is a sixth that we added: §5 Step 3
 says an event "is assigned" to a coordinator without saying by whom, and a
@@ -38,6 +39,13 @@ coordinator cannot assign themselves before they are responsible for the event.
 We model that assigner as an internal admin variant of Coordinator — identical
 chrome, one extra screen (`/assignments`). This is a design decision, not a
 requirement; it is worth confirming at a customer Q&A.
+
+`safety_officer` came with the Week 7 changes (change #6, clarification #128:
+"a new role and requirement due to regulation"). The Safety Officer reviews the
+operational safety of an event once its arrangements are made: SPM-86 submits
+an event for that Operational Safety Check, SPM-85 gives the role its access,
+and SPM-87 adds its decision. It reads what a review needs and changes nothing
+— see `event:safety_check` below, and SPM-85 in DOCUMENTATION.md.
 
 Roles are stored as a plain string on `users.role`. The allowed values are
 listed in `ROLES` in `src/lib/roles.ts`. There is no database CHECK constraint,
@@ -58,8 +66,9 @@ document enforced faithfully against a role the caller had picked for
 themselves. A permission model is only as good as the weakest way of acquiring
 a role.
 
-The four internal roles are created by `npx prisma db seed` today; an admin
-screen for them is an open item (§8).
+The five internal roles are created by `npx prisma db seed` today (the Safety
+Officer, Hana Yusof, also by `npm run fixtures:spm85`, which needs no reseed);
+an admin screen for them is an open item (§8).
 
 ---
 
@@ -68,26 +77,28 @@ screen for them is an open item (§8).
 `can(role, action)` answers this table and nothing else — it is the role half of
 the model, deliberately blind to which event is involved.
 
-| Action | Organiser | Coordinator | Ops Manager | Venue Staff | Tech Support | Attendee |
-| --- | :-: | :-: | :-: | :-: | :-: | :-: |
-| `event:create` | ✅ | — | — | — | — | — |
-| `event:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `event:edit_draft` | ✅ | — | — | — | — | — |
-| `event:review` (clarify / approve / reject) | — | ✅ | — | — | — | — |
-| `event:assign_coordinator` | — | — | ✅ | — | — | — |
-| `event:confirm` | — | ✅ | — | — | — | — |
-| `event:cancel` | — | ✅ | — | — | — | — |
-| `venue:view` | — | ✅ | ✅ | ✅ | — | — |
-| `venue:manage` | — | — | — | ✅ | — | — |
-| `venue_booking:request` | — | ✅ | — | — | — | — |
-| `venue_booking:decide` | — | — | — | ✅ | — | — |
-| `equipment:view` | ✅ | ✅ | ✅ | — | ✅ | — |
-| `equipment:manage` | — | — | — | — | ✅ | — |
-| `equipment_request:manage` | — | ✅ | — | — | — | — |
-| `equipment_request:review` | — | — | — | — | ✅ | — |
-| `registration:create` | — | — | — | — | — | ✅ |
-| `registration:view_list` | ✅ | ✅ | — | — | — | — |
-| `facility:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Action | Organiser | Coordinator | Ops Manager | Venue Staff | Tech Support | Attendee | Safety Officer |
+| --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
+| `event:create` | ✅ | — | — | — | — | — | — |
+| `event:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `event:edit_draft` | ✅ | — | — | — | — | — | — |
+| `event:review` (clarify / approve / reject) | — | ✅ | — | — | — | — | — |
+| `event:assign_coordinator` | — | — | ✅ | — | — | — | — |
+| `event:confirm` | — | ✅ | — | — | — | — | — |
+| `event:cancel` | — | ✅ | — | — | — | — | — |
+| `event:safety_check` (the Operational Safety Check) | — | — | — | — | — | — | ✅ |
+| `venue:view` | — | ✅ | ✅ | ✅ | — | — | — |
+| `venue:manage` | — | — | — | ✅ | — | — | — |
+| `venue_booking:request` | — | ✅ | — | — | — | — | — |
+| `venue_booking:decide` | — | — | — | ✅ | — | — | — |
+| `equipment:view` | ✅ | ✅ | ✅ | — | ✅ | — | — |
+| `equipment:view_status` | — | ✅ | ✅ | — | ✅ | — | — |
+| `equipment:manage` | — | — | — | — | ✅ | — | — |
+| `equipment_request:manage` | — | ✅ | — | — | — | — | — |
+| `equipment_request:review` | — | — | — | — | ✅ | — | — |
+| `registration:create` | — | — | — | — | — | ✅ | — |
+| `registration:view_list` | ✅ | ✅ | — | — | — | — | — |
+| `facility:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Each row traces to the briefing's §5 process: the organiser drafts and submits
 (Steps 1-2), the Ops Manager assigns (Step 3), the coordinator reviews, approves
@@ -99,6 +110,10 @@ Three entries are worth explaining:
 - **`equipment:view` includes the organiser.** The event request form (S-08)
   asks the organiser to pick the equipment they need from the catalogue, so the
   catalogue is part of making a request, not internal planning information.
+- **`equipment:view_status` does not** (SPM-55). How many units are out of
+  service, which kind and why is ConnectSphere's operational business: the
+  Equipment page and that part of `GET /api/equipment` are for Coordinators,
+  the Ops Manager and Technical Support.
 - **`venue:view` excludes the organiser.** Venue selection is the coordinator's
   job (§5 Step 6). An organiser learns their venue through the confirmed event,
   not by browsing the catalogue.
@@ -116,6 +131,19 @@ Three entries are worth explaining:
   seeing it, and the owning Organiser read-only (confirmed 2026-09-19 —
   broader than AC6's literal wording, but an Organiser reasonably wants to
   see what's recorded against their own event; see `UI_DESIGN.md` §4.3).
+
+- **`event:safety_check` is the Safety Officer's alone** (SPM-85). Today it
+  opens the Safety Checks page (`/safety-checks`, the events in Safety review);
+  SPM-87's decision — approve, reject, request changes — uses the same action.
+  Everything else the Safety Officer reads comes through `event:view` and the
+  relationship rules in §3: every event that has left Draft, its full record
+  (§4 narrows only the Attendee's), and its equipment read-only
+  (`canViewEquipmentRequests`). They hold no venue, equipment, registration or
+  status action, so every "change" rule refuses them without naming them. Not
+  `venue:view` — the catalogue and the Find a venue search are not part of a
+  safety review; the rooms an event actually has are on its Overview (the
+  "Venue bookings" card). Not `registration:view_list` — who registered, and
+  their dietary and accessibility needs, are attendee personal details (AC6).
 
 An unknown role — anything not in `ROLES` — is granted nothing.
 
@@ -160,8 +188,8 @@ organiser is not.
 | Role | Sees |
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
-| Attendee | Only events that are `confirmed` **and** have registration enabled |
-| Coordinator, Ops Manager, Venue Staff, Tech Support | Every event that has left `draft` |
+| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10) |
+| Coordinator, Ops Manager, Venue Staff, Tech Support, Safety Officer | Every event that has left `draft` |
 | Anyone | Never another organiser's draft |
 
 A draft is private to the organiser who owns it — from ConnectSphere staff as
@@ -294,7 +322,11 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]` (safety check) | `safetyCheck` (who submitted the latest Operational Safety Check, and when) is added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403. `safety_review` is refused (400): it is entered only through `POST /api/events/[id]/safety-check` (SPM-86) |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
+| `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
+| `GET /api/events/[id]/registration` | Same 404 / 403 checks; the assigned coordinator's list of bookings to measure the capacity against (SPM-64) |
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
+| `GET /api/events/[id]/arrangements` | `canViewArrangements()` (`event:confirm` - any coordinator) → 403, then `canViewEvent()` → 404. The answer's `canManage` is true only for the assigned coordinator while the event is in Planning (SPM-33) |
+| `PATCH /api/events/[id]/arrangements` | `canViewEvent()` → 404, then `canMarkArrangements()` → 403 (the assigned coordinator only), then `ARRANGEMENT_MARKING_STATUSES` → 400 (Planning only). Records who decided and when (SPM-33) |
 | `POST /api/events/[id]/safety-check` | `canViewEvent()` → 404, then `isAssignedCoordinator()` → 403, then the event must be in Planning (400; "A safety check is already pending for this event." when it is already in Safety review), then `checkSafetySubmission()` → 400 naming what is outstanding or flagged (SPM-86) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
 | `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
@@ -304,7 +336,8 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `PATCH`/`DELETE /api/venues/[id]/unavailability/[periodId]` | `venue:manage` — Venue Staff (SPM-45) |
 | `PATCH /api/events/[id]/venue-bookings/[bookingId]` | `canViewEvent()` → 404, then `canRequestVenueBooking()` → 403 (the assigned Coordinator only), then `checkBookingChange()` → 400: withdraw a pending request or release an approved booking, not on a completed, cancelled, rejected or withdrawn event (SPM-67) |
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
-| `GET /api/equipment` | `equipment:view` |
+| `GET /api/equipment` | `equipment:view`; the out-of-service count, type and reason only with `equipment:view_status` - never to the organiser (SPM-55) |
+| `PATCH /api/equipment/[id]/out-of-service` | `equipment:manage` — Technical Support (SPM-48, SPM-55) |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |
 | `GET /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canViewEquipmentRequests()` → 403 (Technical Support for Planning, Safety review and Confirmed events only, the assigned Coordinator, or the owning Organiser read-only) |
 | `POST /api/events/[id]/equipment` | `canViewEvent()` → 404, then `canManageEquipmentRequests()` — assigned Coordinator |

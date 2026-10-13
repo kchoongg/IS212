@@ -319,13 +319,13 @@
         <mxCell id="xe_vsearch" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=top;verticalAlign=bottom;" value="Return to venue search&#xa;for a replacement (main flow)" vertex="1">
           <mxGeometry height="48" width="48" x="7656" y="4321" as="geometry" />
         </mxCell>
-        <mxCell id="xs_equip" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Returned equipment&#xa;damaged or missing" vertex="1">
+        <mxCell id="xs_equip" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#2E7D46;strokeWidth=1.8;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Equipment unavailable, damaged&#xa;or under maintenance&#xa;(incl. found on return)" vertex="1">
           <mxGeometry height="48" width="48" x="7300" y="4796" as="geometry" />
         </mxCell>
         <mxCell id="xt_eupdate" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Record issue; update&#xa;equipment status" vertex="1">
           <mxGeometry height="64" width="180" x="7410" y="4788" as="geometry" />
         </mxCell>
-        <mxCell id="xt_echeck" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Re-check affected&#xa;reservations" vertex="1">
+        <mxCell id="xt_echeck" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Re-check affected&#xa;reservations; flag short&#xa;ones for review" vertex="1">
           <mxGeometry height="64" width="170" x="7670" y="4788" as="geometry" />
         </mxCell>
         <mxCell id="xg_efull" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=bottom;verticalAlign=top;" value="Still&#xa;fulfilled?" vertex="1">
@@ -708,7 +708,7 @@
             <mxPoint x="0" y="-11" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="xf_e5" edge="1" parent="1" source="xg_efull" target="xe_eresume" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11.5;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" value="no – coordinator notified">
+        <mxCell id="xf_e5" edge="1" parent="1" source="xg_efull" target="xe_eresume" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#B0562A;strokeWidth=1.6;dashed=1;dashPattern=6 5;fontSize=11.5;fontColor=#8B5A2B;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;entryPerimeter=0;" value="no – flagged, coordinator&#xa;notified (SPM-55)">
           <mxGeometry relative="1" as="geometry">
             <mxPoint x="85" y="76" as="offset" />
           </mxGeometry>

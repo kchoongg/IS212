@@ -22,6 +22,7 @@
 import type { Role } from "./roles";
 import { isRole } from "./roles";
 import { canTransition } from "./statuses";
+import { HOLDING_A_PLACE } from "./registrationSettings";
 
 /// Every distinct thing a user can try to do. Keep the `domain:verb` shape -
 /// it groups the matrix by the domain that owns the route (DOCUMENTATION.md
@@ -34,11 +35,17 @@ export const ACTIONS = [
   "event:assign_coordinator",
   "event:confirm",
   "event:cancel",
+  // SPM-85: work the Operational Safety Check - today the Safety Checks list,
+  // and SPM-87's decision (approve, reject, request changes) once it lands.
+  "event:safety_check",
   "venue:view",
   "venue:manage",
   "venue_booking:request",
   "venue_booking:decide",
   "equipment:view",
+  // SPM-55: an item's operational status - how many units are out of
+  // service, which kind and why. Internal, unlike the catalogue itself.
+  "equipment:view_status",
   "equipment:manage",
   "equipment_request:manage",
   "equipment_request:review",
@@ -76,6 +83,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "venue:view",
     "venue_booking:request",
     "equipment:view",
+    "equipment:view_status",
     // ADDED (SPM-47): recording equipment requirements on an event is the
     // coordinator's job, same footing as requesting a venue booking above —
     // neither existed when this file was first written (docs/PERMISSIONS.md
@@ -89,6 +97,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "event:assign_coordinator",
     "venue:view",
     "equipment:view",
+    "equipment:view_status",
     "facility:view",
   ],
   venue_staff: [
@@ -101,11 +110,17 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
   tech_support: [
     "event:view",
     "equipment:view",
+    "equipment:view_status",
     "equipment:manage",
     "equipment_request:review",
     "facility:view",
   ],
   attendee: ["event:view", "registration:create", "facility:view"],
+  // SPM-85 (Week 7 change #6). Reads what a safety review needs and changes
+  // none of it (AC4, AC5): no venue, equipment or registration action, and no
+  // registration:view_list - who registered is personal (AC6). What they may
+  // see of one event is canViewEvent() and canViewEquipmentRequests() below.
+  safety_officer: ["event:view", "event:safety_check", "facility:view"],
 };
 
 /// An unknown role gets nothing. A role key that is not in ROLES cannot have
@@ -134,6 +149,9 @@ export interface EventAccessFields {
   coordinatorId: string | null;
   status: string;
   registrationEnabled?: boolean;
+  /// For an attendee: whether they are registered or waitlisted for this
+  /// event (SPM-64). Set by the caller, which knows who is asking.
+  attendeeHoldsPlace?: boolean;
 }
 
 const INTERNAL_ROLES: readonly string[] = [
@@ -141,6 +159,9 @@ const INTERNAL_ROLES: readonly string[] = [
   "ops_manager",
   "venue_staff",
   "tech_support",
+  // SPM-85: every event that has left Draft, as for the rest of the staff -
+  // access follows the role, not a particular event (clarification #66).
+  "safety_officer",
 ];
 
 // ---------------------------------------------------------------------------
@@ -188,9 +209,11 @@ export function canViewEvent(actor: Actor, event: EventAccessFields): boolean {
 
   // An attendee is a member of the public, not a planning participant: they
   // see an event only once it is confirmed and open to registration
-  // (briefing §4 "Attendee Registration": register for *confirmed* events).
+  // (briefing §4 "Attendee Registration": register for *confirmed* events) -
+  // or, once registration is turned off, if they already hold a place in it
+  // (SPM-64; #10: attendees "can view events that they register for").
   if (actor.role === "attendee") {
-    return event.status === "confirmed" && event.registrationEnabled === true;
+    return event.status === "confirmed" && (event.registrationEnabled === true || event.attendeeHoldsPlace === true);
   }
 
   return INTERNAL_ROLES.includes(actor.role);
@@ -216,7 +239,13 @@ export function eventListWhere(actor: Actor): Record<string, unknown> {
   }
 
   if (actor.role === "attendee") {
-    return { status: "confirmed", registrationEnabled: true };
+    return {
+      status: "confirmed",
+      OR: [
+        { registrationEnabled: true },
+        { registrations: { some: { attendeeId: actor.id, status: { in: HOLDING_A_PLACE } } } },
+      ],
+    };
   }
 
   return { status: { not: "draft" } };
@@ -245,6 +274,15 @@ export function canUpdateEventInformation(actor: Actor, event: EventAccessFields
   return isAssignedCoordinator(actor, event);
 }
 
+/// SPM-64: an event's registration settings are set up by the coordinator
+/// assigned to it - "the event coordinator would be in-charge" of the
+/// registration period (customer clarification #30). The organiser sees them
+/// read-only. The status window is EVENT_INFORMATION_STATUSES, checked
+/// separately as for SPM-62, so a refusal can say which rule was broken.
+export function canConfigureRegistration(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
+}
+
 /// SPM-47: equipment requirements are recorded and revised by the coordinator
 /// assigned to the event (SPM-30 removed the "any coordinator while it has
 /// none yet" allowance - see isAssignedCoordinator). Unlike canEditEventContent this is not restricted to draft: equipment
@@ -265,6 +303,9 @@ export function canManageEquipmentRequests(actor: Actor, event: EventAccessField
 /// independent viewing right.
 export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields): boolean {
   if (actor.role === "tech_support") return techSupportSeesEquipment(event.status);
+  // SPM-85 (AC3): equipment placement is part of a safety review. Read-only -
+  // they hold no equipment action - and on any event they can see at all.
+  if (actor.role === "safety_officer") return true;
   if (actor.role === "organiser") return ownsEvent(actor, event);
   return canManageEquipmentRequests(actor, event);
 }
@@ -454,6 +495,33 @@ export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolea
 /// checkEventConfirmation() - this only decides who sees the button.
 export function canConfirmEvent(actor: Actor, event: EventAccessFields): boolean {
   return canSetEventStatus(actor, event, "confirmed") && canTransition(event.status, "confirmed");
+}
+
+// ---------------------------------------------------------------------------
+// TRACK OUTSTANDING ARRANGEMENTS (SPM-33)
+// ---------------------------------------------------------------------------
+
+/// The Readiness list is the coordinator's planning checklist (UI_DESIGN.md
+/// 4.3): any coordinator may read it, like the rest of an event they can see.
+/// It reuses `event:confirm`, the action the checklist gates, rather than
+/// adding one that would always be granted to the same role.
+export function canViewArrangements(actor: Actor): boolean {
+  return can(actor.role, "event:confirm");
+}
+
+/// An arrangement is marked as not required, or as required again, only while
+/// the event is being planned (decided 2026-10-08). Not once it is Confirmed:
+/// reversing a decision there would leave a confirmed event with something
+/// outstanding. An event waiting on its Operational Safety Check (SPM-86) is
+/// not here either - add its status only if the team decides arrangements may
+/// still be waived while the Safety Officer is reviewing them.
+export const ARRANGEMENT_MARKING_STATUSES: readonly string[] = ["planning"];
+
+/// SPM-33 AC8: only the coordinator assigned to the event decides that one of
+/// its arrangements is not required. The status window is checked separately,
+/// so a refusal can say which rule was broken.
+export function canMarkArrangements(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
 }
 
 // ---------------------------------------------------------------------------

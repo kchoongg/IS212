@@ -847,10 +847,10 @@ describe("venueAvailabilityQuerySchema", () => {
   });
 });
 
-describe("recordOutOfServiceSchema (SPM-48 AC7)", () => {
-  it("accepts a number of units and a reason", () => {
-    const parsed = recordOutOfServiceSchema.parse({ quantityOutOfService: 2, reason: "  Cracked lens  " });
-    expect(parsed).toEqual({ quantityOutOfService: 2, reason: "Cracked lens" });
+describe("recordOutOfServiceSchema (SPM-48 AC7, SPM-55)", () => {
+  it("accepts a number of units, a type and a reason", () => {
+    const parsed = recordOutOfServiceSchema.parse({ quantityOutOfService: 2, type: "damaged", reason: "  Cracked lens  " });
+    expect(parsed).toEqual({ quantityOutOfService: 2, type: "damaged", reason: "Cracked lens" });
   });
 
   it("accepts zero units, to record that everything is back in service", () => {
@@ -858,7 +858,22 @@ describe("recordOutOfServiceSchema (SPM-48 AC7)", () => {
   });
 
   it("does not need a reason", () => {
-    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1 }).success).toBe(true);
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, type: "unavailable" }).success).toBe(true);
+  });
+
+  // SPM-55 AC1: which of the three kinds it is, whenever any unit is out.
+  it("needs a type when units are out of service", () => {
+    const result = recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1 });
+    expect(result.success).toBe(false);
+    expect(!result.success && result.error.flatten().fieldErrors.type).toEqual(["Choose a type."]);
+  });
+
+  it.each(["unavailable", "damaged", "under_maintenance"])("accepts the type %s", (type) => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, type }).success).toBe(true);
+  });
+
+  it("rejects any other type", () => {
+    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, type: "lost" }).success).toBe(false);
   });
 
   it.each([-1, 1.5, "2", null])("rejects %s as the number of units", (value) => {
@@ -870,7 +885,9 @@ describe("recordOutOfServiceSchema (SPM-48 AC7)", () => {
   });
 
   it("rejects a reason longer than 500 characters", () => {
-    expect(recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, reason: "x".repeat(501) }).success).toBe(false);
+    expect(
+      recordOutOfServiceSchema.safeParse({ quantityOutOfService: 1, type: "damaged", reason: "x".repeat(501) }).success
+    ).toBe(false);
   });
 });
 

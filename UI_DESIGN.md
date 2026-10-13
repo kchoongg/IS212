@@ -45,7 +45,10 @@ The customer briefing names five roles. The database (`users.role`) carries a
 sixth, `ops_manager`, because someone has to assign a coordinator to a
 submitted event — a coordinator cannot assign themselves before they are
 responsible for the event. Treated as an internal admin variant of Coordinator:
-identical chrome, one extra screen.
+identical chrome, one extra screen. A seventh, `safety_officer`, came with the
+Week 7 changes (change #6, SPM-85): it reviews the operational safety of an
+event once its arrangements are made, reading what a review needs and
+changing nothing.
 
 | Key | Label in UI | Internal/External | Home screen after login |
 | --- | --- | --- | --- |
@@ -55,6 +58,7 @@ identical chrome, one extra screen.
 | `tech_support` | Technical Support | Internal | `/dashboard` — pending equipment requests |
 | `attendee` | Attendee | External | `/dashboard` — my registrations + open events |
 | `ops_manager` | Operations Manager | Internal | `/dashboard` — unassigned submitted events |
+| `safety_officer` | Safety Officer | Internal | `/dashboard` — events awaiting their safety check |
 
 **Never show a raw role key to a user.** `venue_staff` is a database value;
 "Venue Staff" is what a person reads. Labels live in `src/lib/roles.ts`.
@@ -97,7 +101,7 @@ cite.
 | S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
-| S-18 | Readiness & confirm | `/events/[id]` → Readiness tab | Checklist gating confirmation. |
+| S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). |
 
 ### 3.4 Venue Staff
 
@@ -113,7 +117,7 @@ cite.
 
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
-| S-24 | Equipment catalogue | `/equipment` | Stock, categories, maintenance quantities. |
+| S-24 | Equipment catalogue | `/equipment` | Stock, categories, units out of service and why; Technical Support record and return them (SPM-55). |
 | S-25 | Equipment request queue | `/equipment/requests` | Review requests, check availability, reserve. |
 
 ### 3.6 Attendee
@@ -131,6 +135,12 @@ attendee variant — see §4.3.)*
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
 | S-28 | Assignment queue | `/assignments` | Submitted events with no coordinator. |
+
+### 3.8 Safety Officer
+
+| ID | Screen | Route | Purpose |
+| --- | --- | --- | --- |
+| S-29 | Safety Checks | `/safety-checks` | Events submitted for an Operational Safety Check (SPM-85): Event, Client, When, Expected attendance and Submitted ("10 Oct 2026 by Daniel Tan"), oldest first. Each opens the event's Overview. Every other role sees "You do not have access to this". |
 
 ---
 
@@ -173,21 +183,50 @@ attendee variant — see §4.3.)*
 | Tech Support | Dashboard · Equipment · Equipment Requests · Notifications |
 | Attendee | Dashboard · Browse Events · My Registrations · Notifications |
 | Ops Manager | Dashboard · Assignments · All Events · Notifications |
+| Safety Officer | Dashboard · Safety Checks · All Events · Notifications |
 
 ### 4.3 Event detail as the hub
 
 S-06 is where the roles converge. Rather than building a separate event screen
 per role, one screen renders the tabs the user is entitled to:
 
-| Tab | Organiser | Coordinator | Venue Staff | Tech Support | Attendee |
-| --- | --- | --- | --- | --- | --- |
-| Overview | yes | yes | yes | yes | public subset |
-| Discussion | yes | yes | — | — | — |
-| Venue | read-only | yes | yes | — | name only, once confirmed |
-| Equipment | read-only | yes | — | yes | — |
-| Attendees | yes | yes | — | — | — |
-| Readiness | — | yes | — | — | — |
-| History | — | yes | — | — | — |
+| Tab | Organiser | Coordinator | Venue Staff | Tech Support | Attendee | Safety Officer |
+| --- | --- | --- | --- | --- | --- | --- |
+| Overview | yes | yes | yes | yes | public subset | yes |
+| Discussion | yes | yes | — | — | — | — |
+| Venue | read-only | yes | yes | — | name only, once confirmed | — |
+| Equipment | read-only | yes | — | yes | — | read-only |
+| Attendees | yes | yes | — | — | — | — |
+| Readiness | — | yes | — | — | — | — |
+| History | — | yes | — | — | — | — |
+
+**What a safety review reads** (SPM-85). The Overview gives ConnectSphere staff
+two cards beside Details: **Sessions** (each session's label, then "27 Sept
+2027, 09:00–12:00 · 200 people · Theatre"; a session with no label is "Session
+1", and a missing value reads "Attendance not set" / "Layout not set") and
+**Venue bookings** (each approved booking, labelled with its session or "Whole
+event": "Marina Auditorium (MAR-AUD) · Theatre · seats 220" — the seats the
+booked layout holds, not the room's largest; "Layout not set" or "capacity not
+recorded" where that is missing; "No venue is booked yet." when there is none).
+Neither card is shown to the organiser, who learns the room from the Venue row,
+or to an Attendee. The Safety Officer has no Venue tab: it is the coordinator's
+Find a venue search, and its address refuses every role without venue access
+before anything loads — "You do not have access to this", "Finding and booking
+a venue is for the Event Coordinator. The rooms booked for this event are on
+its Overview."
+
+**The Overview's Registration card** (SPM-64) is read-only for every role
+that can see the event: Registration (Enabled / Not enabled for this event),
+then Capacity, Measured against, Opens and Closes. Attendees don't see
+"Measured against", which room caps the capacity, or the amber "Registration
+setup is incomplete" alert. Only the assigned coordinator, while the event is
+Approved, Planning or Confirmed, gets "Change registration settings", which
+turns the card into a form: "Attendees need to register for this event",
+Registration capacity, Capacity measured against (only with two or more active
+venue bookings), Registration opens, Registration closes, and "Save
+registration settings" / "Cancel". Each server refusal shows under its own
+field, and a save that flags the registrations lists them under "Flagged for
+review".
 
 A tab the role cannot see is **not rendered** — not rendered-and-disabled.
 Disabled tabs leak the existence of internal planning information, which §8b of
@@ -469,7 +508,7 @@ getting right.
 | Room in use outside opening hours | S-15 | Blocked: "<Venue> is open 07:00–22:00. With its 30 min setup and 45 min turnaround, choose times between 07:30 and 21:15." (SPM-93). |
 | Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
-| Equipment in maintenance | S-24, S-25 | Availability shown as `total − maintenance − reserved`; the breakdown is visible, not just the result. |
+| Equipment out of service | S-24, S-25 | Availability shown as `total − out of service − reserved`; the breakdown is visible, not just the result. Marking units out of service flags the reservations it leaves short and lists them (SPM-55). |
 | Registration full | S-26 | Register button becomes "Join waiting list" with the current waiting-list position. |
 | Registration not open or closed | S-26 | Button disabled with the date: "Registration opens 1 Oct 2026". |
 | Already registered | S-26 | Button replaced by registration status plus Withdraw. |
@@ -555,6 +594,8 @@ This document specifies the whole first release. What is built so far:
 | S-01 Login, including the `?next=` return path | `src/app/login/page.tsx` |
 | S-02 Register — reference implementation of the validation pattern | `src/app/register/page.tsx` |
 | S-03 Dashboard, role-aware | `src/app/dashboard/page.tsx` |
+| S-29 Safety Checks, the Safety Officer's list (SPM-85) | `src/app/safety-checks/page.tsx`, `src/app/api/safety-checks/route.ts` |
+| Overview "Sessions" and "Venue bookings" cards for staff (SPM-85) | `src/app/events/[id]/page.tsx` |
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |
 | S-08 Sessions section (multi-session events) | `src/components/SessionFields.tsx`, `src/lib/eventSessions.ts` |
@@ -562,15 +603,17 @@ This document specifies the whole first release. What is built so far:
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
+| S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
+| S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
 
 Specified but not yet built, and why:
 
 | Not built | Blocked on |
 | --- | --- |
-| S-06 event detail, S-12–S-15, S-17–S-18, S-19–S-24, S-26–S-28. | Their endpoints do not exist yet. |
+| S-06 event detail, S-12–S-15, S-17, S-19–S-24, S-26–S-28. | Their endpoints do not exist yet. |
 
 **Requirements are now rows, not prose.** An organiser ticks facilities and
 accessibility needs from `GET /api/facilities`, and they are written to

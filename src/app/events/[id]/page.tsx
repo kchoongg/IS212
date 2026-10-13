@@ -17,15 +17,18 @@ import {
   Tabs,
 } from "@/components/ui";
 import { AssignCoordinator, type AssignResult, type CoordinatorOption } from "@/components/AssignCoordinator";
+import { RegistrationCard, type RegistrationEvent } from "./RegistrationCard";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
+import { isExternalRole } from "@/lib/roles";
 import {
   EVENT_INFORMATION_STATUSES,
   can,
   canAssignCoordinator,
+  canConfigureRegistration,
   canConfirmEvent,
   canReviewEvent,
   canSubmitForSafetyCheck,
@@ -44,7 +47,7 @@ interface FacilityRequirement {
   facility: { id: string; name: string; category: string };
 }
 
-interface EventDetail {
+interface EventDetail extends RegistrationEvent {
   id: string;
   // Present for every role, including an Attendee - see ATTENDEE_EVENT_FIELDS
   // (src/lib/permissions.ts). Format with eventReference() for display.
@@ -56,10 +59,6 @@ interface EventDetail {
   status: string;
   startsAt: string | null;
   endsAt: string | null;
-  registrationEnabled: boolean;
-  registrationCapacity: number | null;
-  registrationOpensAt: string | null;
-  registrationClosesAt: string | null;
   // Absent (not just empty/null) for an Attendee: ATTENDEE_EVENT_FIELDS
   // (src/lib/permissions.ts) omits them entirely, since expected attendance,
   // preferred layout, accessibility/special requirements, the organiser's own
@@ -78,8 +77,20 @@ interface EventDetail {
   venueBookings?: {
     startsAt: string;
     endsAt: string;
+    /// SPM-85: the layout booked, and the seats each of the room's layouts holds.
+    layoutName?: string | null;
     session: { label: string | null } | null;
-    venue: { name: string; code: string };
+    venue: { name: string; code: string; layouts?: { layoutName: string; capacity: number }[] };
+  }[];
+  /// A multi-session event's own sessions (SPM-23); empty for an ordinary
+  /// event and absent for an Attendee.
+  sessions?: {
+    id: string;
+    label: string | null;
+    startsAt: string;
+    endsAt: string;
+    expectedAttendance: number | null;
+    preferredLayout: string | null;
   }[];
   // SPM-30: needed to tell "assign" from "reassign", and which choice would be
   // a no-op. Absent for an Attendee along with the rest of the internal fields.
@@ -96,6 +107,26 @@ interface EventDetail {
   /// never submitted. Absent for an external user - safety details are
   /// internal (SPM-88), so the organiser sees the Safety review status only.
   safetyCheck?: { status: string; submittedAt: string; submittedBy: string | null } | null;
+}
+
+/// SPM-85: "14 Jun 2027, 09:00–12:00 · 200 people · Theatre" - what a safety
+/// review needs to know about one session.
+function sessionSummary(session: NonNullable<EventDetail["sessions"]>[number]): string {
+  return [
+    formatDateTimeRange(session.startsAt, session.endsAt),
+    session.expectedAttendance != null ? `${session.expectedAttendance} people` : "Attendance not set",
+    session.preferredLayout ? humanise(session.preferredLayout) : "Layout not set",
+  ].join(" · ");
+}
+
+/// SPM-85: "Marina Auditorium (MAR-AUD) · Theatre · seats 220" - the room,
+/// the layout booked, and the seats that layout holds (not the room's largest).
+function bookingArrangement(booking: NonNullable<EventDetail["venueBookings"]>[number]): string {
+  const room = `${booking.venue.name} (${booking.venue.code})`;
+  if (!booking.layoutName) return `${room} · Layout not set`;
+  const capacity = booking.venue.layouts?.find((l) => l.layoutName === booking.layoutName)?.capacity;
+  const seats = capacity != null ? `seats ${capacity}` : "capacity not recorded";
+  return `${room} · ${humanise(booking.layoutName)} · ${seats}`;
 }
 
 /// SPM-86: "Awaiting review · submitted by Daniel Tan, 9 Oct 2026, 14:30".
@@ -389,6 +420,25 @@ export default function EventOverviewPage() {
     )
   );
 
+  // SPM-64: the assigned coordinator configures registration in the same
+  // status window as the route (EVENT_INFORMATION_STATUSES).
+  const showRegistrationControls = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    EVENT_INFORMATION_STATUSES.includes(event.status) &&
+    canConfigureRegistration(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
   }
@@ -568,6 +618,44 @@ export default function EventOverviewPage() {
             </CardBody>
           </Card>
 
+          {/* SPM-85 (AC3): what a safety review reads - each session's time,
+              attendance and layout, and each booked room with its layout and
+              seats. ConnectSphere staff only: the organiser learns their room
+              from the Venue row above, and an Attendee gets neither field. */}
+          {user && !isExternalRole(user.role) && event.sessions && event.sessions.length > 0 && (
+            <Card>
+              <CardHeader title="Sessions" />
+              <CardBody>
+                <DetailList
+                  columns={1}
+                  items={event.sessions.map((session, i) => ({
+                    label: session.label || `Session ${i + 1}`,
+                    value: sessionSummary(session),
+                  }))}
+                />
+              </CardBody>
+            </Card>
+          )}
+
+          {user && !isExternalRole(user.role) && event.venueBookings !== undefined && (
+            <Card>
+              <CardHeader title="Venue bookings" />
+              <CardBody>
+                {event.venueBookings.length === 0 ? (
+                  <p className="text-sm text-ink-3">No venue is booked yet.</p>
+                ) : (
+                  <DetailList
+                    columns={1}
+                    items={event.venueBookings.map((booking) => ({
+                      label: booking.session?.label || "Whole event",
+                      value: bookingArrangement(booking),
+                    }))}
+                  />
+                )}
+              </CardBody>
+            </Card>
+          )}
+
           {/* Absent entirely, not just empty, for an Attendee - internal
               planning information they have no reason to see (SPM-31). */}
           {event.facilityRequirements !== undefined && (
@@ -600,24 +688,15 @@ export default function EventOverviewPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader title="Registration" />
-            <CardBody>
-              <DetailList
-                items={
-                  event.registrationEnabled
-                    ? [
-                        { label: "Capacity", value: orEmpty(event.registrationCapacity) },
-                        {
-                          label: "Window",
-                          value: formatDateTimeRange(event.registrationOpensAt, event.registrationClosesAt),
-                        },
-                      ]
-                    : [{ label: "Registration", value: "Not enabled for this event" }]
-                }
-              />
-            </CardBody>
-          </Card>
+          {/* SPM-64: read-only for everyone; the assigned coordinator changes
+              the settings here. */}
+          <RegistrationCard
+            event={event}
+            eventId={eventId}
+            canChange={showRegistrationControls}
+            showOutstanding={user?.role !== "attendee"}
+            onSaved={() => void load()}
+          />
         </div>
       )}
 

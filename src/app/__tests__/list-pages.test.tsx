@@ -266,6 +266,33 @@ describe("Dashboard", () => {
     await waitFor(() => expect(listedTitles()).toEqual(["Waiting"]));
   });
 
+  // SPM-85: the Safety Officer's work is the events in Safety review.
+  it("shows the Safety Officer the events awaiting their safety check, with a way to the full list", async () => {
+    mockApi({
+      ...signedInAs("safety_officer"),
+      "GET /api/events": [
+        event(1, { title: "Submitted for its check", status: "safety_review", coordinatorId: "c1" }),
+        event(2, { title: "Still being planned", status: "planning", coordinatorId: "c1" }),
+        event(3, { title: "Already confirmed", status: "confirmed", coordinatorId: "c1" }),
+      ],
+    });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByRole("heading", { name: "Awaiting your safety check" })).toBeInTheDocument();
+    await waitFor(() => expect(listedTitles()).toEqual(["Submitted for its check"]));
+    expect(screen.getByText("Events submitted for an Operational Safety Check.")).toBeInTheDocument();
+  });
+
+  it("tells the Safety Officer when nothing is waiting for a safety check", async () => {
+    mockApi({ ...signedInAs("safety_officer"), "GET /api/events": [event(1, { status: "planning" })] });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("Nothing to check")).toBeInTheDocument();
+    expect(screen.getByText("Events appear here once a coordinator submits them for a safety check.")).toBeInTheDocument();
+  });
+
   it.each([
     ["venue_staff", "Upcoming events"],
     ["tech_support", "Upcoming events"],

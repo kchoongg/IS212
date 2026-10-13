@@ -155,6 +155,34 @@ describe("Event equipment tab", () => {
     });
   });
 
+  // SPM-85 (AC3, AC4): the Safety Officer reads the equipment arrangements
+  // for a safety review, and changes none of them.
+  describe("read-only, for the Safety Officer (SPM-85)", () => {
+    it("shows each item, its quantity and status, with nothing to edit", async () => {
+      const api = open("safety_officer", {
+        [LIST]: [projectorRow({ status: "reserved", quantityReserved: 2 }), lecternRow()],
+      });
+
+      const projector = await itemRow("Projector");
+
+      expect(projector).toHaveTextContent("Quantity2");
+      expect(projector).toHaveTextContent("Reserved");
+      expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Add equipment" })).not.toBeInTheDocument();
+      // The catalogue is only loaded to add a row, which is not theirs to do.
+      expect(api.sent("GET /api/equipment")).toHaveLength(0);
+    });
+
+    it("does not offer the availability check, which is Technical Support's", async () => {
+      open("safety_officer");
+
+      await itemRow("Projector");
+
+      expect(screen.queryByRole("link", { name: "Check availability" })).not.toBeInTheDocument();
+    });
+  });
+
   describe("for the assigned coordinator", () => {
     it("shows the event, its tabs, the item count and a summary of the event", async () => {
       open();
@@ -985,7 +1013,7 @@ describe("Equipment request (availability and reserve)", () => {
 
       const row = await lineRow();
 
-      expect(row).toHaveTextContent("10 total − 1 in maintenance − 2 reserved elsewhere = 7 available for these dates");
+      expect(row).toHaveTextContent("10 total − 1 out of service − 2 reserved elsewhere = 7 available for these dates");
       expect(row).toHaveTextContent("Available");
       expect(screen.getByText(/Gala Dinner · /)).toBeInTheDocument();
     });

@@ -200,7 +200,9 @@ describe("eventTabItemsFor", () => {
   const labels = (role: string) => eventTabItemsFor(role, "EVT-000007").map((t) => t.label);
 
   it.each([
-    ["coordinator", ["Overview", "Venue", "Equipment"]],
+    // SPM-33: the Readiness tab is built, and only a coordinator has it
+    // (EVENT_TABS_BY_ROLE in roles.ts).
+    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
     ["organiser", ["Overview", "Equipment"]],
     ["venue_staff", ["Overview", "Venue"]],
     ["tech_support", ["Overview", "Equipment"]],
@@ -216,6 +218,7 @@ describe("eventTabItemsFor", () => {
       { key: "overview", label: "Overview", href: "/events/EVT-000007" },
       { key: "venue", label: "Venue", href: "/events/EVT-000007/venue" },
       { key: "equipment", label: "Equipment", href: "/events/EVT-000007/equipment" },
+      { key: "readiness", label: "Readiness", href: "/events/EVT-000007/readiness" },
     ]);
   });
 });

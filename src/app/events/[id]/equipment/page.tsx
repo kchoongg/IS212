@@ -232,7 +232,9 @@ export default function EventEquipmentPage() {
   // equipment, confirmed 2026-09-19 as intended even though it's broader
   // than AC6's literal wording. Ownership for the Organiser case is enforced
   // server-side (canViewEquipmentRequests) — a role check is enough here.
-  const canView = user && ["organiser", "coordinator", "tech_support"].includes(user.role);
+  // SPM-85 (AC3): the Safety Officer reads the arrangements for a safety
+  // review, read-only like the organiser (canEdit below is the coordinator's).
+  const canView = user && ["organiser", "coordinator", "tech_support", "safety_officer"].includes(user.role);
   const locked = event ? isTerminalEventStatus(event.status) : false;
   // SPM-54: recording equipment waits for approval - the first requirement
   // recorded for an Approved event is what begins planning.

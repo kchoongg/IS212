@@ -1,0 +1,281 @@
+{
+  "story_key": "SPM-55",
+  "story_title": "As Technical Support Staff, I want to record equipment as unavailable, damaged or under maintenance so that it is not considered available for event reservations",
+  "created_by": "Janelle",
+  "creation_date": "2026-10-11",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Technical Support Staff can mark a piece of equipment as unavailable, damaged, or under maintenance."
+    },
+    {
+      "id": "AC2",
+      "text": "Technical Support Staff can provide a reason for the unavailability."
+    },
+    {
+      "id": "AC3",
+      "text": "Equipment marked unavailable is excluded from the availability checks used in Check Equipment Availability and Reserve Equipment."
+    },
+    {
+      "id": "AC4",
+      "text": "Given marking equipment unavailable leaves an existing reservation for an upcoming event without sufficient quantity, when the status is recorded, then the reservation is flagged for review rather than cancelled, and the assigned Coordinator is notified."
+    },
+    {
+      "id": "AC5",
+      "text": "Technical Support Staff can return equipment to an available status, after which it is counted in availability checks again."
+    },
+    {
+      "id": "AC6",
+      "text": "Authorised users can view an equipment item's current operational status."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-55-TC01",
+      "title": "Technical Support record some units of an item as under maintenance, with a reason",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run. 'SPM55 Laser Projector' has 4 units in total and none out of service. Logged in as Technical Support Kenji Sato (kenji.sato@connectsphere.com / password123). This case changes the item - SPM-55-TC02 and TC03 read the result, so go straight to those and run npm run fixtures:spm55 after TC03.",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Record unavailability' on the 'SPM55 Laser Projector' row",
+        "Type 2 in 'Units out of service'",
+        "Choose 'Under maintenance' in 'Type'",
+        "Type 'Lamp replacement' in 'Reason (optional)'",
+        "Click 'Save'"
+      ],
+      "test_data": "Item: SPM55 Laser Projector (4 units)\nUnits out of service: 2\nType: Under maintenance\nReason: Lamp replacement",
+      "expected_result": "Step 1: The Equipment page lists the catalogue. 'SPM55 Laser Projector' shows Total units 4, Out of service 0 and the status 'Available'.\nStep 2: A dialog headed 'Record unavailability - SPM55 Laser Projector' opens with 'Units out of service', 'Type' and 'Reason (optional)'.\nStep 6: The dialog closes and the message 'Saved. 2 of 4 SPM55 Laser Projector units are out of service. No reservations were affected.' is shown. The row now shows Out of service 2, the status 'Partly out of service', and 'Under maintenance - Lamp replacement' in the Reason column."
+    },
+    {
+      "id": "SPM-55-TC02",
+      "title": "Units out of service are left out of the availability check and of what Reserve takes",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-55-TC01 has just been run (so 2 of the 4 'SPM55 Laser Projector' units are out of service) and the fixtures have NOT been reset since. 'SPM55 Availability Check Forum' (Planning, 9 Aug 2027) requests 4 SPM55 Laser Projectors, not yet reserved, and nothing else holds them that week. Still logged in as Kenji Sato.",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Click 'SPM55 Availability Check Forum' in the list",
+        "Click 'Reserve' on the 'SPM55 Laser Projector' line"
+      ],
+      "test_data": "Event: SPM55 Availability Check Forum (Planning)\nRequest: SPM55 Laser Projector x 4\nOut of service: 2 of 4",
+      "expected_result": "Step 2: The 'SPM55 Laser Projector' line reads '4 total − 2 out of service − 0 reserved elsewhere = 2 available for these dates' and '4 requested, 2 available.', with the availability chip 'Partial'.\nStep 3: The message 'Reservation saved: 2 reserved.' is shown and the line's status becomes 'Partially fulfilled' with 2 reserved - the 2 units out of service were not reserved."
+    },
+    {
+      "id": "SPM-55-TC03",
+      "title": "Returning every unit to available counts them in the availability check again",
+      "linked_ac": [
+        "AC5",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-55-TC02 has just been run (2 of the 4 'SPM55 Laser Projector' units out of service, 2 reserved for SPM55 Availability Check Forum) and the fixtures have NOT been reset since. 'SPM55 Return Check Seminar' (Planning, 23 Aug 2027) requests 4 SPM55 Laser Projectors, not yet reserved; nothing else holds them that week. Still logged in as Kenji Sato. Run npm run fixtures:spm55 after this case.",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Return all to available' on the 'SPM55 Laser Projector' row",
+        "Click 'Return to available' in the dialog",
+        "Click 'Equipment Requests' in the sidebar",
+        "Click 'SPM55 Return Check Seminar' in the list"
+      ],
+      "test_data": "Item: SPM55 Laser Projector (2 of 4 out of service)\nEvent: SPM55 Return Check Seminar (Planning), requests 4",
+      "expected_result": "Step 2: A dialog headed 'Return all units to available?' says the 2 units out of service will be counted as available again.\nStep 3: The message 'All SPM55 Laser Projector units are back in service.' is shown. The row shows Out of service 0, the status 'Available', and the Reason column shows '—'.\nStep 5: The 'SPM55 Laser Projector' line reads '4 total − 0 out of service − 0 reserved elsewhere = 4 available for these dates' with the chip 'Available'."
+    },
+    {
+      "id": "SPM-55-TC04",
+      "title": "Every unit of an item can be marked damaged, without a reason",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run. 'SPM55 Laser Projector' has 4 units in total, none out of service, and no reservations. Logged in as Kenji Sato (kenji.sato@connectsphere.com / password123). This case changes the item - run npm run fixtures:spm55 afterwards.",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Record unavailability' on the 'SPM55 Laser Projector' row",
+        "Type 4 in 'Units out of service'",
+        "Choose 'Damaged' in 'Type'",
+        "Leave 'Reason (optional)' empty",
+        "Click 'Save'"
+      ],
+      "test_data": "Item: SPM55 Laser Projector (4 units)\nUnits out of service: 4 (all)\nType: Damaged\nReason: none",
+      "expected_result": "Step 6: The message 'Saved. 4 of 4 SPM55 Laser Projector units are out of service. No reservations were affected.' is shown. The row shows Out of service 4, the status 'Out of service', and 'Damaged' alone in the Reason column - a reason is optional."
+    },
+    {
+      "id": "SPM-55-TC05",
+      "title": "More units than the item has cannot be marked out of service",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run. 'SPM55 Laser Projector' has 4 units in total, none out of service. Logged in as Kenji Sato (kenji.sato@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Record unavailability' on the 'SPM55 Laser Projector' row",
+        "Type 5 in 'Units out of service'",
+        "Choose 'Unavailable' in 'Type'",
+        "Click 'Save'",
+        "Click 'Cancel' in the dialog"
+      ],
+      "test_data": "Item: SPM55 Laser Projector (4 units)\nUnits out of service: 5",
+      "expected_result": "Step 5: Nothing is saved. The message 'Only 4 units in total - cannot mark 5 as out of service' is shown under 'Units out of service' and the dialog stays open.\nStep 6: The row still shows Out of service 0 and the status 'Available'."
+    },
+    {
+      "id": "SPM-55-TC06",
+      "title": "A reservation left short is flagged for review, not cancelled, and its Coordinator notified",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run. 'SPM55 Wireless Presenter' has 6 units, none out of service. It is Reserved: 4 for 'SPM55 Harbour Product Launch' (Planning, 10 Aug 2027, coordinator Daniel Tan), 2 for 'SPM55 Quiet Board Meeting' (Planning, 24 Aug 2027) and 6 for 'SPM55 Past Roadshow' (Completed, 1 Sep 2026). Logged in as Kenji Sato (kenji.sato@connectsphere.com / password123). This case changes the item - run npm run fixtures:spm55 afterwards.",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Record unavailability' on the 'SPM55 Wireless Presenter' row",
+        "Type 3 in 'Units out of service'",
+        "Choose 'Damaged' in 'Type'",
+        "Type 'Dropped in transit' in 'Reason (optional)'",
+        "Click 'Save'",
+        "Click 'Log out' in the top bar",
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM55 Harbour Product Launch' in the list",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Item: SPM55 Wireless Presenter (6 units), 3 marked Damaged\nReservations: Harbour Product Launch 4 (upcoming), Quiet Board Meeting 2 (upcoming), Past Roadshow 6 (completed)",
+      "expected_result": "Step 6: An amber panel reads 'Saved - 1 reservation flagged for review, coordinators notified'. It lists 'SPM55 Harbour Product Launch: 4 reserved, 3 available' and says the reservation has NOT been changed or cancelled. 'SPM55 Quiet Board Meeting' (2 reserved, 3 still enough) and 'SPM55 Past Roadshow' (already over) are not listed.\nStep 11: The 'SPM55 Wireless Presenter' requirement is still listed with status 'Reserved' and 4 reserved - flagging did not cancel or reduce it."
+    },
+    {
+      "id": "SPM-55-TC07",
+      "title": "A reservation that is exactly covered by the units left is not flagged",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run (the same reservations as SPM-55-TC06: 'SPM55 Wireless Presenter' has 6 units, 4 reserved for 'SPM55 Harbour Product Launch'). Logged in as Kenji Sato (kenji.sato@connectsphere.com / password123). This case changes the item - run npm run fixtures:spm55 afterwards.",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Record unavailability' on the 'SPM55 Wireless Presenter' row",
+        "Type 2 in 'Units out of service'",
+        "Choose 'Under maintenance' in 'Type'",
+        "Click 'Save'"
+      ],
+      "test_data": "Item: SPM55 Wireless Presenter (6 units), 2 out of service - leaves 4, exactly the 4 reserved",
+      "expected_result": "Step 5: The message 'Saved. 2 of 6 SPM55 Wireless Presenter units are out of service. No reservations were affected.' is shown - the 4 units left still cover the 4 reserved, so nothing is flagged and no one is notified."
+    },
+    {
+      "id": "SPM-55-TC08",
+      "title": "When two events on the same days can no longer both be covered, both are flagged",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run. 'SPM55 Stage Monitor' has 6 units, none out of service. 3 are Reserved for 'SPM55 Morning Showcase' and 3 for 'SPM55 Evening Showcase', both on 17 Aug 2027. Logged in as Kenji Sato (kenji.sato@connectsphere.com / password123). This case changes the item - run npm run fixtures:spm55 afterwards.",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Record unavailability' on the 'SPM55 Stage Monitor' row",
+        "Type 1 in 'Units out of service'",
+        "Choose 'Unavailable' in 'Type'",
+        "Click 'Save'"
+      ],
+      "test_data": "Item: SPM55 Stage Monitor (6 units), 1 out of service\nReservations: Morning Showcase 3 and Evening Showcase 3, same day",
+      "expected_result": "Step 5: An amber panel reads 'Saved - 2 reservations flagged for review, coordinators notified' and lists both 'SPM55 Morning Showcase: 3 reserved' and 'SPM55 Evening Showcase: 3 reserved' - 5 units now have to cover 6, and the system does not choose which event loses out."
+    },
+    {
+      "id": "SPM-55-TC09",
+      "title": "Technical Support can return some of an item's units and leave the rest out of service",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run. 'SPM55 Spare Microphone Kit' has 5 units, 3 of them out of service as 'Under maintenance - Cable fault'. Logged in as Kenji Sato (kenji.sato@connectsphere.com / password123). This case changes the item - run npm run fixtures:spm55 afterwards.",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Record unavailability' on the 'SPM55 Spare Microphone Kit' row",
+        "Change 'Units out of service' from 3 to 1",
+        "Click 'Save'"
+      ],
+      "test_data": "Item: SPM55 Spare Microphone Kit (5 units), 3 out of service -> 1",
+      "expected_result": "Step 2: The dialog opens filled in with 3, 'Under maintenance' and 'Cable fault'.\nStep 4: The message 'Saved. 1 of 5 SPM55 Spare Microphone Kit units are out of service. No reservations were affected.' is shown. The row shows Out of service 1, the status 'Partly out of service' and 'Under maintenance - Cable fault' - the 2 returned units are counted as available again."
+    },
+    {
+      "id": "SPM-55-TC10",
+      "title": "A Coordinator and the Operations Manager can see each item's operational status but not change it",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run ('SPM55 Spare Microphone Kit' has 3 of 5 units out of service as 'Under maintenance - Cable fault'; 'SPM55 Laser Projector' has none). Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Equipment' in the sidebar",
+        "Click 'Log out' in the top bar",
+        "Log in as grace.lim@connectsphere.com with password123",
+        "Type /equipment after the site address in the browser address bar (e.g. http://localhost:3000/equipment) and press Enter"
+      ],
+      "test_data": "Coordinator: daniel.tan@connectsphere.com\nOperations Manager: grace.lim@connectsphere.com (no Equipment link in the sidebar)",
+      "expected_result": "Step 1: The Equipment page lists 'SPM55 Spare Microphone Kit' with Out of service 3, the status 'Partly out of service' and 'Under maintenance - Cable fault', and 'SPM55 Laser Projector' as 'Available'. There are no 'Record unavailability' or 'Return all to available' buttons.\nStep 4: Grace Lim sees the same list and statuses, also with no buttons."
+    },
+    {
+      "id": "SPM-55-TC11",
+      "title": "The Event Organiser and Venue Staff cannot see equipment status",
+      "linked_ac": [
+        "AC6",
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm55 has been run. Logged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Type /equipment after the site address in the browser address bar (e.g. http://localhost:3000/equipment) and press Enter",
+        "Click 'Log out' in the top bar",
+        "Log in as marcus.wong@connectsphere.com with password123",
+        "Type /equipment after the site address in the browser address bar (e.g. http://localhost:3000/equipment) and press Enter"
+      ],
+      "test_data": "Organiser: rachel.ng@meridianfina.com\nVenue Staff: marcus.wong@connectsphere.com",
+      "expected_result": "Step 1: The page shows 'You do not have access to this' and no equipment, status or reason is shown - equipment status is internal.\nStep 4: Marcus Wong sees the same refusal and no equipment."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-11: Units, not the whole item - Technical Support record how many of an item's units are out of service (SPM-48's Equipment.quantityInMaintenance), so 2 of 10 projectors out leaves 8 counted.",
+    "RESOLVED 2026-10-11: AC1's three words are a 'Type' choice - Unavailable, Damaged or Under maintenance - stored with the count, one type per item at a time. Needs a small migration (a type column on equipment).",
+    "RESOLVED 2026-10-11: The reason is optional (AC2 'can provide'), as in SPM-48's API. When given, it is shown after the type and included in the Coordinator's notification (TC04).",
+    "RESOLVED 2026-10-11: No return date and no automatic pre-booking - customer #23 says neither is specified. Units stay out of service until Technical Support return them (AC5).",
+    "RESOLVED 2026-10-11: Only Technical Support record or return it (customer #9).",
+    "RESOLVED 2026-10-11: AC4 flags every Reserved or Partially fulfilled request of an event that has not ended whose dates are now short of what is reserved. When several events share the same days and the units left cannot cover them all, all of them are flagged - the system does not choose (TC08). A flag is the existing EquipmentRequest.needsReview / reviewReason (SPM-62's columns), with a new reason code; the request is not changed or cancelled. Clearing a flag is SPM-68.",
+    "RESOLVED 2026-10-11: AC4's notification goes to each flagged event's assigned Coordinator (notifyUser, as SPM-45). It cannot be seen on screen until SPM-71 builds Notifications, so the save result says 'coordinators notified' and lists what was flagged (TC06), as SPM-39 and SPM-45 do.",
+    "RESOLVED 2026-10-11: AC6 'authorised users' are internal staff with equipment:view - Coordinators and Technical Support (sidebar 'Equipment'), and the Operations Manager by address (no sidebar link: existing Known Gap, not changed here). The Organiser does not see operational status, even though they hold equipment:view to pick items on the request form (TC11).",
+    "RESOLVED 2026-10-11: Technical Support can lower the number (return some units) in the same dialog, or 'Return all to available'. Flags already raised stay until the Coordinator reviews them (SPM-68).",
+    "DECIDED 2026-10-11: The screen is the sidebar 'Equipment' page (/equipment, currently 'not built yet'). Columns: Equipment, Category, Total units, Out of service, Status, Reason. Status badges: 'Available', 'Partly out of service', 'Out of service'. Reason column: '<Type> - <reason>', or the type alone.",
+    "DECIDED 2026-10-11: Wording - button 'Record unavailability' opening a dialog 'Record unavailability - <item>' with 'Units out of service', 'Type' and 'Reason (optional)', and 'Save' / 'Cancel'; 'Return all to available' opening 'Return all units to available?' with 'Return to available'. Messages: 'Saved. <n> of <total> <item> units are out of service. No reservations were affected.'; amber panel 'Saved - <n> reservation(s) flagged for review, coordinators notified' listing '<event>: <reserved> reserved, <available> available'; 'All <item> units are back in service.'; too many: SPM-48's existing 'Only <total> units in total - cannot mark <n> as out of service'.",
+    "DECIDED 2026-10-11: Technical Support's equipment request screen says 'out of service' instead of 'in maintenance' in its availability line, since units may also be damaged or unavailable (TC02, TC03).",
+    "DECIDED 2026-10-11: Fixtures (scripts/seed-spm55.ts, npm run fixtures:spm55) - dedicated items so no other story's equipment changes: 'SPM55 Laser Projector' (4, none out), 'SPM55 Wireless Presenter' (6; Reserved 4 for 'SPM55 Harbour Product Launch' 10 Aug 2027 and 2 for 'SPM55 Quiet Board Meeting' 24 Aug 2027, 6 for completed 'SPM55 Past Roadshow' 1 Sep 2026), 'SPM55 Stage Monitor' (6; 3 each for 'SPM55 Morning Showcase' and 'SPM55 Evening Showcase', 17 Aug 2027), 'SPM55 Spare Microphone Kit' (5, 3 out 'Under maintenance - Cable fault'); events 'SPM55 Availability Check Forum' (9 Aug 2027) and 'SPM55 Return Check Seminar' (23 Aug 2027) each requesting 4 SPM55 Laser Projectors, not reserved. All events in Planning (except the completed one), coordinator Daniel Tan.",
+    "DECIDED 2026-10-11: AC6's 'authorised users' are the new permission equipment:view_status (Coordinator, Operations Manager, Technical Support). The organiser keeps equipment:view for the request form, but GET /api/equipment no longer sends them the out-of-service count, type or reason."
+  ],
+  "code_references": [
+    "src/app/equipment/page.tsx",
+    "src/app/api/equipment/[id]/out-of-service/route.ts",
+    "src/app/api/equipment/route.ts",
+    "src/lib/equipmentOutOfService.ts",
+    "src/lib/equipmentAvailability.ts",
+    "src/lib/validation/equipment.ts",
+    "src/lib/permissions.ts",
+    "src/lib/statuses.ts",
+    "src/app/equipment/requests/[id]/page.tsx",
+    "prisma/schema.prisma",
+    "scripts/seed-spm55.ts"
+  ]
+}

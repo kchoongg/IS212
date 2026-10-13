@@ -7,6 +7,8 @@
 import { describe, it, expect } from "vitest";
 import EventVenuePage from "@/app/events/[id]/venue/page";
 import BookingRequestPage from "@/app/events/[id]/booking/new/page";
+import { ROLES } from "@/lib/roles";
+import { can } from "@/lib/permissions";
 import {
   fireEvent,
   mockApi,
@@ -514,6 +516,27 @@ describe("Event Venue tab", () => {
         expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(`/api/events/${REF}/venue-suitability?session=s2`)
       );
     });
+  });
+
+  // SPM-85 (AC7): a role without venue:view - the Safety Officer among them -
+  // who types this address is refused before anything is asked for, so no
+  // venue, booking or suitability result ever reaches the page.
+  describe("for a role that may not search for venues", () => {
+    it.each(ROLES.filter((role) => !can(role, "venue:view")))(
+      "refuses %s without loading anything",
+      async (role) => {
+        const api = open({}, role);
+
+        const alert = await screen.findByRole("alert");
+        expect(alert).toHaveTextContent("You do not have access to this");
+        expect(alert).toHaveTextContent(
+          "Finding and booking a venue is for the Event Coordinator. The rooms booked for this event are on its Overview."
+        );
+        expect(api.sent(INFO)).toHaveLength(0);
+        expect(api.sent(SUITABILITY)).toHaveLength(0);
+        expect(screen.queryByRole("link", { name: "Search with filters" })).not.toBeInTheDocument();
+      }
+    );
   });
 
   describe("when it cannot be loaded", () => {

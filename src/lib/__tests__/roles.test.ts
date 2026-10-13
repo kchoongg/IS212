@@ -4,6 +4,7 @@ import {
   activeNavHref,
   eventTabsFor,
   isExternalRole,
+  isSelfRegisterableRole,
   navFor,
   roleLabel,
 } from "../roles";
@@ -118,5 +119,38 @@ describe("activeNavHref", () => {
 
   it("highlights nothing when no link matches", () => {
     expect(activeNavHref(techSupport, "/profile")).toBeNull();
+  });
+});
+
+// SPM-85 (Week 7 change #6): the Safety Officer reviews the operational
+// safety of planned events, and sees only what that review needs.
+describe("the Safety Officer (SPM-85)", () => {
+  it("AC1: is a role of its own, shown as 'Safety Officer'", () => {
+    expect(ROLES).toContain("safety_officer");
+    expect(roleLabel("safety_officer")).toBe("Safety Officer");
+  });
+
+  it("AC1: is internal, and cannot be claimed at the public Create an account form", () => {
+    expect(isExternalRole("safety_officer")).toBe(false);
+    expect(isSelfRegisterableRole("safety_officer")).toBe(false);
+  });
+
+  it("AC2: has Dashboard, Safety Checks, All Events and Notifications, and nothing else", () => {
+    expect(navFor("safety_officer")).toEqual([
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/safety-checks", label: "Safety Checks" },
+      { href: "/events", label: "All Events" },
+      { href: "/notifications", label: "Notifications" },
+    ]);
+  });
+
+  it("AC2: is the only role with a Safety Checks link", () => {
+    for (const role of ROLES.filter((r) => r !== "safety_officer")) {
+      expect(navFor(role).map((item) => item.href), role).not.toContain("/safety-checks");
+    }
+  });
+
+  it("AC3, AC6: sees an event's Overview and Equipment, but not its Attendees or the venue search", () => {
+    expect(eventTabsFor("safety_officer")).toEqual(["overview", "equipment"]);
   });
 });

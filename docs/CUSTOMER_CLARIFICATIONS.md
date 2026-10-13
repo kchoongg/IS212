@@ -37,6 +37,17 @@ Numbers below are discussion numbers: `#50` is
 | **#110** | 2026-09-07 | Venue Staff **cannot approve with amended details**. They suggest; the coordinator updates the request before approval. So the suggestion exists only on a rejection. |
 | **#83** | 2026-08-31 | Filtering finds candidate venues; **suitability checking** assesses one already chosen. They are different things (SPM-41). |
 
+## Equipment
+
+Only the answers SPM-55 relied on are recorded here so far; the other equipment
+answers (#2, #5, #19, #87, #90, #113, #114) are cited in `src/lib/equipmentAvailability.ts`.
+
+| # | Date | The ruling |
+|---|---|---|
+| **#9** | 2026-08-25 | **Only Technical Support Staff decide equipment status:** "Technical Support Staff are responsible for maintaining equipment status." Coordinators cannot mark equipment damaged or unavailable (SPM-55). |
+| **#23** | 2026-08-25 | **No expected return date, no automatic pre-booking.** "Equipment can be recorded as unavailable, damaged or under maintenance. Expected return date and automatic pre-booking are not specified; please propose if appropriate." We record no date: units stay out of service until Technical Support return them (SPM-55, decided 2026-10-11). |
+| **#86** | 2026-08-31 | Defects found when equipment is **returned after an event** are recorded by Technical Support, and "the operational status of the affected equipment should be updated accordingly." Logging the defect is SPM-70; updating the status is SPM-55's screen. |
+
 ## Events
 
 | # | Date | The ruling |
