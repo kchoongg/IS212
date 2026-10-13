@@ -124,8 +124,8 @@ cite.
 
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
-| S-26 | Browse events | `/browse` | Confirmed, registration-enabled events. |
-| S-27 | My registrations | `/registrations` | My registrations and their status; withdraw. |
+| S-26 | Browse events | `/browse` | Confirmed, registration-enabled events, each with a registration badge (Open, Not open yet + "Opens <date>", Closed, Full, Dates not set), soonest first (SPM-51). Registering happens on the event page's "Your registration" card. |
+| S-27 | My registrations | `/registrations` | My registrations and their status (SPM-51); withdraw is #20, not built. |
 
 *(Attendees reach a public view of an event through S-06, rendered with the
 attendee variant — see §4.3.)*
@@ -509,9 +509,9 @@ getting right.
 | Venue blocked for maintenance | S-14, S-15 | Venue excluded from results. (SPM-40 shows no reason: AC7 hides non-matching venues outright.) |
 | Insufficient equipment | S-25 | "4 requested, 2 available for these dates." Tech Support may reserve a partial quantity, giving status `partially_fulfilled`. |
 | Equipment out of service | S-24, S-25 | Availability shown as `total − out of service − reserved`; the breakdown is visible, not just the result. Marking units out of service flags the reservations it leaves short and lists them (SPM-55). |
-| Registration full | S-26 | Register button becomes "Join waiting list" with the current waiting-list position. |
-| Registration not open or closed | S-26 | Button disabled with the date: "Registration opens 1 Oct 2026". |
-| Already registered | S-26 | Button replaced by registration status plus Withdraw. |
+| Registration full | S-06 "Your registration" | No Register button: "This event is full. You can join the waiting list instead." and, until Join and Respond to Waiting List is built, "Joining the waiting list isn't available yet." (SPM-51). |
+| Registration not open or closed | S-06 "Your registration" | No Register button (hidden, not disabled): "Registration opens 1 Nov 2027, 09:00." or "Registration closed on 30 Sept 2026, 17:00." With no dates: "Registration dates haven't been set for this event." (SPM-51). |
+| Already registered | S-06 "Your registration" | Register replaced by the status badge and "You registered on <date>." or "You're on the waiting list." Withdraw comes with #20 (SPM-51). |
 | Significant change proposed | S-10, S-17 | Amber warning listing exactly which arrangements will need re-checking (venue, equipment, registrations). |
 | Event cancelled with live bookings | S-06 cancel | `ConfirmDialog` listing the bookings and reservations that will be released. |
 | Rejecting without a reason | S-13, S-22 | Submit blocked; reason field errors. The server enforces this too. |
@@ -613,7 +613,7 @@ Specified but not yet built, and why:
 
 | Not built | Blocked on |
 | --- | --- |
-| S-06 event detail, S-12–S-15, S-17, S-19–S-24, S-26–S-28. | Their endpoints do not exist yet. |
+| S-06 event detail, S-12–S-15, S-17, S-19–S-24, S-28. | Their endpoints do not exist yet. (S-26 and S-27 were built in SPM-51.) |
 
 **Requirements are now rows, not prose.** An organiser ticks facilities and
 accessibility needs from `GET /api/facilities`, and they are written to

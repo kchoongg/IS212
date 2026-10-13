@@ -636,7 +636,7 @@ defend under questioning.
 | Draft completeness before submitting | `api/events/[id]` PATCH | ✅ done |
 | Reason required when rejecting — blank or spaces-only is refused, and the reason is saved trimmed | `api/events/[id]` PATCH, `isBlankReason()` | ✅ done (trim added SPM-28) |
 | **Approve and reject only from Under review** — a request is decided once; approving or rejecting an event in any other status is refused (400) | `REVIEW_OUTCOMES` / `REVIEWABLE_STATUSES`, `api/events/[id]` PATCH | ✅ done (SPM-28) |
-| Registration: confirmed, in window, no duplicate, seats left | `api/registrations` POST | ✅ done |
+| **An attendee can register only for an eligible event** — Confirmed, registration enabled, both registration dates set and now between them (opening and closing moments included), and a seat left (registered and attended take one; no capacity means no limit). No duplicate registration; a withdrawn attendee may register again. A full event offers the waiting list, joining it is not built | `registrationState()` in `src/lib/registrationEligibility.ts`, `POST /api/registrations` | ✅ done (SPM-51; was "confirmed, in window, no duplicate, seats left") |
 | **Registration capacity is capped by the booked room's capacity in its layout** (#112), never the room's maximum. Measured against the event's only pending or approved booking, or the one the coordinator chooses when there are several (Week 7 change #3); no booking, or one with no layout, means no capacity can be set | `measuredBooking()`, `capacityError()` in `src/lib/registrationSettings.ts`; `PATCH /api/events/[id]/registration` | ✅ done (SPM-64) |
 | **The registration period is separate from the event date** (#30): it closes after it opens, and no later than the event starts (exactly at the start is allowed). It can be extended or reopened (#42, #127) until the event starts, and not after | `periodErrors()`, `startedError()` | ✅ done (SPM-64) |
 | **Lowering registration capacity below the attendees holding a place, or turning registration off while anyone holds one, flags the registrations and never changes them** (codes `registration_capacity_lowered`, `registration_disabled`) | `registrationReviewReasons()`, `addReviewReasons()`, `HOLDING_A_PLACE` | ✅ done (SPM-64) |
@@ -788,6 +788,7 @@ traceability the module asks for.
 | `npm run fixtures:spm93` | Adds or resets SPM-93's 18 test events ("SPM93 …") and its three test venues (SPM93 Studio, Quick Room, Settings Room) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm93_`, with their bookings and sessions, and puts the three venues back to their starting values with one maintenance period. Run it before and after any case that sends, approves or edits (docs/test-cases/SPM-93_Test_Cases.xlsx). The same venues and events, without bookings, sessions or maintenance, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm64` | Adds or resets SPM-64's 12 test events ("SPM64 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm64_`, with their venue bookings (approved, pending, rejected and one with no layout), the booking each capacity is measured against, the registration settings, and registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Stops without changing anything if one of its rooms is already held at that time. Run it before and after any case that saves. The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm85` | Creates or refreshes the Safety Officer account (Hana Yusof, `hana.yusof@connectsphere.com`, `password123`) and resets SPM-85's 3 test events ("SPM85 …") without reseeding — upserts that one user, and deletes and recreates only events whose `seedKey` starts with `spm85_`, with the Harbour forum's two sessions, their approved bookings at Marina Auditorium and Orchard Seminar Room, its reserved equipment, required facilities and pending safety check, and the Riverside launch's approved booking and two registrations. No pinned reference numbers: the cases find events by title. SPM-85's cases only read, so one run before a test pass is enough. The account is in the seed's staff list and the events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm51` | Adds or resets SPM-51's 8 test events ("SPM51 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm51_`, with their registration settings (open until 31 Dec 2027, not yet open, closed, no dates, off) and their registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Run it before and after any case that registers. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -928,9 +929,10 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Find a venue gives no feedback when a search returns the same results** | Pressing Search with unchanged filters reloads an identical list and nothing says a search ran. Found while testing SPM-54; raised as **SPM-79** (Show Venue Search Feedback), in the backlog. | venues |
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
+| **A full event offers the waiting list but nobody can join it** | SPM-51 shows "This event is full. You can join the waiting list instead." and "Joining the waiting list isn't available yet." Joining, the 3-day offer window (#44) and FIFO with manual override (#26) are *Join and Respond to Waiting List*. When it lands, replace that second line with its Join button in `src/app/events/[id]/RegisterPanel.tsx`. | Join and Respond to Waiting List |
+| **Attendees can't withdraw a registration** | My Registrations (S-27) shows each registration's status but has no Withdraw (UI_DESIGN S-27, story #20). The register route already reactivates a withdrawn row, so re-registering will work once withdrawing exists. | #20 |
 | **An event with more than one venue can be confirmed while one is still pending** | Confirm Event (SPM-34) and Submit for Safety Check (SPM-86) ask only whether the event (or each session) has an approved venue booking, so an event with one Approved and one Pending room passes. Requiring every venue to be approved is **SPM-90** (Check Each Venue Against Its Own Requirements), split from SPM-81 on purpose. Found 2026-10-10. | SPM-90 |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 records what each space is for, which may be the place to settle it. Found 2026-10-10. | equipment / SPM-90 |
-| **No "Browse Events" screen for Attendee** | The Attendee sidebar links to `/browse` (`src/lib/roles.ts`), but `src/app/browse/page.tsx` doesn't exist, so it 404s. Blocks SPM-31-TC19 from being run end to end. Flagged 2026-09-25. | unclaimed |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
 | **A Safety Officer cannot see a safety-check notification yet** | Submitting an event for a safety check (SPM-86) notifies every active user with the role `safety_officer`. Since SPM-85 (2026-10-12) that role exists and the Safety Officer (Hana Yusof) receives the notification, but it can't be seen until the Notifications screen (**SPM-71**) is built - SPM-86-TC13 stays Blocked on that alone. Until then the Safety Officer finds submitted events on the Safety Checks page and the Dashboard. | SPM-71 |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
@@ -995,7 +997,7 @@ what changed, why, and the migration name if there is one.
     `cancellation_reason`. Applied to the shared database; no reseed.
   - **Test data:** `npm run fixtures:spm67` - three "SPM67 …" rooms and eight
     events, dated November 2027 (the app writes September as "Sept"). The
-    events are appended to `prisma/seed.ts` after SPM-85's.
+    events are appended to `prisma/seed.ts` after SPM-51's.
   - **Tests:** written first. New `venueBookingChange.test.ts` and
     `venue-booking-change.test.ts`; extended `event-venue.test.ts`,
     `event-venue-pages.test.tsx`, `statuses.test.ts`, `ui.test.tsx`. Manual
@@ -1005,6 +1007,17 @@ what changed, why, and the migration name if there is one.
   - **Docs:** `docs/PERMISSIONS.md`, `SCHEMA_REFERENCE.md`, `UI_DESIGN.md`
     (S-15, S-22). Known Gaps: "A decided booking cannot be undone or released"
     narrowed to cancelling and postponing (SPM-37, SPM-38).
+
+### 2026-10-13 — Sammi Chua (bug found while testing SPM-51)
+- **An Attendee who types `/events` is taken to Browse Events.** The events
+  list had no role check, so an Attendee saw "All events", "Every event across
+  client organisations." and a filter of internal planning statuses. No data
+  leaked (`GET /api/events` already limits them to the public subset). Now
+  `src/app/events/page.tsx` sends an Attendee to `/browse` without loading or
+  showing the list. Their event page `/events/<reference>`, where they
+  register, is unchanged, and so is `/events` for every other role. 1 more
+  page test in `list-pages.test.tsx`.
+- Migration: none.
 
 ### 2026-10-12 — Jordan
 - **SPM-85 (Safety Officer Role and Access, Week 7 change #6).** A new internal
@@ -1119,6 +1132,137 @@ what changed, why, and the migration name if there is one.
     damaged or maintenance unit and flags short reservations (labels only).
     Known Gaps: "No equipment catalogue screen" closed; review-flag and
     notifications rows updated.
+
+### 2026-10-10 — Sammi Chua (SPM-51, Register for Event)
+- **SPM-51 (Register for Event): decisions before any code.** An Attendee
+  finds the events open for registration, registers for an eligible one, and
+  sees their registration status. Agreed with Sammi Chua, 2026-10-10.
+  Customer clarification numbers are in brackets.
+  - **Built on SPM-64**, which isn't in `main` yet: its branch is merged into
+    `SPM-51-Register-for-Event` (main untouched). SPM-64's PR should merge
+    first, and SPM-51's PR will then show only SPM-51's own changes.
+  - **Already there:** `POST /api/registrations` checks Confirmed, enabled,
+    the window, duplicates (re-registering after withdrawing reuses the row)
+    and capacity, inside a transaction. SPM-51 reuses it, moving its checks
+    into one pure rule.
+  - **Eligible (AC3):** Confirmed, registration enabled, **both** dates set,
+    and now between them. The opening moment counts, and so does the closing
+    moment itself, as the route already did. **No registration period means
+    not eligible** ("Registration dates haven't been set for this event.").
+    This is a change: the route used to allow missing dates.
+  - **Capacity (AC9):** seats are taken by `registered` and `attended`
+    attendees. Waitlisted and withdrawn ones don't take a seat. A capacity
+    that isn't set means no limit (unchanged; SPM-64 shows it as incomplete
+    setup).
+  - **Waiting list (AC10): offer only.** A full event shows "This event is
+    full. You can join the waiting list instead." where the Register form
+    would be, with a note that joining comes with *Join and Respond to Waiting
+    List*. There's no dead button (UI_DESIGN: hide, don't disable), and no
+    waitlisted rows are created. Offers, the 3-day acceptance window (#44) and
+    FIFO with manual override (#26) are that story's.
+  - **Form:** optional Dietary requirements and Accessibility requirements
+    (UI_DESIGN S-26, #22). The route already stores them.
+  - **Re-registering:** a withdrawn attendee can register again (existing
+    behaviour). Withdrawing is a separate story (#20).
+  - **Screens:** Browse Events (S-26, `/browse`) lists the Confirmed events
+    open to registration with their state (Open, Opens …, Closed, Full). The
+    event page gets a Register panel for attendees that shows the period
+    (AC4). My Registrations (S-27, `/registrations`) lists the attendee's
+    registrations and their status (AC6, through a new
+    `GET /api/registrations`).
+  - **Out of scope:** withdrawing, the waiting list itself, check-in (#38),
+    VIPs (#99), notifications (SPM-53).
+  - **Order of work:** as for SPM-64. The Excel test cases come first, then
+    slices that are each tested first. No duplicate testing.
+- **Test cases written first:** `docs/test-cases/SPM-51_Test_Cases.xlsx` (12
+  cases across AC1–AC10; the role checks are only in TC12). The screen
+  wording and the 8 fixture events (`npm run fixtures:spm51`, not built yet)
+  are in the JSON's open questions, all now RESOLVED.
+- **Slice 1 (AC3, AC8, AC9): one eligibility rule.** New pure module
+  `src/lib/registrationEligibility.ts`: `registrationState()` says `open` or
+  why not (not_confirmed, disabled, no_period, not_open, closed, full).
+  `REGISTRATION_REFUSALS` gives each refusal's message and `SEAT_TAKING`
+  (registered, attended) says who holds a seat. `POST /api/registrations` now
+  uses it instead of its own checks. Its messages are unchanged, plus
+  "Registration dates haven't been set for this event" for an event with no
+  period, which is now refused (AC3). The route's test event was given an
+  open period and a fixed clock on purpose. 21 unit tests, 2 more route tests.
+- **Slice 2 (AC1, AC4): Browse Events and each event's registration state.**
+  - **Event APIs:** for an attendee, `GET /api/events` and
+    `GET /api/events/[id]` now return `registrationState` (added to
+    `ATTENDEE_EVENT_FIELDS`). The list also returns the company name. The
+    list counts seats for all its events in one `registration.groupBy`, the
+    single event with one count. Both only do this for attendees.
+  - **Browse Events (S-26, `/browse`)** replaces the placeholder. It lists
+    Event, When, Company and a Registration badge, soonest first, and a row
+    opens the event. Events whose registration is off are left out: an
+    attendee holding a place can still see those (#10), but they belong in My
+    Registrations.
+  - **Badges:** new keys in `statuses.ts` (`registration_open`,
+    `registration_not_open`, `registration_closed`, `registration_full`,
+    `registration_no_period`), because `StatusBadge` is the only way a status
+    is shown. A not-yet-open event's badge reads "Not open yet" with "Opens
+    <date, time>" beside it, so SPM-51-TC01's wording was updated.
+  - **Tests:** 13 page tests in `browse-page.test.tsx` and 4 more route
+    tests. The attendee tests in `events.test.ts` and `event-detail.test.ts`
+    were updated on purpose. Browse was removed from the "not built yet"
+    placeholder tests.
+- **Slice 3 (AC2, AC5, AC7): the "Your registration" card.** New
+  `src/app/events/[id]/RegisterPanel.tsx`, shown on the event page to an
+  Attendee only, below the Registration card.
+  - **Open event:** optional "Dietary requirements" and "Accessibility
+    requirements" fields and "Register", which sends `POST /api/registrations`
+    (empty fields left out). It then shows "You're registered for this
+    event." and reloads the event.
+  - **Already holding a place:** shows the status badge with "You registered
+    on <date>." or "You're on the waiting list." instead of Register. A
+    withdrawn attendee is offered Register again.
+  - **Otherwise:** a message instead of the button ("Registration opens …",
+    "Registration closed on …", "Registration dates haven't been set for this
+    event."). A refusal shows the server's message.
+  - **Data:** `GET /api/events/[id]` now also gives an attendee
+    `myRegistration` (`{ status, registeredAt } | null`, added to
+    `ATTENDEE_EVENT_FIELDS`). This was moved forward from Slice 4, because
+    the card needs it to stop a second registration.
+  - **Tests:** 16 page tests in `register-panel-pages.test.tsx`, plus 2 more
+    route tests.
+- **Slice 5 (AC10, built before Slice 4): the full event's waiting-list
+  offer.** A full event's card says "This event is full. You can join the
+  waiting list instead." and "Joining the waiting list isn't available yet.",
+  with no Register button and no dead control. The register route already
+  refused a full event ("This event is full"). Its test now also checks that
+  no registration is written, so nobody is waitlisted by this story. 2 more
+  page tests.
+- **Slice 4 (AC6): My Registrations.**
+  - **API:** new `GET /api/registrations` returns the signed-in attendee's
+    own registrations, newest first, with each event's reference, title and
+    times. Withdrawn ones are included. It's 401 without a session, and 403
+    "Registrations belong to an Attendee account." for any other role. This
+    closes the "cannot serve view status" gap in Integration.md §5.
+  - **Page:** My Registrations (S-27, `/registrations`) replaces the
+    placeholder. It shows Event, When and a Status badge, and a row opens the
+    event. With none: "You haven't registered for any events yet.". There is
+    no Withdraw button yet (#20).
+  - **Tests:** 8 more route tests and 12 page tests in
+    `my-registrations-page.test.tsx`. My Registrations was removed from the
+    "not built yet" placeholder tests.
+- **Final step: fixtures, docs, test cases re-checked.**
+  - **Fixtures:** `npm run fixtures:spm51` (`scripts/seed-spm51.ts`) adds or
+    resets the 8 "SPM51 …" events, mirrored at the end of `prisma/seed.ts`
+    after SPM-64's block.
+  - **Checked on the real database:** the server side of every manual case
+    was run against the fixtures through the running app's API, all 21
+    checks as expected. The fixtures were reset after.
+  - **Test cases:** `code_references` filled in, wording unchanged (apart from
+    Slice 2's "Not open yet" badge). Nobody has clicked through them in a
+    browser yet.
+  - **Known Gaps:** the "No Browse Events screen" row is deleted (built, and
+    SPM-31-TC19 can now run end to end). New rows: joining the waiting list,
+    and withdrawing (#20).
+  - **Other docs:** `docs/PERMISSIONS.md` (`GET /api/registrations`, the
+    eligibility rule on `POST`) and `UI_DESIGN.md` (S-26, S-27, the "Your
+    registration" card).
+- Migration: none.
 
 ### 2026-10-10 — Kristen
 - **Each test case sheet now carries its own summary.** The test case
