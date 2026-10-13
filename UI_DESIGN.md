@@ -77,7 +77,7 @@ cite.
 | S-01 | Login | `/login` | Authenticate. |
 | S-02 | Register | `/register` | Create an account. |
 | S-03 | Dashboard | `/dashboard` | Role-specific overview: what needs my attention. For an organiser and a coordinator, one section per status, each showing the five most recently updated events with a "View all" link — an overview, not the list. |
-| S-04 | Notifications | `/notifications` | Full notification history, read/unread. |
+| S-04 | Notifications | `/notifications` | Full notification history, newest first: what happened, the event and its reference, and when. Unread ones bold with an "Unread" label and "Mark as read"; "Mark all as read" in the header; selecting one marks it read and opens its event, or the Venue or Equipment tab for an arrangement that needs review (SPM-71). Empty state "No notifications". |
 | S-05 | Profile | `/profile` | Name, contact details, organisation, department. |
 | S-06 | Event detail | `/events/[id]` | **The hub.** Role-adaptive view of one event. |
 
@@ -596,6 +596,7 @@ This document specifies the whole first release. What is built so far:
 | S-02 Register — reference implementation of the validation pattern | `src/app/register/page.tsx` |
 | S-03 Dashboard, role-aware | `src/app/dashboard/page.tsx` |
 | S-29 Safety Checks, the Safety Officer's list (SPM-85) | `src/app/safety-checks/page.tsx`, `src/app/api/safety-checks/route.ts` |
+| S-04 Notifications, and the unread count on the bell and the sidebar link (SPM-71) | `src/app/notifications/page.tsx`, `src/app/api/notifications/`, `src/lib/notificationView.ts`, `src/components/AppShell.tsx` |
 | Overview "Sessions" and "Venue bookings" cards for staff (SPM-85) | `src/app/events/[id]/page.tsx` |
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |
