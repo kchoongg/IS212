@@ -1043,14 +1043,12 @@ what changed, why, and the migration name if there is one.
     September as "Sept"). It writes the flags directly; what the page shows
     for each is worked out live. The rooms and events are in `prisma/seed.ts`
     after SPM-67's; run the script once after a full reseed.
-    **Not yet run against the shared database.**
   - **Tests:** written first, then the code. New `flaggedArrangements.test.ts`,
     `flagged-arrangements.test.ts` and `flagged-arrangements-page.test.tsx`;
     extended `venueSearchForm.test.ts`, `venue-search-page.test.tsx` and
     `roles.test.ts`. Manual cases:
-    `docs/test-cases/SPM-68_Test_Cases.xlsx` (15), **not yet run** - they need
-    the fixtures. The route was read against the shared database through a
-    local server, signed in as two coordinators.
+    `docs/test-cases/SPM-68_Test_Cases.xlsx` (15), all passed 2026-10-13,
+    run by hand against the fixtures.
   - **Docs:** `UI_DESIGN.md` (S-30, the coordinator's sidebar),
     `docs/PERMISSIONS.md`, `SCHEMA_REFERENCE.md`. Known Gaps: the flag row is
     narrowed to SPM-80's missing reason code.
