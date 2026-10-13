@@ -17,7 +17,7 @@
 export const SEAT_TAKING = ["registered", "attended"];
 
 export type RegistrationState =
-  | { kind: "open"; closesAt: Date }
+  | { kind: "open" }
   | { kind: "not_confirmed" }
   | { kind: "disabled" }
   | { kind: "no_period" }
@@ -61,5 +61,5 @@ export function registrationState(event: EligibilityFields, seatsTaken: number, 
   if (now > closesAt) return { kind: "closed", closesAt };
 
   if (event.registrationCapacity != null && seatsTaken >= event.registrationCapacity) return { kind: "full" };
-  return { kind: "open", closesAt };
+  return { kind: "open" };
 }

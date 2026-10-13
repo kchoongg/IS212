@@ -31,14 +31,8 @@ function RegistrationBadge({ state }: { state: StateJson }) {
   return (
     <span className="flex flex-wrap items-center gap-2">
       <StatusBadge status={`registration_${state.kind}`} />
-      {state.kind === "open" && state.closesAt && (
-        <span className="text-xs text-ink-3">Closes {formatDateTime(state.closesAt)}</span>
-      )}
       {state.kind === "not_open" && state.opensAt && (
         <span className="text-xs text-ink-3">Opens {formatDateTime(state.opensAt)}</span>
-      )}
-      {state.kind === "closed" && state.closesAt && (
-        <span className="text-xs text-ink-3">Closed on {formatDateTime(state.closesAt)}</span>
       )}
     </span>
   );

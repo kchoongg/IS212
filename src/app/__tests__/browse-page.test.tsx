@@ -4,8 +4,8 @@
 // CONTRACT:
 //   src/app/browse/page.tsx: an Attendee's list of Confirmed events with registration enabled
 //   (GET /api/events, which gives an attendee each event's registrationState). One row per event:
-//   Event (title), When, Company, Registration (badge: Open with "Closes <date, time>" / Not open yet
-//   with "Opens <date, time>" / Closed with "Closed on <date, time>" / Full / Dates not set), soonest first. A row opens /events/<reference>.
+//   Event (title), When, Company, Registration (badge: Open / Not open yet with "Opens <date, time>" /
+//   Closed / Full / Dates not set), soonest first. A row opens /events/<reference>.
 //   Events whose registration is off (an attendee still holding a place can see those, SPM-64 #10)
 //   are not listed. Empty: "No events are open for registration right now."
 // Manual cases: docs/test-cases/SPM-51_test_cases.json (TC01, TC12).
@@ -30,7 +30,7 @@ function row(overrides: Record<string, unknown> = {}) {
     registrationOpensAt: "2026-09-01T01:00:00.000Z",
     registrationClosesAt: "2027-12-31T09:00:00.000Z",
     organisation: { name: "Straits Medical Institute" },
-    registrationState: { kind: "open", closesAt: "2027-12-31T09:00:00.000Z" },
+    registrationState: { kind: "open" },
     ...overrides,
   };
 }
@@ -64,11 +64,9 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(rowOf("SPM51 Harbour Open House")).toHaveTextContent("15 Jan 2028, 09:00–17:00");
     expect(rowOf("SPM51 Harbour Open House")).toHaveTextContent("Straits Medical Institute");
     expect(within(rowOf("SPM51 Harbour Open House")).getByText("Open")).toBeInTheDocument();
-    expect(rowOf("SPM51 Harbour Open House")).toHaveTextContent("Closes 31 Dec 2027, 17:00");
     expect(within(rowOf("SPM51 Early Bird Seminar")).getByText("Not open yet")).toBeInTheDocument();
     expect(rowOf("SPM51 Early Bird Seminar")).toHaveTextContent("Opens 1 Nov 2027, 09:00");
     expect(within(rowOf("SPM51 Closed Doors Workshop")).getByText("Closed")).toBeInTheDocument();
-    expect(rowOf("SPM51 Closed Doors Workshop")).toHaveTextContent("Closed on 30 Sept 2026, 17:00");
     expect(within(rowOf("SPM51 Sold Out Summit")).getByText("Full")).toBeInTheDocument();
     expect(within(rowOf("SPM51 Undated Talk")).getByText("Dates not set")).toBeInTheDocument();
   });
