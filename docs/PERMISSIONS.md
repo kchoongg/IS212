@@ -302,6 +302,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `POST /api/venues` | `venue:manage` — Venue Staff |
 | `GET`/`POST /api/venues/[id]/unavailability` | `venue:manage` — Venue Staff (SPM-45) |
 | `PATCH`/`DELETE /api/venues/[id]/unavailability/[periodId]` | `venue:manage` — Venue Staff (SPM-45) |
+| `PATCH /api/events/[id]/venue-bookings/[bookingId]` | `canViewEvent()` → 404, then `canRequestVenueBooking()` → 403 (the assigned Coordinator only), then `checkBookingChange()` → 400: withdraw a pending request or release an approved booking, not on a completed, cancelled, rejected or withdrawn event (SPM-67) |
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
 | `GET /api/equipment` | `equipment:view` |
 | `POST /api/equipment` | `equipment:manage` — Technical Support |

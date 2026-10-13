@@ -1,0 +1,294 @@
+{
+  "story_key": "SPM-67",
+  "story_title": "As the assigned Event Coordinator, I want to withdraw a pending venue booking request or release a confirmed booking so that a venue my event no longer needs becomes available to other events",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-11",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The assigned Event Coordinator can withdraw a venue booking request that is still pending."
+    },
+    {
+      "id": "AC2",
+      "text": "A withdrawn request no longer appears for Venue Staff to review."
+    },
+    {
+      "id": "AC3",
+      "text": "The assigned Event Coordinator can release a confirmed venue booking."
+    },
+    {
+      "id": "AC4",
+      "text": "Given a booking is withdrawn or released, when venue availability is next checked, then the period it occupied, including the venue's setup and turnaround time, is available for other bookings (see: Book Venues in 15-Minute Units, SPM-93)."
+    },
+    {
+      "id": "AC5",
+      "text": "The Coordinator can record a reason for the withdrawal or release."
+    },
+    {
+      "id": "AC6",
+      "text": "A withdrawn or released booking remains on the event record with its status, and is distinguishable from pending, confirmed and rejected bookings."
+    },
+    {
+      "id": "AC7",
+      "text": "Venue Staff are notified when a confirmed booking is released."
+    },
+    {
+      "id": "AC8",
+      "text": "After a withdrawal or release, the event's venue arrangement is shown as outstanding (see: Track Outstanding Arrangements) and the Coordinator can request a different venue."
+    },
+    {
+      "id": "AC9",
+      "text": "Users other than the assigned Coordinator cannot withdraw or release the booking."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-67-TC01",
+      "title": "The assigned Coordinator withdraws one pending venue request with a reason, and the event's other pending request and approved booking are unchanged",
+      "linked_ac": [
+        "AC1",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm67` before this case. Do not run it again afterwards: go straight on to SPM-67-TC02, and reset after that one.\n'SPM67 Pending Pair' (2 Nov 2027, 09:00–12:00) has three venue bookings: SPM67 Hall, Pending; SPM67 Studio, Pending; SPM67 Annex, Approved.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM67 Pending Pair'",
+        "Click the 'Venue' tab",
+        "Click 'Withdraw request' on the 'SPM67 Hall (SPM67-HAL)' row of the 'Booking requests' card",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Withdraw request' in the dialog",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM67 Pending Pair | When: 2 Nov 2027, 09:00–12:00\nBookings: SPM67 Hall (SPM67-HAL), Pending | SPM67 Studio (SPM67-STU), Pending | SPM67 Annex (SPM67-ANX), Approved\nReason: The client has cut the guest list, so the main hall is no longer needed.",
+      "expected_result": "Step 2: On the Overview, the 'Venue' row reads 'SPM67 Annex (SPM67-ANX)'.\nStep 3: The 'Booking requests' card lists three requests, each '2 Nov 2027, 09:00–12:00 · Theatre': 'SPM67 Hall (SPM67-HAL)' and 'SPM67 Studio (SPM67-STU)' with the 'Pending' badge and a 'Withdraw request' button, and 'SPM67 Annex (SPM67-ANX)' with the 'Approved' badge and a 'Release booking' button.\nStep 4: A dialog 'Withdraw this request?' reads 'SPM67 Hall (SPM67-HAL) on 2 Nov 2027, 09:00–12:00 will no longer be requested, and Venue Staff will no longer see it on their Booking Requests list.' It has an empty 'Reason (optional)' box and the buttons 'Withdraw request' and 'Keep request'.\nStep 6: The dialog closes. A green alert 'Request withdrawn' reads 'SPM67 Hall (SPM67-HAL) on 2 Nov 2027, 09:00–12:00 is now Withdrawn. You can request another venue below.' The Hall row is still listed, now with a grey 'Withdrawn' badge, no button, and the line 'Reason for withdrawal: The client has cut the guest list, so the main hall is no longer needed.' 'SPM67 Studio (SPM67-STU)' still has '2 Nov 2027, 09:00–12:00 · Theatre', 'Pending' and 'Withdraw request'; 'SPM67 Annex (SPM67-ANX)' still has '2 Nov 2027, 09:00–12:00 · Theatre', 'Approved' and 'Release booking'.\nStep 7: The 'Venue' row still reads 'SPM67 Annex (SPM67-ANX)'."
+    },
+    {
+      "id": "SPM-67-TC02",
+      "title": "A withdrawn request leaves Venue Staff's Booking Requests list, while the same event's other pending request stays on it",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-67-TC01 has just been run ('SPM67 Pending Pair' now has SPM67 Hall Withdrawn, SPM67 Studio Pending and SPM67 Annex Approved).\nStill logged in as Daniel Tan.\nRun `npm run fixtures:spm67` after this case.",
+      "steps": [
+        "Log out",
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Search the page for 'SPM67 Pending Pair' (Ctrl+F)"
+      ],
+      "test_data": "Venue Staff: Marcus Wong\nEvent: SPM67 Pending Pair | Withdrawn: SPM67 Hall (SPM67-HAL) | Still pending: SPM67 Studio (SPM67-STU)",
+      "expected_result": "Step 4: Exactly one card is for 'SPM67 Pending Pair': 'SPM67 Studio (SPM67-STU)', with the 'Pending' badge, 'Requested' '2 Nov 2027, 09:00–12:00', and its 'Approve' and 'Reject with a reason' buttons. No card for 'SPM67 Hall (SPM67-HAL)' and 'SPM67 Pending Pair' is on the page."
+    },
+    {
+      "id": "SPM-67-TC03",
+      "title": "The assigned Coordinator releases one approved booking with a reason, Venue Staff are told of it, and the event's other approved booking is unchanged",
+      "linked_ac": [
+        "AC3",
+        "AC5",
+        "AC6",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm67` before this case, and again after it.\n'SPM67 Release Pair' (4 Nov 2027, 09:00–12:00) has two Approved bookings: SPM67 Hall and SPM67 Studio.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM67 Release Pair'",
+        "Click the 'Venue' tab",
+        "Click 'Release booking' on the 'SPM67 Hall (SPM67-HAL)' row of the 'Booking requests' card",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Release booking' in the dialog",
+        "Click the 'Overview' tab"
+      ],
+      "test_data": "Event: SPM67 Release Pair | When: 4 Nov 2027, 09:00–12:00\nBookings: SPM67 Hall (SPM67-HAL), Approved | SPM67 Studio (SPM67-STU), Approved\nReason: Plenary moved to the client's own auditorium.",
+      "expected_result": "Step 1: On the Overview, the 'Venue' row names both rooms, separated by ' · ': 'SPM67 Hall (SPM67-HAL)' and 'SPM67 Studio (SPM67-STU)'.\nStep 2: The 'Booking requests' card lists both, each with '4 Nov 2027, 09:00–12:00 · Theatre', the 'Approved' badge and a 'Release booking' button.\nStep 3: A dialog 'Release this booking?' reads 'SPM67 Hall (SPM67-HAL) on 4 Nov 2027, 09:00–12:00 will be freed for other events, and Venue Staff will be notified.' It has an empty 'Reason (optional)' box and the buttons 'Release booking' and 'Keep booking'.\nStep 5: The dialog closes. A green alert 'Booking released' reads 'SPM67 Hall (SPM67-HAL) on 4 Nov 2027, 09:00–12:00 is now Released. Venue Staff have been notified. You can request another venue below.' The Hall row is still listed, now with a grey 'Released' badge, no button, and the line 'Reason for release: Plenary moved to the client's own auditorium.' 'SPM67 Studio (SPM67-STU)' still has '4 Nov 2027, 09:00–12:00 · Theatre', 'Approved' and 'Release booking'.\nStep 6: The 'Venue' row reads 'SPM67 Studio (SPM67-STU)' only."
+    },
+    {
+      "id": "SPM-67-TC04",
+      "title": "Releasing one booking and withdrawing another request free the venue's setup and turnaround time too, so another event can then book a slot that overlapped only that time",
+      "linked_ac": [
+        "AC4",
+        "AC1",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm67` before this case, and again after it.\nSPM67 Hall has 30 minutes' setup and 30 minutes' turnaround.\n'SPM67 Held Hall' (9 Nov 2027, 10:00–12:00) has a Pending request for SPM67 Hall, so the Hall is in use 09:30–12:30.\n'SPM67 Booked Hall' (9 Nov 2027, 15:00–16:00) has an Approved booking for SPM67 Hall, so the Hall is in use 14:30–16:30.\n'SPM67 Afternoon Briefing' (9 Nov 2027, 12:15–14:15) has no booking requests. With the Hall's setup and turnaround it would need the Hall 11:45–14:45, which overlaps the first request's turnaround and the second booking's setup, and nothing else.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar, open 'SPM67 Afternoon Briefing' and click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM67 Hall (SPM67-HAL)'",
+        "Click 'Submit request'",
+        "Click 'All Events' in the sidebar, open 'SPM67 Booked Hall' and click the 'Venue' tab",
+        "Click 'Release booking' on the 'SPM67 Hall (SPM67-HAL)' row and click 'Release booking' in the dialog",
+        "Click 'All Events' in the sidebar, open 'SPM67 Afternoon Briefing' and click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM67 Hall (SPM67-HAL)' and click 'Submit request'",
+        "Click 'All Events' in the sidebar, open 'SPM67 Held Hall' and click the 'Venue' tab",
+        "Click 'Withdraw request' on the 'SPM67 Hall (SPM67-HAL)' row and click 'Withdraw request' in the dialog",
+        "Click 'All Events' in the sidebar, open 'SPM67 Afternoon Briefing' and click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM67 Hall (SPM67-HAL)' and click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM67 Hall (SPM67-HAL) | Setup 30 min | Turnaround 30 min\nPending: SPM67 Held Hall, 9 Nov 2027, 10:00–12:00 (in use 09:30–12:30)\nApproved: SPM67 Booked Hall, 9 Nov 2027, 15:00–16:00 (in use 14:30–16:30)\nRequesting event: SPM67 Afternoon Briefing, 9 Nov 2027, 12:15–14:15 (would use 11:45–14:45)",
+      "expected_result": "Step 2: The 'Request a venue booking' form opens for SPM67 Hall, with 'Date' 9 Nov 2027, 'Start time' 12:15 and 'End time' 14:15.\nStep 3: The request is not sent. A red alert reads 'SPM67 Hall is already booked for <reference> SPM67 Booked Hall on 9 Nov 2027, 14:30–14:45.'\nStep 5: A green alert 'Booking released' is shown and the Hall row has the 'Released' badge.\nStep 7: The request is still not sent, but the released booking is no longer named: a red alert reads 'SPM67 Hall is on hold for <reference> SPM67 Held Hall on 9 Nov 2027, 11:45–12:30.'\nStep 9: A green alert 'Request withdrawn' is shown and the Hall row has the 'Withdrawn' badge.\nStep 11: A green alert 'Booking request sent to Venue Staff.' is shown: neither the released booking's setup nor the withdrawn request's turnaround blocks it any more."
+    },
+    {
+      "id": "SPM-67-TC05",
+      "title": "After the event's only booking is released, its venue is shown as outstanding and the Coordinator can request a different venue",
+      "linked_ac": [
+        "AC8",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm67` before this case, and again after it.\n'SPM67 Only Room' (16 Nov 2027, 09:00–12:00, Planning) has one venue booking: SPM67 Hall, Approved. It has no equipment requirements.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM67 Only Room'",
+        "Click the 'Venue' tab",
+        "Click 'Release booking' on the 'SPM67 Hall (SPM67-HAL)' row",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Release booking' in the dialog",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM67 Annex (SPM67-ANX)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM67 Only Room | When: 16 Nov 2027, 09:00–12:00\nReleased: SPM67 Hall (SPM67-HAL) | Reason: Hall too large once the client confirmed numbers.\nRequested instead: SPM67 Annex (SPM67-ANX)",
+      "expected_result": "Step 1: On the Overview, the 'Venue' row reads 'SPM67 Hall (SPM67-HAL)'.\nStep 5: A green alert 'Booking released' is shown. The Hall row has the 'Released' badge and 'Reason for release: Hall too large once the client confirmed numbers.' 'Request booking' is still offered on the suitable venues below, including SPM67 Hall and SPM67 Annex.\nStep 6: The 'Venue' row reads 'Not booked yet'.\nStep 8: The event is not confirmed and stays 'Planning'. A red alert reads 'This event cannot be confirmed yet: no venue is booked for this event.'\nStep 11: A green alert 'Booking request sent to Venue Staff.' is shown.\nStep 12: The 'Booking requests' card lists 'SPM67 Annex (SPM67-ANX)' with '16 Nov 2027, 09:00–12:00 · Theatre' and the 'Pending' badge, and 'SPM67 Hall (SPM67-HAL)' with the 'Released' badge."
+    },
+    {
+      "id": "SPM-67-TC06",
+      "title": "A request withdrawn without a reason shows no reason line, leaves the venue outstanding, and the same venue can be requested again",
+      "linked_ac": [
+        "AC8",
+        "AC5",
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm67` before this case, and again after it.\n'SPM67 Fresh Start' (18 Nov 2027, 09:00–12:00, Planning) has one venue booking: SPM67 Hall, Pending. It has no equipment requirements.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM67 Fresh Start'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click the 'Venue' tab",
+        "Click 'Withdraw request' on the 'SPM67 Hall (SPM67-HAL)' row",
+        "Leave 'Reason (optional)' empty and click 'Withdraw request' in the dialog",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM67 Hall (SPM67-HAL)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM67 Fresh Start | When: 18 Nov 2027, 09:00–12:00\nWithdrawn: SPM67 Hall (SPM67-HAL), Pending | Reason: (left empty)\nRequested again: SPM67 Hall (SPM67-HAL), same times",
+      "expected_result": "Step 3: A red alert reads 'This event cannot be confirmed yet: the venue for this event is still awaiting a decision from Venue Staff.'\nStep 6: A green alert 'Request withdrawn' is shown. The Hall row has the grey 'Withdrawn' badge, no button, and no 'Reason for withdrawal' line.\nStep 7: The 'Venue' row reads 'Not booked yet'.\nStep 9: The event stays 'Planning'. A red alert now reads 'This event cannot be confirmed yet: no venue is booked for this event.'\nStep 12: A green alert 'Booking request sent to Venue Staff.' is shown: the withdrawn request does not count as an earlier request for the same venue and times.\nStep 13: The 'Booking requests' card lists 'SPM67 Hall (SPM67-HAL)' twice, both '18 Nov 2027, 09:00–12:00 · Theatre': one 'Pending' with 'Withdraw request', and one 'Withdrawn' with no button."
+    },
+    {
+      "id": "SPM-67-TC07",
+      "title": "Withdrawn and released bookings stay on the event with their own badges and reasons, distinct from pending, approved and rejected ones, and only pending and approved bookings offer an action",
+      "linked_ac": [
+        "AC6",
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm67` has been run since the last full `npx prisma db seed`.\n'SPM67 Status Mix' (23 Nov 2027, 09:00–12:00) has five venue bookings, one in each status: SPM67 Hall Pending; SPM67 Studio Approved; SPM67 Annex Rejected; SPM67 Hall Withdrawn; SPM67 Studio Released.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM67 Status Mix'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM67 Status Mix | When: 23 Nov 2027, 09:00–12:00\nRejected reason: The Annex is closed for a private function that morning.\nWithdrawal reason: Requested the wrong room by mistake.\nRelease reason: Workshop merged into the main session.",
+      "expected_result": "Step 1: On the Overview, the 'Venue' row reads 'SPM67 Studio (SPM67-STU)' only: the released Studio booking is not counted.\nStep 2: The 'Booking requests' card lists five rows, each '23 Nov 2027, 09:00–12:00 · Theatre': 'SPM67 Hall (SPM67-HAL)', amber 'Pending' badge, 'Withdraw request' button, no 'Release booking'; 'SPM67 Studio (SPM67-STU)', 'Approved' badge, 'Release booking' button, no 'Withdraw request'; 'SPM67 Annex (SPM67-ANX)', red 'Rejected' badge, 'Reason from Venue Staff: The Annex is closed for a private function that morning.', no 'Withdraw request' or 'Release booking'; 'SPM67 Hall (SPM67-HAL)', grey 'Withdrawn' badge, 'Reason for withdrawal: Requested the wrong room by mistake.', no button; 'SPM67 Studio (SPM67-STU)', grey 'Released' badge, 'Reason for release: Workshop merged into the main session.', no button."
+    },
+    {
+      "id": "SPM-67-TC08",
+      "title": "A Coordinator who is not assigned to the event sees its bookings but cannot withdraw or release any of them",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm67` has been run since the last full `npx prisma db seed`.\n'SPM67 Status Mix' is assigned to Daniel Tan, not Priya Raj. It has a Pending and an Approved booking (plus Rejected, Withdrawn and Released ones).\nLogged out.\nNothing is saved in this case.",
+      "steps": [
+        "Log in as priya.raj@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM67 Status Mix'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "User: Priya Raj (Event Coordinator, not assigned)\nEvent: SPM67 Status Mix (assigned Coordinator: Daniel Tan)",
+      "expected_result": "Step 3: A blue alert reads 'Only the assigned Coordinator can request a venue booking.' The 'Booking requests' card lists all five rows with their badges ('Pending', 'Approved', 'Rejected', 'Withdrawn', 'Released'), but no row has a 'Withdraw request' or 'Release booking' button, and no venue has 'Request booking'."
+    },
+    {
+      "id": "SPM-67-TC09",
+      "title": "The Operations Manager sees an event's bookings but cannot withdraw or release any of them",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm67` has been run since the last full `npx prisma db seed`.\n'SPM67 Status Mix' has a Pending and an Approved booking (plus Rejected, Withdrawn and Released ones).\nLogged out.\nNothing is saved in this case.",
+      "steps": [
+        "Log in as grace.lim@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM67 Status Mix'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "User: Grace Lim (Operations Manager)\nEvent: SPM67 Status Mix (assigned Coordinator: Daniel Tan)",
+      "expected_result": "Step 3: A blue alert reads 'Only the assigned Coordinator can request a venue booking.' The 'Booking requests' card lists all five rows with their badges, but no row has a 'Withdraw request' or 'Release booking' button."
+    },
+    {
+      "id": "SPM-67-TC10",
+      "title": "Venue Staff can approve or reject a pending request but cannot withdraw or release an event's bookings",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm67` has been run since the last full `npx prisma db seed`.\n'SPM67 Status Mix' has a Pending request for SPM67 Hall and an Approved booking for SPM67 Studio (plus Rejected, Withdrawn and Released ones).\nLogged out.\nNothing is saved in this case: do not click 'Approve' or 'Reject with a reason'.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM67 Hall' card for 'SPM67 Status Mix' (use Ctrl+F) and note the event reference shown on it",
+        "Type /events/<reference from step 3>/venue after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/venue) and press Enter"
+      ],
+      "test_data": "User: Marcus Wong (Venue Staff)\nEvent: SPM67 Status Mix (assigned Coordinator: Daniel Tan)",
+      "expected_result": "Step 3: The card has 'Approve' and 'Reject with a reason' buttons only: no 'Withdraw request'.\nStep 4: The event's Venue tab opens. A blue alert reads 'Only the assigned Coordinator can request a venue booking.' The 'Booking requests' card lists all five rows with their badges, but no row has a 'Withdraw request' or 'Release booking' button."
+    }
+  ],
+  "open_questions": [
+    "Written 2026-10-11 before any SPM-67 code (test-first), then checked against the built code the same day (kayalvizhi24): every label, dialog, message and badge quoted in the cases is what the Venue tab now shows. Fixture dates were moved from September to November 2027 while building, because the app writes September as 'Sept' (en-SG), so a quoted 'Sep' would not match the screen. Built: PATCH /api/events/[id]/venue-bookings/[bookingId] (withdraw or release), src/lib/venueBookingChange.ts (the rules and the Venue Staff notification), the Venue tab's buttons and dialog, the 'Released' badge, and migration 20261011120000_add_venue_booking_withdrawal (to apply with `npx prisma migrate deploy`, no reseed; `npm run fixtures:spm67` needs it applied first). No case was added from code: the only behaviour beyond the ACs (two people acting on one booking at once, a closed event) is unit-tested.",
+    "DECIDED 2026-10-11 (AC6): two new booking statuses, stored as 'withdrawn' (was Pending) and 'released' (was Approved), shown with grey badges 'Withdrawn' and 'Released'. Both are distinct from 'Pending' (amber), 'Approved' and 'Rejected' (red). The existing comment in src/lib/venueConflict.ts that says withdrawn and released would both be stored as 'cancelled' is replaced. Neither status blocks a venue or counts as a repeat request: only Pending and Approved do today, so the availability, duplicate and confirm rules need no change for AC4 and AC8.",
+    "DECIDED 2026-10-11 (AC1, AC3 wording): on the Venue tab's 'Booking requests' card, a Pending row gets a 'Withdraw request' button and an Approved row a 'Release booking' button, for the assigned Coordinator only. Withdraw dialog: title 'Withdraw this request?', text '<venue (code)> on <date, times> will no longer be requested, and Venue Staff will no longer see it on their Booking Requests list.', buttons 'Withdraw request' / 'Keep request'. Release dialog: title 'Release this booking?', text '<venue (code)> on <date, times> will be freed for other events, and Venue Staff will be notified.', buttons 'Release booking' / 'Keep booking'. Success alerts: 'Request withdrawn' - '<venue (code)> on <date, times> is now Withdrawn. You can request another venue below.' and 'Booking released' - '<venue (code)> on <date, times> is now Released. Venue Staff have been notified. You can request another venue below.'",
+    "DECIDED 2026-10-11 (AC5): the reason is optional ('can record'), in a 'Reason (optional)' box in both dialogs, up to 2,000 characters like Venue Staff's rejection reason. It is shown on the row as 'Reason for withdrawal: …' or 'Reason for release: …', and no line is shown when it was left empty (TC06). No case types 2,000+ characters: the box stops at 2,000, as the rejection reason's does. Storing it needs three new nullable columns on venue_bookings (who withdrew or released it, when, and the reason): a migration with `prisma migrate deploy`, no reseed.",
+    "DECIDED 2026-10-11 (AC7): on release, every active Venue Staff user gets a notification (notifyRole, as Venue Staff are not scoped by venue, #66): title 'Venue booking released', body '<Coordinator> released <venue (code)> for <reference> <event title> on <date, times>.' plus ' Reason: <reason>' when one was given. Withdrawing a pending request sends no notification: Venue Staff had not acted on it, and it simply leaves their list (AC2). The Notifications page is not built yet (SPM-71), so by hand AC7 is checked only through 'Venue Staff have been notified.' in TC03; the notification itself is checked by the unit tests. Add a by-hand case once SPM-71 is merged.",
+    "DECIDED 2026-10-11 (AC8): 'shown as outstanding' is checked on what exists on this branch: the Overview 'Venue' row reads 'Not booked yet' and 'Confirm event' is refused with 'This event cannot be confirmed yet: no venue is booked for this event.' (SPM-34). Track Outstanding Arrangements (SPM-33) is still on its own branch; its Readiness tab lists only Pending and Approved bookings and adds a 'No venue booked' row when none is left, so it handles a withdrawn or released booking without change. Once SPM-33 is merged, add a 'Readiness' tab step to TC05 and TC06.",
+    "DECIDED 2026-10-11 (AC9): who may see the buttons follows the request rule (canRequestVenueBooking): only the assigned Coordinator. Other Coordinators, the Ops Manager and Venue Staff see the booking list with the existing message 'Only the assigned Coordinator can request a venue booking.' and no buttons (TC08-TC10). The Event Organiser has no Venue tab (venue:view), so no case is written for them. The API refuses a withdraw or release from anyone else with 'Only the assigned Coordinator can withdraw or release a venue booking.' - reachable only by calling the API, so unit-tested, not a case.",
+    "DECIDED 2026-10-11 (races, unit-tested only): no AC covers two people acting on the same booking at once, so no manual case is written. The server still refuses both: withdrawing a request Venue Staff have just approved gives 'This request has already been approved, so it can no longer be withdrawn. Release the booking instead.', and approving or rejecting a request that has just been withdrawn gets SPM-43's existing 'This booking request has already been decided.' (only Pending can be decided). SPM-43's page and wording are not changed.",
+    "DECIDED 2026-10-11 (event status, left to the developer by the team): a booking may be withdrawn or released on any event that is not closed, and the event's status is not changed by it - a Confirmed event that releases its only room keeps 'Confirmed', as no AC asks for a status change and returning an event to Planning belongs to other stories. On a closed event (Completed, Cancelled, Rejected, Withdrawn) no button is shown, the same rule as 'Request booking' (CLOSED_EVENT_MESSAGE). Unit-tested; no manual case, to keep the set in proportion to the story.",
+    "Fixtures: scripts/seed-spm67.ts (`npm run fixtures:spm67`); the same venues and events are appended to prisma/seed.ts (events only - the script makes their bookings), modelled on scripts/seed-spm81.ts. Three test rooms, upserted and reset each run, Orchard Hub L4, max 60, theatre 60 / classroom 40, open 07:00-22:00, no facilities: 'SPM67 Hall' (SPM67-HAL, setup 30, turnaround 30), 'SPM67 Studio' (SPM67-STU, 0/0), 'SPM67 Annex' (SPM67-ANX, 0/0). Events (seed key spm67_*, Planning, 30 attendees, theatre, Rachel Ng's, assigned to Daniel Tan, no equipment): 'SPM67 Pending Pair' 2 Nov 2027 09:00-12:00 (Hall Pending, Studio Pending, Annex Approved; TC01-02); 'SPM67 Release Pair' 4 Nov 09:00-12:00 (Hall Approved, Studio Approved; TC03); 'SPM67 Held Hall' 9 Nov 10:00-12:00 (Hall Pending), 'SPM67 Booked Hall' 9 Nov 15:00-16:00 (Hall Approved) and 'SPM67 Afternoon Briefing' 9 Nov 12:15-14:15 (none; TC04); 'SPM67 Only Room' 16 Nov 09:00-12:00 (Hall Approved; TC05); 'SPM67 Fresh Start' 18 Nov 09:00-12:00 (Hall Pending; TC06); 'SPM67 Status Mix' 23 Nov 09:00-12:00 (Hall Pending, Studio Approved, Annex Rejected with reason, Hall Withdrawn with reason, Studio Released with reason; TC07-10). The reset also deletes any booking at the three SPM67 rooms, so a request made in TC04-TC06 goes with it.",
+    "SPM-81 AC7 (reminder on SPM-67, 2026-10-10): the 'other bookings unchanged' half for withdrawing and releasing is checked here - TC01 (withdraw one of two pending plus an approved one), TC02 (Venue Staff's list loses only the withdrawn request) and TC03 (release one of two approved). Once these pass, SPM-81's AC7 note can point to them.",
+    "RESOLVED 2026-10-11 (size): 13 cases were trimmed to 10 so the set matches a 2-point story with 9 ACs: the two race cases went to unit tests (no AC asks for them), and the separate withdraw and release availability cases were merged into TC04. For comparison, the other 2-point stories have 10 (SPM-34), 14 (SPM-50, SPM-54) and 20 (SPM-22), and SPM-81 (5 points) has 11."
+  ],
+  "code_references": [
+    "src/app/api/events/[id]/venue-bookings/[bookingId]/route.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/lib/venueBookingChange.ts",
+    "src/lib/validation/venues.ts",
+    "src/lib/statuses.ts",
+    "src/lib/venueConflict.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/notifications.ts",
+    "src/app/api/venue-bookings/route.ts",
+    "src/app/api/venue-bookings/[id]/route.ts",
+    "prisma/schema.prisma",
+    "prisma/migrations/20261011120000_add_venue_booking_withdrawal/migration.sql",
+    "scripts/seed-spm67.ts",
+    "prisma/seed.ts"
+  ]
+}

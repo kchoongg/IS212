@@ -29,8 +29,12 @@ const STATUS_META: Record<string, StatusMeta> = {
   rejected: { label: "Rejected", tone: "danger" },
   cancelled: { label: "Cancelled", tone: "danger" },
 
-  // --- Venue booking (approved/rejected/cancelled shared with events) ---
+  // --- Venue booking (approved/rejected shared with events) ---
   pending: { label: "Pending", tone: "warning" },
+  // SPM-67: taken back by the Coordinator - a withdrawn request ("withdrawn",
+  // below with Registration, reads the same) or a released booking. Grey, as
+  // neither holds the room any more.
+  released: { label: "Released", tone: "neutral" },
 
   // --- Equipment request ---
   requested: { label: "Requested", tone: "info" },

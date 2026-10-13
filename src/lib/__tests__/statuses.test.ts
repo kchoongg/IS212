@@ -43,6 +43,18 @@ describe("statusLabel", () => {
   });
 });
 
+describe("Withdrawn and released venue bookings (SPM-67)", () => {
+  it("SPM-67-TC07: labels both in grey, apart from pending, approved and rejected", () => {
+    expect(statusLabel("withdrawn")).toBe("Withdrawn");
+    expect(statusLabel("released")).toBe("Released");
+    expect(statusTone("withdrawn")).toBe("neutral");
+    expect(statusTone("released")).toBe("neutral");
+    for (const other of ["pending", "approved", "rejected"]) {
+      expect(statusTone(other)).not.toBe("neutral");
+    }
+  });
+});
+
 describe("Safety review (SPM-86)", () => {
   it("reads 'Safety review' as a status awaiting someone else's review, like Under review", () => {
     expect(statusLabel("safety_review")).toBe("Safety review");

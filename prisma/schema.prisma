@@ -64,6 +64,7 @@ model User {
   changeRequestsReviewed EventChangeRequest[]   @relation("ChangeReviewer")
   bookingsRequested      VenueBooking[]         @relation("BookingRequester")
   bookingsDecided        VenueBooking[]         @relation("BookingDecider")
+  bookingsCancelled      VenueBooking[]         @relation("BookingCanceller")
   unavailabilityCreated  VenueUnavailability[]
   equipmentRequested     EquipmentRequest[]     @relation("EquipmentRequester")
   equipmentReviewed      EquipmentRequest[]     @relation("EquipmentReviewer")
@@ -413,7 +414,11 @@ model VenueBooking {
   startsAt DateTime @map("starts_at")
   endsAt   DateTime @map("ends_at")
 
-  /// pending | approved | rejected | cancelled. Only `approved` blocks a venue.
+  /// pending | approved | rejected | withdrawn | released. `pending` and
+  /// `approved` hold the venue (with its setup and turnaround, SPM-93); the
+  /// rest hold nothing. SPM-67: the assigned Coordinator withdraws a pending
+  /// request or releases an approved booking - the customer's "withdraw" and
+  /// "release" are kept apart so the event record says which it was (AC6).
   status           String    @default("pending")
   requestedBy      String    @map("requested_by")
   requestedAt      DateTime  @default(now()) @map("requested_at")
@@ -445,12 +450,20 @@ model VenueBooking {
   reviewReason String?   @map("review_reason")
   flaggedAt    DateTime? @map("flagged_at")
 
+  /// Withdraw or Release Venue Booking (SPM-67): who withdrew or released it,
+  /// when, and the Coordinator's reason - optional (AC5). All NULL on a
+  /// booking that is still pending, approved or rejected.
+  cancelledBy        String?   @map("cancelled_by")
+  cancelledAt        DateTime? @map("cancelled_at")
+  cancellationReason String?   @map("cancellation_reason")
+
   event     Event         @relation(fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   venue     Venue         @relation("BookingVenue", fields: [venueId], references: [id])
   suggestedVenue Venue?   @relation("BookingSuggestedVenue", fields: [suggestedVenueId], references: [id], onDelete: SetNull)
   requester User          @relation("BookingRequester", fields: [requestedBy], references: [id])
   decider   User?         @relation("BookingDecider", fields: [decidedBy], references: [id])
+  canceller User?         @relation("BookingCanceller", fields: [cancelledBy], references: [id])
 
   @@index([venueId, status, startsAt, endsAt])
   @@index([eventId, status])
