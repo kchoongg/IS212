@@ -69,6 +69,8 @@ interface Arrangement {
   required: boolean;
   complete: boolean;
   missing: string;
+  /// SPM-90: what a venue booking's space is for.
+  purpose?: string | null;
   flagReason: string;
   waivable: boolean;
   waived: boolean;
@@ -261,6 +263,23 @@ describe("Event Readiness tab (SPM-33)", () => {
   });
 
   describe("what it lists", () => {
+    // SPM-90 AC5 (written before the code).
+    it("SPM-90-TC07: shows what each booked space is for, before its booking status", async () => {
+      open([
+        { ...auditorium, purpose: "Main programme" },
+        { ...studioPending, purpose: "Breakout room" },
+      ]);
+
+      expect(await row("Marina Auditorium")).toHaveTextContent("Space: Main programme · Booking status: Approved");
+      expect(await row("Orchard Studio")).toHaveTextContent("Space: Breakout room · Booking status: Pending");
+    });
+
+    it("SPM-90-TC10: shows no space for a booking made without one", async () => {
+      open([{ ...auditorium, purpose: null }]);
+
+      expect(await row("Marina Auditorium")).not.toHaveTextContent("Space:");
+    });
+
     // AC1, AC2.
     it("lists each venue booking separately, with its own status", async () => {
       open([auditorium, studioPending]);

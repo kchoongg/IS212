@@ -428,8 +428,16 @@ model VenueBooking {
   /// this booking applies to the whole (single-session) event, as before.
   sessionId  String? @map("session_id")
   venueId    String  @map("venue_id")
-  /// What Venue Staff physically set up.
+  /// What Venue Staff physically set up. Since SPM-90 the layout of THIS space,
+  /// which the Coordinator may set apart from the event's preferred layout.
   layoutName String? @map("layout_name")
+  /// SPM-90: what this space is for ("Main programme", "Breakout room"), in the
+  /// Coordinator's words. NULL on a booking made before SPM-90.
+  purpose            String?
+  /// SPM-90: how many people this space is for - what the venue was judged
+  /// against, not the event's total. Copied at request time, like the times
+  /// below. NULL only where the event had no attendance either.
+  expectedAttendance Int?    @map("expected_attendance")
 
   /// Copied from the event at request time — NOT read live. Changing an event
   /// must not silently move an approved booking.

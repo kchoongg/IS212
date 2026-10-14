@@ -77,6 +77,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                 startsAt: true,
                 endsAt: true,
                 layoutName: true,
+                // SPM-90 (AC5): what each booked space is for.
+                purpose: true,
                 session: { select: { label: true } },
                 // SPM-87 (AC2): with id and opening hours, and - added below -
                 // its unavailable periods on the event's dates.

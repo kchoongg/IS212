@@ -924,7 +924,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No notifications screen** | `Notification` rows are written (venue review flags, SPM-39; a safety check submitted, SPM-86; the Safety Officer's decision, to the coordinator, SPM-87; a reservation left short by equipment out of service, SPM-55; a venue booking released, to Venue Staff, SPM-67) but nothing reads them: the top-bar bell and every sidebar "Notifications" link point at `/notifications`, which does not exist, so they 404. | unclaimed |
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
-| **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. | events / venues |
+| **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. The same holds for each of an event's rooms (SPM-90, decided 2026-10-13): a breakout room is judged on its own attendance and layout, but must still have every facility the event requires. | events / venues |
 | **No route-level tests outside auth/permissions** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
@@ -939,8 +939,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
 | **A full event offers the waiting list but nobody can join it** | SPM-51 shows "This event is full. You can join the waiting list instead." and "Joining the waiting list isn't available yet." Joining, the 3-day offer window (#44) and FIFO with manual override (#26) are *Join and Respond to Waiting List*. When it lands, replace that second line with its Join button in `src/app/events/[id]/RegisterPanel.tsx`. | Join and Respond to Waiting List |
 | **Attendees can't withdraw a registration** | My Registrations (S-27) shows each registration's status but has no Withdraw (UI_DESIGN S-27, story #20). The register route already reactivates a withdrawn row, so re-registering will work once withdrawing exists. | #20 |
-| **An event with more than one venue can be confirmed while one is still pending** | Confirm Event (SPM-34) and Submit for Safety Check (SPM-86) ask only whether the event (or each session) has an approved venue booking, so an event with one Approved and one Pending room passes. Requiring every venue to be approved is **SPM-90** (Check Each Venue Against Its Own Requirements), split from SPM-81 on purpose. Found 2026-10-10. | SPM-90 |
-| **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 records what each space is for, which may be the place to settle it. Found 2026-10-10. | equipment / SPM-90 |
+| **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
+| **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
 | **Confirm event does not yet require an approved safety check** | An event in Safety review cannot be confirmed, and an approved one (Safety approved, SPM-87) can, but an event still in Planning that was never submitted - or was returned with changes - can still be confirmed as before. Requiring the Safety Officer's approval first is **SPM-88**'s AC8/AC9 (removing Planning → Confirmed, and SAFETY_CHECK_BLOCKS_CONFIRMATION in `eventConfirmation.ts`). | SPM-88 |
@@ -971,6 +971,73 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-13 — Kayal (SPM-90)
+- **SPM-90 (Check Each Venue Against Its Own Requirements).** Week 7 Change #3,
+  split from SPM-81. Each venue booking now records the **space** it is for:
+  what it is for ("Main programme", "Breakout room"), and that space's own
+  expected attendance and room layout. A venue is judged against the space, not
+  the event's total attendance, so a 20-seat breakout room can be booked for a
+  150-person conference.
+  - **Venue tab:** a new card, **The space you need** (Expected attendance for
+    this space, Room layout, **Check venues**). It starts on the event's own
+    values (the session's, for a multi-session event). Checking again judges
+    every venue for that space, and "Request booking" carries it to the form.
+  - **Request form:** three new fields - **What is this space for?** (required,
+    up to 100 characters), **Expected attendance for this space** (whole
+    number, at least 1) and **Room layout**. The purpose starts as "Main
+    programme" for the event's (or session's) first pending or approved
+    booking and empty for a further one. The read-only Layout row is gone.
+  - **Where the purpose is shown (AC5):** the Venue tab's Booking requests card
+    ("Breakout room · 7 Sep 2027, 09:00–17:00 · Classroom · 20 attendees"),
+    Venue Staff's Booking Requests page (a **Space** row; Expected attendance
+    is now the space's own), the Overview's Venue bookings card, and the
+    Readiness tab ("Space: Breakout room · Booking status: Pending").
+  - **Confirming (AC6):** already enforced since SPM-33 - every pending or
+    approved booking is its own arrangement and Confirm waits for each one that
+    is still required. SPM-90 adds the purpose to the reason, e.g. "SPM90
+    Breakout Room (Breakout room) for this event is still awaiting a decision
+    from Venue Staff". The Known Gap that said otherwise was out of date and is
+    removed.
+  - **Decided 2026-10-13 (AC3): facilities and accessibility stay the
+    event's.** AC3 mentions the "accessibility and facilities recorded for that
+    space", but AC1 has the Coordinator record only purpose, attendance and
+    layout, and no customer document asks for per-room facilities (Week 7
+    Change #3, the briefings and the discussion board were checked). So every
+    space must have the facilities the event requires, as every session already
+    does. Per-room facility lists would be their own story.
+  - **Wording changed:** "… - your event expects N." is now "… - this space
+    expects N.", and "is not suitable for this event: …" is now "… for this
+    space: …". SPM-42-TC02 quotes the old sentence (Known Gaps).
+  - **Routes:** `POST /api/events/[id]/venue-bookings` takes `purpose`
+    (required), `expectedAttendance` and `layoutName` (both optional; left out,
+    the session's or event's own). `GET` of the same returns each booking's
+    `purpose` and `expectedAttendance`, and the event's `expectedAttendance`.
+    `GET /api/events/[id]/venue-suitability` takes `?attendance=&layout=`
+    (400 "Enter a whole number of at least 1."). `GET /api/venue-bookings` and
+    `GET /api/events/[id]` return each booking's `purpose`.
+  - **Venue edits (SPM-39):** a booking is re-checked against its own space's
+    attendance first, then the session's, then the event's.
+  - **Not here, on purpose:** per-room facilities (above); a cap on a space's
+    attendance, or adding the spaces up against the event's total; which room
+    equipment transfer time is measured to (Known Gaps); "Search with filters"
+    still filters by the event's own requirements.
+  - **Migration:** `20261013120000_add_venue_booking_space` - two nullable
+    columns on `venue_bookings`, `purpose` and `expected_attendance`. It fills
+    `expected_attendance` on existing bookings from their session or event and
+    leaves `purpose` empty. Apply with `npx prisma migrate deploy`; no reseed.
+  - **Test data:** `npm run fixtures:spm90` - three "SPM90 …" rooms and six
+    events, dated September 2027. The events and their "Step-free access"
+    requirement are appended to `prisma/seed.ts` after SPM-87's; the seed's
+    own bookings now carry "Main programme" and the event's attendance.
+  - **Tests:** written first. Extended `event-venue.test.ts`,
+    `venue-booking-review.test.ts`, `venues.test.ts`, `event-detail.test.ts`,
+    `eventConfirmation.test.ts`, `venueSuitability.test.ts`,
+    `validation.test.ts`, `event-venue-pages.test.tsx`,
+    `event-readiness-page.test.tsx`, `event-pages.test.tsx` and
+    `list-pages.test.tsx`. Manual cases:
+    `docs/test-cases/SPM-90_Test_Cases.xlsx` (11), all passed when run by hand
+    on 2026-10-13 (kayalvizhi24). Migration applied to the shared database; no reseed.
 
 ### 2026-10-13 — Janelle
 - **SPM-87 (Conduct Operational Safety Check).** The Safety Officer approves,

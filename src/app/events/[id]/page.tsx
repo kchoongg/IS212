@@ -88,6 +88,8 @@ interface EventDetail extends RegistrationEvent {
     endsAt: string;
     /// SPM-85: the layout booked, and the seats each of the room's layouts holds.
     layoutName?: string | null;
+    /// SPM-90: what the space is for; null on a booking made without one.
+    purpose?: string | null;
     session: { label: string | null } | null;
     venue: {
       name: string;
@@ -147,8 +149,11 @@ function sessionSummary(session: NonNullable<EventDetail["sessions"]>[number]): 
 
 /// SPM-85: "Marina Auditorium (MAR-AUD) · Theatre · seats 220" - the room,
 /// the layout booked, and the seats that layout holds (not the room's largest).
+/// SPM-90 (AC5): what the space is for comes straight after the room -
+/// "Marina Auditorium (MAR-AUD) · Main programme · Theatre · seats 220".
 function bookingArrangement(booking: NonNullable<EventDetail["venueBookings"]>[number]): string {
-  const room = `${booking.venue.name} (${booking.venue.code})`;
+  const purpose = booking.purpose?.trim();
+  const room = `${booking.venue.name} (${booking.venue.code})${purpose ? ` · ${purpose}` : ""}`;
   if (!booking.layoutName) return `${room} · Layout not set`;
   const capacity = booking.venue.layouts?.find((l) => l.layoutName === booking.layoutName)?.capacity;
   const seats = capacity != null ? `seats ${capacity}` : "capacity not recorded";

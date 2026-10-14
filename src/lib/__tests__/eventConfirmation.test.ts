@@ -959,3 +959,57 @@ describe("AC8 incomplete registration setup is outstanding and blocks confirmati
     expect(list.map((a) => a.kind)).toEqual(["venue", "equipment", "registration"]);
   });
 });
+
+// SPM-90 (written before the code): a booking carries what its space is for
+// (BookingInput.purpose), each venue row carries it (Arrangement.purpose), and
+// an unconfirmed booking is identified by it (AC5, AC6).
+describe("SPM-90 — what each venue booking's space is for", () => {
+  const hall = booking({ purpose: "Main programme" });
+  const breakout = booking({ id: "b2", status: "pending", venueName: "Orchard Studio", purpose: "Breakout room" });
+
+  it("SPM-90-TC07: carries each booking's purpose on its own row", () => {
+    const list = rows({ bookings: [hall, breakout] });
+
+    expect(named(list, "Marina Auditorium")).toMatchObject({ purpose: "Main programme", state: "complete" });
+    expect(named(list, "Orchard Studio")).toMatchObject({ purpose: "Breakout room", state: "outstanding" });
+  });
+
+  it("SPM-90-TC08: refuses to confirm while one of two rooms is pending, naming that room and what it is for", () => {
+    const result = check({ bookings: [hall, breakout] });
+
+    expect(result).toMatchObject({
+      ok: false,
+      error:
+        "This event cannot be confirmed yet: Orchard Studio (Breakout room) for this event is still awaiting a decision from Venue Staff.",
+    });
+    expect(result.ok === false && result.outstanding.map((a) => a.id)).toEqual(["b2"]);
+  });
+
+  it("SPM-90-TC09: confirms once every room is approved", () => {
+    expect(check({ bookings: [hall, { ...breakout, status: "approved" }] })).toEqual({ ok: true });
+  });
+
+  it("names the session as well as the purpose on a multi-session event", () => {
+    const list = rows({
+      sessions: [{ id: "s1", label: "Day 1" }],
+      bookings: [{ ...breakout, sessionId: "s1" }],
+    });
+
+    expect(named(list, "Orchard Studio").missing).toBe(
+      "Orchard Studio (Breakout room) for the Day 1 session is still awaiting a decision from Venue Staff"
+    );
+  });
+
+  it.each([null, undefined, "  "])("SPM-90-TC10: names a booking with no purpose (%j) as before", (purpose) => {
+    const [row] = rows({ bookings: [booking({ status: "pending", purpose })] });
+
+    expect(row.purpose).toBeNull();
+    expect(row.missing).toBe("Marina Auditorium for this event is still awaiting a decision from Venue Staff");
+  });
+
+  it("gives rows that are not bookings no purpose", () => {
+    const [noVenue] = rows();
+
+    expect(noVenue).toMatchObject({ name: "No venue booked", purpose: null });
+  });
+});

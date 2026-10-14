@@ -766,6 +766,27 @@ describe("Booking Requests", () => {
       expect(within(it_).queryByText("Event time")).not.toBeInTheDocument();
     });
 
+    // SPM-90 (AC5): Venue Staff see what the room is wanted for, and that
+    // space's own attendance rather than the event's total.
+    it("SPM-90-TC06: shows what the space is for, with its own attendance", async () => {
+      open({ [LIST]: [request({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "classroom" })] });
+
+      const it_ = await card();
+
+      expect(valueOf(it_, "Space")).toHaveTextContent(/^Breakout room$/);
+      expect(valueOf(it_, "Layout")).toHaveTextContent("Classroom");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^20$/);
+    });
+
+    it("SPM-90-TC10: says the space was not recorded on a request made before it was asked for", async () => {
+      open({ [LIST]: [request({ purpose: null, expectedAttendance: null })] });
+
+      const it_ = await card();
+
+      expect(valueOf(it_, "Space")).toHaveTextContent("Not recorded");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^120$/);
+    });
+
     it("falls back to the event's attendance for a session that gives none, and names an unnamed session", async () => {
       open({
         [LIST]: [

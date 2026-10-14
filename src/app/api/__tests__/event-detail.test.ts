@@ -292,6 +292,8 @@ describe("GET /api/events/[id]", () => {
       startsAt: true,
       endsAt: true,
       layoutName: true,
+      // SPM-90 (AC5): what each booked space is for.
+      purpose: true,
       session: { select: { label: true } },
       // CHANGED (SPM-87 AC2): with id and opening hours, for the venue restrictions.
       venue: {

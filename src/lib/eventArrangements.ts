@@ -50,6 +50,8 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
         notRequired: true,
         notRequiredAt: true,
         notRequiredByUser: BY,
+        // SPM-90: what the space is for.
+        purpose: true,
         venue: { select: { name: true } },
       },
     }),
@@ -84,6 +86,7 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
       sessionId: b.sessionId,
       status: b.status,
       venueName: b.venue.name,
+      purpose: b.purpose,
       needsReview: b.needsReview,
       reviewReason: b.reviewReason,
       notRequired: b.notRequired,

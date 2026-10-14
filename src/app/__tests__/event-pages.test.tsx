@@ -1251,6 +1251,32 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     );
   });
 
+  // SPM-90 (AC5): what each booked space is for, straight after the room.
+  it("SPM-90-TC07: names what each booked space is for, and nothing for a booking made without one", async () => {
+    const [hall, seminar] = (forum() as unknown as { venueBookings: object[] }).venueBookings;
+    open("coordinator", forum({ venueBookings: [{ ...hall, purpose: "Main programme" }, { ...seminar, purpose: null }] }));
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(valueIn("Venue bookings", "Main programme")).toHaveTextContent(
+      "Marina Auditorium (MAR-AUD) · Main programme · Theatre · seats 220"
+    );
+    expect(valueIn("Venue bookings", "Breakout workshop")).toHaveTextContent(
+      "Orchard Seminar Room (ORC-SEM) · Classroom · seats 70"
+    );
+  });
+
+  it("SPM-90: names the space of a booking that has no layout set", async () => {
+    const [hall] = (forum() as unknown as { venueBookings: object[] }).venueBookings;
+    open("coordinator", forum({ venueBookings: [{ ...hall, purpose: "Green room", layoutName: null }] }));
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(valueIn("Venue bookings", "Main programme")).toHaveTextContent(
+      "Marina Auditorium (MAR-AUD) · Green room · Layout not set"
+    );
+  });
+
   it("AC3: still shows the attendance and the accessibility needs it has always shown staff", async () => {
     open(
       "safety_officer",

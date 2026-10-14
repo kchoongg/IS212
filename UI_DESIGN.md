@@ -447,7 +447,7 @@ every session has one.
 | S-01 Login | Email, Password | |
 | S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
 | S-13 Event review | Decision (approve / reject / request clarification), Message or Reason | Reason **required** when rejecting — enforced server-side in `events/[id]/route.ts`. |
-| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), Layout (shown), Date, Start time, End time, Venue requirements | Built (SPM-42), in times since SPM-93. Date and times default to the event's or session's own, widened to the 15-minute grid. Times must be on the grid, the end after the start, and cover that time. The setup and turnaround times and the whole room-in-use period are shown under the fields, not chosen. |
+| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), What is this space for?, Expected attendance for this space, Room layout, Date, Start time, End time, Venue requirements | Built (SPM-42), in times since SPM-93. Date and times default to the event's or session's own, widened to the 15-minute grid. Times must be on the grid, the end after the start, and cover that time. The setup and turnaround times and the whole room-in-use period are shown under the fields, not chosen. SPM-90: the three space fields start on the event's (or session's) own attendance and layout, or on what the Venue tab's "The space you need" card was last checked for; the purpose starts as "Main programme" for the first booking and empty for a further one. |
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
 | S-10 Change request | Reason *, Proposed start, Proposed end, Proposed attendance, Other changes | At least one proposed change required. Significant-change warning shown live — see §7.4. |
 | S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup time (minutes), Turnaround time (minutes), Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. Setup and turnaround in 15-minute steps, zero included (SPM-93). |
@@ -501,7 +501,7 @@ getting right.
 
 | Situation | Where | What the user sees |
 | --- | --- | --- |
-| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Capacity 200 — your event expects 250". Not hidden, but it has no "Request booking" button (SPM-42). |
+| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Theatre capacity is 200 - this space expects 250." (the space being booked, SPM-90). Not hidden, but it has no "Request booking" button (SPM-42). |
 | Required facility missing | S-14 | "Missing: hearing loop" listed on the venue card; venue ranked below full matches. |
 | Venue double-booking | S-15 submit, S-22 approve | Blocking error naming the conflicting event and its times, with a link to the S-21 calendar. |
 | Booking overlaps setup/teardown | S-15, S-22 | Blocked, like any clash: a booking occupies the room from its start minus the venue's setup to its end plus its turnaround (Week 7 Change #1, SPM-93), so overlapping either is a double-booking (#35). Periods that only meet end to start do not clash. |
