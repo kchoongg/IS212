@@ -1764,6 +1764,30 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-87 QA fixtures (Conduct Operational Safety Check). The SAME events as
+  // scripts/seed-spm87.ts (`npm run fixtures:spm87`) - keep the two in step.
+  //
+  // The events only. Their dedicated venue (SPM87 Hillside Studio) and its
+  // maintenance period, the bookings, equipment and pending safety checks are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm87 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-87 conduct operational safety check test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm87("spm87_hillside", "SPM87 Hillside Workshop", "safety_review", "2027-10-08", 10, 3, 50,
+      { accessibilityNotes: "Two attendees use wheelchairs; step-free route needed" }),
+    spm87("spm87_lakeside", "SPM87 Lakeside Conference", "safety_review", "2027-10-12", 9, 8, 60),
+    spm87("spm87_waterfront", "SPM87 Waterfront Gala", "safety_review", "2027-10-18", 18, 4, 60),
+    spm87("spm87_rooftop", "SPM87 Rooftop Launch Party", "safety_review", "2027-10-20", 19, 3, 300),
+    spm87("spm87_twin_tab", "SPM87 Twin Tab Briefing", "safety_review", "2027-10-22", 9, 2, 30),
+    spm87("spm87_unsubmitted", "SPM87 Unsubmitted Planning Day", "planning", "2027-10-26", 9, 4, 40),
+  );
+
   // SPM-90 QA fixtures (Check Each Venue Against Its Own Requirements). The
   // SAME events as scripts/seed-spm90.ts (`npm run fixtures:spm90`) - keep the
   // two in step.

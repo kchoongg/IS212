@@ -328,6 +328,7 @@ maps the database string to a human label and a fixed tone:
 | `approved` | Approved | progress (indigo) |
 | `planning` | Planning | progress (indigo) |
 | `safety_review` | Safety review | info (blue) — with the Safety Officer (SPM-86) |
+| `safety_cleared` | Safety approved | progress (indigo) — approved by the Safety Officer, to be confirmed (SPM-87) |
 | `confirmed` | Confirmed | success (green) |
 | `completed` | Completed | neutral (grey) |
 | `postponed` | Postponed | warning (amber) |
@@ -606,6 +607,7 @@ This document specifies the whole first release. What is built so far:
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
 | S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
+| Record safety decision - the Safety Officer, on an event in Safety review (SPM-87): button and dialog (Approve / Request changes / Reject, with a required reason for the last two), the decision on the "Safety check" row, each venue's opening hours and unavailable periods on the Venue bookings card, a "Safety approved" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyDecisionDialog.tsx`, `src/lib/safetyDecision.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |

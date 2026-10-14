@@ -1591,3 +1591,49 @@ describe("Safety review across the lists (SPM-86)", () => {
     expect(options.indexOf("Safety review")).toBe(options.indexOf("Planning") + 1);
   });
 });
+
+// SPM-87: an approved event shows as "Safety approved" (AC7), and has its own
+// list after "Safety review" on the organiser's and coordinator's Dashboard.
+describe("Safety approved across the lists (SPM-87)", () => {
+  const section = (heading: string) => screen.getByRole("heading", { name: heading }).parentElement as HTMLElement;
+  const titlesIn = (heading: string) =>
+    within(section(heading))
+      .queryAllByRole("listitem")
+      .map((li) => li.querySelector("span")!.textContent);
+
+  it("SPM-87-TC05: lists an organiser's Safety approved event under its own heading, after Safety review", async () => {
+    mockApi({
+      ...signedInAs("organiser"),
+      "GET /api/events": [event(1, { title: "Being checked", status: "safety_review" }), event(2, { title: "Passed", status: "safety_cleared" })],
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(titlesIn("Safety approved")).toEqual(["Passed"]));
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings.indexOf("Safety approved")).toBe(headings.indexOf("Safety review") + 1);
+    expect(section("Safety approved")).toHaveTextContent("Events the Safety Officer has approved, waiting to be confirmed.");
+  });
+
+  it("SPM-87-TC04: lists a coordinator's own Safety approved events", async () => {
+    const me = { id: "u1" };
+    mockApi({
+      ...signedInAs("coordinator", me),
+      "GET /api/events": [event(1, { title: "Mine, passed", status: "safety_cleared", coordinatorId: me.id })],
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(titlesIn("Safety approved")).toEqual(["Mine, passed"]));
+  });
+
+  it("offers staff a Safety approved status filter, after Safety review", async () => {
+    mockApi({ ...signedInAs("ops_manager"), "GET /api/events": [] });
+
+    render(<EventsPage />);
+
+    await screen.findByText("No events yet");
+    const options = within(screen.getByLabelText("Filter by status")).getAllByRole("option").map((o) => o.textContent);
+    expect(options.indexOf("Safety approved")).toBe(options.indexOf("Safety review") + 1);
+  });
+});

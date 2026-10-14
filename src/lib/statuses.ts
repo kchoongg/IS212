@@ -23,6 +23,11 @@ const STATUS_META: Record<string, StatusMeta> = {
   // SPM-86: submitted for an Operational Safety Check, waiting on the Safety
   // Officer - waiting on someone else's review, so the same tone as Under review.
   safety_review: { label: "Safety review", tone: "info" },
+  // SPM-87: the Safety Officer approved it; the Coordinator confirms next. A
+  // step towards Confirmed, so the same tone as Approved and Planning.
+  // Stored as safety_cleared: "safety_approved" is already the Readiness
+  // tab's safety check badge (SPM-33).
+  safety_cleared: { label: "Safety approved", tone: "progress" },
   confirmed: { label: "Confirmed", tone: "success" },
   completed: { label: "Completed", tone: "neutral" },
   postponed: { label: "Postponed", tone: "warning" },
@@ -148,7 +153,11 @@ const EVENT_TRANSITIONS: Record<string, readonly string[]> = {
   // (SPM-88) returns the event to Planning. Otherwise it can only be
   // cancelled - not postponed, nor confirmed until approved and back in
   // Planning (decided 2026-10-09).
-  safety_review: ["planning", "cancelled"],
+  // SPM-87: approving moves it on to Safety approved (AC7).
+  safety_review: ["planning", "cancelled", "safety_cleared"],
+  // SPM-87: the Coordinator confirms a safety-approved event; a significant
+  // change returns it to Planning (SPM-88); it can still be cancelled.
+  safety_cleared: ["confirmed", "planning", "cancelled"],
   confirmed: ["completed", "postponed", "cancelled"],
   // Resuming goes back through Approved, so Planning is only ever entered
   // from Approved.

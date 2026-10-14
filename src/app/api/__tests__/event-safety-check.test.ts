@@ -319,15 +319,26 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
     const res = await get(token);
 
     expect(res.status).toBe(200);
+    // CHANGED (SPM-87): the decision fields come too, null while pending.
     expect((await res.json()).safetyCheck).toEqual({
       status: "pending",
       submittedAt: NOW.toISOString(),
       submittedBy: "Daniel Tan",
+      decidedAt: null,
+      decidedBy: null,
+      decisionNote: null,
     });
     expect(callArg(db.event.findUnique).include.safetyChecks).toEqual({
       orderBy: { submittedAt: "desc" },
       take: 1,
-      select: { status: true, submittedAt: true, submitter: { select: { fullName: true } } },
+      select: {
+        status: true,
+        submittedAt: true,
+        submitter: { select: { fullName: true } },
+        decidedAt: true,
+        decider: { select: { fullName: true } },
+        decisionNote: true,
+      },
     });
   });
 

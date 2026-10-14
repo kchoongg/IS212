@@ -25,12 +25,16 @@ import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
 import { isExternalRole } from "@/lib/roles";
+import { decisionDoneMessage, safetyCheckSummary, type SafetyDecision } from "@/lib/safetyDecision";
+import { unavailabilityReasonLabel } from "@/lib/venueUnavailability";
+import { SafetyDecisionDialog } from "./SafetyDecisionDialog";
 import {
   EVENT_INFORMATION_STATUSES,
   can,
   canAssignCoordinator,
   canConfigureRegistration,
   canConfirmEvent,
+  canRecordSafetyDecision,
   canReviewEvent,
   canSubmitForSafetyCheck,
   canUpdateEventInformation,
@@ -87,7 +91,16 @@ interface EventDetail extends RegistrationEvent {
     /// SPM-90: what the space is for; null on a booking made without one.
     purpose?: string | null;
     session: { label: string | null } | null;
-    venue: { name: string; code: string; layouts?: { layoutName: string; capacity: number }[] };
+    venue: {
+      name: string;
+      code: string;
+      layouts?: { layoutName: string; capacity: number }[];
+      /// SPM-87 (AC2): the venue's opening hours and its unavailable periods
+      /// on the event's dates - staff only.
+      opensAt?: string;
+      closesAt?: string;
+      unavailable?: { startsAt: string; endsAt: string; reason: string }[];
+    };
   }[];
   /// A multi-session event's own sessions (SPM-23); empty for an ordinary
   /// event and absent for an Attendee.
@@ -113,7 +126,15 @@ interface EventDetail extends RegistrationEvent {
   /// SPM-86 (AC8): the latest Operational Safety Check, null if the event was
   /// never submitted. Absent for an external user - safety details are
   /// internal (SPM-88), so the organiser sees the Safety review status only.
-  safetyCheck?: { status: string; submittedAt: string; submittedBy: string | null } | null;
+  safetyCheck?: {
+    status: string;
+    submittedAt: string;
+    submittedBy: string | null;
+    /// SPM-87 (AC10): the Safety Officer's decision, who and when, and why.
+    decidedAt?: string | null;
+    decidedBy?: string | null;
+    decisionNote?: string | null;
+  } | null;
 }
 
 /// SPM-85: "14 Jun 2027, 09:00–12:00 · 200 people · Theatre" - what a safety
@@ -139,12 +160,23 @@ function bookingArrangement(booking: NonNullable<EventDetail["venueBookings"]>[n
   return `${room} · ${humanise(booking.layoutName)} · ${seats}`;
 }
 
-/// SPM-86: "Awaiting review · submitted by Daniel Tan, 9 Oct 2026, 14:30".
-/// SPM-87 adds the Safety Officer's decision to the same row.
-function safetyCheckSummary(check: NonNullable<EventDetail["safetyCheck"]>): string {
-  const state = check.status === "pending" ? "Awaiting review" : humanise(check.status);
-  const by = check.submittedBy ? ` by ${check.submittedBy}` : "";
-  return `${state} · submitted${by}, ${formatDateTime(check.submittedAt)}`;
+/// SPM-87 (AC2): the room as SPM-85 words it, then - when the response
+/// carries them - its opening hours and each period it is unavailable on the
+/// event's dates: "Open 08:00–22:00", "Unavailable 8 Oct 2027, 07:00–09:00 (Maintenance)".
+function bookingWithRestrictions(booking: NonNullable<EventDetail["venueBookings"]>[number]): React.ReactNode {
+  const { opensAt, closesAt, unavailable } = booking.venue;
+  if (!opensAt && !unavailable?.length) return bookingArrangement(booking);
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span>{bookingArrangement(booking)}</span>
+      {opensAt && closesAt && <span className="text-ink-3">{`Open ${opensAt}–${closesAt}`}</span>}
+      {unavailable?.map((p) => (
+        <span key={`${p.startsAt}-${p.reason}`} className="text-tone-warning-fg">
+          {`Unavailable ${formatDateTimeRange(p.startsAt, p.endsAt)} (${unavailabilityReasonLabel(p.reason)})`}
+        </span>
+      ))}
+    </span>
+  );
 }
 
 /// "Orchard Seminar Room (ORC-SEM)", or one line per session for a
@@ -186,6 +218,9 @@ export default function EventOverviewPage() {
   // arrangements are ready and the page shows what it says back.
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [submittingSafety, setSubmittingSafety] = useState(false);
+  // SPM-87: the Safety Officer recording their decision.
+  const [decisionOpen, setDecisionOpen] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -322,6 +357,30 @@ export default function EventOverviewPage() {
     }
   }
 
+  async function recordSafetyDecision(decision: SafetyDecision, note: string | undefined) {
+    setDeciding(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/safety-decision`, {
+        method: "POST",
+        body: JSON.stringify(note === undefined ? { decision } : { decision, note }),
+      });
+      if (!res.ok) {
+        // e.g. "This safety check has already been decided." (AC11)
+        setActionError((await res.json().catch(() => ({}))).error ?? "Could not record this safety decision.");
+        return;
+      }
+      setNotice(decisionDoneMessage(decision));
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setDeciding(false);
+      setDecisionOpen(false);
+    }
+  }
+
   // Same fields and checks as the PATCH route, so the button only appears
   // when withdrawing would succeed.
   const showWithdraw = Boolean(
@@ -362,6 +421,23 @@ export default function EventOverviewPage() {
 
   // SPM-86 (AC1, AC7): the assigned coordinator, while the event is in
   // Planning. Readiness is the server's call, as for Confirm.
+  // SPM-87 (AC11, AC12): the Safety Officer, while the event is in Safety review.
+  const showSafetyDecision = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canRecordSafetyDecision(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   const showSafetyCheck = Boolean(
     user &&
     event &&
@@ -476,6 +552,9 @@ export default function EventOverviewPage() {
           <>
             {showSafetyCheck && (
               <Button onClick={() => setSafetyOpen(true)}>Submit for safety check</Button>
+            )}
+            {showSafetyDecision && (
+              <Button onClick={() => setDecisionOpen(true)}>Record safety decision</Button>
             )}
             {showConfirm && (
               <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
@@ -658,7 +737,7 @@ export default function EventOverviewPage() {
                     columns={1}
                     items={event.venueBookings.map((booking) => ({
                       label: booking.session?.label || "Whole event",
-                      value: bookingArrangement(booking),
+                      value: bookingWithRestrictions(booking),
                     }))}
                   />
                 )}
@@ -760,6 +839,14 @@ export default function EventOverviewPage() {
         {event?.title || "This event"} will move to Safety review and the Safety Officer will be
         notified. Anything still outstanding or flagged for review will be listed instead.
       </ConfirmDialog>
+
+      <SafetyDecisionDialog
+        open={decisionOpen}
+        eventTitle={event?.title ?? null}
+        saving={deciding}
+        onRecord={(decision, note) => void recordSafetyDecision(decision, note)}
+        onCancel={() => setDecisionOpen(false)}
+      />
     </div>
   );
 }

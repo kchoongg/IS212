@@ -5,6 +5,7 @@ import ReviewRequestPage from "@/app/events/[id]/review/page";
 import { EventGlance } from "@/app/events/[id]/EventGlance";
 import { ROLES } from "@/lib/roles";
 import {
+  fireEvent,
   mockApi,
   render,
   reply,
@@ -1110,15 +1111,28 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
       expect(terms().indexOf("Safety check")).toBe(terms().indexOf("Status") + 1);
     });
 
-    it("words a later outcome by its status, and leaves out a submitter it does not know", async () => {
+    // CHANGED (SPM-87): a decided check says who decided it and when, with the note.
+    it("SPM-87-TC06: words a decided check with who decided it, when, and the changes required", async () => {
       open(
         "coordinator",
-        event({ safetyCheck: { status: "changes_requested", submittedAt: "2026-10-09T06:30:00.000Z", submittedBy: null } })
+        event({
+          status: "planning",
+          safetyCheck: {
+            status: "changes_requested",
+            submittedAt: "2026-10-09T06:30:00.000Z",
+            submittedBy: "Daniel Tan",
+            decidedAt: "2026-10-13T06:30:00.000Z",
+            decidedBy: "Hana Yusof",
+            decisionNote: "Add a second fire marshal at the east exit.",
+          },
+        })
       );
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
-      expect(valueOf("Safety check")).toHaveTextContent("Changes requested · submitted, 9 Oct 2026, 14:30");
+      expect(valueOf("Safety check")).toHaveTextContent(
+        "Changes requested · decided by Hana Yusof, 13 Oct 2026, 14:30. Changes required: Add a second fire marshal at the east exit."
+      );
     });
 
     it("is not shown for an event that was never submitted", async () => {
@@ -1368,5 +1382,208 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
       expect(screen.queryByRole("button", { name }), name).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name }), name).not.toBeInTheDocument();
     }
+  });
+});
+
+// SPM-87 - Conduct Operational Safety Check, on the event the Safety Officer opens from Safety Checks.
+//
+// CONTRACT (SPM-87, written before the code): a "Record safety decision" button for the Safety
+// Officer while the event is in Safety review (canRecordSafetyDecision); a dialog "Record safety
+// decision" with the radios "Approve", "Request changes", "Reject", a box "Changes required" or
+// "Reason for rejecting" (none for Approve), "Record decision" / "Cancel"; POST
+// /api/events/[id]/safety-decision with { decision, note? }; the done message, or the refusal under
+// the box or in an alert; the event reloaded. SPM-85's "Venue bookings" card adds each venue's
+// opening hours and its unavailable periods on the event's dates (AC2).
+describe("Event overview - recording a safety decision (SPM-87)", () => {
+  const POST = `POST /api/events/${REF}/safety-decision`;
+  const BUTTON = "Record safety decision";
+  const hana = { id: "so1", fullName: "Hana Yusof" };
+  const inReview = (overrides: Record<string, unknown> = {}) =>
+    event({
+      status: "safety_review",
+      safetyCheck: { status: "pending", submittedAt: "2026-10-09T06:30:00.000Z", submittedBy: "Daniel Tan", decidedAt: null, decidedBy: null, decisionNote: null },
+      ...overrides,
+    });
+
+  function open(role = "safety_officer", eventRow: unknown = inReview(), extra: Record<string, unknown> = {}, who: object = hana) {
+    setRoute(`/events/${REF}`, { id: REF });
+    const api = mockApi({ ...signedInAs(role, who), [EVENT]: eventRow, "GET /api/users": [], ...extra });
+    render(<EventOverviewPage />);
+    return api;
+  }
+
+  const dialog = () => dialogTitled("Record safety decision");
+  const ask = async () => userEvent.click(await screen.findByRole("button", { name: BUTTON }));
+  const choose = (name: string) => userEvent.click(within(dialog()).getByRole("radio", { name, hidden: true }));
+  const record = () => userEvent.click(within(dialog()).getByRole("button", { name: "Record decision", hidden: true }));
+
+  it("SPM-87-TC03: is offered to the Safety Officer while the event is in Safety review", async () => {
+    open();
+
+    expect(await screen.findByRole("button", { name: BUTTON })).toBeInTheDocument();
+  });
+
+  it.each(["planning", "safety_cleared", "confirmed"])("SPM-87-TC10: is not offered while the event is %s", async (status) => {
+    open("safety_officer", inReview({ status }));
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["the assigned coordinator", "coordinator", daniel],
+    ["the Ops Manager", "ops_manager", {}],
+  ])("SPM-87-TC11: is not offered to %s", async (_who, role, who) => {
+    open(role, inReview(), {}, who);
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+  });
+
+  it("SPM-87-TC03: offers three decisions and asks for no reason to approve", async () => {
+    open();
+    await ask();
+
+    expect(dialog().open).toBe(true);
+    for (const name of ["Approve", "Request changes", "Reject"]) {
+      expect(within(dialog()).getByRole("radio", { name, hidden: true })).toBeInTheDocument();
+    }
+    expect(within(dialog()).getAllByRole("radio", { hidden: true })).toHaveLength(3);
+    await choose("Approve");
+    expect(within(dialog()).queryByRole("textbox", { hidden: true })).not.toBeInTheDocument();
+  });
+
+  it("SPM-87-TC03: approves, says so, and reloads the event", async () => {
+    const api = open("safety_officer", inReview(), { [POST]: { status: "safety_cleared" } });
+    await ask();
+
+    await choose("Approve");
+    await record();
+
+    expect(api.sent(POST).map((c) => c.body)).toEqual([{ decision: "approved" }]);
+    expect(await screen.findByText("Safety check approved. The coordinator has been notified.")).toBeInTheDocument();
+    await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+    expect(dialog().open).toBe(false);
+  });
+
+  it.each([
+    ["Request changes", "Changes required", "changes_requested", "Changes requested. The event is back in Planning and the coordinator has been notified."],
+    ["Reject", "Reason for rejecting", "rejected", "Safety arrangement rejected. The event is back in Planning and the coordinator has been notified."],
+  ])("SPM-87-TC06/TC07: %s sends the note and says the event is back in Planning", async (choice, box, decision, done) => {
+    const api = open("safety_officer", inReview(), { [POST]: { status: "planning" } });
+    await ask();
+
+    await choose(choice);
+    fireEvent.change(within(dialog()).getByLabelText(box), { target: { value: "Add a marshal." } });
+    await record();
+
+    expect(api.sent(POST).map((c) => c.body)).toEqual([{ decision, note: "Add a marshal." }]);
+    expect(await screen.findByText(done)).toBeInTheDocument();
+  });
+
+  it.each([
+    ["Reject", "Reason for rejecting", "", "Give a reason for rejecting."],
+    ["Request changes", "Changes required", "   ", "Describe the changes required."],
+  ])("SPM-87-TC08: %s without a reason asks for one and sends nothing", async (choice, box, value, message) => {
+    const api = open("safety_officer", inReview(), { [POST]: {} });
+    await ask();
+
+    await choose(choice);
+    fireEvent.change(within(dialog()).getByLabelText(box), { target: { value } });
+    await record();
+
+    expect(within(dialog()).getByText(message)).toBeInTheDocument();
+    expect(dialog().open).toBe(true);
+    expect(api.sent(POST)).toHaveLength(0);
+  });
+
+  it("asks for a choice before recording", async () => {
+    const api = open("safety_officer", inReview(), { [POST]: {} });
+    await ask();
+
+    await record();
+
+    expect(within(dialog()).getByText("Choose a decision.")).toBeInTheDocument();
+    expect(api.sent(POST)).toHaveLength(0);
+  });
+
+  it.each([
+    ["SPM-87-TC09: that it was already decided", reply(400, { error: "This safety check has already been decided." }), "This safety check has already been decided."],
+    ["a general message when the server gives none", reply(500, {}), "Could not record this safety decision."],
+    ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
+  ])("shows %s when it is refused", async (_case, answer, message) => {
+    const api = open("safety_officer", inReview(), { [POST]: answer });
+    await ask();
+
+    await choose("Approve");
+    await record();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(dialog().open).toBe(false);
+    expect(api.sent(EVENT)).toHaveLength(1);
+  });
+
+  it("shows a general message when the server's refusal is not readable", async () => {
+    open("safety_officer", inReview(), { [POST]: reply(502) });
+    await ask();
+
+    await choose("Approve");
+    await record();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not record this safety decision.");
+  });
+
+  it("clears the reason error as soon as one is typed", async () => {
+    open("safety_officer", inReview(), { [POST]: {} });
+    await ask();
+    await choose("Reject");
+    await record();
+    expect(within(dialog()).getByText("Give a reason for rejecting.")).toBeInTheDocument();
+
+    fireEvent.change(within(dialog()).getByLabelText("Reason for rejecting"), { target: { value: "T" } });
+
+    expect(within(dialog()).queryByText("Give a reason for rejecting.")).not.toBeInTheDocument();
+  });
+
+  it("closes without sending anything on Cancel", async () => {
+    const api = open("safety_officer", inReview(), { [POST]: {} });
+    await ask();
+
+    await userEvent.click(within(dialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+    expect(dialog().open).toBe(false);
+    expect(api.sent(POST)).toHaveLength(0);
+  });
+
+  it("SPM-87-TC02: shows each booked venue's opening hours and unavailable periods on the event's dates (AC2)", async () => {
+    open(
+      "safety_officer",
+      inReview({
+        venueBookings: [
+          {
+            startsAt: "2027-10-08T02:00:00.000Z",
+            endsAt: "2027-10-08T05:00:00.000Z",
+            layoutName: "theatre",
+            session: null,
+            venue: {
+              name: "SPM87 Hillside Studio",
+              code: "SPM87-STU",
+              opensAt: "08:00",
+              closesAt: "22:00",
+              layouts: [{ layoutName: "theatre", capacity: 60 }],
+              unavailable: [{ startsAt: "2027-10-07T23:00:00.000Z", endsAt: "2027-10-08T01:00:00.000Z", reason: "maintenance" }],
+            },
+          },
+        ],
+      })
+    );
+
+    await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
+
+    expect(screen.getByText("SPM87 Hillside Studio (SPM87-STU) · Theatre · seats 60")).toBeInTheDocument();
+    expect(screen.getByText("Open 08:00–22:00")).toBeInTheDocument();
+    expect(screen.getByText("Unavailable 8 Oct 2027, 07:00–09:00 (Maintenance)")).toBeInTheDocument();
   });
 });
