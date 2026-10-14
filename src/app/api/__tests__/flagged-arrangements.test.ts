@@ -51,6 +51,9 @@ const FLAGGED_AT = new Date("2026-10-12T02:00:00.000Z");
 const NOT_ASSIGNED = "Only the assigned Coordinator can review this event's flagged arrangements.";
 const NOT_FLAGGED = "This arrangement is not flagged for review.";
 const NOT_FOUND = "This arrangement could not be found.";
+const EVENT_CLOSED = "This event is completed, cancelled, rejected or withdrawn, so its flags are no longer reviewed.";
+const NOTHING_HELD = "This arrangement no longer holds anything, so there is nothing to review.";
+const CLOSED_STATUSES = ["completed", "cancelled", "rejected", "withdrawn"];
 
 function eventOf(overrides: Record<string, unknown> = {}) {
   return {
@@ -525,6 +528,75 @@ describe("POST /api/flagged-arrangements", () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("Validation failed");
     nothingWritten();
+  });
+
+  // The same limits GET lists by: nothing the page would never show can be
+  // kept or reviewed, even by a request made without the page.
+  describe("what the list would never show", () => {
+    it.each(CLOSED_STATUSES)("refuses a booking on a %s event, and clears nothing", async (status) => {
+      found({ booking: bookingRow({ event: eventOf({ status }) }) });
+
+      const res = await keep(BOOKING, coordinator());
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(EVENT_CLOSED);
+      nothingWritten();
+    });
+
+    it.each(CLOSED_STATUSES)("refuses equipment on a %s event, and clears nothing", async (status) => {
+      found({ equipment: equipmentRow({ event: { ...eventOf({ status }), venueBookings: [] } }) });
+
+      const res = await keep(EQUIPMENT, coordinator());
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(EVENT_CLOSED);
+      nothingWritten();
+    });
+
+    it.each(CLOSED_STATUSES)("refuses registrations on a %s event, and clears nothing", async (status) => {
+      found({ event: eventRow({ status }) });
+
+      const res = await keep(REGISTRATIONS, coordinator());
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(EVENT_CLOSED);
+      nothingWritten();
+    });
+
+    it.each(["rejected", "withdrawn", "released"])("refuses a %s booking, and clears nothing", async (status) => {
+      found({ booking: bookingRow({ status }) });
+
+      const res = await keep(BOOKING, coordinator());
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(NOTHING_HELD);
+      nothingWritten();
+    });
+
+    it.each(["unavailable", "cancelled"])("refuses an equipment request that is %s, and clears nothing", async (status) => {
+      found({ equipment: equipmentRow({ status }) });
+
+      const res = await keep(EQUIPMENT, coordinator());
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(NOTHING_HELD);
+      nothingWritten();
+    });
+
+    it.each(["approved", "planning", "safety_review", "confirmed", "postponed"])(
+      "still keeps a booking on an event that is %s",
+      async (status) => {
+        found({ booking: bookingRow({ event: eventOf({ status }) }) });
+
+        expect((await keep(BOOKING, coordinator())).status).toBe(200);
+      }
+    );
+
+    it.each(["requested", "under_review", "partially_fulfilled"])("still keeps an equipment request that is %s", async (status) => {
+      found({ equipment: equipmentRow({ status, quantityReserved: status === "partially_fulfilled" ? 2 : null }) });
+
+      expect((await keep(EQUIPMENT, coordinator())).status).toBe(200);
+    });
   });
 
   describe("keeping a venue booking", () => {

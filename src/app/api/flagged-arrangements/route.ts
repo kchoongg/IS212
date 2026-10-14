@@ -39,6 +39,12 @@ const ONLY_COORDINATORS = "Flagged arrangements are for Event Coordinators";
 const NOT_ASSIGNED = "Only the assigned Coordinator can review this event's flagged arrangements.";
 const NOT_FLAGGED = "This arrangement is not flagged for review.";
 const NOT_FOUND = "This arrangement could not be found.";
+/// The same three limits GET lists by, so nothing can be kept or reviewed
+/// that the page would never show - a direct request included.
+const EVENT_CLOSED = "This event is completed, cancelled, rejected or withdrawn, so its flags are no longer reviewed.";
+const NOTHING_HELD = "This arrangement no longer holds anything, so there is nothing to review.";
+
+const eventClosed = (event: { status: string }) => TERMINAL_EVENT_STATUSES.includes(event.status);
 
 /// The page is the Coordinator's own work list, like the Readiness tab it
 /// feeds: it reuses `event:confirm`, the action a flag stands in the way of
@@ -158,6 +164,8 @@ export async function POST(req: NextRequest) {
       const booking = await prisma.venueBooking.findUnique({ where: { id }, select: FLAGGED_BOOKING_SELECT });
       if (!booking) return refuse(NOT_FOUND, 404);
       if (!assignedTo(booking.event)) return forbidden(NOT_ASSIGNED);
+      if (eventClosed(booking.event)) return refuse(EVENT_CLOSED, 400);
+      if (!REVIEWABLE_BOOKING_STATUSES.includes(booking.status)) return refuse(NOTHING_HELD, 400);
       if (!booking.needsReview) return refuse(NOT_FLAGGED, 400);
 
       const { suitability, availability } = assessBookingRow(booking);
@@ -171,6 +179,8 @@ export async function POST(req: NextRequest) {
       const request = await prisma.equipmentRequest.findUnique({ where: { id }, select: FLAGGED_EQUIPMENT_SELECT });
       if (!request) return refuse(NOT_FOUND, 404);
       if (!assignedTo(request.event)) return forbidden(NOT_ASSIGNED);
+      if (eventClosed(request.event)) return refuse(EVENT_CLOSED, 400);
+      if (!REVIEWABLE_EQUIPMENT_STATUSES.includes(request.status)) return refuse(NOTHING_HELD, 400);
       if (!request.needsReview) return refuse(NOT_FLAGGED, 400);
 
       const availability = await assessEquipmentRow(request);
@@ -184,10 +194,11 @@ export async function POST(req: NextRequest) {
       // here, and no registration is read or written.
       const event = await prisma.event.findUnique({
         where: { id },
-        select: { coordinatorId: true, registrationReviewReason: true },
+        select: { coordinatorId: true, status: true, registrationReviewReason: true },
       });
       if (!event) return refuse(NOT_FOUND, 404);
       if (!assignedTo(event)) return forbidden(NOT_ASSIGNED);
+      if (eventClosed(event)) return refuse(EVENT_CLOSED, 400);
       if (event.registrationReviewReason == null) return refuse(NOT_FLAGGED, 400);
 
       await prisma.event.update({ where: { id }, data: { registrationReviewReason: null } });

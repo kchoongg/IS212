@@ -1002,7 +1002,11 @@ what changed, why, and the migration name if there is one.
     /api/flagged-arrangements { kind: "venue_booking" | "equipment_request" |
     "registrations", id }`. 403 for any role without `event:confirm` and for a
     coordinator the event is not assigned to; 404 for an arrangement that does
-    not exist; 400 when it is not flagged or no longer fits.
+    not exist; 400 when it is not flagged or no longer fits, and 400 for
+    anything the list would never show - an event that is over or called off,
+    a booking that is not pending or approved, an equipment request that is
+    cancelled or could not be provided - so a request made without the page
+    cannot clear those flags either.
   - **What "still meets the event's requirements" means** (decided
     2026-10-13, `src/lib/flaggedArrangements.ts`, pure):
     - Venue booking: SPM-41's suitability check for the event's - or the
