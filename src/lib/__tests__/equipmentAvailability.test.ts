@@ -427,6 +427,12 @@ describe("eventAllowsReserving (SPM-49, BPMN: Technical Support reserves in Plan
     );
   });
 
+  it("SPM-87: says a safety-approved event's equipment stays as it was approved", () => {
+    expect(reservingClosedMessage("safety_cleared")).toBe(
+      "This event has passed its safety check — equipment can't be reserved or updated unless it goes back to planning."
+    );
+  });
+
   it("SPM-86: says the equipment is held still while the Safety Officer checks it", () => {
     expect(reservingClosedMessage("safety_review")).toBe(
       "This event is with the Safety Officer for a safety check — equipment can't be reserved or updated until the check is done."

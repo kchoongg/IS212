@@ -49,9 +49,9 @@
 // the event is in Safety review, which cannot move to Confirmed until the
 // Safety Officer decides (SPM-86's lifecycle). Otherwise it does not stop
 // Confirm yet: that gate is Resolve Safety Check Outcome's (SPM-88, decided
-// 2026-10-08), and the Safety Officer's decision (SPM-87) is not built, so
-// nothing could ever be confirmed if it did. SPM-88 turns it on by setting
-// SAFETY_CHECK_BLOCKS_CONFIRMATION to true.
+// 2026-10-08). The Safety Officer's decision now exists (SPM-87: approving
+// moves the event to Safety approved, stored as safety_cleared), and SPM-88
+// turns the gate on by setting SAFETY_CHECK_BLOCKS_CONFIRMATION to true.
 //
 // ADDING AN ARRANGEMENT: add its kind to ArrangementKind, its data to
 // ConfirmationInput, and a block in arrangementsFor() that builds its row with
