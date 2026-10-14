@@ -11,9 +11,10 @@
 //                            what was true when the flag was raised. Keep is
 //                            refused unless it does (AC6, AC7).
 //
-// "Still fits" for a venue booking (decided 2026-10-13):
-//   suitability   SPM-41's check, for the event's - or the session's - present
-//                 attendance, layout and mandatory facilities.
+// "Still fits" for a venue booking (decided 2026-10-13; spaces 2026-10-15):
+//   suitability   SPM-41's check, for the attendance and layout of the SPACE
+//                 the booking is for (SPM-90, spaceNeeds() below), and the
+//                 event's mandatory facilities.
 //   availability  the venue has not been retired; the booking's own times
 //                 still cover the event's (or session's) present time, the
 //                 rule a new request must pass (SPM-93); and nothing else
@@ -35,7 +36,13 @@ import { REGISTRATION_REASON_PROSE } from "@/lib/registrationSettings";
 import { coversSchedule } from "@/lib/venueBookingRequest";
 import { describeVenueConflict, findVenueConflict, type ConflictVenue } from "@/lib/venueConflict";
 import { IMPACT_REASON_PROSE } from "@/lib/venueImpact";
-import { checkVenueSuitability, describeUnmet, type EventNeeds, type VenueCapabilities } from "@/lib/venueSuitability";
+import {
+  DEFAULT_SPACE_PURPOSE,
+  checkVenueSuitability,
+  describeUnmet,
+  type EventNeeds,
+  type VenueCapabilities,
+} from "@/lib/venueSuitability";
 import type { Interval } from "@/lib/venueTime";
 
 // ---------------------------------------------------------------------------
@@ -65,6 +72,56 @@ export function flagReasons(reviewReason: string | null | undefined): string[] {
 }
 
 // ---------------------------------------------------------------------------
+// WHICH SPACE A BOOKING IS FOR (SPM-90)
+// ---------------------------------------------------------------------------
+//
+// Since SPM-90 an event may book several rooms, each for its own space, and a
+// booking records that space's purpose, attendance and layout - copied from
+// the event when it was requested, unless the Coordinator set them.
+//
+// A flag is re-checked against the space AS IT IS NOW (decided 2026-10-15):
+//   the main programme   the event's own room, so it follows the event: its
+//                        present attendance and layout (or the session's).
+//                        An event that grew from 80 to 150 needs a main room
+//                        for 150, whatever was copied when it was booked.
+//   any other space      e.g. "Breakout room": its own attendance and layout,
+//                        as booked. The event growing does not make a
+//                        30-seat breakout too small for its 30.
+// A space is the main programme when its purpose is SPM-90's default ("Main
+// programme", which the request form gives an event's first room), or when
+// it has none - a booking made before SPM-90.
+
+/// Whether this booking's space is the event's own, and follows the event.
+export function followsEvent(purpose: string | null | undefined): boolean {
+  const named = purpose?.trim().toLowerCase();
+  return !named || named === DEFAULT_SPACE_PURPOSE.toLowerCase();
+}
+
+export interface BookedSpace {
+  purpose?: string | null;
+  /// The space's own attendance, as booked. Null where none was recorded.
+  expectedAttendance?: number | null;
+  /// The space's own layout, as booked. Null for "not set".
+  layoutName?: string | null;
+}
+
+/// The attendance and layout a booking is judged against now: the event's
+/// (or session's) present ones for the main programme, the space's own for
+/// any other - falling back to the event's for an attendance never recorded.
+export function spaceNeeds(
+  booking: BookedSpace,
+  own: { expectedAttendance: number | null; preferredLayout: string | null }
+): { expectedAttendance: number | null; preferredLayout: string | null } {
+  if (followsEvent(booking.purpose)) {
+    return { expectedAttendance: own.expectedAttendance, preferredLayout: own.preferredLayout };
+  }
+  return {
+    expectedAttendance: booking.expectedAttendance ?? own.expectedAttendance,
+    preferredLayout: booking.layoutName ?? null,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // DOES A VENUE BOOKING STILL FIT?
 // ---------------------------------------------------------------------------
 
@@ -75,8 +132,8 @@ export interface FlaggedBookingInput {
   schedule: Interval | null;
   /// Whose time `schedule` is - only for wording the refusal.
   holder: "event" | "session";
-  /// The session's attendance and layout where there is a session; the
-  /// facilities are always the event's.
+  /// The space's attendance and layout (spaceNeeds()); the facilities are
+  /// always the event's.
   needs: EventNeeds;
   venue: ConflictVenue & VenueCapabilities & { isActive: boolean };
 }

@@ -42,6 +42,11 @@ const list = (token?: string) => GET(req("GET", PATH, { token }));
 const keep = (body: unknown, token?: string) => POST(req("POST", PATH, { token, body }));
 
 const coordinator = () => signIn(user("coordinator"));
+const BOOKING_KIND = { kind: "venue_booking", id: ID.booking };
+/// What POST finds when it looks a booking up (the same row GET lists).
+function foundBooking(booking: object) {
+  db.venueBooking.findUnique.mockResolvedValue(booking);
+}
 const OTHER_ROLES = ROLES.filter((role) => !can(role, "event:confirm"));
 
 /// 8 Oct 2027 at a Singapore wall-clock hour.
@@ -262,6 +267,7 @@ describe("GET /api/flagged-arrangements", () => {
         startsAt: "2027-10-08T01:00:00.000Z",
         endsAt: "2027-10-08T09:00:00.000Z",
         layoutName: "theatre",
+        purpose: null,
         flaggedAt: "2026-10-12T02:00:00.000Z",
         reasons: ["the date or time changed", "the expected attendance changed"],
         event: { reference: "EVT-000041", title: "Harbour Summit", status: "planning" },
@@ -370,6 +376,56 @@ describe("GET /api/flagged-arrangements", () => {
     const [booking] = (await (await list(coordinator())).json()).venueBookings;
 
     expect(booking.availability).toEqual({ ok: true, unmet: [] });
+  });
+
+  // SPM-90: which space a booking is for decides what it is held to.
+  describe("each booking's own space (SPM-90)", () => {
+    it("holds the main programme to the event as it is now, whatever was copied when it was booked", async () => {
+      given({
+        bookings: [
+          bookingRow({ purpose: "Main programme", expectedAttendance: 80, event: eventOf({ expectedAttendance: 150 }) }),
+        ],
+      });
+
+      const [booking] = (await (await list(coordinator())).json()).venueBookings;
+
+      expect(booking.purpose).toBe("Main programme");
+      expect(booking.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] });
+    });
+
+    it("holds a breakout room to its own attendance, so an event that grew does not make it unsuitable", async () => {
+      given({
+        bookings: [
+          bookingRow({ purpose: "Breakout room", expectedAttendance: 40, event: eventOf({ expectedAttendance: 150 }) }),
+        ],
+      });
+
+      const [booking] = (await (await list(coordinator())).json()).venueBookings;
+
+      expect(booking.purpose).toBe("Breakout room");
+      expect(booking.suitability).toEqual({ ok: true, unmet: [] });
+    });
+
+    it("holds a breakout room to its own layout, not the event's", async () => {
+      given({
+        bookings: [
+          bookingRow({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "boardroom", event: eventOf({ expectedAttendance: 150 }) }),
+        ],
+      });
+
+      const [booking] = (await (await list(coordinator())).json()).venueBookings;
+
+      expect(booking.suitability).toEqual({ ok: false, unmet: ["Boardroom layout is not offered."] });
+    });
+
+    it("keeps a breakout room the event outgrew, and refuses the main room it outgrew", async () => {
+      const event = eventOf({ expectedAttendance: 150 });
+      foundBooking(bookingRow({ purpose: "Breakout room", expectedAttendance: 40, event }));
+      expect((await keep(BOOKING_KIND, coordinator())).status).toBe(200);
+
+      foundBooking(bookingRow({ purpose: "Main programme", expectedAttendance: 80, event }));
+      expect((await keep(BOOKING_KIND, coordinator())).status).toBe(400);
+    });
   });
 
   it("judges a session's booking by that session's own time, attendance and layout", async () => {

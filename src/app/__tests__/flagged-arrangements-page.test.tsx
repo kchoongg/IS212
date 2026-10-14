@@ -242,6 +242,14 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(itemsOf(await kit())[0]).toHaveTextContent("Marked as not required for this event");
     });
 
+    it("says which space a booking is for (SPM-90)", async () => {
+      open(flagged({ venueBookings: [booking({ purpose: "Breakout room" }), booking({ id: "b2", purpose: null })] }));
+
+      const [named, unnamed] = itemsOf(await bookings());
+      expect(named).toHaveTextContent("Space: Breakout room · 8 Oct 2027, 09:00–17:00");
+      expect(unnamed).not.toHaveTextContent("Space:");
+    });
+
     it("says which session a session's booking is for", async () => {
       open(flagged({ venueBookings: [booking({ session: { id: "s1", label: "Day 1" } })] }));
 

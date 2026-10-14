@@ -22,7 +22,7 @@ import { eventReference, formatVenue } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
-import { layoutLabel } from "@/lib/venueSuitability";
+import { DEFAULT_SPACE_PURPOSE, layoutLabel } from "@/lib/venueSuitability";
 import {
   EMPTY_SEARCH,
   searchFormErrors,
@@ -476,12 +476,19 @@ function VenueSearch() {
                     layout={values.layout}
                     suitabilityHref={reference ? `/events/${reference}/venue` : undefined}
                     // SPM-68 (AC12): the replacement is requested with the
-                    // ordinary request form (S-15), for the same session.
+                    // ordinary request form (S-15), for the same session and
+                    // the same space (SPM-90): what it is for - the main
+                    // programme for a booking made before spaces were named -
+                    // and the attendance and layout searched for.
                     requestHref={
                       replacing && reference
-                        ? `/events/${reference}/booking/new?venue=${venue.id}${
-                            replacing.session ? `&session=${replacing.session.id}` : ""
-                          }`
+                        ? `/events/${reference}/booking/new?${new URLSearchParams({
+                            venue: venue.id,
+                            ...(replacing.session ? { session: replacing.session.id } : {}),
+                            purpose: replacing.purpose?.trim() || DEFAULT_SPACE_PURPOSE,
+                            ...(values.attendance.trim() ? { attendance: values.attendance.trim() } : {}),
+                            layout: values.layout,
+                          })}`
                         : undefined
                     }
                   />

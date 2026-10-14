@@ -498,24 +498,34 @@ describe("Find a venue", () => {
         );
       }
 
-      it("fills the form from the booking's date, times and layout and the event's attendance and requirements", async () => {
-        const api = openToReplace();
+      it("fills the form from a breakout room's date, times, attendance and layout and the event's requirements", async () => {
+        const api = openToReplace([flagged({ purpose: "Breakout room", expectedAttendance: 40 })]);
         await ready();
 
         expect(field("From")).toHaveValue("2027-03-05T08:30");
         expect(field("To")).toHaveValue("2027-03-05T19:00");
-        expect(field("Expected attendance")).toHaveValue(100);
+        expect(field("Expected attendance")).toHaveValue(40);
         expect(field("Room layout")).toHaveValue("banquet");
         expect(screen.getByRole("checkbox", { name: "Hearing loop" })).toBeChecked();
         expect(screen.getByRole("checkbox", { name: "Wi-Fi" })).not.toBeChecked();
         expect(lastQuery(api)).toEqual({
           from: "2027-03-05T08:30",
           to: "2027-03-05T19:00",
-          attendance: "100",
+          attendance: "40",
           layout: "banquet",
           facilityIds: "f-loop",
           event: REF,
         });
+      });
+
+      // SPM-90: the main programme is the event's own room, so it follows the event.
+      it("fills the event's present attendance and layout for the main programme", async () => {
+        openToReplace([flagged({ purpose: "Main programme", expectedAttendance: 60 })]);
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-05T08:30");
+        expect(field("Expected attendance")).toHaveValue(100);
+        expect(field("Room layout")).toHaveValue("theatre");
       });
 
       it("picks the booking named in the address out of the event's bookings", async () => {
@@ -535,13 +545,37 @@ describe("Find a venue", () => {
         ).toBeInTheDocument();
       });
 
-      it("offers to request each matching venue for the event", async () => {
+      // SPM-90: for the same space - what it is for, and the attendance and layout searched for.
+      it("offers to request each matching venue for the same space as the booking being replaced", async () => {
+        openToReplace([flagged({ purpose: "Breakout room", expectedAttendance: 40 })]);
+        await ready();
+
+        expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          `/events/${REF}/booking/new?venue=v1&purpose=Breakout+room&attendance=40&layout=banquet`
+        );
+      });
+
+      it("requests the main programme for a booking made before spaces were named", async () => {
         openToReplace();
         await ready();
 
         expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
           "href",
-          `/events/${REF}/booking/new?venue=v1`
+          `/events/${REF}/booking/new?venue=v1&purpose=Main+programme&attendance=100&layout=theatre`
+        );
+      });
+
+      it("sends the attendance and layout as they are in the form, and leaves out an attendance that was cleared", async () => {
+        openToReplace();
+        await ready();
+
+        set(field("Expected attendance"), "");
+        set(field("Room layout"), "");
+
+        expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          `/events/${REF}/booking/new?venue=v1&purpose=Main+programme&layout=`
         );
       });
 
@@ -551,7 +585,7 @@ describe("Find a venue", () => {
 
         expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
           "href",
-          `/events/${REF}/booking/new?venue=v1&session=s1`
+          `/events/${REF}/booking/new?venue=v1&session=s1&purpose=Main+programme&attendance=100&layout=theatre`
         );
       });
 

@@ -127,6 +127,8 @@ export async function GET(req: NextRequest) {
         startsAt: b.startsAt,
         endsAt: b.endsAt,
         layoutName: b.layoutName,
+        // SPM-90: what the space is for; null on a booking made before it.
+        purpose: b.purpose ?? null,
         flaggedAt: b.flaggedAt,
         reasons: flagReasons(b.reviewReason),
         event: eventSummary(b.event),

@@ -20,7 +20,9 @@ import {
   assessFlaggedBooking,
   assessFlaggedEquipment,
   flagReasons,
+  followsEvent,
   keepRefusal,
+  spaceNeeds,
   registrationCountLine,
   type FlaggedBookingInput,
 } from "../flaggedArrangements";
@@ -86,6 +88,44 @@ describe("flagReasons - why an arrangement was flagged, in words (AC2, AC8)", ()
 
   it.each([null, undefined, ""])("says no reason was recorded for %j", (stored) => {
     expect(flagReasons(stored)).toEqual(["no reason was recorded"]);
+  });
+});
+
+// SPM-90: each booking is for a space. The main programme follows the event;
+// any other space is judged on its own figures, as booked.
+describe("spaceNeeds - which attendance and layout a booking is held to now (SPM-90)", () => {
+  const event = { expectedAttendance: 150, preferredLayout: "theatre" };
+
+  it.each([
+    ["the main programme", "Main programme"],
+    ["the main programme, however it is capitalised or spaced", "  main PROGRAMME "],
+    ["a booking made before SPM-90, with no space", null],
+    ["a booking with an empty purpose", ""],
+  ])("holds %s to the event's present attendance and layout", (_what, purpose) => {
+    expect(spaceNeeds({ purpose, expectedAttendance: 80, layoutName: "classroom" }, event)).toEqual(event);
+    expect(followsEvent(purpose)).toBe(true);
+  });
+
+  it("holds any other space to its own attendance and layout, as booked", () => {
+    expect(spaceNeeds({ purpose: "Breakout room", expectedAttendance: 30, layoutName: "classroom" }, event)).toEqual({
+      expectedAttendance: 30,
+      preferredLayout: "classroom",
+    });
+    expect(followsEvent("Breakout room")).toBe(false);
+  });
+
+  it("falls back to the event's attendance for a space with none recorded, and checks no layout it did not set", () => {
+    expect(spaceNeeds({ purpose: "Breakout room", expectedAttendance: null, layoutName: null }, event)).toEqual({
+      expectedAttendance: 150,
+      preferredLayout: null,
+    });
+  });
+
+  it("does not let an event that grew make a breakout room too small for its own attendance", () => {
+    const breakout = spaceNeeds({ purpose: "Breakout room", expectedAttendance: 30, layoutName: "theatre" }, event);
+    const result = assessFlaggedBooking(input({ needs: { ...breakout, requirements: [] }, venue: venue({ layouts: [{ layoutName: "theatre", capacity: 40 }] }) }));
+
+    expect(result.suitability).toEqual({ ok: true, unmet: [] });
   });
 });
 

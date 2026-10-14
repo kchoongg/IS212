@@ -71,6 +71,8 @@ interface FlaggedBooking {
   startsAt: string;
   endsAt: string;
   layoutName: string | null;
+  /// SPM-90: what the space is for. Null on a booking made before SPM-90.
+  purpose?: string | null;
   reasons: string[];
   event: EventRef;
   session: { id: string; label: string | null } | null;
@@ -268,6 +270,7 @@ function FlaggedArrangementsScreen() {
                     aside={<StatusBadge status={b.status} />}
                     name={formatVenue(b.venue.name, b.venue.code)}
                     detail={[
+                      b.purpose && `Space: ${b.purpose}`,
                       b.session && (b.session.label ?? "Session"),
                       formatDateTimeRange(b.startsAt, b.endsAt),
                       b.layoutName && layoutLabel(b.layoutName),

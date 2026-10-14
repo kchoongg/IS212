@@ -10,6 +10,7 @@ import { loadSingleLineAvailability } from "@/lib/equipmentAvailabilityService";
 import {
   assessFlaggedBooking,
   assessFlaggedEquipment,
+  spaceNeeds,
   type BookingAssessment,
   type EquipmentAssessment,
 } from "@/lib/flaggedArrangements";
@@ -35,6 +36,9 @@ export const FLAGGED_BOOKING_SELECT = {
   startsAt: true,
   endsAt: true,
   layoutName: true,
+  // SPM-90: the space this booking is for.
+  purpose: true,
+  expectedAttendance: true,
   session: {
     select: { id: true, label: true, startsAt: true, endsAt: true, expectedAttendance: true, preferredLayout: true },
   },
@@ -103,8 +107,9 @@ export function eventSummary(event: { sequenceNumber: number; title: string | nu
 }
 
 /// AC4: the booking judged against the event as it is now. A session's
-/// booking is judged by that session's own time, attendance and layout, as a
-/// request for it was (SPM-42); the facilities are always the event's.
+/// booking is held to that session's own time (SPM-42), and every booking to
+/// the attendance and layout of its own space (SPM-90, spaceNeeds()); the
+/// facilities are always the event's.
 export function assessBookingRow(row: FlaggedBookingRow): BookingAssessment {
   const { event, session, venue } = row;
   const schedule = session
@@ -118,8 +123,7 @@ export function assessBookingRow(row: FlaggedBookingRow): BookingAssessment {
     schedule,
     holder: session ? "session" : "event",
     needs: {
-      expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
-      preferredLayout: session ? session.preferredLayout : event.preferredLayout,
+      ...spaceNeeds(row, session ?? event),
       requirements: event.facilityRequirements.map((r) => ({
         facilityId: r.facilityId,
         name: r.facility.name,

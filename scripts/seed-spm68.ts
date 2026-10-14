@@ -112,6 +112,9 @@ type Booking = {
   date?: string;
   /** Marked as not required on the Readiness tab by the coordinator (SPM-33). */
   notRequired?: boolean;
+  /** SPM-90: what the space is for, and its own attendance as booked. */
+  purpose?: string;
+  attendance?: number;
 };
 
 type Fixture = {
@@ -192,6 +195,14 @@ const FIXTURES: Fixture[] = [
   { key: "spm68_waived", title: "SPM68 Waived Room", date: "2027-10-23", attendance: 40,
     bookings: [{ venueCode: "SPM68-ANX", status: "approved", flagged: "event_attendance_changed", notRequired: true }],
     testCases: "TC15" },
+  // SPM-90: the event grew from 80 to 150. Its main room follows it and is now
+  // too small; its breakout room is held to its own 40 and still fits.
+  { key: "spm68_breakout", title: "SPM68 Breakout Growth", date: "2027-10-25", attendance: 150,
+    bookings: [
+      { venueCode: "SPM68-HAL", status: "approved", flagged: "event_attendance_changed", purpose: "Main programme", attendance: 80 },
+      { venueCode: "SPM68-ANX", status: "approved", flagged: "event_attendance_changed", purpose: "Breakout room", attendance: 40 },
+    ],
+    testCases: "TC16" },
   // Called off: nothing left for its flag to go wrong with, so it is not listed.
   { key: "spm68_cancelled", title: "SPM68 Cancelled Day", date: "2027-10-24", attendance: 40, status: "cancelled",
     bookings: [{ venueCode: "SPM68-ANX", status: "approved", flagged: "event_attendance_changed" }],
@@ -398,6 +409,8 @@ async function main() {
           requestedAt: new Date(addDays(now, -4).getTime() + i * 60_000),
           decidedBy: approved ? venueStaff : undefined,
           decidedAt: approved ? addDays(now, -3) : undefined,
+          purpose: b.purpose,
+          expectedAttendance: b.attendance,
           notRequired: b.notRequired ?? false,
           notRequiredBy: b.notRequired ? coordinator : undefined,
           notRequiredAt: b.notRequired ? addDays(now, -1) : undefined,

@@ -796,7 +796,7 @@ traceability the module asks for.
 | `npm run fixtures:spm64` | Adds or resets SPM-64's 12 test events ("SPM64 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm64_`, with their venue bookings (approved, pending, rejected and one with no layout), the booking each capacity is measured against, the registration settings, and registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Stops without changing anything if one of its rooms is already held at that time. Run it before and after any case that saves. The same events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm85` | Creates or refreshes the Safety Officer account (Hana Yusof, `hana.yusof@connectsphere.com`, `password123`) and resets SPM-85's 3 test events ("SPM85 …") without reseeding — upserts that one user, and deletes and recreates only events whose `seedKey` starts with `spm85_`, with the Harbour forum's two sessions, their approved bookings at Marina Auditorium and Orchard Seminar Room, its reserved equipment, required facilities and pending safety check, and the Riverside launch's approved booking and two registrations. No pinned reference numbers: the cases find events by title. SPM-85's cases only read, so one run before a test pass is enough. The account is in the seed's staff list and the events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm51` | Adds or resets SPM-51's 8 test events ("SPM51 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm51_`, with their registration settings (open until 31 Dec 2027, not yet open, closed, no dates, off) and their registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Run it before and after any case that registers. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
-| `npm run fixtures:spm68` | Adds or resets SPM-68's 13 test events ("SPM68 …", 6–24 Oct 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm68_`, puts its five SPM68 test venues and two SPM68 equipment items back to their starting state, and writes the review flags the Flagged Arrangements page lists. Run it after each case that keeps, reviews, requests, releases or confirms (SPM-68-TC14 releases on the Venue tab). |
+| `npm run fixtures:spm68` | Adds or resets SPM-68's 14 test events ("SPM68 …", 6–25 Oct 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm68_`, puts its five SPM68 test venues and two SPM68 equipment items back to their starting state, and writes the review flags the Flagged Arrangements page lists. Run it after each case that keeps, reviews, requests, releases or confirms (SPM-68-TC14 releases on the Venue tab). |
 | `npm run fixtures:spm71` | Creates or refreshes SPM-71's four test accounts (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee; all `password123`), deletes and recreates every notification they hold, and resets SPM-71's 4 events ("SPM71 …", Nov 2027) without reseeding - only those accounts and events whose `seedKey` starts with `spm71_` are touched. The accounts are the story's own so the unread counts the cases quote never move with other testers' work. No pinned reference numbers. Run it before and after any case that marks or opens a notification. The accounts and events, without the notifications or arrangements, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -997,7 +997,10 @@ what changed, why, and the migration name if there is one.
     as `/venues/search?event=<ref>&booking=<id>`, filled in from that booking
     (its date, times and layout; the event's present attendance and mandatory
     requirements), with **Request booking** on each result. Requesting
-    never changes the event or the flagged booking.
+    never changes the event or the flagged booking. Since SPM-90 the link
+    carries the space along - what the flagged booking was for, and the
+    attendance and layout searched for - and the request form now takes
+    `purpose` from its address, as it took `attendance` and `layout`.
   - **The page clears flags; it never changes an arrangement** (decided
     2026-10-13). There is no Release or Withdraw button on it: each flagged
     booking has **Open Venue tab**, and the booking is released where every
@@ -1016,8 +1019,15 @@ what changed, why, and the migration name if there is one.
     cannot clear those flags either.
   - **What "still meets the event's requirements" means** (decided
     2026-10-13, `src/lib/flaggedArrangements.ts`, pure):
-    - Venue booking: SPM-41's suitability check for the event's - or the
-      session's - present attendance, layout and mandatory facilities; the
+    - Venue booking: SPM-41's suitability check for the attendance and layout
+      of the **space** it is for, and the event's mandatory facilities. Since
+      SPM-90 (decided 2026-10-15, `spaceNeeds()`): the main programme - purpose
+      "Main programme", or none on a booking made before SPM-90 - follows the
+      event's (or session's) present attendance and layout; any other space,
+      e.g. a breakout room, is held to its own attendance and layout as booked,
+      so an event that grew does not make it too small. A main room named
+      anything else is held to its own figures too; the Coordinator judges it
+      from the flag reason. The replacement search is filled the same way. The
       venue is not retired; the booking's own times still cover the event's
       present time (the rule a new request must pass, SPM-93); and nothing
       else holds or blocks the room (SPM-44's conflict check).
@@ -1050,7 +1060,7 @@ what changed, why, and the migration name if there is one.
   - **Standalone page, not the Readiness tab:** Readiness is one event at a
     time, and the story asks for the list across events.
   - **Test data:** `npm run fixtures:spm68` - five "SPM68 …" rooms, two
-    equipment items and 13 events, dated October 2027 (the app writes
+    equipment items and 14 events, dated October 2027 (the app writes
     September as "Sept"). It writes the flags directly; what the page shows
     for each is worked out live. The rooms and events are in `prisma/seed.ts`
     after SPM-67's; run the script once after a full reseed.
@@ -1058,8 +1068,9 @@ what changed, why, and the migration name if there is one.
     `flagged-arrangements.test.ts` and `flagged-arrangements-page.test.tsx`;
     extended `venueSearchForm.test.ts`, `venue-search-page.test.tsx` and
     `roles.test.ts`. Manual cases:
-    `docs/test-cases/SPM-68_Test_Cases.xlsx` (15), all passed 2026-10-13,
-    run by hand against the fixtures.
+    `docs/test-cases/SPM-68_Test_Cases.xlsx` (16), all passed, run by hand
+    against the fixtures: TC01-TC15 on 2026-10-13, and TC13 again with TC16
+    (each booking's own space, SPM-90) on 2026-10-15.
   - **Docs:** `UI_DESIGN.md` (S-30, the coordinator's sidebar),
     `docs/PERMISSIONS.md`, `SCHEMA_REFERENCE.md`. Known Gaps: the flag row is
     narrowed to SPM-80's missing reason code.

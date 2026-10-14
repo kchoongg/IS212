@@ -154,16 +154,36 @@ describe("searchFromBooking - replacing a flagged venue booking (SPM-68)", () =>
     expect(values.to).toBe("2026-12-10T19:00");
   });
 
-  it("fills the layout that was booked", () => {
-    expect(searchFromBooking(event(), flagged()).layout).toBe("classroom");
+  // SPM-90: the main programme follows the event; any other space keeps its own.
+  it("fills the event's present attendance and layout for the main programme, whatever was booked", () => {
+    const values = searchFromBooking(
+      event({ expectedAttendance: 260 }),
+      flagged({ purpose: "Main programme", expectedAttendance: 80 })
+    );
+
+    expect(values.attendance).toBe("260");
+    expect(values.layout).toBe("theatre");
   });
 
-  it("falls back to the event's layout for a booking made without one", () => {
-    expect(searchFromBooking(event(), flagged({ layoutName: null })).layout).toBe("theatre");
+  it("treats a booking made before SPM-90, with no space, as the main programme", () => {
+    const values = searchFromBooking(event({ expectedAttendance: 260 }), flagged());
+
+    expect(values.attendance).toBe("260");
+    expect(values.layout).toBe("theatre");
   });
 
-  it("fills the event's present attendance", () => {
-    expect(searchFromBooking(event({ expectedAttendance: 260 }), flagged()).attendance).toBe("260");
+  it("fills a breakout room's own attendance and layout, as booked", () => {
+    const values = searchFromBooking(event(), flagged({ purpose: "Breakout room", expectedAttendance: 30 }));
+
+    expect(values.attendance).toBe("30");
+    expect(values.layout).toBe("classroom");
+  });
+
+  it("leaves the layout open for a breakout room booked without one, and falls back to the event's attendance", () => {
+    const values = searchFromBooking(event(), flagged({ purpose: "Breakout room", expectedAttendance: null, layoutName: null }));
+
+    expect(values.layout).toBe("");
+    expect(values.attendance).toBe("200");
   });
 
   it("fills the event's mandatory facilities and accessibility requirements, not its nice-to-haves", () => {
@@ -174,7 +194,7 @@ describe("searchFromBooking - replacing a flagged venue booking (SPM-68)", () =>
     expect(searchFromBooking(event(), flagged()).building).toBe("");
   });
 
-  it("uses the session's own attendance and layout for a session's booking", () => {
+  it("uses the session's own attendance and layout for a session's main programme", () => {
     const sessions = [
       { id: "s1", startsAt: "2026-12-09T01:00:00.000Z", endsAt: "2026-12-09T04:00:00.000Z", expectedAttendance: 40, preferredLayout: "boardroom" },
     ];
