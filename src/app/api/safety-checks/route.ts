@@ -27,6 +27,9 @@ export async function GET(req: NextRequest) {
 
     const events = await prisma.event.findMany({
       where: { status: "safety_review" },
+      // SPM-87 (AC1): earliest event date first. Was oldest submission
+      // first (SPM-85).
+      orderBy: { startsAt: "asc" },
       select: {
         id: true,
         sequenceNumber: true,
@@ -50,11 +53,6 @@ export async function GET(req: NextRequest) {
       submittedAt: safetyChecks[0]?.submittedAt ?? null,
       submittedBy: safetyChecks[0]?.submitter.fullName ?? null,
     }));
-    // Oldest submission first. An event with no recorded submission should
-    // not exist, but if one does it is listed last rather than dropped.
-    const waitingSince = (row: (typeof rows)[number]) =>
-      row.submittedAt ? new Date(row.submittedAt).getTime() : Number.MAX_SAFE_INTEGER;
-    rows.sort((a, b) => waitingSince(a) - waitingSince(b));
 
     return NextResponse.json(rows);
   } catch (err) {

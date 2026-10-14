@@ -3,10 +3,20 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canViewEvent } from "@/lib/permissions";
 import { parseEventReference } from "@/lib/format";
-import { assessVenues, missingEventInputs, type EventNeeds } from "@/lib/venueSuitability";
+import {
+  SPACE_ATTENDANCE_ERROR,
+  assessVenues,
+  missingEventInputs,
+  parseSpaceAttendance,
+  type EventNeeds,
+} from "@/lib/venueSuitability";
 
 // SPM-41. Every active venue, judged against this event's attendance, layout,
 // facilities and accessibility requirements. Read-only: it books nothing.
+//
+// SPM-90: ?attendance=<n>&layout=<name> judges the venues for one SPACE of the
+// event - a breakout room, say - instead of the event's own attendance and
+// layout. The facilities stay the event's.
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -50,6 +60,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return NextResponse.json({ error: "Session not found for this event" }, { status: 400 });
   }
 
+  const typedAttendance = req.nextUrl.searchParams.get("attendance");
+  const spaceLayout = req.nextUrl.searchParams.get("layout");
+  const spaceAttendance = typedAttendance === null ? undefined : parseSpaceAttendance(typedAttendance);
+  if (spaceAttendance === null) {
+    return NextResponse.json({ error: SPACE_ATTENDANCE_ERROR }, { status: 400 });
+  }
+  const own = session ?? event;
+
   // Retired venues are out of the catalogue, so they are not offered here
   // either - retiring a room has to mean something.
   const venues = await prisma.venue.findMany({
@@ -58,8 +76,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   });
 
   const needs: EventNeeds = {
-    expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
-    preferredLayout: session ? session.preferredLayout : event.preferredLayout,
+    expectedAttendance: spaceAttendance ?? own.expectedAttendance,
+    // An empty ?layout= is the picker's "Not set": no layout to check.
+    preferredLayout: spaceLayout === null ? own.preferredLayout : spaceLayout || null,
     requirements: event.facilityRequirements.map((r) => ({
       facilityId: r.facilityId,
       name: r.facility.name,

@@ -69,6 +69,8 @@ interface Arrangement {
   required: boolean;
   complete: boolean;
   missing: string;
+  /// SPM-90: what a venue booking's space is for.
+  purpose?: string | null;
   flagReason: string;
   waivable: boolean;
   waived: boolean;
@@ -261,6 +263,23 @@ describe("Event Readiness tab (SPM-33)", () => {
   });
 
   describe("what it lists", () => {
+    // SPM-90 AC5 (written before the code).
+    it("SPM-90-TC07: shows what each booked space is for, before its booking status", async () => {
+      open([
+        { ...auditorium, purpose: "Main programme" },
+        { ...studioPending, purpose: "Breakout room" },
+      ]);
+
+      expect(await row("Marina Auditorium")).toHaveTextContent("Space: Main programme · Booking status: Approved");
+      expect(await row("Orchard Studio")).toHaveTextContent("Space: Breakout room · Booking status: Pending");
+    });
+
+    it("SPM-90-TC10: shows no space for a booking made without one", async () => {
+      open([{ ...auditorium, purpose: null }]);
+
+      expect(await row("Marina Auditorium")).not.toHaveTextContent("Space:");
+    });
+
     // AC1, AC2.
     it("lists each venue booking separately, with its own status", async () => {
       open([auditorium, studioPending]);
@@ -452,7 +471,7 @@ describe("Event Readiness tab (SPM-33)", () => {
             [FLAGGED]: live([
               {
                 id: flaggedBooking.id,
-                suitability: { ok: false, unmet: ["Theatre capacity is 100 - your event expects 150."] },
+                suitability: { ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] },
                 availability: { ok: false, unmet: ["Marina Auditorium has been retired."] },
               },
             ]),
@@ -463,7 +482,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         await waitFor(() =>
           expect(item).toHaveTextContent("This booking can't be kept while it doesn't meet the event's requirements.")
         );
-        expect(item).toHaveTextContent("Theatre capacity is 100 - your event expects 150.");
+        expect(item).toHaveTextContent("Theatre capacity is 100 - this space expects 150.");
         expect(item).toHaveTextContent("Marina Auditorium has been retired.");
         expect(keepButton(item)).not.toBeInTheDocument();
         expect(reviewLink(item)).toBeInTheDocument();
@@ -517,7 +536,7 @@ describe("Event Readiness tab (SPM-33)", () => {
 
       // The page's result was out of date: the server still decides (AC7).
       it("shows the server's refusal, and clears nothing", async () => {
-        const refusal = "Marina Auditorium no longer meets this event's requirements: Theatre capacity is 100 - your event expects 150.";
+        const refusal = "Marina Auditorium no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150.";
         openWith([flaggedBooking], { routes: { [KEEP]: reply(400, { error: refusal }) } });
         const item = await row("Marina Auditorium");
         await waitFor(() => expect(keepButton(item)).toBeInTheDocument());

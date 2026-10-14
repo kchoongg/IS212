@@ -495,6 +495,24 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["theatre", 60], ["classroom", 40]],
       facilities: [] },
+    // SPM-90 fixtures (scripts/seed-spm90.ts): a hall that seats the whole
+    // event, a breakout room that only suits a smaller space, and an annexe
+    // without the step-free access every SPM90 event requires.
+    { code: "SPM90-HALL", name: "SPM90 Main Hall", description: "SPM-90 test venue: seats the whole event",
+      building: "Orchard Hub", floor: "L5", maxCapacity: 200, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 200], ["classroom", 120]],
+      facilities: ["Step-free access"] },
+    { code: "SPM90-BRK", name: "SPM90 Breakout Room", description: "SPM-90 test venue: suits a breakout space, not the whole event",
+      building: "Orchard Hub", floor: "L5", maxCapacity: 30, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 30], ["classroom", 20]],
+      facilities: ["Step-free access"] },
+    { code: "SPM90-ANX", name: "SPM90 Annexe", description: "SPM-90 test venue: no step-free access",
+      building: "Orchard Hub", floor: "L5", maxCapacity: 30, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 30], ["classroom", 20]],
+      facilities: [] },
     // SPM-68 fixtures (scripts/seed-spm68.ts): rooms of different sizes for
     // the flagged bookings and their replacement - dedicated, so the live
     // availability the cases quote depends on no one else's bookings. The
@@ -1764,14 +1782,65 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-87 QA fixtures (Conduct Operational Safety Check). The SAME events as
+  // scripts/seed-spm87.ts (`npm run fixtures:spm87`) - keep the two in step.
+  //
+  // The events only. Their dedicated venue (SPM87 Hillside Studio) and its
+  // maintenance period, the bookings, equipment and pending safety checks are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm87 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-87 conduct operational safety check test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm87("spm87_hillside", "SPM87 Hillside Workshop", "safety_review", "2027-10-08", 10, 3, 50,
+      { accessibilityNotes: "Two attendees use wheelchairs; step-free route needed" }),
+    spm87("spm87_lakeside", "SPM87 Lakeside Conference", "safety_review", "2027-10-12", 9, 8, 60),
+    spm87("spm87_waterfront", "SPM87 Waterfront Gala", "safety_review", "2027-10-18", 18, 4, 60),
+    spm87("spm87_rooftop", "SPM87 Rooftop Launch Party", "safety_review", "2027-10-20", 19, 3, 300),
+    spm87("spm87_twin_tab", "SPM87 Twin Tab Briefing", "safety_review", "2027-10-22", 9, 2, 30),
+    spm87("spm87_unsubmitted", "SPM87 Unsubmitted Planning Day", "planning", "2027-10-26", 9, 4, 40),
+  );
+
+  // SPM-90 QA fixtures (Check Each Venue Against Its Own Requirements). The
+  // SAME events as scripts/seed-spm90.ts (`npm run fixtures:spm90`) - keep the
+  // two in step.
+  //
+  // The events and their mandatory "Step-free access" requirement (in the
+  // facility requirements block below). Their bookings - each with what its
+  // space is for and that space's own attendance and layout - and the Two-Day
+  // Forum's sessions are created by that script alone, so run it once after a
+  // full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm90 = (key: string, title: string, date: string, durationHours: number): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-90 check each venue against its own requirements test event", category: "conference",
+    days: daysUntil(date), startHour: 9, durationHours, attendance: 150, layout: "theatre",
+  });
+  const SPM90_EVENTS: EventSeed[] = [
+    spm90("spm90_conference", "SPM90 Annual Conference", "2027-09-07", 8),
+    spm90("spm90_training", "SPM90 Training Day", "2027-09-09", 8),
+    spm90("spm90_expo", "SPM90 Product Expo", "2027-09-14", 8),
+    spm90("spm90_awards", "SPM90 Awards Night", "2027-09-16", 8),
+    spm90("spm90_solo", "SPM90 Solo Seminar", "2027-09-21", 3),
+    // Runs from Day 1's start (23 Sep 09:00) to Day 2's end (24 Sep 12:00).
+    spm90("spm90_forum", "SPM90 Two-Day Forum", "2027-09-23", 27),
+  ];
+  eventData.push(...SPM90_EVENTS);
+
   // SPM-68 QA fixtures (Review Flagged Arrangements). The SAME events as
   // scripts/seed-spm68.ts (`npm run fixtures:spm68`) - keep the two in step.
   //
   // The events only. Their bookings, equipment reservations, registrations
   // and review flags - and the two SPM68 equipment items - are created by
   // that script alone, so run it once after a full reseed.
-  // Pushed LAST, after SPM-67, so no earlier event's EVT- reference number
-  // shifts. Add new events AFTER this block.
+  // Pushed LAST, after SPM-87 and SPM-90, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER this block.
   // -----------------------------------------------------------------
   const spm68 = (
     key: string, title: string, date: string, attendance: number, extra: Partial<EventSeed> = {}
@@ -1881,6 +1950,9 @@ async function main() {
       ["Livestream capability", true], ["Green room", false]]],
     ["spm28_approve", [["Built-in PA system", true], ["Fixed ceiling projector", true]]],
   );
+  // SPM-90 fixtures - same as scripts/seed-spm90.ts: every space of these
+  // events, a breakout room included, must have step-free access.
+  facReqs.push(...SPM90_EVENTS.map((e): [string, [string, boolean][]] => [e.key, [["Step-free access", true]]]));
   for (const [eventKey, reqs] of facReqs) {
     for (const [facilityName, isMandatory] of reqs) {
       await prisma.eventFacilityRequirement.create({
@@ -2023,6 +2095,10 @@ async function main() {
       data: {
         eventId: ev.id,
         venueId: venues[venueCode],
+        // SPM-90: each of these is its event's only room, so its space is the
+        // main programme, on the event's own attendance and layout.
+        purpose: "Main programme",
+        expectedAttendance: seed.attendance,
         layoutName: seed.layout,
         startsAt: ev.startsAt!,
         endsAt: ev.endsAt!,

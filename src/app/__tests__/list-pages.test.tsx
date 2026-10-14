@@ -766,6 +766,27 @@ describe("Booking Requests", () => {
       expect(within(it_).queryByText("Event time")).not.toBeInTheDocument();
     });
 
+    // SPM-90 (AC5): Venue Staff see what the room is wanted for, and that
+    // space's own attendance rather than the event's total.
+    it("SPM-90-TC06: shows what the space is for, with its own attendance", async () => {
+      open({ [LIST]: [request({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "classroom" })] });
+
+      const it_ = await card();
+
+      expect(valueOf(it_, "Space")).toHaveTextContent(/^Breakout room$/);
+      expect(valueOf(it_, "Layout")).toHaveTextContent("Classroom");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^20$/);
+    });
+
+    it("SPM-90-TC10: says the space was not recorded on a request made before it was asked for", async () => {
+      open({ [LIST]: [request({ purpose: null, expectedAttendance: null })] });
+
+      const it_ = await card();
+
+      expect(valueOf(it_, "Space")).toHaveTextContent("Not recorded");
+      expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^120$/);
+    });
+
     it("falls back to the event's attendance for a session that gives none, and names an unnamed session", async () => {
       open({
         [LIST]: [
@@ -1568,5 +1589,51 @@ describe("Safety review across the lists (SPM-86)", () => {
     const options = within(screen.getByLabelText("Filter by status")).getAllByRole("option").map((o) => o.textContent);
     expect(options).toContain("Safety review");
     expect(options.indexOf("Safety review")).toBe(options.indexOf("Planning") + 1);
+  });
+});
+
+// SPM-87: an approved event shows as "Safety approved" (AC7), and has its own
+// list after "Safety review" on the organiser's and coordinator's Dashboard.
+describe("Safety approved across the lists (SPM-87)", () => {
+  const section = (heading: string) => screen.getByRole("heading", { name: heading }).parentElement as HTMLElement;
+  const titlesIn = (heading: string) =>
+    within(section(heading))
+      .queryAllByRole("listitem")
+      .map((li) => li.querySelector("span")!.textContent);
+
+  it("SPM-87-TC05: lists an organiser's Safety approved event under its own heading, after Safety review", async () => {
+    mockApi({
+      ...signedInAs("organiser"),
+      "GET /api/events": [event(1, { title: "Being checked", status: "safety_review" }), event(2, { title: "Passed", status: "safety_cleared" })],
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(titlesIn("Safety approved")).toEqual(["Passed"]));
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings.indexOf("Safety approved")).toBe(headings.indexOf("Safety review") + 1);
+    expect(section("Safety approved")).toHaveTextContent("Events the Safety Officer has approved, waiting to be confirmed.");
+  });
+
+  it("SPM-87-TC04: lists a coordinator's own Safety approved events", async () => {
+    const me = { id: "u1" };
+    mockApi({
+      ...signedInAs("coordinator", me),
+      "GET /api/events": [event(1, { title: "Mine, passed", status: "safety_cleared", coordinatorId: me.id })],
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(titlesIn("Safety approved")).toEqual(["Mine, passed"]));
+  });
+
+  it("offers staff a Safety approved status filter, after Safety review", async () => {
+    mockApi({ ...signedInAs("ops_manager"), "GET /api/events": [] });
+
+    render(<EventsPage />);
+
+    await screen.findByText("No events yet");
+    const options = within(screen.getByLabelText("Filter by status")).getAllByRole("option").map((o) => o.textContent);
+    expect(options.indexOf("Safety approved")).toBe(options.indexOf("Safety review") + 1);
   });
 });

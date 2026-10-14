@@ -37,7 +37,7 @@
         <mxCell id="n_withdrawn" parent="1" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fontSize=13;strokeWidth=1.4;fillColor=#EDE4F3;strokeColor=#B79AC9;" value="Withdrawn" vertex="1">
           <mxGeometry height="56" width="150" x="255" y="232" as="geometry" />
         </mxCell>
-        <mxCell id="n_notes" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#555555;strokeColor=none;fillColor=none;" value="Cancel: the assigned Event Coordinator may cancel at any stage; only the arrows from Planning, Confirmed and Postponed are drawn.&#xa;Safety review (Week 7 change #6, SPM-86): the assigned Event Coordinator submits a Planning event whose arrangements are held for the Safety Officer&#39;s Operational Safety Check. The Safety Officer&#39;s decision (SPM-87), or a significant change while it is pending (SPM-88), returns it to Planning; an approved event is then confirmed from Planning. It can also be cancelled.&#xa;Withdraw: recorded by the Event Coordinator when the organiser asks, outside the system, to withdraw a request that is under review.&#xa;Significant change: a change to date / time, attendance, venue or equipment requirements on a confirmed event returns it to Planning so the affected arrangements are re-checked.&#xa;Venue retired or marked unavailable: the event keeps its status and its information; the affected venue booking is flagged for the Event Coordinator to review (Week 7 Change #2)." vertex="1">
+        <mxCell id="n_notes" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#555555;strokeColor=none;fillColor=none;" value="Cancel: the assigned Event Coordinator may cancel at any stage; only the arrows from Planning, Confirmed and Postponed are drawn.&#xa;Safety review (Week 7 change #6, SPM-86): the assigned Event Coordinator submits a Planning event whose arrangements are held for the Safety Officer&#39;s Operational Safety Check. The Safety Officer approves it into Safety approved (SPM-87), from which the coordinator confirms it; rejecting or requesting changes (SPM-87), or a significant change while it is pending (SPM-88), returns it to Planning. A significant change to a Safety approved event also returns it to Planning (SPM-88). Both can be cancelled.&#xa;Withdraw: recorded by the Event Coordinator when the organiser asks, outside the system, to withdraw a request that is under review.&#xa;Significant change: a change to date / time, attendance, venue or equipment requirements on a confirmed event returns it to Planning so the affected arrangements are re-checked.&#xa;Venue retired or marked unavailable: the event keeps its status and its information; the affected venue booking is flagged for the Event Coordinator to review (Week 7 Change #2)." vertex="1">
           <mxGeometry height="76" width="1100" x="55" y="362" as="geometry" />
         </mxCell>
         <mxCell id="id101" edge="1" parent="1" source="n_draft" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_submitted" value="submit">
@@ -143,7 +143,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="e_safety_returned" edge="1" parent="1" source="n_safety_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.93;entryY=1;entryDx=0;entryDy=0;" target="n_planning" value="decision / significant change">
+        <mxCell id="e_safety_returned" edge="1" parent="1" source="n_safety_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.93;entryY=1;entryDx=0;entryDy=0;" target="n_planning" value="reject / changes requested / significant change">
           <mxGeometry relative="1" as="geometry">
             <Array as="points">
               <mxPoint x="1045" y="180" />
@@ -152,6 +152,15 @@
         </mxCell>
         <mxCell id="n_notes_week7" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=11;fontColor=#555555;strokeColor=none;fillColor=none;" value="Assignment (Week 7 change #5): a submitted request waits in the unassigned queue until the Event Coordinator Lead assigns an Event Coordinator. Reassigning it later does not change the status.&#xa;Venues (Week 7 changes #1, #3 and #4): an event may hold several venue bookings, each checked on its own with the venue&#39;s setup and turnaround time, and it is ready for the safety check only when every venue it needs is approved. A tentative hold that expires, or a change to one booking, does not change the event&#39;s status or its other bookings." vertex="1">
           <mxGeometry height="62" width="1100" x="55" y="446" as="geometry" />
+        </mxCell>
+        <mxCell id="n_safety_approved" parent="1" style="rounded=1;arcSize=20;whiteSpace=wrap;html=1;fontSize=13;strokeWidth=1.4;fillColor=#E3EFD9;strokeColor=#96C378;" value="Safety approved" vertex="1">
+          <mxGeometry height="46" width="120" x="1215" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="e_safety_approve" edge="1" parent="1" source="n_safety_review" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_safety_approved" value="approve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_safety_confirm" edge="1" parent="1" source="n_safety_approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#444444;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.9;entryY=1;entryDx=0;entryDy=0;" target="n_confirmed" value="confirm">
+          <mxGeometry relative="1" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

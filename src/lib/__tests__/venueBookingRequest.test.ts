@@ -237,7 +237,7 @@ describe("checkVenueBookingRequest", () => {
     const result = checkVenueBookingRequest({ ...base, needs: { ...base.needs, expectedAttendance: 200 } });
     expect(result).toEqual({
       ok: false,
-      error: "SPM93 Studio is not suitable for this event: Theatre capacity is 60 - your event expects 200.",
+      error: "SPM93 Studio is not suitable for this space: Theatre capacity is 60 - this space expects 200.",
     });
   });
 

@@ -472,6 +472,30 @@ describe("PATCH /api/venues/[id]", () => {
       expect(body.flaggedBookings).toEqual([]);
     });
 
+    // SPM-90: an event may book several rooms, each for its own space.
+    it("SPM-90: judges a booking by its own space's attendance, ahead of the session's and the event's", async () => {
+      // 250 for the event and 180 for the session would both be flagged by a
+      // room cut to 100; the 20-person breakout space still fits.
+      const token = given(venue(), [
+        booking(
+          { expectedAttendance: 20, sessionId: ID.session, session: { label: "Day 1", expectedAttendance: 180 } },
+          { expectedAttendance: 250 }
+        ),
+      ]);
+
+      const body = await (await patch(token, { maxCapacity: 100 })).json();
+
+      expect(body.flaggedBookings).toEqual([]);
+    });
+
+    it("SPM-90: flags a booking whose own space no longer fits, though the event's attendance would", async () => {
+      const token = given(venue(), [booking({ expectedAttendance: 150 }, { expectedAttendance: 50 })]);
+
+      const body = await (await patch(token, { maxCapacity: 100 })).json();
+
+      expect(body.flaggedBookings).toHaveLength(1);
+    });
+
     it("flags a booking whose layout is removed, and replaces the layouts wholesale", async () => {
       const token = given(venue(), [booking()]);
       const layouts = [{ layoutName: "banquet", capacity: 200 }];

@@ -166,7 +166,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
         flagged({
           venueBookings: [
             booking({
-              suitability: { ok: false, unmet: ["Theatre capacity is 100 - your event expects 150."] },
+              suitability: { ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] },
               availability: { ok: false, unmet: ["Hall has been retired."] },
             }),
           ],
@@ -175,14 +175,14 @@ describe("Flagged Arrangements (SPM-68)", () => {
 
       const [item] = itemsOf(await bookings());
       expect(item).toHaveTextContent("Suitability: Not suitable");
-      expect(item).toHaveTextContent("Theatre capacity is 100 - your event expects 150.");
+      expect(item).toHaveTextContent("Theatre capacity is 100 - this space expects 150.");
       expect(item).toHaveTextContent("Availability: Not available");
       expect(item).toHaveTextContent("Hall has been retired.");
     });
 
     // AC7: a booking that no longer fits is not offered Keep at all.
     it.each([
-      ["not suitable", { suitability: { ok: false, unmet: ["Theatre capacity is 100 - your event expects 150."] } }],
+      ["not suitable", { suitability: { ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] } }],
       ["not available", { availability: { ok: false, unmet: ["Hall has been retired."] } }],
     ])("offers no Keep booking for a booking that is %s, and says why it can't be kept", async (_what, result) => {
       open(flagged({ venueBookings: [booking(result)] }));
@@ -461,9 +461,9 @@ describe("Flagged Arrangements (SPM-68)", () => {
     // AC7.
     // The booking fitted when the page loaded; the event's attendance was raised since.
     it("shows the server's refusal in the item, and leaves it listed", async () => {
-      const refusal = "Hall no longer meets this event's requirements: Theatre capacity is 100 - your event expects 150.";
+      const refusal = "Hall no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150.";
       const api = open(flagged({ venueBookings: [booking()] }), {
-        [KEEP]: reply(400, { error: refusal, unmet: ["Theatre capacity is 100 - your event expects 150."] }),
+        [KEEP]: reply(400, { error: refusal, unmet: ["Theatre capacity is 100 - this space expects 150."] }),
       });
       const [item] = itemsOf(await bookings());
 

@@ -14,6 +14,7 @@ import {
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
+import { dayIndex, dayStart } from "@/lib/equipmentAvailability";
 import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
@@ -76,8 +77,21 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                 startsAt: true,
                 endsAt: true,
                 layoutName: true,
+                // SPM-90 (AC5): what each booked space is for.
+                purpose: true,
                 session: { select: { label: true } },
-                venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+                // SPM-87 (AC2): with id and opening hours, and - added below -
+                // its unavailable periods on the event's dates.
+                venue: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                    opensAt: true,
+                    closesAt: true,
+                    layouts: { select: { layoutName: true, capacity: true } },
+                  },
+                },
               },
               orderBy: { startsAt: "asc" },
             },
@@ -105,7 +119,15 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             safetyChecks: {
               orderBy: { submittedAt: "desc" },
               take: 1,
-              select: { status: true, submittedAt: true, submitter: { select: { fullName: true } } },
+              select: {
+                status: true,
+                submittedAt: true,
+                submitter: { select: { fullName: true } },
+                // SPM-87 (AC10): the Safety Officer's decision, who and when.
+                decidedAt: true,
+                decider: { select: { fullName: true } },
+                decisionNote: true,
+              },
             },
           },
         });
@@ -143,8 +165,16 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     ? rest
     : {
         ...rest,
+        venueBookings: await withVenueRestrictions(rest),
         safetyCheck: latest
-          ? { status: latest.status, submittedAt: latest.submittedAt, submittedBy: latest.submitter?.fullName ?? null }
+          ? {
+              status: latest.status,
+              submittedAt: latest.submittedAt,
+              submittedBy: latest.submitter?.fullName ?? null,
+              decidedAt: latest.decidedAt ?? null,
+              decidedBy: latest.decider?.fullName ?? null,
+              decisionNote: latest.decisionNote ?? null,
+            }
           : null,
       };
   if (actor.role === "attendee") {
@@ -168,6 +198,37 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     );
   }
   return NextResponse.json(visibleEventFor(actor, shaped));
+}
+
+/// SPM-87 (AC2): "any recorded venue restrictions or unavailable periods" -
+/// each booked venue's VenueUnavailability periods (SPM-45) that touch the
+/// event's Singapore dates, for the safety review. Internal users only, like
+/// the Venue bookings card that shows them.
+async function withVenueRestrictions<B extends { venue: { id: string } }>(event: {
+  startsAt: Date | null;
+  endsAt: Date | null;
+  venueBookings?: B[];
+}) {
+  const bookings = event.venueBookings;
+  if (!bookings || bookings.length === 0 || !event.startsAt || !event.endsAt) return bookings;
+  const periods = await prisma.venueUnavailability.findMany({
+    where: {
+      venueId: { in: [...new Set(bookings.map((b) => b.venue.id))] },
+      startsAt: { lt: dayStart(dayIndex(event.endsAt) + 1) },
+      endsAt: { gt: dayStart(dayIndex(event.startsAt)) },
+    },
+    select: { venueId: true, startsAt: true, endsAt: true, reason: true },
+    orderBy: { startsAt: "asc" },
+  });
+  return bookings.map((b) => ({
+    ...b,
+    venue: {
+      ...b.venue,
+      unavailable: periods
+        .filter((p) => p.venueId === b.venue.id)
+        .map(({ startsAt, endsAt, reason }) => ({ startsAt, endsAt, reason })),
+    },
+  }));
 }
 
 /**

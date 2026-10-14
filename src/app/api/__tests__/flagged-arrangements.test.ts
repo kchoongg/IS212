@@ -278,7 +278,7 @@ describe("GET /api/flagged-arrangements", () => {
 
     const [booking] = (await (await list(coordinator())).json()).venueBookings;
 
-    expect(booking.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - your event expects 150."] });
+    expect(booking.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] });
     expect(booking.availability).toEqual({ ok: true, unmet: [] });
   });
 
@@ -387,7 +387,7 @@ describe("GET /api/flagged-arrangements", () => {
 
     expect(booking.session).toEqual({ id: ID.session, label: "Day 1" });
     // The event expects 80, which fits; the session's 120 does not.
-    expect(booking.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - your event expects 120."] });
+    expect(booking.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - this space expects 120."] });
   });
 
   // AC2, AC5.
@@ -629,8 +629,8 @@ describe("POST /api/flagged-arrangements", () => {
 
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({
-        error: "Hall no longer meets this event's requirements: Theatre capacity is 100 - your event expects 150.",
-        unmet: ["Theatre capacity is 100 - your event expects 150."],
+        error: "Hall no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150.",
+        unmet: ["Theatre capacity is 100 - this space expects 150."],
       });
       nothingWritten();
     });
@@ -668,9 +668,9 @@ describe("POST /api/flagged-arrangements", () => {
 
       const body = await (await keep(BOOKING, coordinator())).json();
 
-      expect(body.unmet).toEqual(["Theatre capacity is 100 - your event expects 150.", "Hall has been retired."]);
+      expect(body.unmet).toEqual(["Theatre capacity is 100 - this space expects 150.", "Hall has been retired."]);
       expect(body.error).toBe(
-        "Hall no longer meets this event's requirements: Theatre capacity is 100 - your event expects 150. Hall has been retired."
+        "Hall no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150. Hall has been retired."
       );
     });
 

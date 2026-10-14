@@ -24,6 +24,9 @@ const BOOKING_FIELDS = {
   startsAt: true,
   endsAt: true,
   layoutName: true,
+  // SPM-90: what the space is for, and its own attendance.
+  purpose: true,
+  expectedAttendance: true,
   requirementsNote: true,
   requestedAt: true,
   // SPM-43: Venue Staff's decision, for the coordinator to act on (AC6).
@@ -79,7 +82,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         : null;
 
   return NextResponse.json({
-    event: { title: event.title, preferredLayout: event.preferredLayout },
+    // SPM-90 (AC2): the attendance and layout a request starts on.
+    event: { title: event.title, preferredLayout: event.preferredLayout, expectedAttendance: event.expectedAttendance },
     schedule: { startsAt: event.startsAt, endsAt: event.endsAt },
     sessions: event.sessions.map((s) => ({
       id: s.id,
@@ -132,8 +136,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Set the event date and time before requesting a venue." }, { status: 400 });
     }
 
-    // D11: a session's own attendance and layout, the event's facilities.
-    const preferredLayout = session ? session.preferredLayout : event.preferredLayout;
+    // SPM-90: the space's own attendance and layout where the Coordinator gave
+    // them. Otherwise (AC2, and D11) the session's own, else the event's. The
+    // facilities are always the event's.
+    const own = session ?? event;
+    const expectedAttendance = data.expectedAttendance ?? own.expectedAttendance;
+    const preferredLayout = data.layoutName !== undefined ? data.layoutName : own.preferredLayout;
 
     // The check and the insert are one step. Read before the transaction, two
     // coordinators asking for the same slot at the same moment could each
@@ -173,7 +181,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           : { kind: "event", name: event.title ?? "This event" },
         schedule,
         needs: {
-          expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
+          expectedAttendance,
           preferredLayout,
           requirements: event.facilityRequirements.map((r) => ({
             facilityId: r.facilityId,
@@ -205,6 +213,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           eventId: event.id,
           sessionId: session?.id,
           venueId: venue.id,
+          purpose: data.purpose,
+          expectedAttendance,
           layoutName: preferredLayout,
           startsAt: check.window.startsAt,
           endsAt: check.window.endsAt,

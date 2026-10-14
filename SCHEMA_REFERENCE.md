@@ -31,8 +31,9 @@ Copy from here rather than typing from memory.
 | Field | Allowed values |
 |---|---|
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
-| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `confirmed` `completed` `cancelled` `rejected` `postponed` |
+| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `safety_cleared` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `SafetyCheck.status` | `pending` (SPM-86) `approved` `changes_requested` `rejected` (SPM-87) `closed` (SPM-88) |
+| *(note)* | `Event.status = safety_cleared` is shown as **"Safety approved"** (SPM-87). It is not `safety_approved`, which is the Readiness tab's safety-check badge key (SPM-33). |
 | `VenueBooking.status` | `pending` `approved` `rejected` `withdrawn` `released` |
 | `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
@@ -381,7 +382,9 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `eventId` | String | req |  |
 | `sessionId` | String |  | Set only for a multi-session event's session-specific booking. NULL means the booking applies to the whole event, as before EventSession existed. |
 | `venueId` | String | req |  |
-| `layoutName` | String |  | What Venue Staff physically set up. |
+| `layoutName` | String |  | What Venue Staff physically set up. Since SPM-90 the layout of THIS space, which may differ from the event's preferred layout. |
+| `purpose` | String |  | What this space is for, in the Coordinator's words - "Main programme", "Breakout room" (SPM-90). Up to 100 characters. NULL on a booking made before SPM-90. |
+| `expectedAttendance` | Int |  | How many people THIS space is for - what the venue was judged against, not the event's total (SPM-90). Copied at request time. Existing bookings were filled from their session or event. |
 | `startsAt` | DateTime | req | COPIED from the event (or session) at request time. Do not read it live - changing an event must not silently move an approved booking. |
 | `endsAt` | DateTime | req |  |
 | `status` | String |  | pending \| approved \| rejected \| withdrawn \| released. `pending` and `approved` hold the venue (see Watch out); `withdrawn` (was pending) and `released` (was approved) are the assigned Coordinator taking it back (SPM-67) and hold nothing. Defaults to `"pending"`. |
@@ -559,7 +562,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45), `safety_check_submitted` (SPM-86, to every `safety_officer`), `equipment_unavailable` (SPM-55, to the coordinator of each reservation left short). |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45), `safety_check_submitted` (SPM-86, to every `safety_officer`), `equipment_unavailable` (SPM-55, to the coordinator of each reservation left short), `safety_check_decided` (SPM-87, to the assigned coordinator, with the reason or changes). |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |

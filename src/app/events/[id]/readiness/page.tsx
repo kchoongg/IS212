@@ -40,6 +40,8 @@ interface Arrangement {
   status: string | null;
   state: string;
   missing: string;
+  /// SPM-90: what a venue booking's space is for; null or absent otherwise.
+  purpose?: string | null;
   /// Why it is flagged for review, in words. "" when it is not flagged.
   flagReason?: string;
   waivable: boolean;
@@ -387,6 +389,8 @@ export default function EventReadinessPage() {
                         const session = arrangement.session
                           ? `Session: ${arrangement.session.label ?? "unnamed session"}`
                           : null;
+                        // SPM-90 (AC5): what a booked space is for.
+                        const space = arrangement.purpose ? `Space: ${arrangement.purpose}` : null;
                         // SPM-68: a flagged arrangement is kept here or on the
                         // Flagged Arrangements page, and replaced from there -
                         // not resolved by marking it as not required. Shown to
@@ -434,9 +438,9 @@ export default function EventReadinessPage() {
 
                             <div className="min-w-0">
                               <p className="font-medium text-ink">{arrangement.name}</p>
-                              {(session || ownStatus) && (
+                              {(session || space || ownStatus) && (
                                 <p className="mt-0.5 text-sm text-ink-3">
-                                  {[session, ownStatus].filter(Boolean).join(" · ")}
+                                  {[session, space, ownStatus].filter(Boolean).join(" · ")}
                                 </p>
                               )}
                               {arrangement.missing && (

@@ -48,10 +48,21 @@ describe("GET /api/safety-checks", () => {
     expect(callArg(db.event.findMany).where).toEqual({ status: "safety_review" });
   });
 
-  it("says who submitted each event for its check and when, oldest submission first", async () => {
+  // CHANGED (SPM-87 AC1): "earliest event date first" - the database orders
+  // by the event's start, and the list keeps that order whatever the
+  // submission dates. Was oldest submission first (SPM-85).
+  it("SPM-87-TC01: lists the events earliest event date first", async () => {
+    db.event.findMany.mockResolvedValue([]);
+
+    await get(signIn(user("safety_officer")));
+
+    expect(callArg(db.event.findMany).orderBy).toEqual({ startsAt: "asc" });
+  });
+
+  it("says who submitted each event for its check and when, keeping the event-date order", async () => {
     db.event.findMany.mockResolvedValue([
-      row("newer", "2026-10-11T02:00:00.000Z", "Priya Raj"),
       row("older", "2026-10-10T02:00:00.000Z"),
+      row("newer", "2026-10-11T02:00:00.000Z", "Priya Raj"),
     ]);
 
     const res = await get(signIn(user("safety_officer")));
@@ -86,13 +97,13 @@ describe("GET /api/safety-checks", () => {
     });
   });
 
-  it("lists an event with no recorded submission last, rather than dropping it", async () => {
+  it("lists an event with no recorded submission in its date order, rather than dropping it", async () => {
     db.event.findMany.mockResolvedValue([row("unrecorded", null), row("recorded", "2026-10-10T02:00:00.000Z")]);
 
     const body = await (await get(signIn(user("safety_officer")))).json();
 
-    expect(body.map((e: { id: string }) => e.id)).toEqual(["recorded", "unrecorded"]);
-    expect(body[1]).toMatchObject({ submittedAt: null, submittedBy: null });
+    expect(body.map((e: { id: string }) => e.id)).toEqual(["unrecorded", "recorded"]);
+    expect(body[0]).toMatchObject({ submittedAt: null, submittedBy: null });
   });
 
   it("keeps two events with no recorded submission in the order they were read", async () => {
@@ -109,3 +120,4 @@ describe("GET /api/safety-checks", () => {
     expect((await get(signIn(user("safety_officer")))).status).toBe(500);
   });
 });
+

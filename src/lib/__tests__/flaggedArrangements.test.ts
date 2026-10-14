@@ -106,7 +106,7 @@ describe("assessFlaggedBooking - suitability for the event's present requirement
   it("names the capacity when the attendance has outgrown the layout", () => {
     const result = assessFlaggedBooking(input({ needs: { expectedAttendance: 150, preferredLayout: "theatre", requirements: [] } }));
 
-    expect(result.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - your event expects 150."] });
+    expect(result.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] });
     expect(result.availability.ok).toBe(true);
   });
 
@@ -326,8 +326,8 @@ describe("assessFlaggedEquipment - availability for the event's present dates an
 
 describe("the wording around a flagged arrangement", () => {
   it("names the arrangement and every unmet requirement when Keep is refused (AC7)", () => {
-    expect(keepRefusal("SPM68 Hall", ["Theatre capacity is 100 - your event expects 150.", "SPM68 Hall has been retired."])).toBe(
-      "SPM68 Hall no longer meets this event's requirements: Theatre capacity is 100 - your event expects 150. SPM68 Hall has been retired."
+    expect(keepRefusal("SPM68 Hall", ["Theatre capacity is 100 - this space expects 150.", "SPM68 Hall has been retired."])).toBe(
+      "SPM68 Hall no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150. SPM68 Hall has been retired."
     );
   });
 
