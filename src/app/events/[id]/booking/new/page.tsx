@@ -101,6 +101,9 @@ function BookingRequestForm() {
   // SPM-90: the space the Venue tab was last checked for, if it sent one.
   const spaceAttendance = search.get("attendance");
   const spaceLayout = search.get("layout");
+  // SPM-68: what the space is for, when a flagged booking's replacement is
+  // being requested - the same space the booking being replaced was for.
+  const spacePurpose = search.get("purpose");
   const { state } = useCurrentUser();
   const backHref = `/events/${eventId}/venue`;
 
@@ -154,7 +157,7 @@ function BookingRequestForm() {
       const others = loaded.bookings.filter(
         (b) => ACTIVE_BOOKING.includes(b.status) && (!sessionId || b.session?.id === sessionId)
       );
-      setPurpose(others.length === 0 ? DEFAULT_SPACE_PURPOSE : "");
+      setPurpose(spacePurpose ?? (others.length === 0 ? DEFAULT_SPACE_PURPOSE : ""));
 
       const own = loaded.sessions.find((s) => s.id === sessionId) ?? loaded.schedule;
       const start = own.startsAt && own.endsAt ? defaultTimes({ startsAt: new Date(own.startsAt), endsAt: new Date(own.endsAt) }) : null;
@@ -166,7 +169,7 @@ function BookingRequestForm() {
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [eventId, venueId, sessionId, spaceAttendance, spaceLayout, router]);
+  }, [eventId, venueId, sessionId, spaceAttendance, spaceLayout, spacePurpose, router]);
 
   useEffect(() => {
     if (state === "anonymous") {

@@ -50,6 +50,18 @@ describe("navFor", () => {
     expect(hrefs).toEqual(["/dashboard", "/browse", "/registrations", "/notifications"]);
   });
 
+  // SPM-68 (written before the code): the coordinator's list of flagged
+  // arrangements is theirs alone, straight after the Review Queue.
+  it("gives the coordinator Flagged Arrangements after the Review Queue, and nobody else", () => {
+    const coordinator = navFor("coordinator");
+    const queue = coordinator.findIndex((item) => item.href === "/queue");
+
+    expect(coordinator[queue + 1]).toEqual({ href: "/flagged", label: "Flagged Arrangements" });
+    for (const role of ROLES.filter((r) => r !== "coordinator")) {
+      expect(navFor(role).map((item) => item.href)).not.toContain("/flagged");
+    }
+  });
+
   it("degrades to the dashboard for an unknown role instead of an empty sidebar", () => {
     expect(navFor("future_role")).toEqual([{ href: "/dashboard", label: "Dashboard" }]);
   });

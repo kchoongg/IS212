@@ -399,6 +399,258 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(mic).toHaveTextContent(/flagged for review: the date or time changed/i);
     });
 
+    // SPM-68: a flagged arrangement is kept here or on the Flagged
+    // Arrangements page, and replaced from there. Keep is offered only while
+    // it still meets the event's requirements - the live result comes from
+    // the same request the Flagged Arrangements page makes.
+    describe("reviewing a flagged arrangement (SPM-68)", () => {
+      const FLAGGED = "GET /api/flagged-arrangements";
+      const KEEP = "POST /api/flagged-arrangements";
+      const flaggedBooking = outstanding({
+        flagReason: "the date or time changed",
+        missing: "Marina Auditorium for this event is flagged for review: the date or time changed",
+      });
+      const flaggedMic = outstanding({
+        ...micReserved,
+        flagReason: "the date or time changed",
+        missing: "Handheld Wireless Mic for this event is flagged for review: the date or time changed",
+      });
+      const fits = { ok: true, unmet: [] as string[] };
+      /// The Flagged Arrangements list, as far as this page reads it.
+      const live = (
+        venueBookings: object[] = [{ id: flaggedBooking.id, suitability: fits, availability: fits }],
+        equipmentRequests: object[] = []
+      ) => ({ venueBookings, equipmentRequests, registrations: [] });
+
+      function openWith(
+        arrangements: Arrangement[],
+        { overrides = { canReviewFlags: true }, routes = {} }: { overrides?: Record<string, unknown>; routes?: Record<string, unknown> } = {}
+      ) {
+        return open(arrangements, { [LIST]: payload(arrangements, overrides), [FLAGGED]: live(), ...routes });
+      }
+      const reviewLink = (item: HTMLElement) => within(item).queryByRole("link", { name: "Review in Flagged Arrangements" });
+      const keepButton = (item: HTMLElement, name = "Keep booking") => within(item).queryByRole("button", { name });
+
+      it("links a flagged booking to the Venue bookings tab of Flagged Arrangements", async () => {
+        openWith([flaggedBooking]);
+
+        expect(reviewLink(await row("Marina Auditorium"))).toHaveAttribute("href", "/flagged?tab=venue");
+      });
+
+      it("links flagged equipment to the Equipment reservations tab", async () => {
+        openWith([auditorium, flaggedMic]);
+
+        expect(reviewLink(await row("Handheld Wireless Mic"))).toHaveAttribute("href", "/flagged?tab=equipment");
+        // The booking beside it is not flagged, so it has neither link nor Keep.
+        expect(reviewLink(await row("Marina Auditorium"))).not.toBeInTheDocument();
+        expect(keepButton(await row("Marina Auditorium"))).not.toBeInTheDocument();
+      });
+
+      it("offers Keep booking on a flagged booking that still meets the event's requirements", async () => {
+        openWith([flaggedBooking]);
+
+        const item = await row("Marina Auditorium");
+        await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
+        expect(item).not.toHaveTextContent("can't be kept");
+        // Marking it as not required is still there too: that is a different decision.
+        expect(keepButton(item, "Mark as not required")).toBeInTheDocument();
+      });
+
+      it("offers Keep reservation on flagged equipment that is still available", async () => {
+        openWith([auditorium, flaggedMic], {
+          routes: { [FLAGGED]: live([], [{ id: flaggedMic.id, availability: { ok: true, summary: "2 reserved, 4 available for these dates." } }]) },
+        });
+
+        const item = await row("Handheld Wireless Mic");
+        await waitFor(() => expect(keepButton(item, "Keep reservation")).toBeInTheDocument());
+      });
+
+      it("offers no Keep on a booking that no longer fits, and says what is unmet", async () => {
+        openWith([flaggedBooking], {
+          routes: {
+            [FLAGGED]: live([
+              {
+                id: flaggedBooking.id,
+                suitability: { ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] },
+                availability: { ok: false, unmet: ["Marina Auditorium has been retired."] },
+              },
+            ]),
+          },
+        });
+
+        const item = await row("Marina Auditorium");
+        await waitFor(() =>
+          expect(item).toHaveTextContent("This booking can't be kept while it doesn't meet the event's requirements.")
+        );
+        expect(item).toHaveTextContent("Theatre capacity is 100 - this space expects 150.");
+        expect(item).toHaveTextContent("Marina Auditorium has been retired.");
+        expect(keepButton(item)).not.toBeInTheDocument();
+        expect(reviewLink(item)).toBeInTheDocument();
+      });
+
+      it("offers no Keep on equipment that can no longer be covered, and names the shortfall", async () => {
+        openWith([auditorium, flaggedMic], {
+          routes: { [FLAGGED]: live([], [{ id: flaggedMic.id, availability: { ok: false, summary: "2 reserved, 1 available for these dates." } }]) },
+        });
+
+        const item = await row("Handheld Wireless Mic");
+        await waitFor(() =>
+          expect(item).toHaveTextContent("This reservation can't be kept while it doesn't meet the event's requirements.")
+        );
+        expect(item).toHaveTextContent("2 reserved, 1 available for these dates.");
+        expect(keepButton(item, "Keep reservation")).not.toBeInTheDocument();
+      });
+
+      it("keeps the booking, says the flag is cleared, and shows the list as it now stands", async () => {
+        const api = openWith([flaggedBooking], { routes: { [KEEP]: { cleared: true } } });
+        const item = await row("Marina Auditorium");
+        await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
+        api.on(LIST, payload([auditorium], { canReviewFlags: true }));
+
+        await userEvent.click(keepButton(item)!);
+
+        expect(await screen.findByText("Flag cleared")).toBeInTheDocument();
+        expect(screen.getByText("Marina Auditorium was kept as it is.")).toBeInTheDocument();
+        expect(api.sent(KEEP)[0].body).toEqual({ kind: "venue_booking", id: flaggedBooking.id });
+        const after = await row("Marina Auditorium");
+        await waitFor(() => expect(after).toHaveTextContent("Complete"));
+        expect(keepButton(after)).not.toBeInTheDocument();
+        expect(reviewLink(after)).not.toBeInTheDocument();
+      });
+
+      it("keeps equipment by its own kind", async () => {
+        const api = openWith([auditorium, flaggedMic], {
+          routes: {
+            [FLAGGED]: live([], [{ id: flaggedMic.id, availability: { ok: true, summary: "2 reserved, 4 available for these dates." } }]),
+            [KEEP]: { cleared: true },
+          },
+        });
+        const item = await row("Handheld Wireless Mic");
+        await waitFor(() => expect(keepButton(item, "Keep reservation")).toBeInTheDocument());
+
+        await userEvent.click(keepButton(item, "Keep reservation")!);
+
+        await waitFor(() => expect(api.sent(KEEP)[0].body).toEqual({ kind: "equipment_request", id: flaggedMic.id }));
+        expect(await screen.findByText("Handheld Wireless Mic was kept as it is.")).toBeInTheDocument();
+      });
+
+      // The page's result was out of date: the server still decides (AC7).
+      it("shows the server's refusal, and clears nothing", async () => {
+        const refusal = "Marina Auditorium no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150.";
+        openWith([flaggedBooking], { routes: { [KEEP]: reply(400, { error: refusal }) } });
+        const item = await row("Marina Auditorium");
+        await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
+
+        await userEvent.click(keepButton(item)!);
+
+        expect(await screen.findByText(refusal)).toBeInTheDocument();
+        expect(screen.queryByText("Flag cleared")).not.toBeInTheDocument();
+      });
+
+      it.each([
+        ["gives no reason", reply(500, {}), "Could not clear the flag. Try again."],
+        [
+          "cannot be reached",
+          () => {
+            throw new Error("offline");
+          },
+          "Could not reach the server. Check your connection and try again.",
+        ],
+      ])("says so when the server %s", async (_what, answer, message) => {
+        openWith([flaggedBooking], { routes: { [KEEP]: answer } });
+        const item = await row("Marina Auditorium");
+        await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
+
+        await userEvent.click(keepButton(item)!);
+
+        expect(await screen.findByText(message)).toBeInTheDocument();
+      });
+
+      it("sends the user to log in when their session has expired", async () => {
+        openWith([flaggedBooking], { routes: { [KEEP]: reply(401, {}) } });
+        const item = await row("Marina Auditorium");
+        await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
+
+        await userEvent.click(keepButton(item)!);
+
+        await waitFor(() => expect(router.push).toHaveBeenCalledWith(LOGIN));
+      });
+
+      it.each([
+        ["answers with an error", reply(500, {})],
+        [
+          "cannot be reached",
+          () => {
+            throw new Error("offline");
+          },
+        ],
+      ])("keeps the link and offers no Keep when the live result %s", async (_what, answer) => {
+        const api = openWith([flaggedBooking], { routes: { [FLAGGED]: answer } });
+
+        const item = await row("Marina Auditorium");
+        await waitFor(() => expect(api.sent(FLAGGED)).toHaveLength(1));
+        expect(reviewLink(item)).toBeInTheDocument();
+        expect(keepButton(item)).not.toBeInTheDocument();
+        expect(item).not.toHaveTextContent("can't be kept");
+      });
+
+      it("offers no Keep on a flagged arrangement the live list does not have", async () => {
+        const api = openWith([flaggedBooking], { routes: { [FLAGGED]: live([]) } });
+
+        const item = await row("Marina Auditorium");
+        await waitFor(() => expect(api.sent(FLAGGED)).toHaveLength(1));
+        expect(keepButton(item)).not.toBeInTheDocument();
+      });
+
+      it("still links a flagged request Venue Staff have not decided, which is outstanding for that reason", async () => {
+        openWith([
+          outstanding({
+            status: "pending",
+            flagReason: "the date or time changed",
+            missing: "Marina Auditorium for this event is still awaiting a decision from Venue Staff",
+          }),
+        ]);
+
+        expect(reviewLink(await row("Marina Auditorium"))).toBeInTheDocument();
+      });
+
+      it("does not ask for the live result when nothing on the event is flagged", async () => {
+        const api = openWith([outstanding({ status: "pending", missing: "Marina Auditorium for this event is still awaiting a decision from Venue Staff" })]);
+
+        const item = await row("Marina Auditorium");
+        expect(reviewLink(item)).not.toBeInTheDocument();
+        expect(api.sent(FLAGGED)).toHaveLength(0);
+      });
+
+      // Marking as not required waives it for confirmation; the flag is still there.
+      it("keeps the link and Keep on a flagged arrangement that is marked as not required", async () => {
+        openWith([arrangement({ flagReason: "the date or time changed", state: "not_required", required: false, complete: false, waived: true })]);
+
+        const item = await row("Marina Auditorium");
+        expect(reviewLink(item)).toBeInTheDocument();
+        await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
+        expect(keepButton(item, "Mark as required")).toBeInTheDocument();
+      });
+
+      it.each([
+        ["another coordinator, who would not find it listed", { canReviewFlags: false }],
+        ["an answer that does not say", {}],
+      ])("has neither link nor Keep for %s, and does not ask for the live result", async (_who, overrides) => {
+        const api = openWith([flaggedBooking], { overrides });
+
+        const item = await row("Marina Auditorium");
+        expect(reviewLink(item)).not.toBeInTheDocument();
+        expect(keepButton(item)).not.toBeInTheDocument();
+        expect(api.sent(FLAGGED)).toHaveLength(0);
+      });
+
+      it("has no link on a kind the Flagged Arrangements page has no tab for", async () => {
+        openWith([outstanding({ kind: "registration", id: null, name: "Registration setup", status: null, flagReason: "the date or time changed", missing: "registration setup is incomplete" })]);
+
+        expect(reviewLink(await row("Registration setup"))).not.toBeInTheDocument();
+      });
+    });
+
     // AC5.
     it("shows registration that is enabled but incomplete as outstanding", async () => {
       open([auditorium, registrationIncomplete]);
