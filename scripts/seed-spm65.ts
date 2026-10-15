@@ -10,7 +10,7 @@
  * in the database is changed, so it is safe to run while others are testing
  * other stories.
  *
- * SPM-65-TC08 registers and withdraws on "SPM65 Live Update Workshop", so run
+ * SPM-65-TC04 registers and withdraws on "SPM65 Live Update Workshop", so run
  * this again after it (docs/test-cases/SPM-65_Test_Cases.xlsx says which cases
  * need it). Every other case only reads.
  *
@@ -91,7 +91,7 @@ const FIXTURES: Fixture[] = [
       { email: "farhan.ismail@example.com", status: "withdrawn", registeredAt: "2026-10-01 16:00",
         withdrawnAt: "2026-10-06 12:00" },
     ],
-    testCases: "TC01-TC04 TC11-TC15" },
+    testCases: "TC01 TC07-TC12" },
   // Already happened: two checked in, one did not come, one withdrew.
   { key: "spm65_past", title: "SPM65 Past Health Talk", status: "completed", date: "2026-09-20",
     registration: { enabled: true, capacity: 10, opens: ["2026-08-01", 9], closes: ["2026-09-15", 17] },
@@ -102,12 +102,12 @@ const FIXTURES: Fixture[] = [
       { email: "ravi.subramaniam@example.com", status: "withdrawn", registeredAt: "2026-08-06 10:00",
         withdrawnAt: "2026-09-01 10:00" },
     ],
-    testCases: "TC05" },
-  // Open, nobody registered yet. TC08 registers and withdraws here.
+    testCases: "TC02" },
+  // Open, nobody registered yet. TC04 registers and withdraws here.
   { key: "spm65_live", title: "SPM65 Live Update Workshop", status: "confirmed", date: "2028-05-11",
     registration: { enabled: true, capacity: 5, ...OPEN_PERIOD },
     registrations: [],
-    testCases: "TC07 TC08" },
+    testCases: "TC04" },
   // No capacity limit.
   { key: "spm65_open", title: "SPM65 Open Lecture", status: "confirmed", date: "2028-05-18",
     registration: { enabled: true, capacity: null, ...OPEN_PERIOD },
@@ -115,19 +115,19 @@ const FIXTURES: Fixture[] = [
       { email: "anita.devi@example.com", status: "registered", registeredAt: "2026-10-04 10:00" },
       { email: "tom.harris@example.com", status: "registered", registeredAt: "2026-10-04 11:00" },
     ],
-    testCases: "TC06" },
+    testCases: "TC03" },
   // Registration never turned on.
   { key: "spm65_closed", title: "SPM65 Closed Doors Gala", status: "confirmed", date: "2028-05-25",
     registration: { enabled: false, capacity: null },
     registrations: [],
-    testCases: "TC09" },
+    testCases: "TC05" },
   // Registration turned off after one attendee registered.
   { key: "spm65_paused", title: "SPM65 Paused Forum", status: "confirmed", date: "2028-06-01",
     registration: { enabled: false, capacity: 20, ...OPEN_PERIOD },
     registrations: [
       { email: "marcus.yeo@example.com", status: "registered", registeredAt: "2026-10-02 10:00" },
     ],
-    testCases: "TC10" },
+    testCases: "TC06" },
 ];
 
 /** Same status chains and reasons as prisma/seed.ts. */
