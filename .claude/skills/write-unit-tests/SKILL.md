@@ -137,6 +137,8 @@ Every test that already existed must still pass: `npm test` should show failures
 
 `npx tsc --noEmit` will report the missing module until the code is written. That is expected; lint must be clean.
 
+Test-first tests cover what the story asks for, not every line the code will end up with. Once the code is written and the tests pass, the project's Stop hook (`scripts/claude-stop-coverage.mts`) runs the changed-lines check at the end of each turn and sends Claude back to write tests for any line no test runs. Tell the user to ask for the check (Step 4b) then anyway, so the gaps are filled deliberately rather than one turn at a time.
+
 ## Step 4b: Check and catch-up — prove the tests pass, and can fail
 
 Run, and fix until all pass:
@@ -161,6 +163,7 @@ Tell the user, briefly:
 - The mode, the test files added or changed, and how many tests
 - **Test-first:** the contract in full — every file, export, status code and message the developer now has to build — and which parts you decided rather than took from the story
 - **Check / catch-up:** coverage of each file the story touched, and anything left uncovered and why
+- **Check / catch-up:** the changed-lines result, in a line the user can paste into the PR: "`npm run coverage:changed`: every changed line under src/ is tested" or "...: N lines marked `// v8 ignore next`", followed by each marked line (file:line) and its reason
 - Any test written first that the code did not satisfy, and what you did about it
 - Any behaviour that looked wrong and was deliberately not locked in — in full, since a person needs to decide
 

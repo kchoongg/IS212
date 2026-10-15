@@ -994,6 +994,13 @@ what changed, why, and the migration name if there is one.
 - **New CI check: Test cases.** Warns (never fails) when a PR whose title or
   branch starts with a Jira key has no `docs/test-cases/<key>_Test_Cases.xlsx`.
   `npm run test-cases:check` runs it locally.
+- **Claude Code checks it too.** A Stop hook in `.claude/settings.json`
+  (`scripts/claude-stop-coverage.mts`) runs the same changed-lines check when
+  Claude finishes a turn on a branch whose `src/` code has changed, and sends
+  it back to write tests for any untested line. It skips turns that changed
+  nothing, stays quiet while tests fail (test-first, code not written yet),
+  and never asks twice for the same code. A check takes about a minute. Turn
+  it off for yourself in `/hooks`.
 - Still not enforced: GitHub cannot require checks to pass before merging on
   a private repo on the free plan, so a red check is a rule the team keeps,
   not a lock. Making the repo public, or a paid plan, would allow it.
