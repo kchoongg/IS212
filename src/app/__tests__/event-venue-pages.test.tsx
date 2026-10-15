@@ -203,6 +203,7 @@ describe("Event Venue tab", () => {
           { id: "b2", status: "expired", holdExpiresAt: "2026-10-01T01:00:00.000Z", ...at, venue: { code: "ROOM-B", name: "Room B" } },
           { id: "b3", status: "approved", holdExpiresAt: "2026-10-01T01:00:00.000Z", ...at, venue: { code: "ROOM-C", name: "Room C" } },
           { id: "b4", status: "pending", holdExpiresAt: null, ...at, venue: { code: "ROOM-D", name: "Room D" } },
+          { id: "b5", status: "expired", holdExpiresAt: null, ...at, venue: { code: "ROOM-E", name: "Room E" } },
         ],
       }),
     });
@@ -218,6 +219,9 @@ describe("Event Venue tab", () => {
     expect(row("ROOM-C")).not.toHaveTextContent(/Hold expire/);
     // A hold made before SPM-82 has no expiry and never expires.
     expect(row("ROOM-D")).not.toHaveTextContent(/Hold expire/);
+    // An expired hold whose expiry was not recorded still says it expired.
+    expect(row("ROOM-E")).toHaveTextContent("Hold expired");
+    expect(row("ROOM-E")).not.toHaveTextContent("Hold expired on");
   });
 
   it("SPM-81-TC07: lists an event's requests at different venues together, each with its own times and status", async () => {

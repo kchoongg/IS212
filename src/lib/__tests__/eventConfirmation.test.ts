@@ -1102,4 +1102,20 @@ describe("SPM-82 — an expired tentative hold", () => {
 
     expect(row.missing).toBe("the hold on SPM82 Hold Room for this event expired - submit a new request");
   });
+
+  it("names the room generically when the booking does not carry its name", () => {
+    const [row] = rows({ bookings: [{ ...expired, id: undefined, venueName: undefined }] });
+
+    expect(row).toMatchObject({ id: null, name: "Venue", state: "outstanding" });
+    expect(row.missing).toBe("the hold on the venue for this event expired on 1 Oct 2026, 09:00 - submit a new request");
+  });
+
+  it("is still listed on a multi-session event when it names no session", () => {
+    const list = rows({ sessions: [{ id: "s1", label: "Day 1" }], bookings: [{ ...expired, sessionId: null }] });
+
+    expect(list.map((a) => [a.id, a.session?.label ?? null, a.state])).toEqual([
+      [null, "Day 1", "outstanding"],
+      ["x1", null, "outstanding"],
+    ]);
+  });
 });
