@@ -779,6 +779,8 @@ traceability the module asks for.
 | `npm test -- src/app/__tests__/event-pages.test.tsx` | Run one test file. Add `-t "part of a test name"` to run only matching tests |
 | `npm run test:watch -- event-pages` | Re-run the matching tests every time you save — the one to leave running while you write code to make failing tests pass |
 | `npm run test:coverage` | Run every test and print how much of the code they cover. Fails below the minimums in `vitest.config.mts`. Open `coverage/index.html` to see uncovered lines |
+| `npm run coverage:changed` | After `test:coverage`: lists the lines your branch adds or changes under `src/` that no test runs, compared with `origin/main`. CI runs the same check on every PR |
+| `npm run test-cases:check` | Says whether the story in your branch name has its `docs/test-cases/` document. CI runs it on every PR, as a warning |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run fixtures:spm27` | Adds or resets SPM-27's 14 test events ("SPM27 Bayu …", one per status, organiser Hakim Zulkifli) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm27_`. Re-run before each SPM-27 test pass |
 | `npm run fixtures:spm30` | Adds or resets SPM-30's 12 test events ("SPM30 …") without reseeding — touches only events whose `seedKey` starts with `spm30_`, plus the two base-seed events that start in the Assignments queue ("Nusantara Developer Summit", "Meridian Graduate Recruitment Evening"): if they have only been assigned (SPM-30-TC20), they go back to Submitted with no coordinator. If another story has moved one further it is left alone with a warning; add `-- --restore-queue` to force it. Re-run before each SPM-30 test pass |
@@ -971,6 +973,52 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-15 — Kristen
+- **Coverage gaps filled.** 113 tests for branches no test reached: requests
+  that fail with something other than an Error, untitled or partly filled-in
+  events, server answers with no body or a missing field. 3,894 tests;
+  coverage 99.8% statements / 99.2% branches. The CI minimums in
+  `vitest.config.mts` go from 95/92/95/95 to 99/98.5/99/99.
+- **Dead code removed.** The log-in redirects inside `/venues` and the event
+  Venue tab (`RequirePermission` already sends anonymous visitors to log in),
+  the Venue tab's "My Events" breadcrumb (an organiser cannot open the tab),
+  and two fallbacks in `AppShell`'s `initials()`.
+- **New CI check: changed lines are tested.** On a pull request, the Unit
+  tests check now also fails if any line the PR adds or changes under `src/`
+  never runs in a test, and marks each one on the PR's diff. The whole-app
+  minimums alone let a story add untested code as long as the total stayed
+  above them. Run it before pushing with `npm run test:coverage` then
+  `npm run coverage:changed`. A line no test can reach is marked
+  `// v8 ignore next -- <why>` instead.
+- **New CI check: Test cases.** Warns (never fails) when a PR whose title or
+  branch starts with a Jira key has no `docs/test-cases/<key>_Test_Cases.xlsx`.
+  `npm run test-cases:check` runs it locally.
+- **Claude Code checks it too.** A Stop hook in `.claude/settings.json`
+  (`scripts/claude-stop-coverage.mts`) runs the same changed-lines check when
+  Claude finishes a turn on a branch whose `src/` code has changed, and sends
+  it back to write tests for any untested line. It skips turns that changed
+  nothing, stays quiet while tests fail (test-first, code not written yet),
+  and never asks twice for the same code. A check takes about a minute. Turn
+  it off for yourself in `/hooks`.
+- **Migrations job does more.** After replaying the migrations it now checks
+  that `schema.prisma` matches them (a schema change with no migration fails)
+  and runs `prisma/seed.ts` on the result, so a seed that no longer fits the
+  schema fails the PR instead of the next teammate's `npx prisma db seed`.
+  Then it runs every `fixtures:*` script, twice each, so a story's test data
+  script broken by a later schema change fails the PR (naming the script)
+  instead of a tester's next test pass.
+- **New CI check: Dependency audit.** Warns when production dependencies have
+  high or critical advisories. On 2026-10-15 it would warn: `next` 16.3.4 has
+  a critical one (fixed in 16.4.1; the app does not use `next/og`, where it
+  is), plus high ones in `prisma`, `sharp` and `source-map-js`.
+- `tsconfig.json` now includes `*.mts`, so Type-check covers the new scripts.
+- Still not enforced: GitHub cannot require checks to pass before merging on
+  a private repo on the free plan, so a red check is a rule the team keeps,
+  not a lock. Making the repo public, or a paid plan, would allow it.
+- Bug found while filling the gaps: SPM-100 (booking request refused with no
+  reason shows no message). A note for SPM-32 on resuming a Postponed event
+  is on that story.
 
 ### 2026-10-13 — Kayal (SPM-90)
 - **SPM-90 (Check Each Venue Against Its Own Requirements).** Week 7 Change #3,

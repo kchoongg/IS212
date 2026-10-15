@@ -298,6 +298,28 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
     expect(result.bookings[1].overlaps.bookingIds).toEqual([a.id]);
     expect(result.hasOverlaps).toBe(true);
   });
+
+  it("does not link two approved bookings at different times of the day", () => {
+    const a = booking("2026-09-28T09:00:00", "2026-09-28T11:00:00");
+    const b = booking("2026-09-28T14:00:00", "2026-09-28T16:00:00");
+    const result = build({ bookings: [a, b] });
+    expect(result.bookings.map((x) => x.overlaps.bookingIds)).toEqual([[], []]);
+    expect(result.hasOverlaps).toBe(false);
+  });
+});
+
+describe("a venue with no holds given", () => {
+  it("treats a missing list of holds as none", () => {
+    const result = buildAvailability({
+      venue: VENUE,
+      from: "2026-09-28",
+      to: "2026-09-28",
+      timeZone: "Asia/Singapore",
+      bookings: [],
+      unavailability: [],
+    });
+    expect(result.days[0].entries).toEqual([]);
+  });
 });
 
 describe("the requested range", () => {

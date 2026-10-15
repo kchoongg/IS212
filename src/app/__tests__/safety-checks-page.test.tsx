@@ -137,6 +137,13 @@ describe("Safety Checks (SPM-85)", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fsafety-checks"));
   });
 
+  it("shows a general error when the request fails without a reason", async () => {
+    mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": () => Promise.reject("offline") });
+    render(<SafetyChecksPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
   it("shows a load failure with a Retry that loads again", async () => {
     const api = mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": reply(500, {}) });
     render(<SafetyChecksPage />);

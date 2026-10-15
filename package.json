@@ -10,6 +10,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "coverage:changed": "node scripts/check-changed-coverage.mts",
+    "test-cases:check": "node scripts/check-test-cases.mts",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
     "verify:permissions": "tsx scripts/verify-permissions.ts",
     "verify:login": "tsx scripts/verify-login.ts",

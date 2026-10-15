@@ -258,6 +258,22 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.lines[0].result.heldBy[0].eventTitle).toBe("Gala Dinner · Day 1");
   });
 
+  it("labels a session's hold by an untitled event as 'Untitled event'", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(eventRow());
+    db.equipmentRequest.findMany.mockResolvedValue([
+      otherHold({
+        event: { ...otherHold().event, title: null },
+        sessionId: ID.session,
+        session: { label: "Day 1", startsAt: STARTS, endsAt: ENDS },
+      }),
+    ]);
+
+    const body = await (await check(token)).json();
+
+    expect(body.lines[0].result.heldBy[0].eventTitle).toBe("Untitled event · Day 1");
+  });
+
   it("checks a session's line against the session's own times and venue", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(

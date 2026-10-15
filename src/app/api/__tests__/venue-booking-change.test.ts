@@ -187,6 +187,20 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     );
   });
 
+  it("names 'The assigned Coordinator' when the coordinator's name cannot be found", async () => {
+    const token = signIn(coordinator());
+    given({ row: booking({ status: "approved" }) });
+    const lookUp = db.user.findUnique.getMockImplementation()!;
+    db.user.findUnique.mockImplementation(async (args: { select?: object }) =>
+      JSON.stringify(args.select) === JSON.stringify({ fullName: true }) ? null : lookUp(args)
+    );
+
+    const res = await patch(token, { action: "release" });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.notification.createMany).data[0].body).toMatch(/^The assigned Coordinator released Hall A/);
+  });
+
   it("refuses to withdraw a request Venue Staff approved in the meantime, and changes nothing", async () => {
     const token = signIn(coordinator());
     given({ row: booking({ status: "approved" }) });

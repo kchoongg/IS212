@@ -428,6 +428,14 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(notification.body).toContain("Equipment failure");
     });
 
+    it("calls an untitled event 'an event' in the notification", async () => {
+      const untitled = { ...first(), event: { ...first().event, title: null } };
+
+      await create(given({ bookings: [untitled] }));
+
+      expect(callArg(db.notification.create).data.body).toContain("The approved booking for an event on ");
+    });
+
     it("gives the coordinator the description when the reason is Other", async () => {
       await create(given({ bookings: [first()] }), other);
 

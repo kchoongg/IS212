@@ -139,6 +139,12 @@ describe("Notifications page (SPM-71)", () => {
       expect(screen.queryByRole("button", { name: "Mark all as read" })).not.toBeInTheDocument();
     });
 
+    it("shows a general error when the request fails without a reason", async () => {
+      open({ [LIST]: () => Promise.reject("offline") });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    });
+
     it("shows a load failure with a Retry that loads again", async () => {
       const api = open({ [LIST]: reply(500, {}) });
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not load your notifications.");

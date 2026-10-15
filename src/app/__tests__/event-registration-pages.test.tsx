@@ -127,6 +127,19 @@ describe("the Registration card, read-only", () => {
     expect(valueOf("Closes")).toHaveTextContent("30 Sept 2026, 17:00");
   });
 
+  it("names just the room when the booking's layout is no longer one the room offers", async () => {
+    open(
+      "organiser",
+      event({ ...enabled, registrationVenueBooking: { ...seminarBooking, layoutName: "banquet" } }),
+      {},
+      { id: "organiser-id" }
+    );
+
+    await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
+
+    expect(valueOf("Measured against")).toHaveTextContent(/^Orchard Seminar Room \(ORC-SEM\)$/);
+  });
+
   it("says when registration is not enabled, without the other rows", async () => {
     open("organiser", event(), {}, { id: "organiser-id" });
 
@@ -293,6 +306,24 @@ describe("AC4 choosing the booking the capacity is measured against", () => {
     });
   });
 
+  it("leaves the layout and capacity out of a booking that has neither", async () => {
+    const bare = { ...studioOption, layoutName: null, layoutCapacity: null };
+    asCoordinator(event(), { [SETTINGS]: { bookings: [seminarOption, bare] } });
+    await userEvent.click(await startEditing());
+
+    const picker = await screen.findByLabelText("Capacity measured against");
+    expect(within(picker).getByRole("option", { name: "Orchard Studio (ORC-STU) · Pending" })).toBeInTheDocument();
+  });
+
+  it("still opens the form when the bookings cannot be loaded", async () => {
+    const api = asCoordinator(event(), { [SETTINGS]: reply(500, {}) });
+    await userEvent.click(await startEditing());
+
+    await waitFor(() => expect(api.sent(SETTINGS)).toHaveLength(1));
+    expect(screen.queryByLabelText("Capacity measured against")).not.toBeInTheDocument();
+    expect(saveButton()).toBeInTheDocument();
+  });
+
   it("shows a missing choice under 'Capacity measured against' (TC10)", async () => {
     const message = "Choose which venue booking the capacity is measured against.";
     asCoordinator(event(), {
@@ -409,6 +440,19 @@ describe("AC9 what a save flagged", () => {
     expect(await screen.findByText("Flagged for review")).toBeInTheDocument();
     expect(screen.getByText(line)).toBeInTheDocument();
     expect(api.sent(SAVE)[0].body).toEqual({ registrationCapacity: 14 });
+  });
+});
+
+describe("a save answered without a flagged list", () => {
+  it("is saved, with nothing flagged", async () => {
+    const api = asCoordinator();
+    await userEvent.click(await startEditing());
+
+    api.on(SAVE, { event: event({ registrationEnabled: true }) });
+    api.on(EVENT, event({ registrationEnabled: true }));
+    await userEvent.click(saveButton());
+
+    expect(await screen.findByText("Registration settings saved.")).toBeInTheDocument();
   });
 });
 

@@ -247,16 +247,13 @@ function EventVenueScreen() {
     }
   }, [eventId, router, sessionId, space]);
 
+  // RequirePermission sends an anonymous visitor to log in before this renders.
   useEffect(() => {
-    if (state === "anonymous") {
-      router.push(loginUrlFor(`/events/${eventId}/venue`));
-      return;
-    }
     if (state === "authenticated") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void load();
     }
-  }, [state, load, router, eventId]);
+  }, [state, load]);
 
   /// SPM-90: check every venue again, for the space in the two fields.
   function checkSpace(e: React.FormEvent) {
@@ -328,7 +325,8 @@ function EventVenueScreen() {
         title="Find a venue"
         subtitle="Each venue is checked against the attendance and layout of the space you need, and this event's facilities and accessibility needs."
         breadcrumbs={[
-          { label: user?.role === "organiser" ? "My Events" : "Events", href: "/events" },
+          // Never "My Events": an organiser cannot open this tab (no venue:view).
+          { label: "Events", href: "/events" },
           { label: "Event", href: `/events/${eventId}` },
           { label: "Venue" },
         ]}

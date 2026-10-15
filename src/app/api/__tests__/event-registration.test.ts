@@ -257,6 +257,18 @@ describe("AC4 with several bookings the coordinator chooses which one the capaci
   });
 });
 
+describe("choosing the booking before any capacity is set", () => {
+  it("saves the booking with nothing to check it against", async () => {
+    const token = given({ registrationEnabled: true });
+    db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
+
+    const res = await save(token, { registrationVenueBookingId: STUDIO_BOOKING_ID });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).data).toMatchObject({ registrationVenueBookingId: STUDIO_BOOKING_ID });
+  });
+});
+
 describe("AC5 + AC6 the registration period", () => {
   it("saves the period on its own, leaving the event's date alone (TC11)", async () => {
     const token = given({ registrationEnabled: true });
@@ -282,6 +294,15 @@ describe("AC5 + AC6 the registration period", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationClosesAt: [message] } } });
     nothingWritten();
+  });
+
+  it("accepts a new opening date before the closing date already saved", async () => {
+    const token = given({ registrationEnabled: true, registrationClosesAt: new Date("2027-03-10T09:00:00.000Z") });
+
+    const res = await save(token, { registrationOpensAt: "2027-02-01T01:00:00.000Z" });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).data).toEqual({ registrationOpensAt: new Date("2027-02-01T01:00:00.000Z") });
   });
 
   it("refuses a date that isn't a date and time", async () => {
@@ -324,6 +345,16 @@ describe("AC7 a closed period can be extended or reopened until the event starts
     const message = "The event has started, so the registration period can't be changed.";
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: message, details: { fieldErrors: { registrationClosesAt: [message] } } });
+    nothingWritten();
+  });
+
+  it("shows the refusal under the opening date when only that is changed", async () => {
+    const token = given({ status: "confirmed", startsAt: new Date("2026-10-01T01:00:00.000Z"), registrationEnabled: true });
+
+    const res = await save(token, { registrationOpensAt: "2026-09-01T01:00:00.000Z" });
+
+    expect(res.status).toBe(400);
+    expect(Object.keys((await res.json()).details.fieldErrors)).toEqual(["registrationOpensAt"]);
     nothingWritten();
   });
 });
@@ -480,6 +511,16 @@ describe("GET /api/events/[id]/registration - the bookings the form offers", () 
     const body = await (await load(token)).json();
 
     expect(body.bookings[0].layoutCapacity).toBeNull();
+  });
+
+  it("is 500 when the database fails", async () => {
+    const token = given();
+    db.venueBooking.findMany.mockRejectedValue(new Error("connection lost"));
+
+    const res = await load(token);
+
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ error: "Internal server error" });
   });
 
   it("is 401 without a session, 404 for an event the user can't see, 403 for anyone else", async () => {

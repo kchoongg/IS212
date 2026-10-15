@@ -206,6 +206,17 @@ describe("Venue availability", () => {
       expect(router.push).toHaveBeenCalledWith("/venues/v1/availability?from=2027-04-01&to=2027-04-14");
     });
 
+    it("Show availability with the dates cleared asks for the server's default week", async () => {
+      open();
+      await grid();
+      set(screen.getByLabelText("From"), "");
+      set(screen.getByLabelText("To"), "");
+
+      await userEvent.click(screen.getByRole("button", { name: "Show availability" }));
+
+      expect(router.push).toHaveBeenCalledWith("/venues/v1/availability?");
+    });
+
     it("shows the server's sentence for a range it refuses", async () => {
       open(reply(400, { error: "Choose a range of 62 days or fewer - this one is 63." }), {
         query: "?from=2027-01-01&to=2027-03-04",
@@ -451,6 +462,18 @@ describe("Venue availability", () => {
       const first = within(cardOf("Approved bookings")).getAllByRole("listitem")[0];
       expect(first).toHaveTextContent("Overlaps with: Summit; Maintenance (4 Mar 2027, 13:00–18:00)");
       expect(cardOf("Unavailable periods")).toHaveTextContent("Overlaps with: Town Hall; Summit");
+    });
+
+    it("names an overlap it has no details for in general words", async () => {
+      const body = availability({ bookings: [booking()] });
+      body.bookings[0].overlaps = { bookingIds: ["gone"], unavailabilityIds: ["gone-too"] };
+      body.hasOverlaps = true;
+      open(() => body);
+      await grid();
+
+      expect(within(cardOf("Approved bookings")).getAllByRole("listitem")[0]).toHaveTextContent(
+        "Overlaps with: another booking; an unavailable period"
+      );
     });
 
     it("says nothing about overlaps when there are none", async () => {
