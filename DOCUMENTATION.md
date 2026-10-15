@@ -780,6 +780,8 @@ traceability the module asks for.
 | `npm run test:watch -- event-pages` | Re-run the matching tests every time you save — the one to leave running while you write code to make failing tests pass |
 | `npm run test:coverage` | Run every test and print how much of the code they cover. Fails below the minimums in `vitest.config.mts`. Open `coverage/index.html` to see uncovered lines |
 | `npm run coverage:changed` | After `test:coverage`: lists the lines your branch adds or changes under `src/` that no test runs, compared with `origin/main`. CI runs the same check on every PR |
+| `npm run test:e2e` | End-to-end smoke tests (`e2e/`): builds nothing itself, so run `npm run build` first; starts the app on port 3100 and drives it in Chromium. Needs `DATABASE_URL` to a **local**, migrated and seeded Postgres - it refuses any other database, because the tests change data. CI runs them on every PR with its own database |
+| `npm run test:e2e:ui` | The same, in Playwright's viewer: watch each step, or replay a failed run's trace |
 | `npm run test-cases:check` | Says whether the story in your branch name has its `docs/test-cases/` document. CI runs it on every PR, as a warning |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run fixtures:spm27` | Adds or resets SPM-27's 14 test events ("SPM27 Bayu …", one per status, organiser Hakim Zulkifli) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm27_`. Re-run before each SPM-27 test pass |
@@ -973,6 +975,24 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-15 — Kristen (end-to-end tests)
+- **End-to-end smoke tests added** (`e2e/`, Playwright). The production build,
+  driven through real Chromium, against a real migrated and seeded Postgres -
+  no test doubles, unlike the unit tests, which stub the database and the
+  network. Ten tests: every role logs in and gets its own sidebar (taken from
+  `NAV_BY_ROLE`), a logged-out visitor is sent to log in and brought back, a
+  wrong password is refused, and one journey across three browser sessions -
+  the organiser submits a request, the Ops Manager assigns a coordinator, the
+  coordinator approves it, and the organiser sees it Approved.
+- **New CI check: End-to-end.** Runs them on every PR with its own throwaway
+  Postgres; a failure attaches the report, with a replayable trace and a
+  screenshot of each failed test, as `e2e-report`. No retries: a test that
+  only passes on a second try is flaky, and needs fixing, not hiding.
+- **CI's Postgres is now 18**, the version Neon runs, in the Migrations job too.
+- Locally, `npm run test:e2e` only runs against a database on your own
+  machine (it refuses the shared Neon one). Nobody needs to set that up: CI
+  runs them for every PR.
 
 ### 2026-10-15 — Kristen
 - **Coverage gaps filled.** 113 tests for branches no test reached: requests

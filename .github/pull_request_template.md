@@ -35,8 +35,8 @@ new or changed screen. Delete this section if there is none. -->
 
 ## Checklist
 
-CI runs lint, type-check, tests with coverage, build and migrations on this
-PR, so those are not repeated here. It also fails if a line this PR adds or
+CI runs lint, type-check, tests with coverage, end-to-end smoke tests, build
+and migrations on this PR, so those are not repeated here. It also fails if a line this PR adds or
 changes under `src/` never runs in a test, and warns if the story has no test
 case document.
 
