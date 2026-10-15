@@ -91,6 +91,24 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: node scripts/check-test-cases.mts
 
+  # Known vulnerabilities in the packages the app ships with (not dev tools).
+  # A warning, not a failure: a new advisory would otherwise turn every open PR
+  # red at once, for something none of them caused. Fix it in its own PR.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: No high or critical advisories
+        run: |
+          if ! npm audit --omit=dev --audit-level=high; then
+            echo "::warning::npm audit found high or critical advisories in production dependencies - see the log, and fix them in their own PR."
+          fi
+
   build:
     name: Build
     runs-on: ubuntu-latest
@@ -148,3 +166,15 @@ jobs:
       - run: npx prisma validate
       # Replays every migration in prisma/migrations against an empty database.
       - run: npx prisma migrate deploy
+      # schema.prisma changed without a migration (or a migration that does not
+      # match it) passes the step above, then breaks `migrate dev` for the next
+      # person. Compares the database the migrations built with the schema.
+      - name: Schema matches the migrations
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+      # Lint and Type-check only prove prisma/seed.ts compiles. This runs it on
+      # the migrated database, so a seed that no longer fits the schema (a
+      # missing required field, a broken relation) fails here, not on the next
+      # teammate's `npx prisma db seed`.
+      - run: npx prisma generate
+      - name: Seed loads
+        run: npx tsx prisma/seed.ts

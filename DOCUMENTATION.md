@@ -1001,6 +1001,15 @@ what changed, why, and the migration name if there is one.
   nothing, stays quiet while tests fail (test-first, code not written yet),
   and never asks twice for the same code. A check takes about a minute. Turn
   it off for yourself in `/hooks`.
+- **Migrations job does more.** After replaying the migrations it now checks
+  that `schema.prisma` matches them (a schema change with no migration fails)
+  and runs `prisma/seed.ts` on the result, so a seed that no longer fits the
+  schema fails the PR instead of the next teammate's `npx prisma db seed`.
+- **New CI check: Dependency audit.** Warns when production dependencies have
+  high or critical advisories. On 2026-10-15 it would warn: `next` 16.3.4 has
+  a critical one (fixed in 16.4.1; the app does not use `next/og`, where it
+  is), plus high ones in `prisma`, `sharp` and `source-map-js`.
+- `tsconfig.json` now includes `*.mts`, so Type-check covers the new scripts.
 - Still not enforced: GitHub cannot require checks to pass before merging on
   a private repo on the free plan, so a red check is a rule the team keeps,
   not a lock. Making the repo public, or a paid plan, would allow it.
