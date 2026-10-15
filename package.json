@@ -10,6 +10,10 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "coverage:changed": "node scripts/check-changed-coverage.mts",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test-cases:check": "node scripts/check-test-cases.mts",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
     "verify:permissions": "tsx scripts/verify-permissions.ts",
     "verify:login": "tsx scripts/verify-login.ts",
@@ -35,6 +39,11 @@
     "fixtures:spm55": "tsx scripts/seed-spm55.ts",
     "fixtures:spm85": "tsx scripts/seed-spm85.ts",
     "fixtures:spm33": "tsx scripts/seed-spm33.ts",
+    "fixtures:spm71": "tsx scripts/seed-spm71.ts",
+    "fixtures:spm67": "tsx scripts/seed-spm67.ts",
+    "fixtures:spm87": "tsx scripts/seed-spm87.ts",
+    "fixtures:spm90": "tsx scripts/seed-spm90.ts",
+    "fixtures:spm68": "tsx scripts/seed-spm68.ts",
     "fixtures:spm52": "tsx scripts/seed-spm52.ts"
   },
   "prisma": {
@@ -53,6 +62,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",

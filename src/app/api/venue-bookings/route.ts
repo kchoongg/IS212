@@ -34,6 +34,9 @@ export async function GET(req: NextRequest) {
       startsAt: true,
       endsAt: true,
       layoutName: true,
+      // SPM-90 (AC5): what the space is for, and its own attendance.
+      purpose: true,
+      expectedAttendance: true,
       requirementsNote: true,
       requestedAt: true,
       requester: { select: { fullName: true } },

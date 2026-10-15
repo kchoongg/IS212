@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BOOKING_STEP_MINUTES, isDayKey, isOnGrid } from "@/lib/venueTime";
+import { SPACE_ATTENDANCE_ERROR, SPACE_PURPOSE_MAX, SPACE_PURPOSE_REQUIRED } from "@/lib/venueSuitability";
 import {
   OTHER_REASON_ERROR,
   OTHER_REASON_MAX,
@@ -52,6 +53,9 @@ export type CreateVenueInput = z.infer<typeof createVenueSchema>;
 // ADDED (SPM-40): GET /api/venues/search. Query strings, so every value
 // arrives as text; empty strings are treated as "filter not set" rather than
 // errors, because that is what an untouched form field sends.
+/// A layout picker's "Not set" arrives as "", which means no layout.
+const blankToNull = (value: unknown) => (typeof value === "string" && value.trim() === "" ? null : value);
+
 const blankToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
@@ -154,6 +158,12 @@ export const createVenueBookingSchema = z.object({
   endTime: z.string().max(5),
   /// 'Venue requirements' (AC6). Optional; blank means none given.
   requirementsNote: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+  /// SPM-90 (AC1): what this space is for, e.g. "Main programme".
+  purpose: z.string().trim().min(1, SPACE_PURPOSE_REQUIRED).max(SPACE_PURPOSE_MAX),
+  /// SPM-90: the space's own attendance and layout. Left out, the route uses
+  /// the session's, else the event's (AC2). A null layout means "not set".
+  expectedAttendance: z.number().int().min(1, SPACE_ATTENDANCE_ERROR).optional(),
+  layoutName: z.preprocess(blankToNull, z.string().trim().max(50).nullable().optional()),
 });
 export type CreateVenueBookingInput = z.infer<typeof createVenueBookingSchema>;
 
@@ -202,3 +212,14 @@ export const decideVenueBookingSchema = z.discriminatedUnion("decision", [
   }),
 ]);
 export type DecideVenueBookingInput = z.infer<typeof decideVenueBookingSchema>;
+
+// ADDED (SPM-67): PATCH /api/events/[id]/venue-bookings/[bookingId]. The
+// assigned Coordinator withdraws a pending request or releases an approved
+// booking. The reason is optional (AC5 "can record"); a blank one is none.
+export const changeVenueBookingSchema = z
+  .object({
+    action: z.enum(["withdraw", "release"]),
+    reason: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+  })
+  .strict();
+export type ChangeVenueBookingInput = z.infer<typeof changeVenueBookingSchema>;

@@ -178,8 +178,13 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         // session-specific booking must be judged against the headcount for
         // THAT session - a 20-person breakout in a multi-day conference is not
         // affected by a room that no longer seats the whole event.
+        //
+        // SPM-90: the booking's own space comes first of all. An event may
+        // book several rooms, and each is judged against the attendance
+        // recorded for it; the session and event are the fallback for a
+        // booking made before that was recorded.
         expectedAttendance:
-          booking.session?.expectedAttendance ?? booking.event.expectedAttendance,
+          booking.expectedAttendance ?? booking.session?.expectedAttendance ?? booking.event.expectedAttendance,
         mandatoryFacilityIds: booking.event.facilityRequirements.map((r) => r.facilityId),
       }));
       const affected = assessVenueEdit(before, after, bookingStates);

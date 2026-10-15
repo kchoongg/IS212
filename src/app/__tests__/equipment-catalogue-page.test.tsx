@@ -394,5 +394,67 @@ describe("Equipment page (SPM-55)", () => {
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not update this equipment.");
     });
+
+    it("shows the server's own reason for a refusal", async () => {
+      open("tech_support", [kit()], { [MIC_PATCH]: reply(409, { error: "This item was changed by someone else." }) });
+
+      await askReturn();
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Return to available", hidden: true }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("This item was changed by someone else.");
+      expect(dialog().open).toBe(false);
+    });
+
+    it("shows a general refusal when the server's answer has no body", async () => {
+      open("tech_support", [kit()], { [MIC_PATCH]: reply(502) });
+
+      await askReturn();
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Return to available", hidden: true }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Could not update this equipment.");
+    });
+  });
+
+  describe("an answer missing some details", () => {
+    it("treats a save with no flagged reservations listed as none", async () => {
+      open("tech_support", [item()], { [PATCH]: item({ quantityInMaintenance: 1 }) });
+      await openRecord();
+
+      await fill("1", "Damaged");
+      await save();
+
+      expect(
+        await screen.findByText("Saved. 1 of 4 SPM55 Laser Projector units are out of service. No reservations were affected.")
+      ).toBeInTheDocument();
+    });
+
+    it("names a flagged reservation's untitled event as such", async () => {
+      open("tech_support", [item()], {
+        [PATCH]: {
+          ...item({ quantityInMaintenance: 1 }),
+          flaggedReservations: [{ requestId: "r1", eventId: "e1", eventTitle: null, sessionLabel: null, reserved: 4, available: 3 }],
+        },
+      });
+      await openRecord();
+
+      await fill("1", "Damaged");
+      await save();
+
+      expect(await screen.findByText("Untitled event: 4 reserved, 3 available")).toBeInTheDocument();
+    });
+  });
+
+  it("stays open on Escape while a save is in progress", async () => {
+    let finish: (value: unknown) => void = () => {};
+    open("tech_support", [item()], { [PATCH]: () => new Promise((resolve) => (finish = resolve)) });
+    await openRecord();
+    await fill("1", "Damaged");
+    await save();
+
+    fireEvent(dialog(), new Event("cancel", { cancelable: true }));
+
+    expect(dialog().open).toBe(true);
+    finish({ ...item({ quantityInMaintenance: 1 }), flaggedReservations: [] });
+    await waitFor(() => expect(dialog().open).toBe(false));
   });
 });

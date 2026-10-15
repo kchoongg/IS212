@@ -111,7 +111,7 @@ describe("GET /api/events/[id]/venue-bookings", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
-      event: { title: "Town Hall", preferredLayout: "theatre" },
+      event: { title: "Town Hall", preferredLayout: "theatre", expectedAttendance: 100 },
       schedule: { startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-04T09:00:00.000Z" },
       sessions: [
         {
@@ -126,6 +126,8 @@ describe("GET /api/events/[id]/venue-bookings", () => {
       cannotRequest: null,
       // Already in planning, so requesting begins nothing.
       willBeginPlanning: false,
+      // SPM-67: the assigned coordinator may withdraw or release.
+      canChangeBookings: true,
       bookings,
     });
     expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
@@ -143,7 +145,10 @@ describe("GET /api/events/[id]/venue-bookings", () => {
     const res = await get(token);
 
     expect(res.status).toBe(200);
-    expect((await res.json()).cannotRequest).toBe("Only the assigned Coordinator can request a venue booking.");
+    const body = await res.json();
+    expect(body.cannotRequest).toBe("Only the assigned Coordinator can request a venue booking.");
+    // SPM-67 AC9: nor withdraw or release one.
+    expect(body.canChangeBookings).toBe(false);
   });
 
   it("says a request on an approved event will begin planning", async () => {
@@ -192,12 +197,32 @@ describe("GET /api/events/[id]/venue-bookings", () => {
       const body = await (await get(token)).json();
 
       expect(body.cannotRequest).toBe("A venue cannot be requested for a completed, cancelled or rejected event.");
+      // SPM-67: nor can its bookings be withdrawn or released.
+      expect(body.canChangeBookings).toBe(false);
     }
   );
+
+  it("SPM-67: lets the assigned coordinator withdraw or release on an event that is not approved yet", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "under_review" }));
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    expect((await (await get(token)).json()).canChangeBookings).toBe(true);
+  });
+
+  it("SPM-67-TC07: returns the reason a booking was withdrawn or released", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event());
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    await get(token);
+
+    expect(callArg(db.venueBooking.findMany).select).toMatchObject({ cancellationReason: true });
+  });
 });
 
 describe("POST /api/events/[id]/venue-bookings", () => {
-  const valid = { venueId: ID.venue, day: DAY, startTime: "13:30", endTime: "17:00" };
+  const valid = { venueId: ID.venue, day: DAY, startTime: "13:30", endTime: "17:00", purpose: "Main programme" };
 
   function post(token: string | undefined, body: unknown, reference = REF) {
     return requestBooking(
@@ -267,6 +292,9 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       eventId: ID.event,
       sessionId: undefined,
       venueId: ID.venue,
+      // SPM-90: the space - here the event's own attendance and layout (AC2).
+      purpose: "Main programme",
+      expectedAttendance: 100,
       layoutName: "theatre",
       startsAt: STARTS,
       endsAt: ENDS,
@@ -380,14 +408,14 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     it("a venue that does not offer the event's layout", async () => {
       const token = given(event(), venue({ layouts: [{ layoutName: "banquet", capacity: 300 }] }));
 
-      expect(await refusal(token)).toBe("Hall A is not suitable for this event: Theatre layout is not offered.");
+      expect(await refusal(token)).toBe("Hall A is not suitable for this space: Theatre layout is not offered.");
     });
 
     it("a venue whose layout seats fewer than the attendance", async () => {
       const token = given(event(), venue({ layouts: [{ layoutName: "theatre", capacity: 60 }] }));
 
       expect(await refusal(token)).toBe(
-        "Hall A is not suitable for this event: Theatre capacity is 60 - your event expects 100."
+        "Hall A is not suitable for this space: Theatre capacity is 60 - this space expects 100."
       );
     });
 
@@ -395,7 +423,7 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       const token = given(event({ facilityRequirements: [hearingLoop] }));
 
       expect(await refusal(token)).toBe(
-        "Hall A is not suitable for this event: Missing accessibility feature: Hearing loop."
+        "Hall A is not suitable for this space: Missing accessibility feature: Hearing loop."
       );
     });
 
@@ -710,5 +738,261 @@ describe("GET /api/events/[id]/venue-suitability", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Session not found for this event" });
     expect(db.venue.findMany).not.toHaveBeenCalled();
+  });
+});
+
+// CONTRACT (SPM-90, written before the code) - what these tests expect:
+//   POST /api/events/[id]/venue-bookings   body gains
+//     purpose             required, trimmed, 1-100 characters
+//     expectedAttendance  optional whole number >= 1; omitted = the session's, else the event's
+//     layoutName          optional; omitted = the session's, else the event's; null = not set
+//     -> stored on the booking as purpose, expectedAttendance and layoutName, and the
+//        venue is judged against them (the event's facility requirements still apply);
+//        400 "<venue> is not suitable for this space: ..." naming the space's figure
+//   GET  /api/events/[id]/venue-bookings   event gains expectedAttendance; each booking
+//        is selected with purpose and expectedAttendance
+//   GET  /api/events/[id]/venue-suitability?attendance=<n>&layout=<name>
+//        judges by those instead of the event's (or the session's);
+//        400 { error: "Enter a whole number of at least 1." } for a bad attendance
+// Decided here, not in the story (docs/test-cases/SPM-90_test_cases.json, open_questions):
+//   the field and parameter names, the limits, and the wording.
+describe("SPM-90: each venue is checked against its own space", () => {
+  const space = { venueId: ID.venue, day: DAY, startTime: "13:30", endTime: "17:00", purpose: "Breakout room" };
+  /// Too small for event()'s 100 in any layout; a classroom for exactly 20.
+  const breakoutRoom = (overrides: Record<string, unknown> = {}) =>
+    venue({
+      layouts: [
+        { layoutName: "theatre", capacity: 30 },
+        { layoutName: "classroom", capacity: 20 },
+      ],
+      ...overrides,
+    });
+
+  function post(token: string | undefined, body: unknown) {
+    return requestBooking(req("POST", `/api/events/${REF}/venue-bookings`, { token, body }), params({ id: REF }));
+  }
+
+  function given(eventRow: object = event(), venueRow: object = breakoutRoom()) {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(eventRow);
+    db.venue.findUnique.mockResolvedValue(venueRow);
+    db.venueBooking.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.booking, ...data }));
+    return token;
+  }
+
+  async function refusal(token: string, body: unknown) {
+    const res = await post(token, body);
+    expect(res.status).toBe(400);
+    expect(db.venueBooking.create).not.toHaveBeenCalled();
+    return (await res.json()).error as string;
+  }
+
+  describe("POST /api/events/[id]/venue-bookings", () => {
+    it("SPM-90-TC02: stores what the space is for, with its own attendance and layout", async () => {
+      const token = given();
+
+      const res = await post(token, { ...space, purpose: "  Breakout room ", expectedAttendance: 20, layoutName: "classroom" });
+
+      expect(res.status).toBe(201);
+      expect(callArg(db.venueBooking.create).data).toMatchObject({
+        purpose: "Breakout room",
+        expectedAttendance: 20,
+        layoutName: "classroom",
+        status: "pending",
+      });
+    });
+
+    it("SPM-90-TC02: accepts a room too small for the whole event when it seats its own space", async () => {
+      const token = given(event({ expectedAttendance: 150 }));
+
+      const res = await post(token, { ...space, expectedAttendance: 30, layoutName: "theatre" });
+
+      expect(res.status).toBe(201);
+    });
+
+    it("SPM-90-TC03: refuses a room that cannot seat its own space, naming the space's figure", async () => {
+      const token = given();
+
+      expect(await refusal(token, { ...space, expectedAttendance: 25, layoutName: "classroom" })).toBe(
+        "Hall A is not suitable for this space: Classroom capacity is 20 - this space expects 25."
+      );
+    });
+
+    it("SPM-90-TC04: refuses a layout the room does not offer, whatever the attendance", async () => {
+      const token = given();
+
+      expect(await refusal(token, { ...space, expectedAttendance: 5, layoutName: "boardroom" })).toBe(
+        "Hall A is not suitable for this space: Boardroom layout is not offered."
+      );
+    });
+
+    it("still asks every space for the facilities the event requires", async () => {
+      const token = given(event({ facilityRequirements: [hearingLoop] }));
+
+      expect(await refusal(token, { ...space, expectedAttendance: 20, layoutName: "classroom" })).toBe(
+        "Hall A is not suitable for this space: Missing accessibility feature: Hearing loop."
+      );
+    });
+
+    it("SPM-90-TC01: a space given no attendance or layout takes the event's own", async () => {
+      const token = given(event(), venue());
+
+      const res = await post(token, { ...space, purpose: "Main programme" });
+
+      expect(res.status).toBe(201);
+      expect(callArg(db.venueBooking.create).data).toMatchObject({
+        purpose: "Main programme",
+        expectedAttendance: 100,
+        layoutName: "theatre",
+      });
+    });
+
+    it("SPM-90-TC11: for a session, it takes the session's own", async () => {
+      const token = given(
+        event({ sessions: [session()] }),
+        venue({ layouts: [{ layoutName: "boardroom", capacity: 50 }] })
+      );
+
+      const res = await post(token, { ...space, sessionId: ID.session });
+
+      expect(res.status).toBe(201);
+      expect(callArg(db.venueBooking.create).data).toMatchObject({ expectedAttendance: 40, layoutName: "boardroom" });
+    });
+
+    it("stores no layout when the space is given none", async () => {
+      const token = given();
+
+      const res = await post(token, { ...space, expectedAttendance: 20, layoutName: null });
+
+      expect(res.status).toBe(201);
+      expect(callArg(db.venueBooking.create).data).toMatchObject({ expectedAttendance: 20, layoutName: null });
+    });
+
+    it.each([
+      ["no purpose", { purpose: undefined }],
+      ["a blank purpose", { purpose: "   " }],
+      ["a purpose over 100 characters", { purpose: "x".repeat(101) }],
+      ["an attendance of 0", { expectedAttendance: 0 }],
+      ["a negative attendance", { expectedAttendance: -5 }],
+      ["an attendance that is not a whole number", { expectedAttendance: 20.5 }],
+    ])("SPM-90-TC05: refuses %s, and saves nothing", async (_what, patch) => {
+      const token = given(event(), venue());
+
+      const res = await post(token, { ...space, ...patch });
+
+      expect(res.status).toBe(400);
+      expect(db.venueBooking.create).not.toHaveBeenCalled();
+    });
+
+    it("accepts a purpose of exactly 100 characters", async () => {
+      const token = given(event(), venue());
+
+      const res = await post(token, { ...space, purpose: "x".repeat(100) });
+
+      expect(res.status).toBe(201);
+      expect(callArg(db.venueBooking.create).data.purpose).toHaveLength(100);
+    });
+  });
+
+  describe("GET /api/events/[id]/venue-bookings", () => {
+    it("SPM-90-TC07: returns each booking's space, and the event's own attendance for the form to start on", async () => {
+      const token = signIn(assignedCoordinator());
+      const bookings = [{ id: ID.booking, status: "pending", purpose: "Breakout room", expectedAttendance: 20, layoutName: "classroom" }];
+      db.event.findUnique.mockResolvedValue(event());
+      db.venueBooking.findMany.mockResolvedValue(bookings);
+
+      const res = await listBookings(req("GET", `/api/events/${REF}/venue-bookings`, { token }), params({ id: REF }));
+      const body = await res.json();
+
+      expect(callArg(db.venueBooking.findMany).select).toMatchObject({ purpose: true, expectedAttendance: true, layoutName: true });
+      expect(body.event).toEqual({ title: "Town Hall", preferredLayout: "theatre", expectedAttendance: 100 });
+      expect(body.bookings).toEqual(bookings);
+    });
+  });
+
+  describe("GET /api/events/[id]/venue-suitability", () => {
+    function get(token: string, query: string) {
+      return suitability(req("GET", `/api/events/${REF}/venue-suitability${query}`, { token }), params({ id: REF }));
+    }
+
+    function givenVenues(eventRow: object = event()) {
+      const token = signIn(assignedCoordinator());
+      db.event.findUnique.mockResolvedValue(eventRow);
+      db.venue.findMany.mockResolvedValue([breakoutRoom()]);
+      return token;
+    }
+
+    it("judges by the event's own attendance and layout when no space is given", async () => {
+      const body = await (await get(givenVenues(), "")).json();
+
+      expect(body.results[0]).toMatchObject({
+        suitable: false,
+        unmet: [{ kind: "capacity", layoutName: "theatre", layoutCapacity: 30, expectedAttendance: 100 }],
+      });
+    });
+
+    it("SPM-90-TC02: judges by the space's attendance and layout when they are given", async () => {
+      const body = await (await get(givenVenues(), "?attendance=20&layout=classroom")).json();
+
+      expect(body.event).toMatchObject({ expectedAttendance: 20, preferredLayout: "classroom", missing: [] });
+      expect(body.results[0]).toMatchObject({ suitable: true, unmet: [] });
+    });
+
+    it("SPM-90-TC04: one more than the layout seats is not suitable, and says so with the space's figure", async () => {
+      const body = await (await get(givenVenues(), "?attendance=21&layout=classroom")).json();
+
+      expect(body.results[0]).toMatchObject({
+        suitable: false,
+        unmet: [{ kind: "capacity", layoutName: "classroom", layoutCapacity: 20, expectedAttendance: 21 }],
+      });
+    });
+
+    it("keeps the event's facility requirements for the space", async () => {
+      const token = givenVenues(event({ facilityRequirements: [hearingLoop] }));
+
+      const body = await (await get(token, "?attendance=20&layout=classroom")).json();
+
+      expect(body.results[0]).toMatchObject({
+        suitable: false,
+        unmet: [{ kind: "facility", name: "Hearing loop", category: "accessibility" }],
+      });
+    });
+
+    it("keeps the event's layout when only an attendance is given, and its attendance when only a layout is", async () => {
+      const token = givenVenues();
+
+      const onlyAttendance = await (await get(token, "?attendance=20")).json();
+      const onlyLayout = await (await get(token, "?layout=classroom")).json();
+
+      expect(onlyAttendance.event).toMatchObject({ expectedAttendance: 20, preferredLayout: "theatre" });
+      expect(onlyLayout.event).toMatchObject({ expectedAttendance: 100, preferredLayout: "classroom" });
+    });
+
+    it("checks no layout, and says so, when the space is given none", async () => {
+      const body = await (await get(givenVenues(), "?attendance=500&layout=")).json();
+
+      expect(body.event).toMatchObject({ expectedAttendance: 500, preferredLayout: null, missing: ["preferredLayout"] });
+      // No layout, so no capacity to compare the 500 with.
+      expect(body.results[0].suitable).toBe(true);
+    });
+
+    it("puts the space's values ahead of the session's", async () => {
+      const token = givenVenues(event({ sessions: [session()] }));
+
+      const body = await (await get(token, `?session=${ID.session}&attendance=20&layout=classroom`)).json();
+
+      expect(body.event).toMatchObject({ expectedAttendance: 20, preferredLayout: "classroom" });
+      expect(body.results[0].suitable).toBe(true);
+    });
+
+    it.each(["0", "-3", "abc", "2.5"])("refuses an attendance of %s", async (attendance) => {
+      const token = givenVenues();
+
+      const res = await get(token, `?attendance=${attendance}&layout=classroom`);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Enter a whole number of at least 1." });
+      expect(db.venue.findMany).not.toHaveBeenCalled();
+    });
   });
 });

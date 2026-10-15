@@ -101,6 +101,16 @@ const ATTENTION_BY_ROLE: Record<string, Section & { scope?: Scope; more?: Sectio
           description: "Events appear here once your coordinator submits them for a safety check.",
         },
       },
+      // SPM-87 (AC7): approved by the Safety Officer, waiting to be confirmed.
+      {
+        heading: "Safety approved",
+        statuses: ["safety_cleared"],
+        blurb: "Events the Safety Officer has approved, waiting to be confirmed.",
+        empty: {
+          title: "Nothing safety approved",
+          description: "Events appear here once the Safety Officer approves them.",
+        },
+      },
     ],
   },
   // The coordinator's own events, by where each has got to. "Awaiting your
@@ -137,6 +147,16 @@ const ATTENTION_BY_ROLE: Record<string, Section & { scope?: Scope; more?: Sectio
           description: "Events appear here once you submit them for a safety check.",
         },
       },
+      // SPM-87: approved by the Safety Officer - yours to confirm.
+      {
+        heading: "Safety approved",
+        statuses: ["safety_cleared"],
+        blurb: "Your events the Safety Officer has approved, ready for you to confirm.",
+        empty: {
+          title: "Nothing safety approved",
+          description: "Events appear here once the Safety Officer approves them.",
+        },
+      },
     ],
   },
   ops_manager: {
@@ -147,12 +167,12 @@ const ATTENTION_BY_ROLE: Record<string, Section & { scope?: Scope; more?: Sectio
   },
   venue_staff: {
     heading: "Upcoming events",
-    statuses: ["approved", "planning", "safety_review", "confirmed"],
+    statuses: ["approved", "planning", "safety_review", "safety_cleared", "confirmed"],
     blurb: "Events with venue arrangements in progress or confirmed.",
   },
   tech_support: {
     heading: "Upcoming events",
-    statuses: ["approved", "planning", "safety_review", "confirmed"],
+    statuses: ["approved", "planning", "safety_review", "safety_cleared", "confirmed"],
     blurb: "Events that may need equipment or on-site support.",
   },
   attendee: {

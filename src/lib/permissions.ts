@@ -320,7 +320,7 @@ export function canViewEquipmentRequests(actor: Actor, event: EventAccessFields)
 /// SPM-86: Safety review sits between Planning and Confirmed, so they keep
 /// sight of what they reserved while the safety check is pending (read-only:
 /// reserving stays a Planning action, eventAllowsReserving()).
-export const TECH_SUPPORT_EQUIPMENT_STATUSES: readonly string[] = ["planning", "safety_review", "confirmed"];
+export const TECH_SUPPORT_EQUIPMENT_STATUSES: readonly string[] = ["planning", "safety_review", "safety_cleared", "confirmed"];
 
 export function techSupportSeesEquipment(eventStatus: string): boolean {
   return TECH_SUPPORT_EQUIPMENT_STATUSES.includes(eventStatus);
@@ -380,6 +380,8 @@ export const REASSIGNABLE_STATUSES: readonly string[] = [
   "planning",
   // SPM-86: still live while the Safety Officer reviews it.
   "safety_review",
+  // SPM-87: approved by the Safety Officer, not yet confirmed.
+  "safety_cleared",
   "confirmed",
   "postponed",
 ];
@@ -537,6 +539,14 @@ export function canMarkArrangements(actor: Actor, event: EventAccessFields): boo
 /// POST /api/events/[id]/safety-check, never the status PATCH.
 export function canSubmitForSafetyCheck(actor: Actor, event: EventAccessFields): boolean {
   return isAssignedCoordinator(actor, event) && event.status === "planning";
+}
+
+/// SPM-87: may this user record the Safety Officer's decision? Only the Safety
+/// Officer (AC12, the `event:safety_check` permission SPM-85 gives them), and
+/// only while the event is in Safety review (AC11). Once decided the event has
+/// left Safety review, so a submission is decided once.
+export function canRecordSafetyDecision(actor: Actor, event: EventAccessFields): boolean {
+  return can(actor.role, "event:safety_check") && event.status === "safety_review";
 }
 
 // ---------------------------------------------------------------------------

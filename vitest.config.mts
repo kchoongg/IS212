@@ -20,12 +20,17 @@ export default defineConfig({
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts", "src/**/__mocks__/**", "src/test/**"],
       // text: the table in the terminal / CI log. html: coverage/index.html.
-      reporter: ["text", "html"],
+      // json: coverage/coverage-final.json, which `npm run coverage:changed`
+      // reads to find changed lines that no test runs.
+      reporter: ["text", "html", "json"],
       // `npm run test:coverage` (and so the CI "Unit tests" check) fails below
-      // these. Set a little under the real figures (99% statements, 97%
-      // branches on 2026-10-02) so a refactor does not trip them, but a new
-      // page or route with no tests does. Plain `npm test` does not check them.
-      thresholds: { statements: 95, branches: 92, functions: 95, lines: 95 },
+      // these. Set a little under the real figures (99.7% statements, 99.1%
+      // branches, 99.9% functions and lines on 2026-10-15) so a refactor does
+      // not trip them, but a new page or route with no tests does. What is
+      // still uncovered is code no test can reach: defensive guards, and
+      // fallbacks for values the server always sends. Plain `npm test` does
+      // not check them.
+      thresholds: { statements: 99, branches: 98.5, functions: 99, lines: 99 },
     },
   },
   resolve: {

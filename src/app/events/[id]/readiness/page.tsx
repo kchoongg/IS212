@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Alert, Button, Card, PageHeader, SkeletonRows, StatusBadge, Tabs } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
@@ -39,6 +40,10 @@ interface Arrangement {
   status: string | null;
   state: string;
   missing: string;
+  /// SPM-90: what a venue booking's space is for; null or absent otherwise.
+  purpose?: string | null;
+  /// Why it is flagged for review, in words. "" when it is not flagged.
+  flagReason?: string;
   waivable: boolean;
   /// Marked as not required by the Coordinator (registration that is off is
   /// not required too, but nobody can mark it as required again here).
@@ -54,6 +59,9 @@ interface Readiness {
   event: { sequenceNumber: number; title: string | null; status: string };
   /// The assigned coordinator, while the event is in Planning.
   canManage: boolean;
+  /// SPM-68: the assigned coordinator, whatever the event's status - a flagged
+  /// arrangement is theirs to keep or replace on the Flagged Arrangements page.
+  canReviewFlags?: boolean;
   /// How many arrangements are required and not complete.
   blocking: number;
   arrangements: Arrangement[];
@@ -100,6 +108,30 @@ function sectionsFor(arrangements: Arrangement[]) {
   );
 }
 
+/// SPM-68: what POST /api/flagged-arrangements calls each kind, and what its
+/// Keep button says.
+const KEEP: Record<string, { kind: string; button: string; what: string }> = {
+  venue: { kind: "venue_booking", button: "Keep booking", what: "booking" },
+  equipment: { kind: "equipment_request", button: "Keep reservation", what: "reservation" },
+};
+
+/// SPM-68: how a flagged arrangement stands against the event now - the same
+/// result the Flagged Arrangements page shows, from the same request.
+interface FlagReview {
+  fits: boolean;
+  unmet: string[];
+}
+
+interface FlaggedList {
+  venueBookings: { id: string; suitability: { ok: boolean; unmet: string[] }; availability: { ok: boolean; unmet: string[] } }[];
+  equipmentRequests: { id: string; availability: { ok: boolean; summary: string } }[];
+}
+
+/// SPM-68: which tab of the Flagged Arrangements page lists a flagged
+/// arrangement of each kind. Registration setup is never flagged here - it is
+/// the event's registrations that are, and they do not block confirmation.
+const FLAGGED_TAB: Record<string, string> = { venue: "venue", equipment: "equipment" };
+
 export default function EventReadinessPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -111,6 +143,11 @@ export default function EventReadinessPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   /// The row being saved, so only its button waits.
   const [saving, setSaving] = useState<string | null>(null);
+  /// SPM-68: each flagged arrangement's current result, by "kind:id". Empty
+  /// until it has been read - and Keep is offered only on one that fits.
+  const [reviews, setReviews] = useState<Record<string, FlagReview>>({});
+  /// SPM-68: what was just kept.
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Readiness is internal planning information: the same list of roles that
   // decides who is shown the tab (roles.ts). The server checks again.
@@ -130,7 +167,30 @@ export default function EventReadinessPage() {
         return;
       }
       if (!res.ok) throw new Error("Could not load this event's arrangements.");
-      setData(await res.json());
+      const loaded: Readiness = await res.json();
+      setData(loaded);
+
+      // SPM-68: a flagged arrangement can be kept from here too, but only
+      // while it still meets the event's requirements - which is worked out
+      // live, by the same request the Flagged Arrangements page makes. If it
+      // cannot be read, the rows keep their link to that page and no Keep.
+      if (loaded.canReviewFlags && loaded.arrangements.some((a) => a.flagReason)) {
+        const flagged = await authedFetch("/api/flagged-arrangements").catch(() => null);
+        const next: Record<string, FlagReview> = {};
+        if (flagged?.ok) {
+          const list: FlaggedList = await flagged.json();
+          for (const b of list.venueBookings) {
+            next[`venue:${b.id}`] = {
+              fits: b.suitability.ok && b.availability.ok,
+              unmet: [...b.suitability.unmet, ...b.availability.unmet],
+            };
+          }
+          for (const r of list.equipmentRequests) {
+            next[`equipment:${r.id}`] = { fits: r.availability.ok, unmet: r.availability.ok ? [] : [r.availability.summary] };
+          }
+        }
+        setReviews(next);
+      }
     } catch (err) {
       setData(null);
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -172,6 +232,35 @@ export default function EventReadinessPage() {
       }
       // The answer is the list as it now stands.
       setData(await res.json());
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSaving(null);
+    }
+  }
+
+  /// SPM-68: keeps a flagged booking or reservation as it is. The server
+  /// clears the flag and nothing else, or says what it no longer meets.
+  async function keep(arrangement: Arrangement) {
+    setSaving(keyOf(arrangement));
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch("/api/flagged-arrangements", {
+        method: "POST",
+        body: JSON.stringify({ kind: KEEP[arrangement.kind].kind, id: arrangement.id }),
+      });
+      if (res.status === 401) {
+        router.push(loginUrl);
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setActionError(body?.error ?? "Could not clear the flag. Try again.");
+        return;
+      }
+      setNotice(`${arrangement.name} was kept as it is.`);
+      await load();
     } catch {
       setActionError("Could not reach the server. Check your connection and try again.");
     } finally {
@@ -272,6 +361,11 @@ export default function EventReadinessPage() {
             ))}
           </dl>
 
+          {notice && (
+            <Alert variant="success" title="Flag cleared">
+              {notice}
+            </Alert>
+          )}
           {actionError && <Alert variant="error">{actionError}</Alert>}
 
           <section aria-label="Arrangements" className="flex flex-col gap-5">
@@ -295,6 +389,23 @@ export default function EventReadinessPage() {
                         const session = arrangement.session
                           ? `Session: ${arrangement.session.label ?? "unnamed session"}`
                           : null;
+                        // SPM-90 (AC5): what a booked space is for.
+                        const space = arrangement.purpose ? `Space: ${arrangement.purpose}` : null;
+                        // SPM-68: a flagged arrangement is kept here or on the
+                        // Flagged Arrangements page, and replaced from there -
+                        // not resolved by marking it as not required. Shown to
+                        // the assigned coordinator for as long as it is flagged,
+                        // whether or not it has been marked as not required.
+                        const flaggedTab = FLAGGED_TAB[arrangement.kind];
+                        const flagged = Boolean(data.canReviewFlags && arrangement.flagReason && flaggedTab);
+                        const reviewHref = flagged ? `/flagged?tab=${flaggedTab}` : null;
+                        const review = flagged ? reviews[`${arrangement.kind}:${arrangement.id}`] : undefined;
+                        const keepButton =
+                          review?.fits ? (
+                            <Button size="sm" disabled={saving === key} onClick={() => void keep(arrangement)}>
+                              {KEEP[arrangement.kind].button}
+                            </Button>
+                          ) : null;
                         const action =
                           data.canManage && arrangement.waivable ? (
                             <Button
@@ -327,13 +438,31 @@ export default function EventReadinessPage() {
 
                             <div className="min-w-0">
                               <p className="font-medium text-ink">{arrangement.name}</p>
-                              {(session || ownStatus) && (
+                              {(session || space || ownStatus) && (
                                 <p className="mt-0.5 text-sm text-ink-3">
-                                  {[session, ownStatus].filter(Boolean).join(" · ")}
+                                  {[session, space, ownStatus].filter(Boolean).join(" · ")}
                                 </p>
                               )}
                               {arrangement.missing && (
                                 <p className="mt-1 text-sm text-ink-2">{sentence(arrangement.missing)}</p>
+                              )}
+                              {review && !review.fits && (
+                                <div className="mt-1 text-sm text-tone-warning-fg">
+                                  {review.unmet.map((line, i) => (
+                                    <p key={i}>{line}</p>
+                                  ))}
+                                  <p className="font-medium">
+                                    This {KEEP[arrangement.kind].what} can&apos;t be kept while it doesn&apos;t meet the
+                                    event&apos;s requirements.
+                                  </p>
+                                </div>
+                              )}
+                              {reviewHref && (
+                                <p className="mt-1 text-sm">
+                                  <Link href={reviewHref} className="font-medium text-ink underline underline-offset-2">
+                                    Review in Flagged Arrangements
+                                  </Link>
+                                </p>
                               )}
                               {arrangement.note && <p className="mt-1 text-sm text-ink-3">{arrangement.note}</p>}
                               {/* The Operational Safety Check, until SPM-88 makes
@@ -351,7 +480,12 @@ export default function EventReadinessPage() {
                               )}
                             </div>
 
-                            {action && <div className="col-start-2 sm:col-start-auto sm:justify-self-end">{action}</div>}
+                            {(keepButton || action) && (
+                              <div className="col-start-2 flex flex-wrap gap-2 sm:col-start-auto sm:flex-col sm:items-end sm:justify-self-end">
+                                {keepButton}
+                                {action}
+                              </div>
+                            )}
                           </li>
                         );
                       })}

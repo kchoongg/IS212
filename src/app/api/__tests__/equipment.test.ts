@@ -251,7 +251,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
   });
 
   /// A Reserved request of this item for an upcoming event, as the route reads it.
-  function heldFor(id: string, title: string, day: string, quantityReserved: number, overrides: Record<string, unknown> = {}) {
+  function heldFor(id: string, title: string, day: string, quantityReserved: number | null, overrides: Record<string, unknown> = {}) {
     return {
       id,
       eventId: `event-${id}`,
@@ -421,6 +421,15 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect((await res.json()).flaggedReservations).toEqual([]);
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
     expect(db.notification.create).not.toHaveBeenCalled();
+  });
+
+  it("counts a reservation with no quantity recorded as holding none, so never flags it", async () => {
+    const token = given(presenter(), [heldFor("blank", "SPM55 Unsized Booking", "2027-08-10", null)]);
+
+    const res = await record(token, { quantityOutOfService: 6, type: "damaged" });
+
+    expect((await res.json()).flaggedReservations).toEqual([]);
+    expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
   it("SPM-55-TC08: flags both events sharing the days when the units left cannot cover them both", async () => {

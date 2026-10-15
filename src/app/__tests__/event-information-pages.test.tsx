@@ -151,6 +151,14 @@ describe("Edit event information - who may open it", () => {
     }
   );
 
+  it("refuses a coordinator when the event comes without its coordinator", async () => {
+    const { coordinatorId: _omitted, ...unassigned } = event();
+    open(unassigned);
+
+    expect(await screen.findByText("Only the coordinator assigned to this event can change its information.")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Event name/)).not.toBeInTheDocument();
+  });
+
   it("offers a way back to the event from a refusal", async () => {
     open(event({ status: "completed" }));
 
@@ -335,6 +343,17 @@ describe("Edit event information - saving", () => {
     expect(screen.queryByText("Flagged for review")).not.toBeInTheDocument();
   });
 
+  it("says it is saved when the answer lists no flagged items", async () => {
+    open(event(), { [SAVE]: { statusReverted: false } });
+    await formReady();
+
+    set(/^Description/, "Keynote and Q&A");
+    await save();
+
+    expect(await screen.findByText("Event information updated.")).toBeInTheDocument();
+    expect(screen.queryByText("Flagged for review")).not.toBeInTheDocument();
+  });
+
   it("sends a new schedule as instants", async () => {
     const api = open();
     await formReady();
@@ -404,6 +423,16 @@ describe("Edit event information - saving", () => {
         "Harbour Leadership Summit is Confirmed. Saving these changes moves it back to Planning so it can be confirmed again."
       );
       expect(api.sent(SAVE)).toHaveLength(0);
+    });
+
+    it("calls an untitled event 'This event' in the question", async () => {
+      open(event({ status: "confirmed", title: null }));
+      await formReady();
+      set(/^Starts at/, "2027-03-24T09:00");
+      set(/^Ends at/, "2027-03-24T17:00");
+      await save();
+
+      expect(dialogTitled(TITLE)).toHaveTextContent("This event is Confirmed.");
     });
 
     it("saves nothing when the coordinator keeps editing", async () => {
@@ -614,6 +643,27 @@ describe("Edit event information - more of what it loads, sends and checks", () 
 
     expect(await screen.findByText("Choose the type of event.")).toBeInTheDocument();
     expect(api.sent(SAVE)).toHaveLength(0);
+  });
+
+  it("still works when the facility list cannot be loaded, offering no facilities to tick", async () => {
+    const api = open(event(), { "GET /api/facilities": reply(500, {}) });
+    await formReady();
+
+    expect(screen.queryByRole("checkbox", { name: "Raised stage" })).not.toBeInTheDocument();
+    set(/^Description/, "Keynote and Q&A");
+    await save();
+
+    await screen.findByText("Event information updated.");
+    expect(api.sent(SAVE)[0].body).toEqual({ description: "Keynote and Q&A" });
+  });
+
+  it("treats an event that comes without a sessions list as single-session", async () => {
+    const { sessions: _omitted, ...single } = event();
+    open(single);
+
+    await formReady();
+
+    expect(screen.getByLabelText(/^Starts at/)).toBeEnabled();
   });
 
   it("lists a multi-session event's sessions", async () => {

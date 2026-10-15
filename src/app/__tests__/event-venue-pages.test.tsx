@@ -30,13 +30,13 @@ const SUITABILITY = `GET /api/events/${REF}/venue-suitability`;
 const set = (control: HTMLElement, value: string) => fireEvent.change(control, { target: { value } });
 
 const sessions = [
-  { id: "s1", label: "Day 1", startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-04T09:00:00.000Z", preferredLayout: "boardroom" },
-  { id: "s2", label: null, startsAt: "2027-03-05T01:00:00.000Z", endsAt: "2027-03-05T03:00:00.000Z", preferredLayout: null },
+  { id: "s1", label: "Day 1", startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-04T09:00:00.000Z", preferredLayout: "boardroom", expectedAttendance: 40 },
+  { id: "s2", label: null, startsAt: "2027-03-05T01:00:00.000Z", endsAt: "2027-03-05T03:00:00.000Z", preferredLayout: null, expectedAttendance: 12 },
 ];
 
 function info(overrides: Record<string, unknown> = {}) {
   return {
-    event: { title: "Town Hall", preferredLayout: "theatre" },
+    event: { title: "Town Hall", preferredLayout: "theatre", expectedAttendance: 100 },
     schedule: { startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-04T09:00:00.000Z" },
     sessions: [],
     cannotRequest: null,
@@ -105,6 +105,15 @@ describe("Event Venue tab", () => {
       "href",
       "/venues/search?event=EVT-000007"
     );
+  });
+
+  it("leaves the space fields empty for an event with no attendance or layout yet", async () => {
+    open({ [SUITABILITY]: suitability([hallA], { expectedAttendance: null, preferredLayout: null }) });
+
+    await card("Hall A");
+
+    expect(screen.getByLabelText(/^Expected attendance for this space/)).toHaveValue(null);
+    expect(screen.getByLabelText(/^Room layout/)).toHaveValue("");
   });
 
   it("describes each venue: where it is, its capacity and its layouts", async () => {
@@ -294,6 +303,201 @@ describe("Event Venue tab", () => {
     });
   });
 
+  describe("SPM-67: withdrawing or releasing a booking", () => {
+    const PATCH_B1 = `PATCH /api/events/${REF}/venue-bookings/b1`;
+    const row = (overrides: Record<string, unknown> = {}) => ({
+      id: "b1",
+      status: "pending",
+      startsAt: "2027-03-04T05:30:00.000Z",
+      endsAt: "2027-03-04T09:00:00.000Z",
+      layoutName: "theatre",
+      session: null,
+      venue: { code: "HALL-A", name: "Hall A" },
+      decisionReason: null,
+      suggestedAlternative: null,
+      suggestedVenue: null,
+      cancellationReason: null,
+      ...overrides,
+    });
+    const requests = async () =>
+      (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
+    const dialog = () => screen.getByRole("dialog", { hidden: true });
+
+    it("SPM-67-TC07: offers Withdraw request on a pending row and Release booking on an approved one, and nothing on the rest", async () => {
+      open({
+        [INFO]: info({
+          canChangeBookings: true,
+          bookings: [
+            row({ id: "p", status: "pending" }),
+            row({ id: "a", status: "approved", venue: { code: "ROOM-B", name: "Room B" } }),
+            row({ id: "r", status: "rejected", venue: { code: "ROOM-C", name: "Room C" } }),
+            row({ id: "w", status: "withdrawn", venue: { code: "ROOM-D", name: "Room D" }, cancellationReason: "Wrong room." }),
+            row({ id: "x", status: "released", venue: { code: "ROOM-E", name: "Room E" }, cancellationReason: "Merged sessions." }),
+          ],
+        }),
+      });
+
+      const card = await requests();
+      const line = (venue: string) => within(card).getByText(venue).closest("div.text-sm") as HTMLElement;
+
+      expect(within(line("Hall A (HALL-A)")).getByRole("button", { name: "Withdraw request" })).toBeInTheDocument();
+      expect(within(line("Hall A (HALL-A)")).queryByRole("button", { name: "Release booking" })).not.toBeInTheDocument();
+      expect(within(line("Room B (ROOM-B)")).getByRole("button", { name: "Release booking" })).toBeInTheDocument();
+      expect(within(line("Room B (ROOM-B)")).queryByRole("button", { name: "Withdraw request" })).not.toBeInTheDocument();
+      for (const done of ["Room C (ROOM-C)", "Room D (ROOM-D)", "Room E (ROOM-E)"]) {
+        expect(within(line(done)).queryByRole("button")).not.toBeInTheDocument();
+      }
+      expect(line("Room D (ROOM-D)")).toHaveTextContent("Withdrawn");
+      expect(line("Room D (ROOM-D)")).toHaveTextContent("Reason for withdrawal: Wrong room.");
+      expect(line("Room E (ROOM-E)")).toHaveTextContent("Released");
+      expect(line("Room E (ROOM-E)")).toHaveTextContent("Reason for release: Merged sessions.");
+    });
+
+    it("SPM-67-TC08: offers neither to a user who may not change the bookings", async () => {
+      open({
+        [INFO]: info({
+          canChangeBookings: false,
+          cannotRequest: "Only the assigned Coordinator can request a venue booking.",
+          bookings: [row(), row({ id: "a", status: "approved" })],
+        }),
+      });
+
+      const card = await requests();
+
+      expect(within(card).queryByRole("button", { name: "Withdraw request" })).not.toBeInTheDocument();
+      expect(within(card).queryByRole("button", { name: "Release booking" })).not.toBeInTheDocument();
+    });
+
+    it("SPM-67-TC06: shows no reason line when none was given", async () => {
+      open({ [INFO]: info({ bookings: [row({ status: "withdrawn" })] }) });
+
+      const card = await requests();
+
+      expect(card).toHaveTextContent("Withdrawn");
+      expect(card).not.toHaveTextContent("Reason for withdrawal");
+    });
+
+    it("SPM-67-TC01: asks before withdrawing, sends the reason, and says what happened", async () => {
+      const api = open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
+        [PATCH_B1]: { id: "b1", status: "withdrawn" },
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+
+      expect(dialog()).toHaveTextContent("Withdraw this request?");
+      expect(dialog()).toHaveTextContent(
+        "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 will no longer be requested, and Venue Staff will no longer see it on their Booking Requests list."
+      );
+      expect(within(dialog()).getByRole("button", { name: "Keep request", hidden: true })).toBeInTheDocument();
+
+      api.on(INFO, info({ canChangeBookings: true, bookings: [row({ status: "withdrawn", cancellationReason: "Not needed." })] }));
+      fireEvent.change(within(dialog()).getByLabelText("Reason (optional)"), { target: { value: "Not needed." } });
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      await waitFor(() => expect(api.sent(PATCH_B1)[0].body).toEqual({ action: "withdraw", reason: "Not needed." }));
+      expect(await screen.findByText("Request withdrawn")).toBeInTheDocument();
+      expect(
+        screen.getByText("Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 is now Withdrawn. You can request another venue below.")
+      ).toBeInTheDocument();
+      expect(await screen.findByText("Not needed.", { exact: false })).toHaveTextContent("Reason for withdrawal: Not needed.");
+    });
+
+    it("SPM-67-TC03: asks before releasing, and says Venue Staff have been notified", async () => {
+      const api = open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row({ status: "approved" })] }),
+        [PATCH_B1]: { id: "b1", status: "released" },
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Release booking" }));
+
+      expect(dialog()).toHaveTextContent("Release this booking?");
+      expect(dialog()).toHaveTextContent(
+        "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 will be freed for other events, and Venue Staff will be notified."
+      );
+      expect(within(dialog()).getByRole("button", { name: "Keep booking", hidden: true })).toBeInTheDocument();
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Release booking", hidden: true }));
+
+      await waitFor(() => expect(api.sent(PATCH_B1)[0].body).toEqual({ action: "release" }));
+      expect(await screen.findByText("Booking released")).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 is now Released. Venue Staff have been notified. You can request another venue below."
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("sends nothing when the Coordinator keeps the request", async () => {
+      const api = open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: {} });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Keep request", hidden: true }));
+
+      expect(api.sent(PATCH_B1)).toHaveLength(0);
+    });
+
+    it("shows the server's refusal and reloads the bookings, which may have changed meanwhile", async () => {
+      const refusal = "This request has already been approved, so it can no longer be withdrawn. Release the booking instead.";
+      const api = open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
+        [PATCH_B1]: reply(400, { error: refusal }),
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      api.on(INFO, info({ canChangeBookings: true, bookings: [row({ status: "approved" })] }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText(refusal)).toBeInTheDocument();
+      expect(await within(await requests()).findByRole("button", { name: "Release booking" })).toBeInTheDocument();
+    });
+
+    it.each([
+      ["names the session", { id: "s1", label: "Day 1" }, "Hall A (HALL-A) for Day 1 on"],
+      ["calls an unnamed session 'Session'", { id: "s1", label: null }, "Hall A (HALL-A) for Session on"],
+    ])("%s a withdrawn request was for", async (_case, session, expected) => {
+      open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row({ session })] }),
+        [PATCH_B1]: { id: "b1", status: "withdrawn" },
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText(expected, { exact: false })).toHaveTextContent(" is now Withdrawn.");
+    });
+
+    it("says the change was not saved when the refusal has no body", async () => {
+      open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(409) });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText("Could not save the change. Please try again.")).toBeInTheDocument();
+    });
+
+    it("says the change was not saved when the server cannot be reached", async () => {
+      open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
+        [PATCH_B1]: () => Promise.reject(new TypeError("Failed to fetch")),
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText("Could not save the change. Please try again.")).toBeInTheDocument();
+    });
+
+    it("sends the user to log in when the session has expired", async () => {
+      open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(401, {}) });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fvenue"));
+    });
+  });
+
   it("shows no booking requests card when there are none", async () => {
     open();
 
@@ -381,6 +585,12 @@ describe("Event Venue tab", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(message);
     });
 
+    it("shows a general error when the check fails without a reason", async () => {
+      open({ [SUITABILITY]: () => Promise.reject("offline") });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    });
+
     it("offers a Retry that loads again", async () => {
       const api = open({ [SUITABILITY]: reply(500, {}) });
       await screen.findByRole("alert");
@@ -463,6 +673,12 @@ describe("Venue booking request form", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("This event or venue could not be found.");
   });
 
+  it("shows a general error when loading fails without a reason", async () => {
+    open({ [VENUE]: () => Promise.reject("offline") });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
   it("sends the user to log in when their session has expired", async () => {
     open({ [VENUE]: reply(401, {}) });
 
@@ -476,7 +692,7 @@ describe("Venue booking request form", () => {
 
       expect(valueOf("Event")).toHaveTextContent("Town Hall");
       expect(valueOf("Venue")).toHaveTextContent("Hall A");
-      expect(valueOf("Layout")).toHaveTextContent("Theatre");
+      expect(screen.getByLabelText(/^Room layout/)).toHaveValue("theatre");
       expect(screen.queryByText("Session")).not.toBeInTheDocument();
     });
 
@@ -505,7 +721,7 @@ describe("Venue booking request form", () => {
       expect(start()).toHaveValue("09:00");
       expect(end()).toHaveValue("11:00");
       expect(valueOf("Session")).toHaveTextContent(/^Session — 5 Mar 2027/);
-      expect(valueOf("Layout")).toHaveTextContent("Not set");
+      expect(screen.getByLabelText(/^Room layout/)).toHaveValue("");
     });
 
     it("names a labelled session by its label", async () => {
@@ -513,7 +729,7 @@ describe("Venue booking request form", () => {
       await date();
 
       expect(valueOf("Session")).toHaveTextContent(/^Day 1 — 4 Mar 2027/);
-      expect(valueOf("Layout")).toHaveTextContent("Boardroom");
+      expect(screen.getByLabelText(/^Room layout/)).toHaveValue("boardroom");
     });
 
     it.each([
@@ -526,7 +742,7 @@ describe("Venue booking request form", () => {
       expect(start()).toHaveValue("");
       expect(end()).toHaveValue("");
       expect(valueOf("Event")).toHaveTextContent("Untitled event");
-      expect(valueOf("Layout")).toHaveTextContent("Not set");
+      expect(screen.getByLabelText(/^Room layout/)).toHaveValue("");
     });
   });
 
@@ -566,6 +782,13 @@ describe("Venue booking request form", () => {
       expect(screen.getByText("Setup: 13:15–13:30 (15 min)")).toBeInTheDocument();
       expect(screen.queryByText(/^Turnaround:/)).not.toBeInTheDocument();
       expect(screen.queryByText("No setup or turnaround needed at this venue.")).not.toBeInTheDocument();
+    });
+
+    it("shows no room-in-use period while no date is chosen", async () => {
+      open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
+      set(await date(), "");
+
+      expect(screen.queryByText(/^Room in use:/)).not.toBeInTheDocument();
     });
 
     it("shows nothing while the times cannot be booked", async () => {
@@ -651,10 +874,23 @@ describe("Venue booking request form", () => {
         startTime: "13:15",
         endTime: "18:00",
         requirementsNote: "Stage at the north end",
+        // SPM-90: the space, left as the form opened - the event's own (AC2).
+        purpose: "Main programme",
+        expectedAttendance: 100,
+        layoutName: "theatre",
       });
       expect(screen.getByText("It is Pending until Venue Staff review it.")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Back to Venue" })).toHaveAttribute("href", "/events/EVT-000007/venue");
       expect(screen.queryByRole("button", { name: "Submit request" })).not.toBeInTheDocument();
+    });
+
+    it("confirms a request the server accepts without a body", async () => {
+      open({ [POST]: reply(201) });
+      await date();
+
+      await submit();
+
+      expect(await screen.findByText("Booking request sent to Venue Staff.")).toBeInTheDocument();
     });
 
     it("sends the session when the request is for one", async () => {
@@ -670,6 +906,9 @@ describe("Venue booking request form", () => {
         day: "2027-03-04",
         startTime: "13:30",
         endTime: "17:00",
+        // SPM-90: the session's own attendance and layout.
+        expectedAttendance: 40,
+        layoutName: "boardroom",
       });
     });
 
@@ -780,5 +1019,365 @@ describe("Venue booking request form", () => {
     await date();
 
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/events/EVT-000007/venue");
+  });
+});
+
+// CONTRACT (SPM-90, written before the code) - what these tests expect:
+//   Venue tab: a card headed "The space you need" with "Expected attendance for
+//     this space" and "Room layout", started on what the suitability check
+//     answered (the event's or session's own), and a "Check venues" button that
+//     asks again with ?attendance=<n>&layout=<name> and adds the same two to
+//     every "Request booking" link. An attendance below 1 asks nothing and says
+//     "Enter a whole number of at least 1."
+//   Booking requests card: "<purpose> · <session> · <times> · <layout> · <n> attendees".
+//   Request form: "What is this space for?" ("Main programme" for the event's or
+//     session's first pending or approved booking, otherwise empty), "Expected
+//     attendance for this space" and "Room layout", from the address when it
+//     carries them, else the session's or event's own. Sent as purpose,
+//     expectedAttendance and layoutName. "Say what this space is for." and
+//     "Enter a whole number of at least 1." are shown under their fields.
+// Decided here, not in the story: every label and message above.
+describe("SPM-90: the space a venue is needed for", () => {
+  const purpose = () => screen.getByLabelText(/^What is this space for\?/);
+  const attendance = () => screen.getByLabelText(/^Expected attendance for this space/);
+  const layout = () => screen.getByLabelText(/^Room layout/);
+
+  describe("on the Venue tab", () => {
+    const hall = {
+      venue: { id: "v1", code: "HALL-A", name: "Hall A", building: "Tower 1", floor: "3", maxCapacity: 300, layouts: [{ layoutName: "theatre", capacity: 300 }, { layoutName: "classroom", capacity: 120 }] },
+      suitable: true,
+      unmet: [],
+      optionalMissing: [],
+    };
+    /// Answers with the space it was asked about, as the route does.
+    const judged = (call: { url: string }) => {
+      const query = new URLSearchParams(call.url.split("?")[1] ?? "");
+      return {
+        event: {
+          expectedAttendance: Number(query.get("attendance") ?? 100),
+          preferredLayout: query.get("layout") ?? "theatre",
+          requirements: [],
+          missing: [],
+        },
+        results: [hall],
+      };
+    };
+
+    function open(routes: Record<string, unknown> = {}) {
+      setRoute(`/events/${REF}/venue`, { id: REF });
+      const api = mockApi({ ...signedInAs("coordinator"), [INFO]: info(), [SUITABILITY]: judged, ...routes });
+      render(<EventVenuePage />);
+      return api;
+    }
+
+    const ready = () => screen.findByRole("heading", { name: "The space you need" });
+    const check = () => userEvent.click(screen.getByRole("button", { name: "Check venues" }));
+
+    it("SPM-90-TC01: starts on the event's own attendance and layout", async () => {
+      const api = open();
+      await ready();
+
+      expect(attendance()).toHaveValue(100);
+      expect(layout()).toHaveValue("theatre");
+      expect(api.sent(SUITABILITY)[0].url).toBe(`/api/events/${REF}/venue-suitability`);
+    });
+
+    it("SPM-90-TC02: checks every venue again for the space, and carries it into Request booking", async () => {
+      const api = open();
+      await ready();
+
+      set(attendance(), "20");
+      await userEvent.selectOptions(layout(), "classroom");
+      await check();
+
+      await waitFor(() =>
+        expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(
+          `/api/events/${REF}/venue-suitability?attendance=20&layout=classroom`
+        )
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          "/events/EVT-000007/booking/new?venue=v1&attendance=20&layout=classroom"
+        )
+      );
+      expect(attendance()).toHaveValue(20);
+      expect(layout()).toHaveValue("classroom");
+    });
+
+    it("checks for a space with no layout set, and carries that into Request booking too", async () => {
+      const api = open();
+      await ready();
+
+      await userEvent.selectOptions(layout(), "");
+      await check();
+
+      await waitFor(() =>
+        expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(
+          `/api/events/${REF}/venue-suitability?attendance=100&layout=`
+        )
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          "/events/EVT-000007/booking/new?venue=v1&attendance=100&layout="
+        )
+      );
+    });
+
+    it("SPM-90-TC11: goes back to a session's own attendance and layout when another session is chosen", async () => {
+      const api = open({ [INFO]: info({ sessions }) });
+      await ready();
+      set(attendance(), "20");
+      await check();
+      await waitFor(() => expect(api.sent(SUITABILITY).at(-1)?.url).toContain("session=s1&attendance=20"));
+      await waitFor(() => expect(attendance()).toHaveValue(20));
+
+      await userEvent.selectOptions(screen.getByLabelText("Session"), "s2");
+
+      await waitFor(() =>
+        expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(`/api/events/${REF}/venue-suitability?session=s2`)
+      );
+      await waitFor(() => expect(attendance()).toHaveValue(100));
+    });
+
+    it("clears the message as soon as the attendance is changed", async () => {
+      open();
+      await ready();
+      set(attendance(), "0");
+      await check();
+      expect(await screen.findByText("Enter a whole number of at least 1.")).toBeInTheDocument();
+
+      set(attendance(), "5");
+
+      expect(screen.queryByText("Enter a whole number of at least 1.")).not.toBeInTheDocument();
+    });
+
+    it("keeps the session with the space", async () => {
+      const api = open({ [INFO]: info({ sessions }) });
+      await ready();
+
+      set(attendance(), "20");
+      await userEvent.selectOptions(layout(), "classroom");
+      await check();
+
+      await waitFor(() =>
+        expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(
+          `/api/events/${REF}/venue-suitability?session=s1&attendance=20&layout=classroom`
+        )
+      );
+    });
+
+    it.each(["0", "", "2.5"])("does not check for an attendance of '%s', and says why", async (value) => {
+      const api = open();
+      await ready();
+
+      set(attendance(), value);
+      await check();
+
+      expect(await screen.findByText("Enter a whole number of at least 1.")).toBeInTheDocument();
+      expect(api.sent(SUITABILITY)).toHaveLength(1);
+    });
+
+    it("SPM-90-TC07: lists each request with what its space is for, its layout and its attendance", async () => {
+      const times = { startsAt: "2027-03-04T05:00:00.000Z", endsAt: "2027-03-04T10:00:00.000Z" };
+      open({
+        [INFO]: info({
+          bookings: [
+            { id: "b1", status: "approved", ...times, layoutName: "theatre", purpose: "Main programme", expectedAttendance: 150, session: null, venue: { code: "HALL-A", name: "Hall A" } },
+            { id: "b2", status: "pending", ...times, layoutName: "classroom", purpose: "Breakout room", expectedAttendance: 20, session: { id: "s1", label: "Day 1" }, venue: { code: "ROOM-B", name: "Room B" } },
+          ],
+        }),
+      });
+
+      const requests = (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
+
+      expect(requests).toHaveTextContent("Main programme · 4 Mar 2027, 13:00–18:00 · Theatre · 150 attendees");
+      expect(requests).toHaveTextContent("Breakout room · Day 1 · 4 Mar 2027, 13:00–18:00 · Classroom · 20 attendees");
+    });
+
+    it("SPM-90-TC10: lists a booking made before, without a purpose", async () => {
+      open({
+        [INFO]: info({
+          bookings: [
+            { id: "b1", status: "approved", startsAt: "2027-03-04T05:00:00.000Z", endsAt: "2027-03-04T10:00:00.000Z", layoutName: "theatre", purpose: null, expectedAttendance: 100, session: null, venue: { code: "HALL-A", name: "Hall A" } },
+          ],
+        }),
+      });
+
+      const requests = (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
+
+      expect(requests).toHaveTextContent("Hall A (HALL-A)4 Mar 2027, 13:00–18:00 · Theatre · 100 attendees");
+    });
+  });
+
+  describe("on the request form", () => {
+    const POST = `POST /api/events/${REF}/venue-bookings`;
+    const venue = { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 0, teardownMinutes: 0 };
+    const held = (status: string, session: { id: string; label: string | null } | null = null) => ({
+      id: "b1",
+      status,
+      startsAt: "2027-03-04T05:30:00.000Z",
+      endsAt: "2027-03-04T09:00:00.000Z",
+      layoutName: "theatre",
+      purpose: "Main programme",
+      expectedAttendance: 100,
+      session,
+      venue: { code: "ROOM-B", name: "Room B" },
+    });
+
+    function open(routes: Record<string, unknown> = {}, query = "?venue=v1") {
+      setRoute(`/events/${REF}/booking/new${query}`, { id: REF });
+      const api = mockApi({
+        ...signedInAs("coordinator"),
+        [INFO]: info(),
+        "GET /api/venues/v1": venue,
+        [POST]: reply(201, { id: "b1" }),
+        ...routes,
+      });
+      render(<BookingRequestPage />);
+      return api;
+    }
+
+    const ready = () => screen.findByLabelText(/^Date/);
+    const submit = () => userEvent.click(screen.getByRole("button", { name: "Submit request" }));
+
+    it("SPM-90-TC01: the event's first request starts as its main programme, on the event's own attendance and layout", async () => {
+      open();
+      await ready();
+
+      expect(purpose()).toHaveValue("Main programme");
+      expect(attendance()).toHaveValue(100);
+      expect(layout()).toHaveValue("theatre");
+    });
+
+    it.each(["pending", "approved"])("SPM-90-TC05: leaves the purpose empty when the event already has a %s booking", async (status) => {
+      open({ [INFO]: info({ bookings: [held(status)] }) });
+      await ready();
+
+      expect(purpose()).toHaveValue("");
+      expect(attendance()).toHaveValue(100);
+    });
+
+    it.each(["rejected", "withdrawn", "released"])("starts as the main programme again when the only earlier request is %s", async (status) => {
+      open({ [INFO]: info({ bookings: [held(status)] }) });
+      await ready();
+
+      expect(purpose()).toHaveValue("Main programme");
+    });
+
+    // SPM-68: requesting a replacement for a flagged booking, for the same space.
+    it("takes what the space is for from the address, even when the event already has a booking", async () => {
+      open({ [INFO]: info({ bookings: [held("approved")] }) }, "?venue=v1&purpose=Breakout%20room&attendance=40&layout=classroom");
+      await ready();
+
+      expect(purpose()).toHaveValue("Breakout room");
+      expect(attendance()).toHaveValue(40);
+      expect(layout()).toHaveValue("classroom");
+    });
+
+    it("SPM-90-TC02: takes the space's attendance and layout from the address", async () => {
+      open({}, "?venue=v1&attendance=20&layout=classroom");
+      await ready();
+
+      expect(attendance()).toHaveValue(20);
+      expect(layout()).toHaveValue("classroom");
+    });
+
+    it("SPM-90-TC11: a session's first request starts on the session's own attendance and layout", async () => {
+      open(
+        { [INFO]: info({ sessions, bookings: [held("approved", { id: "s2", label: null })] }) },
+        "?venue=v1&session=s1"
+      );
+      await ready();
+
+      // The other session's booking does not make this one a second room.
+      expect(purpose()).toHaveValue("Main programme");
+      expect(attendance()).toHaveValue(40);
+      expect(layout()).toHaveValue("boardroom");
+    });
+
+    it("SPM-90-TC02: sends what the space is for, with its attendance and layout", async () => {
+      const api = open({ [INFO]: info({ bookings: [held("pending")] }) }, "?venue=v1&attendance=20&layout=classroom");
+      await ready();
+
+      set(purpose(), "Breakout room");
+      await submit();
+
+      expect(await screen.findByText("Booking request sent to Venue Staff.")).toBeInTheDocument();
+      expect(api.sent(POST)[0].body).toMatchObject({
+        venueId: "v1",
+        purpose: "Breakout room",
+        expectedAttendance: 20,
+        layoutName: "classroom",
+      });
+    });
+
+    it("sends no layout when the space is given none", async () => {
+      const api = open();
+      await ready();
+
+      await userEvent.selectOptions(layout(), "");
+      await submit();
+
+      await waitFor(() => expect(api.sent(POST)).toHaveLength(1));
+      expect(api.sent(POST)[0].body).toMatchObject({ layoutName: null });
+    });
+
+    it("SPM-90-TC05: sends nothing without a purpose, and says so under the field", async () => {
+      const api = open();
+      await ready();
+
+      set(purpose(), "   ");
+      await submit();
+
+      expect(await screen.findByText("Say what this space is for.")).toBeInTheDocument();
+      expect(api.sent(POST)).toHaveLength(0);
+    });
+
+    it.each(["0", "", "2.5"])("SPM-90-TC05: sends nothing for an attendance of '%s', and says so under the field", async (value) => {
+      const api = open();
+      await ready();
+
+      set(attendance(), value);
+      await submit();
+
+      expect(await screen.findByText("Enter a whole number of at least 1.")).toBeInTheDocument();
+      expect(api.sent(POST)).toHaveLength(0);
+    });
+
+    it("SPM-90-TC02: an address with no layout for the space starts on 'Not set'", async () => {
+      open({}, "?venue=v1&attendance=20&layout=");
+      await ready();
+
+      expect(attendance()).toHaveValue(20);
+      expect(layout()).toHaveValue("");
+    });
+
+    it("clears each message as soon as its field is changed", async () => {
+      open();
+      await ready();
+      set(purpose(), "");
+      set(attendance(), "0");
+      await submit();
+      expect(await screen.findByText("Say what this space is for.")).toBeInTheDocument();
+
+      set(purpose(), "Green room");
+      expect(screen.queryByText("Say what this space is for.")).not.toBeInTheDocument();
+      expect(screen.getByText("Enter a whole number of at least 1.")).toBeInTheDocument();
+
+      set(attendance(), "8");
+      expect(screen.queryByText("Enter a whole number of at least 1.")).not.toBeInTheDocument();
+    });
+
+    it("SPM-90-TC03: shows the server's refusal for the space", async () => {
+      const refusal = "Hall A is not suitable for this space: Classroom capacity is 20 - this space expects 25.";
+      open({ [POST]: reply(400, { error: refusal }) });
+      await ready();
+
+      await submit();
+
+      expect(await screen.findByText(refusal)).toBeInTheDocument();
+    });
   });
 });

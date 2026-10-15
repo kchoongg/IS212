@@ -265,6 +265,17 @@ describe("AC7 - results only display venues matching every selected criterion", 
     expect(names).toEqual(["Orchard Seminar Room", "One-North Rooftop Terrace", "Marina Grand Hall"]);
   });
 
+  it("ranks by the chosen layout's fit, and by name when two fit as tightly", () => {
+    const a = venue({ name: "Beta Room", layouts: [{ layoutName: "theatre", capacity: 80 }, { layoutName: "classroom", capacity: 40 }] });
+    const b = venue({ name: "Alpha Room", layouts: [{ layoutName: "theatre", capacity: 80 }] });
+    const c = venue({ name: "Cosy Room", layouts: [{ layoutName: "theatre", capacity: 60 }] });
+    expect(searchVenues([a, b, c], { attendance: 40, layout: "theatre" }).map((v) => v.name)).toEqual([
+      "Cosy Room",
+      "Alpha Room",
+      "Beta Room",
+    ]);
+  });
+
   it("lists by name otherwise", () => {
     expect(searchVenues([ORC_SEM, MAR_GH], {}).map((v) => v.name)).toEqual([
       "Marina Grand Hall",

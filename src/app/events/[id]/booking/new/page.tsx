@@ -12,6 +12,7 @@ import {
   Field,
   Input,
   PageHeader,
+  Select,
   SkeletonRows,
   Textarea,
 } from "@/components/ui";
@@ -19,7 +20,14 @@ import { BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
-import { layoutLabel } from "@/lib/venueSuitability";
+import { LAYOUTS, toOptions } from "@/lib/eventForm";
+import {
+  DEFAULT_SPACE_PURPOSE,
+  SPACE_ATTENDANCE_ERROR,
+  SPACE_PURPOSE_MAX,
+  SPACE_PURPOSE_REQUIRED,
+  parseSpaceAttendance,
+} from "@/lib/venueSuitability";
 import { timeRangeLabel } from "@/lib/venueTime";
 import {
   checkRequestTimes,
@@ -36,15 +44,36 @@ import {
 // session's own times widened to the grid (AC2). The setup and turnaround the
 // venue adds, and the whole time the room is in use, are shown, not chosen
 // (AC6). Every rule is enforced again by the server.
+//
+// SPM-90: the coordinator also says what this space is for, and its expected
+// attendance and room layout (AC1). They start on the event's own, or the
+// session's (AC2), or on what the Venue tab was last checked for when its
+// "Request booking" carried a space here. The venue is judged against them.
 
 interface Info {
-  event: { title: string | null; preferredLayout: string | null };
+  event: { title: string | null; preferredLayout: string | null; expectedAttendance?: number | null };
   schedule: { startsAt: string | null; endsAt: string | null };
-  sessions: { id: string; label: string | null; startsAt: string; endsAt: string; preferredLayout: string | null }[];
+  sessions: {
+    id: string;
+    label: string | null;
+    startsAt: string;
+    endsAt: string;
+    preferredLayout: string | null;
+    expectedAttendance?: number | null;
+  }[];
   cannotRequest: string | null;
+  /// The event's requests so far - whether this is its first room (SPM-90).
+  bookings: { status: string; session: { id: string } | null }[];
   /// SPM-54: this request would move the event from Approved to Planning.
   willBeginPlanning?: boolean;
 }
+
+const LAYOUT_OPTIONS = [{ value: "", label: "Not set" }, ...toOptions(LAYOUTS)];
+
+/// The statuses in which a booking holds, or asks for, a room.
+const ACTIVE_BOOKING = ["pending", "approved"];
+
+type SpaceErrors = { purpose?: string; attendance?: string };
 
 interface Venue {
   id: string;
@@ -69,6 +98,12 @@ function BookingRequestForm() {
   const search = useSearchParams();
   const venueId = search.get("venue");
   const sessionId = search.get("session");
+  // SPM-90: the space the Venue tab was last checked for, if it sent one.
+  const spaceAttendance = search.get("attendance");
+  const spaceLayout = search.get("layout");
+  // SPM-68: what the space is for, when a flagged booking's replacement is
+  // being requested - the same space the booking being replaced was for.
+  const spacePurpose = search.get("purpose");
   const { state } = useCurrentUser();
   const backHref = `/events/${eventId}/venue`;
 
@@ -79,6 +114,11 @@ function BookingRequestForm() {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [timeErrors, setTimeErrors] = useState<RequestTimeErrors>({});
+  // SPM-90: the space this room is for.
+  const [purpose, setPurpose] = useState("");
+  const [attendance, setAttendance] = useState("");
+  const [layoutName, setLayoutName] = useState("");
+  const [spaceErrors, setSpaceErrors] = useState<SpaceErrors>({});
   const [requirementsNote, setRequirementsNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -107,6 +147,18 @@ function BookingRequestForm() {
 
       // SPM-93 AC2: start on the session's own times, or the event's, widened
       // to the 15-minute grid.
+      // SPM-90 (AC2): the space starts on the session's own attendance and
+      // layout, or the event's - unless the Venue tab sent a space along.
+      const asked = loaded.sessions.find((s) => s.id === sessionId) ?? loaded.event;
+      setAttendance(spaceAttendance ?? asked.expectedAttendance?.toString() ?? "");
+      setLayoutName(spaceLayout ?? asked.preferredLayout ?? "");
+      // The first room of an event (or of a session) is its main programme;
+      // a further one has to be named.
+      const others = loaded.bookings.filter(
+        (b) => ACTIVE_BOOKING.includes(b.status) && (!sessionId || b.session?.id === sessionId)
+      );
+      setPurpose(spacePurpose ?? (others.length === 0 ? DEFAULT_SPACE_PURPOSE : ""));
+
       const own = loaded.sessions.find((s) => s.id === sessionId) ?? loaded.schedule;
       const start = own.startsAt && own.endsAt ? defaultTimes({ startsAt: new Date(own.startsAt), endsAt: new Date(own.endsAt) }) : null;
       if (start) {
@@ -117,7 +169,7 @@ function BookingRequestForm() {
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [eventId, venueId, sessionId, router]);
+  }, [eventId, venueId, sessionId, spaceAttendance, spaceLayout, spacePurpose, router]);
 
   useEffect(() => {
     if (state === "anonymous") {
@@ -141,11 +193,16 @@ function BookingRequestForm() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitError(null);
+    // SPM-90 AC1: what the space is for, and a real attendance for it.
+    const space: SpaceErrors = {};
+    if (purpose.trim() === "") space.purpose = SPACE_PURPOSE_REQUIRED;
+    if (parseSpaceAttendance(attendance) === null) space.attendance = SPACE_ATTENDANCE_ERROR;
+    setSpaceErrors(space);
     // AC3: an off-grid time, or an end not after the start, is named under its
     // field. The server checks the same rule.
     const errors = checkRequestTimes({ startTime, endTime });
     setTimeErrors(errors);
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0 || Object.keys(space).length > 0) return;
     // SPM-54: the first request for an Approved event begins planning - ask first.
     if (info?.willBeginPlanning) {
       setConfirmPlanning(true);
@@ -161,7 +218,18 @@ function BookingRequestForm() {
       const res = await authedFetch(`/api/events/${eventId}/venue-bookings`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ venueId, sessionId: sessionId ?? undefined, day, startTime, endTime, requirementsNote }),
+        body: JSON.stringify({
+          venueId,
+          sessionId: sessionId ?? undefined,
+          day,
+          startTime,
+          endTime,
+          requirementsNote,
+          purpose: purpose.trim(),
+          // Checked in submit(): a whole number of at least 1.
+          expectedAttendance: Number(attendance),
+          layoutName: layoutName || null,
+        }),
       });
       if (res.ok) {
         // SPM-54: the first request for an Approved event begins planning.
@@ -215,7 +283,6 @@ function BookingRequestForm() {
     );
   }
 
-  const layout = session ? session.preferredLayout : info.event.preferredLayout;
   const noTurnaround = venue.setupMinutes === 0 && venue.teardownMinutes === 0;
 
   return (
@@ -250,11 +317,45 @@ function BookingRequestForm() {
                     ? [{ label: "Session", value: `${session.label ?? "Session"} — ${formatDateTimeRange(session.startsAt, session.endsAt)}` }]
                     : []),
                   { label: "Venue", value: formatVenue(venue.name, venue.code) },
-                  { label: "Layout", value: layout ? layoutLabel(layout) : "Not set" },
                 ]}
               />
             </CardBody>
           </Card>
+
+          {/* SPM-90 AC1: the space this room is for. The venue is judged
+              against this attendance and layout, not the whole event's. */}
+          <Field
+            label="What is this space for?"
+            required
+            hint="For example main programme or breakout room."
+            error={spaceErrors.purpose}
+          >
+            <Input
+              value={purpose}
+              maxLength={SPACE_PURPOSE_MAX}
+              onChange={(e) => {
+                setPurpose(e.target.value);
+                setSpaceErrors((current) => ({ ...current, purpose: undefined }));
+              }}
+            />
+          </Field>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Expected attendance for this space" required error={spaceErrors.attendance}>
+              <Input
+                type="number"
+                min={1}
+                value={attendance}
+                onChange={(e) => {
+                  setAttendance(e.target.value);
+                  setSpaceErrors((current) => ({ ...current, attendance: undefined }));
+                }}
+              />
+            </Field>
+            <Field label="Room layout">
+              <Select value={layoutName} onChange={(e) => setLayoutName(e.target.value)} options={LAYOUT_OPTIONS} />
+            </Field>
+          </div>
 
           <Field label="Date" required>
             <Input type="date" value={day} onChange={(e) => setDay(e.target.value)} required />

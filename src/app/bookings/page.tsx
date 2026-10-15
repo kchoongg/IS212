@@ -46,6 +46,10 @@ interface Request {
   startsAt: string;
   endsAt: string;
   layoutName: string | null;
+  /// SPM-90: what the space is for, and how many people it is for. Both null
+  /// on a request made before they were recorded.
+  purpose?: string | null;
+  expectedAttendance?: number | null;
   requirementsNote: string | null;
   requester: { fullName: string };
   event: {
@@ -336,9 +340,12 @@ function RequestCard({
 }: RequestCardProps) {
   const window = windowOf(request);
   const holds = setupAndTurnaround(window, request.venue);
-  // A session's own times and attendance where the request is for one (SPM-42 AC4).
+  // A session's own times where the request is for one (SPM-42 AC4).
   const schedule = request.session ?? request.event;
-  const attendance = request.session?.expectedAttendance ?? request.event.expectedAttendance;
+  // SPM-90: the attendance of the space being asked for, not the event's
+  // total. The session's or event's is the fallback for an older request.
+  const attendance =
+    request.expectedAttendance ?? request.session?.expectedAttendance ?? request.event.expectedAttendance;
 
   return (
     <Card>
@@ -396,6 +403,8 @@ function RequestCard({
               label: request.session ? "Session time" : "Event time",
               value: formatDateTimeRange(schedule.startsAt, schedule.endsAt),
             },
+            // SPM-90 (AC5): what this room is wanted for.
+            { label: "Space", value: request.purpose?.trim() || "Not recorded" },
             { label: "Layout", value: request.layoutName ? layoutLabel(request.layoutName) : "Not set" },
             { label: "Expected attendance", value: attendance ?? "Not set" },
             { label: "Venue requirements", value: request.requirementsNote ?? "None given" },

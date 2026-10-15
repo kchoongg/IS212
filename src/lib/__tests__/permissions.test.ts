@@ -22,6 +22,7 @@ import {
   canManageEquipmentRequests,
   canSetEventStatus,
   canSubmitForSafetyCheck,
+  canRecordSafetyDecision,
   canViewEquipmentRequests,
   techSupportSeesEquipment,
   TECH_SUPPORT_EQUIPMENT_STATUSES,
@@ -736,7 +737,7 @@ describe("techSupportSeesEquipment (BPMN: Technical Support's lane is Planning a
   it("is Planning, Safety review and Confirmed only", () => {
     // SPM-86: Safety review sits between Planning and Confirmed, so Technical
     // Support keep sight of what they reserved while the check is pending.
-    expect(TECH_SUPPORT_EQUIPMENT_STATUSES).toEqual(["planning", "safety_review", "confirmed"]);
+    expect(TECH_SUPPORT_EQUIPMENT_STATUSES).toEqual(["planning", "safety_review", "safety_cleared", "confirmed"]);
     expect(techSupportSeesEquipment("planning")).toBe(true);
     expect(techSupportSeesEquipment("safety_review")).toBe(true);
     expect(techSupportSeesEquipment("approved")).toBe(false);
@@ -763,6 +764,35 @@ describe("canSubmitForSafetyCheck (SPM-86)", () => {
     for (const other of [otherCoordinator, opsManager, organiserA, venueStaff, techSupport, attendee]) {
       expect(canSubmitForSafetyCheck(other, inPlanning), other.role).toBe(false);
     }
+  });
+});
+
+describe("canRecordSafetyDecision (SPM-87)", () => {
+  const safetyOfficer = actor("safety_officer");
+  const inReview = event({ status: "safety_review", coordinatorId: "coordinator-1" });
+
+  it("lets the Safety Officer decide an event in Safety review", () => {
+    expect(canRecordSafetyDecision(safetyOfficer, inReview)).toBe(true);
+  });
+
+  it("SPM-87-TC10: only while it is in Safety review (AC11)", () => {
+    for (const status of ["planning", "safety_cleared", "confirmed", "approved", "cancelled"]) {
+      expect(canRecordSafetyDecision(safetyOfficer, event({ status, coordinatorId: "coordinator-1" })), status).toBe(false);
+    }
+  });
+
+  it("SPM-87-TC11: for no other role, the assigned coordinator included (AC12)", () => {
+    for (const other of [coordinator, otherCoordinator, opsManager, organiserA, venueStaff, techSupport, attendee]) {
+      expect(canRecordSafetyDecision(other, inReview), other.role).toBe(false);
+    }
+  });
+
+  it("SPM-87-TC04: lets the assigned coordinator confirm a Safety approved event", () => {
+    expect(canConfirmEvent(coordinator, event({ status: "safety_cleared", coordinatorId: "coordinator-1" }))).toBe(true);
+  });
+
+  it("keeps Safety approved among the statuses a coordinator can be reassigned in", () => {
+    expect(REASSIGNABLE_STATUSES).toContain("safety_cleared");
   });
 });
 

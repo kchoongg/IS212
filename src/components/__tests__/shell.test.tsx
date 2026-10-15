@@ -6,6 +6,7 @@ import { NotBuiltYet } from "@/components/NotBuiltYet";
 import { AssignCoordinator } from "@/components/AssignCoordinator";
 import { NAV_BY_ROLE, ROLES, roleLabel } from "@/lib/roles";
 import { saveToken } from "@/lib/session";
+import { NOTIFICATIONS_CHANGED } from "@/lib/notificationView";
 import {
   act,
   mockApi,
@@ -26,6 +27,16 @@ const navLabels = () => within(mainNav()).getAllByRole("link").map((a) => a.text
 
 describe("AppShell", () => {
   describe("before sign-in", () => {
+    it("treats a page with no path as the landing page", async () => {
+      setRoute("");
+      mockApi(signedOut());
+
+      render(<AppShell>page content</AppShell>);
+
+      expect(screen.getByText("page content")).toBeInTheDocument();
+      expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    });
+
     it.each(["/", "/login", "/register"])("renders %s with no navigation at all", async (path) => {
       setRoute(path);
       mockApi(signedOut());
@@ -233,6 +244,104 @@ describe("AppShell", () => {
   });
 });
 
+// SPM-71 (AC3): the number of unread notifications, on the bell and on the
+// sidebar's Notifications link.
+describe("AppShell - unread notifications (SPM-71)", () => {
+  const COUNT = "GET /api/notifications/unread-count";
+  const bell = () => within(screen.getByRole("banner")).getByRole("link", { name: /^Notifications/ });
+  const sidebarLink = () => within(mainNav()).getByRole("link", { name: /^Notifications/ });
+
+  function open(unread: unknown, path = "/dashboard") {
+    setRoute(path);
+    const api = mockApi({ ...signedInAs("coordinator"), [COUNT]: unread });
+    const view = render(<AppShell>page content</AppShell>);
+    return { api, view };
+  }
+
+  it("shows the count on the bell and on the sidebar link", async () => {
+    open({ unread: 3 });
+
+    await waitFor(() => expect(bell()).toHaveAccessibleName("Notifications, 3 unread"));
+    expect(bell()).toHaveTextContent("3");
+    expect(sidebarLink()).toHaveAccessibleName("Notifications, 3 unread");
+    expect(sidebarLink()).toHaveTextContent("3");
+  });
+
+  it("shows no number at all when nothing is unread", async () => {
+    const { api } = open({ unread: 0 });
+
+    await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
+    expect(bell()).toHaveAccessibleName("Notifications");
+    expect(sidebarLink()).toHaveTextContent(/^Notifications$/);
+  });
+
+  it("caps a large count at 99+", async () => {
+    open({ unread: 140 });
+
+    await waitFor(() => expect(bell()).toHaveTextContent("99+"));
+    expect(bell()).toHaveAccessibleName("Notifications, 99+ unread");
+  });
+
+  it("asks nobody for a count before anyone has signed in", async () => {
+    setRoute("/dashboard");
+    const api = mockApi(signedOut());
+
+    render(<AppShell>page content</AppShell>);
+
+    await screen.findByRole("link", { name: "Log in" });
+    expect(api.sent(COUNT)).toHaveLength(0);
+  });
+
+  it("counts again when the Notifications page marks something read", async () => {
+    const { api } = open({ unread: 3 });
+    await waitFor(() => expect(bell()).toHaveTextContent("3"));
+
+    api.on(COUNT, { unread: 2 });
+    act(() => {
+      window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
+    });
+
+    await waitFor(() => expect(bell()).toHaveAccessibleName("Notifications, 2 unread"));
+  });
+
+  it("counts again on moving to another page", async () => {
+    const { api, view } = open({ unread: 3 });
+    await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
+
+    setRoute("/events");
+    view.rerender(<AppShell>other page</AppShell>);
+
+    await waitFor(() => expect(api.sent(COUNT)).toHaveLength(2));
+  });
+
+  it("shows no number when the count comes back as something other than a number", async () => {
+    const { api } = open({ unread: "three" });
+
+    await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
+    expect(bell()).toHaveAccessibleName("Notifications");
+  });
+
+  it("drops a count that arrives after the shell has gone", async () => {
+    let answer: (value: unknown) => void = () => {};
+    const { api, view } = open(() => new Promise((resolve) => (answer = resolve)));
+    await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
+
+    view.unmount();
+    answer({ unread: 5 });
+
+    await waitFor(() => expect(api.fetch).toHaveBeenCalled());
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  });
+
+  it("keeps working, with no number, when the count cannot be loaded", async () => {
+    open(reply(500, {}));
+
+    await screen.findByRole("button", { name: "Log out" });
+    expect(bell()).toHaveAccessibleName("Notifications");
+    expect(screen.getByText("page content")).toBeInTheDocument();
+  });
+});
+
 describe("RequirePermission", () => {
   const screenBody = () => screen.queryByText("the restricted screen");
 
@@ -402,6 +511,16 @@ describe("AssignCoordinator", () => {
       await userEvent.click(screen.getByRole("button", { name: "Assign" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not save the coordinator.");
+    });
+
+    it("shows a general error when the request fails without a reason", async () => {
+      mockApi({ [ROUTE]: () => Promise.reject("offline") });
+      const { select } = renderPicker(null);
+
+      await userEvent.selectOptions(select, "Daniel Tan");
+      await userEvent.click(screen.getByRole("button", { name: "Assign" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
     it("clears the error once a different coordinator is picked", async () => {

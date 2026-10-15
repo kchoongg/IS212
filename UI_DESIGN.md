@@ -77,7 +77,7 @@ cite.
 | S-01 | Login | `/login` | Authenticate. |
 | S-02 | Register | `/register` | Create an account. |
 | S-03 | Dashboard | `/dashboard` | Role-specific overview: what needs my attention. For an organiser and a coordinator, one section per status, each showing the five most recently updated events with a "View all" link — an overview, not the list. |
-| S-04 | Notifications | `/notifications` | Full notification history, read/unread. |
+| S-04 | Notifications | `/notifications` | Full notification history, newest first: what happened, the event and its reference, and when. Unread ones bold with an "Unread" label and "Mark as read"; "Mark all as read" in the header; selecting one marks it read and opens its event, or the Venue or Equipment tab for an arrangement that needs review (SPM-71). Empty state "No notifications". |
 | S-05 | Profile | `/profile` | Name, contact details, organisation, department. |
 | S-06 | Event detail | `/events/[id]` | **The hub.** Role-adaptive view of one event. |
 
@@ -98,10 +98,11 @@ cite.
 | S-12 | Review queue | `/queue` | Events assigned to me, grouped by what they need. |
 | S-13 | Event review | `/events/[id]/review` | Approve, reject, or request clarification. |
 | S-14 | Venue search | `/venues/search?event=EVT-000123` | Filter venues against this event's requirements. Built (SPM-40): shows only matching venues; the greyed "not suitable, and why" view is the event's Venue tab (SPM-41). |
-| S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. |
+| S-15 | Venue booking request | `/events/[id]/booking/new` | Request a venue from Venue Staff. The event's requests are listed on its Venue tab ("Booking requests" card), where the assigned coordinator can **Withdraw request** (Pending) or **Release booking** (Approved), each behind a confirmation with an optional reason (SPM-67). The row stays, as Withdrawn or Released (grey), with "Reason for withdrawal/release: …"; a release notifies Venue Staff. |
 | S-16 | Equipment request | `/events/[id]/equipment` | Record equipment needed. |
 | S-17 | Change request review | `/events/[id]/change-requests/[crId]` | Approve/reject a requested change. |
-| S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). |
+| S-18 | Readiness | `/events/[id]/readiness` | What still prevents confirmation. Built (SPM-33): one item per venue booking, equipment line and registration setup, and the Operational Safety Check last - Complete, Outstanding or Not required - and the assigned coordinator can mark one as not required (never the safety check). Confirm event stays on the Overview (SPM-34). A booking or equipment line that is flagged for review gives the assigned coordinator **Keep booking** / **Keep reservation** (only while it still meets the event's requirements; otherwise what is unmet, and that it can't be kept) and a "Review in Flagged Arrangements" link (S-30, SPM-68), where a replacement is found. |
+| S-30 | Flagged Arrangements | `/flagged` | Built (SPM-68): every venue booking, equipment reservation and registration list on the coordinator's own events that a change has flagged for review, most recently flagged first, on three tabs - "Venue bookings", "Equipment reservations" and "Registrations" (`?tab=venue`, `?tab=equipment`, `?tab=registrations`), each with how many are flagged. Opened without a tab it shows the first one with something in it; an empty tab says "No venue bookings are flagged" (and likewise), and the page says "Nothing is flagged", with no tabs, when there is nothing at all. Each item shows the event, the arrangement (for a booking, the space it is for: "Space: Breakout room", SPM-90), "Flagged because: …" and how it stands against the event now: "Suitability: Suitable / Not suitable" and "Availability: Available / Not available" with what is unmet, "Availability: 2 reserved, 4 available for these dates.", or "12 registered, 3 on the waiting list". **Keep booking** / **Keep reservation** / **Mark as reviewed** clear the flag and change nothing else. A booking or reservation that no longer meets the event's requirements has no Keep button: its item says "This booking can't be kept while it doesn't meet the event's requirements." under what is unmet (the server refuses too, for a page showing an older result). A flagged item that was marked as not required on Readiness is still listed, saying so; an event that is completed, cancelled, rejected or withdrawn is not listed at all. An equipment item has **Open Equipment tab**, and a registrations item **Open Overview** (where "Change registration settings" is). A booking also has **Find a replacement venue** (S-14, filled in from that booking) and **Open Venue tab**: the page clears flags and never changes an arrangement, so releasing or withdrawing the booking is done on the event's Venue tab (SPM-67). Every other role sees "You do not have access to this". |
 
 ### 3.4 Venue Staff
 
@@ -110,7 +111,7 @@ cite.
 | S-19 | Venue catalogue | `/venues` | All venues, searchable. |
 | S-20 | Venue detail / edit | `/venues/[id]`, `/venues/[id]/edit` | Capacity, layouts, facilities, hours. |
 | S-21 | Availability calendar | `/venues/[id]/availability` | Bookings, holds, and blocks over time: one row per day, each entry at its actual times, with setup and turnaround as their own entries (SPM-93). |
-| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. |
+| S-22 | Booking approval queue | `/bookings` | Pending requests to approve or reject, one card each (SPM-42 list, SPM-43 decision). Approve asks for confirmation; Reject opens a form on the card — reason (required), suggested venue and alternative arrangement (both optional). A request that would clash shows "Conflict", says what with, links to S-21 and cannot be approved. The mockup's "Suggest another room" button and "Approve anyway" turnaround warning are superseded. A request the coordinator withdraws leaves the list (SPM-67). |
 | S-23 | Block venue | — (on S-20) | Record a period the venue is unavailable for. Built in SPM-45 as the "Unavailable periods" section and "Mark unavailable" dialog on the venue editor (S-20), not as a page of its own: the date and time it becomes unavailable and is available again (15-minute grid), a reason, and a typed reason when it is Other. |
 
 ### 3.5 Technical Support
@@ -178,7 +179,7 @@ attendee variant — see §4.3.)*
 | Role | Sidebar items |
 | --- | --- |
 | Organiser | Dashboard · My Events · Notifications |
-| Coordinator | Dashboard · Review Queue · All Events · Venues · Equipment · Notifications |
+| Coordinator | Dashboard · Review Queue · Flagged Arrangements · All Events · Venues · Equipment · Notifications |
 | Venue Staff | Dashboard · Venues · Booking Requests · Notifications |
 | Tech Support | Dashboard · Equipment · Equipment Requests · Notifications |
 | Attendee | Dashboard · Browse Events · My Registrations · Notifications |
@@ -328,6 +329,7 @@ maps the database string to a human label and a fixed tone:
 | `approved` | Approved | progress (indigo) |
 | `planning` | Planning | progress (indigo) |
 | `safety_review` | Safety review | info (blue) — with the Safety Officer (SPM-86) |
+| `safety_cleared` | Safety approved | progress (indigo) — approved by the Safety Officer, to be confirmed (SPM-87) |
 | `confirmed` | Confirmed | success (green) |
 | `completed` | Completed | neutral (grey) |
 | `postponed` | Postponed | warning (amber) |
@@ -446,7 +448,7 @@ every session has one.
 | S-01 Login | Email, Password | |
 | S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
 | S-13 Event review | Decision (approve / reject / request clarification), Message or Reason | Reason **required** when rejecting — enforced server-side in `events/[id]/route.ts`. |
-| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), Layout (shown), Date, Start time, End time, Venue requirements | Built (SPM-42), in times since SPM-93. Date and times default to the event's or session's own, widened to the 15-minute grid. Times must be on the grid, the end after the start, and cover that time. The setup and turnaround times and the whole room-in-use period are shown under the fields, not chosen. |
+| S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), What is this space for?, Expected attendance for this space, Room layout, Date, Start time, End time, Venue requirements | Built (SPM-42), in times since SPM-93. Date and times default to the event's or session's own, widened to the 15-minute grid. Times must be on the grid, the end after the start, and cover that time. The setup and turnaround times and the whole room-in-use period are shown under the fields, not chosen. SPM-90: the three space fields start on the event's (or session's) own attendance and layout, or on what the Venue tab's "The space you need" card was last checked for; the purpose starts as "Main programme" for the first booking and empty for a further one. |
 | S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
 | S-10 Change request | Reason *, Proposed start, Proposed end, Proposed attendance, Other changes | At least one proposed change required. Significant-change warning shown live — see §7.4. |
 | S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup time (minutes), Turnaround time (minutes), Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. Setup and turnaround in 15-minute steps, zero included (SPM-93). |
@@ -500,7 +502,7 @@ getting right.
 
 | Situation | Where | What the user sees |
 | --- | --- | --- |
-| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Capacity 200 — your event expects 250". Not hidden, but it has no "Request booking" button (SPM-42). |
+| Attendance exceeds venue capacity | S-14 venue search, S-18 readiness | Venue shown but greyed with "Theatre capacity is 200 - this space expects 250." (the space being booked, SPM-90). Not hidden, but it has no "Request booking" button (SPM-42). |
 | Required facility missing | S-14 | "Missing: hearing loop" listed on the venue card; venue ranked below full matches. |
 | Venue double-booking | S-15 submit, S-22 approve | Blocking error naming the conflicting event and its times, with a link to the S-21 calendar. |
 | Booking overlaps setup/teardown | S-15, S-22 | Blocked, like any clash: a booking occupies the room from its start minus the venue's setup to its end plus its turnaround (Week 7 Change #1, SPM-93), so overlapping either is a double-booking (#35). Periods that only meet end to start do not clash. |
@@ -595,6 +597,8 @@ This document specifies the whole first release. What is built so far:
 | S-02 Register — reference implementation of the validation pattern | `src/app/register/page.tsx` |
 | S-03 Dashboard, role-aware | `src/app/dashboard/page.tsx` |
 | S-29 Safety Checks, the Safety Officer's list (SPM-85) | `src/app/safety-checks/page.tsx`, `src/app/api/safety-checks/route.ts` |
+| S-30 Flagged Arrangements, the coordinator's list (SPM-68); and S-14 opened to replace a flagged booking (`?event=…&booking=…`: filled in from the booking, "Request booking" on each result) | `src/app/flagged/page.tsx`, `src/app/api/flagged-arrangements/route.ts`, `src/lib/flaggedArrangements.ts`, `src/lib/flaggedArrangementsService.ts`, `src/app/venues/search/page.tsx` |
+| S-04 Notifications, and the unread count on the bell and the sidebar link (SPM-71) | `src/app/notifications/page.tsx`, `src/app/api/notifications/`, `src/lib/notificationView.ts`, `src/components/AppShell.tsx` |
 | Overview "Sessions" and "Venue bookings" cards for staff (SPM-85) | `src/app/events/[id]/page.tsx` |
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |
@@ -605,6 +609,7 @@ This document specifies the whole first release. What is built so far:
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
 | S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
+| Record safety decision - the Safety Officer, on an event in Safety review (SPM-87): button and dialog (Approve / Request changes / Reject, with a required reason for the last two), the decision on the "Safety check" row, each venue's opening hours and unavailable periods on the Venue bookings card, a "Safety approved" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyDecisionDialog.tsx`, `src/lib/safetyDecision.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |

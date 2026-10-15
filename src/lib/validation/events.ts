@@ -228,6 +228,16 @@ export const markArrangementSchema = z.union([
 ]);
 export type MarkArrangementInput = z.infer<typeof markArrangementSchema>;
 
+// ADDED (SPM-68): POST /api/flagged-arrangements. The assigned Coordinator
+// keeps a flagged venue booking or equipment reservation, or marks an event's
+// flagged registrations as reviewed. `id` is the booking's, the request's, or
+// - for registrations, which are flagged on the event itself - the event's.
+export const reviewFlaggedArrangementSchema = z.object({
+  kind: z.enum(["venue_booking", "equipment_request", "registrations"]),
+  id: z.string().uuid(),
+});
+export type ReviewFlaggedArrangementInput = z.infer<typeof reviewFlaggedArrangementSchema>;
+
 // SPM-24: editing a saved draft. Every field is optional — the organiser may
 // only be changing one thing — so this cannot reuse createEventSchema, which
 // requires a title. Cross-field rules that depend on values already stored on

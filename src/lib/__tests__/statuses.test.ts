@@ -20,6 +20,7 @@ const EVENT_STATUSES = [
   "approved",
   "planning",
   "safety_review",
+  "safety_cleared",
   "confirmed",
   "completed",
   "postponed",
@@ -40,6 +41,33 @@ describe("statusLabel", () => {
     // A status added server-side before the UI knows about it should degrade,
     // not break.
     expect(statusLabel("awaiting_arrangements")).toBe("Awaiting arrangements");
+  });
+});
+
+describe("Withdrawn and released venue bookings (SPM-67)", () => {
+  it("SPM-67-TC07: labels both in grey, apart from pending, approved and rejected", () => {
+    expect(statusLabel("withdrawn")).toBe("Withdrawn");
+    expect(statusLabel("released")).toBe("Released");
+    expect(statusTone("withdrawn")).toBe("neutral");
+    expect(statusTone("released")).toBe("neutral");
+    for (const other of ["pending", "approved", "rejected"]) {
+      expect(statusTone(other)).not.toBe("neutral");
+    }
+  });
+});
+
+describe("Safety approved (SPM-87)", () => {
+  it("reads 'Safety approved', a step on the way to Confirmed like Approved", () => {
+    expect(statusLabel("safety_cleared")).toBe("Safety approved");
+    expect(statusTone("safety_cleared")).toBe("progress");
+  });
+
+  it("is entered only from Safety review, and cannot be postponed or reviewed again", () => {
+    for (const from of ["planning", "approved", "confirmed", "under_review"]) {
+      expect(canTransition(from, "safety_cleared"), from).toBe(false);
+    }
+    expect(canTransition("safety_cleared", "safety_review")).toBe(false);
+    expect(canTransition("safety_cleared", "postponed")).toBe(false);
   });
 });
 
@@ -127,6 +155,11 @@ describe("canTransition", () => {
     ["planning", "safety_review"],
     ["safety_review", "planning"],
     ["safety_review", "cancelled"],
+    // SPM-87: the Safety Officer approves (AC7), or rejects / requests changes (AC8).
+    ["safety_review", "safety_cleared"],
+    ["safety_cleared", "confirmed"],
+    ["safety_cleared", "planning"],
+    ["safety_cleared", "cancelled"],
     ["confirmed", "completed"],
     ["confirmed", "postponed"],
     ["confirmed", "cancelled"],

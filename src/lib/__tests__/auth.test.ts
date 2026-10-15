@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { describe, it, expect, beforeAll, vi } from "vitest";
 
 beforeAll(() => {
   process.env.JWT_SECRET = "test-secret";
@@ -23,5 +23,18 @@ describe("auth helpers", () => {
   it("rejects a garbage token", async () => {
     const { verifySession } = await import("../auth");
     expect(verifySession("not-a-real-token")).toBeNull();
+  });
+});
+
+describe("starting up", () => {
+  it("refuses to load without a JWT_SECRET, rather than signing with nothing", async () => {
+    vi.resetModules();
+    vi.stubEnv("JWT_SECRET", "");
+    try {
+      await expect(import("../auth")).rejects.toThrow("Missing JWT_SECRET environment variable");
+    } finally {
+      vi.unstubAllEnvs();
+      vi.resetModules();
+    }
   });
 });

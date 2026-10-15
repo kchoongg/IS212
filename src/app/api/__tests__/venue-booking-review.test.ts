@@ -121,6 +121,19 @@ describe("GET /api/venue-bookings", () => {
     expect(row.requester).toEqual({ fullName: "Daniel Tan" });
   });
 
+  // SPM-90 (AC5, written before the code): each request carries what its
+  // space is for and that space's own attendance.
+  it("SPM-90-TC06: gives each request's own space: what it is for and its attendance", async () => {
+    const token = given([pending({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "classroom" })]);
+
+    const [row] = await (await list(token)).json();
+
+    expect(callArg(db.venueBooking.findMany).select).toMatchObject({ purpose: true, expectedAttendance: true });
+    expect(row).toMatchObject({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "classroom" });
+    // The event's own figure is still there, for the event line.
+    expect(row.event.expectedAttendance).toBe(100);
+  });
+
   it("gives no organisation name for an event that has none", async () => {
     const token = given([pending({ event: { ...pending().event, organisation: null } })]);
 
