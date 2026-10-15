@@ -505,6 +505,15 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await within(item).findByRole("alert")).toHaveTextContent("Could not clear the flag. Try again.");
     });
 
+    it("says so when the server answers with an empty body", async () => {
+      open(flagged({ venueBookings: [booking()] }), { [KEEP]: reply(500) });
+      const [item] = itemsOf(await bookings());
+
+      await click("Keep booking", item);
+
+      expect(await within(item).findByRole("alert")).toHaveTextContent("Could not clear the flag. Try again.");
+    });
+
     it("says so when the network fails", async () => {
       open(flagged({ venueBookings: [booking()] }), {
         [KEEP]: () => {
@@ -631,6 +640,14 @@ describe("Flagged Arrangements (SPM-68)", () => {
       });
 
       expect(await screen.findByRole("alert")).toHaveTextContent("offline");
+    });
+
+    it("says something went wrong when the failure carries no message", async () => {
+      open(() => {
+        throw "offline";
+      });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
     it("shows the failure with a Retry that loads again", async () => {

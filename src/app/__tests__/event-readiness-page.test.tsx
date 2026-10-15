@@ -549,6 +549,7 @@ describe("Event Readiness tab (SPM-33)", () => {
 
       it.each([
         ["gives no reason", reply(500, {}), "Could not clear the flag. Try again."],
+        ["answers with an empty body", reply(500), "Could not clear the flag. Try again."],
         [
           "cannot be reached",
           () => {
