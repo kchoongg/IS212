@@ -1013,3 +1013,93 @@ describe("SPM-90 — what each venue booking's space is for", () => {
     expect(noVenue).toMatchObject({ name: "No venue booked", purpose: null });
   });
 });
+
+// SPM-82 (AC10): a tentative hold that expired leaves the room unarranged.
+// It stays outstanding - named, with when it expired - until the Coordinator
+// has a newer request for the same space, or marks it as not required.
+describe("SPM-82 — an expired tentative hold", () => {
+  const EXPIRED_AT = new Date("2026-10-01T01:00:00.000Z"); // 1 Oct 2026, 09:00 in Singapore
+  const expired = booking({ id: "x1", status: "expired", venueName: "SPM82 Hold Room", holdExpiresAt: EXPIRED_AT });
+
+  it("SPM-82-TC08: is outstanding, saying when it expired and what to do", () => {
+    const [row] = rows({ bookings: [expired] });
+
+    expect(row).toMatchObject({ kind: "venue", id: "x1", name: "SPM82 Hold Room", status: "expired", state: "outstanding" });
+    expect(row.missing).toBe(
+      "the hold on SPM82 Hold Room for this event expired on 1 Oct 2026, 09:00 - submit a new request"
+    );
+  });
+
+  it("SPM-82-TC08: stands in for 'No venue booked' rather than adding it as well", () => {
+    expect(rows({ bookings: [expired] }).map((a) => a.name)).toEqual(["SPM82 Hold Room"]);
+  });
+
+  it("SPM-82-TC08 (AC5): is not a booking - confirmation is refused on it", () => {
+    expect(check({ bookings: [expired] })).toMatchObject({
+      ok: false,
+      error:
+        "This event cannot be confirmed yet: the hold on SPM82 Hold Room for this event expired on 1 Oct 2026, 09:00 - submit a new request.",
+    });
+  });
+
+  it("SPM-82-TC09: is replaced by a newer request for the same space, which is what then waits", () => {
+    const renewed = booking({ id: "n1", status: "pending", venueName: "SPM82 Hold Room" });
+    const list = rows({ bookings: [expired, renewed] });
+
+    expect(list.map((a) => a.id)).toEqual(["n1"]);
+    expect(list[0].missing).toBe("SPM82 Hold Room for this event is still awaiting a decision from Venue Staff");
+  });
+
+  it("is replaced once the newer request is approved, so the event can be confirmed", () => {
+    expect(check({ bookings: [expired, booking({ id: "n1", status: "approved" })] })).toEqual({ ok: true });
+  });
+
+  it("SPM-82-TC09: with no purpose recorded (a booking from before SPM-90), is replaced by any newer request for its session", () => {
+    const renewed = booking({ id: "n1", status: "pending", venueName: "SPM82 Hold Room", purpose: "Main programme" });
+
+    expect(rows({ bookings: [expired, renewed] }).map((a) => a.id)).toEqual(["n1"]);
+  });
+
+  it("is not replaced by an older request - only one made after it", () => {
+    const older = booking({ id: "o1", status: "approved", venueName: "Marina Auditorium" });
+
+    expect(rows({ bookings: [older, expired] }).find((a) => a.id === "x1")).toMatchObject({ state: "outstanding" });
+  });
+
+  it("SPM-90: is not replaced by a request for a different space of the same event", () => {
+    const breakout = booking({ id: "x2", status: "expired", venueName: "Orchard Studio", purpose: "Breakout room", holdExpiresAt: EXPIRED_AT });
+    const hall = booking({ id: "h1", status: "approved", purpose: "Main programme" });
+    const list = rows({ bookings: [breakout, hall] });
+
+    expect(list.find((a) => a.id === "x2")).toMatchObject({ state: "outstanding", purpose: "Breakout room" });
+    expect(list.find((a) => a.id === "h1")).toMatchObject({ state: "complete" });
+  });
+
+  it("is replaced only within its own session of a multi-session event", () => {
+    const sessions = [{ id: "s1", label: "Day 1" }, { id: "s2", label: "Day 2" }];
+    const list = rows({
+      sessions,
+      bookings: [{ ...expired, sessionId: "s1" }, booking({ id: "d2", sessionId: "s2", status: "approved" })],
+    });
+
+    expect(list.find((a) => a.id === "x1")).toMatchObject({ state: "outstanding" });
+    expect(list.find((a) => a.id === "x1")!.missing).toContain("for the Day 1 session expired on");
+  });
+
+  it("can be marked as not required while outstanding, and then is shown as not required", () => {
+    expect(rows({ bookings: [expired] })[0]).toMatchObject({ waivable: true });
+
+    const waived = { ...expired, notRequired: true, notRequiredAt: EXPIRED_AT, notRequiredBy: "Daniel Tan" };
+    expect(rows({ bookings: [waived] }).find((a) => a.id === "x1")).toMatchObject({
+      state: "not_required",
+      waived: true,
+      notRequiredBy: "Daniel Tan",
+    });
+  });
+
+  it("names a hold whose expiry was never recorded without a date", () => {
+    const [row] = rows({ bookings: [{ ...expired, holdExpiresAt: null }] });
+
+    expect(row.missing).toBe("the hold on SPM82 Hold Room for this event expired - submit a new request");
+  });
+});

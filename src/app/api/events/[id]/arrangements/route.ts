@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import {
@@ -41,6 +42,8 @@ type LoadedEvent = NonNullable<Awaited<ReturnType<typeof loadEvent>>>;
 
 /// What the Readiness tab shows, and what PATCH answers with after a change.
 async function readiness(actor: Actor, event: LoadedEvent) {
+  // SPM-82 (AC10): an expired hold is read as expired - outstanding, not pending.
+  await expireDueHolds();
   const arrangements = arrangementsFor(await loadConfirmationInput(event));
   return {
     event: { sequenceNumber: event.sequenceNumber, title: event.title, status: event.status },
@@ -107,6 +110,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // Found in the list the coordinator was shown, so an id from another
     // event, or a request that is not an arrangement (rejected, cancelled),
     // is simply not there.
+    // SPM-82 (AC10): as above, before the list a waiver is checked against.
+    await expireDueHolds();
     const arrangements = arrangementsFor(await loadConfirmationInput(event));
     const target =
       data.kind === "registration"

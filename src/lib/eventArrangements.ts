@@ -52,6 +52,8 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
         notRequiredByUser: BY,
         // SPM-90: what the space is for.
         purpose: true,
+        // SPM-82 (AC10): when an expired hold ran out, for its outstanding row.
+        holdExpiresAt: true,
         venue: { select: { name: true } },
       },
     }),
@@ -87,6 +89,8 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
       status: b.status,
       venueName: b.venue.name,
       purpose: b.purpose,
+      // SPM-82 (AC10): an expired hold's row says when it ran out.
+      holdExpiresAt: b.holdExpiresAt,
       needsReview: b.needsReview,
       reviewReason: b.reviewReason,
       notRequired: b.notRequired,

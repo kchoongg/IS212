@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import {
@@ -391,6 +392,8 @@ async function handleStatusChange(
   // outstanding - including review flags, registration setup and anything the
   // coordinator marked as not required.
   if (data.status === "confirmed") {
+    // SPM-82 (AC5): an expired hold is never confirmed on.
+    await expireDueHolds();
     const check = checkEventConfirmation(await loadConfirmationInput(event));
     if (!check.ok) {
       return NextResponse.json({ error: check.error, outstanding: check.outstanding }, { status: 400 });

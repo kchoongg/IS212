@@ -191,6 +191,35 @@ describe("Event Venue tab", () => {
     expect(requests).toHaveTextContent("Approved");
   });
 
+  // SPM-82: a pending request is a tentative hold, and says when it expires
+  // (AC1); an expired one stays on the record, marked as such (AC8); an
+  // approved booking never expires, so it has no expiry line (AC11).
+  it("SPM-82-TC06: shows each hold's expiry, marks an expired one, and gives an approved booking none", async () => {
+    const at = { startsAt: "2027-03-04T05:00:00.000Z", endsAt: "2027-03-04T10:00:00.000Z", layoutName: "theatre", session: null };
+    open({
+      [INFO]: info({
+        bookings: [
+          { id: "b1", status: "pending", holdExpiresAt: "2027-01-15T01:00:00.000Z", ...at, venue: { code: "HALL-A", name: "Hall A" } },
+          { id: "b2", status: "expired", holdExpiresAt: "2026-10-01T01:00:00.000Z", ...at, venue: { code: "ROOM-B", name: "Room B" } },
+          { id: "b3", status: "approved", holdExpiresAt: "2026-10-01T01:00:00.000Z", ...at, venue: { code: "ROOM-C", name: "Room C" } },
+          { id: "b4", status: "pending", holdExpiresAt: null, ...at, venue: { code: "ROOM-D", name: "Room D" } },
+        ],
+      }),
+    });
+
+    const requests = (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
+    // Each request is its own block: its venue line, details and badge.
+    const row = (code: string) => within(requests).getByText(new RegExp(code)).closest("div.text-sm") as HTMLElement;
+
+    expect(row("HALL-A")).toHaveTextContent("Hold expires 15 Jan 2027, 09:00");
+    expect(row("ROOM-B")).toHaveTextContent("Expired");
+    expect(row("ROOM-B")).toHaveTextContent("Hold expired on 1 Oct 2026, 09:00");
+    expect(row("ROOM-C")).toHaveTextContent("Approved");
+    expect(row("ROOM-C")).not.toHaveTextContent(/Hold expire/);
+    // A hold made before SPM-82 has no expiry and never expires.
+    expect(row("ROOM-D")).not.toHaveTextContent(/Hold expire/);
+  });
+
   it("SPM-81-TC07: lists an event's requests at different venues together, each with its own times and status", async () => {
     open({
       [INFO]: info({

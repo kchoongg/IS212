@@ -12,6 +12,7 @@ import {
   DataState,
   DetailList,
   Field,
+  Input,
   PageHeader,
   Select,
   StatusBadge,
@@ -20,7 +21,8 @@ import {
 import { RequirePermission } from "@/components/RequirePermission";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor } from "@/lib/useCurrentUser";
-import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { formatDateTime, formatDateTimeRange, formatVenue } from "@/lib/format";
+import { toLocalInput } from "@/lib/holdExpiry";
 import { statusLabel } from "@/lib/statuses";
 import { layoutLabel } from "@/lib/venueSuitability";
 import { localDayKey, occupiedWindow, timeRangeLabel } from "@/lib/venueTime";
@@ -49,6 +51,9 @@ interface Request {
   /// SPM-90: what the space is for, and how many people it is for. Both null
   /// on a request made before they were recorded.
   purpose?: string | null;
+  /// SPM-82 (AC1): when this tentative hold expires; null on a request made
+  /// before holds expired.
+  holdExpiresAt?: string | null;
   expectedAttendance?: number | null;
   requirementsNote: string | null;
   requester: { fullName: string };
@@ -255,6 +260,13 @@ function BookingRequests() {
             {data.map((request) => (
               <RequestCard
                 key={request.id}
+                onExpiryChanged={(id, holdExpiresAt) => {
+                  setRows((current) => current && current.map((r) => (r.id === id ? { ...r, holdExpiresAt } : r)));
+                  setNotice({
+                    title: "Hold expiry changed",
+                    body: `Hold expiry changed to ${formatDateTime(holdExpiresAt)}.`,
+                  });
+                }}
                 request={request}
                 venues={venues.filter((v) => v.id !== request.venue.id)}
                 rejecting={rejectingId === request.id}
@@ -322,6 +334,8 @@ interface RequestCardProps {
   onCancelReject: () => void;
   onChange: (patch: Partial<RejectForm>) => void;
   onSubmitReject: () => void;
+  /// SPM-82 (AC3): Venue Staff moved the hold's expiry.
+  onExpiryChanged: (id: string, holdExpiresAt: string) => void;
 }
 
 function RequestCard({
@@ -337,6 +351,7 @@ function RequestCard({
   onCancelReject,
   onChange,
   onSubmitReject,
+  onExpiryChanged,
 }: RequestCardProps) {
   const window = windowOf(request);
   const holds = setupAndTurnaround(window, request.venue);
@@ -399,6 +414,9 @@ function RequestCard({
                 </>
               ),
             },
+            // SPM-82 (AC1, AC3): when this tentative hold expires unless
+            // approved first, and the way to move it.
+            { label: "Hold expires", value: <HoldExpiry request={request} onChanged={onExpiryChanged} /> },
             {
               label: request.session ? "Session time" : "Event time",
               value: formatDateTimeRange(schedule.startsAt, schedule.endsAt),
@@ -501,5 +519,86 @@ function RequestCard({
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/// SPM-82 (AC1, AC3): the hold's expiry, and Venue Staff's way to move it
+/// while the hold is active - to any time from now up to the start of the event
+/// (the server's rule, checkHoldExpiryChange(), whose refusal is shown here).
+function HoldExpiry({
+  request,
+  onChanged,
+}: {
+  request: Request;
+  onChanged: (id: string, holdExpiresAt: string) => void;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const current = request.holdExpiresAt ?? null;
+
+  function start() {
+    setValue(current ? toLocalInput(new Date(current)) : "");
+    setError(null);
+    setEditing(true);
+  }
+
+  async function save() {
+    if (!value) {
+      setError("Choose the date and time the hold should expire.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const res = await authedFetch(`/api/venue-bookings/${request.id}/expiry`, {
+        method: "PATCH",
+        // The field is the browser's own wall clock; the server stores an instant.
+        body: JSON.stringify({ holdExpiresAt: new Date(value).toISOString() }),
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor("/bookings"));
+        return;
+      }
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error ?? "Could not change the expiry. Try again.");
+        return;
+      }
+      setEditing(false);
+      onChanged(request.id, body.holdExpiresAt ?? new Date(value).toISOString());
+    } catch {
+      setError("Could not change the expiry. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <span>{current ? formatDateTime(current) : "No expiry set"}</span>
+      {!editing && (
+        <Button variant="secondary" size="sm" className="ml-3" onClick={start}>
+          Change expiry
+        </Button>
+      )}
+      {editing && (
+        <div className="mt-2 flex flex-col gap-2">
+          <Field label="New expiry" error={error ?? undefined}>
+            <Input type="datetime-local" value={value} onChange={(e) => setValue(e.target.value)} />
+          </Field>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={() => void save()} loading={saving} loadingText="Saving…">
+              Save expiry
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setEditing(false)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

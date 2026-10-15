@@ -8,7 +8,7 @@ vi.mock("@/lib/prisma");
 
 import { GET as availability } from "@/app/api/venues/[id]/availability/route";
 import { GET as search } from "@/app/api/venues/search/route";
-import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const DAY = "2027-03-04";
 const DAY_STARTS = new Date("2027-03-03T16:00:00.000Z");
@@ -62,6 +62,12 @@ describe("GET /api/venues/[id]/availability", () => {
   function get(token?: string, query = `?from=${DAY}&to=${DAY}`) {
     return availability(req("GET", `/api/venues/${ID.venue}/availability${query}`, { token }), params({ id: ID.venue }));
   }
+
+  it("SPM-82-TC11 (AC7): expires overdue holds before reading the bookings, so an expired one is not shown", async () => {
+    await get(given());
+
+    expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findMany.mock.invocationCallOrder[0]);
+  });
 
   it("is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
@@ -289,6 +295,12 @@ describe("GET /api/venues/search", () => {
   function get(token?: string, query = "") {
     return search(req("GET", `/api/venues/search${query ? `?${query}` : ""}`, { token }));
   }
+
+  it("SPM-82 (AC6): expires overdue holds before judging which venues are free", async () => {
+    await get(given([]), "from=2027-03-04T09:00&to=2027-03-04T12:00");
+
+    expect(holdExpirySweepOrder()).toBeLessThan(db.venue.findMany.mock.invocationCallOrder[0]);
+  });
 
   async function names(token: string, query: string) {
     const res = await get(token, query);

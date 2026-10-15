@@ -2,13 +2,13 @@
 // SPM-93's times on a 15-minute grid. Times are written in UTC; Singapore is
 // UTC+8, so 05:30Z is 13:30 local.
 
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/prisma");
 
 import { GET as listBookings, POST as requestBooking } from "@/app/api/events/[id]/venue-bookings/route";
 import { GET as suitability } from "@/app/api/events/[id]/venue-suitability/route";
-import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const REF = "EVT-000007";
 const DAY = "2027-03-04";
@@ -92,6 +92,17 @@ describe("GET /api/events/[id]/venue-bookings", () => {
 
   it("is 404 for a malformed reference", async () => {
     expect((await get(signIn(assignedCoordinator()), "nope")).status).toBe(404);
+  });
+
+  it("SPM-82 (AC1, AC8): expires overdue holds before listing the event's requests, each with its expiry", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event());
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    await get(token);
+
+    expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findMany.mock.invocationCallOrder[0]);
+    expect(callArg(db.venueBooking.findMany).select.holdExpiresAt).toBe(true);
   });
 
   it("is 404 for a draft", async () => {
@@ -262,6 +273,40 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     expect((await post(undefined, valid)).status).toBe(401);
   });
 
+  // SPM-82 (AC2): a new request is a tentative hold, held for 7 days or until
+  // the event starts, whichever is sooner. The clock is fixed so the 7 days
+  // can be checked exactly.
+  describe("the hold's expiry (SPM-82)", () => {
+    afterEach(() => vi.useRealTimers());
+
+    it("SPM-82-TC01: holds a new request for 7 days", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-10-15T06:30:00.000Z"));
+      const token = given();
+
+      expect((await post(token, valid)).status).toBe(201);
+      expect(callArg(db.venueBooking.create).data.holdExpiresAt).toEqual(new Date("2026-10-22T06:30:00.000Z"));
+    });
+
+    it("SPM-82-TC02: stops at the start of an event less than 7 days away", async () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2027-03-01T02:00:00.000Z"));
+      const token = given(); // the event starts 4 Mar 2027, 05:30 UTC
+
+      await post(token, valid);
+
+      expect(callArg(db.venueBooking.create).data.holdExpiresAt).toEqual(new Date("2027-03-04T05:30:00.000Z"));
+    });
+
+    it("SPM-82 (AC6): expires overdue holds after locking the venue and before reading its bookings", async () => {
+      await post(given(), valid);
+
+      const sweep = holdExpirySweepOrder();
+      expect(sweep).not.toBeNull();
+      expect(sweep!).toBeLessThan(db.venue.findUnique.mock.invocationCallOrder[0]);
+    });
+  });
+
   it("is 404 for an event the user cannot see", async () => {
     expect((await post(given(event({ status: "draft" })), valid)).status).toBe(404);
   });
@@ -299,6 +344,9 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       startsAt: STARTS,
       endsAt: ENDS,
       status: "pending",
+      // SPM-82: every new request is a tentative hold with an expiry - the
+      // exact time is checked by "the hold's expiry (SPM-82)" tests.
+      holdExpiresAt: expect.any(Date),
       requestedBy: ID.user,
       requirementsNote: "Stage at the north end",
     });
