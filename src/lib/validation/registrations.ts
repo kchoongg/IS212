@@ -31,3 +31,8 @@ export const configureRegistrationSchema = z
   })
   .strict();
 export type ConfigureRegistrationInput = z.infer<typeof configureRegistrationSchema>;
+
+// SPM-52: an attendee withdrawing their own registration. The only change the
+// route makes, so the only value it takes. Strict, as above.
+export const withdrawRegistrationSchema = z.object({ status: z.literal("withdrawn") }).strict();
+export type WithdrawRegistrationInput = z.infer<typeof withdrawRegistrationSchema>;

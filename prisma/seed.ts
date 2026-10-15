@@ -1656,6 +1656,31 @@ async function main() {
     spm51("spm51_planning", "SPM51 Planning Stage Forum", "planning", "2028-02-19"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-52 QA fixtures (Withdraw from Event). The SAME events as
+  // scripts/seed-spm52.ts (`npm run fixtures:spm52`) - keep the two in step.
+  //
+  // The events only. Their exact registration periods and Marcus Yeo's
+  // registered, waitlisted, withdrawn and attended registrations are created
+  // by that script alone, so run it once after a full reseed. Pushed LAST,
+  // after SPM-51, so no earlier event's EVT- reference number shifts. Add new
+  // events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm52 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-52 withdraw from event test event", category: "seminar",
+    days: daysUntil(date), startHour: 9, durationHours: 8, attendance: 20, layout: "classroom",
+    regEnabled: true, regCapacity: 20, ...options,
+  });
+  eventData.push(
+    spm52("spm52_riverside", "SPM52 Riverside Forum", "confirmed", "2028-03-04", { regCapacity: 10, attendance: 10 }),
+    spm52("spm52_lastplace", "SPM52 Last Place Clinic", "confirmed", "2028-03-11", { regCapacity: 2, attendance: 2 }),
+    spm52("spm52_waitlist", "SPM52 Waiting List Workshop", "confirmed", "2028-03-18", { regCapacity: 1, attendance: 1 }),
+    spm52("spm52_dropped", "SPM52 Dropped Plans Seminar", "confirmed", "2028-03-25"),
+    spm52("spm52_past", "SPM52 Past Wellness Clinic", "completed", "2026-09-15"),
+    spm52("spm52_gala", "SPM52 Members Gala", "confirmed", "2028-04-01", { regEnabled: false }),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -2482,6 +2507,9 @@ async function main() {
     // SPM-30's fixtures carry no registrations, so a reseed matches what
     // `npm run fixtures:spm30` writes to the shared database.
     if (e.key.startsWith("spm30_")) continue;
+    // SPM-52's exact registrations come from `npm run fixtures:spm52`; random
+    // ones would overfill its one- and two-place events.
+    if (e.key.startsWith("spm52_")) continue;
     const ev = events[e.key];
     const past = e.days < 0;
     // A realistic fraction of capacity, capped by how many attendees exist.

@@ -707,6 +707,7 @@ export default function EventOverviewPage() {
           {user?.role === "attendee" && event.registrationState && (
             <RegisterPanel
               eventId={event.id}
+              eventTitle={event.title}
               state={event.registrationState}
               myRegistration={event.myRegistration ?? null}
               onRegistered={() => void load()}

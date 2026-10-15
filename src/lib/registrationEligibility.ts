@@ -63,3 +63,26 @@ export function registrationState(event: EligibilityFields, seatsTaken: number, 
   if (event.registrationCapacity != null && seatsTaken >= event.registrationCapacity) return { kind: "full" };
   return { kind: "open" };
 }
+
+/// Withdraw from Event (SPM-52): only a registration that holds a seat now can
+/// be withdrawn. Leaving the waiting list is Join and Respond to Waiting List
+/// (SPM-66); an attended or already withdrawn one has nothing to give back.
+export const WITHDRAWABLE = ["registered"];
+
+export function canWithdraw(status: string): boolean {
+  return WITHDRAWABLE.includes(status);
+}
+
+export interface RegistrationCounts {
+  /// Seats held now (SEAT_TAKING).
+  taken: number;
+  withdrawn: number;
+}
+
+/// SPM-52 AC5: what the organiser and coordinator see on the Registration
+/// card, from the event's registrations counted by status.
+export function registrationCounts(byStatus: { status: string; count: number }[]): RegistrationCounts {
+  const sum = (statuses: string[]) =>
+    byStatus.filter((s) => statuses.includes(s.status)).reduce((total, s) => total + s.count, 0);
+  return { taken: sum(SEAT_TAKING), withdrawn: sum(["withdrawn"]) };
+}

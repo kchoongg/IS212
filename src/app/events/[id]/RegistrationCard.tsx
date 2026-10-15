@@ -9,6 +9,7 @@ import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formEr
 import { registrationGaps } from "@/lib/eventConfirmation";
 import { humanise } from "@/lib/statuses";
 import { layoutLabel } from "@/lib/venueSuitability";
+import type { RegistrationCounts } from "@/lib/registrationEligibility";
 
 // Configure Event Registration (SPM-64): the Registration card on the event's
 // Overview. Read-only for everyone who can see the event (AC10, AC11); the
@@ -32,6 +33,8 @@ export interface RegistrationEvent {
   /// Absent for an Attendee: which room caps the capacity is internal.
   registrationVenueBookingId?: string | null;
   registrationVenueBooking?: MeasuredBooking | null;
+  /// SPM-52 AC5: sent to the organiser and coordinator only.
+  registrationCounts?: RegistrationCounts;
 }
 
 /// One of the bookings GET /api/events/[id]/registration offers.
@@ -91,6 +94,12 @@ function optionLabel(b: BookingOption): string {
     ...(b.layoutCapacity != null ? [`up to ${b.layoutCapacity}`] : []),
     humanise(b.status),
   ].join(" · ");
+}
+
+/// "12 of 40 · 28 left", or just "12" when no capacity is set (no limit).
+function placesTaken(counts: RegistrationCounts, capacity: number | null): string {
+  if (capacity == null) return String(counts.taken);
+  return `${counts.taken} of ${capacity} · ${Math.max(capacity - counts.taken, 0)} left`;
 }
 
 interface Props {
@@ -198,6 +207,12 @@ export function RegistrationCard({ event, eventId, canChange, showOutstanding, o
                 : []),
               { label: "Opens", value: formatDateTime(event.registrationOpensAt) },
               { label: "Closes", value: formatDateTime(event.registrationClosesAt) },
+              ...(event.registrationCounts
+                ? [
+                    { label: "Places taken", value: placesTaken(event.registrationCounts, event.registrationCapacity) },
+                    { label: "Withdrawn", value: String(event.registrationCounts.withdrawn) },
+                  ]
+                : []),
             ]
           : [{ label: "Registration", value: "Not enabled for this event" }]
       }
