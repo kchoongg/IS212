@@ -107,6 +107,15 @@ describe("Event Venue tab", () => {
     );
   });
 
+  it("leaves the space fields empty for an event with no attendance or layout yet", async () => {
+    open({ [SUITABILITY]: suitability([hallA], { expectedAttendance: null, preferredLayout: null }) });
+
+    await card("Hall A");
+
+    expect(screen.getByLabelText(/^Expected attendance for this space/)).toHaveValue(null);
+    expect(screen.getByLabelText(/^Room layout/)).toHaveValue("");
+  });
+
   it("describes each venue: where it is, its capacity and its layouts", async () => {
     open();
 
@@ -443,6 +452,30 @@ describe("Event Venue tab", () => {
       expect(await within(await requests()).findByRole("button", { name: "Release booking" })).toBeInTheDocument();
     });
 
+    it.each([
+      ["names the session", { id: "s1", label: "Day 1" }, "Hall A (HALL-A) for Day 1 on"],
+      ["calls an unnamed session 'Session'", { id: "s1", label: null }, "Hall A (HALL-A) for Session on"],
+    ])("%s a withdrawn request was for", async (_case, session, expected) => {
+      open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row({ session })] }),
+        [PATCH_B1]: { id: "b1", status: "withdrawn" },
+      });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText(expected, { exact: false })).toHaveTextContent(" is now Withdrawn.");
+    });
+
+    it("says the change was not saved when the refusal has no body", async () => {
+      open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(409) });
+
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      expect(await screen.findByText("Could not save the change. Please try again.")).toBeInTheDocument();
+    });
+
     it("says the change was not saved when the server cannot be reached", async () => {
       open({
         [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
@@ -552,6 +585,12 @@ describe("Event Venue tab", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(message);
     });
 
+    it("shows a general error when the check fails without a reason", async () => {
+      open({ [SUITABILITY]: () => Promise.reject("offline") });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    });
+
     it("offers a Retry that loads again", async () => {
       const api = open({ [SUITABILITY]: reply(500, {}) });
       await screen.findByRole("alert");
@@ -632,6 +671,12 @@ describe("Venue booking request form", () => {
     open(routes);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This event or venue could not be found.");
+  });
+
+  it("shows a general error when loading fails without a reason", async () => {
+    open({ [VENUE]: () => Promise.reject("offline") });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 
   it("sends the user to log in when their session has expired", async () => {
@@ -739,6 +784,13 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText("No setup or turnaround needed at this venue.")).not.toBeInTheDocument();
     });
 
+    it("shows no room-in-use period while no date is chosen", async () => {
+      open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
+      set(await date(), "");
+
+      expect(screen.queryByText(/^Room in use:/)).not.toBeInTheDocument();
+    });
+
     it("shows nothing while the times cannot be booked", async () => {
       open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
       await date();
@@ -830,6 +882,15 @@ describe("Venue booking request form", () => {
       expect(screen.getByText("It is Pending until Venue Staff review it.")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Back to Venue" })).toHaveAttribute("href", "/events/EVT-000007/venue");
       expect(screen.queryByRole("button", { name: "Submit request" })).not.toBeInTheDocument();
+    });
+
+    it("confirms a request the server accepts without a body", async () => {
+      open({ [POST]: reply(201) });
+      await date();
+
+      await submit();
+
+      expect(await screen.findByText("Booking request sent to Venue Staff.")).toBeInTheDocument();
     });
 
     it("sends the session when the request is for one", async () => {

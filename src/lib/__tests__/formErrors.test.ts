@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readServerError, validate, validateField } from "../formErrors";
+import { z } from "zod";
 import { registerSchema } from "../validation";
 
 // Traces to SPM-7: "validation and error states are considered".
@@ -38,6 +39,18 @@ describe("validate", () => {
   });
 });
 
+describe("validate - where each message goes", () => {
+  it("files an error that belongs to no field under _form", () => {
+    const schema = z.object({ a: z.string(), b: z.string() }).refine((v) => v.a === v.b, "The two must match");
+    expect(validate(schema, { a: "x", b: "y" })).toEqual({ _form: "The two must match" });
+  });
+
+  it("keeps the first of two messages for one field", () => {
+    const schema = z.string().min(5, "Too short").regex(/^[0-9]+$/, "Digits only");
+    expect(validate(schema, "ab")).toEqual({ _form: "Too short" });
+  });
+});
+
 describe("validateField", () => {
   it("reports only the field that was asked about", () => {
     const value = { name: "", email: "nope", password: "short", role: "organiser" };
@@ -59,6 +72,11 @@ describe("readServerError", () => {
     });
 
     expect(result.fieldErrors).toEqual({ endsAt: "endsAt must be after startsAt" });
+  });
+
+  it("ignores a field listed with no messages", () => {
+    const result = readServerError({ details: { fieldErrors: { endsAt: [], title: undefined } } });
+    expect(result.fieldErrors).toEqual({});
   });
 
   it("drops the generic banner when the errors belong to specific fields", () => {

@@ -27,6 +27,16 @@ const navLabels = () => within(mainNav()).getAllByRole("link").map((a) => a.text
 
 describe("AppShell", () => {
   describe("before sign-in", () => {
+    it("treats a page with no path as the landing page", async () => {
+      setRoute("");
+      mockApi(signedOut());
+
+      render(<AppShell>page content</AppShell>);
+
+      expect(screen.getByText("page content")).toBeInTheDocument();
+      expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+    });
+
     it.each(["/", "/login", "/register"])("renders %s with no navigation at all", async (path) => {
       setRoute(path);
       mockApi(signedOut());
@@ -311,6 +321,18 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     expect(bell()).toHaveAccessibleName("Notifications");
   });
 
+  it("drops a count that arrives after the shell has gone", async () => {
+    let answer: (value: unknown) => void = () => {};
+    const { api, view } = open(() => new Promise((resolve) => (answer = resolve)));
+    await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
+
+    view.unmount();
+    answer({ unread: 5 });
+
+    await waitFor(() => expect(api.fetch).toHaveBeenCalled());
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  });
+
   it("keeps working, with no number, when the count cannot be loaded", async () => {
     open(reply(500, {}));
 
@@ -489,6 +511,16 @@ describe("AssignCoordinator", () => {
       await userEvent.click(screen.getByRole("button", { name: "Assign" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not save the coordinator.");
+    });
+
+    it("shows a general error when the request fails without a reason", async () => {
+      mockApi({ [ROUTE]: () => Promise.reject("offline") });
+      const { select } = renderPicker(null);
+
+      await userEvent.selectOptions(select, "Daniel Tan");
+      await userEvent.click(screen.getByRole("button", { name: "Assign" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
     it("clears the error once a different coordinator is picked", async () => {

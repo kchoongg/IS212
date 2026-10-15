@@ -131,6 +131,19 @@ describe("POST /api/events/[id]/safety-check", () => {
     expectNothingWritten();
   });
 
+  it("answers with no submitter name when the submitter's name cannot be found", async () => {
+    const token = given();
+    const lookUp = db.user.findUnique.getMockImplementation()!;
+    db.user.findUnique.mockImplementation(async (args: { select?: object }) =>
+      JSON.stringify(args.select) === JSON.stringify({ fullName: true }) ? null : lookUp(args)
+    );
+
+    const res = await post(token);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).safetyCheck.submittedBy).toBeNull();
+  });
+
   it("SPM-86-TC01: moves a ready event to Safety review, records who and when, and notifies the Safety Officers", async () => {
     vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
     const token = given();
@@ -340,6 +353,15 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
         decisionNote: true,
       },
     });
+  });
+
+  it("gives no submitter name when the submitter's account is gone", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(
+      event({ status: "safety_review", safetyChecks: [{ status: "pending", submittedAt: NOW, submitter: null }] })
+    );
+
+    expect((await (await get(token)).json()).safetyCheck.submittedBy).toBeNull();
   });
 
   it("gives staff null when the event was never submitted", async () => {

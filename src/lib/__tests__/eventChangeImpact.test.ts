@@ -49,6 +49,15 @@ describe("importantChanges", () => {
     expect(importantChanges(info(), info())).toEqual([]);
   });
 
+  it("finds nothing when an event with no dates or layout still has none", () => {
+    const before = info({ startsAt: null, endsAt: null, preferredLayout: null });
+    expect(importantChanges(before, { ...before })).toEqual([]);
+  });
+
+  it("finds a schedule change when an event's dates are cleared", () => {
+    expect(importantChanges(info(), info({ startsAt: null, endsAt: null }))).toContain("schedule");
+  });
+
   it("compares dates by the moment, not by object identity", () => {
     const before = info();
     const after = info({

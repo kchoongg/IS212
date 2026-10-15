@@ -528,6 +528,15 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
     });
   });
 
+  it("leaves out who submitted a check whose submitter's account is gone", async () => {
+    const token = signIn(assignedCoordinator());
+    given({ event: { status: "safety_review" }, bookings: [booking()], safetyCheck: { ...check("pending"), submitter: null } });
+
+    const body = await (await get(token)).json();
+
+    expect(safety(body).note).toBe("Submitted on 9 Oct 2026, 14:30");
+  });
+
   // Decided 2026-10-08: the gate on Confirm is Resolve Safety Check Outcome's (SPM-88).
   it("does not count an outstanding safety check as blocking confirmation", async () => {
     const token = signIn(assignedCoordinator());

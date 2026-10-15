@@ -286,6 +286,20 @@ describe("describeVenueConflict — AC9, naming what is in the way", () => {
     expect(describeVenueConflict(v.name, conflict)).toBe("Marina Auditorium is already booked on 21 Oct 2026, 09:00–11:00.");
   });
 
+  it("gives just the shared period for an unavailable room with no period recorded", () => {
+    const shared = MORNING("2026-10-21");
+    expect(describeVenueConflict("Marina Auditorium", { kind: "unavailable", shared })).toBe(
+      "Marina Auditorium is unavailable at this time (21 Oct 2026, 09:00–11:00)."
+    );
+  });
+
+  it("names no one for a booking clash given without its booking", () => {
+    const shared = MORNING("2026-10-21");
+    expect(describeVenueConflict("Marina Auditorium", { kind: "booked", shared })).toBe(
+      "Marina Auditorium is already booked on 21 Oct 2026, 09:00–11:00."
+    );
+  });
+
   it("says another event for a hold that cannot be named", () => {
     const v = venue({ bookings: [{ ...MORNING("2026-10-21"), eventId: "other", status: "pending" }] });
     const conflict = findVenueConflict(v, MORNING("2026-10-21"))!;
