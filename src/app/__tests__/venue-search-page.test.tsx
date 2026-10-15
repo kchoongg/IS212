@@ -324,6 +324,8 @@ describe("Find a venue", () => {
       ["the search gives no reason", { [SEARCH]: reply(500, {}) }, "Could not search venues."],
       ["the facility list fails to load", { [FACILITIES]: reply(500, {}) }, "Could not load the facility list."],
       ["the server cannot be reached", { [FACILITIES]: () => Promise.reject(new Error("Failed to fetch")) }, "Failed to fetch"],
+      ["the facility list fails without a reason", { [FACILITIES]: () => Promise.reject("offline") }, "Something went wrong"],
+      ["the search fails without a reason", { [SEARCH]: () => Promise.reject("offline") }, "Something went wrong"],
     ])("says so when %s", async (_case, routes, message) => {
       open(routes);
 

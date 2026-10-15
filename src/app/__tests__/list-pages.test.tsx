@@ -1427,6 +1427,22 @@ describe("Assignments", () => {
       expect(within(cells[4]).getByRole("combobox", { name: "Assign to — Untitled event" })).toBeInTheDocument();
     });
 
+    it("names an untitled event as such when confirming its assignment", async () => {
+      setRoute("/assignments");
+      mockApi({
+        ...signedInAs("ops_manager"),
+        [ROUTE]: data({ awaiting: [item(1, { title: null })] }),
+        "PUT /api/events/EVT-000001/coordinator": { status: "under_review", coordinator: daniel, previousCoordinator: null },
+      });
+      render(<AssignmentsPage />);
+      const picker = within(await table()).getByRole("combobox", { name: "Assign to — Untitled event" });
+
+      await userEvent.selectOptions(picker, "Daniel Tan");
+      await userEvent.click(within(picker.closest("td")!).getByRole("button", { name: "Assign" }));
+
+      expect(await screen.findByText(/Daniel Tan is now the coordinator for "Untitled event"/)).toBeInTheDocument();
+    });
+
     it.each([
       [0, "Today"],
       [1, "1 day"],
@@ -1474,6 +1490,18 @@ describe("Assignments", () => {
       expect(await screen.findByText('"Summit" has been reassigned from Daniel Tan to Priya Raj.')).toBeInTheDocument();
     });
 
+    it("names an untitled assigned event as such", async () => {
+      setRoute("/assignments?view=assigned");
+      mockApi({
+        ...signedInAs("ops_manager"),
+        [ROUTE]: data({ assigned: [item(3, { title: null, status: "planning", coordinator: daniel })] }),
+      });
+
+      render(<AssignmentsPage />);
+
+      expect(within(await table()).getByRole("combobox", { name: "Reassign to — Untitled event" })).toBeInTheDocument();
+    });
+
     it("says so when no event has a coordinator yet", async () => {
       setRoute("/assignments?view=assigned");
       mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data({ assigned: [] }) });
@@ -1503,6 +1531,15 @@ describe("Assignments", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await rowTexts()).toHaveLength(2);
+  });
+
+  it("shows a general error when the request fails without a reason", async () => {
+    setRoute("/assignments");
+    mockApi({ ...signedInAs("ops_manager"), [ROUTE]: () => Promise.reject("offline") });
+
+    render(<AssignmentsPage />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 });
 
@@ -1635,5 +1672,36 @@ describe("Safety approved across the lists (SPM-87)", () => {
     await screen.findByText("No events yet");
     const options = within(screen.getByLabelText("Filter by status")).getAllByRole("option").map((o) => o.textContent);
     expect(options.indexOf("Safety approved")).toBe(options.indexOf("Safety review") + 1);
+  });
+});
+
+describe("a request that fails without a reason", () => {
+  it.each([
+    ["Dashboard", DashboardPage, "ops_manager", { "GET /api/events": () => Promise.reject("offline") }],
+    ["Events page", EventsPage, "coordinator", { "GET /api/events": () => Promise.reject("offline") }],
+    ["Review Queue", QueuePage, "coordinator", { "GET /api/queue": () => Promise.reject("offline") }],
+    [
+      "Booking Requests",
+      BookingsPage,
+      "venue_staff",
+      { "GET /api/venue-bookings": () => Promise.reject("offline"), "GET /api/venues": [] },
+    ],
+    ["Equipment requests queue", EquipmentRequestsPage, "tech_support", { "GET /api/equipment/requests": () => Promise.reject("offline") }],
+  ])("shows a general error on the %s", async (_page, Page, role, routes) => {
+    mockApi({ ...signedInAs(role), ...routes });
+
+    render(<Page />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+});
+
+describe("Events page lists an event with no title", () => {
+  it("as 'Untitled event'", async () => {
+    mockApi({ ...signedInAs("coordinator"), "GET /api/events": [event(1, { title: null })] });
+
+    render(<EventsPage />);
+
+    expect(within(await screen.findByRole("table")).getByText("Untitled event")).toBeInTheDocument();
   });
 });

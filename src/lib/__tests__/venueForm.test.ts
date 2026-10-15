@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { INITIAL_VENUE, validateVenueForm, venuePayload, type VenueFormValues } from "../venueForm";
+import { INITIAL_VENUE, toVenueFormValues, validateVenueForm, venuePayload, type VenueFormValues } from "../venueForm";
 
 // Opening hours only. Venue.opensAt/closesAt are NOT NULL in the schema, and an
 // emptied field used to be sent as undefined - which PATCH reads as "leave this
@@ -81,5 +81,48 @@ describe("validateVenueForm - setup and turnaround minutes", () => {
       setupMinutes: "Enter a whole number of minutes, 0 or more.",
       teardownMinutes: "Enter a whole number of minutes, 0 or more.",
     });
+  });
+});
+
+describe("toVenueFormValues", () => {
+  const saved = {
+    id: "v1",
+    code: "ORC-SEM",
+    name: "Orchard Seminar Room",
+    description: "Level 3, by the lifts",
+    building: "Orchard Hub",
+    floor: "3",
+    address: "1 Orchard Road",
+    maxCapacity: 120,
+    opensAt: "08:00",
+    closesAt: "22:00",
+    setupMinutes: 30,
+    teardownMinutes: 15,
+    isActive: true,
+    layouts: [{ layoutName: "theatre", capacity: 100 }],
+    facilities: [{ facilityId: "wifi" }],
+  };
+
+  it("fills the form in with what is saved, numbers as text", () => {
+    expect(toVenueFormValues(saved)).toEqual({
+      code: "ORC-SEM",
+      name: "Orchard Seminar Room",
+      description: "Level 3, by the lifts",
+      building: "Orchard Hub",
+      floor: "3",
+      address: "1 Orchard Road",
+      maxCapacity: "120",
+      opensAt: "08:00",
+      closesAt: "22:00",
+      setupMinutes: "30",
+      teardownMinutes: "15",
+      facilityIds: ["wifi"],
+      layouts: [{ layoutName: "theatre", capacity: "100" }],
+    });
+  });
+
+  it("leaves the optional fields empty when nothing is saved for them", () => {
+    const values = toVenueFormValues({ ...saved, description: null, floor: null, address: null });
+    expect([values.description, values.floor, values.address]).toEqual(["", "", ""]);
   });
 });
