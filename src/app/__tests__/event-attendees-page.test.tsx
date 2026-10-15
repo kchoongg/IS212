@@ -261,6 +261,18 @@ describe("Attendees tab (SPM-65)", () => {
       hidden.mockRestore();
     });
 
+    it("does not ask when the tab's visibility changes while it stays out of view", async () => {
+      const api = open();
+      await rowOf("Marcus Yeo");
+
+      const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+      act(() => void document.dispatchEvent(new Event("visibilitychange")));
+      act(() => void window.dispatchEvent(new Event("focus")));
+
+      expect(api.sent(LIST)).toHaveLength(1);
+      hidden.mockRestore();
+    });
+
     it("keeps the list on screen when a refresh fails", async () => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       const api = open();

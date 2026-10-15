@@ -157,7 +157,7 @@ export default function EventAttendeesPage() {
     return null;
   }
 
-  if (!canView || refused) {
+  if (!user || !canView || refused) {
     return (
       <Alert variant="error" title="Not authorised">
         You can only view the registrations for events you are responsible for.
@@ -165,7 +165,7 @@ export default function EventAttendeesPage() {
     );
   }
 
-  const tabs = user ? eventTabItemsFor(user.role, eventId) : [];
+  const tabs = eventTabItemsFor(user.role, eventId);
 
   return (
     <div className="max-w-5xl">
