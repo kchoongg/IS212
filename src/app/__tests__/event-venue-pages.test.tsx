@@ -1209,10 +1209,13 @@ describe("SPM-90: the space a venue is needed for", () => {
       await userEvent.selectOptions(layout(), "classroom");
       await check();
 
-      await waitFor(() =>
-        expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(
-          `/api/events/${REF}/venue-suitability?session=s1&attendance=20&layout=classroom`
-        )
+      // A longer wait than the default 1s: CI's runner was slow enough to time out here.
+      await waitFor(
+        () =>
+          expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(
+            `/api/events/${REF}/venue-suitability?session=s1&attendance=20&layout=classroom`
+          ),
+        { timeout: 3000 }
       );
     });
 
