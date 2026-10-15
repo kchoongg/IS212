@@ -143,7 +143,8 @@ jobs:
     # database is never touched, so CI needs no secrets.
     services:
       postgres:
-        image: postgres:17
+        # The same major version as the Neon database the app runs on.
+        image: postgres:18
         env:
           POSTGRES_USER: ci
           POSTGRES_PASSWORD: ci
@@ -199,3 +200,67 @@ jobs:
             echo "::error::These fixture scripts failed:$failed see each one's group in the log."
             exit 1
           fi
+
+  # A few end-to-end smoke tests (e2e/): the production build, driven through
+  # real Chromium by Playwright, against a real, migrated and seeded Postgres -
+  # no test doubles. Log in as every role, the log-in redirect, and one request
+  # journey across organiser, Ops Manager and coordinator. On a failure the
+  # report, with a replayable trace and a screenshot of each failed test, is
+  # attached to the run as e2e-report.
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: connectsphere_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d connectsphere_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/connectsphere_e2e
+      # A real secret is not needed: this database and its sessions exist for
+      # this job only.
+      JWT_SECRET: ci-e2e-secret-not-used-anywhere-else
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Seed
+        run: npx tsx prisma/seed.ts
+      - run: npm run build
+      # The browser download is cached per Playwright version.
+      - id: playwright
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - name: End-to-end smoke tests
+        run: npm run test:e2e
+      - if: ${{ failure() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
