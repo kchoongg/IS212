@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataState, PageHeader, StatusBadge, Table, type Column } from "@/components/ui";
+import { Alert, Button, DataState, PageHeader, StatusBadge, Table, type Column } from "@/components/ui";
 import { RequirePermission } from "@/components/RequirePermission";
+import { WithdrawRegistrationDialog, type WithdrawTarget } from "@/components/WithdrawRegistrationDialog";
 import { eventReference, formatDateTimeRange } from "@/lib/format";
+import { canWithdraw } from "@/lib/registrationEligibility";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 
 // S-27 My Registrations (SPM-51 AC6): the attendee's registrations and each
-// one's status, newest first (GET /api/registrations). Withdrawing is a
-// separate story (#20), so there is no Withdraw here yet.
+// one's status, newest first (GET /api/registrations).
+// SPM-52: Withdraw on each registration that holds a seat.
 
 interface RegistrationRow {
   id: string;
@@ -24,6 +26,8 @@ function MyRegistrations() {
   const { state } = useCurrentUser();
   const [rows, setRows] = useState<RegistrationRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState<WithdrawTarget | null>(null);
+  const [withdrawn, setWithdrawn] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -57,11 +61,39 @@ function MyRegistrations() {
     },
     { key: "when", header: "When", render: (row) => formatDateTimeRange(row.event.startsAt, row.event.endsAt) },
     { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: "actions",
+      header: "Actions",
+      hideLabelOnMobile: true,
+      className: "text-right",
+      render: (row) =>
+        canWithdraw(row.status) ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            // The row opens the event; this button must not do that too. The
+            // mobile card listens for Enter/Space, so the keypress is stopped too.
+            onClick={(e) => {
+              e.stopPropagation();
+              setWithdrawn(null);
+              setWithdrawing({ id: row.id, eventTitle: row.event.title });
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            Withdraw
+          </Button>
+        ) : null,
+    },
   ];
 
   return (
     <div>
       <PageHeader title="My Registrations" subtitle="The events you have registered for, and their status." />
+      {withdrawn && (
+        <Alert variant="success" className="mb-4">
+          You have withdrawn from {withdrawn}.
+        </Alert>
+      )}
       <DataState
         data={rows}
         error={error}
@@ -81,6 +113,15 @@ function MyRegistrations() {
           />
         )}
       </DataState>
+      <WithdrawRegistrationDialog
+        target={withdrawing}
+        onCancel={() => setWithdrawing(null)}
+        onWithdrawn={() => {
+          setWithdrawn(withdrawing?.eventTitle || "the event");
+          setWithdrawing(null);
+          void load();
+        }}
+      />
     </div>
   );
 }

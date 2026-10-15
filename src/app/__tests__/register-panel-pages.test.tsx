@@ -224,3 +224,74 @@ describe("only an attendee gets the card (TC12)", () => {
     }
   );
 });
+
+// SPM-52 Withdraw from Event.
+describe("SPM-52 an attendee withdraws from the event page", () => {
+  const WITHDRAW = "PATCH /api/registrations/reg-1";
+  const mine = (status: string) => ({ id: "reg-1", status, registeredAt: "2026-10-05T02:00:00.000Z" });
+  const withdrawButton = () => screen.queryByRole("button", { name: "Withdraw" });
+  /// The event page has other dialogs; this is the one asking about withdrawing.
+  const dialog = () =>
+    screen
+      .getByRole("heading", { hidden: true, name: "Withdraw from SPM51 Harbour Open House?" })
+      .closest("dialog") as HTMLElement;
+
+  it("offers Withdraw next to a registration (AC1)", async () => {
+    open(publicEvent({ myRegistration: mine("registered") }));
+
+    await panel();
+
+    expect(withdrawButton()).toBeInTheDocument();
+  });
+
+  it.each(["waitlisted", "attended"])("offers no Withdraw on a %s registration", async (status) => {
+    open(publicEvent({ myRegistration: mine(status) }));
+
+    await panel();
+
+    expect(withdrawButton()).not.toBeInTheDocument();
+  });
+
+  it("withdraws once confirmed, says so, and offers Register again (AC1-AC3)", async () => {
+    const api = open(publicEvent({ myRegistration: mine("registered") }));
+    await panel();
+    api.on(WITHDRAW, { id: "reg-1", status: "withdrawn" });
+    api.on(EVENT, publicEvent({ myRegistration: mine("withdrawn") }));
+
+    await userEvent.click(withdrawButton()!);
+    expect(within(dialog()).getByRole("heading", { hidden: true, name: "Withdraw from SPM51 Harbour Open House?" })).toBeInTheDocument();
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await screen.findByText("You have withdrawn from this event.")).toBeInTheDocument();
+    expect(api.sent(WITHDRAW)[0].body).toEqual({ status: "withdrawn" });
+    expect(await screen.findByRole("button", { name: "Register" })).toBeInTheDocument();
+    expect(screen.queryByText("You registered on 5 Oct 2026.")).not.toBeInTheDocument();
+  });
+
+  it("sends nothing when the attendee keeps their place", async () => {
+    const api = open(publicEvent({ myRegistration: mine("registered") }));
+    await panel();
+
+    await userEvent.click(withdrawButton()!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Keep my place" }));
+
+    expect(api.sent(WITHDRAW)).toEqual([]);
+    expect(screen.getByText("You registered on 5 Oct 2026.")).toBeInTheDocument();
+  });
+
+  it("says so when the server can't be reached", async () => {
+    open(publicEvent({ myRegistration: mine("registered") }), {
+      [WITHDRAW]: () => {
+        throw new TypeError("Failed to fetch");
+      },
+    });
+    await panel();
+
+    await userEvent.click(withdrawButton()!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(
+      await within(dialog()).findByText("Could not reach the server. Check your connection and try again.")
+    ).toBeInTheDocument();
+  });
+});

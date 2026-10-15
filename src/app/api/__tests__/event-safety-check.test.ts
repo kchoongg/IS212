@@ -19,7 +19,7 @@
 // Decided here, not in the story (change the test if the team wants otherwise):
 //   - the 403 wording, the history reason, and the notification's type, title and body
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma");
 
@@ -317,6 +317,11 @@ describe("POST /api/events/[id]/safety-check", () => {
 });
 
 describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
+  // SPM-52: the organiser and coordinator also get the registrations counted.
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+  });
+
   const get = (token: string) => GET(req("GET", `/api/events/${REF}`, { token }), params({ id: REF }));
 
   const withCheck = () =>

@@ -488,3 +488,61 @@ describe("when saving goes wrong", () => {
     );
   });
 });
+
+// SPM-52 Withdraw from Event (AC4, AC5): the organiser and coordinator see a
+// withdrawal in the places taken. GET /api/events/<ref> sends registrationCounts to them only.
+describe("SPM-52 the places taken and withdrawals", () => {
+  const counts = { registrationCounts: { taken: 12, withdrawn: 3 } };
+
+  it("shows the organiser the places taken out of the capacity, and the withdrawals", async () => {
+    open("organiser", event({ ...enabled, ...counts }), {}, { id: "organiser-id" });
+
+    await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
+
+    expect(valueOf("Places taken")).toHaveTextContent("12 of 50 · 38 left");
+    expect(valueOf("Withdrawn")).toHaveTextContent("3");
+  });
+
+  it("shows the coordinator the same", async () => {
+    asCoordinator(event({ ...enabled, ...counts }));
+
+    await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
+
+    expect(valueOf("Places taken")).toHaveTextContent("12 of 50 · 38 left");
+    expect(valueOf("Withdrawn")).toHaveTextContent("3");
+  });
+
+  it("shows only the number taken when there is no capacity", async () => {
+    open("organiser", event({ ...enabled, registrationCapacity: null, ...counts }), {}, { id: "organiser-id" });
+
+    await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
+
+    expect(valueOf("Places taken")?.textContent).toBe("12");
+  });
+
+  it("never shows fewer than none left", async () => {
+    const over = { registrationCounts: { taken: 52, withdrawn: 0 } };
+    open("organiser", event({ ...enabled, ...over }), {}, { id: "organiser-id" });
+
+    await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
+
+    expect(valueOf("Places taken")).toHaveTextContent("52 of 50 · 0 left");
+  });
+
+  it("shows no counts when the event doesn't send them", async () => {
+    open("organiser", event(enabled), {}, { id: "organiser-id" });
+
+    await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
+
+    expect(valueOf("Places taken")).toBeUndefined();
+    expect(valueOf("Withdrawn")).toBeUndefined();
+  });
+
+  it("shows no counts while registration is off", async () => {
+    open("organiser", event(counts), {}, { id: "organiser-id" });
+
+    await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
+
+    expect(valueOf("Places taken")).toBeUndefined();
+  });
+});

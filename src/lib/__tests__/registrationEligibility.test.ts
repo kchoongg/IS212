@@ -6,7 +6,13 @@
 //     SEAT_TAKING - the registration statuses that take a seat
 // Manual cases: docs/test-cases/SPM-51_test_cases.json (TC04-TC10; wording decided there).
 import { describe, it, expect } from "vitest";
-import { REGISTRATION_REFUSALS, SEAT_TAKING, registrationState } from "../registrationEligibility";
+import {
+  REGISTRATION_REFUSALS,
+  SEAT_TAKING,
+  canWithdraw,
+  registrationCounts,
+  registrationState,
+} from "../registrationEligibility";
 
 const OPENS = new Date("2026-09-01T01:00:00.000Z"); // 1 Sept 2026, 09:00 Singapore
 const CLOSES = new Date("2027-12-31T09:00:00.000Z"); // 31 Dec 2027, 17:00 Singapore
@@ -104,5 +110,44 @@ describe("the refusal each state gives", () => {
       closed: "Registration has closed",
       full: "This event is full",
     });
+  });
+});
+
+// SPM-52 Withdraw from Event.
+describe("SPM-52 AC1 only a registration holding a seat can be withdrawn", () => {
+  it("lets a registered attendee withdraw", () => {
+    expect(canWithdraw("registered")).toBe(true);
+  });
+
+  it.each(["waitlisted", "withdrawn", "attended"])("does not let a %s registration be withdrawn", (status) => {
+    expect(canWithdraw(status)).toBe(false);
+  });
+});
+
+describe("SPM-52 AC4 + AC5 the registrations counted for the organiser and coordinator", () => {
+  it("counts registered and attended as places taken, and withdrawn on its own", () => {
+    expect(
+      registrationCounts([
+        { status: "registered", count: 10 },
+        { status: "attended", count: 2 },
+        { status: "waitlisted", count: 4 },
+        { status: "withdrawn", count: 3 },
+      ])
+    ).toEqual({ taken: 12, withdrawn: 3 });
+  });
+
+  it("gives a withdrawn registration back its place", () => {
+    const before = registrationCounts([{ status: "registered", count: 5 }]);
+    const after = registrationCounts([
+      { status: "registered", count: 4 },
+      { status: "withdrawn", count: 1 },
+    ]);
+
+    expect(before).toEqual({ taken: 5, withdrawn: 0 });
+    expect(after).toEqual({ taken: 4, withdrawn: 1 });
+  });
+
+  it("is zero for an event nobody has registered for", () => {
+    expect(registrationCounts([])).toEqual({ taken: 0, withdrawn: 0 });
   });
 });
