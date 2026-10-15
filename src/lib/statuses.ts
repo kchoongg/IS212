@@ -66,7 +66,9 @@ const STATUS_META: Record<string, StatusMeta> = {
   registered: { label: "Registered", tone: "success" },
   waitlisted: { label: "Waiting list", tone: "warning" },
   withdrawn: { label: "Withdrawn", tone: "neutral" },
-  attended: { label: "Attended", tone: "success" },
+  // SPM-65 (AC3): a different tone from Registered, so a checked-in attendee
+  // stands out on the registration list by colour as well as by label.
+  attended: { label: "Attended", tone: "info" },
 
   // --- Whether an attendee can register now (SPM-51, registrationState()) ---
   // Not stored anywhere: worked out from the event and its seats, so these

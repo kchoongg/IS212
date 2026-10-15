@@ -1,0 +1,352 @@
+{
+  "story_key": "SPM-65",
+  "story_title": "As an Event Organiser or Event Coordinator, I want to view the registrations for an event I manage so that I know who is attending and how full the event is",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-10-15",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The responsible Event Organiser and the assigned Event Coordinator can view the list of registrations for their event."
+    },
+    {
+      "id": "AC2",
+      "text": "Each entry shows the attendee's name, contact details, registration status and registration date."
+    },
+    {
+      "id": "AC3",
+      "text": "Registered, waitlisted, withdrawn and checked-in attendees are distinguishable."
+    },
+    {
+      "id": "AC4",
+      "text": "Attendees added manually on the Organiser's behalf are identifiable (see: Manually Add Attendee)."
+    },
+    {
+      "id": "AC5",
+      "text": "The list shows the number of active registrations against the registration capacity, and the number of attendees on the waiting list."
+    },
+    {
+      "id": "AC6",
+      "text": "The list reflects registrations, withdrawals and waiting-list changes as they happen."
+    },
+    {
+      "id": "AC7",
+      "text": "Given registration is not enabled for the event, when the list is opened, then it states that registration is not enabled rather than showing an empty list."
+    },
+    {
+      "id": "AC8",
+      "text": "An Event Organiser cannot view the registration list of an event they are not responsible for."
+    },
+    {
+      "id": "AC9",
+      "text": "Attendees, Venue Staff and Technical Support Staff cannot view the registration list."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-65-TC01",
+      "title": "The organiser responsible for the event opens its Attendees tab and sees each attendee's name, email and registration date",
+      "linked_ac": ["AC1", "AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM65 …' events, never anyone else's data), and SPM-65-TC08 has not been run since.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123), who organised every 'SPM65 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar (capacity 3) | Organiser: Evelyn Chen | Attendees: Marcus Yeo, Farhan Ismail, Anita Devi, Tom Harris, Siti Nurhaliza",
+      "expected_result": "Step 2: The event page opens with the heading 'SPM65 Harbourfront Seminar' and the tabs 'Overview', 'Equipment' and 'Attendees'.\nStep 3: The Attendees page opens with the heading 'SPM65 Harbourfront Seminar', the line 'Who has registered for this event.' and the 'Attendees' tab selected. A table has the columns 'Attendee', 'Contact', 'Status' and 'Registered', and five rows, oldest first: Marcus Yeo, marcus.yeo@example.com, 1 Oct 2026, 10:00; Farhan Ismail, farhan.ismail@example.com, 1 Oct 2026, 16:00; Anita Devi, anita.devi@example.com, 2 Oct 2026, 14:30; Tom Harris, tom.harris@example.com, 3 Oct 2026, 09:15; Siti Nurhaliza, siti.nurhaliza@example.com, 5 Oct 2026, 11:00."
+    },
+    {
+      "id": "SPM-65-TC02",
+      "title": "Registered, waitlisted and withdrawn attendees each have their own status badge, and a withdrawn one shows when they withdrew",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar | Registered: Marcus Yeo, Anita Devi, Tom Harris | Waiting list: Siti Nurhaliza | Withdrawn: Farhan Ismail",
+      "expected_result": "Step 3: In the 'Status' column, Marcus Yeo, Anita Devi and Tom Harris have the green badge 'Registered', Siti Nurhaliza has the amber badge 'Waiting list', and Farhan Ismail has the grey badge 'Withdrawn'. Under Farhan Ismail's registration date it says 'Withdrew 6 Oct 2026, 12:00'. No other row has a 'Withdrew' line."
+    },
+    {
+      "id": "SPM-65-TC03",
+      "title": "An attendee added on the organiser's behalf is marked with who added them, and self-registered attendees are not",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed` (it records Anita Devi's registration for 'SPM65 Harbourfront Seminar' as added by Evelyn Chen).\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar | Added by the organiser: Anita Devi (added by Evelyn Chen) | Self-registered: Marcus Yeo, Farhan Ismail, Tom Harris, Siti Nurhaliza",
+      "expected_result": "Step 3: In the 'Attendee' column, under the name Anita Devi it says 'Added by Evelyn Chen'. Marcus Yeo, Farhan Ismail, Tom Harris and Siti Nurhaliza have no 'Added by' line."
+    },
+    {
+      "id": "SPM-65-TC04",
+      "title": "A full event's list shows every place taken against the capacity and the number on the waiting list, not counting withdrawals",
+      "linked_ac": ["AC5"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar (capacity 3; 3 registered, 1 on the waiting list, 1 withdrawn)",
+      "expected_result": "Step 3: Above the table it says '3 of 3 places taken · 1 on the waiting list'. Farhan Ismail (Withdrawn) and Siti Nurhaliza (Waiting list) are not counted in the places taken."
+    },
+    {
+      "id": "SPM-65-TC05",
+      "title": "Checked-in attendees of a past event are shown as Attended, apart from those who registered but did not come and those who withdrew",
+      "linked_ac": ["AC3", "AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Past Health Talk' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Past Health Talk (Completed, 20 Sep 2026, capacity 10) | Attended: Lee Wei Ming, Chua Mei Ling | Registered, did not attend: Jocelyn Pang | Withdrawn: Ravi Subramaniam",
+      "expected_result": "Step 3: Above the table it says '3 of 10 places taken · 0 on the waiting list'. Lee Wei Ming (registered 3 Aug 2026, 10:00) and Chua Mei Ling (4 Aug 2026, 10:00) have the blue badge 'Attended'. Jocelyn Pang (5 Aug 2026, 10:00) has the green badge 'Registered'. Ravi Subramaniam (6 Aug 2026, 10:00) has the grey badge 'Withdrawn' and the line 'Withdrew 1 Sept 2026, 10:00'. 'Attended' and 'Registered' are different colours."
+    },
+    {
+      "id": "SPM-65-TC06",
+      "title": "An event with no capacity limit shows how many are registered and says there is no limit",
+      "linked_ac": ["AC5"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Open Lecture' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Open Lecture (registration enabled, no capacity set) | Registered: Anita Devi, Tom Harris",
+      "expected_result": "Step 3: Above the table it says '2 registered (no capacity limit) · 0 on the waiting list'. The table lists Anita Devi (4 Oct 2026, 10:00) and Tom Harris (4 Oct 2026, 11:00), both with the badge 'Registered'."
+    },
+    {
+      "id": "SPM-65-TC07",
+      "title": "An event with registration open and nobody registered says no one has registered yet, with no places taken",
+      "linked_ac": ["AC5"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`, and SPM-65-TC08 has not been run since (it registers attendees for this event).\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Live Update Workshop' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Live Update Workshop (registration enabled, capacity 5, no registrations)",
+      "expected_result": "Step 3: It says '0 of 5 places taken · 0 on the waiting list', then 'No one has registered yet' and 'Registrations appear here as they come in.' There is no table and no message about registration not being enabled."
+    },
+    {
+      "id": "SPM-65-TC08",
+      "title": "The open list shows a new registration and then its withdrawal within 15 seconds, without refreshing the page",
+      "linked_ac": ["AC6", "AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Before and after: run `npm run fixtures:spm65` (never `npx prisma db seed`, which wipes everyone's data).\nTwo browser windows: a normal one, and a private (incognito) one, so the two logins don't replace each other.\nIn the normal window, logged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).",
+      "steps": [
+        "In the normal window, click 'My Events' in the sidebar",
+        "Click 'SPM65 Live Update Workshop' in the list",
+        "Click the 'Attendees' tab, and leave this window open on it without refreshing",
+        "In the private window, go to the site (e.g. http://localhost:3000) and log in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee",
+        "Click 'Browse Events' in the sidebar",
+        "Click 'SPM65 Live Update Workshop'",
+        "Click 'Register' in the 'Your registration' card",
+        "Switch to the normal window and wait up to 15 seconds, without refreshing",
+        "Switch to the private window and click 'Withdraw' in the 'Your registration' card",
+        "Click 'Withdraw' in the dialog",
+        "Switch to the normal window and wait up to 15 seconds, without refreshing"
+      ],
+      "test_data": "Event: SPM65 Live Update Workshop (capacity 5, nobody registered) | Organiser: Evelyn Chen | Attendee: Marcus Yeo",
+      "expected_result": "Step 3: The Attendees page says '0 of 5 places taken · 0 on the waiting list' and 'No one has registered yet'.\nStep 7: A green message says 'You're registered for this event.'\nStep 8: Without a refresh, the list now has one row, Marcus Yeo, marcus.yeo@example.com, with the badge 'Registered' and today's date and time, and it says '1 of 5 places taken · 0 on the waiting list'.\nStep 10: The dialog closes and a green message says 'You have withdrawn from this event.'\nStep 11: Without a refresh, Marcus Yeo's badge is now 'Withdrawn' with a 'Withdrew' line giving today's date and time, and it says '0 of 5 places taken · 0 on the waiting list'."
+    },
+    {
+      "id": "SPM-65-TC09",
+      "title": "When registration is not enabled, the list says so instead of showing an empty list",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Closed Doors Gala' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Closed Doors Gala (registration not enabled, no registrations)",
+      "expected_result": "Step 3: A blue message says 'Registration is not enabled for this event' and 'Attendees can't register until the coordinator turns registration on.' There is no table, no 'No one has registered yet' message, and no '… places taken' line."
+    },
+    {
+      "id": "SPM-65-TC10",
+      "title": "When registration was turned off after someone registered, the list says it is not enabled and still lists that attendee",
+      "linked_ac": ["AC7"],
+      "type": "Boundary",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Paused Forum' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Paused Forum (registration turned off, capacity 20) | Registered: Marcus Yeo",
+      "expected_result": "Step 3: A blue message says 'Registration is not enabled for this event'. Under it, it says '1 of 20 places taken · 0 on the waiting list', and the table lists Marcus Yeo, marcus.yeo@example.com, 'Registered', 2 Oct 2026, 10:00."
+    },
+    {
+      "id": "SPM-65-TC11",
+      "title": "The coordinator assigned to the event opens its Attendees tab and sees the same list as the organiser",
+      "linked_ac": ["AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM65 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar | Coordinator: Daniel Tan",
+      "expected_result": "Step 2: The event page shows the tabs 'Overview', 'Venue', 'Equipment', 'Attendees' and 'Readiness'.\nStep 3: The Attendees page says '3 of 3 places taken · 1 on the waiting list' and lists Marcus Yeo, Farhan Ismail, Anita Devi (with 'Added by Evelyn Chen'), Tom Harris and Siti Nurhaliza, with the same emails, badges and dates as the organiser sees."
+    },
+    {
+      "id": "SPM-65-TC12",
+      "title": "An organiser at the same client who did not raise the event can open the event but not its registration list",
+      "linked_ac": ["AC8"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Raj Kumar (raj.kumar@straitsmedic.com / password123), an Event Organiser at Straits Medical Institute, the same client as Evelyn Chen, who organised the event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar (organised by Evelyn Chen) | Organiser: Raj Kumar (same client, not responsible)",
+      "expected_result": "Step 2: The event page 'SPM65 Harbourfront Seminar' opens, with an 'Attendees' tab.\nStep 3: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names, emails or places taken are shown."
+    },
+    {
+      "id": "SPM-65-TC13",
+      "title": "An organiser from another client cannot open the registration list even by typing its address",
+      "linked_ac": ["AC8"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Note the event's reference from the browser address bar (the part after /events/, starting EVT-)",
+        "Log out and log in as Rachel Ng (rachel.ng@meridianfina.com / password123), an Event Organiser at Meridian Financial Group",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/attendees) and press Enter"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar (Straits Medical Institute) | Organiser: Rachel Ng (Meridian Financial Group)",
+      "expected_result": "Step 5: The page says 'This event doesn't exist, or you don't have access to it.' No event title, attendee names or places taken are shown."
+    },
+    {
+      "id": "SPM-65-TC14",
+      "title": "A coordinator who is not assigned to the event cannot view its registration list",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Priya Raj (priya.raj@connectsphere.com / password123), an Event Coordinator who is not assigned to any 'SPM65 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar (assigned to Daniel Tan) | Coordinator: Priya Raj (not assigned)",
+      "expected_result": "Step 3: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names, emails or places taken are shown."
+    },
+    {
+      "id": "SPM-65-TC15",
+      "title": "An attendee registered for the event has no Attendees tab and cannot open the list by typing its address",
+      "linked_ac": ["AC9"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee registered for 'SPM65 Harbourfront Seminar'.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'Browse Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar'",
+        "Note the event's reference from the browser address bar (the part after /events/, starting EVT-)",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/attendees) and press Enter"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar | Attendee: Marcus Yeo",
+      "expected_result": "Step 2: The event page opens. There is no 'Attendees' tab.\nStep 4: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No other attendee's name or email is shown."
+    },
+    {
+      "id": "SPM-65-TC16",
+      "title": "Venue Staff and Technical Support Staff have no Attendees tab and cannot open the list by typing its address",
+      "linked_ac": ["AC9"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Note the event's reference from the browser address bar (the part after /events/, starting EVT-)",
+        "Log out and log in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff",
+        "Type /events/<reference from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>) and press Enter",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar and press Enter",
+        "Log out and log in as Kenji Sato (kenji.sato@connectsphere.com / password123), Technical Support",
+        "Type /events/<reference from step 3> after the site address in the browser address bar and press Enter",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar and press Enter"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar | Venue Staff: Marcus Wong | Technical Support: Kenji Sato",
+      "expected_result": "Step 5: The event page 'SPM65 Harbourfront Seminar' opens with the tabs 'Overview' and 'Venue'. There is no 'Attendees' tab.\nStep 6: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names or emails are shown.\nStep 8: The event page opens with the tabs 'Overview' and 'Equipment'. There is no 'Attendees' tab.\nStep 9: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names or emails are shown."
+    },
+    {
+      "id": "SPM-65-TC17",
+      "title": "The Operations Manager and the Safety Officer have no Attendees tab and cannot open the registration list",
+      "linked_ac": ["AC9"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm65` has been run since the last full `npx prisma db seed`.\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123), the Operations Manager.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Note the event's reference from the browser address bar (the part after /events/, starting EVT-)",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/attendees) and press Enter",
+        "Log out and log in as Hana Yusof (hana.yusof@connectsphere.com / password123), the Safety Officer",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM65 Harbourfront Seminar' in the list",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar and press Enter"
+      ],
+      "test_data": "Event: SPM65 Harbourfront Seminar | Operations Manager: Grace Lim | Safety Officer: Hana Yusof",
+      "expected_result": "Step 2: The event page opens. There is no 'Attendees' tab.\nStep 4: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.'\nStep 7: The event page opens with the tabs 'Overview' and 'Equipment'. There is no 'Attendees' tab.\nStep 8: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.'"
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-15: written after the code (branch SPM-65-View-Registration-List). Every label, message and page address in the cases is what the code shows, and the page tests (src/app/__tests__/event-attendees-page.test.tsx) render the screen with the cases' wording. Not yet clicked through by a person in a browser.",
+    "RESOLVED 2026-10-15: where the list is. The 'Attendees' tab on the event page (UI_DESIGN S-11), shown to Event Organisers and Event Coordinators. Columns 'Attendee', 'Contact', 'Status', 'Registered', oldest registration first. Contact is the attendee's email, plus their phone number when their account has one (no seeded attendee has a phone number, so the cases see the email only).",
+    "RESOLVED 2026-10-15: AC3. The existing status badges: 'Registered' (green), 'Waiting list' (amber), 'Withdrawn' (grey), 'Attended' (blue - the checked-in state; changed from green by this story so it no longer looks like 'Registered'). A withdrawn row also shows 'Withdrew <date>'.",
+    "RESOLVED 2026-10-15: AC4. A new database column records who added a registration on an attendee's behalf; the list shows 'Added by <name>' under the attendee's name. Manually Add Attendee is not built, so nothing in the app sets it yet: the fixtures set it for Anita Devi on 'SPM65 Harbourfront Seminar'. When Manually Add Attendee is built, it must record the organiser who added the attendee.",
+    "RESOLVED 2026-10-15: AC5. 'N of C places taken · W on the waiting list', or 'N registered (no capacity limit) · W on the waiting list' when no capacity is set. Places taken counts Registered and Attended, the same rule as SPM-51's capacity check and SPM-52's Registration card.",
+    "RESOLVED 2026-10-15: AC6. The tab reads the list again every 15 seconds while it is in view, and straight away when it comes back into view (decided 2026-10-15). No refresh is needed, but a change can take up to 15 seconds to appear.",
+    "RESOLVED 2026-10-15: AC6 waiting-list changes. Nobody can join or leave the waiting list from the app yet (Join and Respond to Waiting List, SPM-66), so no case moves an attendee on or off it. The list reads waiting-list registrations the same way as the others, so they will update the same way once SPM-66 is built.",
+    "RESOLVED 2026-10-15: AC7. When registration is not enabled the tab says 'Registration is not enabled for this event'. If attendees registered before it was turned off, they are still listed under that message (SPM65 Paused Forum), so the organiser does not lose sight of them.",
+    "RESOLVED 2026-10-15: AC8. The organiser who raised the event is the responsible one. Another organiser at the same client can open the event (as before) but gets 'Not authorised' on its Attendees tab; an organiser from another client cannot see the event at all. AC1 reads 'the assigned Event Coordinator', so another coordinator is refused too (TC14).",
+    "RESOLVED 2026-10-15: AC9. Attendees, Venue Staff and Technical Support have no 'Attendees' tab, and typing the tab's address shows 'Not authorised'. The Operations Manager and Safety Officer are refused in the same way (TC17) - the story names neither, but neither manages the event.",
+    "RESOLVED 2026-10-15: not reachable from the screens, so covered by route tests only (src/app/api/__tests__/event-registrations-list.test.ts): calling the registrations API without logging in, and for a draft event.",
+    "RESOLVED 2026-10-15: fixtures. `npm run fixtures:spm65` (scripts/seed-spm65.ts) deletes and recreates only the six 'SPM65 …' events (seed keys spm65_*), with their registration settings and registrations, at fixed registration dates; the same events (without those) are at the end of prisma/seed.ts, and the base seed gives them no random registrations. No pinned reference numbers: find each event by title. The open events' registration runs to 31 Dec 2027, so TC08 holds until then."
+  ],
+  "code_references": [
+    "src/app/api/events/[id]/registrations/route.ts",
+    "src/app/events/[id]/attendees/page.tsx",
+    "src/lib/permissions.ts",
+    "src/lib/registrationEligibility.ts",
+    "src/lib/eventTabs.ts",
+    "src/lib/roles.ts",
+    "src/lib/statuses.ts",
+    "src/lib/format.ts",
+    "src/app/events/[id]/RegisterPanel.tsx",
+    "src/components/WithdrawRegistrationDialog.tsx",
+    "prisma/schema.prisma",
+    "prisma/migrations/20261015120000_add_registration_added_by/migration.sql",
+    "scripts/seed-spm65.ts"
+  ]
+}

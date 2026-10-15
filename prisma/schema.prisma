@@ -68,7 +68,10 @@ model User {
   unavailabilityCreated  VenueUnavailability[]
   equipmentRequested     EquipmentRequest[]     @relation("EquipmentRequester")
   equipmentReviewed      EquipmentRequest[]     @relation("EquipmentReviewer")
-  registrations          Registration[]
+  registrations          Registration[]         @relation("RegistrationAttendee")
+  /// View Registration List (SPM-65, AC4): registrations this user added on
+  /// an attendee's behalf (Manually Add Attendee).
+  registrationsAdded     Registration[]         @relation("RegistrationAddedBy")
   notifications          Notification[]
   safetyChecksSubmitted  SafetyCheck[]          @relation("SafetyCheckSubmitter")
   safetyChecksDecided    SafetyCheck[]          @relation("SafetyCheckDecider")
@@ -675,8 +678,14 @@ model Registration {
   dietaryRequirements       String? @map("dietary_requirements")
   accessibilityRequirements String? @map("accessibility_requirements")
 
+  /// View Registration List (SPM-65, AC4): who added this registration on the
+  /// attendee's behalf - set by Manually Add Attendee. NULL when the attendee
+  /// registered themselves.
+  addedById String? @map("added_by_id")
+
   event    Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  attendee User  @relation(fields: [attendeeId], references: [id], onDelete: Cascade)
+  attendee User  @relation("RegistrationAttendee", fields: [attendeeId], references: [id], onDelete: Cascade)
+  addedBy  User? @relation("RegistrationAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
 
   /// Required by src/app/api/registrations/route.ts, which detects duplicate
   /// sign-ups by catching the Postgres unique-constraint error rather than

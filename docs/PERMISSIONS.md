@@ -435,8 +435,10 @@ allowed to see.
   `equipment_request:manage`) and **reviewed** by Technical Support with
   `equipment_request:review`: reserving (SPM-49) and setting fulfilment status /
   technical notes (SPM-50).
-- **`registration:view_list`** is defined but unused — the attendee list screen
-  is not built.
+- **`registration:view_list`** guards the registration list (SPM-65,
+  `GET /api/events/[id]/registrations`, the Attendees tab) through
+  `canViewRegistrationList()`: the organiser who owns the event and the
+  coordinator assigned to it - not another organiser of the same client.
 - **`users.role` has no database constraint.** `registerSchema` guards the
   register route; a direct database write is not guarded.
   - Corrected 2026-09-18: this entry previously read "Zod guards the register

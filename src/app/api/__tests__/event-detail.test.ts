@@ -300,7 +300,7 @@ describe("GET /api/events/[id]", () => {
 
     const body = await (await get(signIn(actor()))).json();
 
-    expect(body.registrationCounts).toEqual({ taken: 11, withdrawn: 1 });
+    expect(body.registrationCounts).toEqual({ taken: 11, waitlisted: 2, withdrawn: 1 });
     expect(callArg(db.registration.groupBy)).toEqual({
       by: ["status"],
       where: { eventId: ID.event },

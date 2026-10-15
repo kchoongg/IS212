@@ -492,7 +492,7 @@ describe("when saving goes wrong", () => {
 // SPM-52 Withdraw from Event (AC4, AC5): the organiser and coordinator see a
 // withdrawal in the places taken. GET /api/events/<ref> sends registrationCounts to them only.
 describe("SPM-52 the places taken and withdrawals", () => {
-  const counts = { registrationCounts: { taken: 12, withdrawn: 3 } };
+  const counts = { registrationCounts: { taken: 12, waitlisted: 0, withdrawn: 3 } };
 
   it("shows the organiser the places taken out of the capacity, and the withdrawals", async () => {
     open("organiser", event({ ...enabled, ...counts }), {}, { id: "organiser-id" });
@@ -521,7 +521,7 @@ describe("SPM-52 the places taken and withdrawals", () => {
   });
 
   it("never shows fewer than none left", async () => {
-    const over = { registrationCounts: { taken: 52, withdrawn: 0 } };
+    const over = { registrationCounts: { taken: 52, waitlisted: 0, withdrawn: 0 } };
     open("organiser", event({ ...enabled, ...over }), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });

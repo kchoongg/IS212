@@ -13,7 +13,10 @@ import type { TabItem } from "@/components/ui";
 //
 // Readiness (S-18) is built by SPM-33; only a coordinator has it in
 // EVENT_TABS_BY_ROLE.
-const IMPLEMENTED_TABS: EventTab[] = ["overview", "venue", "equipment", "readiness"];
+//
+// Attendees (S-11) is built by SPM-65; the organiser and the coordinator have
+// it. The registration list itself decides whether this is their event.
+const IMPLEMENTED_TABS: EventTab[] = ["overview", "venue", "equipment", "attendees", "readiness"];
 
 export function eventTabItemsFor(role: string, eventId: string): TabItem[] {
   const allowed = eventTabsFor(role);

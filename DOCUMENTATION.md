@@ -801,6 +801,7 @@ traceability the module asks for.
 | `npm run fixtures:spm85` | Creates or refreshes the Safety Officer account (Hana Yusof, `hana.yusof@connectsphere.com`, `password123`) and resets SPM-85's 3 test events ("SPM85 …") without reseeding — upserts that one user, and deletes and recreates only events whose `seedKey` starts with `spm85_`, with the Harbour forum's two sessions, their approved bookings at Marina Auditorium and Orchard Seminar Room, its reserved equipment, required facilities and pending safety check, and the Riverside launch's approved booking and two registrations. No pinned reference numbers: the cases find events by title. SPM-85's cases only read, so one run before a test pass is enough. The account is in the seed's staff list and the events, without their arrangements, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm51` | Adds or resets SPM-51's 8 test events ("SPM51 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm51_`, with their registration settings (open until 31 Dec 2027, not yet open, closed, no dates, off) and their registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Run it before and after any case that registers. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm68` | Adds or resets SPM-68's 14 test events ("SPM68 …", 6–25 Oct 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm68_`, puts its five SPM68 test venues and two SPM68 equipment items back to their starting state, and writes the review flags the Flagged Arrangements page lists. Run it after each case that keeps, reviews, requests, releases or confirms (SPM-68-TC14 releases on the Venue tab). |
+| `npm run fixtures:spm65` | Adds or resets SPM-65's 6 test events ("SPM65 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm65_`, with their registration settings and registrations at fixed dates: registered, waitlisted, withdrawn, attended, and one added by the organiser (`added_by_id`). No pinned reference numbers: the cases find events by title. Run it before and after SPM-65-TC08, which registers and withdraws. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm71` | Creates or refreshes SPM-71's four test accounts (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee; all `password123`), deletes and recreates every notification they hold, and resets SPM-71's 4 events ("SPM71 …", Nov 2027) without reseeding - only those accounts and events whose `seedKey` starts with `spm71_` are touched. The accounts are the story's own so the unread counts the cases quote never move with other testers' work. No pinned reference numbers. Run it before and after any case that marks or opens a notification. The accounts and events, without the notifications or arrangements, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -976,6 +977,36 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-15 — Sammi Chua (SPM-65, View Registration List)
+- **The Attendees tab (S-11) is built.** `/events/[ref]/attendees`, backed by
+  `GET /api/events/[ref]/registrations`, lists each attendee's name, email,
+  phone, status and registration date (and withdrawal date), with places taken
+  against the capacity and the number on the waiting list. Statuses are the
+  existing `StatusBadge` labels; `attended` ("Attended", the checked-in state)
+  now has the `info` tone, so it no longer looks the same as "Registered".
+- **Who may see it:** `canViewRegistrationList()` in `src/lib/permissions.ts`,
+  the first use of `registration:view_list`. The organiser who owns the event
+  and the coordinator assigned to it. An organiser of the same client who did
+  not raise the event can open the event but gets 403 here (AC8); every other
+  role is refused (AC9). The usual order: 401, 404 for an event the user
+  can't see, then 403.
+- **Manually added attendees (AC4):** new nullable `registrations.added_by_id`
+  (FK to users, `ON DELETE SET NULL`). NULL means the attendee registered
+  themselves. Nothing writes it yet — *Manually Add Attendee* must set it to
+  the organiser (or coordinator) who added the attendee; the list then shows
+  "Added by <name>".
+- **"As they happen" (AC6):** the tab reads the list again every 15 seconds
+  while it is in view, and as soon as it comes back into view. No push channel.
+  A failed background refresh leaves the last list on screen; a 403 stops it.
+- **Registration not enabled (AC7):** the tab says so instead of an empty list.
+  Registrations made before it was turned off are still listed under it.
+- `registrationCounts()` (SPM-52) now also returns `waitlisted`.
+- Merged SPM-52 (Withdraw from Event) into the branch first, as it adds
+  `registrationCounts()`. SPM-52's PR should merge before this one.
+- **Test cases:** `docs/test-cases/SPM-65_Test_Cases.xlsx` (17 cases). Test data:
+  `npm run fixtures:spm65` (`scripts/seed-spm65.ts`), six "SPM65 …" events.
+- Migration: `20261015120000_add_registration_added_by`
 
 ### 2026-10-15 — Kristen (end-to-end tests)
 - **End-to-end smoke tests added** (`e2e/`, Playwright). The production build,

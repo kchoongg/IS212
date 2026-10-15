@@ -280,3 +280,22 @@ describe("safety check labels on the Readiness tab (SPM-33)", () => {
     expect(statusTone(key)).toBe(tone);
   });
 });
+
+// SPM-65 AC3: on the registration list, registered, waitlisted, withdrawn and
+// checked-in (attended) attendees must be told apart - by label and by colour.
+describe("registration statuses on the registration list (SPM-65)", () => {
+  it.each([
+    ["registered", "Registered", "success"],
+    ["waitlisted", "Waiting list", "warning"],
+    ["withdrawn", "Withdrawn", "neutral"],
+    ["attended", "Attended", "info"],
+  ])("shows %s as %s", (key, label, tone) => {
+    expect(statusLabel(key)).toBe(label);
+    expect(statusTone(key)).toBe(tone);
+  });
+
+  it("gives each of the four its own tone", () => {
+    const tones = ["registered", "waitlisted", "withdrawn", "attended"].map(statusTone);
+    expect(new Set(tones).size).toBe(4);
+  });
+});

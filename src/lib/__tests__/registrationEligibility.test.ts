@@ -133,7 +133,7 @@ describe("SPM-52 AC4 + AC5 the registrations counted for the organiser and coord
         { status: "waitlisted", count: 4 },
         { status: "withdrawn", count: 3 },
       ])
-    ).toEqual({ taken: 12, withdrawn: 3 });
+    ).toEqual({ taken: 12, waitlisted: 4, withdrawn: 3 });
   });
 
   it("gives a withdrawn registration back its place", () => {
@@ -143,11 +143,31 @@ describe("SPM-52 AC4 + AC5 the registrations counted for the organiser and coord
       { status: "withdrawn", count: 1 },
     ]);
 
-    expect(before).toEqual({ taken: 5, withdrawn: 0 });
-    expect(after).toEqual({ taken: 4, withdrawn: 1 });
+    expect(before).toEqual({ taken: 5, waitlisted: 0, withdrawn: 0 });
+    expect(after).toEqual({ taken: 4, waitlisted: 0, withdrawn: 1 });
   });
 
   it("is zero for an event nobody has registered for", () => {
-    expect(registrationCounts([])).toEqual({ taken: 0, withdrawn: 0 });
+    expect(registrationCounts([])).toEqual({ taken: 0, waitlisted: 0, withdrawn: 0 });
+  });
+});
+
+describe("SPM-65 AC5 the waiting list counted for the registration list", () => {
+  it("counts waitlisted attendees on their own, holding no place", () => {
+    const counts = registrationCounts([
+      { status: "registered", count: 1 },
+      { status: "waitlisted", count: 3 },
+    ]);
+
+    expect(counts.waitlisted).toBe(3);
+    expect(counts.taken).toBe(1);
+  });
+
+  it("moves an attendee off the waiting list and into a place when they are given one", () => {
+    const before = registrationCounts([{ status: "registered", count: 1 }, { status: "waitlisted", count: 2 }]);
+    const after = registrationCounts([{ status: "registered", count: 2 }, { status: "waitlisted", count: 1 }]);
+
+    expect([before.taken, before.waitlisted]).toEqual([1, 2]);
+    expect([after.taken, after.waitlisted]).toEqual([2, 1]);
   });
 });

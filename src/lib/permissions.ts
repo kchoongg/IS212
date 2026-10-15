@@ -283,6 +283,17 @@ export function canConfigureRegistration(actor: Actor, event: EventAccessFields)
   return isAssignedCoordinator(actor, event);
 }
 
+/// SPM-65: the registration list (who registered, with their contact details)
+/// is for the Event Organiser responsible for the event and the coordinator
+/// assigned to it (AC1). Not an organiser of the same client who did not raise
+/// the event, though they can see the event itself (AC8), and no other role
+/// (AC9) - attendee details are personal.
+export function canViewRegistrationList(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "registration:view_list")) return false;
+  if (actor.role === "organiser") return ownsEvent(actor, event);
+  return isAssignedCoordinator(actor, event);
+}
+
 /// SPM-47: equipment requirements are recorded and revised by the coordinator
 /// assigned to the event (SPM-30 removed the "any coordinator while it has
 /// none yet" allowance - see isAssignedCoordinator). Unlike canEditEventContent this is not restricted to draft: equipment

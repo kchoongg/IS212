@@ -1894,6 +1894,31 @@ async function main() {
     spm52("spm52_gala", "SPM52 Members Gala", "confirmed", "2028-04-01", { regEnabled: false }),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-65 QA fixtures (View Registration List). The SAME events as
+  // scripts/seed-spm65.ts (`npm run fixtures:spm65`) - keep the two in step.
+  //
+  // The events only. Their registration periods and their registered,
+  // waitlisted, withdrawn, attended and organiser-added registrations are
+  // created by that script alone, so run it once after a full reseed. Pushed
+  // LAST, after SPM-52, so no earlier event's EVT- reference number shifts.
+  // Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm65 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-65 view registration list test event", category: "seminar",
+    days: daysUntil(date), startHour: 9, durationHours: 8, attendance: 30, layout: "classroom",
+    regEnabled: true, ...options,
+  });
+  eventData.push(
+    spm65("spm65_harbour", "SPM65 Harbourfront Seminar", "confirmed", "2028-05-04", { regCapacity: 3, attendance: 3 }),
+    spm65("spm65_past", "SPM65 Past Health Talk", "completed", "2026-09-20", { regCapacity: 10, attendance: 10 }),
+    spm65("spm65_live", "SPM65 Live Update Workshop", "confirmed", "2028-05-11", { regCapacity: 5, attendance: 5 }),
+    spm65("spm65_open", "SPM65 Open Lecture", "confirmed", "2028-05-18"),
+    spm65("spm65_closed", "SPM65 Closed Doors Gala", "confirmed", "2028-05-25", { regEnabled: false }),
+    spm65("spm65_paused", "SPM65 Paused Forum", "confirmed", "2028-06-01", { regEnabled: false, regCapacity: 20, attendance: 20 }),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -2730,6 +2755,8 @@ async function main() {
     // SPM-52's exact registrations come from `npm run fixtures:spm52`; random
     // ones would overfill its one- and two-place events.
     if (e.key.startsWith("spm52_")) continue;
+    // SPM-65's exact registrations come from `npm run fixtures:spm65`.
+    if (e.key.startsWith("spm65_")) continue;
     const ev = events[e.key];
     const past = e.days < 0;
     // A realistic fraction of capacity, capped by how many attendees exist.
