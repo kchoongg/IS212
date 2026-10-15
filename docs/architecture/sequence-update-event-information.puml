@@ -1,0 +1,81 @@
+' Update Event Information: PATCH /api/events/[id]/information
+' Story: SPM-62 (PR #40). The flags it writes are reviewed in SPM-68.
+' Decision: adr/0003 (flag affected arrangements, never change them).
+' Hand-drawn from the code: update it when the route, applyEventInformation()
+' or eventChangeImpact.ts changes.
+@startuml sequence-update-event-information
+title Update event information (PATCH /api/events/[id]/information)
+autonumber
+skinparam sequenceMessageAlign left
+
+actor "Event Coordinator\n(assigned)" as coord
+participant "Edit page\nevents/[id]/update" as page
+participant "Information route\napi/events/[id]/information" as route
+participant "apiAuth / permissions" as auth
+participant "applyEventInformation()\napplyEventInformation.ts" as apply
+participant "eventChangeImpact.ts\n(pure rules)" as impact
+database "PostgreSQL\n(Prisma)" as db
+
+coord -> page : Edit title, description, date and time,\nattendance, layout, facilities, ...
+page -> impact : importantChanges(before, after)
+page --> coord : Amber warning naming the important changes
+opt Event is Confirmed and a change is important
+  page -> coord : "Save and move to Planning?" dialog
+  coord -> page : Confirm
+end
+page -> route : PATCH only the changed fields\nAuthorization: Bearer JWT
+
+route -> auth : getActor(req)
+route -> db : event by reference, with facility requirements and sessions
+route -> auth : canViewEvent(), canUpdateEventInformation()
+alt Not visible
+  route --> page : 404
+else Not the assigned Coordinator
+  route --> page : 403
+else Status not in EVENT_INFORMATION_STATUSES\n(Approved, Planning, Confirmed)
+  route --> page : 400
+end
+route -> route : Zod updateEventInformationSchema (strict);\nsession-derived fields refused for a multi-session event;\ncrossFieldErrors(): end after start, registration still\ncloses before the new start
+alt Invalid
+  route --> page : 400 {error, details.fieldErrors}
+end
+
+group Transaction
+  route -> apply : applyEventInformation(tx, event, data, actorId)
+  apply -> impact : importantChanges(before, merged):\nschedule | attendance | venue_requirements
+  opt At least one important change
+    apply -> db : venue bookings, equipment requests,\ncount of registrations holding a place
+  end
+  apply -> impact : affectedArrangements(changes, arrangements, now)
+  note right of impact
+    schedule -> venue bookings, equipment, registrations
+    attendance, venue_requirements -> venue bookings only
+    Only live rows: pending/approved bookings and open
+    equipment requests that have not ended yet.
+  end note
+  apply -> impact : revertsConfirmation(status, affected)\n(Confirmed and a booking or equipment line affected)
+  apply -> db : UPDATE events: the changed fields, the facility requirements,\nregistrationReviewReason (merged),\nstatus = planning and confirmedAt = null if reverting
+  loop Each affected venue booking
+    apply -> db : UPDATE venue_bookings SET needsReview, reviewReason (merged), flaggedAt
+  end
+  loop Each affected equipment request
+    apply -> db : UPDATE equipment_requests SET needsReview, reviewReason (merged), flaggedAt
+  end
+  note right of db
+    Flagged, never changed (adr/0003): times,
+    status and reserved quantities stay as they were.
+  end note
+  opt Status reverted
+    apply -> db : INSERT event_status_history\n(confirmed -> planning, "Event information changed: ...")
+  end
+  apply --> route : {event, importantChanges, statusReverted, flagged[]}
+end
+route --> page : 200
+page --> coord : Saved, with the list of what was flagged for review\n(and "back in Planning" when reverted)
+
+note over coord, db
+  The Coordinator then keeps or replaces each flagged arrangement in
+  Review Flagged Arrangements (SPM-68). No notification is sent here:
+  telling the organiser and attendees is SPM-53.
+end note
+@enduml

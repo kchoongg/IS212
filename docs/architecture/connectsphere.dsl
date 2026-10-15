@@ -20,7 +20,7 @@ workspace "ConnectSphere" "Event planning and venue booking system for ConnectSp
                 sessionHelper = component "Session Helper" "Stores the JWT in localStorage and wraps fetch calls with the Authorization header." "TypeScript (browser)"
 
                 authApi = component "Auth API" "Login, registration and session lookup." "Next.js Route Handlers"
-                eventsApi = component "Events API" "Event request creation, review and status transitions." "Next.js Route Handlers"
+                eventsApi = component "Events API" "Event request creation, review and status transitions; updates to an approved event's information, which flag the venue bookings, equipment and registrations a change affects for the coordinator's review instead of changing them (ADR-0003)." "Next.js Route Handlers"
                 venuesApi = component "Venues API" "Venue catalogue and booking endpoints." "Next.js Route Handlers"
                 equipmentApi = component "Equipment API" "Equipment catalogue and reservation endpoints." "Next.js Route Handlers"
                 registrationsApi = component "Registrations API" "Attendee registration endpoints." "Next.js Route Handlers"

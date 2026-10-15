@@ -58,6 +58,7 @@ case document.
 - [ ] Known Gaps in `DOCUMENTATION.md`: rows this PR closes are deleted, new gaps are added
 - [ ] `docs/PERMISSIONS.md` is updated if who can do what has changed
 - [ ] `UI_DESIGN.md` is updated if a screen, tab or navigation link was added or changed
+- [ ] `docs/architecture/` is updated (DSL, class/sequence diagram, or ADR) if a role, container, external system, the schema or a key flow changed
 
 **Before merging**
 - [ ] Branch is up to date with `main`

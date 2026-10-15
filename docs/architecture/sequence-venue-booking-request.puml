@@ -1,0 +1,80 @@
+' Request Venue Booking: POST /api/events/[id]/venue-bookings
+' Stories: SPM-42 (request), SPM-44 (conflicts, PR #37), SPM-54 (begin planning),
+' SPM-81 (sessions), SPM-90 (per-space attendance and layout), SPM-93 (15-minute
+' times with setup and turnaround, PR #41). Decisions: adr/0001, adr/0002.
+' Hand-drawn from the code: update it when the route or checkVenueBookingRequest() changes.
+@startuml sequence-venue-booking-request
+title Request a venue booking (POST /api/events/[id]/venue-bookings)
+autonumber
+skinparam sequenceMessageAlign left
+
+actor "Event Coordinator" as coord
+participant "Booking form\nevents/[id]/booking/new" as page
+participant "Venue bookings route\napi/events/[id]/venue-bookings" as route
+participant "apiAuth / permissions" as auth
+participant "checkVenueBookingRequest()\nvenueBookingRequest.ts" as check
+participant "venueTime.ts /\nvenueConflict.ts" as rules
+participant "beginPlanningIfApproved()\nbeginPlanning.ts" as planning
+database "PostgreSQL\n(Prisma)" as db
+
+coord -> page : Venue, date, start and end time,\npurpose, attendance, layout
+page -> page : checkRequestTimes(): 15-minute grid,\nend after start (same rule as the server)
+opt First request for an Approved event (willBeginPlanning)
+  page -> coord : "Begin planning?" dialog
+  coord -> page : Confirm
+end
+page -> route : POST {venueId, sessionId?, day, startTime, endTime,\npurpose, expectedAttendance, layoutName, requirementsNote}\nAuthorization: Bearer JWT
+
+route -> auth : getActor(req)
+alt No or invalid token
+  route --> page : 401
+end
+route -> db : event by reference, with facility requirements and sessions
+route -> auth : canViewEvent(), canRequestVenueBooking()
+alt Not visible
+  route --> page : 404 (never 403: it would confirm the event exists)
+else Not the assigned Coordinator
+  route --> page : 403
+end
+route -> route : Zod createVenueBookingSchema;\npick session (required when the event has sessions)
+
+group Transaction (adr/0002)
+  route -> db : SELECT id FROM venues WHERE id = venueId FOR UPDATE
+  note right of db
+    A second request or approval for the same venue
+    waits here until this transaction ends, then reads
+    the booking this one wrote.
+  end note
+  route -> db : venue with layouts, facilities, unavailability,\npending + approved bookings (with their events)
+  route -> check : event status, schedule, needs, venue, day, times
+  check -> check : event closed? not yet approved?
+  check -> rules : requestedWindow(day, start, end)
+  check -> check : covers the event's (or session's) time?
+  check -> rules : occupiedWindow(): start - setup, end + turnaround (adr/0001)
+  check -> rules : withinOpeningHours(occupied window)
+  check -> check : checkVenueSuitability(): capacity in layout,\nmandatory facilities
+  check -> rules : findDuplicateRequest(): same event and session again
+  check -> rules : findVenueConflict(): occupied windows overlap an\napproved or pending booking of another event,\nor an unavailable period
+  alt Any rule fails
+    check --> route : {ok: false, error, field?}
+    route --> page : 400 {error, field?}\n(conflicts name the event or period in the way)
+  else All rules pass
+    check --> route : {ok: true, window}
+    route -> db : INSERT venue_bookings (status pending,\nrequested times only, not the buffers)
+    route -> planning : beginPlanningIfApproved(tx, event)
+    opt Event is Approved
+      planning -> db : UPDATE events SET status = planning;\nINSERT event_status_history
+    end
+    planning --> route : planningStarted
+  end
+end
+route --> page : 201 {booking, planningStarted}\n(once the transaction commits)
+page --> coord : "Request sent" (and "Planning has begun")
+
+note over route, db
+  Venue Staff approve or reject in PATCH /api/venue-bookings/[id] (SPM-43),
+  which takes the same venue lock and re-checks: there only an approved
+  booking blocks, because approving one pending request is how Venue Staff
+  choose between rival requests.
+end note
+@enduml

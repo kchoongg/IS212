@@ -917,7 +917,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 |---|---|---|
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
 | **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
-| **Two booking requests submitted at the same moment can both pass the clash check** | `POST /api/events/[id]/venue-bookings` (SPM-42) checks and writes without a lock, so two holds on one room for overlapping times can exist. Approval is not affected: `PATCH /api/venue-bookings/[id]` (SPM-43) locks the venue row and re-checks, so only one of them can be approved and the other then shows as a Conflict on `/bookings`. | venues |
+| **A booking requested while an unavailable period is being recorded can be neither refused nor flagged** | Booking requests, approvals, withdrawals and releases all lock the venue row ([ADR-0002](docs/architecture/adr/0002-lock-venue-row-for-conflict-checks.md); requests since PR #37). Recording an unavailable period (`POST /api/venues/[id]/unavailability`, SPM-45) does not. If both run at the same moment, neither sees the other's uncommitted row: the request passes the check, and the period does not flag the booking. Fix: take the same `SELECT … FOR UPDATE` on the venue in that route's transaction. | venues |
 | **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
 | **Cancelling or postponing an event does not release its bookings** | Since SPM-67 the assigned coordinator can withdraw a pending request or release an approved booking one at a time, from the Venue tab. Releasing every booking when the event itself is cancelled or postponed without a date (#69) belongs to SPM-37 and SPM-38. Venue Staff still have no list of what they have already decided. | SPM-37 / SPM-38 |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
@@ -976,6 +976,29 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-15 — Kayal (design docs backfill)
+- **Design docs caught up with PRs #37, #40 and #41** (SPM-44, SPM-62,
+  SPM-93). Each of these changed the design without updating
+  `docs/architecture/`.
+- **`docs/architecture/adr/`**, with three decision records:
+  - 0001: 15-minute booking units with setup and turnaround replacing the
+    AM / PM / Night slots (SPM-93);
+  - 0002: the venue row lock for conflict checks (SPM-44);
+  - 0003: flagging affected arrangements instead of changing them (SPM-62).
+- **`class-diagram.puml`**, generated from `prisma/schema.prisma` by
+  `npm run docs:class-diagram` (`scripts/class-diagram.mts`). Regenerate it
+  after any schema change.
+- **Sequence diagrams** for requesting a venue booking and for updating event
+  information.
+- `connectsphere.dsl`: the Events API description now covers updating an
+  approved event's information. The `.puml` files were regenerated, with no
+  change, because components are in no view yet.
+- **PR template:** a Documentation checkbox for `docs/architecture/`.
+- Found while writing ADR-0002, not fixed: recording venue unavailability
+  (SPM-45) doesn't take the venue lock, so a booking requested at the same
+  moment can be neither refused nor flagged.
+- Migration: none.
 
 ### 2026-10-15 — Kristen (end-to-end tests)
 - **End-to-end smoke tests added** (`e2e/`, Playwright). The production build,
