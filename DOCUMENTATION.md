@@ -1005,6 +1005,9 @@ what changed, why, and the migration name if there is one.
   that `schema.prisma` matches them (a schema change with no migration fails)
   and runs `prisma/seed.ts` on the result, so a seed that no longer fits the
   schema fails the PR instead of the next teammate's `npx prisma db seed`.
+  Then it runs every `fixtures:*` script, twice each, so a story's test data
+  script broken by a later schema change fails the PR (naming the script)
+  instead of a tester's next test pass.
 - **New CI check: Dependency audit.** Warns when production dependencies have
   high or critical advisories. On 2026-10-15 it would warn: `next` 16.3.4 has
   a critical one (fixed in 16.4.1; the app does not use `next/og`, where it

@@ -137,7 +137,8 @@ jobs:
   migrations:
     name: Migrations
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Migrations, the seed and every story's fixture script, twice.
+    timeout-minutes: 15
     # A throwaway Postgres that lives for this job only. The shared Neon
     # database is never touched, so CI needs no secrets.
     services:
@@ -178,3 +179,23 @@ jobs:
       - run: npx prisma generate
       - name: Seed loads
         run: npx tsx prisma/seed.ts
+      # Each story's `npm run fixtures:spmNN` writes its test data straight to
+      # the database, so a later schema change can break it with nothing else
+      # noticing until a tester runs it. Runs every fixtures:* script in
+      # package.json (a new story's is picked up without editing this) on the
+      # seeded database, twice each - the test cases tell testers to re-run
+      # them, so a second run must work too. Lists every one that fails.
+      - name: Story fixtures load, and re-run
+        run: |
+          failed=""
+          for script in $(node -p "Object.keys(require('./package.json').scripts).filter((s) => s.startsWith('fixtures:')).sort().join(' ')"); do
+            for run in first second; do
+              echo "::group::$script ($run run)"
+              npm run --silent "$script" || failed="$failed $script ($run run);"
+              echo "::endgroup::"
+            done
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::These fixture scripts failed:$failed see each one's group in the log."
+            exit 1
+          fi
