@@ -1,4 +1,5 @@
-// Is this venue suitable for this event? (SPM-41)
+// Is this venue suitable for this event? (SPM-41) Since SPM-90: for this
+// SPACE of the event - see "the space a venue is wanted for" below.
 //
 // The acceptance criteria this exists for:
 //   - attendance is compared with the venue's capacity for the event's selected
@@ -112,6 +113,24 @@ export function missingEventInputs(
   return missing;
 }
 
+/// SPM-90: the space a venue is wanted for. One event may book several rooms,
+/// each for its own use, so a venue is judged against the space's attendance
+/// and layout - the event's own (or the session's) unless the Coordinator says
+/// otherwise. Facilities and accessibility requirements stay the event's and
+/// apply to every space (decided 2026-10-13, as for sessions).
+export const SPACE_PURPOSE_MAX = 100;
+export const DEFAULT_SPACE_PURPOSE = "Main programme";
+export const SPACE_PURPOSE_REQUIRED = "Say what this space is for.";
+export const SPACE_ATTENDANCE_ERROR = "Enter a whole number of at least 1.";
+
+/// A typed attendance as a whole number of at least 1, or null when it is not one.
+export function parseSpaceAttendance(value: string): number | null {
+  const trimmed = value.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const n = Number(trimmed);
+  return Number.isSafeInteger(n) && n >= 1 ? n : null;
+}
+
 /// "u_shape" -> "U shape", "theatre" -> "Theatre".
 export function layoutLabel(layoutName: string): string {
   const spaced = layoutName.replace(/_/g, " ");
@@ -125,7 +144,7 @@ export function describeUnmet(unmet: UnmetRequirement): string {
     case "capacity":
       return (
         `${layoutLabel(unmet.layoutName)} capacity is ${unmet.layoutCapacity} - ` +
-        `your event expects ${unmet.expectedAttendance}.`
+        `this space expects ${unmet.expectedAttendance}.`
       );
     case "layout":
       return `${layoutLabel(unmet.layoutName)} layout is not offered.`;

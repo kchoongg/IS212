@@ -91,6 +91,19 @@ describe("AC2 + AC5 an attendee registers for an eligible event", () => {
     await screen.findByText("You're registered for this event.");
     expect(api.sent(REGISTER)[0].body).toEqual({ eventId: "event-uuid" });
   });
+
+  it("sends accessibility requirements on their own, trimmed", async () => {
+    const api = open();
+    await screen.findByRole("heading", { name: "Your registration" });
+
+    fireEvent.change(screen.getByLabelText("Dietary requirements"), { target: { value: "   " } });
+    fireEvent.change(screen.getByLabelText("Accessibility requirements"), { target: { value: "  Wheelchair access " } });
+    api.on(REGISTER, reply(201, { id: "r1" }));
+    await userEvent.click(registerButton()!);
+
+    await screen.findByText("You're registered for this event.");
+    expect(api.sent(REGISTER)[0].body).toEqual({ eventId: "event-uuid", accessibilityRequirements: "Wheelchair access" });
+  });
 });
 
 describe("AC6 + AC7 an attendee who already holds a place sees it instead of Register", () => {
@@ -132,6 +145,15 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(screen.queryByText("You're registered for this event.")).not.toBeInTheDocument();
   });
 
+  it("shows a general refusal when the server gives no reason", async () => {
+    open(publicEvent(), { [REGISTER]: reply(400, {}) });
+    await screen.findByRole("heading", { name: "Your registration" });
+
+    await userEvent.click(registerButton()!);
+
+    expect(await screen.findByText("Could not register for this event.")).toBeInTheDocument();
+  });
+
   it("says so when the server can't be reached", async () => {
     open(publicEvent(), {
       [REGISTER]: () => {
@@ -153,6 +175,9 @@ describe("AC3 + AC4 an event outside its period can't be registered for, and say
     ["not open yet", { kind: "not_open", opensAt: "2027-11-01T01:00:00.000Z" }, "Registration opens 1 Nov 2027, 09:00."],
     ["closed", { kind: "closed", closesAt: "2026-09-30T09:00:00.000Z" }, "Registration closed on 30 Sept 2026, 17:00."],
     ["without dates", { kind: "no_period" }, "Registration dates haven't been set for this event."],
+    ["not open yet, with no opening date sent", { kind: "not_open" }, "Registration opens —."],
+    ["closed, with no closing date sent", { kind: "closed" }, "Registration closed on —."],
+    ["not enabled", { kind: "disabled" }, "Registration is not enabled for this event."],
   ])("says when an event is %s, with no Register button (TC06-TC08)", async (_state, state, message) => {
     open(publicEvent({ registrationState: state }));
 

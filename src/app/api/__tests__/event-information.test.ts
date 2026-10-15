@@ -292,6 +292,24 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     nothingWritten();
   });
 
+  it("refuses a start at or before registration opens, when no closing date is set", async () => {
+    const token = given({ registrationOpensAt: new Date("2027-03-10T01:00:00.000Z"), registrationClosesAt: null });
+
+    const res = await save(token, { startsAt: "2027-03-10T01:00:00.000Z", endsAt: "2027-03-10T09:00:00.000Z" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.startsAt).toEqual([
+      "Registration closes after this start time. Change the registration period first.",
+    ]);
+    nothingWritten();
+  });
+
+  it("accepts a start after registration opens, when no closing date is set", async () => {
+    const token = given({ registrationOpensAt: new Date("2027-03-01T01:00:00.000Z"), registrationClosesAt: null });
+
+    expect((await save(token, { startsAt: NEW_START, endsAt: NEW_END })).status).toBe(200);
+  });
+
   it("accepts a start after registration closes", async () => {
     const token = given({ registrationClosesAt: new Date("2027-03-10T10:00:00.000Z") });
 

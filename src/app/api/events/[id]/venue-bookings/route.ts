@@ -8,11 +8,13 @@ import { createVenueBookingSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { CLOSED_EVENT_MESSAGE, NOT_APPROVED_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
 import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
+import { canChangeBookingsOf } from "@/lib/venueBookingChange";
 
 // SPM-42, Request Venue Booking. GET is what the Venue tab needs to offer a
 // request: the event's sessions, its existing requests, and whether this user
 // may request at all. POST creates a pending request; every rule lives in
-// checkVenueBookingRequest() (src/lib/venueBookingRequest.ts).
+// checkVenueBookingRequest() (src/lib/venueBookingRequest.ts). Withdrawing or
+// releasing one is PATCH ./[bookingId] (SPM-67).
 
 const ONLY_ASSIGNED = "Only the assigned Coordinator can request a venue booking.";
 
@@ -22,12 +24,17 @@ const BOOKING_FIELDS = {
   startsAt: true,
   endsAt: true,
   layoutName: true,
+  // SPM-90: what the space is for, and its own attendance.
+  purpose: true,
+  expectedAttendance: true,
   requirementsNote: true,
   requestedAt: true,
   // SPM-43: Venue Staff's decision, for the coordinator to act on (AC6).
   decisionReason: true,
   suggestedAlternative: true,
   suggestedVenue: { select: { id: true, code: true, name: true, isActive: true } },
+  // SPM-67 (AC5): the Coordinator's reason for withdrawing or releasing it.
+  cancellationReason: true,
   session: { select: { id: true, label: true } },
   venue: { select: { id: true, code: true, name: true, setupMinutes: true, teardownMinutes: true } },
 } as const;
@@ -75,7 +82,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         : null;
 
   return NextResponse.json({
-    event: { title: event.title, preferredLayout: event.preferredLayout },
+    // SPM-90 (AC2): the attendance and layout a request starts on.
+    event: { title: event.title, preferredLayout: event.preferredLayout, expectedAttendance: event.expectedAttendance },
     schedule: { startsAt: event.startsAt, endsAt: event.endsAt },
     sessions: event.sessions.map((s) => ({
       id: s.id,
@@ -88,6 +96,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     cannotRequest,
     // SPM-54: the form asks before a request that would begin planning.
     willBeginPlanning: cannotRequest === null && canBeginPlanning(actor, event),
+    // SPM-67: whether this user may withdraw a pending request or release an
+    // approved booking (PATCH .../venue-bookings/[bookingId]). Unlike a new
+    // request, an event awaiting approval may still let one go.
+    canChangeBookings: canRequestVenueBooking(actor, event) && canChangeBookingsOf(event.status),
     bookings,
   });
 }
@@ -124,8 +136,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Set the event date and time before requesting a venue." }, { status: 400 });
     }
 
-    // D11: a session's own attendance and layout, the event's facilities.
-    const preferredLayout = session ? session.preferredLayout : event.preferredLayout;
+    // SPM-90: the space's own attendance and layout where the Coordinator gave
+    // them. Otherwise (AC2, and D11) the session's own, else the event's. The
+    // facilities are always the event's.
+    const own = session ?? event;
+    const expectedAttendance = data.expectedAttendance ?? own.expectedAttendance;
+    const preferredLayout = data.layoutName !== undefined ? data.layoutName : own.preferredLayout;
 
     // The check and the insert are one step. Read before the transaction, two
     // coordinators asking for the same slot at the same moment could each
@@ -165,7 +181,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           : { kind: "event", name: event.title ?? "This event" },
         schedule,
         needs: {
-          expectedAttendance: session ? session.expectedAttendance : event.expectedAttendance,
+          expectedAttendance,
           preferredLayout,
           requirements: event.facilityRequirements.map((r) => ({
             facilityId: r.facilityId,
@@ -197,6 +213,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           eventId: event.id,
           sessionId: session?.id,
           venueId: venue.id,
+          purpose: data.purpose,
+          expectedAttendance,
           layoutName: preferredLayout,
           startsAt: check.window.startsAt,
           endsAt: check.window.endsAt,

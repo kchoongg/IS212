@@ -132,6 +132,12 @@ describe("openingHoursMessage", () => {
       "SPM93 Quick Room is open 07:00–22:00. Choose times between 07:00 and 22:00."
     );
   });
+
+  it("offers the whole day when the venue's hours cannot be read", () => {
+    expect(openingHoursMessage({ name: "SPM93 Quick Room", opensAt: "", closesAt: "late", setupMinutes: 0, teardownMinutes: 0 })).toBe(
+      "SPM93 Quick Room is open –late. Choose times between 00:00 and 24:00."
+    );
+  });
 });
 
 describe("checkVenueBookingRequest", () => {
@@ -237,7 +243,7 @@ describe("checkVenueBookingRequest", () => {
     const result = checkVenueBookingRequest({ ...base, needs: { ...base.needs, expectedAttendance: 200 } });
     expect(result).toEqual({
       ok: false,
-      error: "SPM93 Studio is not suitable for this event: Theatre capacity is 60 - your event expects 200.",
+      error: "SPM93 Studio is not suitable for this space: Theatre capacity is 60 - this space expects 200.",
     });
   });
 

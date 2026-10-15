@@ -45,6 +45,10 @@ describe("the three kinds of unavailability (AC1)", () => {
     expect(OUT_OF_SERVICE_TYPES).toEqual(["unavailable", "damaged", "under_maintenance"]);
     expect(OUT_OF_SERVICE_TYPES.map(outOfServiceTypeLabel)).toEqual(["Unavailable", "Damaged", "Under maintenance"]);
   });
+
+  it("shows a type it does not know as stored", () => {
+    expect(outOfServiceTypeLabel("lost")).toBe("lost");
+  });
 });
 
 describe("operationalStatus (AC6)", () => {
@@ -108,6 +112,13 @@ describe("newlyShortReservations (AC4)", () => {
       ["morning", 2],
       ["evening", 2],
     ]);
+  });
+
+  it("counts an untitled event's reservation like any other", () => {
+    const morning = reservation("morning", 3, "2027-08-17");
+    const untitled = { ...reservation("untitled", 3, "2027-08-17"), eventTitle: null };
+
+    expect(newlyShortReservations(item(6), 0, 1, [morning, untitled]).map((r) => r.requestId)).toEqual(["morning", "untitled"]);
   });
 
   it("counts another event on different days as no competition", () => {

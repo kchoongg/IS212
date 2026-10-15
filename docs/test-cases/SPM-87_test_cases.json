@@ -1,0 +1,329 @@
+{
+  "story_key": "SPM-87",
+  "story_title": "As a Safety Officer, I want to review an event's operational safety and record my decision so that only events with safe arrangements proceed",
+  "created_by": "Janelle",
+  "creation_date": "2026-10-13",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Safety Officer can view a list of events awaiting an Operational Safety Check, earliest event date first."
+    },
+    {
+      "id": "AC2",
+      "text": "For each event, the review shows expected attendance, each venue booking with its capacity and layout, accessibility requirements, equipment arrangements, and any recorded venue restrictions or unavailable periods."
+    },
+    {
+      "id": "AC3",
+      "text": "The Safety Officer can approve the event."
+    },
+    {
+      "id": "AC4",
+      "text": "The Safety Officer can reject the safety arrangement, and must give a reason."
+    },
+    {
+      "id": "AC5",
+      "text": "The Safety Officer can request changes, and must describe the changes required."
+    },
+    {
+      "id": "AC6",
+      "text": "Given the Safety Officer attempts to reject or request changes without a reason, when they submit, then the decision is not saved and a reason is asked for."
+    },
+    {
+      "id": "AC7",
+      "text": "Approving records the event as safety-approved and returns it to the Coordinator to proceed."
+    },
+    {
+      "id": "AC8",
+      "text": "Rejecting or requesting changes returns the event to Planning (see: Resolve Safety Check Outcome)."
+    },
+    {
+      "id": "AC9",
+      "text": "The assigned Event Coordinator is notified of the decision, with the reason or the changes required."
+    },
+    {
+      "id": "AC10",
+      "text": "The decision, the Safety Officer who made it, and the date and time are recorded against the event."
+    },
+    {
+      "id": "AC11",
+      "text": "A decision can only be recorded for an event in Safety Review, and only once per submission."
+    },
+    {
+      "id": "AC12",
+      "text": "Only a Safety Officer can record a safety decision."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-87-TC01",
+      "title": "The Safety Checks list shows events awaiting a check, earliest event date first",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. Five SPM87 events are in Safety review: 'SPM87 Hillside Workshop' (8 Oct 2027), 'SPM87 Lakeside Conference' (12 Oct 2027), 'SPM87 Waterfront Gala' (18 Oct 2027), 'SPM87 Rooftop Launch Party' (20 Oct 2027) and 'SPM87 Twin Tab Briefing' (22 Oct 2027). They were submitted in the reverse order, newest event first. 'SPM87 Unsubmitted Planning Day' is in Planning. Other stories' events may also be listed; only the SPM87 ones are checked here.",
+      "steps": [
+        "Log in as hana.yusof@connectsphere.com with password123",
+        "Click 'Safety Checks' in the sidebar"
+      ],
+      "test_data": "Safety Officer: hana.yusof@connectsphere.com (Hana Yusof)\nSPM87 events in Safety review dated 8, 12, 18, 20 and 22 Oct 2027",
+      "expected_result": "Step 2: The Safety Checks page lists the five SPM87 events in Safety review in this order: SPM87 Hillside Workshop, SPM87 Lakeside Conference, SPM87 Waterfront Gala, SPM87 Rooftop Launch Party, SPM87 Twin Tab Briefing - by event date, not by when they were submitted. 'SPM87 Unsubmitted Planning Day' is not listed."
+    },
+    {
+      "id": "SPM-87-TC02",
+      "title": "The review shows attendance, each venue with its capacity, layout, opening hours and unavailable periods, accessibility needs and equipment",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Hillside Workshop' (8 Oct 2027, 10:00-13:00, 50 attendees, accessibility: 'Two attendees use wheelchairs; step-free route needed') is in Safety review with an approved booking at SPM87 Hillside Studio (Theatre, seats 60, open 08:00-22:00), which is unavailable for maintenance on 8 Oct 2027 from 07:00 to 09:00, and a Reserved Handheld Wireless Mic. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM87 Hillside Workshop' in the list",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM87 Hillside Workshop (Safety review)\nVenue: SPM87 Hillside Studio, Theatre, seats 60, open 08:00-22:00, maintenance 8 Oct 2027 07:00-09:00\nEquipment: Handheld Wireless Mic, Reserved",
+      "expected_result": "Step 2: The event opens with the status 'Safety review'. Expected attendance reads 50, the accessibility notes read 'Two attendees use wheelchairs; step-free route needed', and the 'Venue bookings' card shows 'SPM87 Hillside Studio (SPM87-STU) · Theatre · seats 60', its opening hours '08:00–22:00', and 'Unavailable 8 Oct 2027, 07:00–09:00 (Maintenance)'.\nStep 3: The Equipment tab lists Handheld Wireless Mic with its quantity and the status 'Reserved'."
+    },
+    {
+      "id": "SPM-87-TC03",
+      "title": "The Safety Officer approves an event, which becomes Safety approved with the decision recorded",
+      "linked_ac": [
+        "AC3",
+        "AC7",
+        "AC10",
+        "AC11"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Waterfront Gala' is in Safety review, submitted by Daniel Tan. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123). Note the date and time of step 5. This case changes the event - SPM-87-TC04 and TC05 read the result, so go straight to those and run npm run fixtures:spm87 after TC05.",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM87 Waterfront Gala' in the list",
+        "Click 'Record safety decision'",
+        "Choose 'Approve'",
+        "Click 'Record decision'"
+      ],
+      "test_data": "Event: SPM87 Waterfront Gala (Safety review)\nDecision: Approve (no reason needed)",
+      "expected_result": "Step 3: A dialog headed 'Record safety decision' opens with the choices 'Approve', 'Request changes' and 'Reject'.\nStep 4: No reason box is shown for Approve.\nStep 5: The message 'Safety check approved. The coordinator has been notified.' is shown. The status badge changes to 'Safety approved', the 'Safety check' row reads 'Approved · decided by Hana Yusof, <date and time of step 5>', and the 'Record safety decision' button is gone."
+    },
+    {
+      "id": "SPM-87-TC04",
+      "title": "After approval the assigned Coordinator sees the decision and can go on to confirm the event",
+      "linked_ac": [
+        "AC7",
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-87-TC03 has just been run (so 'SPM87 Waterfront Gala' is Safety approved) and the fixtures have NOT been reset since.",
+      "steps": [
+        "Click 'Log out' in the top bar",
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM87 Waterfront Gala' in the list"
+      ],
+      "test_data": "Coordinator: daniel.tan@connectsphere.com\nEvent: SPM87 Waterfront Gala (Safety approved)",
+      "expected_result": "Step 3: 'SPM87 Waterfront Gala' is listed with the status 'Safety approved'.\nStep 4: The event shows the status 'Safety approved', the 'Safety check' row 'Approved · decided by Hana Yusof, <date and time of TC03 step 5>', and a 'Confirm event' button - the event is back with the Coordinator to proceed. There is no 'Submit for safety check' button."
+    },
+    {
+      "id": "SPM-87-TC05",
+      "title": "The Event Organiser sees that their event is Safety approved but not the safety details",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-87-TC04 has just been run (so 'SPM87 Waterfront Gala' is Safety approved) and the fixtures have NOT been reset since. Rachel Ng (rachel.ng@meridianfina.com / password123) raised the event. Run npm run fixtures:spm87 after this case.",
+      "steps": [
+        "Click 'Log out' in the top bar",
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM87 Waterfront Gala' in the list"
+      ],
+      "test_data": "Organiser: rachel.ng@meridianfina.com\nEvent: SPM87 Waterfront Gala (Safety approved)",
+      "expected_result": "Step 2: The Dashboard lists 'SPM87 Waterfront Gala' under a 'Safety approved' heading.\nStep 3: 'SPM87 Waterfront Gala' is listed with the status 'Safety approved'.\nStep 4: The event shows the status 'Safety approved'. There is no 'Safety check' row and no decision details - those are for internal staff only."
+    },
+    {
+      "id": "SPM-87-TC06",
+      "title": "Requesting changes returns the event to Planning with the changes required recorded for the Coordinator",
+      "linked_ac": [
+        "AC5",
+        "AC8",
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Lakeside Conference' is in Safety review, assigned to Daniel Tan. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123). Note the date and time of step 6. This case changes the event - run npm run fixtures:spm87 afterwards.",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM87 Lakeside Conference' in the list",
+        "Click 'Record safety decision'",
+        "Choose 'Request changes'",
+        "Type 'Add a second fire marshal at the east exit.' in 'Changes required'",
+        "Click 'Record decision'",
+        "Click 'Log out' in the top bar",
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM87 Lakeside Conference' in the list"
+      ],
+      "test_data": "Event: SPM87 Lakeside Conference (Safety review)\nDecision: Request changes\nChanges required: Add a second fire marshal at the east exit.",
+      "expected_result": "Step 4: A box labelled 'Changes required' appears.\nStep 6: The message 'Changes requested. The event is back in Planning and the coordinator has been notified.' is shown, and the status badge changes to 'Planning'.\nStep 10: Daniel sees the status 'Planning' and the 'Safety check' row 'Changes requested · decided by Hana Yusof, <date and time of step 6>. Changes required: Add a second fire marshal at the east exit.'"
+    },
+    {
+      "id": "SPM-87-TC07",
+      "title": "Rejecting the safety arrangement returns the event to Planning with the reason recorded for the Coordinator",
+      "linked_ac": [
+        "AC4",
+        "AC8",
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Rooftop Launch Party' is in Safety review, assigned to Daniel Tan. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123). Note the date and time of step 6. This case changes the event - run npm run fixtures:spm87 afterwards.",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM87 Rooftop Launch Party' in the list",
+        "Click 'Record safety decision'",
+        "Choose 'Reject'",
+        "Type 'A single stairway cannot evacuate 300 people from the rooftop.' in 'Reason for rejecting'",
+        "Click 'Record decision'",
+        "Click 'Log out' in the top bar",
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM87 Rooftop Launch Party' in the list"
+      ],
+      "test_data": "Event: SPM87 Rooftop Launch Party (Safety review)\nDecision: Reject\nReason: A single stairway cannot evacuate 300 people from the rooftop.",
+      "expected_result": "Step 4: A box labelled 'Reason for rejecting' appears.\nStep 6: The message 'Safety arrangement rejected. The event is back in Planning and the coordinator has been notified.' is shown, and the status badge changes to 'Planning'.\nStep 10: Daniel sees the status 'Planning' and the 'Safety check' row 'Rejected · decided by Hana Yusof, <date and time of step 6>. Reason: A single stairway cannot evacuate 300 people from the rooftop.'"
+    },
+    {
+      "id": "SPM-87-TC08",
+      "title": "Rejecting or requesting changes without a reason is not saved and a reason is asked for",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Hillside Workshop' is in Safety review. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM87 Hillside Workshop' in the list",
+        "Click 'Record safety decision'",
+        "Choose 'Reject'",
+        "Leave 'Reason for rejecting' empty",
+        "Click 'Record decision'",
+        "Choose 'Request changes'",
+        "Type three spaces in 'Changes required'",
+        "Click 'Record decision'",
+        "Click 'Cancel' in the dialog"
+      ],
+      "test_data": "Event: SPM87 Hillside Workshop (Safety review)\nReject with no reason; Request changes with only spaces",
+      "expected_result": "Step 6: Nothing is saved. 'Give a reason for rejecting.' is shown under the reason box and the dialog stays open.\nStep 9: Nothing is saved. 'Describe the changes required.' is shown under the box and the dialog stays open.\nStep 10: The status is still 'Safety review' and the 'Record safety decision' button is still there."
+    },
+    {
+      "id": "SPM-87-TC09",
+      "title": "A second decision on the same submission, from a page opened before the first, is refused",
+      "linked_ac": [
+        "AC11"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Twin Tab Briefing' is in Safety review. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123). This case changes the event - run npm run fixtures:spm87 afterwards.",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM87 Twin Tab Briefing' in the list",
+        "Copy the address from the browser address bar, open a new tab, paste it and press Enter",
+        "In the second tab, click 'Record safety decision', choose 'Approve' and click 'Record decision'",
+        "Switch back to the first tab without reloading it",
+        "Click 'Record safety decision', choose 'Reject', type 'Too crowded' in 'Reason for rejecting' and click 'Record decision'"
+      ],
+      "test_data": "Event: SPM87 Twin Tab Briefing (Safety review)\nTwo browser tabs on the same event",
+      "expected_result": "Step 4: The second tab shows 'Safety check approved. The coordinator has been notified.' and the status 'Safety approved'.\nStep 6: The first tab shows 'This safety check has already been decided.' The rejection is not saved - the event stays Safety approved."
+    },
+    {
+      "id": "SPM-87-TC10",
+      "title": "No decision can be recorded for an event that is not in Safety review",
+      "linked_ac": [
+        "AC11"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Unsubmitted Planning Day' is in Planning and has never been submitted for a safety check. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM87 Unsubmitted Planning Day' in the list"
+      ],
+      "test_data": "Event: SPM87 Unsubmitted Planning Day (Planning)",
+      "expected_result": "Step 2: The event opens with the status 'Planning' and there is no 'Record safety decision' button."
+    },
+    {
+      "id": "SPM-87-TC11",
+      "title": "The assigned Coordinator and the Operations Manager cannot record a safety decision",
+      "linked_ac": [
+        "AC12"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm87 has been run. 'SPM87 Hillside Workshop' is in Safety review, assigned to Daniel Tan.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM87 Hillside Workshop' in the list",
+        "Click 'Log out' in the top bar",
+        "Log in as grace.lim@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM87 Hillside Workshop' in the list"
+      ],
+      "test_data": "Coordinator: daniel.tan@connectsphere.com (assigned)\nOperations Manager: grace.lim@connectsphere.com",
+      "expected_result": "Step 3: Daniel Tan sees the event in 'Safety review' with no 'Record safety decision' button - only the Safety Officer decides.\nStep 7: Grace Lim sees the event with no 'Record safety decision' button either."
+    },
+    {
+      "id": "SPM-87-TC12",
+      "title": "[BLOCKED by SPM-71] The assigned Coordinator is notified of the decision with the changes required",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "BLOCKED - record Result = Blocked until SPM-71 (View Notifications) is merged: the Notifications screen is not built yet. When unblocked: npm run fixtures:spm87 has been run; 'SPM87 Lakeside Conference' is in Safety review, assigned to Daniel Tan. Logged in as Hana Yusof (hana.yusof@connectsphere.com / password123). This case changes the event - run npm run fixtures:spm87 afterwards.",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM87 Lakeside Conference' in the list",
+        "Click 'Record safety decision', choose 'Request changes', type 'Add a second fire marshal at the east exit.' in 'Changes required' and click 'Record decision'",
+        "Click 'Log out' in the top bar",
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM87 Lakeside Conference\nCoordinator: daniel.tan@connectsphere.com",
+      "expected_result": "Step 3: The message 'Changes requested. The event is back in Planning and the coordinator has been notified.' is shown.\nStep 6: The Notifications list has a new notification titled 'Safety check: changes requested' for 'SPM87 Lakeside Conference', which includes 'Add a second fire marshal at the east exit.'"
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-13: AC1's order is the event's start date, earliest first. SPM-85's Safety Checks list sorted by oldest submission; SPM-87 changes that sort (Jordan's api/safety-checks, owner told).",
+    "RESOLVED 2026-10-13: Approving moves the event to a new status 'Safety approved' (stored as safety_cleared, since safety_approved is already the Readiness tab's safety-check badge key), which is what AC7's 'records the event as safety-approved' means. From Safety approved the Coordinator confirms (Safety approved -> Confirmed is allowed from SPM-87), or a significant change returns it to Planning (SPM-88). Rejecting or requesting changes returns it to Planning (AC8). Lifecycle diagram to be updated.",
+    "RESOLVED 2026-10-13: There is no separate review page. The Safety Officer opens the event from the Safety Checks list (SPM-85), whose Overview and Equipment tabs already show attendance, sessions, each booking's layout and seats, accessibility and equipment (SPM-85 AC3). SPM-87 adds AC2's missing part - each booked venue's opening hours and its unavailable periods on the event's dates - to SPM-85's 'Venue bookings' card, and the decision itself as a 'Record safety decision' button on the Overview.",
+    "RESOLVED 2026-10-13: 'Recorded venue restrictions' are the venue's opening hours and its unavailable periods (SPM-45) on the event's dates; the venue has no other restrictions field.",
+    "RESOLVED 2026-10-13: A reason is required for Reject and Request changes (not blank, at most 1,000 characters); none for Approve (TC08).",
+    "RESOLVED 2026-10-13: AC9 saves a notification for the assigned coordinator with the decision and the reason or changes. It can only be opened once SPM-71 builds Notifications, so TC12 is Blocked; meanwhile the decision and reason show on the event's 'Safety check' row (TC04, TC06, TC07). The reason is shown to internal users only (SPM-88 AC10) - the Organiser sees the status (TC05).",
+    "RESOLVED 2026-10-13: Only the Safety Officer (permission event:safety_check, SPM-85) records a decision (AC12, TC11).",
+    "DECIDED 2026-10-13: Wording - button 'Record safety decision'; dialog 'Record safety decision' with the choices 'Approve', 'Request changes', 'Reject'; box 'Changes required' or 'Reason for rejecting' (none for Approve); button 'Record decision' / 'Cancel'. Messages: 'Safety check approved. The coordinator has been notified.'; 'Changes requested. The event is back in Planning and the coordinator has been notified.'; 'Safety arrangement rejected. The event is back in Planning and the coordinator has been notified.'; 'Give a reason for rejecting.'; 'Describe the changes required.'; 'This safety check has already been decided.'. Safety check row: '<Approved | Changes requested | Rejected> · decided by <name>, <date and time>', followed by '. Changes required: …' or '. Reason: …'. Notification titles: 'Safety check: approved' / 'Safety check: changes requested' / 'Safety check: rejected'. Venue bookings card: opening hours '08:00–22:00' and 'Unavailable <date>, <from>–<to> (<reason>)'.",
+    "DECIDED 2026-10-13: 'Safety approved' badge (status safety_cleared) is added wherever Safety review was: a 'Safety approved' list on the organiser's and coordinator's Dashboard after 'Safety review', Venue Staff and Technical Support 'Upcoming events', the status filter, Technical Support's equipment view, and reassigning the coordinator.",
+    "DECIDED 2026-10-13: Fixtures (scripts/seed-spm87.ts, npm run fixtures:spm87) - a dedicated venue 'SPM87 Hillside Studio' (SPM87-STU, Theatre seats 60, open 08:00-22:00, maintenance 8 Oct 2027 07:00-09:00) so no other venue gains an unavailable period; events in Safety review, each with a pending SafetyCheck submitted by Daniel Tan in reverse date order, an approved booking and a reserved Handheld Wireless Mic: 'SPM87 Hillside Workshop' (8 Oct 2027 10:00-13:00, 50 people, at SPM87 Hillside Studio, accessibility notes), 'SPM87 Lakeside Conference' (12 Oct), 'SPM87 Waterfront Gala' (18 Oct), 'SPM87 Rooftop Launch Party' (20 Oct, 300 people), 'SPM87 Twin Tab Briefing' (22 Oct); and 'SPM87 Unsubmitted Planning Day' in Planning. Organiser Rachel Ng, coordinator Daniel Tan.",
+    "RESOLVED 2026-10-13: A view of checks already decided (Approved / Returned tabs on Safety Checks) is not in SPM-87's criteria. It was built, then taken out of SPM-87 to keep the story to its criteria; to be raised with the PO as a backlog story."
+  ],
+  "code_references": [
+    "src/app/api/events/[id]/safety-decision/route.ts",
+    "src/lib/safetyDecision.ts",
+    "src/app/events/[id]/SafetyDecisionDialog.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/safety-checks/route.ts",
+    "src/app/safety-checks/page.tsx",
+    "src/app/dashboard/page.tsx",
+    "src/lib/permissions.ts",
+    "src/lib/statuses.ts",
+    "scripts/seed-spm87.ts"
+  ]
+}

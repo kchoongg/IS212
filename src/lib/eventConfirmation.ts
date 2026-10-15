@@ -12,7 +12,9 @@
 // What is listed (decided 2026-10-08):
 //
 //   venue         one row per PENDING or APPROVED booking - an event can have
-//                 several (SPM-81). A rejected or cancelled request is not an
+//                 several (SPM-81), each named with what its space is for
+//                 (SPM-90), and every one that is still required must be
+//                 approved before the event is confirmed (SPM-90 AC6). A rejected or cancelled request is not an
 //                 arrangement and is not listed. An event, or each session of
 //                 a multi-session event, that is left with no such booking
 //                 still required gets a "No venue booked" row: every event
@@ -49,9 +51,9 @@
 // the event is in Safety review, which cannot move to Confirmed until the
 // Safety Officer decides (SPM-86's lifecycle). Otherwise it does not stop
 // Confirm yet: that gate is Resolve Safety Check Outcome's (SPM-88, decided
-// 2026-10-08), and the Safety Officer's decision (SPM-87) is not built, so
-// nothing could ever be confirmed if it did. SPM-88 turns it on by setting
-// SAFETY_CHECK_BLOCKS_CONFIRMATION to true.
+// 2026-10-08). The Safety Officer's decision now exists (SPM-87: approving
+// moves the event to Safety approved, stored as safety_cleared), and SPM-88
+// turns the gate on by setting SAFETY_CHECK_BLOCKS_CONFIRMATION to true.
 //
 // ADDING AN ARRANGEMENT: add its kind to ArrangementKind, its data to
 // ConfirmationInput, and a block in arrangementsFor() that builds its row with
@@ -122,6 +124,9 @@ export interface Arrangement {
   /// Who marked it as not required, and when. Null unless it is marked.
   notRequiredBy: string | null;
   notRequiredAt: Date | null;
+  /// SPM-90: what a venue booking's space is for ("Breakout room"). Null for a
+  /// booking made without one, and for everything that is not a booking.
+  purpose: string | null;
   /// Whether, while outstanding, it stops Confirm. False only for the
   /// Operational Safety Check, until SPM-88.
   blocksConfirmation: boolean;
@@ -149,6 +154,8 @@ export interface BookingInput extends Waiver, ReviewFlag {
   sessionId: string | null;
   status: string;
   venueName?: string;
+  /// SPM-90: what this space is for.
+  purpose?: string | null;
 }
 
 export interface EquipmentInput extends Waiver, ReviewFlag {
@@ -250,7 +257,7 @@ function flagReasonFor(flag: ReviewFlag): string {
 /// whether it is required, and whether it can be waived all follow from that
 /// and from the Coordinator's decision.
 function arrangement(
-  row: Pick<Arrangement, "kind" | "id" | "name" | "session" | "status">,
+  row: Pick<Arrangement, "kind" | "id" | "name" | "session" | "status"> & { purpose?: string | null },
   problem: string,
   {
     waiver = {},
@@ -274,6 +281,7 @@ function arrangement(
   const outstanding = !notRequired && problem !== "";
   return {
     ...row,
+    purpose: row.purpose ?? null,
     state: notRequired ? "not_required" : outstanding ? "outstanding" : "complete",
     required: !notRequired,
     complete: !notRequired && !outstanding,
@@ -339,7 +347,10 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
 
   const bookingRow = (b: BookingInput, session: SessionRef | null): Arrangement => {
     const flagReason = flagReasonFor(b);
-    const subject = `${b.venueName ?? "the venue"} for ${whose(session)}`;
+    // SPM-90 (AC6): the booking is identified by what its space is for too -
+    // "Orchard Studio (Breakout room) for this event".
+    const purpose = b.purpose?.trim() || null;
+    const subject = `${b.venueName ?? "the venue"}${purpose ? ` (${purpose})` : ""} for ${whose(session)}`;
     const problem =
       b.status !== BOOKING_HELD
         ? `${subject} is still awaiting a decision from Venue Staff`
@@ -347,7 +358,7 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
           ? `${subject} is flagged for review: ${flagReason}`
           : "";
     return arrangement(
-      { kind: "venue", id: b.id ?? null, name: b.venueName ?? "Venue", session, status: b.status },
+      { kind: "venue", id: b.id ?? null, name: b.venueName ?? "Venue", session, status: b.status, purpose },
       problem,
       { waiver: b, flagReason }
     );

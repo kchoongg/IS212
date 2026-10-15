@@ -84,6 +84,25 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(titles[1]).toContain("Later");
   });
 
+  it("lists an event with no start date after the dated ones", async () => {
+    open([
+      row({ id: "undated", title: "Undated", startsAt: null, endsAt: null }),
+      row({ id: "dated", title: "Dated" }),
+    ]);
+
+    await screen.findByRole("table");
+
+    const titles = within(table()).getAllByRole("row").slice(1).map((r) => r.textContent);
+    expect(titles[0]).toContain("Dated");
+    expect(titles[1]).toContain("Undated");
+  });
+
+  it("shows an event with no title as 'Untitled event'", async () => {
+    open([row({ title: null })]);
+
+    expect(await within(await screen.findByRole("table")).findByText("Untitled event")).toBeInTheDocument();
+  });
+
   it("leaves out an event whose registration is off, even one the attendee holds a place in", async () => {
     open([row(), row({ id: "off", title: "SPM51 Private Board Dinner", registrationEnabled: false, registrationState: { kind: "disabled" } })]);
 
@@ -114,6 +133,12 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+
+  it("shows a general error when the request fails without a reason", async () => {
+    open(() => Promise.reject("offline"));
+
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
   });
 
   it("sends a visitor whose session ended back to log in", async () => {

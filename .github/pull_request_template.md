@@ -35,11 +35,14 @@ new or changed screen. Delete this section if there is none. -->
 
 ## Checklist
 
-CI runs lint, type-check, tests with coverage, build and migrations on this
-PR, so those are not repeated here.
+CI runs lint, type-check, tests with coverage, end-to-end smoke tests, build
+and migrations on this PR, so those are not repeated here. It also fails if a line this PR adds or
+changes under `src/` never runs in a test, and warns if the story has no test
+case document.
 
 **Tests**
 - [ ] New or changed code has automated tests, and they pass locally (`npm test`)
+- [ ] `npm run test:coverage` then `npm run coverage:changed` lists no untested lines (a line no test can reach is marked `// v8 ignore next -- <why>`)
 - [ ] Test cases are in `docs/test-cases/` (`SPM-<n>_Test_Cases.xlsx` and `.json`) and were run by hand
 - [ ] Other stories' test cases this PR makes out of date are listed under Known Gaps in `DOCUMENTATION.md`
 

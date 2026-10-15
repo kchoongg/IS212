@@ -14,7 +14,7 @@ import { mockApi, render, reply, router, screen, setRoute, signedInAs, signedOut
 
 const LIST = "GET /api/registrations";
 
-const registration = (id: string, status: string, title: string, sequenceNumber: number, day: string) => ({
+const registration = (id: string, status: string, title: string | null, sequenceNumber: number, day: string) => ({
   id,
   status,
   registeredAt: "2026-10-05T02:00:00.000Z",
@@ -71,6 +71,18 @@ describe("AC6 an attendee sees their registrations and each one's status", () =>
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await screen.findByRole("table")).toBeInTheDocument();
+  });
+
+  it("shows a general error when the request fails without a reason", async () => {
+    open(() => Promise.reject("offline"));
+
+    expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+  });
+
+  it("shows an event with no title as 'Untitled event'", async () => {
+    open([registration("r1", "registered", null, 42, "2028-01-22")]);
+
+    expect(await within(await screen.findByRole("table")).findByText("Untitled event")).toBeInTheDocument();
   });
 
   it("sends a visitor whose session ended back to log in", async () => {

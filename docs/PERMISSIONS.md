@@ -145,6 +145,14 @@ Three entries are worth explaining:
   "Venue bookings" card). Not `registration:view_list` — who registered, and
   their dietary and accessibility needs, are attendee personal details (AC6).
 
+- **Notifications need no action** (SPM-71). They are personal: every signed-in
+  user, of any role, reads and marks only their own. That is enforced in the
+  query, not in this table - each notifications route scopes to
+  `recipientId = <the caller>`, and marking someone else's one is 404 (the
+  update's own where clause does not match), never 403. Selecting a
+  notification grants nothing: the screen it opens decides access as if the
+  address had been typed.
+
 An unknown role — anything not in `ROLES` — is granted nothing.
 
 ---
@@ -250,6 +258,7 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 | `approved` / `rejected` | Coordinator (assigned) | Step 5 |
 | `planning` | Coordinator (assigned), from `approved` only, by a first venue or equipment action | Step 6 |
 | `safety_review` | Coordinator (assigned), from `planning` only, through `POST /api/events/[id]/safety-check` - not in `STATUS_TRANSITION_ROLES` | Week 7 change #6; SPM-86 |
+| `safety_cleared` ("Safety approved") / back to `planning` | Safety Officer, from `safety_review` only, through `POST /api/events/[id]/safety-decision` - not in `STATUS_TRANSITION_ROLES` | Week 7 change #6; SPM-87 |
 | `confirmed` | Coordinator (assigned) | Step 10 |
 | `completed` | Coordinator (assigned) | Step 14 |
 | `postponed` | Coordinator (assigned) | §4 Rescheduling; SPM-27 AC4 |
@@ -282,9 +291,12 @@ assigned coordinator submits an event in Planning for an Operational Safety
 Check; `canSubmitForSafetyCheck()` decides who sees the button and
 `checkSafetySubmission()` (`src/lib/safetyCheck.ts`) whether the arrangements
 are ready. The status PATCH refuses `safety_review`. From Safety review the
-lifecycle allows only `planning` (the Safety Officer's decision, SPM-87, or a
-significant change, SPM-88) and `cancelled`. The Safety Officer role itself
-(`safety_officer`) is added by SPM-85.
+lifecycle allows `safety_cleared` ("Safety approved" - the Safety Officer
+approves, SPM-87), `planning` (they reject or request changes, SPM-87, or a
+significant change, SPM-88) and `cancelled`. Only the Safety Officer decides
+(`event:safety_check`, `canRecordSafetyDecision()`), once per submission. From
+Safety approved the coordinator confirms; a significant change returns it to
+Planning (SPM-88). The Safety Officer role itself (`safety_officer`) is SPM-85's.
 
 **Arrangements wait for approval.** While an event is `submitted` or
 `under_review`, the assigned coordinator may search venues but may not request
@@ -327,6 +339,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
 | `GET /api/events/[id]/arrangements` | `canViewArrangements()` (`event:confirm` - any coordinator) → 403, then `canViewEvent()` → 404. The answer's `canManage` is true only for the assigned coordinator while the event is in Planning (SPM-33) |
 | `PATCH /api/events/[id]/arrangements` | `canViewEvent()` → 404, then `canMarkArrangements()` → 403 (the assigned coordinator only), then `ARRANGEMENT_MARKING_STATUSES` → 400 (Planning only). Records who decided and when (SPM-33) |
+| `POST /api/events/[id]/safety-decision` | `canViewEvent()` → 404, then `event:safety_check` → 403 (Safety Officer only), then the event must be in Safety review with a pending check (400 "This safety check has already been decided."), then `safetyDecisionSchema` → 400 for a missing reason (SPM-87) |
 | `POST /api/events/[id]/safety-check` | `canViewEvent()` → 404, then `isAssignedCoordinator()` → 403, then the event must be in Planning (400; "A safety check is already pending for this event." when it is already in Safety review), then `checkSafetySubmission()` → 400 naming what is outstanding or flagged (SPM-86) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
 | `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
@@ -334,6 +347,9 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `POST /api/venues` | `venue:manage` — Venue Staff |
 | `GET`/`POST /api/venues/[id]/unavailability` | `venue:manage` — Venue Staff (SPM-45) |
 | `PATCH`/`DELETE /api/venues/[id]/unavailability/[periodId]` | `venue:manage` — Venue Staff (SPM-45) |
+| `PATCH /api/events/[id]/venue-bookings/[bookingId]` | `canViewEvent()` → 404, then `canRequestVenueBooking()` → 403 (the assigned Coordinator only), then `checkBookingChange()` → 400: withdraw a pending request or release an approved booking, not on a completed, cancelled, rejected or withdrawn event (SPM-67) |
+| `GET /api/flagged-arrangements` | `event:confirm` → 403 ("Flagged arrangements are for Event Coordinators"), before anything is read. Lists only arrangements of events whose `coordinatorId` is the caller's, so a coordinator never sees a colleague's (SPM-68) |
+| `POST /api/flagged-arrangements` | `event:confirm` → 403, then validation → 400, then the arrangement → 404, then its event must be assigned to the caller → 403 ("Only the assigned Coordinator can review this event's flagged arrangements."), then the event must not be completed, cancelled, rejected or withdrawn → 400, and a booking must be pending or approved, an equipment request requested, under review, reserved or partially fulfilled → 400 (the same limits `GET` lists by), then it must be flagged → 400, then it must still meet the event's requirements → 400 naming what is unmet. Clears the flag only (SPM-68) |
 | `GET /api/venues/search` | `venue:view`; with `?event=`, also `canViewEvent()` on that event → 404 (SPM-40) |
 | `GET /api/equipment` | `equipment:view`; the out-of-service count, type and reason only with `equipment:view_status` - never to the organiser (SPM-55) |
 | `PATCH /api/equipment/[id]/out-of-service` | `equipment:manage` — Technical Support (SPM-48, SPM-55) |

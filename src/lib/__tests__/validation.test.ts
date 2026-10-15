@@ -894,7 +894,55 @@ describe("recordOutOfServiceSchema (SPM-48 AC7, SPM-55)", () => {
 describe("createVenueBookingSchema (SPM-42, times from SPM-93)", () => {
   const VENUE = "11111111-1111-4111-8111-111111111111";
   const SESSION = "22222222-2222-4222-8222-222222222222";
-  const valid = { venueId: VENUE, day: "2027-06-09", startTime: "14:00", endTime: "16:00" };
+  const valid = { venueId: VENUE, day: "2027-06-09", startTime: "14:00", endTime: "16:00", purpose: "Main programme" };
+
+  // SPM-90 (AC1): the space the room is for.
+  describe("SPM-90: the space", () => {
+    it("SPM-90-TC02: accepts what the space is for, trimmed, with its attendance and layout", () => {
+      const parsed = createVenueBookingSchema.parse({
+        ...valid,
+        purpose: "  Breakout room ",
+        expectedAttendance: 20,
+        layoutName: "classroom",
+      });
+
+      expect(parsed).toMatchObject({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "classroom" });
+    });
+
+    it("SPM-90-TC01: leaves the attendance and layout to the route when they are not given", () => {
+      const parsed = createVenueBookingSchema.parse(valid);
+
+      expect(parsed.expectedAttendance).toBeUndefined();
+      expect(parsed.layoutName).toBeUndefined();
+    });
+
+    it.each(["", "   ", null])("reads a layout of %j as not set", (layoutName) => {
+      expect(createVenueBookingSchema.parse({ ...valid, layoutName }).layoutName).toBeNull();
+    });
+
+    it.each([
+      ["no purpose", { purpose: undefined }, false],
+      ["a blank purpose", { purpose: "   " }, false],
+      ["a purpose of 100 characters", { purpose: "x".repeat(100) }, true],
+      ["a purpose of 101 characters", { purpose: "x".repeat(101) }, false],
+      ["an attendance of 1", { expectedAttendance: 1 }, true],
+      ["an attendance of 0", { expectedAttendance: 0 }, false],
+      ["an attendance that is not whole", { expectedAttendance: 1.5 }, false],
+      ["an attendance given as text", { expectedAttendance: "20" }, false],
+    ])("SPM-90-TC05: %s", (_what, patch, accepted) => {
+      expect(createVenueBookingSchema.safeParse({ ...valid, ...patch }).success).toBe(accepted);
+    });
+
+    it("SPM-90-TC05: says what is missing", () => {
+      const result = createVenueBookingSchema.safeParse({ ...valid, purpose: " ", expectedAttendance: 0 });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.flatten().fieldErrors).toMatchObject({
+        purpose: ["Say what this space is for."],
+        expectedAttendance: ["Enter a whole number of at least 1."],
+      });
+    });
+  });
 
   it("SPM-93-TC01: accepts a venue, a date, a start and end time, and venue requirements", () => {
     const parsed = createVenueBookingSchema.parse({ ...valid, requirementsNote: "  Lectern at the front.  " });

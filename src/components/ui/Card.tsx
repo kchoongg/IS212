@@ -61,8 +61,10 @@ export function DetailList({ items, columns = 2 }: DetailListProps) {
         columns === 2 ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1"
       )}
     >
-      {items.map((item) => (
-        <div key={item.label}>
+      {/* Labels can repeat - two rooms booked for the whole event are both
+          "Whole event" - so the position is part of the key. */}
+      {items.map((item, i) => (
+        <div key={`${i}-${item.label}`}>
           <dt className="text-xs font-medium uppercase tracking-wide text-ink-3">{item.label}</dt>
           <dd className="mt-1 text-sm text-ink">{item.value}</dd>
         </div>

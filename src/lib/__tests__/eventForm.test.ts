@@ -5,6 +5,7 @@ import {
   blankSession,
   effectiveStartsAt,
   validateForm,
+  toIso,
   toFormValues,
   sessionsPayload,
   availableSessionEquipmentOptions,
@@ -224,6 +225,15 @@ describe("validateForm — equipment rows, event level", () => {
     expect(errors.equipment).toBe("Choose an item for every equipment row, or remove the empty ones.");
   });
 
+  it("accepts distinct complete rows on submit", () => {
+    const rows = [
+      { ...empty, equipmentId: projector, quantityRequested: "2" },
+      { ...empty, equipmentId: microphone, quantityRequested: "4" },
+    ];
+    const errors = validateForm({ ...withDates, category: "conference", expectedAttendance: "50", equipment: rows }, "submit");
+    expect(errors.equipment).toBeUndefined();
+  });
+
   it("does not check event-level rows while multi-session is on - they are not sent", () => {
     const errors = validateForm(multi([session(), session()], { equipment: [empty] }), "draft");
     expect(errors.equipment).toBeUndefined();
@@ -375,5 +385,16 @@ describe("toFormValues / sessionsPayload — sessions", () => {
     expect(new Date(payload[0].startsAt).toISOString()).toBe("2099-12-05T01:00:00.000Z");
     expect(new Date(payload[1].endsAt).toISOString()).toBe("2099-12-06T09:00:00.000Z");
     expect(payload[0].equipment?.[0]).toMatchObject({ equipmentId: projector, quantityRequested: 2 });
+  });
+});
+
+describe("toIso", () => {
+  it("turns a datetime-local value into a full ISO string", () => {
+    expect(toIso("2099-12-05T09:00")).toBe(new Date("2099-12-05T09:00").toISOString());
+  });
+
+  it("gives nothing for an empty or unreadable value", () => {
+    expect(toIso("")).toBeUndefined();
+    expect(toIso("not a date")).toBeUndefined();
   });
 });

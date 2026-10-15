@@ -11,6 +11,7 @@ import {
   type Actor,
 } from "@/lib/permissions";
 import { markArrangementSchema } from "@/lib/validation";
+import { isTerminalEventStatus } from "@/lib/statuses";
 import { arrangementsFor, blockingArrangements } from "@/lib/eventConfirmation";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
 
@@ -45,6 +46,12 @@ async function readiness(actor: Actor, event: LoadedEvent) {
     event: { sequenceNumber: event.sequenceNumber, title: event.title, status: event.status },
     // Whether to offer the buttons: the same two checks PATCH makes.
     canManage: canMarkArrangements(actor, event) && ARRANGEMENT_MARKING_STATUSES.includes(event.status),
+    // SPM-68: whether a flagged arrangement can be kept from this list and
+    // pointed at the Flagged Arrangements page, which lists it for the
+    // assigned coordinator alone - at any status of an event still going
+    // ahead, unlike marking above. Not once the event is over or called off:
+    // that page no longer lists it.
+    canReviewFlags: canMarkArrangements(actor, event) && !isTerminalEventStatus(event.status),
     blocking: blockingArrangements(arrangements).length,
     arrangements,
   };

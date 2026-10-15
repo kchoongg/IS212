@@ -422,6 +422,32 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(listed(body)).toHaveLength(1);
   });
 
+  // SPM-68: the Readiness tab links a flagged arrangement to the Flagged
+  // Arrangements page, which lists it for the assigned coordinator only.
+  it.each(["planning", "confirmed", "safety_review"])(
+    "tells the assigned coordinator of a %s event that its flags are theirs to review",
+    async (status) => {
+      const token = signIn(assignedCoordinator());
+      given({ event: { status }, bookings: [booking()] });
+
+      expect((await (await get(token)).json()).canReviewFlags).toBe(true);
+    }
+  );
+
+  it.each(["completed", "cancelled"])("has no flags left to review on a %s event", async (status) => {
+    const token = signIn(assignedCoordinator());
+    given({ event: { status }, bookings: [booking()] });
+
+    expect((await (await get(token)).json()).canReviewFlags).toBe(false);
+  });
+
+  it("tells another coordinator that its flags are not theirs to review", async () => {
+    const token = signIn(anotherCoordinator());
+    given({ bookings: [booking()] });
+
+    expect((await (await get(token)).json()).canReviewFlags).toBe(false);
+  });
+
   it.each(["approved", "confirmed", "completed", "cancelled"])(
     "does not let the assigned coordinator manage the list of a %s event",
     async (status) => {
@@ -500,6 +526,15 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
       waivable: false,
       note: "Submitted by Daniel Tan on 9 Oct 2026, 14:30",
     });
+  });
+
+  it("leaves out who submitted a check whose submitter's account is gone", async () => {
+    const token = signIn(assignedCoordinator());
+    given({ event: { status: "safety_review" }, bookings: [booking()], safetyCheck: { ...check("pending"), submitter: null } });
+
+    const body = await (await get(token)).json();
+
+    expect(safety(body).note).toBe("Submitted on 9 Oct 2026, 14:30");
   });
 
   // Decided 2026-10-08: the gate on Confirm is Resolve Safety Check Outcome's (SPM-88).
