@@ -706,6 +706,32 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.saves(api)).toHaveLength(0);
     });
 
+    it("drops every session's messages when a session is removed, as they would land on the wrong card", async () => {
+      await form.open();
+      set(field(/^Event name/), "Summit");
+      await turnOnSessions();
+      await userEvent.click(button("Add session"));
+      await saveDraft();
+      expect(screen.getAllByText("Enter when this session starts.")).toHaveLength(3);
+
+      await userEvent.click(button("Remove session", group("Session 3")));
+
+      expect(screen.queryByText("Enter when this session starts.")).not.toBeInTheDocument();
+    });
+
+    it("shows the server's message about the sessions as a whole above them", async () => {
+      const message = "Each item can only be requested once per event, across all sessions - change the quantity instead";
+      await form.open({ save: reply(400, { error: "Validation failed", details: { fieldErrors: { sessions: [message] } } }) });
+      set(field(/^Event name/), "Summit");
+      await turnOnSessions();
+      fillSession(1, { start: START, end: END });
+      fillSession(2, { start: "2030-03-05T09:00", end: "2030-03-05T17:00" });
+
+      await saveDraft();
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+    });
+
     it("needs each session's attendance to submit, but not to save a draft", async () => {
       const api = await form.open();
       set(field(/^Event name/), "Summit");
@@ -863,6 +889,24 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
         expect(sessions[0]).not.toHaveProperty("equipment");
         expect(sessions[1].equipment).toEqual([
           { equipmentId: LECTERN, quantityRequested: 2, technicalRequirements: "Centre stage" },
+        ]);
+      });
+
+      it("keeps each of a session's rows as entered", async () => {
+        const api = await twoDatedSessions();
+        await addTo(1);
+        await addTo(1);
+        const items = within(group("Session 1")).getAllByLabelText("Equipment");
+        set(items[0], PROJECTOR);
+        set(items[1], LECTERN);
+        set(within(group("Session 1")).getAllByLabelText("Quantity")[1], "3");
+        await saveDraft();
+
+        await waitFor(() => expect(form.saves(api)).toHaveLength(1));
+        const sessions = form.saved(api).sessions as Array<Record<string, unknown>>;
+        expect(sessions[0].equipment).toEqual([
+          expect.objectContaining({ equipmentId: PROJECTOR, quantityRequested: 1 }),
+          expect.objectContaining({ equipmentId: LECTERN, quantityRequested: 3 }),
         ]);
       });
 

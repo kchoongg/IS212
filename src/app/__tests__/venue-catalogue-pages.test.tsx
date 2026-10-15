@@ -61,6 +61,22 @@ describe("Venues catalogue", () => {
     }
   );
 
+  it("sends an anonymous visitor to log in, without asking for the catalogue", async () => {
+    setRoute("/venues");
+    const api = mockApi(signedOut());
+
+    render(<VenuesPage />);
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues"));
+    expect(api.sent("GET /api/venues")).toHaveLength(0);
+  });
+
+  it("shows a general error when the request fails without a reason", async () => {
+    open("coordinator", () => Promise.reject("offline"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
   it("shows each venue's location, capacity, layouts and hours", async () => {
     open("coordinator", [hallA, roomB]);
 
@@ -431,6 +447,25 @@ describe("Add venue", () => {
       expect(button("Remove theatre layout")).toBeInTheDocument();
     });
 
+    it("sends every row, each with what was entered on it", async () => {
+      const api = await open();
+      fillRequiredVenue();
+      await addLayout();
+      await addLayout();
+      set(layoutPickers()[0], "theatre");
+      set(layoutPickers()[1], "classroom");
+      set(within(capacity()).getAllByLabelText("Seats")[0], "280");
+      set(within(capacity()).getAllByLabelText("Seats")[1], "120");
+
+      await submit();
+
+      await waitFor(() => expect(api.sent(ROUTE)).toHaveLength(1));
+      expect(body(api).layouts).toEqual([
+        { layoutName: "theatre", capacity: 280 },
+        { layoutName: "classroom", capacity: 120 },
+      ]);
+    });
+
     it("refuses a row with no layout chosen", async () => {
       const api = await open();
       fillRequiredVenue();
@@ -641,6 +676,13 @@ describe("Edit venue", () => {
       render(<EditVenuePage />);
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues%2Fv1%2Fedit"));
+    });
+
+    it("titles the page 'Edit venue' for a venue saved with no name", async () => {
+      open(venue({ name: "" }));
+      await ready();
+
+      expect(screen.getByRole("heading", { level: 1, name: "Edit venue" })).toBeInTheDocument();
     });
 
     it("shows a placeholder while the venue loads", async () => {
@@ -1020,6 +1062,12 @@ describe("Edit venue", () => {
         expect(screen.queryByRole("button", { name: "End period" })).not.toBeInTheDocument();
       });
 
+      it("says so when the list cannot be loaded", async () => {
+        await openWith({ [PERIODS]: reply(500, {}) });
+
+        expect(await screen.findByText("Could not load this venue's unavailable periods.")).toBeInTheDocument();
+      });
+
       it("does not mark the venue as retired", async () => {
         await openWith({ [PERIODS]: [period()] });
 
@@ -1075,6 +1123,17 @@ describe("Edit venue", () => {
         expect(markDialog()).toHaveTextContent("Enter the time the venue becomes available again.");
         expect(markDialog()).toHaveTextContent("Choose a reason.");
         expect(api.sent(CREATE)).toHaveLength(0);
+      });
+
+      it("clears a field's error once it is answered, leaving the others", async () => {
+        await openMarkDialog();
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        fill(markDialog(), { from: "2027-06-10" });
+        fill(markDialog(), { from: "2027-06-11" });
+
+        expect(markDialog()).not.toHaveTextContent("Enter the date the venue becomes unavailable.");
+        expect(markDialog()).toHaveTextContent("Enter the time the venue becomes unavailable.");
       });
 
       it.each([
@@ -1166,6 +1225,15 @@ describe("Edit venue", () => {
         expect(screen.getByText(/Closing Seminar/)).toBeInTheDocument();
         expect(await screen.findByText("Unavailable from 10 Jun 2027, 13:00. Available again from 15 Jun 2027, 13:00.")).toBeInTheDocument();
         expect(api.sent(PERIODS)).toHaveLength(2);
+      });
+
+      it("treats an answer that lists no flagged bookings as none", async () => {
+        await openMarkDialog({ [CREATE]: reply(201, { period: period() }) });
+        fill(markDialog(), complete);
+
+        await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
+
+        expect(await screen.findByText("No approved bookings were affected, so nobody needed to be notified.")).toBeInTheDocument();
       });
 
       it("says so when no booking was affected", async () => {
@@ -1333,6 +1401,15 @@ describe("Edit venue", () => {
         expect(screen.getByText("The venue can be requested again for the time that was left in the period.")).toBeInTheDocument();
         expect(api.sent(END)).toHaveLength(1);
         expect(await screen.findByText("No unavailable periods under way or coming up.")).toBeInTheDocument();
+      });
+
+      it("says so when the server cannot be reached", async () => {
+        await openWith({ [PERIODS]: [period()], [END]: () => Promise.reject(new TypeError("Failed to fetch")) });
+
+        await userEvent.click(await screen.findByRole("button", { name: "End period" }));
+
+        expect(await screen.findByText("Could not reach the server. Check your connection and try again.")).toBeInTheDocument();
+        expect(screen.getByText("Equipment failure")).toBeInTheDocument();
       });
 
       it("shows the error and keeps the period when ending is refused", async () => {

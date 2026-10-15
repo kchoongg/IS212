@@ -243,6 +243,12 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(screen.getByRole("heading", { name: "Event" })).toBeInTheDocument();
     });
 
+    it("shows a general error when loading fails without a reason", async () => {
+      open([], { [LIST]: () => Promise.reject("offline") });
+
+      expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    });
+
     it("says so when the arrangements fail to load, and Retry loads them again", async () => {
       const api = open([], { [LIST]: reply(500, { error: "Internal server error" }) });
 

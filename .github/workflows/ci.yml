@@ -50,6 +50,18 @@ jobs:
       - run: npx prisma generate
       - name: ${{ matrix.name }}
         run: ${{ matrix.run }}
+      # The minimums above are for the whole app, so a PR could add untested
+      # code and still pass them. This fails if any line the PR adds or changes
+      # under src/ never runs in a test, and marks each one on the PR's diff.
+      # The checkout is a single commit, so the PR's base is fetched to diff
+      # against.
+      - if: ${{ github.event_name == 'pull_request' && matrix.name == 'Unit tests' }}
+        name: Changed lines are tested
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          npm run coverage:changed
       # The browsable line-by-line report, downloadable from the run's page.
       - if: ${{ !cancelled() && matrix.name == 'Unit tests' }}
         uses: actions/upload-artifact@v7
@@ -57,6 +69,45 @@ jobs:
           name: coverage-report
           path: coverage/
           if-no-files-found: ignore
+
+  # A story's PR should bring its test case document (docs/test-cases/). A
+  # warning only, never a failure: test cases are sometimes reviewed and added
+  # in a later PR. Needs no install - the script uses Node alone.
+  test-cases:
+    name: Test cases
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Story has test cases
+        # Passed through env, never pasted into the script: a PR title is
+        # text anyone opening a PR controls.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/check-test-cases.mts
+
+  # Known vulnerabilities in the packages the app ships with (not dev tools).
+  # A warning, not a failure: a new advisory would otherwise turn every open PR
+  # red at once, for something none of them caused. Fix it in its own PR.
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: No high or critical advisories
+        run: |
+          if ! npm audit --omit=dev --audit-level=high; then
+            echo "::warning::npm audit found high or critical advisories in production dependencies - see the log, and fix them in their own PR."
+          fi
 
   build:
     name: Build
@@ -86,7 +137,8 @@ jobs:
   migrations:
     name: Migrations
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Migrations, the seed and every story's fixture script, twice.
+    timeout-minutes: 15
     # A throwaway Postgres that lives for this job only. The shared Neon
     # database is never touched, so CI needs no secrets.
     services:
@@ -115,3 +167,35 @@ jobs:
       - run: npx prisma validate
       # Replays every migration in prisma/migrations against an empty database.
       - run: npx prisma migrate deploy
+      # schema.prisma changed without a migration (or a migration that does not
+      # match it) passes the step above, then breaks `migrate dev` for the next
+      # person. Compares the database the migrations built with the schema.
+      - name: Schema matches the migrations
+        run: npx prisma migrate diff --from-url "$DATABASE_URL" --to-schema-datamodel prisma/schema.prisma --exit-code
+      # Lint and Type-check only prove prisma/seed.ts compiles. This runs it on
+      # the migrated database, so a seed that no longer fits the schema (a
+      # missing required field, a broken relation) fails here, not on the next
+      # teammate's `npx prisma db seed`.
+      - run: npx prisma generate
+      - name: Seed loads
+        run: npx tsx prisma/seed.ts
+      # Each story's `npm run fixtures:spmNN` writes its test data straight to
+      # the database, so a later schema change can break it with nothing else
+      # noticing until a tester runs it. Runs every fixtures:* script in
+      # package.json (a new story's is picked up without editing this) on the
+      # seeded database, twice each - the test cases tell testers to re-run
+      # them, so a second run must work too. Lists every one that fails.
+      - name: Story fixtures load, and re-run
+        run: |
+          failed=""
+          for script in $(node -p "Object.keys(require('./package.json').scripts).filter((s) => s.startsWith('fixtures:')).sort().join(' ')"); do
+            for run in first second; do
+              echo "::group::$script ($run run)"
+              npm run --silent "$script" || failed="$failed $script ($run run);"
+              echo "::endgroup::"
+            done
+          done
+          if [ -n "$failed" ]; then
+            echo "::error::These fixture scripts failed:$failed see each one's group in the log."
+            exit 1
+          fi

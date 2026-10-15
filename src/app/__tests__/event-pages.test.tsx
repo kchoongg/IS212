@@ -128,6 +128,15 @@ describe("Event overview", () => {
     expect(valueOf("Coordinator")).toHaveTextContent("Daniel Tan");
   });
 
+  it("leaves out the Company row when the event comes without one", async () => {
+    const { organisation: _omitted, ...withoutCompany } = event();
+    open("coordinator", withoutCompany);
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(terms()).not.toContain("Company");
+  });
+
   it("says when no coordinator is assigned, and dashes out what is empty", async () => {
     open("coordinator", event({ coordinator: null, coordinatorId: null, category: null, preferredLayout: null, organisation: null }));
 
@@ -249,6 +258,19 @@ describe("Event overview", () => {
       );
     });
 
+    it("is offered for an event with no company on record", async () => {
+      open("coordinator", event({ status: "under_review", organisationId: null }), {}, { id: "c1" });
+
+      expect(await screen.findByRole("link", { name: "Review request" })).toBeInTheDocument();
+    });
+
+    it("leaves the planning controls in place for an event with no company on record", async () => {
+      open("coordinator", event({ organisationId: null }), {}, { id: "c1" });
+
+      expect(await screen.findByRole("link", { name: "Edit event information" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Change registration settings" })).toBeInTheDocument();
+    });
+
     it("is not offered to a coordinator it is not assigned to", async () => {
       open("coordinator", event({ status: "under_review" }), {}, { id: "someone-else" });
 
@@ -283,6 +305,18 @@ describe("Event overview", () => {
 
       expect(await screen.findByText("Daniel Tan is now the coordinator. The event has moved to Under review.")).toBeInTheDocument();
       await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+    });
+
+    it("is offered for an event with no company on record", async () => {
+      open("ops_manager", event({ status: "submitted", coordinatorId: null, coordinator: null, organisationId: null }), assignments);
+
+      expect(await screen.findByRole("heading", { name: "Assign a coordinator" })).toBeInTheDocument();
+    });
+
+    it("names an untitled event as such in the picker", async () => {
+      open("ops_manager", event({ status: "submitted", coordinatorId: null, coordinator: null, title: null }), assignments);
+
+      expect(await screen.findByRole("combobox", { name: "Assign to — Untitled event" })).toBeInTheDocument();
     });
 
     it("lets the Ops Manager change the coordinator of a live event", async () => {
@@ -543,6 +577,12 @@ describe("Event overview", () => {
         "This event doesn't exist, or you don't have access to it."
       );
       expect(screen.getByRole("heading", { level: 1, name: "Event" })).toBeInTheDocument();
+    });
+
+    it("shows a general error when the request fails without a reason", async () => {
+      open("organiser", () => Promise.reject("offline"));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
     it("offers a Retry that loads again", async () => {
@@ -830,6 +870,15 @@ describe("Review request", () => {
 
       expect(await screen.findByText("Could not save your decision. Please try again.")).toBeInTheDocument();
     });
+
+    it("shows a general error when sending fails without a reason", async () => {
+      open(underReview(), { [PATCH]: () => Promise.reject("offline") });
+      await chooseApprove();
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Approve", hidden: true }));
+
+      expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    });
   });
 
   describe("rejecting", () => {
@@ -914,6 +963,12 @@ describe("Review request", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(
         "This event doesn't exist, or you don't have access to it."
       );
+    });
+
+    it("shows a general error when loading fails without a reason", async () => {
+      open(() => Promise.reject("offline"));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
     it("offers a Retry that loads again", async () => {

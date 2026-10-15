@@ -122,6 +122,16 @@ describe("Login page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not log in");
   });
 
+  it("shows a general error when the request fails without a reason", async () => {
+    setRoute("/login");
+    mockApi({ [ROUTE]: () => Promise.reject("offline") });
+    render(<LoginPage />);
+
+    await submit();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+  });
+
   it("reports a network failure", async () => {
     setRoute("/login");
     mockApi({ [ROUTE]: () => Promise.reject(new Error("Failed to fetch")) });

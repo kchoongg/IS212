@@ -94,16 +94,13 @@ function VenuesCatalogue() {
     }
   }, [router, canManage]);
 
+  // RequirePermission sends an anonymous visitor to log in before this renders.
   useEffect(() => {
-    if (state === "anonymous") {
-      router.push(loginUrlFor("/venues"));
-      return;
-    }
     if (state === "authenticated") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void load();
     }
-  }, [state, load, router]);
+  }, [state, load]);
 
   const buildingOptions = useMemo(() => {
     const buildings = Array.from(new Set((venues ?? []).map((v) => v.building))).sort();

@@ -808,6 +808,12 @@ describe("Event equipment tab", () => {
       expect(await itemRow("Projector")).toBeInTheDocument();
     });
 
+    it("shows a general error when the request fails without a reason", async () => {
+      open("coordinator", { [LIST]: () => Promise.reject("offline") });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
+    });
+
     it("sends the user to log in when their session has expired", async () => {
       open("coordinator", { [LIST]: reply(401, {}) });
 
@@ -1147,6 +1153,14 @@ describe("Equipment request (availability and reserve)", () => {
 
     it("confirms even when the server does not say how many", async () => {
       open([line("r1")], { [reserveRoute("r1")]: {} });
+
+      await userEvent.click(within(await lineRow()).getByRole("button", { name: "Reserve" }));
+
+      expect(await screen.findByText("Reservation saved.")).toBeInTheDocument();
+    });
+
+    it("confirms when the server's answer has no body at all", async () => {
+      open([line("r1")], { [reserveRoute("r1")]: reply(200) });
 
       await userEvent.click(within(await lineRow()).getByRole("button", { name: "Reserve" }));
 
@@ -1504,6 +1518,12 @@ describe("Equipment request (availability and reserve)", () => {
       await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
       expect(await lineRow()).toBeInTheDocument();
+    });
+
+    it("shows a general error when the request fails without a reason", async () => {
+      open([], { [AVAILABILITY]: () => Promise.reject("offline") });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
     it("sends the user to log in when their session has expired", async () => {

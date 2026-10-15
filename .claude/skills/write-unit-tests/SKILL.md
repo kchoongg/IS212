@@ -137,6 +137,8 @@ Every test that already existed must still pass: `npm test` should show failures
 
 `npx tsc --noEmit` will report the missing module until the code is written. That is expected; lint must be clean.
 
+Test-first tests cover what the story asks for, not every line the code will end up with. Once the code is written and the tests pass, the project's Stop hook (`scripts/claude-stop-coverage.mts`) runs the changed-lines check at the end of each turn and sends Claude back to write tests for any line no test runs. Tell the user to ask for the check (Step 4b) then anyway, so the gaps are filled deliberately rather than one turn at a time.
+
 ## Step 4b: Check and catch-up — prove the tests pass, and can fail
 
 Run, and fix until all pass:
@@ -153,7 +155,7 @@ In **check** mode, a test written first that now fails means the code and the co
 
 Then check the tests can fail. For two or three of the most important rules you tested, break the rule in the source (flip a condition, drop a check), confirm a test goes red, and restore the file with `git checkout -- <file>`. A test that stays green when its rule is broken is not testing it — fix the test.
 
-Finally run `npm run test:coverage` and look at the rows for the files you tested. Anything under 100% is either behaviour the code has that no test asked for (add the test, or question whether the code should be there) or a line no test can reach (say so in the report). Once the code passes, trim the "written before the code" contract comment to whatever is still useful.
+Finally run `npm run test:coverage`, then `npm run coverage:changed`, which lists every line the branch adds or changes under `src/` that no test runs - CI fails the PR on the same list. Each one is either behaviour the code has that no test asked for (add the test, or question whether the code should be there) or a line no test can reach: a guard TypeScript needs, or a fallback for a value that is always sent. Mark that line `// v8 ignore next -- <why>` and name it in the report. Do not mark a line that is reachable but awkward to test. Once the code passes, trim the "written before the code" contract comment to whatever is still useful.
 
 ## Step 5: Report back
 
@@ -161,6 +163,7 @@ Tell the user, briefly:
 - The mode, the test files added or changed, and how many tests
 - **Test-first:** the contract in full — every file, export, status code and message the developer now has to build — and which parts you decided rather than took from the story
 - **Check / catch-up:** coverage of each file the story touched, and anything left uncovered and why
+- **Check / catch-up:** the changed-lines result, in a line the user can paste into the PR: "`npm run coverage:changed`: every changed line under src/ is tested" or "...: N lines marked `// v8 ignore next`", followed by each marked line (file:line) and its reason
 - Any test written first that the code did not satisfy, and what you did about it
 - Any behaviour that looked wrong and was deliberately not locked in — in full, since a person needs to decide
 
