@@ -50,6 +50,18 @@ jobs:
       - run: npx prisma generate
       - name: ${{ matrix.name }}
         run: ${{ matrix.run }}
+      # The minimums above are for the whole app, so a PR could add untested
+      # code and still pass them. This fails if any line the PR adds or changes
+      # under src/ never runs in a test, and marks each one on the PR's diff.
+      # The checkout is a single commit, so the PR's base is fetched to diff
+      # against.
+      - if: ${{ github.event_name == 'pull_request' && matrix.name == 'Unit tests' }}
+        name: Changed lines are tested
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          npm run coverage:changed
       # The browsable line-by-line report, downloadable from the run's page.
       - if: ${{ !cancelled() && matrix.name == 'Unit tests' }}
         uses: actions/upload-artifact@v7
@@ -57,6 +69,27 @@ jobs:
           name: coverage-report
           path: coverage/
           if-no-files-found: ignore
+
+  # A story's PR should bring its test case document (docs/test-cases/). A
+  # warning only, never a failure: test cases are sometimes reviewed and added
+  # in a later PR. Needs no install - the script uses Node alone.
+  test-cases:
+    name: Test cases
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Story has test cases
+        # Passed through env, never pasted into the script: a PR title is
+        # text anyone opening a PR controls.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/check-test-cases.mts
 
   build:
     name: Build

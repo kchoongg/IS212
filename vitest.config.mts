@@ -20,7 +20,9 @@ export default defineConfig({
       include: ["src/**/*.{ts,tsx}"],
       exclude: ["src/**/*.test.{ts,tsx}", "src/**/*.d.ts", "src/**/__mocks__/**", "src/test/**"],
       // text: the table in the terminal / CI log. html: coverage/index.html.
-      reporter: ["text", "html"],
+      // json: coverage/coverage-final.json, which `npm run coverage:changed`
+      // reads to find changed lines that no test runs.
+      reporter: ["text", "html", "json"],
       // `npm run test:coverage` (and so the CI "Unit tests" check) fails below
       // these. Set a little under the real figures (99.7% statements, 99.1%
       // branches, 99.9% functions and lines on 2026-10-15) so a refactor does
