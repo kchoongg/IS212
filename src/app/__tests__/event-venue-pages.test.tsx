@@ -1266,6 +1266,16 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(purpose()).toHaveValue("Main programme");
     });
 
+    // SPM-68: requesting a replacement for a flagged booking, for the same space.
+    it("takes what the space is for from the address, even when the event already has a booking", async () => {
+      open({ [INFO]: info({ bookings: [held("approved")] }) }, "?venue=v1&purpose=Breakout%20room&attendance=40&layout=classroom");
+      await ready();
+
+      expect(purpose()).toHaveValue("Breakout room");
+      expect(attendance()).toHaveValue(40);
+      expect(layout()).toHaveValue("classroom");
+    });
+
     it("SPM-90-TC02: takes the space's attendance and layout from the address", async () => {
       open({}, "?venue=v1&attendance=20&layout=classroom");
       await ready();

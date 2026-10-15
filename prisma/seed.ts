@@ -513,6 +513,24 @@ async function main() {
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["theatre", 30], ["classroom", 20]],
       facilities: [] },
+    // SPM-68 fixtures (scripts/seed-spm68.ts): rooms of different sizes for
+    // the flagged bookings and their replacement - dedicated, so the live
+    // availability the cases quote depends on no one else's bookings. The
+    // script also retires the Retired Room and gives the Closed Room its
+    // unavailable period; here they are plain rooms.
+    ...([
+      ["SPM68-HAL", "SPM68 Hall", "seats 100 in theatre layout", 100],
+      ["SPM68-ANX", "SPM68 Annex", "seats 60 in theatre layout", 60],
+      ["SPM68-SPR", "SPM68 Spare Room", "the replacement, seats 200 in theatre layout", 200],
+      ["SPM68-CLS", "SPM68 Closed Room", "unavailable for maintenance on 9 Oct 2027, 08:00-18:00", 60],
+      ["SPM68-RET", "SPM68 Retired Room", "retired", 60],
+    ] as const).map(([code, name, what, theatre]): VenueSeed => ({
+      code, name, description: `SPM-68 test venue: ${what}`,
+      building: "Orchard Hub", floor: "L5", maxCapacity: theatre, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", theatre], ["classroom", 40]],
+      facilities: ["Fixed ceiling projector", "Step-free access"],
+    })),
   ];
 
   const venues: Record<string, string> = {};
@@ -1814,6 +1832,42 @@ async function main() {
     spm90("spm90_forum", "SPM90 Two-Day Forum", "2027-09-23", 27),
   ];
   eventData.push(...SPM90_EVENTS);
+
+  // SPM-68 QA fixtures (Review Flagged Arrangements). The SAME events as
+  // scripts/seed-spm68.ts (`npm run fixtures:spm68`) - keep the two in step.
+  //
+  // The events only. Their bookings, equipment reservations, registrations
+  // and review flags - and the two SPM68 equipment items - are created by
+  // that script alone, so run it once after a full reseed.
+  // Pushed LAST, after SPM-87 and SPM-90, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm68 = (
+    key: string, title: string, date: string, attendance: number, extra: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-68 review flagged arrangements test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 8,
+    attendance, layout: "theatre", ...extra,
+  });
+  eventData.push(
+    spm68("spm68_listing", "SPM68 Listing Summit", "2027-10-07", 50, { regEnabled: true, regCapacity: 60 }),
+    spm68("spm68_attendance", "SPM68 Attendance Review", "2027-10-06", 80),
+    spm68("spm68_outgrown", "SPM68 Outgrown Room", "2027-10-08", 150),
+    spm68("spm68_trouble", "SPM68 Venue Trouble Day", "2027-10-09", 40),
+    spm68("spm68_moved", "SPM68 Moved Date", "2027-10-14", 40),
+    spm68("spm68_kit", "SPM68 Kit Recheck", "2027-10-15", 40),
+    spm68("spm68_short", "SPM68 Short Kit", "2027-10-16", 40),
+    spm68("spm68_capacity", "SPM68 Capacity Cut", "2027-10-17", 40, { regEnabled: true, regCapacity: 10 }),
+    spm68("spm68_off", "SPM68 Registration Off", "2027-10-18", 40),
+    spm68("spm68_ready", "SPM68 Ready To Confirm", "2027-10-20", 40, { regEnabled: true, regCapacity: 30 }),
+    spm68("spm68_partner", "SPM68 Partner Briefing", "2027-10-21", 40, { coordinator: "priya.raj@connectsphere.com" }),
+    spm68("spm68_waived", "SPM68 Waived Room", "2027-10-23", 40),
+    spm68("spm68_breakout", "SPM68 Breakout Growth", "2027-10-25", 150),
+    spm68("spm68_cancelled", "SPM68 Cancelled Day", "2027-10-24", 40, {
+      status: "cancelled", cancellationReason: "Client called the event off",
+    }),
+  );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 

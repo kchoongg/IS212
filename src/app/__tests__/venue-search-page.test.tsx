@@ -470,8 +470,197 @@ describe("Find a venue", () => {
       );
     });
 
+    // SPM-68 (written before the code): opened as
+    // /venues/search?event=<ref>&booking=<id> the page also reads
+    // GET /api/events/<ref>/venue-bookings, fills the form from that booking
+    // (searchFromBooking, AC11) and gives each result a "Request booking" link
+    // to the existing request form (AC12). Decided here, not in the story:
+    // the subtitle's wording, and that the link carries the booking's session.
+    describe("replacing a flagged booking (SPM-68)", () => {
+      const BOOKINGS = `GET /api/events/${REF}/venue-bookings`;
+
+      function flagged(overrides: Record<string, unknown> = {}) {
+        return {
+          id: "b-flagged",
+          status: "approved",
+          // 08:30-19:00 in Singapore, the day after the event's own start.
+          startsAt: "2027-03-05T00:30:00.000Z",
+          endsAt: "2027-03-05T11:00:00.000Z",
+          layoutName: "banquet",
+          session: null,
+          venue: { id: "v-old", code: "OLD", name: "Old Hall" },
+          ...overrides,
+        };
+      }
+
+      function openToReplace(bookings: unknown[] = [flagged()], eventRow: unknown = event()) {
+        return open(
+          { [EVENT]: eventRow, [BOOKINGS]: { sessions: [], bookings } },
+          { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } }
+        );
+      }
+
+      it("fills the form from a breakout room's date, times, attendance and layout and the event's requirements", async () => {
+        const api = openToReplace([flagged({ purpose: "Breakout room", expectedAttendance: 40 })]);
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-05T08:30");
+        expect(field("To")).toHaveValue("2027-03-05T19:00");
+        expect(field("Expected attendance")).toHaveValue(40);
+        expect(field("Room layout")).toHaveValue("banquet");
+        expect(screen.getByRole("checkbox", { name: "Hearing loop" })).toBeChecked();
+        expect(screen.getByRole("checkbox", { name: "Wi-Fi" })).not.toBeChecked();
+        expect(lastQuery(api)).toEqual({
+          from: "2027-03-05T08:30",
+          to: "2027-03-05T19:00",
+          attendance: "40",
+          layout: "banquet",
+          facilityIds: "f-loop",
+          event: REF,
+        });
+      });
+
+      // SPM-90: the main programme is the event's own room, so it follows the event.
+      it("fills the event's present attendance and layout for the main programme", async () => {
+        openToReplace([flagged({ purpose: "Main programme", expectedAttendance: 60 })]);
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-05T08:30");
+        expect(field("Expected attendance")).toHaveValue(100);
+        expect(field("Room layout")).toHaveValue("theatre");
+      });
+
+      it("picks the booking named in the address out of the event's bookings", async () => {
+        const other = flagged({ id: "b-other", startsAt: "2027-03-09T01:00:00.000Z", endsAt: "2027-03-09T03:00:00.000Z" });
+        openToReplace([other, flagged()]);
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-05T08:30");
+      });
+
+      it("says the filters came from the flagged booking, and at which venue", async () => {
+        openToReplace();
+        await ready();
+
+        expect(
+          screen.getByText("Filled in from the flagged booking at Old Hall. Change any filter and search again.")
+        ).toBeInTheDocument();
+      });
+
+      // SPM-90: for the same space - what it is for, and the attendance and layout searched for.
+      it("offers to request each matching venue for the same space as the booking being replaced", async () => {
+        openToReplace([flagged({ purpose: "Breakout room", expectedAttendance: 40 })]);
+        await ready();
+
+        expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          `/events/${REF}/booking/new?venue=v1&purpose=Breakout+room&attendance=40&layout=banquet`
+        );
+      });
+
+      it("requests the main programme for a booking made before spaces were named", async () => {
+        openToReplace();
+        await ready();
+
+        expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          `/events/${REF}/booking/new?venue=v1&purpose=Main+programme&attendance=100&layout=theatre`
+        );
+      });
+
+      it("sends the attendance and layout as they are in the form, and leaves out an attendance that was cleared", async () => {
+        openToReplace();
+        await ready();
+
+        set(field("Expected attendance"), "");
+        set(field("Room layout"), "");
+
+        expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          `/events/${REF}/booking/new?venue=v1&purpose=Main+programme&layout=`
+        );
+      });
+
+      it("requests the replacement for the same session as a session's booking", async () => {
+        openToReplace([flagged({ session: { id: "s1", label: "Day 1" } })]);
+        await ready();
+
+        expect(within(card("Hall A")).getByRole("link", { name: "Request booking" })).toHaveAttribute(
+          "href",
+          `/events/${REF}/booking/new?venue=v1&session=s1&purpose=Main+programme&attendance=100&layout=theatre`
+        );
+      });
+
+      it("falls back to the event's own requirements when the booking is not among its bookings", async () => {
+        openToReplace([flagged({ id: "b-someone-elses" })]);
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-04T13:30");
+        expect(screen.getByText("Filled in from Town Hall's requirements. Change any filter and search again.")).toBeInTheDocument();
+        expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
+      });
+
+      it("falls back to the event's own requirements when its bookings cannot be read", async () => {
+        open(
+          { [EVENT]: event(), [BOOKINGS]: reply(403, {}) },
+          { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } }
+        );
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-04T13:30");
+      });
+
+      it("copes with a bookings answer that lists none", async () => {
+        open({ [EVENT]: event(), [BOOKINGS]: {} }, { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } });
+        await ready();
+
+        expect(field("From")).toHaveValue("2027-03-04T13:30");
+      });
+
+      it("sends the user to log in when the session expired before the bookings were read", async () => {
+        open(
+          { [EVENT]: event(), [BOOKINGS]: reply(401, {}) },
+          { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } }
+        );
+
+        await waitFor(() =>
+          expect(router.push).toHaveBeenCalledWith(
+            "/login?next=%2Fvenues%2Fsearch%3Fevent%3DEVT-000007%26booking%3Db-flagged"
+          )
+        );
+      });
+
+      it("ignores a booking named without an event", async () => {
+        const api = open({}, { query: "?booking=b-flagged" });
+        await ready();
+
+        expect(api.sent(BOOKINGS)).toHaveLength(0);
+        expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
+      });
+
+      it("remembers the booking being replaced across the login", async () => {
+        setRoute(`/venues/search?event=${REF}&booking=b-flagged`);
+        mockApi(signedOut());
+
+        render(<VenueSearchPage />);
+
+        await waitFor(() =>
+          expect(router.push).toHaveBeenCalledWith(
+            "/login?next=%2Fvenues%2Fsearch%3Fevent%3DEVT-000007%26booking%3Db-flagged"
+          )
+        );
+      });
+
+      it("offers no Request booking when the search is not replacing a booking", async () => {
+        openFor();
+        await ready();
+
+        expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
+      });
+    });
+
     describe("starting planning", () => {
-      const BEGIN = `POST /api/events/${REF}/begin-planning`;
+      const BEGIN =`POST /api/events/${REF}/begin-planning`;
       const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
       const approved = () => event({ status: "approved" });
 

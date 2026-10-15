@@ -5,6 +5,7 @@
 // event pre-fill?" is testable without rendering the page.
 
 import { toWallClock } from "@/lib/venueSearch";
+import { followsEvent } from "@/lib/flaggedArrangements";
 
 export interface SearchFormValues {
   /// Singapore wall-clock "YYYY-MM-DDTHH:MM", as a datetime-local input holds it.
@@ -70,6 +71,41 @@ export function searchFromEvent(event: SearchableEvent, sessionId?: string): Sea
     building: "",
     layout: layout ?? "",
     facilityIds: event.facilityRequirements.filter((r) => r.isMandatory).map((r) => r.facilityId),
+  };
+}
+
+/// The parts of a booking (a row of GET /api/events/[id]/venue-bookings) that
+/// a replacement search reads.
+export interface ReplaceableBooking {
+  startsAt: string;
+  endsAt: string;
+  layoutName: string | null;
+  session: { id: string } | null;
+  /// SPM-90: what the space is for, and its own attendance as booked.
+  purpose?: string | null;
+  expectedAttendance?: number | null;
+}
+
+/// SPM-68 (AC11): opening S-14 to replace a flagged venue booking fills the
+/// form from THAT booking's date and start and end times - the room being
+/// replaced was booked for those, which may be wider than the event's own -
+/// and from the space it is for, as the flag is re-checked (spaceNeeds() in
+/// src/lib/flaggedArrangements.ts, SPM-90):
+///   - the main programme follows the event: the session's present attendance
+///     and layout for a session's booking, else the event's;
+///   - any other space keeps its own attendance and layout as booked ("" for a
+///     layout it did not set), falling back to the event's attendance;
+///   - facilities are the event's mandatory ones, as searchFromEvent().
+export function searchFromBooking(event: SearchableEvent, booking: ReplaceableBooking): SearchFormValues {
+  const fromEvent = searchFromEvent(event, booking.session?.id);
+  const ownSpace = !followsEvent(booking.purpose);
+  return {
+    ...fromEvent,
+    from: toWallClock(new Date(booking.startsAt)),
+    to: toWallClock(new Date(booking.endsAt)),
+    attendance:
+      ownSpace && booking.expectedAttendance != null ? String(booking.expectedAttendance) : fromEvent.attendance,
+    layout: ownSpace ? (booking.layoutName ?? "") : fromEvent.layout,
   };
 }
 
