@@ -24,6 +24,7 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { SAFETY_HELD_STATUSES, backToPlanningWarning } from "@/lib/safetyResolution";
 import { EventGlance } from "../EventGlance";
 
 // S-16. "As an Event Coordinator, I want to record the equipment required for
@@ -141,6 +142,9 @@ export default function EventEquipmentPage() {
   /// SPM-62: set once a change on this visit has moved a Confirmed event back
   /// to Planning, so the coordinator is told.
   const [confirmationReverted, setConfirmationReverted] = useState(false);
+  /// SPM-88: set once a change on this visit has closed the event's safety
+  /// check and moved it back to Planning.
+  const [safetyCheckClosed, setSafetyCheckClosed] = useState(false);
   /// The add or save waiting on a question first, if any: "Begin planning?"
   /// on an Approved event, or "Move this event back to Planning?" on a
   /// Confirmed one (SPM-62).
@@ -162,9 +166,18 @@ export default function EventEquipmentPage() {
     setEvent((current) => (current ? { ...current, status: "planning" } : current));
   }
 
-  function noteStatusChange(body: { planningStarted?: boolean; confirmationReverted?: boolean }) {
+  /// SPM-88: or closed its safety check (from Safety review or Safety approved).
+  function noteSafetyCheckClosed(body: { confirmationReverted?: boolean; safetyCheckClosed?: boolean }) {
+    if (!body.safetyCheckClosed || body.confirmationReverted) return;
+    setSafetyCheckClosed(true);
+    // Only a loaded event can be changed, so there is always one here.
+    setEvent((current) => ({ ...current!, status: "planning" }));
+  }
+
+  function noteStatusChange(body: { planningStarted?: boolean; confirmationReverted?: boolean; safetyCheckClosed?: boolean }) {
     notePlanningStarted(body);
     noteConfirmationReverted(body);
+    noteSafetyCheckClosed(body);
   }
 
   const load = useCallback(async () => {
@@ -246,7 +259,10 @@ export default function EventEquipmentPage() {
   // SPM-62 (AC4, AC6): equipment requirements are important information, so
   // the next change to a Confirmed event moves it back to Planning - asked
   // first, as the information form does.
-  const willUnconfirm = canEdit && event?.status === "confirmed";
+  // SPM-88 (AC5, AC6): and one in Safety review or Safety approved, closing
+  // its safety check. The same question, worded for the status.
+  const willCloseSafety = canEdit && SAFETY_HELD_STATUSES.includes(event?.status ?? "");
+  const willUnconfirm = (canEdit && event?.status === "confirmed") || willCloseSafety;
 
   const equipmentOptions = useMemo(() => {
     // Scoped to the session currently chosen in "Add equipment" - uniqueness
@@ -470,9 +486,12 @@ export default function EventEquipmentPage() {
             </Alert>
           )}
 
-          {confirmationReverted && (
-            <Alert variant="warning" title="This event is no longer confirmed">
-              Changing its equipment moved it back to Planning so it can be confirmed again.
+          {(confirmationReverted || safetyCheckClosed) && (
+            <Alert
+              variant="warning"
+              title={confirmationReverted ? "This event is no longer confirmed" : "The safety check was closed"}
+            >
+              Changing its equipment moved it back to Planning. It needs to be submitted for a safety check again.
             </Alert>
           )}
 
@@ -744,7 +763,13 @@ export default function EventEquipmentPage() {
           </p>
         )}
         {/* SPM-62: likewise for a Confirmed event going back to Planning. */}
-        {willUnconfirm && <p className="mt-2">It will also move from Confirmed back to Planning.</p>}
+        {willUnconfirm && (
+          <p className="mt-2">
+            {willCloseSafety
+              ? "It will also close the safety check and move the event back to Planning."
+              : "It will also move from Confirmed back to Planning."}
+          </p>
+        )}
       </ConfirmDialog>
 
       <BeginPlanningDialog
@@ -761,8 +786,7 @@ export default function EventEquipmentPage() {
         onConfirm={runPending}
         onCancel={() => setPendingPlanning(null)}
       >
-        {event?.title || "This event"} is Confirmed. Changing its equipment moves it back to Planning so it can be
-        confirmed again.
+        {event && backToPlanningWarning(event.title, event.status, "equipment")}
       </ConfirmDialog>
     </div>
   );

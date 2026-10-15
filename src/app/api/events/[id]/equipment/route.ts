@@ -6,6 +6,8 @@ import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
+import { CLOSE_REASONS } from "@/lib/safetyResolution";
+import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { parseEventReference } from "@/lib/format";
 import { ZodError } from "zod";
 
@@ -131,7 +133,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // SPM-54: the first equipment requirement recorded for an Approved event
     // begins planning, in the same transaction as the requirement itself.
     // SPM-62: on a Confirmed event it moves the event back to Planning instead.
-    const { created, planningStarted, confirmationReverted } = await prisma.$transaction(async (tx) => {
+    const { created, planningStarted, confirmationReverted, safetyCheckClosed } = await prisma.$transaction(async (tx) => {
       const created = await tx.equipmentRequest.create({
         data: {
           eventId: event.id,
@@ -151,9 +153,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       });
       const planningStarted = await beginPlanningIfApproved(tx, event, actor.id, PLANNING_REASONS.equipmentAdded);
       const confirmationReverted = await revertConfirmationIfConfirmed(tx, event, actor.id, PLANNING_REASONS.equipmentAdded);
-      return { created, planningStarted, confirmationReverted };
+      // SPM-88: and closes the safety check it rests on.
+      const safetyCheckClosed = await closeSafetyCheckAfterChange(
+        tx,
+        event,
+        actor.id,
+        CLOSE_REASONS.equipment,
+        confirmationReverted
+      );
+      return { created, planningStarted, confirmationReverted, safetyCheckClosed };
     });
-    return NextResponse.json({ ...created, planningStarted, confirmationReverted }, { status: 201 });
+    return NextResponse.json({ ...created, planningStarted, confirmationReverted, safetyCheckClosed }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });

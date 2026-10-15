@@ -8,6 +8,8 @@ import { createVenueBookingSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { CLOSED_EVENT_MESSAGE, NOT_APPROVED_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
 import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
+import { CLOSE_REASONS } from "@/lib/safetyResolution";
+import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { canChangeBookingsOf } from "@/lib/venueBookingChange";
 
 // SPM-42, Request Venue Booking. GET is what the Venue tab needs to offer a
@@ -227,13 +229,15 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       // SPM-54: the first booking request for an Approved event begins
       // planning, in the same transaction as the request itself.
       const planningStarted = await beginPlanningIfApproved(tx, event, actor.id, PLANNING_REASONS.venueBooking);
-      return { created, planningStarted } as const;
+      // SPM-88: a new booking closes the safety check the event rests on.
+      const safetyCheckClosed = await closeSafetyCheckAfterChange(tx, event, actor.id, CLOSE_REASONS.bookingRequested, false);
+      return { created, planningStarted, safetyCheckClosed } as const;
     });
     if ("error" in result) {
       return NextResponse.json(result, { status: 400 });
     }
-    const { created, planningStarted } = result;
-    return NextResponse.json({ ...created, planningStarted }, { status: 201 });
+    const { created, planningStarted, safetyCheckClosed } = result;
+    return NextResponse.json({ ...created, planningStarted, safetyCheckClosed }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });

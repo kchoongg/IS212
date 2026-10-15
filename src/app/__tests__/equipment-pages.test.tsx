@@ -830,18 +830,20 @@ describe("Event equipment tab", () => {
   // Decided 2026-10-05, see docs/test-cases/SPM-62_test_cases.json.
   describe("on a Confirmed event, where a change unconfirms it", () => {
     const QUESTION = "Move this event back to Planning?";
+    // CHANGED (SPM-88): Confirm now waits for a new safety check.
     const ASKS =
-      "Gala Dinner is Confirmed. Changing its equipment moves it back to Planning so it can be confirmed again.";
+      "Gala Dinner is Confirmed. Changing its equipment moves it back to Planning, where it needs a new safety check before it can be confirmed again.";
     const DONE = "This event is no longer confirmed";
     const DONE_BODY =
-      "Changing its equipment moved it back to Planning so it can be confirmed again.";
+      "Changing its equipment moved it back to Planning. It needs to be submitted for a safety check again.";
     const PATCH = `PATCH ${row("r1")}`;
     const DELETE = `DELETE ${row("r1")}`;
 
     const confirmed = (routes: Record<string, unknown> = {}) =>
       open("coordinator", { [EVENT]: event({ status: "confirmed", title: "Gala Dinner" }), ...routes });
     const mic = (extra = {}) => ({ ...request("r3", catalogue[2]), ...extra });
-    const reverted = { planningStarted: false, confirmationReverted: true };
+    // SPM-88: a Confirmed event's approval is closed too, but the notice is SPM-62's.
+    const reverted = { planningStarted: false, confirmationReverted: true, safetyCheckClosed: true };
     const question = () => dialog(QUESTION);
     const isAsking = () => screen.queryByText(QUESTION, { selector: "dialog[open] h2" }) !== null;
     const answer = (name: "Cancel" | "Continue") =>
@@ -927,6 +929,54 @@ describe("Event equipment tab", () => {
 
         expect(await screen.findByText(DONE)).toBeInTheDocument();
         expect(api.sent(DELETE)).toHaveLength(1);
+      });
+    });
+
+    // SPM-88 (AC5, AC6): the same question and notice while the event rests on a safety check.
+    describe.each([
+      [
+        "safety_review",
+        "Gala Dinner is in Safety review. Changing its equipment closes the pending safety check and moves it back to Planning. It will need to be submitted for a safety check again.",
+      ],
+      [
+        "safety_cleared",
+        "Gala Dinner is Safety approved. Changing its equipment cancels the safety approval and moves it back to Planning. It will need to be submitted for a safety check again.",
+      ],
+    ])("on a %s event (SPM-88)", (status, asks) => {
+      const closed = { planningStarted: false, confirmationReverted: false, safetyCheckClosed: true };
+      const held = (routes: Record<string, unknown> = {}) =>
+        open("coordinator", { [EVENT]: event({ status, title: "Gala Dinner" }), ...routes });
+
+      it("SPM-88-TC10: asks before saving a changed quantity, then says the safety check was closed", async () => {
+        const api = held({ [PATCH]: { ...projectorRow({ quantityRequested: 3 }), ...closed } });
+        const projector = await itemRow("Projector");
+        set(within(projector).getByLabelText("Quantity"), "3");
+
+        await userEvent.click(within(projector).getByRole("button", { name: "Save" }));
+
+        expect(question()).toHaveTextContent(asks);
+        expect(api.sent(PATCH)).toHaveLength(0);
+        await answer("Continue");
+        expect(await screen.findByText("The safety check was closed")).toBeInTheDocument();
+        expect(screen.getByText(DONE_BODY)).toBeInTheDocument();
+        expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+      });
+
+      it("says so in the removal question", async () => {
+        held({ [DELETE]: closed });
+
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Remove" }));
+
+        expect(dialog()).toHaveTextContent("It will also close the safety check and move the event back to Planning.");
+      });
+
+      it("asks before adding", async () => {
+        const api = held({ [ADD]: reply(201, mic(closed)) });
+
+        await chooseMicAndAdd();
+
+        expect(question()).toHaveTextContent(asks);
+        expect(api.sent(ADD)).toHaveLength(0);
       });
     });
 

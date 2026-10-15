@@ -313,7 +313,7 @@ Audit trail of status changes. Event.status holds only the current value.
 
 Postgres table `safety_checks` &middot; `prisma.safetyCheck` &middot; added by SPM-86 (migration `20261009120000_add_safety_check`)
 
-One row per submission of an event for an Operational Safety Check (Week 7 change #6). Submitting moves the event to `safety_review` and creates a `pending` row; an event keeps every row, so earlier decisions stay visible.
+One row per submission of an event for an Operational Safety Check (Week 7 change #6). Submitting moves the event to `safety_review` and creates a `pending` row; an event keeps every row, so earlier decisions stay visible. SPM-88: a significant change while a row is `pending` or `approved` sets it to `closed`, writing who closed it, when and what changed into `decidedBy`, `decidedAt` and `decisionNote`; the event's Overview lists every row as its Safety check history.
 
 | Field | Type | | Notes |
 |---|---|---|---|
@@ -322,9 +322,9 @@ One row per submission of an event for an Operational Safety Check (Week 7 chang
 | `status` | String | req | Defaults to `pending`. See Status values. |
 | `submittedBy` | String | req | The assigned coordinator who submitted it. |
 | `submittedAt` | DateTime |  | Defaults to `now()`. |
-| `decidedBy` | String |  | SPM-87: the Safety Officer who decided. NULL while pending. |
+| `decidedBy` | String |  | SPM-87: the Safety Officer who decided. NULL while pending. SPM-88: the coordinator whose change closed it, once `closed`. |
 | `decidedAt` | DateTime |  | SPM-87. NULL while pending. |
-| `decisionNote` | String |  | SPM-87: the reason for a rejection, or the changes required. Internal only (SPM-88). |
+| `decisionNote` | String |  | SPM-87: the reason for a rejection, or the changes required. SPM-88: what changed, once `closed`. Internal only (SPM-88). |
 
 **Relations:** `event` &rarr; Event, `submitter` &rarr; User, `decider` &rarr; User
 
@@ -419,6 +419,7 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 - At **request** time a pending request blocks too (a tentative hold, #41), setup and turnaround included. At **approval** only `approved` bookings block: rival pending requests may compete for the same time, and approving one is how Venue Staff choose.
 - `needsReview` is a flag, never an action. When a venue is edited or retired, `PATCH /api/venues/[id]` sets it on affected bookings and notifies the coordinator; it does not change the booking's venue, layout, times or status, and it does not touch the Event. Only `approved` bookings that have not yet finished are candidates - a pending booking is not a commitment, so there is nothing to protect by flagging it.
 - A change to the event's own information sets it too (Update Event Information, SPM-62): `event_schedule_changed`, `event_attendance_changed`, `event_requirements_changed`, on pending and approved bookings that have not finished. Those codes share the column with the venue codes above, so every writer adds reasons through `addReviewReasons()` (`src/lib/reviewFlags.ts`), which keeps codes it does not recognise. Never parse the column into your own codes before writing it back.
+- After the Safety Officer returns a safety check, the assigned Coordinator may flag the event's bookings and equipment with `safety_check_returned` (SPM-88, `POST /api/events/[id]/safety-flags`). The flag blocks resubmission until cleared in SPM-68.
 - **The assigned Coordinator clears the flag** in Review Flagged Arrangements (SPM-68): `POST /api/flagged-arrangements` sets `needsReview` to false and `reviewReason` to NULL - nothing else - and only while the booking still meets the event's requirements. `flaggedAt` is left as the record of when it was last flagged. `EquipmentRequest` is cleared the same way, and `Event.registrationReviewReason` is set to NULL when the registrations are marked as reviewed. A withdrawn or released booking (SPM-67) keeps whatever flag it had: only `pending` and `approved` bookings are ever listed or counted, so read `needsReview` together with `status`.
 - `reviewReason` accumulates. A second venue edit merges its codes into the existing list rather than replacing them, so parse it as a set.
 
@@ -492,7 +493,7 @@ Request and reservation in one table: a reservation only ever comes from a reque
 | `reviewedAt` | DateTime |  |  |
 | `staffNotes` | String |  |  |
 | `needsReview` | Boolean |  | A change to the event (SPM-62: its date or time) may have invalidated this request. The request is NOT changed - the coordinator keeps or replaces it (SPM-68). Defaults to `false`. |
-| `reviewReason` | String |  | Why it was flagged: comma-separated codes, merged with any already there. SPM-62's event codes, and `equipment_unavailable` when units of the item were marked out of service and the units left no longer cover this reservation (SPM-55). |
+| `reviewReason` | String |  | Why it was flagged: comma-separated codes, merged with any already there. SPM-62's event codes, `equipment_unavailable` when units of the item were marked out of service and the units left no longer cover this reservation (SPM-55), and `safety_check_returned` when the coordinator flagged it after a returned safety check (SPM-88). |
 | `flaggedAt` | DateTime |  | When it was last flagged. |
 | `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this line as not required (e.g. an item Technical Support cannot provide, agreed to be non-essential), so it no longer prevents confirmation. Its status and anything reserved are NOT changed. Defaults to `false`. |
 | `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |

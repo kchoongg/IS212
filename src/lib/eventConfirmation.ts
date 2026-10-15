@@ -47,13 +47,10 @@
 //
 // The OPERATIONAL SAFETY CHECK (SPM-86) is the last row, from the event's
 // latest SafetyCheck: required, complete only once approved, and never
-// waivable (SPM-33 AC9). While the check is PENDING it blocks confirmation:
-// the event is in Safety review, which cannot move to Confirmed until the
-// Safety Officer decides (SPM-86's lifecycle). Otherwise it does not stop
-// Confirm yet: that gate is Resolve Safety Check Outcome's (SPM-88, decided
-// 2026-10-08). The Safety Officer's decision now exists (SPM-87: approving
-// moves the event to Safety approved, stored as safety_cleared), and SPM-88
-// turns the gate on by setting SAFETY_CHECK_BLOCKS_CONFIRMATION to true.
+// waivable (SPM-33 AC9). It always blocks confirmation (Resolve Safety Check
+// Outcome, SPM-88 AC8/AC9): an event is confirmed only once the Safety Officer
+// has approved its check (SPM-87), and a check closed by a significant change
+// (SPM-88) has to be submitted again.
 //
 // ADDING AN ARRANGEMENT: add its kind to ArrangementKind, its data to
 // ConfirmationInput, and a block in arrangementsFor() that builds its row with
@@ -67,6 +64,7 @@ import { CHANGE_REASON_PROSE } from "./eventChangeImpact";
 import { IMPACT_REASON_PROSE } from "./venueImpact";
 import { EQUIPMENT_REASON_PROSE } from "./equipmentOutOfService";
 import { formatDateTime } from "./format";
+import { SAFETY_REASON_PROSE } from "./safetyResolution";
 import { liveBookings } from "@/lib/registrationSettings";
 
 /// Bookings that are arrangements at all: asked for, or held.
@@ -78,10 +76,6 @@ const EQUIPMENT_HELD = ["reserved", "partially_fulfilled"];
 const EQUIPMENT_DROPPED = "cancelled";
 
 export type ArrangementKind = "venue" | "equipment" | "registration" | "safety_check";
-
-/// Whether an outstanding Operational Safety Check stops Confirm. False until
-/// Resolve Safety Check Outcome (SPM-88) adds that gate - see the header.
-export const SAFETY_CHECK_BLOCKS_CONFIRMATION = false;
 
 /// The kinds a Coordinator may mark as not required. The route's request
 /// schema is built from this list, so a kind that is not here cannot be waived
@@ -232,11 +226,13 @@ function whose(session: SessionRef | null): string {
 
 /// Every reason code a flag may carry, in words: venue edits and unavailable
 /// periods (SPM-39, SPM-45), event changes (SPM-62) and equipment taken out of
-/// service (SPM-55). The same three sources as safetyCheck.ts.
+/// service (SPM-55), and a returned safety check (SPM-88). The same sources as
+/// safetyCheck.ts.
 const REASON_PROSE: Record<string, string> = {
   ...IMPACT_REASON_PROSE,
   ...CHANGE_REASON_PROSE,
   ...EQUIPMENT_REASON_PROSE,
+  ...SAFETY_REASON_PROSE,
 };
 
 /// "the venue has been retired; the date or time changed". Every writer of a
@@ -327,7 +323,8 @@ function safetyRow(check: SafetyCheckInput | null): Arrangement {
     state.missing,
     {
       waivable: false,
-      blocksConfirmation: SAFETY_CHECK_BLOCKS_CONFIRMATION || check?.status === "pending",
+      // SPM-88 (AC8, AC9): only an approved check lets the event be confirmed.
+      blocksConfirmation: true,
       note,
     }
   );

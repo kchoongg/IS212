@@ -231,6 +231,34 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(db.event.update).not.toHaveBeenCalled();
   });
 
+  // SPM-88 (AC5, AC6): withdrawing or releasing a booking is a significant
+  // change - it closes the safety check the event rests on.
+  it.each([
+    ["withdraw", "pending", "safety_review", "a venue booking was withdrawn"],
+    ["release", "approved", "safety_cleared", "a venue booking was released"],
+  ])("SPM-88: a %s on a %s booking moves a %s event back to Planning and closes its check", async (action, bookingStatus, status, why) => {
+    const token = signIn(coordinator());
+    given({ ev: event({ status }), row: booking({ status: bookingStatus }) });
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+    db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
+
+    const res = await patch(token, { action });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).safetyCheckClosed).toBe(true);
+    expect(callArg(db.event.updateMany)).toEqual({ where: { id: ID.event, status }, data: { status: "planning" } });
+    expect(callArg(db.eventStatusHistory.create).data).toMatchObject({ reason: `Safety check closed: ${why}` });
+    expect(callArg(db.safetyCheck.updateMany).data).toMatchObject({ status: "closed", decisionNote: why });
+  });
+
+  it("SPM-88: leaves the safety check of a Planning event alone", async () => {
+    const token = signIn(coordinator());
+    given();
+
+    expect((await (await patch(token, { action: "withdraw" })).json()).safetyCheckClosed).toBe(false);
+    expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
+  });
+
   it("answers 500 when the database fails", async () => {
     const token = signIn(coordinator());
     given();

@@ -477,6 +477,34 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     expect(db.event.updateMany).not.toHaveBeenCalled();
   });
 
+  // SPM-88 (AC5, AC6): a booking request is a significant change - it closes
+  // the safety check the event rests on and returns it to Planning.
+  it.each(["safety_review", "safety_cleared"])(
+    "SPM-88: moves a %s event back to Planning and closes its safety check",
+    async (status) => {
+      const token = given(event({ status }));
+      db.event.updateMany.mockResolvedValue({ count: 1 });
+      db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
+
+      const res = await post(token, valid);
+
+      expect(res.status).toBe(201);
+      expect((await res.json()).safetyCheckClosed).toBe(true);
+      expect(callArg(db.event.updateMany)).toEqual({ where: { id: ID.event, status }, data: { status: "planning" } });
+      expect(callArg(db.eventStatusHistory.create).data).toMatchObject({
+        reason: "Safety check closed: a venue booking was requested",
+      });
+      expect(callArg(db.safetyCheck.updateMany).data).toMatchObject({ status: "closed" });
+    }
+  );
+
+  it("SPM-88: leaves the safety check of a Planning event alone", async () => {
+    const res = await post(given(), valid);
+
+    expect((await res.json()).safetyCheckClosed).toBe(false);
+    expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
+  });
+
   /// One of this event's own bookings at its own times: for the whole event
   /// (sessionId null) or for one of its sessions.
   function ownBooking(status: string, sessionId: string | null = null) {

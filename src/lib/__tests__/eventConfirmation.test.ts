@@ -753,13 +753,11 @@ describe("SPM-33 checkEventConfirmation — what prevents confirmation (AC11)", 
 //     id = the check's id (null when never submitted), status = one of the
 //     display keys below, never waivable (AC9).
 //   Arrangement gains
-//     blocksConfirmation  true for every row except the safety row, which
-//       blocks only while its check is PENDING: an event with the Safety
-//       Officer is in Safety review, which cannot move to Confirmed until the
-//       Safety Officer decides (SPM-86's lifecycle). Otherwise Confirm does not
-//       wait for the safety check until Resolve Safety Check Outcome (SPM-88)
-//       adds that gate - decided 2026-10-08. Confirm refuses, and the blocking
-//       count counts, only rows that block.
+//     blocksConfirmation  true for every row. CHANGED (SPM-88, AC8/AC9): the
+//       safety row used to block only while its check was PENDING; Resolve
+//       Safety Check Outcome turned the gate on, so Confirm waits for an
+//       approved check. Confirm refuses, and the blocking count counts, only
+//       rows that block.
 //     note  "Submitted by Daniel Tan on 9 Oct 2026, 14:30" for a submitted
 //       check, "" otherwise.
 //
@@ -840,13 +838,15 @@ describe("SPM-33 arrangementsFor — the Operational Safety Check (AC6, AC9)", (
     }
   );
 
-  it("does not stop confirmation yet - Resolve Safety Check Outcome (SPM-88) adds that", () => {
-    expect(safetyRow(null).blocksConfirmation).toBe(false);
-    expect(checkEventConfirmation(input({ bookings: [booking()], safetyCheck: null }))).toEqual({ ok: true });
+  // SPM-88 (AC8, AC9): Confirm waits for the Safety Officer's approval.
+  it("SPM-88-TC13: stops confirmation while the check was never submitted", () => {
+    expect(safetyRow(null).blocksConfirmation).toBe(true);
+    expect(checkEventConfirmation(input({ bookings: [booking()], safetyCheck: null }))).toMatchObject({
+      ok: false,
+      error: "This event cannot be confirmed yet: the Operational Safety Check has not been submitted yet.",
+    });
   });
 
-  // Decided 2026-10-12: while the Safety Officer has it, the event is in
-  // Safety review and cannot be confirmed, so the list says what is in the way.
   it("blocks confirmation while the check is awaiting the Safety Officer's review", () => {
     expect(safetyRow(check("pending")).blocksConfirmation).toBe(true);
     const result = checkEventConfirmation(input({ bookings: [booking()], safetyCheck: check("pending") }));
@@ -858,22 +858,35 @@ describe("SPM-33 arrangementsFor — the Operational Safety Check (AC6, AC9)", (
     }
   });
 
-  it.each(["approved", "changes_requested", "rejected", "closed"])(
-    "does not block confirmation once the check is %s",
-    (status) => {
-      expect(safetyRow(check(status)).blocksConfirmation).toBe(false);
-    }
-  );
+  it.each([
+    ["changes_requested", "the Safety Officer asked for changes in the Operational Safety Check"],
+    ["rejected", "the Safety Officer rejected the safety arrangement"],
+    ["closed", "the Operational Safety Check has to be submitted again"],
+  ])("SPM-88-TC08: stops confirmation once the check is %s", (status, missing) => {
+    expect(checkEventConfirmation(input({ bookings: [booking()], safetyCheck: check(status) }))).toMatchObject({
+      ok: false,
+      error: `This event cannot be confirmed yet: ${missing}.`,
+    });
+  });
 
-  it("leaves the safety check out of what blocks confirmation, and keeps everything else in", () => {
+  it("SPM-88-TC09: lets an event with an approved check be confirmed", () => {
+    expect(checkEventConfirmation(input({ bookings: [booking()], safetyCheck: check("approved") }))).toEqual({ ok: true });
+  });
+
+  it("counts the safety check among what blocks confirmation", () => {
     const list = rows({ bookings: [booking({ status: "pending" })], equipment: [line()], safetyCheck: null });
 
     expect(list.map((a) => [a.kind, a.blocksConfirmation])).toEqual([
       ["venue", true],
       ["equipment", true],
-      ["safety_check", false],
+      ["safety_check", true],
     ]);
-    expect(blockingArrangements(list).map((a) => a.kind)).toEqual(["venue"]);
+    expect(blockingArrangements(list).map((a) => a.kind)).toEqual(["venue", "safety_check"]);
+  });
+
+  it("SPM-88-TC03: words an arrangement flagged after a returned safety check", () => {
+    const [flagged] = rows({ bookings: [booking({ needsReview: true, reviewReason: "safety_check_returned" })] });
+    expect(flagged.flagReason).toBe("the Safety Officer returned the safety check");
   });
 
   it("gives every other row an empty note", () => {

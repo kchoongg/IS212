@@ -1869,6 +1869,39 @@ async function main() {
     }),
   );
 
+  // SPM-88 QA fixtures (Resolve Safety Check Outcome). The SAME events as
+  // scripts/seed-spm88.ts (`npm run fixtures:spm88`) - keep the two in step.
+  //
+  // The events only. Their dedicated venue (SPM88 Harbour Studio), bookings,
+  // equipment and safety checks - with the dates SPM-88-TC01 quotes - are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST, after SPM-68, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const SPM88_BEFORE_SAFETY = ["submitted", "under_review", "approved", "planning"];
+  const spm88 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-88 resolve safety check outcome test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre",
+    chain: {
+      planning: SPM88_BEFORE_SAFETY,
+      safety_review: [...SPM88_BEFORE_SAFETY, "safety_review"],
+      safety_cleared: [...SPM88_BEFORE_SAFETY, "safety_review", "safety_cleared"],
+      confirmed: [...SPM88_BEFORE_SAFETY, "safety_review", "safety_cleared", "confirmed"],
+    }[status],
+  });
+  eventData.push(
+    spm88("spm88_returned", "SPM88 Harbour Returned Forum", "planning", "2027-11-02", 9, 4, 60),
+    spm88("spm88_riverside", "SPM88 Riverside Review", "safety_review", "2027-11-04", 9, 4, 200),
+    spm88("spm88_gala", "SPM88 Approved Gala", "safety_cleared", "2027-11-09", 18, 4, 60),
+    spm88("spm88_seminar", "SPM88 Approved Seminar", "safety_cleared", "2027-11-11", 9, 4, 40),
+    spm88("spm88_showcase", "SPM88 Pending Showcase", "safety_review", "2027-11-12", 9, 4, 50),
+    spm88("spm88_workshop", "SPM88 Pending Workshop", "safety_review", "2027-11-16", 9, 4, 30),
+    spm88("spm88_expo", "SPM88 Confirmed Expo", "confirmed", "2027-11-18", 9, 8, 120),
+    spm88("spm88_unchecked", "SPM88 Unchecked Launch", "planning", "2027-11-23", 9, 4, 40),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {

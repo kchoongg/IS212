@@ -139,13 +139,22 @@ interface Given {
   sessions?: Row[];
   bookings?: Row[];
   equipment?: Row[];
-  /// The event's latest SafetyCheck; null (the default) = never submitted.
+  /// The event's latest SafetyCheck; null = never submitted. CHANGED (SPM-88):
+  /// approved by default, since an outstanding check now blocks confirmation
+  /// and most tests here are about the other arrangements.
   safetyCheck?: Row | null;
 }
 
+const APPROVED_CHECK: Row = {
+  id: "approved-check",
+  status: "approved",
+  submittedAt: new Date("2026-10-09T06:30:00.000Z"),
+  submitter: { fullName: "Daniel Tan" },
+};
+
 /// The event and what is arranged for it, as the database would answer. Writes
 /// change these rows, so a list read after a write shows the change.
-function given({ event: overrides = {}, sessions = [], bookings = [], equipment = [], safetyCheck = null }: Given = {}) {
+function given({ event: overrides = {}, sessions = [], bookings = [], equipment = [], safetyCheck = APPROVED_CHECK }: Given = {}) {
   const row: Record<string, unknown> = event(overrides);
   row.sessions = sessions;
   row.venueBookings = bookings;
@@ -487,7 +496,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
 
   it("lists a check that was never submitted, last, as a required item that is not submitted", async () => {
     const token = signIn(assignedCoordinator());
-    given({ bookings: [booking()], equipment: [line()] });
+    given({ bookings: [booking()], equipment: [line()], safetyCheck: null });
 
     const body = await (await get(token)).json();
 
@@ -504,7 +513,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
       state: "outstanding",
       required: true,
       waivable: false,
-      blocksConfirmation: false,
+      blocksConfirmation: true,
       missing: "the Operational Safety Check has not been submitted yet",
     });
   });
@@ -537,8 +546,18 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
     expect(safety(body).note).toBe("Submitted on 9 Oct 2026, 14:30");
   });
 
-  // Decided 2026-10-08: the gate on Confirm is Resolve Safety Check Outcome's (SPM-88).
-  it("does not count an outstanding safety check as blocking confirmation", async () => {
+  // CHANGED (SPM-88, AC8/AC9): Confirm waits for an approved safety check.
+  it.each([null, "changes_requested", "rejected", "closed"])(
+    "counts an outstanding safety check as blocking confirmation (latest check: %s)",
+    async (status) => {
+      const token = signIn(assignedCoordinator());
+      given({ bookings: [booking()], safetyCheck: status === null ? null : { ...APPROVED_CHECK, status } });
+
+      expect((await (await get(token)).json()).blocking).toBe(1);
+    }
+  );
+
+  it("does not count an approved safety check as blocking", async () => {
     const token = signIn(assignedCoordinator());
     given({ bookings: [booking()] });
 
