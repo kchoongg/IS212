@@ -29,6 +29,7 @@ npm install
 npm test
 npm run lint
 npm run build
+npm run test-cases:check
 ```
 
 Then, with `npm run dev` running in a second terminal:
@@ -38,7 +39,10 @@ npm run verify:permissions
 npm run verify:login
 ```
 
-All five must pass before any manual testing. A failure here is a regression:
+Also check that CI is green on GitHub for the commit you are testing. CI runs
+the end-to-end smoke tests, which refuse to run against the shared database.
+
+All of them must pass before any manual testing. A failure here is a regression:
 handle it as in step 7, then start again from this step.
 
 ## Step 2: Work out which stories to retest
@@ -88,6 +92,16 @@ that case too.
 Add a `Negative` or `Boundary` case only when the diff changed the exact
 validation or limit that the case checks.
 
+Before the run, check whether a story finished this sprint changed on purpose
+what a selected case expects. For example, a case that ticks booking slots that
+no longer exist, or one that expects a refusal message that now reads
+differently. Do not edit the story's test case files for this. Rewrite the case
+on the log's **Rewritten cases** sheet, give it the same ID with `-R` on the
+end, and run it on a copy of the database before the regression run, so its
+expected results come from the screen. List every out-of-date case, selected
+or not, on the **Out-of-date cases** sheet with the story that changed it. The
+story's owner updates the test case files afterwards (step 6).
+
 Write the selected case IDs into the regression log before you start, so the
 scope is fixed before the results come in.
 
@@ -108,20 +122,37 @@ workbook.
 
 **Smoke run.** Take one new event through the whole flow, logging in as each
 role in turn. Create a new event for this, titled `REG S<N> <your name>`, so no
-story's fixtures are touched. As of sprint 2 the flow is:
+story's fixtures are touched. The tracker's **Smoke run** sheet has the
+accounts and what to check at each step. As of sprint 3 the flow is:
 
 1. Event Organiser logs in, creates an event request, saves it as a draft,
    reopens it and submits it.
 2. Event Operations Manager assigns an Event Coordinator.
-3. Event Coordinator reviews and approves the request.
-4. Event Coordinator begins planning, searches for a venue, checks its
-   availability and submits a venue booking request.
-5. Event Coordinator records the equipment required.
-6. Technical Support Staff checks equipment availability and reserves it.
-7. Venue Staff opens the venue list, edits a venue and views its availability
-   calendar.
-8. Each role sees only its own sidebar links, and the organiser sees only
-   their own events.
+3. Event Coordinator reviews and approves the request, then begins planning.
+4. Event Coordinator makes an ordinary edit to the event information.
+5. Event Coordinator searches for venues and requests two venues for the same
+   times, each for its own purpose, attendance and layout.
+6. Event Coordinator records the equipment required.
+7. Technical Support Staff checks equipment availability and reserves it, then
+   marks an unrelated item under maintenance and returns it.
+8. Venue Staff approves both booking requests.
+9. Venue Staff marks one of the two venues unavailable over the event's times.
+10. Event Coordinator sees the notification and the flagged booking.
+11. Event Coordinator requests a replacement venue and releases the flagged
+    booking.
+12. Venue Staff approves the replacement.
+13. Event Coordinator sets up registration and tries to confirm the event,
+    which is refused for the missing safety check.
+14. Event Coordinator submits the event for a safety check.
+15. Safety Officer requests changes.
+16. Event Coordinator reads the decision and resubmits; the organiser cannot
+    see the reason.
+17. Safety Officer approves, and the Event Coordinator confirms the event.
+18. An Attendee registers for the event, then withdraws.
+19. The organiser and the coordinator see the withdrawal on the registration
+    list.
+20. Each role sees only its own sidebar links, and the organiser sees only
+    their own events.
 
 When a sprint adds a step to the flow, add it to this list in the same pull
 request as the story.
@@ -137,7 +168,10 @@ the rows on the **Scope** and **Retested cases** sheets with this sprint's
 | Sheet | What goes in it |
 | --- | --- |
 | Summary | Date, testers and the commit tested. The result counts fill in by themselves. |
-| Retested cases | One row per selected case: result, tester, date and notes. |
+| Testers | Who retests which area, with each tester's case count and progress. Nobody retests their own stories from this sprint. |
+| Retested cases | One row per selected case: who it is assigned to, the result, who tested it, the date and notes. |
+| Rewritten cases | Steps and expected results for selected cases whose story workbook is out of date. Their IDs end in `-R`. |
+| Out-of-date cases | Every story test case that a later story has made out of date, which story changed it, and whether it has been updated. |
 | Automated checks | The result of each command in step 1. |
 | Scope | Every earlier story, whether it is in scope, and why. |
 | Smoke run | The result of each step of the smoke run. |
