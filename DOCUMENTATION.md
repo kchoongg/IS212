@@ -961,6 +961,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **A full event offers the waiting list but nobody can join it** | SPM-51 shows "This event is full. You can join the waiting list instead." and "Joining the waiting list isn't available yet." Joining, the 3-day offer window (#44) and FIFO with manual override (#26) are *Join and Respond to Waiting List*. When it lands, replace that second line with its Join button in `src/app/events/[id]/RegisterPanel.tsx`. | Join and Respond to Waiting List |
 | **An attendee can withdraw up to the event's end** | SPM-52's acceptance criteria set no cut-off. Withdrawing is refused once the event is cancelled, completed or past its end, so its history doesn't change; before that a Registered attendee can withdraw, even after registration has closed or while the event is running. If the team wants an earlier cut-off (when registration closes, or when the event starts), it goes in `withdrawRefusal()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
 | **Every coordinator sees the registration counts, not only the assigned one** | `registration:view_list` is per role, so any coordinator who can open the event sees "Places taken" and "Withdrawn". SPM-52's AC5 says "relevant" coordinators; whether that means the assigned one only is not decided. | SPM-52 (Sammi) |
+| **Nothing marks an attendee as added by the organiser yet** | SPM-65 added `registrations.added_by_id` and the Attendees tab shows "Added by <name>" when it is set (AC4), but no screen adds an attendee on someone's behalf, so only `npm run fixtures:spm65` sets it. *Manually Add Attendee* must set it to the organiser or coordinator who adds the attendee. | Manually Add Attendee |
 | **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
@@ -1102,6 +1103,37 @@ what changed, why, and the migration name if there is one.
       end
     ```
 
+### 2026-10-15 — Sammi Chua (SPM-65, View Registration List)
+- **The Attendees tab (S-11) is built.** `/events/[ref]/attendees`, backed by
+  `GET /api/events/[ref]/registrations`, lists each attendee's name, email,
+  phone, status and registration date (and withdrawal date), with places taken
+  against the capacity and the number on the waiting list. Statuses are the
+  existing `StatusBadge` labels; `attended` ("Attended", the checked-in state)
+  now has the `info` tone, so it no longer looks the same as "Registered".
+- **Who may see it:** `canViewRegistrationList()` in `src/lib/permissions.ts`,
+  the first use of `registration:view_list`. The organiser who owns the event
+  and the coordinator assigned to it. An organiser of the same client who did
+  not raise the event can open the event but gets 403 here (AC8); every other
+  role is refused (AC9). The usual order: 401, 404 for an event the user
+  can't see, then 403.
+- **Manually added attendees (AC4):** new nullable `registrations.added_by_id`
+  (FK to users, `ON DELETE SET NULL`). NULL means the attendee registered
+  themselves. Nothing writes it yet — *Manually Add Attendee* must set it to
+  the organiser (or coordinator) who added the attendee; the list then shows
+  "Added by <name>".
+- **"As they happen" (AC6):** the tab reads the list again every 15 seconds
+  while it is in view, and as soon as it comes back into view. No push channel.
+  A failed background refresh leaves the last list on screen; a 403 stops it.
+- **Registration not enabled (AC7):** the tab says so instead of an empty list.
+  Registrations made before it was turned off are still listed under it.
+- `registrationCounts()` (SPM-52) now also returns `waitlisted`.
+- Merged SPM-52 (Withdraw from Event) into the branch first, as it adds
+  `registrationCounts()`. SPM-52's PR should merge before this one.
+- **Test cases:** `docs/test-cases/SPM-65_Test_Cases.xlsx` (12 cases). Test data:
+  `npm run fixtures:spm65` (`scripts/seed-spm65.ts`), six "SPM65 …" events.
+- Migration: `20261015120000_add_registration_added_by`
+- New Known Gap: nothing marks an attendee as added by the organiser until *Manually Add Attendee* sets `added_by_id`.
+
 ### 2026-10-15 — Janelle
 - **SPM-88 (Resolve Safety Check Outcome).** What follows the Safety Officer's
   decision, and what undoes one.
@@ -1156,36 +1188,6 @@ what changed, why, and the migration name if there is one.
     Known Gaps: three SPM-88 rows deleted (the confirm gate twice, approval
     not voided by a change); three added (other stories' out-of-date cases,
     closing overwrites the approver, no question before a booking change).
-
-### 2026-10-15 — Sammi Chua (SPM-65, View Registration List)
-- **The Attendees tab (S-11) is built.** `/events/[ref]/attendees`, backed by
-  `GET /api/events/[ref]/registrations`, lists each attendee's name, email,
-  phone, status and registration date (and withdrawal date), with places taken
-  against the capacity and the number on the waiting list. Statuses are the
-  existing `StatusBadge` labels; `attended` ("Attended", the checked-in state)
-  now has the `info` tone, so it no longer looks the same as "Registered".
-- **Who may see it:** `canViewRegistrationList()` in `src/lib/permissions.ts`,
-  the first use of `registration:view_list`. The organiser who owns the event
-  and the coordinator assigned to it. An organiser of the same client who did
-  not raise the event can open the event but gets 403 here (AC8); every other
-  role is refused (AC9). The usual order: 401, 404 for an event the user
-  can't see, then 403.
-- **Manually added attendees (AC4):** new nullable `registrations.added_by_id`
-  (FK to users, `ON DELETE SET NULL`). NULL means the attendee registered
-  themselves. Nothing writes it yet — *Manually Add Attendee* must set it to
-  the organiser (or coordinator) who added the attendee; the list then shows
-  "Added by <name>".
-- **"As they happen" (AC6):** the tab reads the list again every 15 seconds
-  while it is in view, and as soon as it comes back into view. No push channel.
-  A failed background refresh leaves the last list on screen; a 403 stops it.
-- **Registration not enabled (AC7):** the tab says so instead of an empty list.
-  Registrations made before it was turned off are still listed under it.
-- `registrationCounts()` (SPM-52) now also returns `waitlisted`.
-- Merged SPM-52 (Withdraw from Event) into the branch first, as it adds
-  `registrationCounts()`. SPM-52's PR should merge before this one.
-- **Test cases:** `docs/test-cases/SPM-65_Test_Cases.xlsx` (12 cases). Test data:
-  `npm run fixtures:spm65` (`scripts/seed-spm65.ts`), six "SPM65 …" events.
-- Migration: `20261015120000_add_registration_added_by`
 
 ### 2026-10-15 — Jordan
 - **SPM-82 (Expire Tentative Venue Hold, Week 7 change #4).** A pending venue
