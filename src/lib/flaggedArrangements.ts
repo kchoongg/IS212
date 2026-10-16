@@ -36,6 +36,7 @@ import { REGISTRATION_REASON_PROSE } from "@/lib/registrationSettings";
 import { coversSchedule } from "@/lib/venueBookingRequest";
 import { describeVenueConflict, findVenueConflict, type ConflictVenue } from "@/lib/venueConflict";
 import { IMPACT_REASON_PROSE } from "@/lib/venueImpact";
+import { SAFETY_REASON_PROSE } from "@/lib/safetyResolution";
 import {
   DEFAULT_SPACE_PURPOSE,
   checkVenueSuitability,
@@ -56,6 +57,7 @@ const REASON_PROSE: Record<string, string> = {
   ...CHANGE_REASON_PROSE,
   ...EQUIPMENT_REASON_PROSE,
   ...REGISTRATION_REASON_PROSE,
+  ...SAFETY_REASON_PROSE,
 };
 
 /// The stored reason codes, in words and in the stored order. A code this
