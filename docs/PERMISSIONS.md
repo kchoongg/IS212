@@ -364,6 +364,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event, then `registrationState()` → 400 unless the event is eligible (SPM-51) |
 | `GET /api/registrations` | `registration:create` → 403 "Registrations belong to an Attendee account."; the signed-in attendee's own registrations only (SPM-51) |
+| `PATCH /api/registrations/[id]` | `registration:create` → 403 "Only an Attendee can withdraw a registration", then 404 unless the registration is the caller's own (never 403, which would confirm it exists), then 400 unless it is `registered` (SPM-52) |
 
 **Status codes.** 401 not signed in · 403 signed in, not allowed · 404 not
 allowed *and* must not learn the record exists.
@@ -435,7 +436,11 @@ allowed to see.
   `equipment_request:manage`) and **reviewed** by Technical Support with
   `equipment_request:review`: reserving (SPM-49) and setting fulfilment status /
   technical notes (SPM-50).
-- **`registration:view_list`** guards the registration list (SPM-65,
+- **`registration:view_list`** gives the organiser and coordinators the counts
+  on the event's Registration card — places taken and withdrawn — from
+  `GET /api/events/[id]` (SPM-52, AC5). It is per role, so every coordinator
+  who can see the event gets them, not only the assigned one.
+  It also guards the registration list (SPM-65,
   `GET /api/events/[id]/registrations`, the Attendees tab) through
   `canViewRegistrationList()`: the organiser who owns the event and the
   coordinator assigned to it - not another organiser of the same client.

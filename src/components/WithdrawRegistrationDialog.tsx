@@ -31,6 +31,7 @@ export function WithdrawRegistrationDialog({ target, onCancel, onWithdrawn }: Pr
   const [error, setError] = useState<string | null>(null);
 
   async function withdraw() {
+    // v8 ignore next -- the dialog's Withdraw button only shows while there is a target
     if (!target) return;
     setSaving(true);
     setError(null);

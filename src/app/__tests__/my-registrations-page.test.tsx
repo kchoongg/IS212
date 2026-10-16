@@ -187,4 +187,41 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(await within(dialog()).findByText("Only an active registration can be withdrawn")).toBeInTheDocument();
     expect(screen.queryByText(/You have withdrawn from/)).not.toBeInTheDocument();
   });
+
+  it("says so in general words when the server gives no reason", async () => {
+    const api = open(rows());
+    await screen.findByRole("table");
+    api.on(WITHDRAW, reply(400, {}));
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await within(dialog()).findByText("Could not withdraw your registration.")).toBeInTheDocument();
+  });
+
+  it("opens the question, not the event, when Withdraw is pressed with the keyboard on a phone", async () => {
+    open(rows());
+    await screen.findByRole("table");
+    // The phone layout's card opens the event on Enter; its Withdraw button must not.
+    const card = screen.getAllByText("SPM52 Riverside Forum").map((el) => el.closest("li")).find(Boolean)!;
+
+    within(card).getByRole("button", { name: "Withdraw" }).focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(within(dialog()).getByRole("heading", { hidden: true, name: "Withdraw from SPM52 Riverside Forum?" })).toBeInTheDocument();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("names an untitled event in general words", async () => {
+    const untitled = registration("r1", "registered", "", 52, "2028-02-10");
+    const api = open([{ ...untitled, event: { ...untitled.event, title: null } }]);
+    await screen.findByRole("table");
+    api.on(WITHDRAW, { id: "r1", status: "withdrawn" });
+
+    await userEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Withdraw" }));
+    expect(within(dialog()).getByRole("heading", { hidden: true, name: "Withdraw from this event?" })).toBeInTheDocument();
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await screen.findByText("You have withdrawn from the event.")).toBeInTheDocument();
+  });
 });
