@@ -112,7 +112,7 @@ const FIXTURES: Fixture[] = [
   { key: "spm52_gala", title: "SPM52 Members Gala", status: "confirmed", date: "2028-04-01",
     registration: { enabled: false, capacity: 20, ...OPEN_PERIOD },
     registrations: [[MARCUS, "registered"]],
-    testCases: "TC08 TC11" },
+    testCases: "TC08" },
 ];
 
 /** Same status chains and reasons as prisma/seed.ts. */
