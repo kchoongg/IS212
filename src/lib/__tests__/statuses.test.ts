@@ -56,6 +56,13 @@ describe("Withdrawn and released venue bookings (SPM-67)", () => {
   });
 });
 
+describe("Expired venue holds (SPM-82)", () => {
+  it("AC8: reads 'Expired', grey like the other bookings that hold nothing", () => {
+    expect(statusLabel("expired")).toBe("Expired");
+    expect(statusTone("expired")).toBe("neutral");
+  });
+});
+
 describe("Safety approved (SPM-87)", () => {
   it("reads 'Safety approved', a step on the way to Confirmed like Approved", () => {
     expect(statusLabel("safety_cleared")).toBe("Safety approved");

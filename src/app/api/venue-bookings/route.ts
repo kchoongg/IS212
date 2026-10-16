@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { eventReference } from "@/lib/format";
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
     return forbidden("Reviewing venue bookings is Venue Staff's role");
   }
 
+  // SPM-82: overdue holds are expired first, so they drop off this list - an expired hold cannot be approved (AC5).
+  await expireDueHolds();
   const bookings = await prisma.venueBooking.findMany({
     // SPM-54: a request waits for its event's approval, so one whose event is
     // still Submitted or Under review is not shown - Venue Staff could not
@@ -37,6 +40,8 @@ export async function GET(req: NextRequest) {
       // SPM-90 (AC5): what the space is for, and its own attendance.
       purpose: true,
       expectedAttendance: true,
+      // SPM-82 (AC1): when the hold expires, and so when it stops being here.
+      holdExpiresAt: true,
       requirementsNote: true,
       requestedAt: true,
       requester: { select: { fullName: true } },

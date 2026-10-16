@@ -5,7 +5,14 @@
 /// Notification types about a venue booking that needs the coordinator's
 /// review (SPM-39 venue changes, SPM-45 venue unavailability). The arrangement
 /// is on the event's Venue tab, where its booking requests are listed.
-const VENUE_REVIEW_TYPES = ["booking_needs_review", "booking_venue_retired", "booking_venue_unavailable"];
+/// SPM-82: a hold about to expire, or expired, is about the same booking list.
+const VENUE_REVIEW_TYPES = [
+  "booking_needs_review",
+  "booking_venue_retired",
+  "booking_venue_unavailable",
+  "venue_hold_expiring",
+  "venue_hold_expired",
+];
 
 /// Equipment that needs review (SPM-55 equipment out of service). The
 /// arrangement is on the event's Equipment tab.

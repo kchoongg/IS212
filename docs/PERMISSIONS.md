@@ -432,6 +432,10 @@ allowed to see.
   (`GET /api/venue-bookings`) and the decision itself
   (`PATCH /api/venue-bookings/[id]`). It is a role check only — Venue Staff
   are not scoped by venue (#66), so any of them may decide any request.
+  SPM-82 adds `PATCH /api/venue-bookings/[id]/expiry` under the same
+  action: Venue Staff move a pending hold's expiry (not past the event's
+  start). An expired hold can be neither decided nor re-timed - the
+  Coordinator submits a new request.
 - **Equipment requests are recorded** by the assigned Coordinator (SPM-47,
   `equipment_request:manage`) and **reviewed** by Technical Support with
   `equipment_request:review`: reserving (SPM-49) and setting fulfilment status /

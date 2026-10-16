@@ -13,6 +13,8 @@ import BookingsPage from "@/app/bookings/page";
 import EquipmentRequestsPage from "@/app/equipment/requests/page";
 import AssignmentsPage from "@/app/assignments/page";
 import { ROLES } from "@/lib/roles";
+import { formatDateTime } from "@/lib/format";
+import { toLocalInput } from "@/lib/holdExpiry";
 import {
   fireEvent,
   mockApi,
@@ -694,6 +696,140 @@ describe("Booking Requests", () => {
   const reason = () => screen.getByLabelText(/Reason for rejection/);
   const giveReason = (text: string) => fireEvent.change(reason(), { target: { value: text } });
   const submitRejection = () => userEvent.click(screen.getByRole("button", { name: "Reject request" }));
+
+  // SPM-82: each pending request is a tentative hold. Venue Staff see when it
+  // expires (AC1) and can move that while it is active (AC3).
+  describe("the hold's expiry (SPM-82)", () => {
+    const EXPIRY = "PATCH /api/venue-bookings/b1/expiry";
+    const holding = () => request({ holdExpiresAt: "2027-01-15T01:00:00.000Z" });
+    const openExpiry = async () => userEvent.click(within(await card()).getByRole("button", { name: "Change expiry" }));
+    const newExpiry = () => screen.getByLabelText("New expiry");
+    // A datetime-local value is the browser's own wall clock: derive what is
+    // sent and shown from it, so the test reads the same in UTC and in SGT.
+    const LOCAL = "2027-01-20T09:00";
+
+    it("SPM-82-TC03: shows when the hold expires", async () => {
+      open({ [LIST]: [holding()] });
+
+      expect(valueOf(await card(), "Hold expires")).toHaveTextContent("15 Jan 2027, 09:00");
+    });
+
+    it("says a hold made before expiries were recorded has none, and still offers to set one", async () => {
+      open({ [LIST]: [request({ holdExpiresAt: null })] });
+
+      expect(valueOf(await card(), "Hold expires")).toHaveTextContent("No expiry set");
+
+      await openExpiry();
+
+      expect(newExpiry()).toHaveValue("");
+    });
+
+    it("SPM-82-TC05: saves a new expiry, says so, and shows it on the card", async () => {
+      const api = open({ [LIST]: [holding()], [EXPIRY]: { id: "b1", holdExpiresAt: new Date(LOCAL).toISOString() } });
+
+      await openExpiry();
+      fireEvent.change(newExpiry(), { target: { value: LOCAL } });
+      await userEvent.click(screen.getByRole("button", { name: "Save expiry" }));
+
+      expect(await screen.findByText(`Hold expiry changed to ${formatDateTime(new Date(LOCAL))}.`)).toBeInTheDocument();
+      expect(api.sent(EXPIRY).map((c) => c.body)).toEqual([{ holdExpiresAt: new Date(LOCAL).toISOString() }]);
+      expect(valueOf(await card(), "Hold expires")).toHaveTextContent(formatDateTime(new Date(LOCAL)));
+      expect(screen.queryByLabelText("New expiry")).not.toBeInTheDocument();
+    });
+
+    it("changes only that request's card", async () => {
+      const other = request({
+        id: "b2",
+        holdExpiresAt: "2027-01-18T01:00:00.000Z",
+        venue: { id: "v2", code: "HALL-B", name: "Hall B", setupMinutes: 0, teardownMinutes: 0 },
+      });
+      open({ [LIST]: [holding(), other], [EXPIRY]: { id: "b1", holdExpiresAt: new Date(LOCAL).toISOString() } });
+
+      await openExpiry();
+      fireEvent.change(newExpiry(), { target: { value: LOCAL } });
+      await userEvent.click(screen.getByRole("button", { name: "Save expiry" }));
+
+      await screen.findByText(`Hold expiry changed to ${formatDateTime(new Date(LOCAL))}.`);
+      expect(valueOf(await card("Hall B (HALL-B)"), "Hold expires")).toHaveTextContent("18 Jan 2027, 09:00");
+    });
+
+    it("shows the time chosen when the server's answer does not repeat it", async () => {
+      open({ [LIST]: [holding()], [EXPIRY]: {} });
+
+      await openExpiry();
+      fireEvent.change(newExpiry(), { target: { value: LOCAL } });
+      await userEvent.click(screen.getByRole("button", { name: "Save expiry" }));
+
+      expect(await screen.findByText(`Hold expiry changed to ${formatDateTime(new Date(LOCAL))}.`)).toBeInTheDocument();
+    });
+
+    it.each([
+      ["answers with no readable reason", reply(500)],
+      ["cannot be reached", () => { throw new TypeError("Failed to fetch"); }],
+    ])("keeps the form open with a general message when the server %s", async (_, answer) => {
+      open({ [LIST]: [holding()], [EXPIRY]: answer });
+
+      await openExpiry();
+      fireEvent.change(newExpiry(), { target: { value: LOCAL } });
+      await userEvent.click(screen.getByRole("button", { name: "Save expiry" }));
+
+      expect(await screen.findByText("Could not change the expiry. Try again.")).toBeInTheDocument();
+      expect(newExpiry()).toBeInTheDocument();
+      expect(valueOf(await card(), "Hold expires")).toHaveTextContent("15 Jan 2027, 09:00");
+    });
+
+    it("starts the form on the current expiry", async () => {
+      open({ [LIST]: [holding()] });
+
+      await openExpiry();
+
+      expect(newExpiry()).toHaveValue(toLocalInput(new Date("2027-01-15T01:00:00.000Z")));
+    });
+
+    it("SPM-82-TC04: keeps the form open with the server's reason when the expiry is refused", async () => {
+      const message = "The expiry cannot be later than the start of the event (8 Feb 2027, 09:00).";
+      open({ [LIST]: [holding()], [EXPIRY]: reply(400, { error: message }) });
+
+      await openExpiry();
+      fireEvent.change(newExpiry(), { target: { value: "2027-02-09T09:00" } });
+      await userEvent.click(screen.getByRole("button", { name: "Save expiry" }));
+
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      expect(newExpiry()).toBeInTheDocument();
+      expect(valueOf(await card(), "Hold expires")).toHaveTextContent("15 Jan 2027, 09:00");
+    });
+
+    it("asks for a date and time before sending anything", async () => {
+      const api = open({ [LIST]: [holding()] });
+
+      await openExpiry();
+      fireEvent.change(newExpiry(), { target: { value: "" } });
+      await userEvent.click(screen.getByRole("button", { name: "Save expiry" }));
+
+      expect(await screen.findByText("Choose the date and time the hold should expire.")).toBeInTheDocument();
+      expect(api.sent(EXPIRY)).toHaveLength(0);
+    });
+
+    it("SPM-82-TC04: Cancel closes the form and changes nothing", async () => {
+      const api = open({ [LIST]: [holding()] });
+
+      await openExpiry();
+      await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByLabelText("New expiry")).not.toBeInTheDocument();
+      expect(api.sent(EXPIRY)).toHaveLength(0);
+    });
+
+    it("sends the user to log in when their session has expired while saving", async () => {
+      open({ [LIST]: [holding()], [EXPIRY]: reply(401, {}) });
+
+      await openExpiry();
+      fireEvent.change(newExpiry(), { target: { value: LOCAL } });
+      await userEvent.click(screen.getByRole("button", { name: "Save expiry" }));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fbookings"));
+    });
+  });
 
   it.each(ROLES.filter((r) => r !== "venue_staff"))("refuses %s without requesting the list", async (role) => {
     const api = mockApi(signedInAs(role));

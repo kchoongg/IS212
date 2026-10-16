@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, unauthenticated } from "@/lib/apiAuth";
 
 /// SPM-71 (AC3): how many of the caller's own notifications are unread - the
@@ -11,6 +12,8 @@ export async function GET(req: NextRequest) {
     if (!actor) {
       return unauthenticated();
     }
+    // SPM-82 (AC9): every page asks for this count, so holds are warned about and expired while anyone uses the app - before counting, so a new notice is included.
+    await expireDueHolds();
     const unread = await prisma.notification.count({ where: { recipientId: actor.id, isRead: false } });
     return NextResponse.json({ unread });
   } catch (err) {

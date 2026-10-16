@@ -156,6 +156,8 @@ export interface BookingInput extends Waiver, ReviewFlag {
   venueName?: string;
   /// SPM-90: what this space is for.
   purpose?: string | null;
+  /// SPM-82: when this request's tentative hold expires (or expired).
+  holdExpiresAt?: Date | string | null;
 }
 
 export interface EquipmentInput extends Waiver, ReviewFlag {
@@ -342,6 +344,31 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
 
   // --- Venue: each booking on its own, per session (or for the whole event) --
   const listed = bookings.filter((b) => BOOKING_LISTED.includes(b.status));
+  // SPM-82 (AC10): a hold that expired leaves its space unarranged, so it stays
+  // outstanding - until the Coordinator has a newer pending or approved request
+  // for the same space (same session and, since SPM-90, the same purpose),
+  // which is what "submit a new request" (AC5) looks like here. Bookings come
+  // oldest request first (loadConfirmationInput), so "newer" is "later in the
+  // list". Like any venue booking it can also be marked as not required.
+  // A hold with no purpose recorded (made before SPM-90) names no particular
+  // space, so any newer request for its session replaces it.
+  const purposeOf = (b: BookingInput) => b.purpose?.trim().toLowerCase() || null;
+  const replaces = (later: BookingInput, lapsed: BookingInput) =>
+    BOOKING_LISTED.includes(later.status) &&
+    (later.sessionId ?? null) === (lapsed.sessionId ?? null) &&
+    (purposeOf(lapsed) === null || purposeOf(later) === purposeOf(lapsed));
+  const expiredOutstanding = bookings.filter(
+    (b, i) => b.status === "expired" && !bookings.slice(i + 1).some((later) => replaces(later, b))
+  );
+  const expiredRow = (b: BookingInput, session: SessionRef | null): Arrangement => {
+    const purpose = b.purpose?.trim() || null;
+    const when = b.holdExpiresAt ? ` on ${formatDateTime(b.holdExpiresAt)}` : "";
+    return arrangement(
+      { kind: "venue", id: b.id ?? null, name: b.venueName ?? "Venue", session, status: b.status, purpose },
+      `the hold on ${b.venueName ?? "the venue"}${purpose ? ` (${purpose})` : ""} for ${whose(session)} expired${when} - submit a new request`,
+      { waiver: b, flagReason: "" }
+    );
+  };
   const sessionOf = (sessionId: string | null) =>
     sessionId == null ? null : (sessions.find((s) => s.id === sessionId) ?? null);
 
@@ -368,9 +395,13 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
   for (const session of venueHolders) {
     const mine = listed.filter((b) => session === null || b.sessionId === session.id);
     out.push(...mine.map((b) => bookingRow(b, session)));
+    // SPM-82: an expired hold's own row says more than "No venue booked", so it
+    // stands in for that row rather than adding to it.
+    const lapsed = expiredOutstanding.filter((b) => session === null || b.sessionId === session.id);
+    out.push(...lapsed.map((b) => expiredRow(b, session)));
 
     // A booking marked as not required does not hold this event a room.
-    if (!mine.some((b) => !b.notRequired)) {
+    if (!mine.some((b) => !b.notRequired) && !lapsed.some((b) => !b.notRequired)) {
       out.push(
         arrangement(
           { kind: "venue", id: null, name: "No venue booked", session, status: null },
@@ -384,6 +415,7 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
   // longer exists) is still listed, so nothing the event holds goes unseen.
   if (sessions.length > 0) {
     out.push(...listed.filter((b) => sessionOf(b.sessionId) === null).map((b) => bookingRow(b, null)));
+    out.push(...expiredOutstanding.filter((b) => sessionOf(b.sessionId) === null).map((b) => expiredRow(b, null)));
   }
 
   // --- Equipment: each line on its own ---------------------------------------
