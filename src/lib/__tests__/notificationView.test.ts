@@ -5,7 +5,7 @@ import { notificationHref, unreadBadge } from "../notificationView";
 // reads in the navigation (AC3).
 
 describe("notificationHref", () => {
-  it.each(["booking_needs_review", "booking_venue_retired", "booking_venue_unavailable"])(
+  it.each(["booking_needs_review", "booking_venue_retired", "booking_venue_unavailable", "venue_hold_expiring", "venue_hold_expired"])(
     "opens the event's Venue tab for %s - the booking is the arrangement to review",
     (type) => {
       expect(notificationHref(type, "EVT-000071")).toBe("/events/EVT-000071/venue");

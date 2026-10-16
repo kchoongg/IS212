@@ -447,9 +447,10 @@ model VenueBooking {
   startsAt DateTime @map("starts_at")
   endsAt   DateTime @map("ends_at")
 
-  /// pending | approved | rejected | withdrawn | released. `pending` and
-  /// `approved` hold the venue (with its setup and turnaround, SPM-93); the
-  /// rest hold nothing. SPM-67: the assigned Coordinator withdraws a pending
+  /// pending | approved | rejected | withdrawn | released | expired. `pending`
+  /// and `approved` hold the venue (with its setup and turnaround, SPM-93); the
+  /// rest hold nothing. SPM-82: a pending request is a tentative hold, and one
+  /// not approved by `holdExpiresAt` becomes `expired`. SPM-67: the assigned Coordinator withdraws a pending
   /// request or releases an approved booking - the customer's "withdraw" and
   /// "release" are kept apart so the event record says which it was (AC6).
   status           String    @default("pending")
@@ -498,6 +499,16 @@ model VenueBooking {
   cancelledBy        String?   @map("cancelled_by")
   cancelledAt        DateTime? @map("cancelled_at")
   cancellationReason String?   @map("cancellation_reason")
+  /// Expire Tentative Venue Hold (SPM-82, Week 7 change #4): when this pending
+  /// request stops holding the venue unless Venue Staff approve it first. Set
+  /// when the request is made - 7 days later, or the event's start if sooner
+  /// (src/lib/holdExpiry.ts) - and changeable by Venue Staff while it is
+  /// pending. NULL on bookings made before SPM-82, which never expire. Meaning-
+  /// less once approved: an approved booking never expires (AC11).
+  holdExpiresAt       DateTime? @map("hold_expires_at")
+  /// When the Coordinator was warned that the hold is about to expire, so the
+  /// warning goes once. Cleared when the expiry is moved.
+  expiryWarningSentAt DateTime? @map("expiry_warning_sent_at")
 
   event     Event         @relation("EventVenueBookings", fields: [eventId], references: [id], onDelete: Cascade)
   session   EventSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -515,6 +526,8 @@ model VenueBooking {
   @@index([sessionId])
   /// The Coordinator's review queue: flagged bookings, most recent first.
   @@index([needsReview, flaggedAt])
+  /// SPM-82: the sweep looks for pending holds whose expiry has passed.
+  @@index([status, holdExpiresAt])
   @@map("venue_bookings")
 }
 

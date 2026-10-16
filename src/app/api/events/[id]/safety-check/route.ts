@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { eventReference, parseEventReference } from "@/lib/format";
 import { canViewEvent, isAssignedCoordinator } from "@/lib/permissions";
@@ -50,6 +51,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: transitionError(event.status, "safety_review") }, { status: 400 });
     }
 
+    // SPM-82: an expired hold is not a venue arrangement.
+    await expireDueHolds();
     const [sessions, bookings, equipment] = await Promise.all([
       prisma.eventSession.findMany({
         where: { eventId: event.id },

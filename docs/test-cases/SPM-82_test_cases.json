@@ -1,0 +1,306 @@
+{
+  "story_key": "SPM-82",
+  "story_title": "SPM-82: As Venue Staff, I want a tentative venue hold to expire if it is not confirmed in time so that a venue is not reserved indefinitely and becomes available for other requests.",
+  "created_by": "TAN JORDAN",
+  "creation_date": "2026-10-15",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Every tentative hold has an expiry date and time, which is shown to the Event Coordinator and to Venue Staff."
+    },
+    {
+      "id": "AC2",
+      "text": "The expiry is set when the hold is created, defaults to 7 days later, and can never be later than the start of the event."
+    },
+    {
+      "id": "AC3",
+      "text": "Venue Staff can change a hold's expiry date and time while the hold is still active."
+    },
+    {
+      "id": "AC4",
+      "text": "Given a hold has not been confirmed by its expiry date and time, when that time passes, then the hold's status changes to Expired."
+    },
+    {
+      "id": "AC5",
+      "text": "An expired hold is not treated as a confirmed booking and cannot be approved; the Coordinator must submit a new request."
+    },
+    {
+      "id": "AC6",
+      "text": "Given a hold has expired, when venue availability or conflicts are next checked, then the period it occupied, including the venue's setup and turnaround time, is available for other requests."
+    },
+    {
+      "id": "AC7",
+      "text": "An expired hold is no longer shown as a hold on the venue availability calendar."
+    },
+    {
+      "id": "AC8",
+      "text": "An expired hold remains on the event record and is distinguishable from pending, confirmed, rejected and withdrawn bookings."
+    },
+    {
+      "id": "AC9",
+      "text": "The assigned Event Coordinator is notified a configurable period before a hold expires (default 24 hours) and again when it expires."
+    },
+    {
+      "id": "AC10",
+      "text": "After a hold expires, the event's venue arrangement is shown as outstanding."
+    },
+    {
+      "id": "AC11",
+      "text": "A confirmed booking never expires."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-82-TC01",
+      "title": "A new venue request is held for 7 days, and the Coordinator sees when the hold expires",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm82 before and after this case (it changes data). 'SPM82 Fresh Request Expo' (8 Mar 2027, 09:00-12:00) is in Planning with no venue booking. Logged in as Daniel Tan (Event Coordinator), its assigned coordinator. Note the date and time you click 'Submit request'.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM82 Fresh Request Expo'",
+        "Click the 'Venue' tab",
+        "Find 'SPM82 Hold Room (SPM82-HOLD)' in the venue list and click 'Request booking'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM82 Fresh Request Expo (8 Mar 2027, 09:00-12:00)\nVenue: SPM82 Hold Room (SPM82-HOLD)\nExpected expiry: exactly 7 days after the moment the request is submitted",
+      "expected_result": "Step 4: 'Booking request sent to Venue Staff.' is shown.\nStep 5: Under 'Booking requests', the SPM82 Hold Room request has the 'Pending' badge and reads 'Hold expires <date and time>', where that is the same time of day, 7 days after you submitted it."
+    },
+    {
+      "id": "SPM-82-TC02",
+      "title": "A hold on an event starting in less than 7 days expires at the event's start, not 7 days later",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm82 before and after this case (it changes data). 'SPM82 Short Notice Meetup' starts 3 days after the fixtures were run, at 10:00, and has no venue booking - the fixture script prints its date. Logged in as Daniel Tan (Event Coordinator).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM82 Short Notice Meetup'",
+        "Click the 'Venue' tab",
+        "Find 'SPM82 Hold Room (SPM82-HOLD)' in the venue list and click 'Request booking'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM82 Short Notice Meetup (starts 3 days after the fixtures run, 10:00)\nVenue: SPM82 Hold Room (SPM82-HOLD)",
+      "expected_result": "Step 4: 'Booking request sent to Venue Staff.' is shown.\nStep 5: The SPM82 Hold Room request reads 'Hold expires <the event's own start date>, 10:00' - the start of the event, which is sooner than 7 days away."
+    },
+    {
+      "id": "SPM-82-TC03",
+      "title": "Venue Staff see when each pending hold expires, and an expired hold is not offered to them for approval",
+      "linked_ac": [
+        "AC1",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm82 has been run. 'SPM82 Harbour Product Briefing' has a pending hold at SPM82 Hold Room expiring 15 Jan 2027, 09:00. 'SPM82 Expired Only Talk' had one booking: a hold at SPM82 Hold Room that expired on 1 Oct 2026, 09:00. Logged in as Marcus Wong (Venue Staff).",
+      "steps": [
+        "Click 'Booking Requests' in the sidebar",
+        "Find the card for 'SPM82 Harbour Product Briefing'",
+        "Search the page for 'SPM82 Expired Only Talk' (Ctrl+F)"
+      ],
+      "test_data": "Venue Staff: marcus.wong@connectsphere.com / password123\nPending hold: SPM82 Harbour Product Briefing, expires 15 Jan 2027, 09:00\nExpired hold: SPM82 Expired Only Talk, expired 1 Oct 2026, 09:00",
+      "expected_result": "Step 2: The card has a 'Hold expires' row reading '15 Jan 2027, 09:00', and a 'Change expiry' button beside it.\nStep 3: 'SPM82 Expired Only Talk' is not on the page - its expired hold has no card, so there is nothing to approve."
+    },
+    {
+      "id": "SPM-82-TC04",
+      "title": "Venue Staff cannot move a hold's expiry into the past or past the start of the event",
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm82 has been run. 'SPM82 Harbour Product Briefing' starts 8 Feb 2027, 09:00; its hold expires 15 Jan 2027, 09:00. Logged in as Marcus Wong (Venue Staff). Nothing is saved in this case.",
+      "steps": [
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM82 Harbour Product Briefing' card, click 'Change expiry'",
+        "Set 'New expiry' to 9 Feb 2027, 09:00 and click 'Save expiry'",
+        "Set 'New expiry' to 1 Jan 2026, 09:00 and click 'Save expiry'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event start: 8 Feb 2027, 09:00\nTried: 9 Feb 2027, 09:00 (after the event starts); 1 Jan 2026, 09:00 (in the past)",
+      "expected_result": "Step 3: The expiry is not changed. 'The expiry cannot be later than the start of the event (8 Feb 2027, 09:00).' is shown.\nStep 4: The expiry is not changed. 'The expiry must be in the future.' is shown.\nStep 5: The form closes and 'Hold expires' still reads '15 Jan 2027, 09:00'."
+    },
+    {
+      "id": "SPM-82-TC05",
+      "title": "Venue Staff bring a hold's expiry forward, and once that time passes the hold leaves their list and the event shows it as Expired",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm82 before and after this case (it changes data). 'SPM82 Countdown Clinic' has a pending hold at SPM82 Hold Room expiring 20 Jan 2027, 09:00. Logged in as Marcus Wong (Venue Staff).",
+      "steps": [
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM82 Countdown Clinic' card, click 'Change expiry'",
+        "Set 'New expiry' to 2 minutes from now and click 'Save expiry'",
+        "Wait until that time has passed, then click 'Booking Requests' in the sidebar",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM82 Countdown Clinic'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM82 Countdown Clinic\nNew expiry: 2 minutes after the current time\nCoordinator: daniel.tan@connectsphere.com / password123",
+      "expected_result": "Step 3: 'Hold expiry changed to <the time you chose>.' is shown, and the card's 'Hold expires' row reads that time.\nStep 4: The 'SPM82 Countdown Clinic' card is no longer listed: the hold has expired.\nStep 8: Under 'Booking requests', SPM82 Hold Room has the badge 'Expired' and reads 'Hold expired on <the time you chose in step 3>'."
+    },
+    {
+      "id": "SPM-82-TC06",
+      "title": "An expired hold stays on the event, marked Expired and distinct from pending, approved, rejected and withdrawn bookings - and an approved booking does not expire",
+      "linked_ac": [
+        "AC4",
+        "AC8",
+        "AC11"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm82 has been run. 'SPM82 Lapsed Workshop' (22 Feb 2027, 14:00-17:00) has five venue bookings: SPM82 Hold Room (pending, hold due to expire 1 Oct 2026, 09:00 - now past), Orchard Seminar Room (approved; its hold deadline of 1 Oct 2026 also passed before it was approved), Marina Auditorium (rejected), Orchard Gallery (withdrawn) and One-North Seminar Room (pending, hold expires 20 Feb 2027, 09:00). Logged in as Daniel Tan (Event Coordinator).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM82 Lapsed Workshop'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM82 Lapsed Workshop\nBookings: SPM82 Hold Room (hold expired 1 Oct 2026, 09:00); Orchard Seminar Room (approved); Marina Auditorium (rejected); Orchard Gallery (withdrawn); One-North Seminar Room (pending, expires 20 Feb 2027, 09:00)",
+      "expected_result": "Step 2: Under 'Booking requests' all five are listed, each with its own badge: SPM82 Hold Room 'Expired' with 'Hold expired on 1 Oct 2026, 09:00'; One-North Seminar Room 'Pending' with 'Hold expires 20 Feb 2027, 09:00'; Orchard Seminar Room 'Approved' with no expiry line; Marina Auditorium 'Rejected'; Orchard Gallery 'Withdrawn'."
+    },
+    {
+      "id": "SPM-82-TC07",
+      "title": "The Coordinator is warned only when a hold expires within 24 hours and told when a hold has expired, and each notification opens the event's Venue tab",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm82 before this case. 'SPM82 Closing Soon Forum' has a pending hold at SPM82 Hold Room expiring 12 hours after the fixtures were run. 'SPM82 Lapsed Workshop' has a hold at SPM82 Hold Room whose expiry, 1 Oct 2026, 09:00, has passed. 'SPM82 Harbour Product Briefing' has a pending hold at SPM82 Hold Room expiring 15 Jan 2027, 09:00 - months away. Logged in as Daniel Tan (Event Coordinator), the assigned coordinator of both. Run npm run fixtures:spm82 after this case.",
+      "steps": [
+        "Click 'Notifications' in the sidebar",
+        "Click 'Venue hold expired'"
+      ],
+      "test_data": "Warning: SPM82 Closing Soon Forum, hold expires about 12 hours after the fixtures ran\nExpired: SPM82 Lapsed Workshop, hold expired 1 Oct 2026, 09:00\nNot due: SPM82 Harbour Product Briefing, hold expires 15 Jan 2027, 09:00",
+      "expected_result": "Step 1: The list includes 'Venue hold expires soon' for 'SPM82 Closing Soon Forum', saying the hold on SPM82 Hold Room (SPM82-HOLD) expires at a time about 12 hours after the fixtures ran, and 'Venue hold expired' for 'SPM82 Lapsed Workshop', saying the hold on SPM82 Hold Room (SPM82-HOLD) expired on 1 Oct 2026, 09:00 and the venue has been released. Both are Unread. There is no 'Venue hold expires soon' for 'SPM82 Harbour Product Briefing', whose hold is not due for months.\nStep 2: The Venue tab of 'SPM82 Lapsed Workshop' opens."
+    },
+    {
+      "id": "SPM-82-TC08",
+      "title": "After a hold expires the event's venue arrangement is outstanding, and the event cannot be confirmed on it",
+      "linked_ac": [
+        "AC10",
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm82 has been run. 'SPM82 Expired Only Talk' (1 Mar 2027, 14:00-16:00) is in Planning; its only venue booking was a hold at SPM82 Hold Room that expired on 1 Oct 2026, 09:00. It has no equipment and registration is off. Logged in as Daniel Tan (Event Coordinator). Nothing is saved in this case: confirming is refused.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM82 Expired Only Talk'",
+        "Click the 'Readiness' tab",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM82 Expired Only Talk\nOnly booking: SPM82 Hold Room, hold expired 1 Oct 2026, 09:00",
+      "expected_result": "Step 2: Under 'Venue bookings', SPM82 Hold Room is 'Outstanding' and reads 'The hold on SPM82 Hold Room for this event expired on 1 Oct 2026, 09:00 - submit a new request.'\nStep 5: The event is not confirmed: 'This event cannot be confirmed yet: the hold on SPM82 Hold Room for this event expired on 1 Oct 2026, 09:00 - submit a new request.' The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-82-TC09",
+      "title": "After a hold expires the Coordinator can request the same room again, and the new request replaces the expired one as the venue arrangement",
+      "linked_ac": [
+        "AC5",
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm82 before and after this case (it changes data). 'SPM82 Expired Only Talk' (1 Mar 2027, 14:00-16:00): its only venue booking, a hold at SPM82 Hold Room, expired on 1 Oct 2026, 09:00. Logged in as Daniel Tan (Event Coordinator).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM82 Expired Only Talk'",
+        "Click the 'Venue' tab",
+        "Find 'SPM82 Hold Room (SPM82-HOLD)' in the venue list and click 'Request booking'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM82 Expired Only Talk\nRoom requested again: SPM82 Hold Room (SPM82-HOLD), 1 Mar 2027, 14:00-16:00",
+      "expected_result": "Step 4: 'Booking request sent to Venue Staff.' is shown - the expired hold does not block the same room.\nStep 5: Under 'Booking requests' the new SPM82 Hold Room request is 'Pending' with its own 'Hold expires' line, and the old one is still listed as 'Expired'.\nStep 6: Under 'Venue bookings', SPM82 Hold Room shows 'Space: Main programme · Booking status: Pending' and is 'Outstanding' only as 'SPM82 Hold Room (Main programme) for this event is still awaiting a decision from Venue Staff.' The expired hold is no longer listed as outstanding."
+    },
+    {
+      "id": "SPM-82-TC10",
+      "title": "Venue search and a new booking request treat the time an expired hold took up, including the room's setup and turnaround, as free",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm82 before and after this case (it changes data). SPM82 Hold Room has 60 minutes of setup and 60 of turnaround. 'SPM82 Lapsed Workshop' held it on 22 Feb 2027, 14:00-17:00 - occupying 13:00-18:00 with setup and turnaround - until the hold expired on 1 Oct 2026, 09:00. 'SPM82 Rival Seminar' runs 22 Feb 2027, 17:00-19:00, so its own setup starts at 16:00. 'SPM82 Harbour Product Briefing' still holds the room on 8 Feb 2027, 09:00-12:00 (its hold expires 15 Jan 2027). Logged in as Daniel Tan (Event Coordinator).",
+      "steps": [
+        "Click 'Venues' in the sidebar and click 'Find a venue'",
+        "Set 'From' to 22 Feb 2027, 15:00 and 'To' to 22 Feb 2027, 16:00, and click 'Search'",
+        "Set 'From' to 8 Feb 2027, 10:00 and 'To' to 8 Feb 2027, 11:00, and click 'Search'",
+        "Click 'All Events' in the sidebar and open 'SPM82 Rival Seminar'",
+        "Click the 'Venue' tab",
+        "Find 'SPM82 Hold Room (SPM82-HOLD)' in the venue list and click 'Request booking'",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Expired hold: SPM82 Lapsed Workshop, 22 Feb 2027, 14:00-17:00 (occupying 13:00-18:00)\nActive hold: SPM82 Harbour Product Briefing, 8 Feb 2027, 09:00-12:00\nSearch 1: 22 Feb 2027, 15:00-16:00\nSearch 2: 8 Feb 2027, 10:00-11:00\nNew request: SPM82 Rival Seminar, 22 Feb 2027, 17:00-19:00 (occupying 16:00-20:00)",
+      "expected_result": "Step 2: 'SPM82 Hold Room' is among the results: the expired hold of 'SPM82 Lapsed Workshop' no longer makes it unavailable at that time.\nStep 3: 'SPM82 Hold Room' is not among the results: an active hold (SPM82 Harbour Product Briefing) still takes the room out of the search.\nStep 7: 'Booking request sent to Venue Staff.' is shown. The request is not refused as on hold for 'SPM82 Lapsed Workshop', although its setup and turnaround overlap the time that hold took up."
+    },
+    {
+      "id": "SPM-82-TC11",
+      "title": "The availability calendar shows an active hold as Requested but no longer shows an expired one",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm82 has been run (and SPM-82-TC10 has not been run since). On SPM82 Hold Room: 'SPM82 Harbour Product Briefing' holds 8 Feb 2027, 09:00-12:00 (pending); 'SPM82 Lapsed Workshop' held 22 Feb 2027, 14:00-17:00 until its hold expired. Logged in as Daniel Tan (Event Coordinator).",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "Click 'View availability' on the 'SPM82 Hold Room (SPM82-HOLD)' row",
+        "Set 'From' to 8 Feb 2027 and 'To' to 14 Feb 2027, and click 'Show availability'",
+        "Set 'From' to 22 Feb 2027 and 'To' to 28 Feb 2027, and click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM82 Hold Room (SPM82-HOLD)\nActive hold: 8 Feb 2027, 09:00-12:00 (SPM82 Harbour Product Briefing)\nExpired hold: 22 Feb 2027, 14:00-17:00 (SPM82 Lapsed Workshop)",
+      "expected_result": "Step 3: Under 'Requested, not yet approved', the 'SPM82 Harbour Product Briefing' hold on 8 Feb 2027 is listed.\nStep 4: 'SPM82 Lapsed Workshop' appears nowhere on the calendar, and there is no 'Requested, not yet approved' list: the room has no hold that week."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-15 (the assumption in the story): a pending venue booking request is the tentative hold (discussion #41), and the hold is 'confirmed' when Venue Staff approve it. An approved booking never expires (AC11).",
+    "DECIDED 2026-10-15 (how expiry happens - the story's 'real unknown'): there is no scheduled job. Whenever bookings are read - the Venue tab, Venue Staff's Booking Requests, the availability calendar, venue search, a new request, an approval, Readiness, Confirm event, Submit for safety check - every pending hold whose expiry has passed is first marked Expired in one database statement, which also says which holds it changed, so each Coordinator is notified exactly once even if two people load a page at the same moment. The same check runs on every page change through the unread-notifications count, so warnings and expiry notices arrive while anyone is using the app. Discussion #55: notifications have no hard real-time requirement. A deployment can add a scheduled call later without changing any rule.",
+    "DECIDED 2026-10-15 (AC2): the expiry is 7 days after the request, or the start of the event if that is sooner. For a multi-session event 'the start of the event' is the event's own start - its first session - so a later session's hold also expires by then at the latest.",
+    "DECIDED 2026-10-15 (AC9, 'configurable'): there is no settings screen in the system (customer clarification on system configuration), so the warning period is the VENUE_HOLD_WARNING_HOURS setting in .env, default 24. The warning is sent once per hold; a hold already inside the period when it is created, or whose expiry is moved, is warned the next time bookings are read. It goes to the event's assigned Coordinator, or to whoever made the request if the event has none.",
+    "DECIDED 2026-10-15 (wording): on the Coordinator's Venue tab a pending request reads 'Hold expires <date, time>' and an expired one has the badge 'Expired' and 'Hold expired on <date, time>'. Venue Staff's card has a 'Hold expires' row with a 'Change expiry' button; the form has 'New expiry', 'Save expiry' and 'Cancel'; success 'Hold expiry changed to <date, time>.'; refusals 'The expiry must be in the future.' and 'The expiry cannot be later than the start of the event (<date, time>).' Notifications: 'Venue hold expires soon' and 'Venue hold expired', each opening the event's Venue tab. Readiness and Confirm: 'the hold on <room> for this event expired on <date, time> - submit a new request'.",
+    "DECIDED 2026-10-15 (AC10): an expired hold stays outstanding for its session until the Coordinator has a newer pending or approved request for the same space - the same session and, since SPM-90, the same purpose; a hold with no purpose recorded (made before SPM-90) is replaced by any newer request for its session - or marks it as not required (SPM-33). A rejected or withdrawn request still never counts. Found while running SPM-82-TC09: the purpose-only rule left an older hold outstanding after the Coordinator had re-requested the room.",
+    "DECIDED 2026-10-15 (bookings made before SPM-82): the migration adds hold_expires_at and expiry_warning_sent_at to venue_bookings. Requests made through the app always get an expiry. Pending bookings already in the database, and ones that fixture scripts create directly, keep no expiry and never expire, so no other story's pending test bookings expire under its testers. Venue Staff can give such a hold an expiry with 'Change expiry'.",
+    "DECIDED 2026-10-15 (fixture dates): most cases use fixed dates - a hold that expired on 1 Oct 2026 stays expired. Three things are relative to when npm run fixtures:spm82 is run, because they are about time passing: the 7-day default (TC01), the cap at an event starting in 3 days (TC02) and the warning 12 hours before expiry (TC07).",
+    "RESOLVED 2026-10-15: changing the warning period from the screen, choosing email versus in-app delivery (#37) and holds on equipment are not part of this story."
+  ],
+  "code_references": [
+    "src/lib/holdExpiry.ts",
+    "src/lib/holdExpiryService.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/eventArrangements.ts",
+    "src/lib/venueBookingReview.ts",
+    "src/lib/notificationView.ts",
+    "src/lib/statuses.ts",
+    "src/lib/validation/venues.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/api/venue-bookings/route.ts",
+    "src/app/api/venue-bookings/[id]/route.ts",
+    "src/app/api/venue-bookings/[id]/expiry/route.ts",
+    "src/app/api/venues/[id]/availability/route.ts",
+    "src/app/api/venues/search/route.ts",
+    "src/app/api/events/[id]/arrangements/route.ts",
+    "src/app/api/events/[id]/safety-check/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/notifications/unread-count/route.ts",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/bookings/page.tsx",
+    "src/app/venues/[id]/availability/page.tsx",
+    "prisma/schema.prisma",
+    "prisma/migrations/20261015130000_add_venue_hold_expiry/migration.sql",
+    "scripts/seed-spm82.ts",
+    "prisma/seed.ts"
+  ]
+}

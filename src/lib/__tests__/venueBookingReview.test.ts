@@ -58,6 +58,19 @@ const reject = (
 ): BookingDecisionInput => ({ ...base, decision: { decision: "reject", reason, ...extra } });
 
 describe("approving a booking request (AC3, AC7)", () => {
+  // SPM-82 (AC5): an expired hold was never a booking, and cannot be decided
+  // now - not even rejected. The Coordinator submits a new request instead.
+  it("SPM-82: refuses to approve or reject a hold that has expired, saying what to do instead", () => {
+    const expired = { ...base, booking: { ...base.booking, status: "expired" } };
+    const message = "This hold has expired. The Coordinator must submit a new request.";
+
+    expect(checkBookingDecision(expired)).toEqual({ ok: false, error: message });
+    expect(checkBookingDecision({ ...expired, decision: { decision: "reject", reason: "Too late" } })).toEqual({
+      ok: false,
+      error: message,
+    });
+  });
+
   it("a pending request for a free room can be approved", () => {
     expect(checkBookingDecision(base)).toEqual({ ok: true });
   });

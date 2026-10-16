@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canViewEvent } from "@/lib/permissions";
 import { parseEventReference } from "@/lib/format";
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
 
   // Retired venues are out of the catalogue, so they are never search results
   // (SPM-39 AC6: inactive venues are not presented as available options).
+  // SPM-82 (AC6): the time an expired hold took up counts as free.
+  await expireDueHolds();
   const venues = await prisma.venue.findMany({
     where: { isActive: true },
     include: {

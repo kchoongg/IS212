@@ -40,6 +40,9 @@ const STATUS_META: Record<string, StatusMeta> = {
   // below with Registration, reads the same) or a released booking. Grey, as
   // neither holds the room any more.
   released: { label: "Released", tone: "neutral" },
+  // SPM-82: a tentative hold not approved in time. Grey: it holds nothing, and
+  // stays on the event record so the Coordinator can see what happened (AC8).
+  expired: { label: "Expired", tone: "neutral" },
 
   // --- Equipment request ---
   requested: { label: "Requested", tone: "info" },
