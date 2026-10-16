@@ -96,6 +96,20 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     });
   });
 
+  // SPM-88 (AC3, SPM-88-TC04): flags set after a returned check block resubmission.
+  it("refuses an arrangement flagged after the safety check was returned, saying so", () => {
+    const flagged = booking({ needsReview: true, reviewReason: "safety_check_returned" });
+
+    const result = check({ bookings: [flagged], equipment: [item()] });
+
+    expect(result).toMatchObject({
+      ok: false,
+      outstanding: [
+        `the venue booking at ${VENUE} for this event is flagged for review (the Safety Officer returned the safety check)`,
+      ],
+    });
+  });
+
   it("refuses reserved equipment that is flagged for review, naming only that item", () => {
     const flagged = item({ needsReview: true, reviewReason: "event_schedule_changed" });
 

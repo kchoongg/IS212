@@ -126,7 +126,7 @@ cite.
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
 | S-26 | Browse events | `/browse` | Confirmed, registration-enabled events, each with a registration badge (Open, Not open yet + "Opens <date>", Closed, Full, Dates not set), soonest first (SPM-51). Registering happens on the event page's "Your registration" card. |
-| S-27 | My registrations | `/registrations` | My registrations and their status (SPM-51). Each Registered row has **Withdraw** (SPM-52), behind the same dialog as on S-06; afterwards "You have withdrawn from <event title>." and the row stays, as Withdrawn. |
+| S-27 | My registrations | `/registrations` | My registrations and their status (SPM-51). Each Registered row for an event that isn't cancelled, completed or over has **Withdraw** (SPM-52), behind the same dialog as on S-06; afterwards "You have withdrawn from <event title>." and the row stays, as Withdrawn. |
 
 *(Attendees reach a public view of an event through S-06, rendered with the
 attendee variant — see §4.3.)*
@@ -216,6 +216,23 @@ before anything loads — "You do not have access to this", "Finding and booking
 a venue is for the Event Coordinator. The rooms booked for this event are on
 its Overview."
 
+**Resolving a safety check** (SPM-88). Staff see a **Safety check history**
+card under Details: every submission, newest first - "Submitted by Daniel Tan,
+8 Oct 2026, 14:00 - Changes requested by Hana Yusof, 9 Oct 2026, 10:00.
+Changes required: …", "Awaiting review" while pending, "Closed after a change
+on <date>: <what changed>" once closed. Not shown to the organiser or an
+Attendee, or before the first submission. Once a check is returned (changes
+requested or rejected) and the event is back in Planning, the assigned
+coordinator gets **Flag arrangements for review** in the header: a dialog of
+the same name with a tick box per venue booking ("Venue: <room>", or "Venue:
+<session>: <room>") and equipment line ("Equipment: <item>"), "Flag for
+review" / "Cancel", "Choose at least one arrangement to flag." when nothing is
+ticked, then "<n> arrangement(s) flagged for review. Nothing has been changed
+or cancelled." A significant change in Safety review or Safety approved asks
+"Move this event back to Planning?" first on the edit page and the Equipment
+tab (the pending check is closed, or the approval cancelled), and the Venue tab
+and booking request form say "The safety check was closed" afterwards.
+
 **The Overview's Registration card** (SPM-64) is read-only for every role
 that can see the event: Registration (Enabled / Not enabled for this event),
 then Capacity, Measured against, Opens and Closes. Attendees don't see
@@ -227,9 +244,10 @@ Registration capacity, Capacity measured against (only with two or more active
 venue bookings), Registration opens, Registration closes, and "Save
 registration settings" / "Cancel". Each server refusal shows under its own
 field, and a save that flags the registrations lists them under "Flagged for
-review". While registration is enabled, the organiser and coordinators also see
-"Places taken" ("3 of 10 · 7 left", or just the number with no capacity) and
-"Withdrawn" (SPM-52); no other role does.
+review". The organiser and coordinators also see "Places taken" ("3 of 10 · 7
+left", or just the number with no capacity or with registration turned off) and
+"Withdrawn" (SPM-52), whether or not registration is enabled; no other role
+does.
 
 A tab the role cannot see is **not rendered** — not rendered-and-disabled.
 Disabled tabs leak the existence of internal planning information, which §8b of
@@ -515,7 +533,7 @@ getting right.
 | Equipment out of service | S-24, S-25 | Availability shown as `total − out of service − reserved`; the breakdown is visible, not just the result. Marking units out of service flags the reservations it leaves short and lists them (SPM-55). |
 | Registration full | S-06 "Your registration" | No Register button: "This event is full. You can join the waiting list instead." and, until Join and Respond to Waiting List is built, "Joining the waiting list isn't available yet." (SPM-51). |
 | Registration not open or closed | S-06 "Your registration" | No Register button (hidden, not disabled): "Registration opens 1 Nov 2027, 09:00." or "Registration closed on 30 Sept 2026, 17:00." With no dates: "Registration dates haven't been set for this event." (SPM-51). |
-| Already registered | S-06 "Your registration" | Register replaced by the status badge and "You registered on <date>." or "You're on the waiting list." (SPM-51). A Registered one also has **Withdraw** (SPM-52): "Withdraw from <event title>?" — "Your place is released and can be taken by someone else. To attend, you would have to register again, and the event may be full by then." — "Keep my place" / "Withdraw"; afterwards "You have withdrawn from this event." and Register is offered again. Waiting list, Attended and Withdrawn have no Withdraw (leaving the waiting list is SPM-66). |
+| Already registered | S-06 "Your registration" | Register replaced by the status badge and "You registered on <date>." or "You're on the waiting list." (SPM-51). A Registered one also has **Withdraw** (SPM-52): "Withdraw from <event title>?" — "Your place is released and can be taken by someone else. To attend, you would have to register again, and the event may be full by then." — "Keep my place" / "Withdraw"; afterwards "You have withdrawn from this event." and Register is offered again. Waiting list, Attended and Withdrawn have no Withdraw (leaving the waiting list is SPM-66), and neither does any registration once the event is cancelled, completed or past its end. |
 | Significant change proposed | S-10, S-17 | Amber warning listing exactly which arrangements will need re-checking (venue, equipment, registrations). |
 | Event cancelled with live bookings | S-06 cancel | `ConfirmDialog` listing the bookings and reservations that will be released. |
 | Rejecting without a reason | S-13, S-22 | Submit blocked; reason field errors. The server enforces this too. |
@@ -611,6 +629,7 @@ This document specifies the whole first release. What is built so far:
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
 | S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
+| Resolve safety check outcome (SPM-88): the Safety check history card, the "Flag arrangements for review" button and dialog, the safety wording of "Move this event back to Planning?" on the edit page and the Equipment tab, and "The safety check was closed" on the Venue tab and booking request form | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyFlagDialog.tsx`, `src/app/events/[id]/update/page.tsx`, `src/app/events/[id]/equipment/page.tsx`, `src/app/events/[id]/venue/page.tsx`, `src/app/events/[id]/booking/new/page.tsx`, `src/lib/safetyResolution.ts` |
 | Record safety decision - the Safety Officer, on an event in Safety review (SPM-87): button and dialog (Approve / Request changes / Reject, with a required reason for the last two), the decision on the "Safety check" row, each venue's opening hours and unavailable periods on the Venue bookings card, a "Safety approved" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyDecisionDialog.tsx`, `src/lib/safetyDecision.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |

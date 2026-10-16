@@ -9,9 +9,11 @@ import { describe, it, expect } from "vitest";
 import {
   REGISTRATION_REFUSALS,
   SEAT_TAKING,
+  WITHDRAW_REFUSALS,
   canWithdraw,
   registrationCounts,
   registrationState,
+  withdrawRefusal,
 } from "../registrationEligibility";
 
 const OPENS = new Date("2026-09-01T01:00:00.000Z"); // 1 Sept 2026, 09:00 Singapore
@@ -115,12 +117,36 @@ describe("the refusal each state gives", () => {
 
 // SPM-52 Withdraw from Event.
 describe("SPM-52 AC1 only a registration holding a seat can be withdrawn", () => {
-  it("lets a registered attendee withdraw", () => {
-    expect(canWithdraw("registered")).toBe(true);
+  const NOW = new Date("2026-10-13T04:00:00Z");
+  const upcoming = { status: "confirmed", endsAt: new Date("2028-03-04T09:00:00Z") };
+
+  it("lets a registered attendee withdraw from an upcoming event", () => {
+    expect(withdrawRefusal("registered", upcoming, NOW)).toBeNull();
+    expect(canWithdraw("registered", upcoming, NOW)).toBe(true);
   });
 
   it.each(["waitlisted", "withdrawn", "attended"])("does not let a %s registration be withdrawn", (status) => {
-    expect(canWithdraw(status)).toBe(false);
+    expect(withdrawRefusal(status, upcoming, NOW)).toBe(WITHDRAW_REFUSALS.not_active);
+    expect(canWithdraw(status, upcoming, NOW)).toBe(false);
+  });
+
+  it("does not let a registration for a cancelled event be withdrawn", () => {
+    expect(withdrawRefusal("registered", { ...upcoming, status: "cancelled" }, NOW)).toBe(WITHDRAW_REFUSALS.cancelled);
+  });
+
+  it("does not let a registration for a completed event be withdrawn", () => {
+    expect(withdrawRefusal("registered", { ...upcoming, status: "completed" }, NOW)).toBe(WITHDRAW_REFUSALS.over);
+  });
+
+  it("does not let a registration be withdrawn once the event has ended, even before it is marked completed", () => {
+    const ended = { status: "confirmed", endsAt: new Date("2026-10-12T09:00:00Z") };
+    expect(withdrawRefusal("registered", ended, NOW)).toBe(WITHDRAW_REFUSALS.over);
+    expect(withdrawRefusal("registered", { ...ended, endsAt: NOW }, NOW)).toBe(WITHDRAW_REFUSALS.over);
+  });
+
+  it("reads the end time as the screens receive it, an ISO string", () => {
+    expect(canWithdraw("registered", { status: "confirmed", endsAt: "2026-10-12T09:00:00.000Z" }, NOW)).toBe(false);
+    expect(canWithdraw("registered", { status: "confirmed", endsAt: "2028-03-04T09:00:00.000Z" }, NOW)).toBe(true);
   });
 });
 

@@ -262,7 +262,9 @@ IS212/
     │       │                                events/[id]/safety-check (POST: submit for an
     │       │                                Operational Safety Check, SPM-86 - Janelle),
     │       │                                events/[id]/safety-decision (POST: the Safety
-    │       │                                Officer's decision, SPM-87 - Janelle)
+    │       │                                Officer's decision, SPM-87 - Janelle),
+    │       │                                events/[id]/safety-flags (POST: flag the
+    │       │                                arrangements a returned check concerns, SPM-88 - Janelle)
     │       ├── assignments/              (Kristen) — the S-28 queue's data (SPM-30)
     │       ├── queue/                    (Kristen) — the S-12 Review Queue's data (SPM-28)
     │       ├── venues/                   (Kayal) — incl. venues/[id]/unavailability
@@ -328,6 +330,12 @@ IS212/
         ├── safetyDecision.ts             # SPM-87 (pure): the three decisions, the reason rules,
         │                                   where each leaves the event, and the wording of the
         │                                   event's "Safety check" row and the notification
+        ├── safetyResolution.ts           # SPM-88 (pure): what follows a returned check (the
+        │                                   flag reason, when the coordinator may flag), what
+        │                                   closes a check, the history lines and the wording
+        ├── safetyCheckClose.ts            # SPM-88: closeSafetyCheckAfterChange() - a significant
+        │                                   change closes the check and returns the event to
+        │                                   Planning, in the caller's transaction
         ├── safetyCheck.ts                # SPM-86 (pure): checkSafetySubmission() - is an event
         │                                   ready for an Operational Safety Check? Confirm's
         │                                   arrangements (eventConfirmation.ts) plus no flagged
@@ -412,7 +420,7 @@ run, one thing to demo each sprint, no Docker/deployment overhead).
 | **Jordan** | `src/app/api/auth/` | Login, register, sessions | `User`, `Organisation` | 🟢 working |
 | **Kristen** | `src/app/api/events/` | Event requests, status | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` | 🟢 working (EventSession: schema only, no routes yet) |
 | **Kayal** | `src/app/api/venues/`, `src/app/api/facilities/` | Venues, bookings, facility reference data | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` | 🟢 venue list + create + update + retire (with booking review flags), catalogue UI, facilities list, availability calendar (S-21, SPM-46 — read-only), venue search + filters (SPM-40), booking decision (S-22, SPM-43), unavailable periods (SPM-45, on S-20) |
-| **Janelle** | `src/app/api/equipment/`, `src/app/api/events/[id]/equipment/` | Equipment catalogue, requests, availability, reservations | `Equipment`, `EquipmentRequest` | 🟢 list + create, out-of-service (SPM-48), event requests (SPM-47), availability (SPM-48), reserve (SPM-49), fulfilment status + technical notes (SPM-50), Equipment page + record/return units out of service, flagging short reservations (SPM-55); also Submit for safety check (SPM-86, `events/[id]/safety-check`, `SafetyCheck`) and the Safety Officer's decision (SPM-87, `events/[id]/safety-decision`) |
+| **Janelle** | `src/app/api/equipment/`, `src/app/api/events/[id]/equipment/` | Equipment catalogue, requests, availability, reservations | `Equipment`, `EquipmentRequest` | 🟢 list + create, out-of-service (SPM-48), event requests (SPM-47), availability (SPM-48), reserve (SPM-49), fulfilment status + technical notes (SPM-50), Equipment page + record/return units out of service, flagging short reservations (SPM-55); also Submit for safety check (SPM-86, `events/[id]/safety-check`, `SafetyCheck`) the Safety Officer's decision (SPM-87, `events/[id]/safety-decision`), and resolving it (SPM-88, `events/[id]/safety-flags`) |
 | **Sammi** | `src/app/api/registrations/` | Attendee registration | `Registration` | 🟢 working |
 
 Stick to your own folder for new *route* files. `prisma/schema.prisma` is
@@ -684,12 +692,15 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
 | **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
 | **An event begins planning with the assigned coordinator's first venue or equipment action, and only from Approved** — pressing Search on Find a venue, submitting a booking request, or adding, saving or removing an equipment requirement. Nothing else moves an event to Planning; the general status PATCH refuses it | `beginPlanningIfApproved()` (`src/lib/beginPlanning.ts`), `canBeginPlanning()`, `POST /api/events/[id]/begin-planning` | ✅ done (SPM-54) |
-| **Only the assigned coordinator updates an event's information after submission, and only while it is Approved, Planning or Confirmed** — the organiser asks through a change request instead (SPM-35, clarification #102). Organiser, coordinator, status, equipment (Equipment tab), sessions and registration settings (SPM-64) are not editable there | `canUpdateEventInformation()`, `EVENT_INFORMATION_STATUSES`, `updateEventInformationSchema` (strict), `PATCH /api/events/[id]/information` | ✅ done (SPM-62) |
+| **Only the assigned coordinator updates an event's information after submission, and only while it is Approved, Planning, Safety review, Safety approved (SPM-88) or Confirmed** — the organiser asks through a change request instead (SPM-35, clarification #102). Organiser, coordinator, status, equipment (Equipment tab), sessions and registration settings (SPM-64) are not editable there | `canUpdateEventInformation()`, `EVENT_INFORMATION_EDIT_STATUSES`, `updateEventInformationSchema` (strict), `PATCH /api/events/[id]/information` | ✅ done (SPM-62) |
 | **An important change flags the arrangements it affects and never changes them** — date or time flags the venue bookings, equipment and registrations; attendance or venue requirements flag the venue bookings only. Flags merge into what is already there (SPM-39's reasons included) | `src/lib/eventChangeImpact.ts`, `src/lib/applyEventInformation.ts` | ✅ done (SPM-62) |
 | **A Confirmed event goes back to Planning when its venue or equipment is affected** — an important change on the edit form, or any equipment change on the Equipment tab, asked first in both places. Registrations alone do not revert it | `revertsConfirmation()`, `revertConfirmationIfConfirmed()` (`src/lib/beginPlanning.ts`) | ✅ done (SPM-62) |
 | **Only the assigned coordinator marks an arrangement as not required, and only while the event is in Planning** — any coordinator can read the Readiness list; on a Confirmed event nothing can be marked or reversed | `canMarkArrangements()`, `ARRANGEMENT_MARKING_STATUSES`, `canViewArrangements()`, `GET` / `PATCH /api/events/[id]/arrangements` | ✅ done (SPM-33) |
 | **An event is submitted for an Operational Safety Check only by its assigned coordinator, only from Planning, and only once its arrangements are held and none is flagged for review** — the same arrangements as Confirm event (an approved venue per session; recorded equipment Reserved or Partially fulfilled) plus no held booking or equipment flagged for review. The refusal names each one. Submitting moves the event to Safety review, records who and when, and notifies every Safety Officer; a second submission is refused while one is pending. Safety review is never set through the status PATCH | `checkSafetySubmission()` (`src/lib/safetyCheck.ts`), `canSubmitForSafetyCheck()`, `POST /api/events/[id]/safety-check` | ✅ done (SPM-86) |
 | **Only the Safety Officer decides a safety check, only while the event is in Safety review, and once per submission** - approve moves it to Safety approved (stored as `safety_cleared`, because `safety_approved` is the Readiness tab's safety-check badge), reject or request changes returns it to Planning and needs a reason (at most 1,000 characters). The decision, who and when are saved on the SafetyCheck, the move in the status history, and the assigned coordinator is notified with the reason. A second decision on the same submission is refused | `safetyDecisionSchema` and `statusAfterDecision()` (`src/lib/safetyDecision.ts`), `canRecordSafetyDecision()`, `POST /api/events/[id]/safety-decision` | ✅ done (SPM-87) |
+| **A significant change closes the safety check the event rests on** - the coordinator's important information change, equipment change, or venue booking requested, withdrawn or released, while the event is in Safety review or Safety approved, closes the check and returns the event to Planning; a Confirmed event moved back to Planning (SPM-62) has its approval closed too. Ordinary edits change nothing | `closeSafetyCheckAfterChange()` (`src/lib/safetyCheckClose.ts`), `closeReasonFor()` / `CLOSE_REASONS` (`src/lib/safetyResolution.ts`), the information, equipment and venue booking routes | ✅ done (SPM-88) |
+| **Confirm needs the Safety Officer's approval** - the Operational Safety Check is always among what blocks confirmation | `safetyRow()` in `src/lib/eventConfirmation.ts` | ✅ done (SPM-88) |
+| **After a returned check, only the assigned coordinator flags the arrangements it concerns, only while the event is in Planning** - flags only, with the reason `safety_check_returned`; they block resubmission until resolved (SPM-68) | `canFlagForSafetyReview()`, `canFlagAfterReturn()`, `POST /api/events/[id]/safety-flags` | ✅ done (SPM-88) |
 | **Venue bookings and equipment changes wait for approval** — on a Submitted or Under review event the coordinator can search venues but cannot request a booking or add, change or remove equipment | `isBeforeApproval()` (`src/lib/statuses.ts`), `checkVenueBookingRequest()`, the equipment routes | ✅ done (SPM-54) |
 | **A booking request is reviewed only once its event is approved** — a pending request whose event is still Submitted or Under review is not listed on Booking Requests and cannot be approved | `GET /api/venue-bookings`, `awaitingEventApproval()` (`src/lib/venueBookingReview.ts`) | ✅ done (SPM-43) |
 | **Only the assigned Event Coordinator may cancel an event** — not the organiser who owns it, not the Ops Manager (customer clarification, 2026-09-18) | `STATUS_TRANSITION_ROLES.cancelled` | ✅ done |
@@ -918,14 +929,16 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 
 | Gap | Impact | Owner |
 |---|---|---|
+| **Other stories' manual test cases assume Confirm ignores the safety check** | Since SPM-88, Confirm needs the Safety Officer's approval (an approved check, normally from Safety approved), and the Readiness tab counts the safety check among what blocks confirmation. These cases confirm, or count blockers, on fixture events that have no approved check, so their expected results are now out of date: **SPM-34** TC01, TC03-TC09 (Kristen); **SPM-33** TC01, TC05, TC07, TC13, TC14 (Kristen; TC07's "Confirm event does not wait for it yet" is no longer shown); **SPM-64** TC16-TC18 (Kristen); **SPM-67** TC05, TC06 (Kayal); **SPM-68** TC12 (Kristen); **SPM-90** TC08-TC10 (Kayal) - refusals now add "the Operational Safety Check has not been submitted yet", and a confirm that used to succeed is refused. **SPM-62** TC08, TC09, TC13 and TC17 (Kristen) quote wording SPM-88 changed (the "Move this event back to Planning?" text, "…needs to be submitted for a safety check again.", and the status-window message). Their fixtures were not changed. | each story's owner |
+| **Closing an approved safety check records who closed it, not who approved it** | A significant change closes the check (SPM-88) by writing `closed` and the closer, time and reason into the decision columns, so the history card shows "Closed after a change…" for that submission rather than the Safety Officer's approval. The approval is still in the status history (Safety review → Safety approved, by the Safety Officer). Keeping both would need separate `closed_*` columns - a migration. | Janelle (SPM-88) |
+| **No question before a venue booking change closes a safety check** | Requesting, withdrawing or releasing a booking while the event is in Safety review or Safety approved closes its check and returns it to Planning (SPM-88), and the Venue tab and request form say so afterwards - but, unlike the edit page and the Equipment tab, do not ask first. | Janelle (SPM-88) |
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
-| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
+| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Safety review / Safety approved → Planning likewise happens only when a significant change closes the safety check (SPM-88). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Two booking requests submitted at the same moment can both pass the clash check** | `POST /api/events/[id]/venue-bookings` (SPM-42) checks and writes without a lock, so two holds on one room for overlapping times can exist. Approval is not affected: `PATCH /api/venue-bookings/[id]` (SPM-43) locks the venue row and re-checks, so only one of them can be approved and the other then shows as a Conflict on `/bookings`. | venues |
 | **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
 | **Cancelling or postponing an event does not release its bookings** | Since SPM-67 the assigned coordinator can withdraw a pending request or release an approved booking one at a time, from the Venue tab. Releasing every booking when the event itself is cancelled or postponed without a date (#69) belongs to SPM-37 and SPM-38. Venue Staff still have no list of what they have already decided. | SPM-37 / SPM-38 |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **Review Flagged Arrangements has no reason code for a changed setup or turnaround time** | Since SPM-68 the assigned coordinator clears a flag from the Flagged Arrangements page (`/flagged`) - keep, mark registrations as reviewed, or replace and release. SPM-68's AC2 also lists "venue setup or turnaround time changed" as a reason, but nothing writes it: that is Re-check Bookings (SPM-80). Until then no booking carries it; when SPM-80 adds its code, the page shows it in plain words (underscores removed) unless the code is added to `REASON_PROSE` in `src/lib/flaggedArrangements.ts` and its twins in `eventConfirmation.ts` and `safetyCheck.ts`. Changing or ending an unavailable period (SPM-45) still does not clear the flag it raised; the coordinator keeps the booking once the room is free again. | SPM-80 |
-| **Confirm does not wait for the Operational Safety Check yet** | The Readiness tab shows it as a required item (SPM-33), but an outstanding check stops Confirm only while it is awaiting review, when the event is in Safety review. Otherwise Confirm goes ahead without it: that gate is **SPM-88**'s, which sets `SAFETY_CHECK_BLOCKS_CONFIRMATION` in `src/lib/eventConfirmation.ts`. No Safety Officer can decide a check yet (SPM-87), so SPM-33's fixtures write the decisions straight into the database. | SPM-88 |
 | **SPM-34-TC07 is out of date after SPM-33** | Its message now names the venue ("Orchard Seminar Room for this event is still awaiting a decision from Venue Staff"). | SPM-34's owner |
 | **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
 | **Venue Staff and Technical Support can view events but have no event list link** | Both hold `event:view`, but `NAV_BY_ROLE` has no "All Events" for either. Venue Staff can reach an event only through a pending request on Booking Requests. Technical Support's Equipment Requests open their own equipment screen, never the event Overview, so for them typing `/events` is the only way in. Found while writing SPM-64-TC24 (2026-10-09), which types the address for Technical Support. | unclaimed |
@@ -946,15 +959,12 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
 | **A full event offers the waiting list but nobody can join it** | SPM-51 shows "This event is full. You can join the waiting list instead." and "Joining the waiting list isn't available yet." Joining, the 3-day offer window (#44) and FIFO with manual override (#26) are *Join and Respond to Waiting List*. When it lands, replace that second line with its Join button in `src/app/events/[id]/RegisterPanel.tsx`. | Join and Respond to Waiting List |
-| **An attendee can withdraw at any time** | SPM-52's acceptance criteria set no cut-off, so a Registered attendee can withdraw after registration has closed, and even after the event's date while it is still Confirmed. If the team wants one (when registration closes, or when the event starts), it goes in `canWithdraw()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
-| **Registration counts are hidden once registration is turned off** | The organiser's and coordinator's "Places taken" and "Withdrawn" rows (SPM-52) show only while registration is enabled. If the coordinator turns it off after attendees registered, the card says "Not enabled for this event", so a later withdrawal isn't visible to them. | SPM-52 (Sammi) |
+| **An attendee can withdraw up to the event's end** | SPM-52's acceptance criteria set no cut-off. Withdrawing is refused once the event is cancelled, completed or past its end, so its history doesn't change; before that a Registered attendee can withdraw, even after registration has closed or while the event is running. If the team wants an earlier cut-off (when registration closes, or when the event starts), it goes in `withdrawRefusal()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
 | **Every coordinator sees the registration counts, not only the assigned one** | `registration:view_list` is per role, so any coordinator who can open the event sees "Places taken" and "Withdrawn". SPM-52's AC5 says "relevant" coordinators; whether that means the assigned one only is not decided. | SPM-52 (Sammi) |
 | **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
 | **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
-| **Confirm event does not yet require an approved safety check** | An event in Safety review cannot be confirmed, and an approved one (Safety approved, SPM-87) can, but an event still in Planning that was never submitted - or was returned with changes - can still be confirmed as before. Requiring the Safety Officer's approval first is **SPM-88**'s AC8/AC9 (removing Planning → Confirmed, and SAFETY_CHECK_BLOCKS_CONFIRMATION in `eventConfirmation.ts`). | SPM-88 |
-| **A Safety approved event can still be changed without losing its approval** | SPM-87 moves an approved event to Safety approved (`safety_cleared`). Nothing yet returns it to Planning when its date, attendance, venue or equipment changes afterwards, and Update Event Information (SPM-62) refuses edits in Safety approved. Both are **SPM-88** (AC5-AC7). | SPM-88 |
 | **Nothing can cancel an event in Safety review yet** | The lifecycle allows Safety review → Cancelled (decided 2026-10-09), but no screen cancels any event. **SPM-37 (Cancel Event)** builds it and should offer it in Safety review too; its owner has been told. | SPM-37 |
 | **Equipment availability's cancelled/postponed filter is temporary** | Only `EquipmentRequest.status IN (reserved, partially_fulfilled)` counts against stock, and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). This is standing in for SPM-37 (Cancel Event) and SPM-38 (Postpone Event) actually releasing the reservation when built — remove the filter once they do, and check nothing still relies on it. | equipment |
 | **SPM-31's test cases describe the old Registration card** | SPM-31's attendee case says the Registration card "shows Capacity '150' and the registration window". Since SPM-64 the card shows "Registration: Enabled", then Capacity, Opens and Closes (no "Window" row). | SPM-31's owner |
@@ -992,25 +1002,160 @@ what changed, why, and the migration name if there is one.
   - **New route `PATCH /api/registrations/[id]`** with
     `{ status: "withdrawn" }`. Attendee only (403); someone else's
     registration is 404; anything but Registered is 400 ("Only an active
-    registration can be withdrawn"). The update only applies while the status
-    is unchanged, so a double click or a second tab can't withdraw twice.
+    registration can be withdrawn"); so is an event that is cancelled,
+    completed or past its end, whose history must not change. The update only
+    applies while the status is unchanged, so a double click or a second tab
+    can't withdraw twice. Neither screen offers Withdraw in those cases.
   - **The row is kept** (`withdrawn`, `withdrawnAt` set), so My Registrations
     still lists it and SPM-51's register route reactivates it.
   - **The place frees itself:** seats are counted from `SEAT_TAKING`, which
     `withdrawn` is not in, so a full event shows Open again.
   - **AC5:** `GET /api/events/[id]` gives roles with `registration:view_list`
     (organiser, coordinators) `registrationCounts`, shown as "Places taken"
-    and "Withdrawn" on the Registration card.
+    and "Withdrawn" on the Registration card, also after registration is
+    turned off.
   - **Out of scope:** leaving the waiting list and what happens to the freed
     place when there is one (SPM-66), notifications (SPM-53).
-  - Three open questions are now Known Gaps: no cut-off for withdrawing,
-    counts hidden once registration is off, every coordinator sees the counts.
-  - Rules: `canWithdraw()` and `registrationCounts()` in
+  - Two open questions are now Known Gaps: no cut-off for withdrawing before
+    the event ends, every coordinator sees the counts.
+  - Rules: `withdrawRefusal()`, `canWithdraw()` and `registrationCounts()` in
     `src/lib/registrationEligibility.ts`. No migration.
   - Fixtures: `npm run fixtures:spm52` (six "SPM52 …" events and Marcus
     Yeo's registrations); the same events are appended to `prisma/seed.ts`
-    after SPM-82's.
+    after SPM-88's.
   - Test cases: `docs/test-cases/SPM-52_Test_Cases.xlsx` (10).
+  - **Decision record: the withdraw rules.**
+    - *Context:* AC1 says a registered attendee can withdraw, and sets no
+      limit. A withdrawal changes the event's numbers (places taken, the
+      Withdrawn count), and an event that is over or cancelled is history:
+      who registered for it must not change afterwards.
+    - *Decision:* a withdrawal needs **all** of these, checked in this order
+      by `withdrawRefusal()`, and each refusal has its own message:
+      1. the registration is `registered` (`WITHDRAWABLE`). Waiting list is
+         SPM-66's to leave; Attended and Withdrawn have no place to give back
+         → "Only an active registration can be withdrawn";
+      2. the event is not `cancelled` → "This event has been cancelled, so
+         there is nothing to withdraw from";
+      3. the event is not finished (`TERMINAL_EVENT_STATUSES`) and its
+         `endsAt` has not passed, even if it is still Confirmed → "This event
+         is over, so the registration can no longer be withdrawn".
+
+      The row is updated, never deleted (`withdrawn` + `withdrawnAt`), and
+      only while its status is still the one read (`updateMany` on
+      `{ id, status }`), so a second tab or a double click withdraws once.
+      The freed seat needs no write: seats are counted from `SEAT_TAKING`.
+    - *Why one pure function:* the route refuses with it, and My
+      Registrations and the "Your registration" card hide Withdraw with it
+      (`canWithdraw()`), so a button is never offered for a request the
+      server would refuse.
+    - *Rejected:* deleting the row (loses My Registrations' history and
+      SPM-51's reactivation); a cut-off at registration close or event start
+      (no AC asks for it - Known Gap); letting the waiting list move up here
+      (SPM-66).
+  - **Sequence: registering, then withdrawing.**
+
+    ```mermaid
+    sequenceDiagram
+      actor A as Attendee
+      participant UI as Event page / My Registrations
+      participant Reg as POST /api/registrations
+      participant Wd as PATCH /api/registrations/[id]
+      participant Rules as registrationEligibility.ts
+      participant DB as Postgres (Prisma)
+
+      A->>UI: Register (dietary, accessibility)
+      UI->>Reg: { eventId, ... }
+      Reg->>DB: find event
+      Reg->>Rules: registrationState(event, 0, now)
+      Rules-->>Reg: open, or a refusal (400)
+      Reg->>DB: find own registration (eventId, attendeeId)
+      alt already registered / waitlisted
+        Reg-->>UI: 400 "Already registered for this event"
+      else none, or withdrawn
+        Reg->>DB: transaction: count SEAT_TAKING
+        Reg->>Rules: registrationState(event, taken, now)
+        Rules-->>Reg: full → 400 "This event is full"
+        Reg->>DB: create, or reactivate the withdrawn row
+        Reg-->>UI: 201 registration (status registered)
+      end
+
+      A->>UI: Withdraw
+      UI-->>A: "Withdraw from <event>?" Keep my place / Withdraw
+      A->>UI: Withdraw
+      UI->>Wd: { status: "withdrawn" }
+      Wd->>DB: find registration + event (status, endsAt)
+      alt not the caller's own
+        Wd-->>UI: 404 "Registration not found"
+      end
+      Wd->>Rules: withdrawRefusal(status, event, now)
+      alt refused
+        Rules-->>Wd: message
+        Wd-->>UI: 400 message (shown in the dialog)
+      else allowed
+        Wd->>DB: updateMany where { id, status } → withdrawn, withdrawnAt
+        alt count = 0 (withdrawn meanwhile)
+          Wd-->>UI: 400 "Only an active registration can be withdrawn"
+        else
+          Wd-->>UI: 200 registration (status withdrawn)
+          UI-->>A: "You have withdrawn from …", reloads
+        end
+      end
+    ```
+
+### 2026-10-15 — Janelle
+- **SPM-88 (Resolve Safety Check Outcome).** What follows the Safety Officer's
+  decision, and what undoes one.
+  - **Safety check history** (AC1): a card on the event's Overview, staff
+    only, with every submission and decision, newest first. `GET
+    /api/events/[id]` now returns every check as `safetyHistory`; the latest
+    is still `safetyCheck`.
+  - **Flag arrangements for review** (AC3): after a check is returned
+    (changes requested or rejected) the assigned coordinator ticks the venue
+    bookings and equipment it concerns. New route `POST
+    /api/events/[id]/safety-flags` - assigned coordinator only (403), event in
+    Planning with a returned latest check (400), at least one arrangement
+    (400). Flags only, nothing changed: reason code `safety_check_returned`
+    ("the Safety Officer returned the safety check"). The flags block
+    resubmission (SPM-86) until cleared in Flagged Arrangements (SPM-68).
+  - **A significant change closes the check** (AC5, AC6): the coordinator's
+    important information change (SPM-62), equipment change, or venue booking
+    requested, withdrawn or released, while the event is in Safety review or
+    Safety approved, closes the check (`closed`, with who, when and what
+    changed) and returns the event to Planning, in the same transaction. A
+    Confirmed event that SPM-62 moves back to Planning has its approval closed
+    too. Ordinary edits change nothing. Update Event Information is now
+    allowed in Safety review and Safety approved, and asks first.
+  - **Confirm needs the Safety Officer's approval** (AC8, AC9): the safety
+    check always blocks confirmation (`SAFETY_CHECK_BLOCKS_CONFIRMATION`
+    removed - it is now always on). Confirm is still offered in Planning and
+    refused naming the safety check.
+  - **Changed in other people's code:** `eventConfirmation.ts` (Kristen) - the
+    gate on, the comment, the new flag reason; `applyEventInformation.ts`,
+    the information route and the edit page (Kristen, SPM-62) - the safety
+    statuses, closing the check, the dialog and message wording;
+    `flaggedArrangements.ts` (Kristen, SPM-68) - the new flag reason;
+    `permissions.ts` - `EVENT_INFORMATION_EDIT_STATUSES` (the registration
+    window is unchanged) and `canFlagForSafetyReview()`; the equipment routes
+    and Equipment tab (shared); the venue booking request route and form
+    (Kayal, SPM-42) and withdraw/release route and Venue tab (Kayal, SPM-67) -
+    closing the check and a notice afterwards. Tests changed on purpose:
+    `event-detail` and `event-arrangements` (an approved check is now
+    needed to confirm), `eventConfirmation`, `event-information`,
+    `event-information-pages`, `equipment-pages`, `event-safety-check`
+    (all checks are read).
+  - **Rules:** `src/lib/safetyResolution.ts` (pure) and
+    `src/lib/safetyCheckClose.ts` (the transaction).
+  - **Migration:** none - `closed` was already a SafetyCheck status (SPM-86).
+  - **Test data:** `npm run fixtures:spm88` - its own venue, SPM88 Harbour
+    Studio, and eight events; appended to `prisma/seed.ts` after SPM-68's.
+  - **Tests:** written first. New: `safetyResolution.test.ts`,
+    `safetyCheckClose.test.ts`, `safety-flags.test.ts`; extended: the event,
+    equipment, venue and edit page tests. Manual cases:
+    `docs/test-cases/SPM-88_Test_Cases.xlsx` (13).
+  - **Docs:** `docs/PERMISSIONS.md`, `SCHEMA_REFERENCE.md`, `UI_DESIGN.md`.
+    Known Gaps: three SPM-88 rows deleted (the confirm gate twice, approval
+    not voided by a change); three added (other stories' out-of-date cases,
+    closing overwrites the approver, no question before a booking change).
 
 ### 2026-10-15 — Sammi Chua (SPM-65, View Registration List)
 - **The Attendees tab (S-11) is built.** `/events/[ref]/attendees`, backed by

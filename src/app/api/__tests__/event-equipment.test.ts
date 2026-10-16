@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { beforeEach, describe, it, expect, vi } from "vitest";
 
 vi.mock("@/lib/prisma");
 
@@ -7,6 +7,11 @@ import { DELETE, PATCH } from "@/app/api/events/[id]/equipment/[requestId]/route
 import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
 
 const REF = "EVT-000007";
+
+// SPM-88: an equipment change closes an open safety check; most events here have none.
+beforeEach(() => {
+  db.safetyCheck.updateMany.mockResolvedValue({ count: 0 });
+});
 const HOUR = 60 * 60 * 1000;
 
 const ORGANISER_ID = "organiser-id";
@@ -272,6 +277,48 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(body.confirmationReverted).toBe(false);
   });
 
+  // SPM-88 (AC5, AC6): equipment is a significant change - it closes the
+  // safety check the event rests on and returns it to Planning.
+  it.each(["safety_review", "safety_cleared"])(
+    "SPM-88-TC10: moves a %s event back to Planning and closes its safety check",
+    async (status) => {
+      const token = givenAssignedCoordinator({ status });
+      db.event.updateMany.mockResolvedValue({ count: 1 });
+      db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
+
+      const body = await (await add(token, valid)).json();
+
+      expect(body).toMatchObject({ planningStarted: false, confirmationReverted: false, safetyCheckClosed: true });
+      expect(callArg(db.event.updateMany)).toEqual({ where: { id: ID.event, status }, data: { status: "planning" } });
+      expect(callArg(db.eventStatusHistory.create).data).toMatchObject({
+        fromStatus: status,
+        toStatus: "planning",
+        reason: "Safety check closed: the equipment changed",
+      });
+      expect(callArg(db.safetyCheck.updateMany).data).toMatchObject({ status: "closed", decisionNote: "the equipment changed" });
+    }
+  );
+
+  it("SPM-88: closes the approval of a Confirmed event it moves back to Planning", async () => {
+    const token = givenAssignedCoordinator({ status: "confirmed" });
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+    db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
+
+    const body = await (await add(token, valid)).json();
+
+    expect(body).toMatchObject({ confirmationReverted: true, safetyCheckClosed: true });
+    expect(callArg(db.safetyCheck.updateMany).where).toEqual({ eventId: ID.event, status: { in: ["pending", "approved"] } });
+  });
+
+  it("leaves the safety check of a Planning event alone", async () => {
+    const token = givenAssignedCoordinator();
+
+    const body = await (await add(token, valid)).json();
+
+    expect(body.safetyCheckClosed).toBe(false);
+    expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
+  });
+
   it("scopes the requirement to one of the event's own sessions", async () => {
     const token = givenAssignedCoordinator();
     db.eventSession.findUnique.mockResolvedValue({ id: ID.session, eventId: ID.event });
@@ -475,6 +522,37 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     });
   });
 
+  describe.each([
+    ["PATCH", (token: string) => update(token, { quantityRequested: 3 })],
+    ["DELETE", (token: string) => remove(token)],
+  ])("%s and the safety check (SPM-88)", (_method, call) => {
+    it.each(["safety_review", "safety_cleared"])(
+      "SPM-88-TC10: moves a %s event back to Planning and closes its check",
+      async (status) => {
+        const token = givenRequest(assignedCoordinator(), requestRow({ status }));
+        db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+        db.event.updateMany.mockResolvedValue({ count: 1 });
+        db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
+
+        const res = await call(token);
+
+        expect(res.status).toBe(200);
+        expect((await res.json()).safetyCheckClosed).toBe(true);
+        expect(callArg(db.event.updateMany)).toEqual({ where: { id: ID.event, status }, data: { status: "planning" } });
+        expect(callArg(db.safetyCheck.updateMany).data).toMatchObject({ status: "closed", decisionNote: "the equipment changed" });
+      }
+    );
+
+    it("closes the approval of a Confirmed event it moves back to Planning", async () => {
+      const token = givenRequest(assignedCoordinator(), requestRow({ status: "confirmed" }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+      db.event.updateMany.mockResolvedValue({ count: 1 });
+      db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
+
+      expect((await (await call(token)).json()).safetyCheckClosed).toBe(true);
+    });
+  });
+
   it("PATCH changes the quantity and technical requirements, and nothing else", async () => {
     const token = givenRequest();
     db.equipmentRequest.update.mockResolvedValue({ id: ID.request, quantityRequested: 6 });
@@ -522,7 +600,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
 
     expect(res.status).toBe(200);
     // CHANGED (SPM-62): also says whether a Confirmed event was unconfirmed.
-    expect(await res.json()).toEqual({ planningStarted: false, confirmationReverted: false });
+    expect(await res.json()).toEqual({ planningStarted: false, confirmationReverted: false, safetyCheckClosed: false });
     expect(callArg(db.equipmentRequest.delete)).toEqual({ where: { id: ID.request } });
   });
 });

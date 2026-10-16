@@ -685,7 +685,16 @@ describe("PATCH /api/events/[id] - status change", () => {
         db.eventSession.findMany.mockResolvedValue(sessions);
         db.venueBooking.findMany.mockResolvedValue(bookings);
         db.equipmentRequest.findMany.mockResolvedValue(equipment);
+        // CHANGED (SPM-88): Confirm waits for the Safety Officer's approval, so
+        // these tests, about the other arrangements, have an approved check.
+        db.safetyCheck.findFirst.mockResolvedValue(approvedCheck);
       }
+      const approvedCheck = {
+        id: "check-1",
+        status: "approved",
+        submittedAt: new Date("2026-10-09T06:30:00.000Z"),
+        submitter: { fullName: "Daniel Tan" },
+      };
       // CHANGED (SPM-33): each row now carries what the Readiness list reads -
       // the venue's name, the review flag and whether it is marked as not
       // required. A booking is named in the refusal, since an event can have
@@ -808,6 +817,33 @@ describe("PATCH /api/events/[id] - status change", () => {
         );
         expect(callArg(db.venueBooking.findMany).select).toMatchObject({ id: true, sessionId: true, status: true });
         expect(db.event.update).not.toHaveBeenCalled();
+      });
+
+      // SPM-88 (AC8, AC9): confirmation needs an approved safety check.
+      it.each([
+        ["SPM-88-TC13: was never submitted", null, "the Operational Safety Check has not been submitted yet"],
+        ["SPM-88-TC08: was closed by a change", "closed", "the Operational Safety Check has to be submitted again"],
+        ["was returned with changes requested", "changes_requested", "the Safety Officer asked for changes in the Operational Safety Check"],
+        ["was rejected", "rejected", "the Safety Officer rejected the safety arrangement"],
+      ])("refuses an event whose safety check %s", async (_case, status, missing) => {
+        const token = signIn(coordinator());
+        db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
+        givenUpdateSucceeds();
+        givenArrangements({ bookings: [venueApproved] });
+        db.safetyCheck.findFirst.mockResolvedValue(status === null ? null : { ...approvedCheck, status });
+
+        const res = await patch(token, { status: "confirmed" });
+
+        expect(res.status).toBe(400);
+        expect((await res.json()).error).toBe(`This event cannot be confirmed yet: ${missing}.`);
+        expect(db.event.update).not.toHaveBeenCalled();
+      });
+
+      it("SPM-88-TC09: confirms a Safety approved event", async () => {
+        const res = await confirm({ bookings: [venueApproved] }, { status: "safety_cleared" });
+
+        expect(res.status).toBe(200);
+        expect(callArg(db.event.update).data).toMatchObject({ status: "confirmed" });
       });
 
       it("needs a venue for every session of a multi-session event", async () => {

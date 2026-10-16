@@ -12,6 +12,8 @@
 // and the screens call it, so the reason a button is missing and the reason a
 // request is refused are the same rule.
 
+import { isTerminalEventStatus } from "./statuses";
+
 /// The registration statuses that take a seat. A waitlisted attendee is
 /// waiting for one, and a withdrawn one gave theirs back.
 export const SEAT_TAKING = ["registered", "attended"];
@@ -69,8 +71,31 @@ export function registrationState(event: EligibilityFields, seatsTaken: number, 
 /// (SPM-66); an attended or already withdrawn one has nothing to give back.
 export const WITHDRAWABLE = ["registered"];
 
-export function canWithdraw(status: string): boolean {
-  return WITHDRAWABLE.includes(status);
+export const WITHDRAW_REFUSALS = {
+  not_active: "Only an active registration can be withdrawn",
+  cancelled: "This event has been cancelled, so there is nothing to withdraw from",
+  over: "This event is over, so the registration can no longer be withdrawn",
+};
+
+export interface WithdrawEventFields {
+  status: string;
+  /// A Date on the server, an ISO string on the screens.
+  endsAt: Date | string | null;
+}
+
+/// Why this registration can't be withdrawn now, or null if it can. An event
+/// that is cancelled, completed or past its end keeps its registrations as
+/// they were - its history must not change.
+export function withdrawRefusal(status: string, event: WithdrawEventFields, now: Date): string | null {
+  if (!WITHDRAWABLE.includes(status)) return WITHDRAW_REFUSALS.not_active;
+  if (event.status === "cancelled") return WITHDRAW_REFUSALS.cancelled;
+  if (isTerminalEventStatus(event.status)) return WITHDRAW_REFUSALS.over;
+  if (event.endsAt && new Date(event.endsAt) <= now) return WITHDRAW_REFUSALS.over;
+  return null;
+}
+
+export function canWithdraw(status: string, event: WithdrawEventFields, now: Date): boolean {
+  return withdrawRefusal(status, event, now) === null;
 }
 
 export interface RegistrationCounts {

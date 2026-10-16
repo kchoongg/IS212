@@ -1642,3 +1642,291 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(screen.getByText("Unavailable 8 Oct 2027, 07:00–09:00 (Maintenance)")).toBeInTheDocument();
   });
 });
+
+// SPM-88 - Resolve Safety Check Outcome, on the event's Overview.
+//
+// CONTRACT (SPM-88, written before the code):
+//   A "Safety check history" card for staff (the API's `safetyHistory`, newest first), one line per
+//   submission (safetyHistoryLine); none for an external user or an event never submitted (AC1).
+//   A "Flag arrangements for review" button for the assigned coordinator while the event is in
+//   Planning and its latest check was returned (AC3). Its dialog of the same name loads
+//   GET /api/events/[id]/venue-bookings and GET /api/events/[id]/equipment, offers "Venue: <name>"
+//   for each pending or approved booking and "Equipment: <item>" for each line not cancelled,
+//   "Flag for review" / "Cancel"; "Choose at least one arrangement to flag." for none; POST
+//   /api/events/[id]/safety-flags { venueBookingIds, equipmentRequestIds }; then
+//   "<n> arrangement(s) flagged for review. Nothing has been changed or cancelled." and a reload.
+describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
+  const FLAGS = `POST /api/events/${REF}/safety-flags`;
+  const BOOKINGS = `GET /api/events/${REF}/venue-bookings`;
+  const EQUIPMENT = `GET /api/events/${REF}/equipment`;
+  const BUTTON = "Flag arrangements for review";
+  const changesRequested = {
+    status: "changes_requested",
+    submittedAt: "2026-10-08T06:00:00.000Z",
+    submittedBy: "Daniel Tan",
+    decidedAt: "2026-10-09T02:00:00.000Z",
+    decidedBy: "Hana Yusof",
+    decisionNote: "Add a second fire marshal at the east exit.",
+  };
+  const rejected = {
+    status: "rejected",
+    submittedAt: "2026-10-05T06:00:00.000Z",
+    submittedBy: "Daniel Tan",
+    decidedAt: "2026-10-06T02:00:00.000Z",
+    decidedBy: "Hana Yusof",
+    decisionNote: "Fire exits are blocked by the stage set.",
+  };
+  const returned = (overrides: Record<string, unknown> = {}) =>
+    event({
+      title: "SPM88 Harbour Returned Forum",
+      status: "planning",
+      safetyCheck: changesRequested,
+      safetyHistory: [changesRequested, rejected],
+      ...overrides,
+    });
+  const arrangements = {
+    [BOOKINGS]: {
+      bookings: [
+        { id: "b1", status: "approved", session: null, venue: { name: "SPM88 Harbour Studio", code: "SPM88-STU" } },
+        { id: "b2", status: "pending", session: { id: "s1", label: "Day 2" }, venue: { name: "Bay Room", code: "BAY" } },
+        { id: "b3", status: "withdrawn", session: null, venue: { name: "Old Room", code: "OLD" } },
+      ],
+    },
+    [EQUIPMENT]: [
+      { id: "r1", status: "reserved", equipment: { name: "Handheld Wireless Mic" } },
+      { id: "r2", status: "cancelled", equipment: { name: "Old Projector" } },
+    ],
+  };
+
+  function open(role = "coordinator", eventRow: unknown = returned(), extra: Record<string, unknown> = {}, who: object = daniel) {
+    setRoute(`/events/${REF}`, { id: REF });
+    const api = mockApi({ ...signedInAs(role, who), [EVENT]: eventRow, "GET /api/users": [], ...arrangements, ...extra });
+    render(<EventOverviewPage />);
+    return api;
+  }
+
+  const dialog = () => dialogTitled(BUTTON);
+  const ask = async () => userEvent.click(await screen.findByRole("button", { name: BUTTON }));
+  const tick = async (name: string) =>
+    userEvent.click(await within(dialog()).findByRole("checkbox", { name, hidden: true }));
+  const flag = () => userEvent.click(within(dialog()).getByRole("button", { name: "Flag for review", hidden: true }));
+
+  describe("the history (AC1)", () => {
+    it("SPM-88-TC01: lists every submission and decision, newest first, beside the latest in the Safety check row", async () => {
+      open();
+
+      expect(await screen.findByRole("heading", { name: "Safety check history" })).toBeInTheDocument();
+      const list = screen.getByRole("list", { name: "Safety check history" });
+      const items = within(list).getAllByRole("listitem").map((li) => li.textContent);
+      expect(items).toEqual([
+        "Submitted by Daniel Tan, 8 Oct 2026, 14:00 - Changes requested by Hana Yusof, 9 Oct 2026, 10:00. Changes required: Add a second fire marshal at the east exit.",
+        "Submitted by Daniel Tan, 5 Oct 2026, 14:00 - Rejected by Hana Yusof, 6 Oct 2026, 10:00. Reason: Fire exits are blocked by the stage set.",
+      ]);
+      expect(
+        screen.getByText(
+          "Changes requested · decided by Hana Yusof, 9 Oct 2026, 10:00. Changes required: Add a second fire marshal at the east exit."
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("SPM-88-TC02: shows the organiser no history", async () => {
+      open("organiser", event({ status: "planning" }), {}, { id: "organiser-id" });
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("heading", { name: "Safety check history" })).not.toBeInTheDocument();
+    });
+
+    it("has no history card for an event never submitted", async () => {
+      open("coordinator", event({ safetyCheck: null, safetyHistory: [] }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("heading", { name: "Safety check history" })).not.toBeInTheDocument();
+    });
+
+    it("SPM-88-TC07: words a closed check in the Safety check row", async () => {
+      const closed = {
+        ...changesRequested,
+        status: "closed",
+        decidedAt: "2026-10-15T06:30:00.000Z",
+        decidedBy: "Daniel Tan",
+        decisionNote: "the expected attendance changed",
+      };
+      open("coordinator", returned({ safetyCheck: closed, safetyHistory: [closed] }));
+
+      expect(
+        await screen.findAllByText("Closed after a change on 15 Oct 2026, 14:30: the expected attendance changed", { exact: false })
+      ).not.toHaveLength(0);
+    });
+  });
+
+  describe("flagging arrangements (AC3)", () => {
+    it.each([
+      ["changes were requested", changesRequested, "org-id"],
+      ["the check was rejected", rejected, null],
+    ])("SPM-88-TC03: is offered to the assigned coordinator once %s", async (_case, check, organisationId) => {
+      open("coordinator", returned({ safetyCheck: check, organisationId }));
+
+      expect(await screen.findByRole("button", { name: BUTTON })).toBeInTheDocument();
+    });
+
+    it.each([
+      ["the check was approved", returned({ status: "safety_cleared", safetyCheck: { ...changesRequested, status: "approved" } })],
+      ["the check is pending", returned({ status: "safety_review", safetyCheck: { ...changesRequested, status: "pending" } })],
+      ["the event was never submitted", returned({ safetyCheck: null, safetyHistory: [] })],
+    ])("SPM-88-TC05: is not offered when %s", async (_case, row) => {
+      open("coordinator", row);
+
+      await screen.findByRole("heading", { level: 1 });
+
+      expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["a coordinator who is not assigned", "coordinator", priya],
+      ["the Safety Officer", "safety_officer", { id: "so1" }],
+      ["the Ops Manager", "ops_manager", {}],
+    ])("SPM-88-TC05: is not offered to %s", async (_who, role, who) => {
+      open(role, returned(), {}, who);
+
+      await screen.findByRole("heading", { level: 1 });
+
+      expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+    });
+
+    it("SPM-88-TC03: offers the event's current bookings and equipment, and nothing else", async () => {
+      open();
+      await ask();
+
+      await within(dialog()).findByRole("checkbox", { name: "Venue: SPM88 Harbour Studio", hidden: true });
+      expect(within(dialog()).getAllByRole("checkbox", { hidden: true }).map((c) => (c as HTMLInputElement).labels?.[0]?.textContent)).toEqual([
+        "Venue: SPM88 Harbour Studio",
+        "Venue: Day 2: Bay Room",
+        "Equipment: Handheld Wireless Mic",
+      ]);
+    });
+
+    it("SPM-88-TC03: flags what was ticked, says nothing else changed, and reloads the event", async () => {
+      const api = open("coordinator", returned(), { [FLAGS]: { flagged: 2 } });
+      await ask();
+
+      await tick("Venue: SPM88 Harbour Studio");
+      await tick("Equipment: Handheld Wireless Mic");
+      await flag();
+
+      expect(api.sent(FLAGS).map((c) => c.body)).toEqual([{ venueBookingIds: ["b1"], equipmentRequestIds: ["r1"] }]);
+      expect(
+        await screen.findByText("2 arrangements flagged for review. Nothing has been changed or cancelled.")
+      ).toBeInTheDocument();
+      await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+      expect(dialog().open).toBe(false);
+    });
+
+    it("says '1 arrangement' for one", async () => {
+      open("coordinator", returned(), { [FLAGS]: { flagged: 1 } });
+      await ask();
+
+      await tick("Equipment: Handheld Wireless Mic");
+      await flag();
+
+      expect(
+        await screen.findByText("1 arrangement flagged for review. Nothing has been changed or cancelled.")
+      ).toBeInTheDocument();
+    });
+
+    it("SPM-88-TC05: asks for at least one, and sends nothing", async () => {
+      const api = open();
+      await ask();
+      await within(dialog()).findByRole("checkbox", { name: "Venue: SPM88 Harbour Studio", hidden: true });
+
+      await flag();
+
+      expect(within(dialog()).getByText("Choose at least one arrangement to flag.")).toBeInTheDocument();
+      expect(api.sent(FLAGS)).toHaveLength(0);
+    });
+
+    it("clears the message once something is ticked", async () => {
+      open();
+      await ask();
+      await within(dialog()).findByRole("checkbox", { name: "Venue: SPM88 Harbour Studio", hidden: true });
+      await flag();
+
+      await tick("Venue: SPM88 Harbour Studio");
+
+      expect(within(dialog()).queryByText("Choose at least one arrangement to flag.")).not.toBeInTheDocument();
+    });
+
+    it("unticks a box ticked by mistake", async () => {
+      const api = open("coordinator", returned(), { [FLAGS]: { flagged: 1 } });
+      await ask();
+      await tick("Venue: SPM88 Harbour Studio");
+      await tick("Equipment: Handheld Wireless Mic");
+      await tick("Venue: SPM88 Harbour Studio");
+
+      await flag();
+
+      expect(api.sent(FLAGS).map((c) => c.body)).toEqual([{ venueBookingIds: [], equipmentRequestIds: ["r1"] }]);
+    });
+
+    it("says so when the event has nothing to flag", async () => {
+      open("coordinator", returned(), { [BOOKINGS]: { bookings: [] }, [EQUIPMENT]: [] });
+      await ask();
+
+      expect(await within(dialog()).findByText("This event has no venue bookings or equipment to flag.")).toBeInTheDocument();
+    });
+
+    it("says so when the arrangements cannot be loaded", async () => {
+      open("coordinator", returned(), { [EQUIPMENT]: reply(500, {}) });
+      await ask();
+
+      expect(await within(dialog()).findByText("Could not load this event's arrangements.")).toBeInTheDocument();
+    });
+
+    it("shows the server's refusal and keeps the event as it was", async () => {
+      const api = open("coordinator", returned(), {
+        [FLAGS]: reply(400, { error: "Some of these arrangements can no longer be flagged. Reload the page and try again." }),
+      });
+      await ask();
+      await tick("Venue: SPM88 Harbour Studio");
+
+      await flag();
+
+      expect(
+        await screen.findByText("Some of these arrangements can no longer be flagged. Reload the page and try again.")
+      ).toBeInTheDocument();
+      expect(api.sent(EVENT)).toHaveLength(1);
+    });
+
+    it("gives a general message when the refusal has no reason", async () => {
+      open("coordinator", returned(), { [FLAGS]: reply(500) });
+      await ask();
+      await tick("Venue: SPM88 Harbour Studio");
+
+      await flag();
+
+      expect(await screen.findByText("Could not flag these arrangements.")).toBeInTheDocument();
+    });
+
+    it("says so when the server cannot be reached", async () => {
+      open("coordinator", returned(), { [FLAGS]: () => Promise.reject("offline") });
+      await ask();
+      await tick("Venue: SPM88 Harbour Studio");
+
+      await flag();
+
+      expect(await screen.findByText("Could not reach the server. Check your connection and try again.")).toBeInTheDocument();
+    });
+
+    it("closes on Cancel without sending anything", async () => {
+      const api = open();
+      await ask();
+      await tick("Venue: SPM88 Harbour Studio");
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+      expect(dialog().open).toBe(false);
+      expect(api.sent(FLAGS)).toHaveLength(0);
+    });
+  });
+});

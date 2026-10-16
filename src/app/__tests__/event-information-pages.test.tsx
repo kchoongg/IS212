@@ -6,7 +6,7 @@
 //   Refuses (red alert "You can't edit this event's information", a "Back to event" button, no form):
 //     - anyone but the assigned coordinator: "Only the coordinator assigned to this event can change its information."
 //     - any status but approved / planning / confirmed:
-//       "Event information can only be changed while the event is Approved, Planning or Confirmed."
+//       "Event information can only be changed while the event is Approved, Planning, Safety review, Safety approved or Confirmed."
 //   Fields: the draft form's labels and validation messages, minus equipment, sessions and the
 //     Registration section (registration settings are Configure Event Registration, SPM-64);
 //     an info message "Equipment is changed on the Equipment tab."
@@ -17,7 +17,8 @@
 //      flagged for review, not changed."
 //   "Save changes" sends PATCH /api/events/<ref>/information with ONLY the fields that changed. On success
 //     the form is replaced, on this page, by the result: "Event information updated." (plus " The event is
-//     back in Planning and needs to be confirmed again." when the answer says statusReverted), an amber
+//     back in Planning and needs to be submitted for a safety check again." when the answer says
+//     statusReverted or safetyCheckClosed - CHANGED by SPM-88), an amber
 //     "Flagged for review" alert - "These were arranged for the event's earlier details and have not been
 //     changed." - listing the answer's `flagged` lines (none -> no alert), and a "Back to event" link.
 //     Showing flags afterwards is SPM-33 / SPM-68's, not this page's.
@@ -145,7 +146,9 @@ describe("Edit event information - who may open it", () => {
 
       expect(await screen.findByText("You can't edit this event's information")).toBeInTheDocument();
       expect(
-        screen.getByText("Event information can only be changed while the event is Approved, Planning or Confirmed.")
+        screen.getByText(
+          "Event information can only be changed while the event is Approved, Planning, Safety review, Safety approved or Confirmed."
+        )
       ).toBeInTheDocument();
       expect(screen.queryByLabelText(/^Event name/)).not.toBeInTheDocument();
     }
@@ -420,7 +423,8 @@ describe("Edit event information - saving", () => {
 
       expect(dialogTitled(TITLE).open).toBe(true);
       expect(dialogTitled(TITLE)).toHaveTextContent(
-        "Harbour Leadership Summit is Confirmed. Saving these changes moves it back to Planning so it can be confirmed again."
+        // CHANGED (SPM-88): Confirm now waits for a new safety check.
+        "Harbour Leadership Summit is Confirmed. Saving these changes moves it back to Planning, where it needs a new safety check before it can be confirmed again."
       );
       expect(api.sent(SAVE)).toHaveLength(0);
     });
@@ -453,10 +457,71 @@ describe("Edit event information - saving", () => {
       );
 
       expect(
-        await screen.findByText("Event information updated. The event is back in Planning and needs to be confirmed again.")
+        await screen.findByText(
+          "Event information updated. The event is back in Planning and needs to be submitted for a safety check again."
+        )
       ).toBeInTheDocument();
       expect(api.sent(SAVE)).toHaveLength(1);
     });
+  });
+
+  // SPM-88 (AC5, AC6): an important change undoes the safety check the event rests on.
+  describe("an important change while the event rests on a safety check (SPM-88)", () => {
+    const TITLE = "Move this event back to Planning?";
+
+    async function changeAttendance(status: string) {
+      const api = open(event({ status }), { [SAVE]: { statusReverted: false, safetyCheckClosed: true, flagged: [] } });
+      await formReady();
+      set(/^Expected attendance/, "90");
+      await save();
+      return api;
+    }
+
+    it.each([
+      [
+        "safety_cleared",
+        "Harbour Leadership Summit is Safety approved. Saving these changes cancels the safety approval and moves it back to Planning. It will need to be submitted for a safety check again.",
+      ],
+      [
+        "safety_review",
+        "Harbour Leadership Summit is in Safety review. Saving these changes closes the pending safety check and moves it back to Planning. It will need to be submitted for a safety check again.",
+      ],
+    ])("SPM-88-TC07: asks first on a %s event, saying what will happen", async (status, warning) => {
+      const api = await changeAttendance(status);
+
+      expect(dialogTitled(TITLE).open).toBe(true);
+      expect(dialogTitled(TITLE)).toHaveTextContent(warning);
+      expect(api.sent(SAVE)).toHaveLength(0);
+    });
+
+    it("SPM-88-TC07: saves, then says the event needs a new safety check", async () => {
+      const api = await changeAttendance("safety_cleared");
+
+      await userEvent.click(
+        within(dialogTitled(TITLE)).getByRole("button", { name: "Save and move to Planning", hidden: true })
+      );
+
+      expect(
+        await screen.findByText(
+          "Event information updated. The event is back in Planning and needs to be submitted for a safety check again."
+        )
+      ).toBeInTheDocument();
+      expect(api.sent(SAVE)[0].body).toEqual({ expectedAttendance: 90 });
+    });
+
+    it.each(["safety_review", "safety_cleared"])(
+      "SPM-88-TC09/TC11: saves an ordinary change to a %s event without asking",
+      async (status) => {
+        const api = open(event({ status }));
+        await formReady();
+
+        set(/^Description/, "Keynote and Q&A");
+        await save();
+
+        await waitFor(() => expect(api.sent(SAVE)).toHaveLength(1));
+        expect(await screen.findByText("Event information updated.")).toBeInTheDocument();
+      }
+    );
   });
 
   describe("refusing what is not valid, without sending it", () => {

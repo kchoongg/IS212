@@ -28,12 +28,16 @@ import { isExternalRole } from "@/lib/roles";
 import { decisionDoneMessage, safetyCheckSummary, type SafetyDecision } from "@/lib/safetyDecision";
 import { unavailabilityReasonLabel } from "@/lib/venueUnavailability";
 import { SafetyDecisionDialog } from "./SafetyDecisionDialog";
+import { SafetyFlagDialog, type SafetyFlagChoice } from "./SafetyFlagDialog";
+import { canFlagAfterReturn, safetyFlaggedMessage, safetyHistoryLine } from "@/lib/safetyResolution";
 import {
+  EVENT_INFORMATION_EDIT_STATUSES,
   EVENT_INFORMATION_STATUSES,
   can,
   canAssignCoordinator,
   canConfigureRegistration,
   canConfirmEvent,
+  canFlagForSafetyReview,
   canRecordSafetyDecision,
   canReviewEvent,
   canSubmitForSafetyCheck,
@@ -126,15 +130,19 @@ interface EventDetail extends RegistrationEvent {
   /// SPM-86 (AC8): the latest Operational Safety Check, null if the event was
   /// never submitted. Absent for an external user - safety details are
   /// internal (SPM-88), so the organiser sees the Safety review status only.
-  safetyCheck?: {
-    status: string;
-    submittedAt: string;
-    submittedBy: string | null;
-    /// SPM-87 (AC10): the Safety Officer's decision, who and when, and why.
-    decidedAt?: string | null;
-    decidedBy?: string | null;
-    decisionNote?: string | null;
-  } | null;
+  safetyCheck?: SafetyCheckEntry | null;
+  /// SPM-88 (AC1): every check, newest first. Staff only, like safetyCheck.
+  safetyHistory?: SafetyCheckEntry[];
+}
+
+interface SafetyCheckEntry {
+  status: string;
+  submittedAt: string;
+  submittedBy: string | null;
+  /// SPM-87 (AC10): the Safety Officer's decision, who and when, and why.
+  decidedAt?: string | null;
+  decidedBy?: string | null;
+  decisionNote?: string | null;
 }
 
 /// SPM-85: "14 Jun 2027, 09:00–12:00 · 200 people · Theatre" - what a safety
@@ -221,6 +229,9 @@ export default function EventOverviewPage() {
   // SPM-87: the Safety Officer recording their decision.
   const [decisionOpen, setDecisionOpen] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  // SPM-88 (AC3): the assigned coordinator flagging what a returned check concerns.
+  const [flagOpen, setFlagOpen] = useState(false);
+  const [flagging, setFlagging] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -381,6 +392,29 @@ export default function EventOverviewPage() {
     }
   }
 
+  async function flagForSafetyReview(choice: SafetyFlagChoice) {
+    setFlagging(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/safety-flags`, {
+        method: "POST",
+        body: JSON.stringify(choice),
+      });
+      if (!res.ok) {
+        setActionError((await res.json().catch(() => ({}))).error ?? "Could not flag these arrangements.");
+        return;
+      }
+      setNotice(safetyFlaggedMessage((await res.json()).flagged));
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setFlagging(false);
+      setFlagOpen(false);
+    }
+  }
+
   // Same fields and checks as the PATCH route, so the button only appears
   // when withdrawing would succeed.
   const showWithdraw = Boolean(
@@ -428,6 +462,25 @@ export default function EventOverviewPage() {
     event.organiserId !== undefined &&
     event.coordinatorId !== undefined &&
     canRecordSafetyDecision(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-88 (AC3): the assigned coordinator, once the Safety Officer has
+  // returned the check and the event is back in Planning. Same rule as the route.
+  const showSafetyFlags = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canFlagAfterReturn(event.status, event.safetyCheck?.status) &&
+    canFlagForSafetyReview(
       { id: user.id, role: user.role, organisationId: null },
       {
         organiserId: event.organiserId,
@@ -488,13 +541,14 @@ export default function EventOverviewPage() {
   );
 
   // SPM-62: the assigned coordinator updates the event's information after
-  // approval (/events/[id]/update). Same rule as the route.
+  // approval (/events/[id]/update). Same rule as the route - SPM-88 adds
+  // Safety review and Safety approved.
   const showEditInformation = Boolean(
     user &&
     event &&
     event.organiserId !== undefined &&
     event.coordinatorId !== undefined &&
-    EVENT_INFORMATION_STATUSES.includes(event.status) &&
+    EVENT_INFORMATION_EDIT_STATUSES.includes(event.status) &&
     canUpdateEventInformation(
       { id: user.id, role: user.role, organisationId: null },
       {
@@ -555,6 +609,11 @@ export default function EventOverviewPage() {
             )}
             {showSafetyDecision && (
               <Button onClick={() => setDecisionOpen(true)}>Record safety decision</Button>
+            )}
+            {showSafetyFlags && (
+              <Button variant="secondary" onClick={() => setFlagOpen(true)}>
+                Flag arrangements for review
+              </Button>
             )}
             {showConfirm && (
               <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
@@ -707,6 +766,21 @@ export default function EventOverviewPage() {
             </CardBody>
           </Card>
 
+          {/* SPM-88 (AC1): every submission and decision, newest first. Staff
+              only - the API leaves the history out for an external user. */}
+          {event.safetyHistory && event.safetyHistory.length > 0 && (
+            <Card>
+              <CardHeader title="Safety check history" />
+              <CardBody>
+                <ol aria-label="Safety check history" className="flex flex-col gap-2 text-sm text-ink-2">
+                  {event.safetyHistory.map((check) => (
+                    <li key={check.submittedAt}>{safetyHistoryLine(check)}</li>
+                  ))}
+                </ol>
+              </CardBody>
+            </Card>
+          )}
+
           {/* SPM-85 (AC3): what a safety review reads - each session's time,
               attendance and layout, and each booked room with its layout and
               seats. ConnectSphere staff only: the organiser learns their room
@@ -792,6 +866,8 @@ export default function EventOverviewPage() {
             <RegisterPanel
               eventId={event.id}
               eventTitle={event.title}
+              eventStatus={event.status}
+              eventEndsAt={event.endsAt}
               state={event.registrationState}
               myRegistration={event.myRegistration ?? null}
               onRegistered={() => void load()}
@@ -847,6 +923,14 @@ export default function EventOverviewPage() {
         saving={deciding}
         onRecord={(decision, note) => void recordSafetyDecision(decision, note)}
         onCancel={() => setDecisionOpen(false)}
+      />
+
+      <SafetyFlagDialog
+        open={flagOpen}
+        eventId={eventId}
+        saving={flagging}
+        onFlag={(choice) => void flagForSafetyReview(choice)}
+        onCancel={() => setFlagOpen(false)}
       />
     </div>
   );

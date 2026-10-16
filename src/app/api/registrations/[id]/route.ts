@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { withdrawRegistrationSchema } from "@/lib/validation";
-import { canWithdraw } from "@/lib/registrationEligibility";
+import { WITHDRAW_REFUSALS, withdrawRefusal } from "@/lib/registrationEligibility";
 
 // Withdraw from Event (SPM-52): the attendee withdraws their own registration
 // - `{ status: "withdrawn" }`, the route Integration.md §5 proposed. The row is
@@ -30,23 +30,30 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
 
     const { id } = await context.params;
-    const registration = await prisma.registration.findUnique({ where: { id } });
+    const registration = await prisma.registration.findUnique({
+      where: { id },
+      include: { event: { select: { status: true, endsAt: true } } },
+    });
     if (!registration || registration.attendeeId !== actor.id) {
       return notFound();
     }
 
     withdrawRegistrationSchema.parse(await req.json());
 
-    // AC1: only a registration holding a seat. Updated only while it still is,
-    // so a double click can't withdraw twice.
-    const withdrawn = canWithdraw(registration.status)
-      ? await prisma.registration.updateMany({
-          where: { id, status: registration.status },
-          data: { status: "withdrawn", withdrawnAt: new Date() },
-        })
-      : { count: 0 };
+    // AC1: only a registration holding a seat, for an event that isn't over
+    // or cancelled.
+    const refusal = withdrawRefusal(registration.status, registration.event, new Date());
+    if (refusal) {
+      return NextResponse.json({ error: refusal }, { status: 400 });
+    }
+    // Updated only while the status is unchanged, so a double click can't
+    // withdraw twice.
+    const withdrawn = await prisma.registration.updateMany({
+      where: { id, status: registration.status },
+      data: { status: "withdrawn", withdrawnAt: new Date() },
+    });
     if (withdrawn.count === 0) {
-      return NextResponse.json({ error: "Only an active registration can be withdrawn" }, { status: 400 });
+      return NextResponse.json({ error: WITHDRAW_REFUSALS.not_active }, { status: 400 });
     }
 
     return NextResponse.json(await prisma.registration.findUnique({ where: { id } }));

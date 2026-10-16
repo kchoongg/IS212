@@ -1,0 +1,350 @@
+{
+  "story_key": "SPM-88",
+  "story_title": "As the assigned Event Coordinator, I want to see the Safety Officer's decision and act on it so that the event's arrangements are corrected and it can be approved to proceed",
+  "created_by": "Janelle",
+  "creation_date": "2026-10-15",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Coordinator can view the latest safety decision for the event, with the reason or the changes required, and the history of earlier decisions."
+    },
+    {
+      "id": "AC2",
+      "text": "Given the Safety Officer requested changes or rejected the safety arrangement, when the decision is recorded, then the event status returns to Planning."
+    },
+    {
+      "id": "AC3",
+      "text": "The Coordinator can flag the venue bookings and equipment arrangements affected by the decision for review; flagged arrangements are not cancelled or changed automatically (see: Review Flagged Arrangements)."
+    },
+    {
+      "id": "AC4",
+      "text": "After making the required changes, the Coordinator can submit the event for a safety check again (see: Submit Event for Operational Safety Check)."
+    },
+    {
+      "id": "AC5",
+      "text": "Given the event is safety-approved, when a significant change is made to its date, time, expected attendance, venue bookings or equipment arrangements, then the approval no longer applies and the event must be submitted for a safety check again."
+    },
+    {
+      "id": "AC6",
+      "text": "Given the event is in Safety Review, when the Coordinator saves a significant change to its information or arrangements (the same changes as above, identified as in Update Event Information, SPM-62), then the pending safety check is closed, the event returns to Planning, and it must be submitted again once the arrangements are updated."
+    },
+    {
+      "id": "AC7",
+      "text": "An ordinary edit that does not affect arrangements does not remove a safety approval or close a pending safety check."
+    },
+    {
+      "id": "AC8",
+      "text": "Given the event has not been approved by the Safety Officer, when the Coordinator attempts to confirm it, then confirmation is refused and the outstanding Operational Safety Check is identified."
+    },
+    {
+      "id": "AC9",
+      "text": "Given the event has been approved by the Safety Officer and its other required arrangements are complete, when the Coordinator confirms it, then confirmation succeeds as before."
+    },
+    {
+      "id": "AC10",
+      "text": "The Safety Officer's reasons and required changes are visible to internal users only, not to the Event Organiser."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-88-TC01",
+      "title": "The Coordinator sees the latest safety decision with its changes required, and every earlier decision",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Harbour Returned Forum' is in Planning, assigned to Daniel Tan. It was submitted twice: first submitted by Daniel Tan on 5 Oct 2026, 14:00 and rejected by Hana Yusof on 6 Oct 2026, 10:00 ('Fire exits are blocked by the stage set.'); then submitted on 8 Oct 2026, 14:00 and returned with changes requested on 9 Oct 2026, 10:00 ('Add a second fire marshal at the east exit.'). Logged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Harbour Returned Forum' in the list"
+      ],
+      "test_data": "Event: SPM88 Harbour Returned Forum (Planning)\nSubmission 1: rejected - Fire exits are blocked by the stage set.\nSubmission 2: changes requested - Add a second fire marshal at the east exit.",
+      "expected_result": "Step 2: The status is 'Planning'. The 'Safety check' row in Details reads 'Changes requested · decided by Hana Yusof, 9 Oct 2026, 10:00. Changes required: Add a second fire marshal at the east exit.' A 'Safety check history' card lists both submissions, newest first: 'Submitted by Daniel Tan, 8 Oct 2026, 14:00 - Changes requested by Hana Yusof, 9 Oct 2026, 10:00. Changes required: Add a second fire marshal at the east exit.' and 'Submitted by Daniel Tan, 5 Oct 2026, 14:00 - Rejected by Hana Yusof, 6 Oct 2026, 10:00. Reason: Fire exits are blocked by the stage set.'"
+    },
+    {
+      "id": "SPM-88-TC02",
+      "title": "The Event Organiser sees the event's status but not the Safety Officer's reasons or the decision history",
+      "linked_ac": [
+        "AC10"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run ('SPM88 Harbour Returned Forum' has a rejected and a changes-requested safety check, as in SPM-88-TC01). Logged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123), who raised it.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM88 Harbour Returned Forum' in the list"
+      ],
+      "test_data": "Organiser: rachel.ng@meridianfina.com\nEvent: SPM88 Harbour Returned Forum (Planning)",
+      "expected_result": "Step 2: The event shows the status 'Planning'. There is no 'Safety check' row, no 'Safety check history' card, and neither 'Fire exits are blocked by the stage set.' nor 'Add a second fire marshal at the east exit.' appears anywhere on the page."
+    },
+    {
+      "id": "SPM-88-TC03",
+      "title": "The Coordinator flags the arrangements a returned safety check affects, and nothing is cancelled or changed",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Harbour Returned Forum' (latest safety check: changes requested) has an approved venue booking at SPM88 Harbour Studio and a Reserved Handheld Wireless Mic, neither flagged. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event - SPM-88-TC04 continues from it, so go straight to TC04 and run npm run fixtures:spm88 after TC04.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Harbour Returned Forum' in the list",
+        "Click 'Flag arrangements for review'",
+        "Tick 'Venue: SPM88 Harbour Studio' and 'Equipment: Handheld Wireless Mic'",
+        "Click 'Flag for review'",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM88 Harbour Returned Forum\nArrangements: SPM88 Harbour Studio booking (Approved), Handheld Wireless Mic (Reserved)",
+      "expected_result": "Step 3: A dialog headed 'Flag arrangements for review' lists the event's venue bookings and equipment, each with a tick box.\nStep 5: The message '2 arrangements flagged for review. Nothing has been changed or cancelled.' is shown.\nStep 6: Both rows are 'Outstanding' and say they were flagged because 'the Safety Officer returned the safety check'. The booking's status is still 'Approved' and the mic's is still 'Reserved'."
+    },
+    {
+      "id": "SPM-88-TC04",
+      "title": "After reviewing the flagged arrangements the Coordinator submits the event for a safety check again",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-88-TC03 has just been run (the booking and the mic of 'SPM88 Harbour Returned Forum' are flagged) and the fixtures have NOT been reset since. Still logged in as Daniel Tan. Run npm run fixtures:spm88 after this case.",
+      "steps": [
+        "Click the 'Overview' tab",
+        "Click 'Submit for safety check' and then 'Submit' in the dialog",
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Keep booking' on the SPM88 Harbour Studio booking for 'SPM88 Harbour Returned Forum'",
+        "Click 'Keep reservation' on the Handheld Wireless Mic for 'SPM88 Harbour Returned Forum'",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Harbour Returned Forum' in the list",
+        "Click 'Submit for safety check' and then 'Submit' in the dialog"
+      ],
+      "test_data": "Event: SPM88 Harbour Returned Forum (Planning, booking and mic flagged)",
+      "expected_result": "Step 2: Submission is refused, naming the flagged SPM88 Harbour Studio booking and Handheld Wireless Mic - flagged arrangements are reviewed before the event is checked again.\nStep 5: Both are no longer listed as flagged.\nStep 8: 'The event has been submitted for a safety check. The Safety Officer has been notified.' is shown, the status becomes 'Safety review', and the 'Safety check history' card now lists three submissions, the newest 'Awaiting review'."
+    },
+    {
+      "id": "SPM-88-TC05",
+      "title": "Flagging needs at least one arrangement, and is only offered after a check was returned",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Harbour Returned Forum' has a returned safety check; 'SPM88 Approved Seminar' is Safety approved. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Harbour Returned Forum' in the list",
+        "Click 'Flag arrangements for review'",
+        "Click 'Flag for review' without ticking anything",
+        "Click 'Cancel' in the dialog",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Approved Seminar' in the list"
+      ],
+      "test_data": "Events: SPM88 Harbour Returned Forum (returned), SPM88 Approved Seminar (Safety approved)",
+      "expected_result": "Step 4: Nothing is flagged; 'Choose at least one arrangement to flag.' is shown and the dialog stays open.\nStep 7: 'SPM88 Approved Seminar' shows no 'Flag arrangements for review' button - its check was approved, not returned."
+    },
+    {
+      "id": "SPM-88-TC06",
+      "title": "When the Safety Officer rejects the safety arrangement the event returns to Planning and the Coordinator sees why",
+      "linked_ac": [
+        "AC2",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Riverside Review' is in Safety review, assigned to Daniel Tan. Logged in as Safety Officer Hana Yusof (hana.yusof@connectsphere.com / password123). This case changes the event - run npm run fixtures:spm88 afterwards.",
+      "steps": [
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'SPM88 Riverside Review' in the list",
+        "Click 'Record safety decision', choose 'Reject', type 'The river terrace has no barrier for 200 people.' in 'Reason for rejecting' and click 'Record decision'",
+        "Click 'Log out' in the top bar",
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Riverside Review' in the list"
+      ],
+      "test_data": "Event: SPM88 Riverside Review (Safety review)\nReason: The river terrace has no barrier for 200 people.",
+      "expected_result": "Step 3: 'Safety arrangement rejected. The event is back in Planning and the coordinator has been notified.' is shown and the status becomes 'Planning'.\nStep 6: 'SPM88 Riverside Review' is listed with the status 'Planning'.\nStep 7: The 'Safety check' row reads 'Rejected · decided by Hana Yusof, <today's date and time>. Reason: The river terrace has no barrier for 200 people.', and a 'Flag arrangements for review' button is offered."
+    },
+    {
+      "id": "SPM-88-TC07",
+      "title": "A significant change to a Safety approved event removes the approval and returns it to Planning",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Approved Gala' is Safety approved (approved by Hana Yusof), expected attendance 60, assigned to Daniel Tan. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event - SPM-88-TC08 continues from it, so go straight to TC08 and run npm run fixtures:spm88 after TC08.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Approved Gala' in the list",
+        "Click 'Edit event information'",
+        "Change 'Expected attendance' from 60 to 80",
+        "Click 'Save changes'",
+        "Click 'Save and move to Planning' in the dialog",
+        "Click 'Back to event'",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM88 Approved Gala (Safety approved)\nExpected attendance: 60 -> 80 (a significant change)",
+      "expected_result": "Step 5: A dialog headed 'Move this event back to Planning?' says SPM88 Approved Gala is Safety approved and that saving cancels the approval, moves it back to Planning, and it will need to be submitted for a safety check again.\nStep 6: 'Event information updated. The event is back in Planning and needs to be submitted for a safety check again.' is shown.\nStep 7: The status is 'Planning' and the 'Safety check' row reads 'Closed after a change on <today's date and time>: the expected attendance changed'.\nStep 8: The Operational Safety Check row is 'Outstanding' and shows 'Not submitted'."
+    },
+    {
+      "id": "SPM-88-TC08",
+      "title": "An event whose safety approval no longer applies cannot be confirmed, and the safety check is named",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-88-TC07 has just been run ('SPM88 Approved Gala' is back in Planning with its approval closed) and the fixtures have NOT been reset since. Still logged in as Daniel Tan. Run npm run fixtures:spm88 after this case.",
+      "steps": [
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM88 Approved Gala (Planning, approval closed)",
+      "expected_result": "Step 3: The event is NOT confirmed. The message names 'the Operational Safety Check has to be submitted again' among what is outstanding, and the status stays 'Planning'."
+    },
+    {
+      "id": "SPM-88-TC09",
+      "title": "An ordinary edit keeps the safety approval, and the Safety approved event confirms as before",
+      "linked_ac": [
+        "AC7",
+        "AC9"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Approved Seminar' is Safety approved, with its venue booking approved and its mic Reserved. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event - run npm run fixtures:spm88 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Approved Seminar' in the list",
+        "Click 'Edit event information'",
+        "Change 'Description' to 'Evening networking session after the seminar.'",
+        "Click 'Save changes'",
+        "Click 'Back to event'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM88 Approved Seminar (Safety approved)\nDescription: Evening networking session after the seminar. (an ordinary edit)",
+      "expected_result": "Step 5: No 'Move this event back to Planning?' dialog appears; 'Event information updated.' is shown.\nStep 6: The status is still 'Safety approved' and the 'Safety check' row still reads 'Approved · decided by Hana Yusof, …'.\nStep 8: 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status becomes 'Confirmed'."
+    },
+    {
+      "id": "SPM-88-TC10",
+      "title": "A significant equipment change while the event is in Safety review closes the pending check",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Pending Showcase' is in Safety review with 2 Handheld Wireless Mics requested and Reserved. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event - run npm run fixtures:spm88 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Pending Showcase' in the list",
+        "Click the 'Equipment' tab",
+        "Change the Handheld Wireless Mic quantity from 2 to 3 and save it",
+        "Click 'Continue' in the dialog",
+        "Click the 'Overview' tab",
+        "Click 'Log out' in the top bar",
+        "Log in as hana.yusof@connectsphere.com with password123",
+        "Click 'Safety Checks' in the sidebar"
+      ],
+      "test_data": "Event: SPM88 Pending Showcase (Safety review)\nHandheld Wireless Mic: 2 -> 3",
+      "expected_result": "Step 4: A dialog headed 'Move this event back to Planning?' says the pending safety check will be closed and the event will need to be submitted again.\nStep 6: The status is 'Planning' and the 'Safety check' row reads 'Closed after a change on <today's date and time>: the equipment changed'.\nStep 9: 'SPM88 Pending Showcase' is no longer listed - there is no check left to decide."
+    },
+    {
+      "id": "SPM-88-TC11",
+      "title": "An ordinary edit while the event is in Safety review leaves the check pending",
+      "linked_ac": [
+        "AC7",
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Pending Workshop' is in Safety review. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event - run npm run fixtures:spm88 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Pending Workshop' in the list",
+        "Click 'Edit event information'",
+        "Change 'Description' to 'Hands-on workshop with refreshments.'",
+        "Click 'Save changes'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM88 Pending Workshop (Safety review)\nDescription: Hands-on workshop with refreshments. (an ordinary edit)",
+      "expected_result": "Step 3: The Edit event information page opens - an event in Safety review can be edited.\nStep 5: No dialog appears; 'Event information updated.' is shown.\nStep 6: The status is still 'Safety review' and the 'Safety check' row still reads 'Awaiting review · submitted by Daniel Tan, …'."
+    },
+    {
+      "id": "SPM-88-TC12",
+      "title": "A significant change to a Confirmed event also removes its safety approval",
+      "linked_ac": [
+        "AC5",
+        "AC8"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Confirmed Expo' is Confirmed (it was Safety approved by Hana Yusof before being confirmed), on 18 Nov 2027. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). This case changes the event - run npm run fixtures:spm88 afterwards.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Confirmed Expo' in the list",
+        "Click 'Edit event information'",
+        "Change 'Starts at' to 19 Nov 2027, 09:00 and 'Ends at' to 19 Nov 2027, 17:00",
+        "Click 'Save changes'",
+        "Click 'Save and move to Planning' in the dialog",
+        "Click 'Back to event'",
+        "Click 'Confirm event' and then 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM88 Confirmed Expo (Confirmed)\nStarts at / Ends at: 18 Nov 2027, 09:00-17:00 -> 19 Nov 2027, 09:00-17:00 (a significant change)",
+      "expected_result": "Step 5: A dialog headed 'Move this event back to Planning?' says SPM88 Confirmed Expo is Confirmed and that saving moves it back to Planning, where it needs a new safety check before it can be confirmed again.\nStep 6: 'Event information updated. The event is back in Planning and needs to be submitted for a safety check again.' is shown.\nStep 7: The status is 'Planning' and the 'Safety check' row reads 'Closed after a change on <today's date and time>: the date or time changed'.\nStep 8: Confirmation is refused, naming 'the Operational Safety Check has to be submitted again'."
+    },
+    {
+      "id": "SPM-88-TC13",
+      "title": "An event that was never submitted for a safety check cannot be confirmed",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm88 has been run. 'SPM88 Unchecked Launch' is in Planning with its venue booking approved and its mic Reserved, and has never been submitted for a safety check. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM88 Unchecked Launch' in the list",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM88 Unchecked Launch (Planning, everything else arranged, never submitted)",
+      "expected_result": "Step 4: The event is NOT confirmed. The message 'This event cannot be confirmed yet: the Operational Safety Check has not been submitted yet.' is shown and the status stays 'Planning' - every other arrangement is in place, so the safety check is the only thing named."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-15: AC1 - the latest decision stays in SPM-86/87's 'Safety check' row; a 'Safety check history' card on the event Overview lists every submission, newest first, for internal users only (TC01, TC02).",
+    "RESOLVED 2026-10-15: AC3 - after a returned check (changes requested or rejected) the assigned coordinator gets 'Flag arrangements for review' on the Overview: a dialog of the event's venue bookings and equipment with tick boxes. Ticked ones are flagged with the reason code safety_check_returned ('the Safety Officer returned the safety check'); nothing else changes. Clearing them is SPM-68 (merged 2026-10-15) - Keep on Flagged Arrangements or the Readiness tab. A flagged arrangement blocks resubmission (SPM-86 AC2) until kept or replaced (TC03, TC04).",
+    "RESOLVED 2026-10-15: A 'significant change' (AC5, AC6) is the coordinator's own save of: an important information change (date or time, expected attendance, venue requirements - SPM-62's importantChanges()), equipment added, changed or removed, or a venue booking requested, withdrawn or released (SPM-67). Other roles' actions (Venue Staff approving, Technical Support reserving, a venue or equipment marked unavailable) already flag the arrangement and are not counted.",
+    "RESOLVED 2026-10-15: Team decision confirmed - Update Event Information (SPM-62) is allowed in Safety review and Safety approved too. A significant edit closes the check and returns the event to Planning; an ordinary edit leaves it as it is (TC07, TC09, TC11).",
+    "RESOLVED 2026-10-15: 'The approval no longer applies' (AC5): a Safety approved event returns to Planning and its approved SafetyCheck is marked 'closed', so the Readiness tab shows 'Not submitted'. A Confirmed event that a significant change already returns to Planning (SPM-62) has its approval closed the same way, so it needs a new check before it can be confirmed again (TC12).",
+    "RESOLVED 2026-10-15: The confirm gate (AC8, AC9) is SPM-33's SAFETY_CHECK_BLOCKS_CONFIRMATION, turned on. 'Confirm event' is still offered in Planning and refused naming the safety check; from Safety approved it succeeds as before (TC08, TC09, TC12, TC13).",
+    "RESOLVED 2026-10-15: Other stories' test cases that confirm an event straight from Planning without an approved safety check (e.g. SPM-34's) are now refused. They are listed under Known Gaps in DOCUMENTATION.md as out of date and their owners told; their fixtures are not changed here.",
+    "RESOLVED 2026-10-15: No new notification - none of the criteria ask for one when a check is closed.",
+    "DECIDED 2026-10-15: Wording - 'Safety check history' card, one line per submission: 'Submitted by <name>, <date and time> - <Changes requested | Rejected | Approved> by <name>, <date and time>. <Changes required | Reason>: <note>', 'Awaiting review' while pending, 'Closed after a change on <date and time>: <what changed>' once closed. The 'Safety check' row for a closed check: 'Closed after a change on <date and time>: <what changed>'. Flagging: button 'Flag arrangements for review', dialog of the same name with 'Venue: <room>' / 'Equipment: <item>' tick boxes, 'Flag for review' / 'Cancel', 'Choose at least one arrangement to flag.', '<n> arrangement(s) flagged for review. Nothing has been changed or cancelled.', flag reason 'the Safety Officer returned the safety check'. Edits: the 'Move this event back to Planning?' dialog adds that the safety check is closed or the approval cancelled and the event must be submitted for a safety check again; the save message becomes 'Event information updated. The event is back in Planning and needs to be submitted for a safety check again.'",
+    "DECIDED 2026-10-15: Fixtures (scripts/seed-spm88.ts, written with the code) - a dedicated venue 'SPM88 Harbour Studio'; events, each with an approved booking there and a Reserved Handheld Wireless Mic (2), coordinator Daniel Tan, organiser Rachel Ng, dated November 2027: 'SPM88 Harbour Returned Forum' (Planning; checks: rejected 5/6 Oct 2026, changes requested 8/9 Oct 2026, as in TC01), 'SPM88 Riverside Review' (Safety review, pending), 'SPM88 Approved Gala' (Safety approved, attendance 60), 'SPM88 Approved Seminar' (Safety approved), 'SPM88 Pending Showcase' (Safety review), 'SPM88 Pending Workshop' (Safety review), 'SPM88 Confirmed Expo' (Confirmed on 18 Nov 2027, its check approved), 'SPM88 Unchecked Launch' (Planning, never submitted)."
+  ],
+  "code_references": [
+    "src/lib/safetyResolution.ts",
+    "src/lib/safetyCheckClose.ts",
+    "src/lib/safetyDecision.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/applyEventInformation.ts",
+    "src/lib/permissions.ts",
+    "src/lib/flaggedArrangements.ts",
+    "src/lib/safetyCheck.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/events/[id]/safety-flags/route.ts",
+    "src/app/api/events/[id]/information/route.ts",
+    "src/app/api/events/[id]/equipment/route.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/route.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/api/events/[id]/venue-bookings/[bookingId]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/SafetyFlagDialog.tsx",
+    "src/app/events/[id]/update/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "scripts/seed-spm88.ts"
+  ]
+}

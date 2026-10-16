@@ -30,6 +30,9 @@ interface Props {
   eventId: string;
   /// For the Withdraw question (SPM-52).
   eventTitle: string | null;
+  /// SPM-52: no Withdraw once the event is over or cancelled.
+  eventStatus: string;
+  eventEndsAt: string | null;
   state: RegistrationStateJson;
   myRegistration: MyRegistration | null;
   /// Called after registering or withdrawing, to reload the event.
@@ -59,7 +62,7 @@ function Message({ state }: { state: RegistrationStateJson }) {
   }
 }
 
-export function RegisterPanel({ eventId, eventTitle, state, myRegistration, onRegistered }: Props) {
+export function RegisterPanel({ eventId, eventTitle, eventStatus, eventEndsAt, state, myRegistration, onRegistered }: Props) {
   const [dietary, setDietary] = useState("");
   const [accessibility, setAccessibility] = useState("");
   const [saving, setSaving] = useState(false);
@@ -115,7 +118,7 @@ export function RegisterPanel({ eventId, eventTitle, state, myRegistration, onRe
                   : `You registered on ${formatDate(holding.registeredAt)}.`}
               </span>
               {/* SPM-52: Withdraw, for a registration holding a seat. */}
-              {canWithdraw(holding.status) && (
+              {canWithdraw(holding.status, { status: eventStatus, endsAt: eventEndsAt }, new Date()) && (
                 <Button variant="secondary" size="sm" onClick={() => setConfirmWithdraw(true)}>
                   Withdraw
                 </Button>
