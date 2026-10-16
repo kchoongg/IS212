@@ -266,6 +266,21 @@ export function canEditEventContent(actor: Actor, event: EventAccessFields): boo
 /// never once final.
 export const EVENT_INFORMATION_STATUSES: readonly string[] = ["approved", "planning", "confirmed"];
 
+/// SPM-88 (decided 2026-10-15): event information can also be updated while
+/// the event waits for, or holds, a safety check. An important change then
+/// closes the check and returns the event to Planning (src/lib/safetyCheckClose.ts).
+/// Registration settings (SPM-64) keep EVENT_INFORMATION_STATUSES.
+export const EVENT_INFORMATION_EDIT_STATUSES: readonly string[] = [
+  "approved",
+  "planning",
+  "safety_review",
+  "safety_cleared",
+  "confirmed",
+];
+
+export const EVENT_INFORMATION_STATUS_MESSAGE =
+  "Event information can only be changed while the event is Approved, Planning, Safety review, Safety approved or Confirmed.";
+
 /// SPM-62: only the coordinator assigned to the event updates its
 /// information. The organiser asks through a change request (SPM-35,
 /// clarification #102). The status window is checked separately, so a refusal
@@ -547,6 +562,15 @@ export function canSubmitForSafetyCheck(actor: Actor, event: EventAccessFields):
 /// left Safety review, so a submission is decided once.
 export function canRecordSafetyDecision(actor: Actor, event: EventAccessFields): boolean {
   return can(actor.role, "event:safety_check") && event.status === "safety_review";
+}
+
+/// SPM-88 (AC3): after the Safety Officer returns a check, the coordinator
+/// assigned to the event flags the arrangements it concerns for review. When
+/// they may (a returned check, the event in Planning) is canFlagAfterReturn()
+/// in src/lib/safetyResolution.ts, checked separately so a refusal can say
+/// which rule was broken.
+export function canFlagForSafetyReview(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
 }
 
 // ---------------------------------------------------------------------------

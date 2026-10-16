@@ -71,6 +71,8 @@ describe("flagReasons - why an arrangement was flagged, in words (AC2, AC8)", ()
     ["equipment_unavailable", "units of the equipment were marked out of service"],
     ["registration_capacity_lowered", "the registration capacity was lowered below the number registered or waitlisted"],
     ["registration_disabled", "registration was turned off"],
+    // SPM-88 (AC3).
+    ["safety_check_returned", "the Safety Officer returned the safety check"],
   ])("words %s", (code, words) => {
     expect(flagReasons(code)).toEqual([words]);
   });

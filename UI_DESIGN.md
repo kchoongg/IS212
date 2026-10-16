@@ -216,6 +216,23 @@ before anything loads — "You do not have access to this", "Finding and booking
 a venue is for the Event Coordinator. The rooms booked for this event are on
 its Overview."
 
+**Resolving a safety check** (SPM-88). Staff see a **Safety check history**
+card under Details: every submission, newest first - "Submitted by Daniel Tan,
+8 Oct 2026, 14:00 - Changes requested by Hana Yusof, 9 Oct 2026, 10:00.
+Changes required: …", "Awaiting review" while pending, "Closed after a change
+on <date>: <what changed>" once closed. Not shown to the organiser or an
+Attendee, or before the first submission. Once a check is returned (changes
+requested or rejected) and the event is back in Planning, the assigned
+coordinator gets **Flag arrangements for review** in the header: a dialog of
+the same name with a tick box per venue booking ("Venue: <room>", or "Venue:
+<session>: <room>") and equipment line ("Equipment: <item>"), "Flag for
+review" / "Cancel", "Choose at least one arrangement to flag." when nothing is
+ticked, then "<n> arrangement(s) flagged for review. Nothing has been changed
+or cancelled." A significant change in Safety review or Safety approved asks
+"Move this event back to Planning?" first on the edit page and the Equipment
+tab (the pending check is closed, or the approval cancelled), and the Venue tab
+and booking request form say "The safety check was closed" afterwards.
+
 **The Overview's Registration card** (SPM-64) is read-only for every role
 that can see the event: Registration (Enabled / Not enabled for this event),
 then Capacity, Measured against, Opens and Closes. Attendees don't see
@@ -609,6 +626,7 @@ This document specifies the whole first release. What is built so far:
 | S-16 Equipment requirements tab (SPM-47) | `src/app/events/[id]/equipment/page.tsx` |
 | S-18 Readiness tab (SPM-33): what blocks confirmation, "Mark as not required" / "Mark as required", who marked it and when | `src/app/events/[id]/readiness/page.tsx`, `src/lib/eventConfirmation.ts`, `src/app/api/events/[id]/arrangements/route.ts` |
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
+| Resolve safety check outcome (SPM-88): the Safety check history card, the "Flag arrangements for review" button and dialog, the safety wording of "Move this event back to Planning?" on the edit page and the Equipment tab, and "The safety check was closed" on the Venue tab and booking request form | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyFlagDialog.tsx`, `src/app/events/[id]/update/page.tsx`, `src/app/events/[id]/equipment/page.tsx`, `src/app/events/[id]/venue/page.tsx`, `src/app/events/[id]/booking/new/page.tsx`, `src/lib/safetyResolution.ts` |
 | Record safety decision - the Safety Officer, on an event in Safety review (SPM-87): button and dialog (Approve / Request changes / Reject, with a required reason for the last two), the decision on the "Safety check" row, each venue's opening hours and unavailable periods on the Venue bookings card, a "Safety approved" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyDecisionDialog.tsx`, `src/lib/safetyDecision.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |

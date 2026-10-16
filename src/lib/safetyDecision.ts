@@ -13,6 +13,7 @@
 
 import { z } from "zod";
 import { formatDateTime } from "@/lib/format";
+import { closedCheckLine } from "@/lib/safetyResolution";
 
 export const SAFETY_DECISIONS = ["approved", "changes_requested", "rejected"] as const;
 export type SafetyDecision = (typeof SAFETY_DECISIONS)[number];
@@ -108,7 +109,9 @@ const OUTCOME: Record<string, string> = {
 /// The event's "Safety check" row (SPM-86 AC8, SPM-87 AC10), staff only:
 ///   "Awaiting review · submitted by Daniel Tan, 9 Oct 2026, 14:30"
 ///   "Changes requested · decided by Hana Yusof, 13 Oct 2026, 14:30. Changes required: …"
+///   "Closed after a change on 15 Oct 2026, 14:30: the equipment changed" (SPM-88)
 export function safetyCheckSummary(check: SafetyCheckView): string {
+  if (check.status === "closed" && check.decidedAt) return closedCheckLine(check.decidedAt, check.decisionNote);
   const decided = OUTCOME[check.status];
   if (!decided || !check.decidedAt) {
     const by = check.submittedBy ? ` by ${check.submittedBy}` : "";

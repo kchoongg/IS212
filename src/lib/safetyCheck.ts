@@ -23,6 +23,7 @@ import { arrangementsFor, blockingArrangements, type SessionRef } from "@/lib/ev
 import { CHANGE_REASON_PROSE } from "@/lib/eventChangeImpact";
 import { IMPACT_REASON_PROSE } from "@/lib/venueImpact";
 import { EQUIPMENT_REASON_PROSE } from "@/lib/equipmentOutOfService";
+import { SAFETY_REASON_PROSE } from "@/lib/safetyResolution";
 
 export const SAFETY_CHECK_PENDING_MESSAGE = "A safety check is already pending for this event.";
 
@@ -55,6 +56,7 @@ const REASON_PROSE: Record<string, string> = {
   ...CHANGE_REASON_PROSE,
   ...IMPACT_REASON_PROSE,
   ...EQUIPMENT_REASON_PROSE,
+  ...SAFETY_REASON_PROSE,
 };
 
 /** " (the date or time changed, the venue has been retired)", or "" when none is known. */

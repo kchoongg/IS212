@@ -20,6 +20,7 @@ import {
   Textarea,
 } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
+import { SAFETY_CLOSED_NOTICE } from "@/lib/safetyResolution";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { RequirePermission } from "@/components/RequirePermission";
@@ -300,9 +301,12 @@ function EventVenueScreen() {
         setChangeError(failure?.error ?? "Could not save the change. Please try again.");
       } else {
         const words = CHANGE[action];
+        // SPM-88: a change while the event rests on a safety check closes it.
+        const changed = await res.json().catch(() => ({}));
+        const closed = changed.safetyCheckClosed ? ` ${SAFETY_CLOSED_NOTICE}` : "";
         setNotice({
           title: words.done,
-          body: `${describeBooking(target)} is now ${statusLabel(words.status)}. ${words.afterwards}`,
+          body: `${describeBooking(target)} is now ${statusLabel(words.status)}. ${words.afterwards}${closed}`,
         });
       }
       setChanging(null);

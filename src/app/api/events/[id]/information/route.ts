@@ -4,7 +4,12 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { EVENT_INFORMATION_STATUSES, canUpdateEventInformation, canViewEvent } from "@/lib/permissions";
+import {
+  EVENT_INFORMATION_EDIT_STATUSES,
+  EVENT_INFORMATION_STATUS_MESSAGE,
+  canUpdateEventInformation,
+  canViewEvent,
+} from "@/lib/permissions";
 import { updateEventInformationSchema, type UpdateEventInformationInput } from "@/lib/validation";
 import { applyEventInformation, mergedEventInfo, type EventForChange } from "@/lib/applyEventInformation";
 
@@ -44,11 +49,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     if (!canUpdateEventInformation(actor, event)) {
       return forbidden("Only the coordinator assigned to this event can change its information");
     }
-    if (!EVENT_INFORMATION_STATUSES.includes(event.status)) {
-      return NextResponse.json(
-        { error: "Event information can only be changed while the event is Approved, Planning or Confirmed." },
-        { status: 400 }
-      );
+    if (!EVENT_INFORMATION_EDIT_STATUSES.includes(event.status)) {
+      return NextResponse.json({ error: EVENT_INFORMATION_STATUS_MESSAGE }, { status: 400 });
     }
 
     const data = updateEventInformationSchema.parse(await req.json());

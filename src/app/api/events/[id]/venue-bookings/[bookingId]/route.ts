@@ -9,14 +9,17 @@ import { eventReference, parseEventReference } from "@/lib/format";
 import { changeVenueBookingSchema } from "@/lib/validation";
 import { ONLY_ASSIGNED_TO_CHANGE, checkBookingChange, releaseNotification } from "@/lib/venueBookingChange";
 import { notifyRole } from "@/lib/notifications";
+import { CLOSE_REASONS } from "@/lib/safetyResolution";
+import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 
 // SPM-67, Withdraw or Release Venue Booking. The assigned Coordinator
 // withdraws a pending request (AC1) or releases an approved booking (AC3),
 // with an optional reason (AC5). Every rule about the booking lives in
 // checkBookingChange() (src/lib/venueBookingChange.ts).
 //
-// What this never does: change the event, or any of its other bookings
-// (SPM-81 AC7). The freed period needs no write either - only pending and
+// What this never does: change any of the event's other bookings (SPM-81
+// AC7), or the event - except that, while it waits for or holds a safety
+// check, the change closes the check and returns it to Planning (SPM-88). The freed period needs no write either - only pending and
 // approved bookings hold a venue (AC4), and the Venue tab offers a new request
 // straight away (AC8).
 
@@ -137,7 +140,15 @@ export async function PATCH(
         );
       }
 
-      return { booking: updated } as const;
+      const safetyCheckClosed = await closeSafetyCheckAfterChange(
+        tx,
+        event,
+        actor.id,
+        data.action === "release" ? CLOSE_REASONS.bookingReleased : CLOSE_REASONS.bookingWithdrawn,
+        false
+      );
+
+      return { booking: updated, safetyCheckClosed } as const;
     });
 
     if ("notFound" in result) {
@@ -146,7 +157,7 @@ export async function PATCH(
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: 400 });
     }
-    return NextResponse.json(result.booking);
+    return NextResponse.json({ ...result.booking, safetyCheckClosed: result.safetyCheckClosed });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });

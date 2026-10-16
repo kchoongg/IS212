@@ -117,9 +117,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             // ADDED (SPM-86 AC8): the latest Operational Safety Check - who
             // submitted it and when. Reshaped to `safetyCheck` below, for
             // internal users only.
+            // CHANGED (SPM-88 AC1): every check, newest first, as
+            // `safetyHistory`; the latest is still `safetyCheck`.
             safetyChecks: {
               orderBy: { submittedAt: "desc" },
-              take: 1,
               select: {
                 status: true,
                 submittedAt: true,
@@ -160,23 +161,23 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // event was never submitted. Safety details are internal (SPM-88): an
   // external user (the organiser, an attendee) sees the Safety review status
   // and nothing more.
+  // SPM-88 (AC1): and every check, newest first, as `safetyHistory`.
   const { safetyChecks, ...rest } = event;
-  const latest = safetyChecks?.[0];
+  const safetyHistory = (safetyChecks ?? []).map((check) => ({
+    status: check.status,
+    submittedAt: check.submittedAt,
+    submittedBy: check.submitter?.fullName ?? null,
+    decidedAt: check.decidedAt ?? null,
+    decidedBy: check.decider?.fullName ?? null,
+    decisionNote: check.decisionNote ?? null,
+  }));
   const shaped = isExternalRole(actor.role)
     ? rest
     : {
         ...rest,
         venueBookings: await withVenueRestrictions(rest),
-        safetyCheck: latest
-          ? {
-              status: latest.status,
-              submittedAt: latest.submittedAt,
-              submittedBy: latest.submitter?.fullName ?? null,
-              decidedAt: latest.decidedAt ?? null,
-              decidedBy: latest.decider?.fullName ?? null,
-              decisionNote: latest.decisionNote ?? null,
-            }
-          : null,
+        safetyCheck: safetyHistory[0] ?? null,
+        safetyHistory,
       };
   if (actor.role === "attendee") {
     // SPM-51 AC4: whether they can register now, and if not why - the same

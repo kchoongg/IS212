@@ -347,9 +347,9 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
       decidedBy: null,
       decisionNote: null,
     });
+    // CHANGED (SPM-88 AC1): every check, newest first - the latest is `safetyCheck`.
     expect(callArg(db.event.findUnique).include.safetyChecks).toEqual({
       orderBy: { submittedAt: "desc" },
-      take: 1,
       select: {
         status: true,
         submittedAt: true,
@@ -386,6 +386,71 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
     expect(body.status).toBe("safety_review");
     expect(body).not.toHaveProperty("safetyCheck");
     expect(body).not.toHaveProperty("safetyChecks");
+    expect(body).not.toHaveProperty("safetyHistory");
+  });
+});
+
+describe("GET /api/events/[id] - the safety check history (SPM-88 AC1)", () => {
+  const get = (token: string) => GET(req("GET", `/api/events/${REF}`, { token }), params({ id: REF }));
+  const returned = {
+    status: "changes_requested",
+    submittedAt: new Date("2026-10-08T06:00:00Z"),
+    submitter: { fullName: "Daniel Tan" },
+    decidedAt: new Date("2026-10-09T02:00:00Z"),
+    decider: { fullName: "Hana Yusof" },
+    decisionNote: "Add a second fire marshal at the east exit.",
+  };
+  const rejected = {
+    status: "rejected",
+    submittedAt: new Date("2026-10-05T06:00:00Z"),
+    submitter: null,
+    decidedAt: new Date("2026-10-06T02:00:00Z"),
+    decider: null,
+    decisionNote: "Fire exits are blocked by the stage set.",
+  };
+
+  it("SPM-88-TC01: gives staff every submission and decision, newest first", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "planning", safetyChecks: [returned, rejected] }));
+
+    const body = await (await get(token)).json();
+
+    expect(body.safetyHistory).toEqual([
+      {
+        status: "changes_requested",
+        submittedAt: "2026-10-08T06:00:00.000Z",
+        submittedBy: "Daniel Tan",
+        decidedAt: "2026-10-09T02:00:00.000Z",
+        decidedBy: "Hana Yusof",
+        decisionNote: "Add a second fire marshal at the east exit.",
+      },
+      {
+        status: "rejected",
+        submittedAt: "2026-10-05T06:00:00.000Z",
+        submittedBy: null,
+        decidedAt: "2026-10-06T02:00:00.000Z",
+        decidedBy: null,
+        decisionNote: "Fire exits are blocked by the stage set.",
+      },
+    ]);
+    expect(body.safetyCheck).toEqual(body.safetyHistory[0]);
+  });
+
+  it("gives staff an empty history when the event was never submitted", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ safetyChecks: [] }));
+
+    expect((await (await get(token)).json()).safetyHistory).toEqual([]);
+  });
+
+  it("SPM-88-TC02: never gives the Event Organiser the history", async () => {
+    const token = signIn(user("organiser", { id: "organiser-id" }));
+    db.event.findUnique.mockResolvedValue(event({ status: "planning", safetyChecks: [returned, rejected] }));
+
+    const body = await (await get(token)).json();
+
+    expect(body).not.toHaveProperty("safetyHistory");
+    expect(body).not.toHaveProperty("safetyCheck");
   });
 });
 
