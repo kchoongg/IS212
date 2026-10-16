@@ -15,7 +15,7 @@
 // Manual cases: docs/test-cases/SPM-51_test_cases.json (TC02, TC03, TC06-TC08, TC11, TC12).
 import { describe, it, expect } from "vitest";
 import EventOverviewPage from "@/app/events/[id]/page";
-import { fireEvent, mockApi, render, reply, screen, setRoute, signedInAs, userEvent, waitFor, within } from "@/test/ui";
+import { fireEvent, mockApi, render, reply, router, screen, setRoute, signedInAs, userEvent, waitFor, within } from "@/test/ui";
 
 const REF = "EVT-000041";
 const EVENT = `GET /api/events/${REF}`;
@@ -143,6 +143,20 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
 
     expect(await screen.findByText("Already registered for this event")).toBeInTheDocument();
     expect(screen.queryByText("You're registered for this event.")).not.toBeInTheDocument();
+  });
+
+  it("drops the old title and status badge when the event can no longer be loaded", async () => {
+    const api = open();
+    await screen.findByRole("heading", { level: 1, name: "SPM51 Harbour Open House" });
+    api.on(REGISTER, reply(201, { id: "r1" }));
+    api.on(EVENT, reply(404, { error: "Event not found" }));
+
+    await userEvent.click(registerButton()!);
+
+    expect(await screen.findByText("This event doesn't exist, or you don't have access to it.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Event" })).toBeInTheDocument();
+    expect(screen.queryByText("Confirmed")).not.toBeInTheDocument();
+    expect(screen.queryByText(REF)).not.toBeInTheDocument();
   });
 
   it("shows a general refusal when the server gives no reason", async () => {
@@ -278,6 +292,64 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(api.sent(WITHDRAW)[0].body).toEqual({ status: "withdrawn" });
     expect(await screen.findByRole("button", { name: "Register" })).toBeInTheDocument();
     expect(screen.queryByText("You registered on 5 Oct 2026.")).not.toBeInTheDocument();
+  });
+
+  it("asks with no warning while the attendee could register again", async () => {
+    open(publicEvent({ myRegistration: mine("registered") }));
+    await panel();
+
+    await userEvent.click(withdrawButton()!);
+
+    expect(dialog()).not.toHaveTextContent("you can't register again");
+  });
+
+  it("warns that registration has closed before withdrawing", async () => {
+    open(
+      publicEvent({
+        registrationClosesAt: "2026-10-01T09:00:00.000Z",
+        registrationState: { kind: "closed", closesAt: "2026-10-01T09:00:00.000Z" },
+        myRegistration: mine("registered"),
+      })
+    );
+    await panel();
+
+    await userEvent.click(withdrawButton()!);
+
+    expect(dialog()).toHaveTextContent("Registration for this event has closed, so you can't register again.");
+  });
+
+  // Bug: with registration turned off, the attendee could only see the event while holding a place,
+  // so the reload after withdrawing is a 404, and they were told the event doesn't exist.
+  it("warns first, then takes the attendee to My Registrations when registration is turned off", async () => {
+    const api = open(
+      publicEvent({ registrationEnabled: false, registrationState: { kind: "disabled" }, myRegistration: mine("registered") })
+    );
+    await panel();
+    api.on(WITHDRAW, { id: "reg-1", status: "withdrawn" });
+    api.on(EVENT, reply(404, { error: "Event not found" }));
+
+    await userEvent.click(withdrawButton()!);
+    expect(dialog()).toHaveTextContent(
+      "Registration for this event has been turned off, so you can't register again. Once you withdraw, you won't be able to open this event any more."
+    );
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/registrations?withdrawn=reg-1"));
+    expect(api.sent(WITHDRAW)[0].body).toEqual({ status: "withdrawn" });
+    expect(screen.queryByText("This event doesn't exist, or you don't have access to it.")).not.toBeInTheDocument();
+  });
+
+  it("stays on the event page when it can still be seen once withdrawn", async () => {
+    const api = open(publicEvent({ myRegistration: mine("registered") }));
+    await panel();
+    api.on(WITHDRAW, { id: "reg-1", status: "withdrawn" });
+    api.on(EVENT, publicEvent({ myRegistration: mine("withdrawn") }));
+
+    await userEvent.click(withdrawButton()!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await screen.findByRole("button", { name: "Register" })).toBeInTheDocument();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("sends nothing when the attendee keeps their place", async () => {

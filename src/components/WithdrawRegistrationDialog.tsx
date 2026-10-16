@@ -16,6 +16,8 @@ export interface WithdrawTarget {
   /// The registration's id.
   id: string;
   eventTitle: string | null;
+  /// withdrawWarning(): why they couldn't register again afterwards, if so.
+  warning?: string | null;
 }
 
 interface Props {
@@ -70,6 +72,11 @@ export function WithdrawRegistrationDialog({ target, onCancel, onWithdrawn }: Pr
       {error && (
         <Alert variant="error" className="mb-3">
           {error}
+        </Alert>
+      )}
+      {target?.warning && (
+        <Alert variant="warning" className="mb-3">
+          {target.warning}
         </Alert>
       )}
       Your place is released and can be taken by someone else. To attend, you would have to register again, and the

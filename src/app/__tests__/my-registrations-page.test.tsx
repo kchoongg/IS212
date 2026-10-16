@@ -20,16 +20,27 @@ const registration = (
   title: string | null,
   sequenceNumber: number,
   day: string,
-  eventStatus = "confirmed"
+  eventStatus = "confirmed",
+  registration: { registrationEnabled: boolean; registrationClosesAt: string | null } = {
+    registrationEnabled: true,
+    registrationClosesAt: "2027-12-31T09:00:00.000Z",
+  }
 ) => ({
   id,
   status,
   registeredAt: "2026-10-05T02:00:00.000Z",
-  event: { sequenceNumber, title, status: eventStatus, startsAt: `${day}T01:00:00.000Z`, endsAt: `${day}T09:00:00.000Z` },
+  event: {
+    sequenceNumber,
+    title,
+    status: eventStatus,
+    startsAt: `${day}T01:00:00.000Z`,
+    endsAt: `${day}T09:00:00.000Z`,
+    ...registration,
+  },
 });
 
-function open(rows: unknown) {
-  setRoute("/registrations");
+function open(rows: unknown, path = "/registrations") {
+  setRoute(path);
   const api = mockApi({ ...signedInAs("attendee"), [LIST]: rows });
   render(<RegistrationsPage />);
   return api;
@@ -230,6 +241,45 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
 
     expect(within(dialog()).getByRole("heading", { hidden: true, name: "Withdraw from SPM52 Riverside Forum?" })).toBeInTheDocument();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("warns before withdrawing from an event whose registration is turned off", async () => {
+    open([
+      registration("r1", "registered", "SPM52 Members Gala", 52, "2028-04-01", "confirmed", {
+        registrationEnabled: false,
+        registrationClosesAt: null,
+      }),
+    ]);
+    await screen.findByRole("table");
+
+    await userEvent.click(withdrawButton("SPM52 Members Gala")!);
+
+    expect(dialog()).toHaveTextContent(
+      "Registration for this event has been turned off, so you can't register again. Once you withdraw, you won't be able to open this event any more."
+    );
+  });
+
+  it("asks with no warning while the attendee could register again", async () => {
+    open(rows());
+    await screen.findByRole("table");
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+
+    expect(dialog()).not.toHaveTextContent("you can't register again");
+  });
+
+  it("says so when sent here after withdrawing from an event page it can no longer show", async () => {
+    open([registration("r1", "withdrawn", "SPM52 Members Gala", 52, "2028-04-01")], "/registrations?withdrawn=r1");
+
+    expect(await screen.findByText("You have withdrawn from SPM52 Members Gala.")).toBeInTheDocument();
+    expect(within(rowOf("SPM52 Members Gala")).getByText("Withdrawn")).toBeInTheDocument();
+  });
+
+  it("says nothing when the registration in the address was not withdrawn", async () => {
+    open(rows(), "/registrations?withdrawn=r1");
+    await screen.findByRole("table");
+
+    expect(screen.queryByText(/You have withdrawn from/)).not.toBeInTheDocument();
   });
 
   it("names an untitled event in general words", async () => {

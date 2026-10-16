@@ -98,6 +98,28 @@ export function canWithdraw(status: string, event: WithdrawEventFields, now: Dat
   return withdrawRefusal(status, event, now) === null;
 }
 
+export const WITHDRAW_WARNINGS = {
+  disabled:
+    "Registration for this event has been turned off, so you can't register again. Once you withdraw, you won't be able to open this event any more.",
+  closed: "Registration for this event has closed, so you can't register again.",
+};
+
+export interface WithdrawWarningFields {
+  registrationEnabled: boolean;
+  /// A Date on the server, an ISO string on the screens.
+  registrationClosesAt: Date | string | null;
+}
+
+/// SPM-52: said in the Withdraw question when the attendee couldn't register
+/// again afterwards, or null when they could. With registration turned off they
+/// only see the event while they hold a place (#10, canViewEvent()), so they
+/// lose it too.
+export function withdrawWarning(event: WithdrawWarningFields, now: Date): string | null {
+  if (!event.registrationEnabled) return WITHDRAW_WARNINGS.disabled;
+  if (event.registrationClosesAt && new Date(event.registrationClosesAt) < now) return WITHDRAW_WARNINGS.closed;
+  return null;
+}
+
 export interface RegistrationCounts {
   /// Seats held now (SEAT_TAKING).
   taken: number;

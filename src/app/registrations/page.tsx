@@ -1,12 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Button, DataState, PageHeader, StatusBadge, Table, type Column } from "@/components/ui";
 import { RequirePermission } from "@/components/RequirePermission";
 import { WithdrawRegistrationDialog, type WithdrawTarget } from "@/components/WithdrawRegistrationDialog";
 import { eventReference, formatDateTimeRange } from "@/lib/format";
-import { canWithdraw } from "@/lib/registrationEligibility";
+import { canWithdraw, withdrawWarning } from "@/lib/registrationEligibility";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 
@@ -18,7 +18,15 @@ interface RegistrationRow {
   id: string;
   status: string;
   registeredAt: string;
-  event: { sequenceNumber: number; title: string | null; status: string; startsAt: string | null; endsAt: string | null };
+  event: {
+    sequenceNumber: number;
+    title: string | null;
+    status: string;
+    startsAt: string | null;
+    endsAt: string | null;
+    registrationEnabled: boolean;
+    registrationClosesAt: string | null;
+  };
 }
 
 function MyRegistrations() {
@@ -28,6 +36,16 @@ function MyRegistrations() {
   const [error, setError] = useState<string | null>(null);
   const [withdrawing, setWithdrawing] = useState<WithdrawTarget | null>(null);
   const [withdrawn, setWithdrawn] = useState<string | null>(null);
+  // SPM-52: the event page sends the attendee here (?withdrawn=<registration
+  // id>) when they can no longer see the event they withdrew from. The id,
+  // not the title, so the message only names a withdrawal that happened.
+  const searchParams = useSearchParams();
+  const [fromEventPage, setFromEventPage] = useState(searchParams.get("withdrawn"));
+  const withdrawnFromEventPage = fromEventPage
+    ? rows?.find((row) => row.id === fromEventPage && row.status === "withdrawn")
+    : undefined;
+  const withdrawnMessage =
+    withdrawn ?? (withdrawnFromEventPage ? withdrawnFromEventPage.event.title || "the event" : null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -76,7 +94,12 @@ function MyRegistrations() {
             onClick={(e) => {
               e.stopPropagation();
               setWithdrawn(null);
-              setWithdrawing({ id: row.id, eventTitle: row.event.title });
+              setFromEventPage(null);
+              setWithdrawing({
+                id: row.id,
+                eventTitle: row.event.title,
+                warning: withdrawWarning(row.event, new Date()),
+              });
             }}
             onKeyDown={(e) => e.stopPropagation()}
           >
@@ -89,9 +112,9 @@ function MyRegistrations() {
   return (
     <div>
       <PageHeader title="My Registrations" subtitle="The events you have registered for, and their status." />
-      {withdrawn && (
+      {withdrawnMessage && (
         <Alert variant="success" className="mb-4">
-          You have withdrawn from {withdrawn}.
+          You have withdrawn from {withdrawnMessage}.
         </Alert>
       )}
       <DataState
@@ -133,7 +156,10 @@ export default function RegistrationsPage() {
       title="My Registrations"
       reason="Registrations belong to an Attendee account."
     >
-      <MyRegistrations />
+      {/* useSearchParams needs a Suspense boundary above it. */}
+      <Suspense fallback={null}>
+        <MyRegistrations />
+      </Suspense>
     </RequirePermission>
   );
 }
