@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
 import { eventReference, parseEventReference } from "@/lib/format";
@@ -90,6 +91,8 @@ export async function PATCH(
       // so a withdrawal and an approval of one request cannot both succeed:
       // whichever comes second reads the first one's status and is refused.
       await tx.$queryRaw`SELECT id FROM venues WHERE id = ${found.venueId} FOR UPDATE`;
+      // SPM-82: after the lock, so a hold that has run out is read as expired.
+      await expireDueHolds(tx);
 
       const booking = await tx.venueBooking.findUniqueOrThrow({
         where: { id: bookingId },

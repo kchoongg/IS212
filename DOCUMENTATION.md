@@ -162,6 +162,7 @@ IS212/
 │   ├── seed-spm55.ts            # `npm run fixtures:spm55` — SPM-55 test data (own "SPM55 …" items), no reseed
 │   ├── seed-spm85.ts            # `npm run fixtures:spm85` — the Safety Officer account + SPM-85 test data, no reseed
 │   ├── seed-spm71.ts            # `npm run fixtures:spm71` — SPM-71 test accounts, notifications and events, no reseed
+│   ├── seed-spm82.ts            # `npm run fixtures:spm82` — SPM-82 hold room and events with expiring holds, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -813,6 +814,7 @@ traceability the module asks for.
 | `npm run fixtures:spm51` | Adds or resets SPM-51's 8 test events ("SPM51 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm51_`, with their registration settings (open until 31 Dec 2027, not yet open, closed, no dates, off) and their registered, waitlisted and withdrawn attendees. No pinned reference numbers: the cases find events by title. Run it before and after any case that registers. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm68` | Adds or resets SPM-68's 14 test events ("SPM68 …", 6–25 Oct 2027) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm68_`, puts its five SPM68 test venues and two SPM68 equipment items back to their starting state, and writes the review flags the Flagged Arrangements page lists. Run it after each case that keeps, reviews, requests, releases or confirms (SPM-68-TC14 releases on the Venue tab). |
 | `npm run fixtures:spm71` | Creates or refreshes SPM-71's four test accounts (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee; all `password123`), deletes and recreates every notification they hold, and resets SPM-71's 4 events ("SPM71 …", Nov 2027) without reseeding - only those accounts and events whose `seedKey` starts with `spm71_` are touched. The accounts are the story's own so the unread counts the cases quote never move with other testers' work. No pinned reference numbers. Run it before and after any case that marks or opens a notification. The accounts and events, without the notifications or arrangements, are in `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm82` | Adds or resets SPM-82's test room, SPM82 Hold Room (SPM82-HOLD, 60 minutes of setup and turnaround), and its 8 events ("SPM82 …") with their venue bookings, without reseeding. Holds already past their expiry are created pending, as real ones would be, and the app expires them (and notifies Daniel Tan) the next time bookings are read. Three things are relative to when it runs, because they are about time passing: SPM82 Short Notice Meetup starts 3 days later and SPM82 Closing Soon Forum's hold expires 12 hours later (the script prints both). Run it before and after any case that changes data. The venue and events, without bookings, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -1042,6 +1044,48 @@ what changed, why, and the migration name if there is one.
     Known Gaps: three SPM-88 rows deleted (the confirm gate twice, approval
     not voided by a change); three added (other stories' out-of-date cases,
     closing overwrites the approver, no question before a booking change).
+
+### 2026-10-15 — Jordan
+- **SPM-82 (Expire Tentative Venue Hold, Week 7 change #4).** A pending venue
+  booking request is a tentative hold (#41): it now expires unless Venue Staff
+  approve it in time, and the room is then free for other requests.
+  - **The expiry:** set on request to 7 days later, or the event's start if
+    that is sooner (`defaultHoldExpiry()`, `src/lib/holdExpiry.ts`). Shown on
+    the Coordinator's Venue tab ("Hold expires …") and on Venue Staff's
+    Booking Requests card ("Hold expires" row), where **Change expiry** moves
+    it - not into the past, not past the event's start, only while pending
+    (`PATCH /api/venue-bookings/[id]/expiry`).
+  - **How it expires - no scheduled job (the story's "real unknown").**
+    `expireDueHolds()` (`src/lib/holdExpiryService.ts`) runs before every read
+    of venue bookings: the Venue tab, Booking Requests, a new request, a
+    decision, the availability calendar, venue search, Readiness, Confirm,
+    Submit for safety check - and the unread-notifications count, which every
+    page asks for. Each step is one `UPDATE … RETURNING` statement, so two
+    requests sweeping at once never claim the same hold and each Coordinator
+    is told once. In the two routes that lock the venue first it runs after
+    the lock. #55: notifications have no hard real-time requirement.
+  - **Expired** is a new booking status (grey). An expired hold holds nothing
+    (conflicts, search and the calendar read only pending and approved), stays
+    on the event's Venue tab as "Expired - Hold expired on …", and cannot be
+    approved, rejected or re-timed ("This hold has expired. The Coordinator must
+    submit a new request.").
+  - **Readiness and Confirm (AC10):** an expired hold is an outstanding
+    arrangement - "the hold on <room> for this event expired on … - submit a new
+    request" - until a newer pending or approved request exists for the same
+    space (session and purpose; a hold with no purpose recorded is replaced by
+    any newer request for its session), or it is marked as not required.
+  - **Notifications (AC9):** "Venue hold expires soon" a configurable period
+    before (`VENUE_HOLD_WARNING_HOURS` in `.env`, default 24 - there is no
+    settings screen) and "Venue hold expired" when it does, to the event's
+    coordinator; both open the event's Venue tab.
+  - An approved booking never expires (AC11). Bookings made before this
+    story have no expiry and never expire - including other stories' pending
+    test bookings, which fixture scripts create without one.
+  - **Migration `20261015130000_add_venue_hold_expiry`:** adds
+    `hold_expires_at` and `expiry_warning_sent_at` (both nullable) and an index
+    on (`status`, `hold_expires_at`). Only adds columns.
+  - **Test data:** `npm run fixtures:spm82`;
+    `docs/test-cases/SPM-82_Test_Cases.xlsx` (11 cases).
 
 ### 2026-10-15 — Kristen (end-to-end tests)
 - **End-to-end smoke tests added** (`e2e/`, Playwright). The production build,

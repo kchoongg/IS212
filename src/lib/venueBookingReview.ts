@@ -12,6 +12,7 @@
 // (src/app/api/venue-bookings/[id]/route.ts) loads the rows and calls these.
 
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { EXPIRED_HOLD_MESSAGE } from "@/lib/holdExpiry";
 import { formatDateTimeRange } from "@/lib/format";
 import { findVenueConflict } from "@/lib/venueConflict";
 import { occupiedWindow, overlapping, timeRangeLabel, type Interval, type Turnaround } from "@/lib/venueTime";
@@ -127,6 +128,9 @@ export function checkBookingDecision(input: BookingDecisionInput): BookingDecisi
     field,
   });
 
+  // SPM-82 (AC5): an expired hold was never a booking. It is not "already
+  // decided" either - the Coordinator has to ask again.
+  if (booking.status === "expired") return refuse(EXPIRED_HOLD_MESSAGE);
   if (!DECIDABLE_BOOKING_STATUSES.includes(booking.status)) return refuse(ALREADY_DECIDED_MESSAGE);
 
   if (decision.decision === "approve") {

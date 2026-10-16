@@ -25,7 +25,7 @@ import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { RequirePermission } from "@/components/RequirePermission";
 import { cn } from "@/lib/cn";
-import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { formatDateTime, formatDateTimeRange, formatVenue } from "@/lib/format";
 import { statusLabel } from "@/lib/statuses";
 import { LAYOUTS, toOptions } from "@/lib/eventForm";
 import {
@@ -96,6 +96,9 @@ interface BookingInfo {
     /// a booking made before they were recorded.
     purpose?: string | null;
     expectedAttendance?: number | null;
+    /// SPM-82: when a pending request's tentative hold expires, or when an
+    /// expired one did. Null on a request made before holds expired.
+    holdExpiresAt?: string | null;
     decisionReason: string | null;
     suggestedAlternative: string | null;
     suggestedVenue: { id: string; code: string; name: string; isActive: boolean } | null;
@@ -523,6 +526,7 @@ function BookingRequests({
                     .filter(Boolean)
                     .join(" · ")}
                 </p>
+                <HoldExpiryLine status={b.status} holdExpiresAt={b.holdExpiresAt ?? null} />
               </div>
               <div className="flex shrink-0 flex-col items-end gap-2">
                 <StatusBadge status={b.status} />
@@ -634,4 +638,22 @@ function VenueResult({ result, requestHref }: { result: Result; requestHref: str
       </CardBody>
     </Card>
   );
+}
+
+/// SPM-82: a pending request is a tentative hold that expires unless Venue
+/// Staff approve it first (AC1); an expired one stays on the record, saying
+/// when it ran out (AC8). An approved booking never expires (AC11), and a hold
+/// made before expiries were recorded has none - neither gets a line.
+function HoldExpiryLine({ status, holdExpiresAt }: { status: string; holdExpiresAt: string | null }) {
+  if (status === "pending" && holdExpiresAt) {
+    return <p className="text-xs text-ink-3">Hold expires {formatDateTime(holdExpiresAt)}</p>;
+  }
+  if (status === "expired") {
+    return (
+      <p className="text-xs text-ink-3">
+        {holdExpiresAt ? `Hold expired on ${formatDateTime(holdExpiresAt)}` : "Hold expired"}
+      </p>
+    );
+  }
+  return null;
 }

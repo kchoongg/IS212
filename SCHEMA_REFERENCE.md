@@ -34,7 +34,7 @@ Copy from here rather than typing from memory.
 | `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `safety_cleared` `confirmed` `completed` `cancelled` `rejected` `postponed` |
 | `SafetyCheck.status` | `pending` (SPM-86) `approved` `changes_requested` `rejected` (SPM-87) `closed` (SPM-88) |
 | *(note)* | `Event.status = safety_cleared` is shown as **"Safety approved"** (SPM-87). It is not `safety_approved`, which is the Readiness tab's safety-check badge key (SPM-33). |
-| `VenueBooking.status` | `pending` `approved` `rejected` `withdrawn` `released` |
+| `VenueBooking.status` | `pending` `approved` `rejected` `withdrawn` `released` `expired` (SPM-82: a pending request - a tentative hold - not approved by `holdExpiresAt`) |
 | `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
@@ -405,6 +405,8 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `cancelledBy` | String |  | SPM-67: the Coordinator who withdrew or released it. Relation `canceller`. NULL unless `withdrawn` or `released`. |
 | `cancelledAt` | DateTime |  | When it was withdrawn or released. |
 | `cancellationReason` | String |  | The Coordinator's reason - optional. Shown on the Venue tab as 'Reason for withdrawal' or 'Reason for release'. |
+| `holdExpiresAt` | DateTime |  | SPM-82: when this pending request (a tentative hold) stops holding the venue unless approved first. Set on request - 7 days later, or the event's start if sooner - and changeable by Venue Staff while pending. NULL on bookings made before SPM-82, which never expire. Indexed with `status` for the expiry sweep. |
+| `expiryWarningSentAt` | DateTime |  | SPM-82: when the Coordinator was warned the hold is about to expire, so the warning goes once. Cleared when the expiry is moved. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `suggestedVenue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User, `canceller` &rarr; User
 

@@ -11,6 +11,8 @@ import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { canChangeBookingsOf } from "@/lib/venueBookingChange";
+import { defaultHoldExpiry } from "@/lib/holdExpiry";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 
 // SPM-42, Request Venue Booking. GET is what the Venue tab needs to offer a
 // request: the event's sessions, its existing requests, and whether this user
@@ -29,6 +31,8 @@ const BOOKING_FIELDS = {
   // SPM-90: what the space is for, and its own attendance.
   purpose: true,
   expectedAttendance: true,
+  // SPM-82 (AC1, AC8): when a pending request's hold expires, or when it did.
+  holdExpiresAt: true,
   requirementsNote: true,
   requestedAt: true,
   // SPM-43: Venue Staff's decision, for the coordinator to act on (AC6).
@@ -68,6 +72,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return hidden();
   }
 
+  // SPM-82: overdue holds are marked expired first, so the list shows them as
+  // they are (AC4, AC8).
+  await expireDueHolds();
   const bookings = await prisma.venueBooking.findMany({
     where: { eventId: event.id },
     select: BOOKING_FIELDS,
@@ -153,6 +160,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // then read the first one's booking. Everything below reads after the lock.
     const result = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM venues WHERE id = ${data.venueId} FOR UPDATE`;
+      // SPM-82 (AC6): a hold that has run out stops counting before the
+      // bookings are read, so the time it took up is free for this request.
+      await expireDueHolds(tx);
 
       const venue = await tx.venue.findUnique({
         where: { id: data.venueId },
@@ -221,6 +231,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           startsAt: check.window.startsAt,
           endsAt: check.window.endsAt,
           status: "pending",
+          // SPM-82 (AC2): a tentative hold until Venue Staff approve it - 7
+          // days, or until the event starts if that is sooner.
+          holdExpiresAt: defaultHoldExpiry(new Date(), event.startsAt),
           requestedBy: actor.id,
           requirementsNote: data.requirementsNote,
         },
