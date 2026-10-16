@@ -3,7 +3,8 @@
 //   401; 403 "Only an Attendee can withdraw a registration";
 //   404 "Registration not found" - none with that id, or it is another attendee's;
 //   400 "Validation failed" - any other body;
-//   400 "Only an active registration can be withdrawn" - not registered, or withdrawn meanwhile.
+//   400 "Only an active registration can be withdrawn" - not registered, or withdrawn meanwhile;
+//   400 "This event has been cancelled, ..." / "This event is over, ..." - cancelled, completed or ended.
 // The place comes back because seats are counted from SEAT_TAKING (registrationEligibility.test.ts).
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 
@@ -24,6 +25,7 @@ function registration(overrides: Record<string, unknown> = {}) {
     status: "registered",
     registeredAt: new Date("2026-10-05T02:00:00Z"),
     withdrawnAt: null,
+    event: { status: "confirmed", endsAt: new Date("2028-03-04T09:00:00Z") },
     ...overrides,
   };
 }
@@ -86,7 +88,10 @@ describe("PATCH /api/registrations/[id]", () => {
     const res = await withdraw(signIn(attendee()));
 
     expect(res.status).toBe(200);
-    expect(callArg(db.registration.findUnique)).toEqual({ where: { id: ID.registration } });
+    expect(callArg(db.registration.findUnique)).toEqual({
+      where: { id: ID.registration },
+      include: { event: { select: { status: true, endsAt: true } } },
+    });
     // Only while it is still registered, so a second click can't withdraw twice.
     expect(callArg(db.registration.updateMany)).toEqual({
       where: { id: ID.registration, status: "registered" },
@@ -117,6 +122,20 @@ describe("PATCH /api/registrations/[id]", () => {
       expect(db.registration.updateMany).not.toHaveBeenCalled();
     }
   );
+
+  it.each([
+    ["cancelled", { status: "cancelled", endsAt: new Date("2028-03-04T09:00:00Z") }, "This event has been cancelled, so there is nothing to withdraw from"],
+    ["completed", { status: "completed", endsAt: new Date("2026-09-15T09:00:00Z") }, "This event is over, so the registration can no longer be withdrawn"],
+    ["ended but not yet completed", { status: "confirmed", endsAt: new Date("2026-10-12T09:00:00Z") }, "This event is over, so the registration can no longer be withdrawn"],
+  ])("refuses to withdraw from a %s event, changing nothing", async (_case, event, error) => {
+    db.registration.findUnique.mockResolvedValue(registration({ event }));
+
+    const res = await withdraw(signIn(attendee()));
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error });
+    expect(db.registration.updateMany).not.toHaveBeenCalled();
+  });
 
   it("refuses when it was withdrawn from another tab in the meantime", async () => {
     db.registration.findUnique.mockResolvedValue(registration());

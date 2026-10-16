@@ -538,11 +538,13 @@ describe("SPM-52 the places taken and withdrawals", () => {
     expect(valueOf("Withdrawn")).toBeUndefined();
   });
 
-  it("shows no counts while registration is off", async () => {
+  it("keeps showing the counts after registration is turned off, without a capacity", async () => {
     open("organiser", event(counts), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
 
-    expect(valueOf("Places taken")).toBeUndefined();
+    expect(valueOf("Registration")).toHaveTextContent("Not enabled for this event");
+    expect(valueOf("Places taken")?.textContent).toBe("12");
+    expect(valueOf("Withdrawn")).toHaveTextContent("3");
   });
 });

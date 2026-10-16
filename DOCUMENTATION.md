@@ -958,8 +958,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
 | **A full event offers the waiting list but nobody can join it** | SPM-51 shows "This event is full. You can join the waiting list instead." and "Joining the waiting list isn't available yet." Joining, the 3-day offer window (#44) and FIFO with manual override (#26) are *Join and Respond to Waiting List*. When it lands, replace that second line with its Join button in `src/app/events/[id]/RegisterPanel.tsx`. | Join and Respond to Waiting List |
-| **An attendee can withdraw at any time** | SPM-52's acceptance criteria set no cut-off, so a Registered attendee can withdraw after registration has closed, and even after the event's date while it is still Confirmed. If the team wants one (when registration closes, or when the event starts), it goes in `canWithdraw()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
-| **Registration counts are hidden once registration is turned off** | The organiser's and coordinator's "Places taken" and "Withdrawn" rows (SPM-52) show only while registration is enabled. If the coordinator turns it off after attendees registered, the card says "Not enabled for this event", so a later withdrawal isn't visible to them. | SPM-52 (Sammi) |
+| **An attendee can withdraw up to the event's end** | SPM-52's acceptance criteria set no cut-off. Withdrawing is refused once the event is cancelled, completed or past its end, so its history doesn't change; before that a Registered attendee can withdraw, even after registration has closed or while the event is running. If the team wants an earlier cut-off (when registration closes, or when the event starts), it goes in `withdrawRefusal()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
 | **Every coordinator sees the registration counts, not only the assigned one** | `registration:view_list` is per role, so any coordinator who can open the event sees "Places taken" and "Withdrawn". SPM-52's AC5 says "relevant" coordinators; whether that means the assigned one only is not decided. | SPM-52 (Sammi) |
 | **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
@@ -1002,20 +1001,23 @@ what changed, why, and the migration name if there is one.
   - **New route `PATCH /api/registrations/[id]`** with
     `{ status: "withdrawn" }`. Attendee only (403); someone else's
     registration is 404; anything but Registered is 400 ("Only an active
-    registration can be withdrawn"). The update only applies while the status
-    is unchanged, so a double click or a second tab can't withdraw twice.
+    registration can be withdrawn"); so is an event that is cancelled,
+    completed or past its end, whose history must not change. The update only
+    applies while the status is unchanged, so a double click or a second tab
+    can't withdraw twice. Neither screen offers Withdraw in those cases.
   - **The row is kept** (`withdrawn`, `withdrawnAt` set), so My Registrations
     still lists it and SPM-51's register route reactivates it.
   - **The place frees itself:** seats are counted from `SEAT_TAKING`, which
     `withdrawn` is not in, so a full event shows Open again.
   - **AC5:** `GET /api/events/[id]` gives roles with `registration:view_list`
     (organiser, coordinators) `registrationCounts`, shown as "Places taken"
-    and "Withdrawn" on the Registration card.
+    and "Withdrawn" on the Registration card, also after registration is
+    turned off.
   - **Out of scope:** leaving the waiting list and what happens to the freed
     place when there is one (SPM-66), notifications (SPM-53).
-  - Three open questions are now Known Gaps: no cut-off for withdrawing,
-    counts hidden once registration is off, every coordinator sees the counts.
-  - Rules: `canWithdraw()` and `registrationCounts()` in
+  - Two open questions are now Known Gaps: no cut-off for withdrawing before
+    the event ends, every coordinator sees the counts.
+  - Rules: `withdrawRefusal()`, `canWithdraw()` and `registrationCounts()` in
     `src/lib/registrationEligibility.ts`. No migration.
   - Fixtures: `npm run fixtures:spm52` (six "SPM52 …" events and Marcus
     Yeo's registrations); the same events are appended to `prisma/seed.ts`

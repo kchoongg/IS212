@@ -195,6 +195,20 @@ export function RegistrationCard({ event, eventId, canChange, showOutstanding, o
         )
       : null;
 
+  // SPM-52 AC5: shown whether or not registration is on - turning it off
+  // after people registered leaves their registrations, and the counts.
+  const counts = event.registrationCounts
+    ? [
+        {
+          label: "Places taken",
+          value: event.registrationEnabled
+            ? placesTaken(event.registrationCounts, event.registrationCapacity)
+            : String(event.registrationCounts.taken),
+        },
+        { label: "Withdrawn", value: String(event.registrationCounts.withdrawn) },
+      ]
+    : [];
+
   const readOnly = (
     <DetailList
       items={
@@ -207,14 +221,9 @@ export function RegistrationCard({ event, eventId, canChange, showOutstanding, o
                 : []),
               { label: "Opens", value: formatDateTime(event.registrationOpensAt) },
               { label: "Closes", value: formatDateTime(event.registrationClosesAt) },
-              ...(event.registrationCounts
-                ? [
-                    { label: "Places taken", value: placesTaken(event.registrationCounts, event.registrationCapacity) },
-                    { label: "Withdrawn", value: String(event.registrationCounts.withdrawn) },
-                  ]
-                : []),
+              ...counts,
             ]
-          : [{ label: "Registration", value: "Not enabled for this event" }]
+          : [{ label: "Registration", value: "Not enabled for this event" }, ...counts]
       }
     />
   );

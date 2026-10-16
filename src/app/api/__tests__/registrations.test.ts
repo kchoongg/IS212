@@ -284,7 +284,7 @@ describe("GET /api/registrations", () => {
         id: true,
         status: true,
         registeredAt: true,
-        event: { select: { sequenceNumber: true, title: true, startsAt: true, endsAt: true } },
+        event: { select: { sequenceNumber: true, title: true, status: true, startsAt: true, endsAt: true } },
       },
     });
     expect(await res.json()).toEqual([

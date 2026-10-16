@@ -866,6 +866,8 @@ export default function EventOverviewPage() {
             <RegisterPanel
               eventId={event.id}
               eventTitle={event.title}
+              eventStatus={event.status}
+              eventEndsAt={event.endsAt}
               state={event.registrationState}
               myRegistration={event.myRegistration ?? null}
               onRegistered={() => void load()}

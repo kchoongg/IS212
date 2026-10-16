@@ -252,6 +252,18 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(withdrawButton()).not.toBeInTheDocument();
   });
 
+  it.each([
+    ["cancelled", { status: "cancelled" }],
+    ["completed", { status: "completed", startsAt: "2026-09-15T01:00:00.000Z", endsAt: "2026-09-15T09:00:00.000Z" }],
+    ["ended", { startsAt: "2026-09-15T01:00:00.000Z", endsAt: "2026-09-15T09:00:00.000Z" }],
+  ])("offers no Withdraw once the event is %s", async (_case, eventFields) => {
+    open(publicEvent({ ...eventFields, myRegistration: mine("registered") }));
+
+    await panel();
+
+    expect(withdrawButton()).not.toBeInTheDocument();
+  });
+
   it("withdraws once confirmed, says so, and offers Register again (AC1-AC3)", async () => {
     const api = open(publicEvent({ myRegistration: mine("registered") }));
     await panel();

@@ -18,7 +18,7 @@ interface RegistrationRow {
   id: string;
   status: string;
   registeredAt: string;
-  event: { sequenceNumber: number; title: string | null; startsAt: string | null; endsAt: string | null };
+  event: { sequenceNumber: number; title: string | null; status: string; startsAt: string | null; endsAt: string | null };
 }
 
 function MyRegistrations() {
@@ -67,7 +67,7 @@ function MyRegistrations() {
       hideLabelOnMobile: true,
       className: "text-right",
       render: (row) =>
-        canWithdraw(row.status) ? (
+        canWithdraw(row.status, row.event, new Date()) ? (
           <Button
             variant="secondary"
             size="sm"

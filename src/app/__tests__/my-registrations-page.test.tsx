@@ -14,11 +14,18 @@ import { mockApi, render, reply, router, screen, setRoute, signedInAs, signedOut
 
 const LIST = "GET /api/registrations";
 
-const registration = (id: string, status: string, title: string | null, sequenceNumber: number, day: string) => ({
+const registration = (
+  id: string,
+  status: string,
+  title: string | null,
+  sequenceNumber: number,
+  day: string,
+  eventStatus = "confirmed"
+) => ({
   id,
   status,
   registeredAt: "2026-10-05T02:00:00.000Z",
-  event: { sequenceNumber, title, startsAt: `${day}T01:00:00.000Z`, endsAt: `${day}T09:00:00.000Z` },
+  event: { sequenceNumber, title, status: eventStatus, startsAt: `${day}T01:00:00.000Z`, endsAt: `${day}T09:00:00.000Z` },
 });
 
 function open(rows: unknown) {
@@ -137,6 +144,19 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(withdrawButton("SPM51 Sold Out Summit")).not.toBeInTheDocument();
     expect(withdrawButton("Earlier Event")).not.toBeInTheDocument();
     expect(withdrawButton("Dropped Event")).not.toBeInTheDocument();
+  });
+
+  it("offers no Withdraw for an event that is over or cancelled", async () => {
+    open([
+      registration("r5", "registered", "Cancelled Gala", 5, "2028-02-17", "cancelled"),
+      registration("r6", "registered", "Past Clinic", 6, "2026-09-15", "completed"),
+      registration("r7", "registered", "Ended Talk", 7, "2026-09-16"),
+    ]);
+    await screen.findByRole("table");
+
+    expect(withdrawButton("Cancelled Gala")).not.toBeInTheDocument();
+    expect(withdrawButton("Past Clinic")).not.toBeInTheDocument();
+    expect(withdrawButton("Ended Talk")).not.toBeInTheDocument();
   });
 
   it("asks first, naming the event and what happens to the place, without opening the event", async () => {

@@ -374,7 +374,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event, then `registrationState()` → 400 unless the event is eligible (SPM-51) |
 | `GET /api/registrations` | `registration:create` → 403 "Registrations belong to an Attendee account."; the signed-in attendee's own registrations only (SPM-51) |
-| `PATCH /api/registrations/[id]` | `registration:create` → 403 "Only an Attendee can withdraw a registration", then 404 unless the registration is the caller's own (never 403, which would confirm it exists), then 400 unless it is `registered` (SPM-52) |
+| `PATCH /api/registrations/[id]` | `registration:create` → 403 "Only an Attendee can withdraw a registration", then 404 unless the registration is the caller's own (never 403, which would confirm it exists), then 400 unless it is `registered` and the event is not cancelled, completed or past its end (SPM-52) |
 
 **Status codes.** 401 not signed in · 403 signed in, not allowed · 404 not
 allowed *and* must not learn the record exists.

@@ -396,7 +396,11 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
 });
 
 describe("GET /api/events/[id] - the safety check history (SPM-88 AC1)", () => {
-  const get = (token: string) => GET(req("GET", `/api/events/${REF}`, { token }), params({ id: REF }));
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+  });
+
+  const get =(token: string) => GET(req("GET", `/api/events/${REF}`, { token }), params({ id: REF }));
   const returned = {
     status: "changes_requested",
     submittedAt: new Date("2026-10-08T06:00:00Z"),
