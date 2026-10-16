@@ -541,7 +541,7 @@ Postgres table `registrations` &middot; `prisma.registration`
 | `attendeeId` | String | req |  |
 | `status` | String |  | registered \| waitlisted \| withdrawn \| attended Defaults to `"registered"`. |
 | `registeredAt` | DateTime |  | Defaults to `now()`. |
-| `withdrawnAt` | DateTime |  |  |
+| `withdrawnAt` | DateTime |  | When the attendee withdrew (SPM-52, `PATCH /api/registrations/[id]`). NULL unless `withdrawn`. |
 | `dietaryRequirements` | String |  | The attendee's own needs, not the event's. |
 | `accessibilityRequirements` | String |  |  |
 
