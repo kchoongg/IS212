@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { venueAvailabilityQuerySchema } from "@/lib/validation";
@@ -86,6 +87,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const setupMs = venue.setupMinutes * 60_000;
   const teardownMs = venue.teardownMinutes * 60_000;
 
+  // SPM-82 (AC7): an expired hold is not shown as a hold.
+  await expireDueHolds();
   const [bookings, unavailability] = await Promise.all([
     prisma.venueBooking.findMany({
       where: {

@@ -223,3 +223,12 @@ export const changeVenueBookingSchema = z
   })
   .strict();
 export type ChangeVenueBookingInput = z.infer<typeof changeVenueBookingSchema>;
+
+/// SPM-82 (AC3): Venue Staff move a tentative hold's expiry. The rules - in the
+/// future, not after the event starts, only while pending - are
+/// checkHoldExpiryChange() (src/lib/holdExpiry.ts); this only checks it is a
+/// date at all.
+export const changeHoldExpirySchema = z.object({
+  holdExpiresAt: z.coerce.date({ message: "Choose the date and time the hold should expire." }),
+});
+export type ChangeHoldExpiryInput = z.infer<typeof changeHoldExpirySchema>;

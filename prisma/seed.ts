@@ -531,6 +531,14 @@ async function main() {
       layouts: [["theatre", theatre], ["classroom", 40]],
       facilities: ["Fixed ceiling projector", "Step-free access"],
     })),
+    // SPM-82 fixture (scripts/seed-spm82.ts, HOLD_ROOM there - keep in step):
+    // 60 minutes of setup and of turnaround, so a lapsed hold's freed time
+    // visibly includes them (SPM-82-TC10).
+    { code: "SPM82-HOLD", name: "SPM82 Hold Room", description: "SPM-82 test venue: 60 minutes of setup and of turnaround",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 80, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 60, teardownMinutes: 60,
+      layouts: [["theatre", 80], ["classroom", 40]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -1892,6 +1900,29 @@ async function main() {
     spm52("spm52_dropped", "SPM52 Dropped Plans Seminar", "confirmed", "2028-03-25"),
     spm52("spm52_past", "SPM52 Past Wellness Clinic", "completed", "2026-09-15"),
     spm52("spm52_gala", "SPM52 Members Gala", "confirmed", "2028-04-01", { regEnabled: false }),
+  // SPM-82 QA fixtures (Expire Tentative Venue Hold). The SAME events as
+  // scripts/seed-spm82.ts (`npm run fixtures:spm82`) - keep the two in step.
+  //
+  // The events only. Their venue bookings - the holds that expire, and the
+  // approved, rejected and withdrawn ones beside them - are created by that
+  // script alone, so run it once after a full reseed. It also moves SPM82
+  // Short Notice Meetup to 3 days after it is run; the date here is a
+  // placeholder. Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm82 = (key: string, title: string, date: string, startHour: number, durationHours: number): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-82 expire tentative venue hold test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "theatre",
+  });
+  eventData.push(
+    spm82("spm82_briefing", "SPM82 Harbour Product Briefing", "2027-02-08", 9, 3),
+    spm82("spm82_countdown", "SPM82 Countdown Clinic", "2027-02-15", 9, 3),
+    spm82("spm82_lapsed", "SPM82 Lapsed Workshop", "2027-02-22", 14, 3),
+    spm82("spm82_warn", "SPM82 Closing Soon Forum", "2027-03-01", 9, 3),
+    spm82("spm82_expired_only", "SPM82 Expired Only Talk", "2027-03-01", 14, 2),
+    spm82("spm82_rival", "SPM82 Rival Seminar", "2027-02-22", 17, 2),
+    spm82("spm82_fresh", "SPM82 Fresh Request Expo", "2027-03-08", 9, 3),
+    spm82("spm82_short", "SPM82 Short Notice Meetup", "2027-03-15", 10, 2),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

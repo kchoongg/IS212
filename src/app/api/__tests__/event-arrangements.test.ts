@@ -61,7 +61,7 @@ vi.mock("@/lib/prisma");
 import { GET, PATCH } from "@/app/api/events/[id]/arrangements/route";
 import { can } from "@/lib/permissions";
 import { ROLES } from "@/lib/roles";
-import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const REF = "EVT-000007";
 const NOW = new Date("2026-10-08T03:00:00.000Z");
@@ -206,6 +206,23 @@ describe("GET /api/events/[id]/arrangements", () => {
   function get(token?: string, reference = REF) {
     return GET(req("GET", `/api/events/${reference}/arrangements`, { token }), params({ id: reference }));
   }
+
+  it("SPM-82-TC08 (AC10): names when an expired hold ran out - the expiry reaches the rule, not just the query", async () => {
+    given({ bookings: [booking({ status: "expired", holdExpiresAt: new Date("2026-10-01T01:00:00.000Z") })] });
+
+    const body = await (await get(signIn(assignedCoordinator()))).json();
+
+    expect(listed(body).find((a) => a.status === "expired")?.missing).toContain("expired on 1 Oct 2026, 09:00");
+  });
+
+  it("SPM-82-TC08 (AC10): expires overdue holds before reading the arrangements, with each booking's expiry", async () => {
+    given();
+
+    await get(signIn(assignedCoordinator()));
+
+    expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findMany.mock.invocationCallOrder[0]);
+    expect(callArg(db.venueBooking.findMany).select.holdExpiresAt).toBe(true);
+  });
 
   it("is 401 without a session", async () => {
     expect((await get()).status).toBe(401);

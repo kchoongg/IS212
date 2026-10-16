@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { decideVenueBookingSchema } from "@/lib/validation";
@@ -48,6 +49,8 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       // check before the other's approval was written (#35: double-booking is
       // blocked, not warned about). Everything below reads after the lock.
       await tx.$queryRaw`SELECT id FROM venues WHERE id = ${found.venueId} FOR UPDATE`;
+      // SPM-82 (AC5): after the lock and before the booking is read, so a hold whose time has just run out is read as expired, not approved.
+      await expireDueHolds(tx);
 
       const booking = await tx.venueBooking.findUniqueOrThrow({
         where: { id },

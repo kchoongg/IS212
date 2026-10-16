@@ -10,7 +10,7 @@ vi.mock("@/lib/prisma");
 import { GET } from "@/app/api/venue-bookings/route";
 import { PATCH } from "@/app/api/venue-bookings/[id]/route";
 import { ROLES } from "@/lib/roles";
-import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const NOW = new Date("2026-10-04T04:00:00Z");
 const PM = { startsAt: new Date("2027-03-04T05:00:00.000Z"), endsAt: new Date("2027-03-04T10:00:00.000Z") };
@@ -78,6 +78,19 @@ describe("GET /api/venue-bookings", () => {
   }
 
   const list = (token?: string) => GET(req("GET", "/api/venue-bookings", { token }));
+
+  // SPM-82: an overdue hold is expired before the list is read, so it drops
+  // out (AC5: nothing to approve), and each pending hold says when it expires (AC1).
+  it("SPM-82-TC03: expires overdue holds first, then lists each hold with its expiry", async () => {
+    const expires = new Date("2027-01-15T01:00:00.000Z");
+    const token = given([pending({ holdExpiresAt: expires })]);
+
+    const [row] = await (await list(token)).json();
+
+    expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findMany.mock.invocationCallOrder[0]);
+    expect(callArg(db.venueBooking.findMany).select.holdExpiresAt).toBe(true);
+    expect(row.holdExpiresAt).toBe(expires.toISOString());
+  });
 
   it("is 401 without a session", async () => {
     expect((await list()).status).toBe(401);
@@ -234,6 +247,27 @@ describe("PATCH /api/venue-bookings/[id]", () => {
 
   const approve = { decision: "approve" };
   const reject = { decision: "reject", reason: "The hall is being refitted that week." };
+
+  // SPM-82 (AC5): the sweep runs inside the decision, after the venue is
+  // locked and before the booking is read, so a hold whose time has just run
+  // out is read as expired and cannot be approved.
+  it("SPM-82: expires overdue holds after locking the venue and before reading the booking", async () => {
+    await decide(given(), approve);
+
+    const sweep = holdExpirySweepOrder();
+    expect(sweep).toBeGreaterThan(db.$queryRaw.mock.invocationCallOrder[0]);
+    expect(sweep).toBeLessThan(db.venueBooking.findUniqueOrThrow.mock.invocationCallOrder[0]);
+  });
+
+  it("SPM-82 (AC5): refuses to approve a hold that has expired", async () => {
+    const token = given(booking({ status: "expired" }));
+
+    const res = await decide(token, approve);
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("This hold has expired. The Coordinator must submit a new request.");
+    expect(db.venueBooking.update).not.toHaveBeenCalled();
+  });
 
   async function refusal(token: string, body: unknown) {
     const res = await decide(token, body);
