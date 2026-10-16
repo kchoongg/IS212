@@ -9,6 +9,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  ConfirmDialog,
   DetailList,
   PageHeader,
   SkeletonRows,
@@ -16,12 +17,33 @@ import {
   Tabs,
 } from "@/components/ui";
 import { AssignCoordinator, type AssignResult, type CoordinatorOption } from "@/components/AssignCoordinator";
+import { RegistrationCard, type RegistrationEvent } from "./RegistrationCard";
+import { RegisterPanel, type MyRegistration, type RegistrationStateJson } from "./RegisterPanel";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
-import { EMPTY, eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
+import { EMPTY, eventReference, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
-import { can, canAssignCoordinator, canReviewEvent } from "@/lib/permissions";
+import { isExternalRole } from "@/lib/roles";
+import { decisionDoneMessage, safetyCheckSummary, type SafetyDecision } from "@/lib/safetyDecision";
+import { unavailabilityReasonLabel } from "@/lib/venueUnavailability";
+import { SafetyDecisionDialog } from "./SafetyDecisionDialog";
+import { SafetyFlagDialog, type SafetyFlagChoice } from "./SafetyFlagDialog";
+import { canFlagAfterReturn, safetyFlaggedMessage, safetyHistoryLine } from "@/lib/safetyResolution";
+import {
+  EVENT_INFORMATION_EDIT_STATUSES,
+  EVENT_INFORMATION_STATUSES,
+  can,
+  canAssignCoordinator,
+  canConfigureRegistration,
+  canConfirmEvent,
+  canFlagForSafetyReview,
+  canRecordSafetyDecision,
+  canReviewEvent,
+  canSubmitForSafetyCheck,
+  canUpdateEventInformation,
+  canWithdrawEvent,
+} from "@/lib/permissions";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -34,8 +56,12 @@ interface FacilityRequirement {
   facility: { id: string; name: string; category: string };
 }
 
-interface EventDetail {
+interface EventDetail extends RegistrationEvent {
   id: string;
+  // SPM-51: an Attendee's only - whether they can register now, and their
+  // own registration for the event, if any.
+  registrationState?: RegistrationStateJson;
+  myRegistration?: MyRegistration | null;
   // Present for every role, including an Attendee - see ATTENDEE_EVENT_FIELDS
   // (src/lib/permissions.ts). Format with eventReference() for display.
   sequenceNumber: number;
@@ -46,10 +72,6 @@ interface EventDetail {
   status: string;
   startsAt: string | null;
   endsAt: string | null;
-  registrationEnabled: boolean;
-  registrationCapacity: number | null;
-  registrationOpensAt: string | null;
-  registrationClosesAt: string | null;
   // Absent (not just empty/null) for an Attendee: ATTENDEE_EVENT_FIELDS
   // (src/lib/permissions.ts) omits them entirely, since expected attendance,
   // preferred layout, accessibility/special requirements, the organiser's own
@@ -63,6 +85,37 @@ interface EventDetail {
   specialRequirements?: string | null;
   organiser?: { fullName: string };
   coordinator?: { fullName: string } | null;
+  /// SPM-34: the approved booking(s), so every authorised role - the organiser
+  /// included - can see which room the event is in.
+  venueBookings?: {
+    startsAt: string;
+    endsAt: string;
+    /// SPM-85: the layout booked, and the seats each of the room's layouts holds.
+    layoutName?: string | null;
+    /// SPM-90: what the space is for; null on a booking made without one.
+    purpose?: string | null;
+    session: { label: string | null } | null;
+    venue: {
+      name: string;
+      code: string;
+      layouts?: { layoutName: string; capacity: number }[];
+      /// SPM-87 (AC2): the venue's opening hours and its unavailable periods
+      /// on the event's dates - staff only.
+      opensAt?: string;
+      closesAt?: string;
+      unavailable?: { startsAt: string; endsAt: string; reason: string }[];
+    };
+  }[];
+  /// A multi-session event's own sessions (SPM-23); empty for an ordinary
+  /// event and absent for an Attendee.
+  sessions?: {
+    id: string;
+    label: string | null;
+    startsAt: string;
+    endsAt: string;
+    expectedAttendance: number | null;
+    preferredLayout: string | null;
+  }[];
   // SPM-30: needed to tell "assign" from "reassign", and which choice would be
   // a no-op. Absent for an Attendee along with the rest of the internal fields.
   coordinatorId?: string | null;
@@ -74,6 +127,77 @@ interface EventDetail {
   // Present for an Attendee too - which company is running the event is
   // public, even though who personally organised it (above) is not.
   organisation?: { name: string } | null;
+  /// SPM-86 (AC8): the latest Operational Safety Check, null if the event was
+  /// never submitted. Absent for an external user - safety details are
+  /// internal (SPM-88), so the organiser sees the Safety review status only.
+  safetyCheck?: SafetyCheckEntry | null;
+  /// SPM-88 (AC1): every check, newest first. Staff only, like safetyCheck.
+  safetyHistory?: SafetyCheckEntry[];
+}
+
+interface SafetyCheckEntry {
+  status: string;
+  submittedAt: string;
+  submittedBy: string | null;
+  /// SPM-87 (AC10): the Safety Officer's decision, who and when, and why.
+  decidedAt?: string | null;
+  decidedBy?: string | null;
+  decisionNote?: string | null;
+}
+
+/// SPM-85: "14 Jun 2027, 09:00–12:00 · 200 people · Theatre" - what a safety
+/// review needs to know about one session.
+function sessionSummary(session: NonNullable<EventDetail["sessions"]>[number]): string {
+  return [
+    formatDateTimeRange(session.startsAt, session.endsAt),
+    session.expectedAttendance != null ? `${session.expectedAttendance} people` : "Attendance not set",
+    session.preferredLayout ? humanise(session.preferredLayout) : "Layout not set",
+  ].join(" · ");
+}
+
+/// SPM-85: "Marina Auditorium (MAR-AUD) · Theatre · seats 220" - the room,
+/// the layout booked, and the seats that layout holds (not the room's largest).
+/// SPM-90 (AC5): what the space is for comes straight after the room -
+/// "Marina Auditorium (MAR-AUD) · Main programme · Theatre · seats 220".
+function bookingArrangement(booking: NonNullable<EventDetail["venueBookings"]>[number]): string {
+  const purpose = booking.purpose?.trim();
+  const room = `${booking.venue.name} (${booking.venue.code})${purpose ? ` · ${purpose}` : ""}`;
+  if (!booking.layoutName) return `${room} · Layout not set`;
+  const capacity = booking.venue.layouts?.find((l) => l.layoutName === booking.layoutName)?.capacity;
+  const seats = capacity != null ? `seats ${capacity}` : "capacity not recorded";
+  return `${room} · ${humanise(booking.layoutName)} · ${seats}`;
+}
+
+/// SPM-87 (AC2): the room as SPM-85 words it, then - when the response
+/// carries them - its opening hours and each period it is unavailable on the
+/// event's dates: "Open 08:00–22:00", "Unavailable 8 Oct 2027, 07:00–09:00 (Maintenance)".
+function bookingWithRestrictions(booking: NonNullable<EventDetail["venueBookings"]>[number]): React.ReactNode {
+  const { opensAt, closesAt, unavailable } = booking.venue;
+  if (!opensAt && !unavailable?.length) return bookingArrangement(booking);
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span>{bookingArrangement(booking)}</span>
+      {opensAt && closesAt && <span className="text-ink-3">{`Open ${opensAt}–${closesAt}`}</span>}
+      {unavailable?.map((p) => (
+        <span key={`${p.startsAt}-${p.reason}`} className="text-tone-warning-fg">
+          {`Unavailable ${formatDateTimeRange(p.startsAt, p.endsAt)} (${unavailabilityReasonLabel(p.reason)})`}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/// "Orchard Seminar Room (ORC-SEM)", or one line per session for a
+/// multi-session event. "Not booked yet" until Venue Staff approve a booking -
+/// a pending request is not an arrangement.
+function venueSummary(bookings: NonNullable<EventDetail["venueBookings"]>): string {
+  if (bookings.length === 0) return "Not booked yet";
+  return bookings
+    .map((b) => {
+      const room = `${b.venue.name} (${b.venue.code})`;
+      return b.session?.label ? `${b.session.label}: ${room}` : room;
+    })
+    .join(" · ");
 }
 
 export default function EventOverviewPage() {
@@ -88,6 +212,27 @@ export default function EventOverviewPage() {
   const [coordinators, setCoordinators] = useState<CoordinatorOption[] | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const mayAssign = user ? can(user.role, "event:assign_coordinator") : false;
+  // SPM-27: the assigned coordinator recording a withdrawal the organiser
+  // asked for outside the system (clarification #103).
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
+  // SPM-34: the assigned coordinator confirming the event once its
+  // arrangements are done. The server decides whether they are; this only
+  // asks, and shows what it says back.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  // SPM-86: the assigned coordinator submitting the event for an Operational
+  // Safety Check. As with Confirm, the server decides whether the
+  // arrangements are ready and the page shows what it says back.
+  const [safetyOpen, setSafetyOpen] = useState(false);
+  const [submittingSafety, setSubmittingSafety] = useState(false);
+  // SPM-87: the Safety Officer recording their decision.
+  const [decisionOpen, setDecisionOpen] = useState(false);
+  const [deciding, setDeciding] = useState(false);
+  // SPM-88 (AC3): the assigned coordinator flagging what a returned check concerns.
+  const [flagOpen, setFlagOpen] = useState(false);
+  const [flagging, setFlagging] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -152,6 +297,216 @@ export default function EventOverviewPage() {
     void load();
   }
 
+  async function withdraw() {
+    setWithdrawing(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "withdrawn" }),
+      });
+      if (!res.ok) {
+        setActionError((await res.json()).error ?? "Could not withdraw this request.");
+        return;
+      }
+      setNotice("The withdrawal has been recorded.");
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setWithdrawing(false);
+      setWithdrawOpen(false);
+    }
+  }
+
+  async function confirmEvent() {
+    setConfirming(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "confirmed" }),
+      });
+      if (!res.ok) {
+        // The refusal names the arrangements that are still outstanding
+        // (SPM-34 AC3), so it is shown as it comes rather than replaced with
+        // a generic message.
+        setActionError((await res.json()).error ?? "Could not confirm this event.");
+        return;
+      }
+      setNotice("The event is confirmed. The organiser can now see the arrangements.");
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setConfirming(false);
+      setConfirmOpen(false);
+    }
+  }
+
+  async function submitForSafetyCheck() {
+    setSubmittingSafety(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/safety-check`, { method: "POST" });
+      if (!res.ok) {
+        // The refusal names what is outstanding or flagged (AC2), or says a
+        // check is already pending (AC6) - shown as it comes.
+        setActionError((await res.json()).error ?? "Could not submit this event for a safety check.");
+        return;
+      }
+      setNotice("The event has been submitted for a safety check. The Safety Officer has been notified.");
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSubmittingSafety(false);
+      setSafetyOpen(false);
+    }
+  }
+
+  async function recordSafetyDecision(decision: SafetyDecision, note: string | undefined) {
+    setDeciding(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/safety-decision`, {
+        method: "POST",
+        body: JSON.stringify(note === undefined ? { decision } : { decision, note }),
+      });
+      if (!res.ok) {
+        // e.g. "This safety check has already been decided." (AC11)
+        setActionError((await res.json().catch(() => ({}))).error ?? "Could not record this safety decision.");
+        return;
+      }
+      setNotice(decisionDoneMessage(decision));
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setDeciding(false);
+      setDecisionOpen(false);
+    }
+  }
+
+  async function flagForSafetyReview(choice: SafetyFlagChoice) {
+    setFlagging(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/safety-flags`, {
+        method: "POST",
+        body: JSON.stringify(choice),
+      });
+      if (!res.ok) {
+        setActionError((await res.json().catch(() => ({}))).error ?? "Could not flag these arrangements.");
+        return;
+      }
+      setNotice(safetyFlaggedMessage((await res.json()).flagged));
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setFlagging(false);
+      setFlagOpen(false);
+    }
+  }
+
+  // Same fields and checks as the PATCH route, so the button only appears
+  // when withdrawing would succeed.
+  const showWithdraw = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canWithdrawEvent(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-34 (AC4): only the assigned coordinator, and only from a status the
+  // lifecycle lets into Confirmed. Whether the arrangements are ready is the
+  // server's call - offering the button and refusing with a reason is more
+  // useful than hiding it and leaving the coordinator to guess.
+  const showConfirm = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canConfirmEvent(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-86 (AC1, AC7): the assigned coordinator, while the event is in
+  // Planning. Readiness is the server's call, as for Confirm.
+  // SPM-87 (AC11, AC12): the Safety Officer, while the event is in Safety review.
+  const showSafetyDecision = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canRecordSafetyDecision(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-88 (AC3): the assigned coordinator, once the Safety Officer has
+  // returned the check and the event is back in Planning. Same rule as the route.
+  const showSafetyFlags = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canFlagAfterReturn(event.status, event.safetyCheck?.status) &&
+    canFlagForSafetyReview(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  const showSafetyCheck = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canSubmitForSafetyCheck(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   const showAssign = Boolean(
     user &&
     event &&
@@ -185,6 +540,45 @@ export default function EventOverviewPage() {
     )
   );
 
+  // SPM-62: the assigned coordinator updates the event's information after
+  // approval (/events/[id]/update). Same rule as the route - SPM-88 adds
+  // Safety review and Safety approved.
+  const showEditInformation = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    EVENT_INFORMATION_EDIT_STATUSES.includes(event.status) &&
+    canUpdateEventInformation(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-64: the assigned coordinator configures registration in the same
+  // status window as the route (EVENT_INFORMATION_STATUSES).
+  const showRegistrationControls = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    EVENT_INFORMATION_STATUSES.includes(event.status) &&
+    canConfigureRegistration(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
   }
@@ -208,6 +602,34 @@ export default function EventOverviewPage() {
           { label: user?.role === "organiser" ? "My Events" : "Events", href: "/events" },
           { label: event?.title || "Event" },
         ]}
+        actions={
+          <>
+            {showSafetyCheck && (
+              <Button onClick={() => setSafetyOpen(true)}>Submit for safety check</Button>
+            )}
+            {showSafetyDecision && (
+              <Button onClick={() => setDecisionOpen(true)}>Record safety decision</Button>
+            )}
+            {showSafetyFlags && (
+              <Button variant="secondary" onClick={() => setFlagOpen(true)}>
+                Flag arrangements for review
+              </Button>
+            )}
+            {showConfirm && (
+              <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
+            )}
+            {showEditInformation && (
+              <ButtonLink href={`/events/${eventId}/update`} variant="secondary">
+                Edit event information
+              </ButtonLink>
+            )}
+            {showWithdraw && (
+              <Button variant="secondary" onClick={() => setWithdrawOpen(true)}>
+                Record withdrawal
+              </Button>
+            )}
+          </>
+        }
       />
 
       {tabs.length > 0 && <Tabs items={tabs} activeKey="overview" className="mb-6" />}
@@ -229,6 +651,7 @@ export default function EventOverviewPage() {
       ) : (
         <div className="flex flex-col gap-6">
           {notice && <Alert variant="success">{notice}</Alert>}
+          {actionError && <Alert variant="error">{actionError}</Alert>}
 
           {/* SPM-28: the decision and its reason stay on the event record, and
               the organiser sees why (confirmed 2026-09-30). An Attendee never
@@ -295,6 +718,10 @@ export default function EventOverviewPage() {
                 items={[
                   { label: "Category", value: orEmpty(event.category && humanise(event.category)) },
                   { label: "Status", value: statusLabel(event.status) },
+                  // SPM-86 (AC8): staff only - the API leaves it out for the organiser.
+                  ...(event.safetyCheck
+                    ? [{ label: "Safety check", value: safetyCheckSummary(event.safetyCheck) }]
+                    : []),
                   { label: "When", value: formatDateTimeRange(event.startsAt, event.endsAt) },
                   // Not relevant to someone deciding whether to register, and
                   // absent from an Attendee's response entirely - see the
@@ -327,10 +754,70 @@ export default function EventOverviewPage() {
                   ...(event.coordinator !== undefined
                     ? [{ label: "Coordinator", value: event.coordinator?.fullName ?? "Not yet assigned" }]
                     : []),
+                  // SPM-34 (AC6, AC7): the confirmed arrangement itself. The
+                  // Venue tab is the coordinator's planning screen; this row
+                  // is how everyone else, the organiser above all, learns
+                  // which room their event is in.
+                  ...(event.venueBookings !== undefined
+                    ? [{ label: "Venue", value: venueSummary(event.venueBookings) }]
+                    : []),
                 ]}
               />
             </CardBody>
           </Card>
+
+          {/* SPM-88 (AC1): every submission and decision, newest first. Staff
+              only - the API leaves the history out for an external user. */}
+          {event.safetyHistory && event.safetyHistory.length > 0 && (
+            <Card>
+              <CardHeader title="Safety check history" />
+              <CardBody>
+                <ol aria-label="Safety check history" className="flex flex-col gap-2 text-sm text-ink-2">
+                  {event.safetyHistory.map((check) => (
+                    <li key={check.submittedAt}>{safetyHistoryLine(check)}</li>
+                  ))}
+                </ol>
+              </CardBody>
+            </Card>
+          )}
+
+          {/* SPM-85 (AC3): what a safety review reads - each session's time,
+              attendance and layout, and each booked room with its layout and
+              seats. ConnectSphere staff only: the organiser learns their room
+              from the Venue row above, and an Attendee gets neither field. */}
+          {user && !isExternalRole(user.role) && event.sessions && event.sessions.length > 0 && (
+            <Card>
+              <CardHeader title="Sessions" />
+              <CardBody>
+                <DetailList
+                  columns={1}
+                  items={event.sessions.map((session, i) => ({
+                    label: session.label || `Session ${i + 1}`,
+                    value: sessionSummary(session),
+                  }))}
+                />
+              </CardBody>
+            </Card>
+          )}
+
+          {user && !isExternalRole(user.role) && event.venueBookings !== undefined && (
+            <Card>
+              <CardHeader title="Venue bookings" />
+              <CardBody>
+                {event.venueBookings.length === 0 ? (
+                  <p className="text-sm text-ink-3">No venue is booked yet.</p>
+                ) : (
+                  <DetailList
+                    columns={1}
+                    items={event.venueBookings.map((booking) => ({
+                      label: booking.session?.label || "Whole event",
+                      value: bookingWithRestrictions(booking),
+                    }))}
+                  />
+                )}
+              </CardBody>
+            </Card>
+          )}
 
           {/* Absent entirely, not just empty, for an Attendee - internal
               planning information they have no reason to see (SPM-31). */}
@@ -364,26 +851,84 @@ export default function EventOverviewPage() {
             </Card>
           )}
 
-          <Card>
-            <CardHeader title="Registration" />
-            <CardBody>
-              <DetailList
-                items={
-                  event.registrationEnabled
-                    ? [
-                        { label: "Capacity", value: orEmpty(event.registrationCapacity) },
-                        {
-                          label: "Window",
-                          value: formatDateTimeRange(event.registrationOpensAt, event.registrationClosesAt),
-                        },
-                      ]
-                    : [{ label: "Registration", value: "Not enabled for this event" }]
-                }
-              />
-            </CardBody>
-          </Card>
+          {/* SPM-64: read-only for everyone; the assigned coordinator changes
+              the settings here. */}
+          <RegistrationCard
+            event={event}
+            eventId={eventId}
+            canChange={showRegistrationControls}
+            showOutstanding={user?.role !== "attendee"}
+            onSaved={() => void load()}
+          />
+
+          {/* SPM-51: registering is the Attendee's action, so only they get it. */}
+          {user?.role === "attendee" && event.registrationState && (
+            <RegisterPanel
+              eventId={event.id}
+              state={event.registrationState}
+              myRegistration={event.myRegistration ?? null}
+              onRegistered={() => void load()}
+            />
+          )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={withdrawOpen}
+        title="Record this withdrawal?"
+        confirmLabel="Record withdrawal"
+        cancelLabel="Keep request"
+        loading={withdrawing}
+        onConfirm={() => void withdraw()}
+        onCancel={() => setWithdrawOpen(false)}
+      >
+        Only do this when the organiser has asked to withdraw.{" "}
+        {event?.title || "This request"} will be marked Withdrawn and can&apos;t be reopened.
+        To go ahead later, the organiser submits a new request.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Confirm this event?"
+        confirmLabel="Confirm event"
+        cancelLabel="Not yet"
+        loading={confirming}
+        onConfirm={() => void confirmEvent()}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        {event?.title || "This event"} will be marked Confirmed, and the organiser will be
+        able to see the venue and equipment arranged for it. Anything still outstanding will
+        be listed instead.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={safetyOpen}
+        title="Submit for safety check?"
+        confirmLabel="Submit"
+        cancelLabel="Not yet"
+        loading={submittingSafety}
+        onConfirm={() => void submitForSafetyCheck()}
+        onCancel={() => setSafetyOpen(false)}
+      >
+        {event?.title || "This event"} will move to Safety review and the Safety Officer will be
+        notified. Anything still outstanding or flagged for review will be listed instead.
+      </ConfirmDialog>
+
+      <SafetyDecisionDialog
+        open={decisionOpen}
+        eventTitle={event?.title ?? null}
+        saving={deciding}
+        onRecord={(decision, note) => void recordSafetyDecision(decision, note)}
+        onCancel={() => setDecisionOpen(false)}
+      />
+
+      <SafetyFlagDialog
+        open={flagOpen}
+        eventId={eventId}
+        saving={flagging}
+        onFlag={(choice) => void flagForSafetyReview(choice)}
+        onCancel={() => setFlagOpen(false)}
+      />
     </div>
   );
 }

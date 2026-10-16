@@ -43,7 +43,8 @@ const COORDINATOR_FILTER_OPTIONS = [
 ];
 
 const ALL_STATUSES = [
-  "draft", "submitted", "under_review", "approved", "planning", "confirmed", "completed", "rejected", "cancelled",
+  "draft", "submitted", "under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "completed", "rejected",
+  "cancelled",
 ];
 
 export default function EventsPage() {
@@ -70,16 +71,25 @@ export default function EventsPage() {
     }
   }, [router]);
 
+  const isAttendee = user?.role === "attendee";
+
   useEffect(() => {
     if (state === "anonymous") {
       router.push(loginUrlFor("/events"));
+      return;
+    }
+    // An Attendee's list is Browse Events; this page's title, columns and
+    // status filter are for organisers and staff. Their event page
+    // (/events/<ref>) is unaffected.
+    if (isAttendee) {
+      router.replace("/browse");
       return;
     }
     if (state === "authenticated") {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       void load();
     }
-  }, [state, load, router]);
+  }, [state, isAttendee, load, router]);
 
   const isOrganiser = user?.role === "organiser";
   const mayAssign = user ? can(user.role, "event:assign_coordinator") : false;
@@ -141,6 +151,8 @@ export default function EventsPage() {
       render: (row) => <StatusBadge status={row.status} />,
     },
   ];
+
+  if (isAttendee) return null;
 
   return (
     <div>

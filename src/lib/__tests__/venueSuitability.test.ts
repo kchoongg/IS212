@@ -5,6 +5,7 @@ import {
   describeUnmet,
   layoutLabel,
   missingEventInputs,
+  parseSpaceAttendance,
   type EventNeeds,
   type VenueCapabilities,
 } from "../venueSuitability";
@@ -191,7 +192,7 @@ describe("unsuitable venues say why (AC5, AC6)", () => {
   it("words each requirement so the reason names the requirement and its figures", () => {
     expect(
       describeUnmet({ kind: "capacity", layoutName: "classroom", layoutCapacity: 40, expectedAttendance: 55 })
-    ).toBe("Classroom capacity is 40 - your event expects 55.");
+    ).toBe("Classroom capacity is 40 - this space expects 55.");
     expect(describeUnmet({ kind: "layout", layoutName: "u_shape" })).toBe("U shape layout is not offered.");
     expect(
       describeUnmet({ kind: "facility", facilityId: LOOP, name: "Hearing induction loop", category: "accessibility" })
@@ -241,5 +242,20 @@ describe("layoutLabel", () => {
   it("reads like the form does", () => {
     expect(layoutLabel("theatre")).toBe("Theatre");
     expect(layoutLabel("u_shape")).toBe("U shape");
+  });
+});
+
+// SPM-90: the attendance typed for a space, on the Venue tab and in ?attendance=.
+describe("parseSpaceAttendance", () => {
+  it.each([
+    ["1", 1],
+    ["20", 20],
+    [" 150 ", 150],
+  ])("reads %j as %i", (typed, expected) => {
+    expect(parseSpaceAttendance(typed)).toBe(expected);
+  });
+
+  it.each(["", " ", "0", "-3", "2.5", "abc", "1e3", "99999999999999999999"])("refuses %j", (typed) => {
+    expect(parseSpaceAttendance(typed)).toBeNull();
   });
 });

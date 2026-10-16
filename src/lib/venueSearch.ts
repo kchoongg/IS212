@@ -1,7 +1,7 @@
 // Search and filter venues against event requirements (SPM-40).
 //
 // The acceptance criteria this exists for - a coordinator can filter by:
-//   AC1 date and time            -> isFreeFor(), withinOpeningHours()
+//   AC1 date and time            -> occupancyConflict(), withinOpeningHours()
 //   AC2 expected attendance      -> fitsAttendance()
 //   AC3 location                 -> building equality
 //   AC4 accessibility            -> hasFacilities() (Facility.category "accessibility")
@@ -17,19 +17,21 @@
 // suitability checking is used to assess a venue after it has been identified".
 //
 // Everything here is a PURE function over plain data - no Prisma, no
-// NextRequest - like venueSuitability.ts and venueSlots.ts, so the rules can be
+// NextRequest - like venueSuitability.ts and venueTime.ts, so the rules can be
 // tested without a database. src/app/api/venues/search/route.ts loads the rows
 // and calls searchVenues().
 
+import { findVenueConflict } from "@/lib/venueConflict";
 import {
   dayNumberOf,
   localDayKey,
   localDayStart,
   localMinuteOfDay,
   occupiedWindow,
-  parseClock,
+  overlapping,
+  withinOpeningHours,
   type Interval,
-} from "@/lib/venueSlots";
+} from "@/lib/venueTime";
 
 /// What the coordinator asked for. Every field is optional: an absent filter
 /// is not applied, so an empty filter set returns every active venue.
@@ -53,6 +55,15 @@ export interface VenueSearchFilters {
 export interface SearchBooking extends Interval {
   eventId: string;
   status: string;
+  /// The session the booking is for; null or absent for a whole event. Only
+  /// the duplicate rule reads it (findDuplicateRequest, venueConflict.ts).
+  sessionId?: string | null;
+  /// SPM-44 (AC9): enough to name the booking in a refusal. Optional because
+  /// the search screen never loads them - it hides a clashing venue rather
+  /// than explaining it.
+  id?: string;
+  eventReference?: string;
+  eventTitle?: string | null;
 }
 
 export interface SearchBlock extends Interval {
@@ -121,97 +132,36 @@ export function hasFacilities(
   return facilityIds.every((id) => venue.facilityIds.includes(id));
 }
 
-/// AC1, first half: the room must be open for the requested times (Venue Staff
-/// maintain opening hours, #46; every day is the same, so there is no weekday
-/// table to consult).
-///
-/// Checked on the wall clock in Singapore time (#36), the same zone the slot
-/// grid uses: the start must be at or after opening on the first day, and the
-/// end at or before closing on the last. A multi-day request is not checked
-/// overnight - an event running 09:00 Monday to 18:00 Tuesday is two days of
-/// use, not a claim on the room at 3am, and slot occupancy (isFreeFor) is what
-/// guards the nights.
-///
-/// Unreadable hours pass rather than fail, the same stance as SPM-46's
-/// openingHoursCoverage(): the venue form rejects bad values, so reaching this
-/// means bad data, and hiding a real room because of it would be worse.
-export function withinOpeningHours(
-  venue: Pick<SearchableVenue, "opensAt" | "closesAt">,
-  window: Interval
-): boolean {
-  const opens = parseClock(venue.opensAt);
-  const closes = parseClock(venue.closesAt);
-  if (opens == null || closes == null || closes <= opens) return true;
-
-  const startMinute = localMinuteOfDay(window.startsAt);
-  // An end at exactly midnight is the END of the previous day (24:00), not the
-  // start of the next one at minute 0.
-  const endsAtMidnight = localMinuteOfDay(window.endsAt) === 0;
-  const endMinute = endsAtMidnight ? 1440 : localMinuteOfDay(window.endsAt);
-
-  return startMinute >= opens && endMinute <= closes;
-}
-
-/// Half-open overlap - each starts before the other ends. The test used
-/// everywhere in the venues domain (SCHEMA_REFERENCE.md), so back-to-back is
-/// not a clash.
-function overlapping(a: Interval, b: Interval): boolean {
-  return a.startsAt.getTime() < b.endsAt.getTime() && a.endsAt.getTime() > b.startsAt.getTime();
-}
-
-const NO_TURNAROUND = { setupMinutes: 0, teardownMinutes: 0 };
-
 /// AC1, second half: is the room free? Returns the first reason it is not, or
 /// null when it is.
 ///
-/// The slot rules are the customer's and live in src/lib/venueSlots.ts
-/// (SPM-46) - this module only asks them questions:
-///   - a booking takes every slot its times touch, in full (#107), plus one
-///     whole adjacent slot for setup and one for turnaround when the venue
-///     needs them (#108, #123). occupiedWindow() is that rule as an interval.
-///   - THE REQUESTED EVENT NEEDS THE SAME. Its own setup and turnaround slots
-///     must be free too, so the requested window is widened exactly like an
-///     existing booking's before comparing. Otherwise an AM search would offer
-///     a room whose previous-night slot - where this event's setup goes - is
-///     already somebody's turnaround.
+/// SPM-93 (AC6, AC7): every period is compared as the time it takes the room
+/// out of use - its start minus the venue's setup to its end plus its
+/// turnaround (occupiedWindow(), src/lib/venueTime.ts). That goes for the
+/// requested window too: this event's own setup and turnaround need the room.
+/// Periods that only meet end to start do not clash.
 ///
 /// What blocks, most serious first:
 ///   unavailable - a VenueUnavailability period (maintenance, renovation...)
-///                 overlaps the requested window, setup and turnaround
-///                 included: a room under renovation cannot be set up either.
+///                 overlaps. A room under renovation cannot be set up either.
 ///                 UI_DESIGN.md §7.4 says a blocked venue is excluded from S-14.
-///   booked      - an APPROVED booking's occupied window overlaps.
-///   on_hold     - a PENDING request's own slots overlap. #41: "only one active
-///                 tentative hold or confirmed booking should exist for the
-///                 same venue and overlapping time period", so a venue already
-///                 on hold for that time cannot be requested - offering it
-///                 would only lead to a refused request. A hold claims its own
-///                 slots only, not setup/turnaround, the same as SPM-46's
-///                 calendar shows it.
+///   booked      - an APPROVED booking's occupied period overlaps.
+///   on_hold     - a PENDING request's occupied period overlaps. #41: "only one
+///                 active tentative hold or confirmed booking should exist for
+///                 the same venue and overlapping time period" - and Week 7
+///                 Change #1 puts setup and turnaround into every availability
+///                 check, so a hold holds them too.
 /// Rejected and cancelled requests never block.
 export function occupancyConflict(
   venue: SearchableVenue,
   window: Interval,
   eventId?: string
 ): "unavailable" | "booked" | "on_hold" | null {
-  const needed = occupiedWindow(window, venue);
-
-  if (venue.unavailability.some((block) => overlapping(needed, block))) return "unavailable";
-
-  const others = venue.bookings.filter((b) => eventId == null || b.eventId !== eventId);
-  if (
-    others.some((b) => b.status === "approved" && overlapping(needed, occupiedWindow(b, venue)))
-  ) {
-    return "booked";
-  }
-  if (
-    others.some(
-      (b) => b.status === "pending" && overlapping(needed, occupiedWindow(b, NO_TURNAROUND))
-    )
-  ) {
-    return "on_hold";
-  }
-  return null;
+  // SPM-44 moved the rule itself into venueConflict.ts, which also reports
+  // WHAT the clash is with. The search screen only needs the kind - it hides a
+  // clashing venue rather than explaining it - so it takes the kind and drops
+  // the detail.
+  return findVenueConflict(venue, window, { eventId })?.kind ?? null;
 }
 
 /// Every criterion the venue fails, in the order the filters appear on screen.
@@ -230,7 +180,8 @@ export function failedCriteria(venue: SearchableVenue, filters: VenueSearchFilte
     failed.push("facilities");
   }
   if (filters.window) {
-    if (!withinOpeningHours(venue, filters.window)) failed.push("opening_hours");
+    // SPM-93: setup and turnaround have to fit in the opening hours too.
+    if (!withinOpeningHours(venue, occupiedWindow(filters.window, venue))) failed.push("opening_hours");
     const conflict = occupancyConflict(venue, filters.window, filters.eventId);
     if (conflict) failed.push(conflict);
   }

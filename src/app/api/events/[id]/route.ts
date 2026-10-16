@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import {
@@ -13,6 +14,13 @@ import {
 } from "@/lib/permissions";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
+import { isExternalRole } from "@/lib/roles";
+import { dayIndex, dayStart } from "@/lib/equipmentAvailability";
+import { canTransition, transitionError } from "@/lib/statuses";
+import { checkEventConfirmation } from "@/lib/eventConfirmation";
+import { loadConfirmationInput } from "@/lib/eventArrangements";
+import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
+import { SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
@@ -55,12 +63,74 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
             // list what was requested. Additive - toFormValues() maps the
             // columns it needs and ignores the rest.
             equipmentRequests: { include: { equipment: { select: { name: true } } } },
+            // ADDED (SPM-34 AC6/AC7): the room that was actually booked, so
+            // the organiser can see the arrangement rather than only that the
+            // event is Confirmed. Approved bookings only - a pending request
+            // is not an arrangement anyone should be shown as settled.
+            // Stripped for an Attendee by visibleEventFor(), which allow-lists
+            // fields and so drops this one without needing to name it.
+            // CHANGED (SPM-85 AC3): with the layout booked and the seats each of
+            // the room's layouts holds, so a safety review can read the
+            // capacity of the arrangement actually made.
+            venueBookings: {
+              where: { status: "approved" },
+              select: {
+                startsAt: true,
+                endsAt: true,
+                layoutName: true,
+                // SPM-90 (AC5): what each booked space is for.
+                purpose: true,
+                session: { select: { label: true } },
+                // SPM-87 (AC2): with id and opening hours, and - added below -
+                // its unavailable periods on the event's dates.
+                venue: {
+                  select: {
+                    id: true,
+                    name: true,
+                    code: true,
+                    opensAt: true,
+                    closesAt: true,
+                    layouts: { select: { layoutName: true, capacity: true } },
+                  },
+                },
+              },
+              orderBy: { startsAt: "asc" },
+            },
             // ADDED (SPM-23, multi-session events): empty for an ordinary
             // single-session event. SESSION_SELECT (src/lib/sessionWrites.ts) is a
             // superset of what SPM-47's per-session equipment picker needs
             // (id/label/startsAt/endsAt), so it's reused here rather than
             // duplicating a second, narrower select shape.
             sessions: { select: SESSION_SELECT, orderBy: { startsAt: "asc" } },
+            // ADDED (SPM-64 AC4): the booking the registration capacity is
+            // measured against, so the Registration card can name it and say
+            // when it is no longer active. Stripped for an Attendee by
+            // visibleEventFor() - which room caps the capacity is internal.
+            registrationVenueBooking: {
+              select: {
+                id: true,
+                status: true,
+                layoutName: true,
+                venue: { select: { name: true, code: true, layouts: { select: { layoutName: true, capacity: true } } } },
+              },
+            },
+            // ADDED (SPM-86 AC8): the latest Operational Safety Check - who
+            // submitted it and when. Reshaped to `safetyCheck` below, for
+            // internal users only.
+            // CHANGED (SPM-88 AC1): every check, newest first, as
+            // `safetyHistory`; the latest is still `safetyCheck`.
+            safetyChecks: {
+              orderBy: { submittedAt: "desc" },
+              select: {
+                status: true,
+                submittedAt: true,
+                submitter: { select: { fullName: true } },
+                // SPM-87 (AC10): the Safety Officer's decision, who and when.
+                decidedAt: true,
+                decider: { select: { fullName: true } },
+                decisionNote: true,
+              },
+            },
           },
         });
   if (!event) {
@@ -72,7 +142,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // organiser sees only their own client's events, and an attendee sees an
   // event only once it is confirmed and open for registration. An event the
   // user may not see is 404, not 403: a 403 would confirm it exists.
-  if (!canViewEvent(actor, event)) {
+  // SPM-64 (#10): an attendee who holds a place keeps seeing the event once
+  // its registration is turned off. Counted only for an attendee.
+  const attendeeHoldsPlace =
+    actor.role === "attendee" &&
+    (await prisma.registration.count({
+      where: { eventId: event.id, attendeeId: actor.id, status: { in: HOLDING_A_PLACE } },
+    })) > 0;
+  if (!canViewEvent(actor, { ...event, attendeeHoldsPlace })) {
     return hidden();
   }
 
@@ -80,7 +157,80 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // the public subset; the rejection reason, the assigned coordinator, the
   // client's special requirements and the venue and equipment arrangements
   // are internal planning information (briefing §8b).
-  return NextResponse.json(visibleEventFor(actor, event));
+  // ADDED (SPM-86): the latest safety check as `safetyCheck`, or null if the
+  // event was never submitted. Safety details are internal (SPM-88): an
+  // external user (the organiser, an attendee) sees the Safety review status
+  // and nothing more.
+  // SPM-88 (AC1): and every check, newest first, as `safetyHistory`.
+  const { safetyChecks, ...rest } = event;
+  const safetyHistory = (safetyChecks ?? []).map((check) => ({
+    status: check.status,
+    submittedAt: check.submittedAt,
+    submittedBy: check.submitter?.fullName ?? null,
+    decidedAt: check.decidedAt ?? null,
+    decidedBy: check.decider?.fullName ?? null,
+    decisionNote: check.decisionNote ?? null,
+  }));
+  const shaped = isExternalRole(actor.role)
+    ? rest
+    : {
+        ...rest,
+        venueBookings: await withVenueRestrictions(rest),
+        safetyCheck: safetyHistory[0] ?? null,
+        safetyHistory,
+      };
+  if (actor.role === "attendee") {
+    // SPM-51 AC4: whether they can register now, and if not why - the same
+    // rule POST /api/registrations applies.
+    // AC6, AC7: and their own registration, so the page shows it instead of
+    // offering a second one.
+    const [seatsTaken, myRegistration] = await Promise.all([
+      prisma.registration.count({ where: { eventId: event.id, status: { in: SEAT_TAKING } } }),
+      prisma.registration.findUnique({
+        where: { eventId_attendeeId: { eventId: event.id, attendeeId: actor.id } },
+        select: { status: true, registeredAt: true },
+      }),
+    ]);
+    return NextResponse.json(
+      visibleEventFor(actor, {
+        ...shaped,
+        registrationState: registrationState(event, seatsTaken, new Date()),
+        myRegistration: myRegistration ?? null,
+      })
+    );
+  }
+  return NextResponse.json(visibleEventFor(actor, shaped));
+}
+
+/// SPM-87 (AC2): "any recorded venue restrictions or unavailable periods" -
+/// each booked venue's VenueUnavailability periods (SPM-45) that touch the
+/// event's Singapore dates, for the safety review. Internal users only, like
+/// the Venue bookings card that shows them.
+async function withVenueRestrictions<B extends { venue: { id: string } }>(event: {
+  startsAt: Date | null;
+  endsAt: Date | null;
+  venueBookings?: B[];
+}) {
+  const bookings = event.venueBookings;
+  if (!bookings || bookings.length === 0 || !event.startsAt || !event.endsAt) return bookings;
+  const periods = await prisma.venueUnavailability.findMany({
+    where: {
+      venueId: { in: [...new Set(bookings.map((b) => b.venue.id))] },
+      startsAt: { lt: dayStart(dayIndex(event.endsAt) + 1) },
+      endsAt: { gt: dayStart(dayIndex(event.startsAt)) },
+    },
+    select: { venueId: true, startsAt: true, endsAt: true, reason: true },
+    orderBy: { startsAt: "asc" },
+  });
+  return bookings.map((b) => ({
+    ...b,
+    venue: {
+      ...b.venue,
+      unavailable: periods
+        .filter((p) => p.venueId === b.venue.id)
+        .map(({ startsAt, endsAt, reason }) => ({ startsAt, endsAt, reason })),
+    },
+  }));
 }
 
 /**
@@ -162,8 +312,24 @@ async function handleStatusChange(
   // Manager assigns it, and the coordinator responsible for it approves,
   // rejects, confirms and completes it. Visibility was already checked by the
   // caller, so a refusal here is an honest 403.
+  // ADDED (SPM-86): there is one way into Safety review - POST
+  // /api/events/[id]/safety-check, which checks the arrangements and records
+  // the submission. Not this route.
+  if (data.status === "safety_review") {
+    return NextResponse.json(
+      { error: "An event is sent for a safety check with Submit for safety check" },
+      { status: 400 }
+    );
+  }
+
   if (!canSetEventStatus(actor, event, data.status)) {
     return forbidden(`Your role cannot move an event to "${data.status}"`);
+  }
+
+  // ADDED (SPM-27): the role may set this status, but only from where the
+  // lifecycle allows it - no skipping steps, nothing out of a final status.
+  if (!canTransition(event.status, data.status)) {
+    return NextResponse.json({ error: transitionError(event.status, data.status) }, { status: 400 });
   }
 
   // ADDED: a draft may be incomplete, but anything past draft may not.
@@ -205,6 +371,34 @@ async function handleStatusChange(
       { error: "Only a request that is under review can be approved or rejected" },
       { status: 400 }
     );
+  }
+
+  // ADDED (SPM-54): there is one way into Planning - the coordinator's first
+  // venue or equipment action on an Approved event, through
+  // beginPlanningIfApproved() (src/lib/beginPlanning.ts). Not this route.
+  if (data.status === "planning") {
+    return NextResponse.json(
+      { error: "Planning begins with the first venue or equipment action on an approved event" },
+      { status: 400 }
+    );
+  }
+
+  // ADDED (SPM-34): an event is confirmed only once the arrangements it
+  // actually needs are in place (#80), and a refusal names the ones that are
+  // not. The rule is in src/lib/eventConfirmation.ts so it can be unit tested
+  // without a database; this route only gathers what it reads.
+  //
+  // CHANGED (SPM-33): what it reads is loadConfirmationInput(), shared with
+  // the Readiness tab, so the two can never disagree about what is
+  // outstanding - including review flags, registration setup and anything the
+  // coordinator marked as not required.
+  if (data.status === "confirmed") {
+    // SPM-82 (AC5): an expired hold is never confirmed on.
+    await expireDueHolds();
+    const check = checkEventConfirmation(await loadConfirmationInput(event));
+    if (!check.ok) {
+      return NextResponse.json({ error: check.error, outstanding: check.outstanding }, { status: 400 });
+    }
   }
 
   // ADDED: the brief requires a rejected request to retain the decision reason.

@@ -29,7 +29,7 @@ interface BookingRef {
 
 /// The venue for the whole event (session-less booking) or for one session,
 /// falling back to the whole-event booking when a session has none of its own.
-function venueFor(bookings: BookingRef[], sessionId: string | null): string | null {
+export function venueFor(bookings: BookingRef[], sessionId: string | null): string | null {
   const usable = bookings.filter((b) => VENUE_CHOSEN_STATUSES.includes(b.status));
   const pick = (id: string | null) =>
     usable.find((b) => b.sessionId === id && b.status === "approved") ??
@@ -45,11 +45,26 @@ function heldByLabel(eventTitle: string | null, sessionLabel: string | null): st
   return `${eventTitle ?? "Untitled event"} · ${sessionLabel}`;
 }
 
+/// SPM-50: what the Equipment request screen shows beside each line's
+/// availability - the Coordinator's requirements (AC1) and Technical
+/// Support's own update (AC2-AC4). Not needed by the availability rules, so
+/// kept out of assembleLines and added on here.
+export interface LineReview {
+  technicalRequirements: string | null;
+  staffNotes: string | null;
+  reviewedByName: string | null;
+  reviewedAt: Date | null;
+}
+
+export interface ReviewedEventAvailability extends EventAvailability {
+  lines: (AvailabilityLine & LineReview)[];
+}
+
 /// Availability of every equipment line the event has requested. Each line is
 /// checked against every other request that holds the same item - other
 /// events', and this event's own other sessions', which compete for the same
 /// units - but never against itself.
-export async function loadEventAvailability(eventId: string): Promise<EventAvailability | null> {
+export async function loadEventAvailability(eventId: string): Promise<ReviewedEventAvailability | null> {
   const event = await prisma.event.findUnique({
     where: { id: eventId },
     select: {
@@ -65,6 +80,10 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
           quantityRequested: true,
           quantityReserved: true,
           status: true,
+          technicalRequirements: true,
+          staffNotes: true,
+          reviewedAt: true,
+          reviewer: { select: { fullName: true } },
           sessionId: true,
           session: { select: { label: true, startsAt: true, endsAt: true } },
           equipment: {
@@ -135,7 +154,22 @@ export async function loadEventAvailability(eventId: string): Promise<EventAvail
     venueId: venueFor(o.event.venueBookings, o.sessionId),
   }));
 
-  return assembleLines(requested, others);
+  const availability = assembleLines(requested, others);
+  const reviews = new Map<string, LineReview>(
+    event.equipmentRequests.map((r) => [
+      r.id,
+      {
+        technicalRequirements: r.technicalRequirements,
+        staffNotes: r.staffNotes,
+        reviewedByName: r.reviewer?.fullName ?? null,
+        reviewedAt: r.reviewedAt,
+      },
+    ])
+  );
+  return {
+    ...availability,
+    lines: availability.lines.map((line) => ({ ...line, ...reviews.get(line.requestId)! })),
+  };
 }
 
 /// SPM-49: one requested line's fresh availability, read with `db` - normally

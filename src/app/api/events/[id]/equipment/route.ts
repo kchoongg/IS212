@@ -4,7 +4,10 @@ import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { canManageEquipmentRequests, canViewEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
-import { isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
+import { CLOSE_REASONS } from "@/lib/safetyResolution";
+import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { parseEventReference } from "@/lib/format";
 import { ZodError } from "zod";
 
@@ -89,6 +92,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         { status: 400 }
       );
     }
+    // ADDED (SPM-54): arrangements wait for approval.
+    if (isBeforeApproval(event.status)) {
+      return NextResponse.json(
+        { error: "Equipment can be recorded once this request has been approved" },
+        { status: 400 }
+      );
+    }
 
     // ADDED (SPM-47, multi-session events): a session, if given, has to
     // actually belong to this event — otherwise a coordinator on one event
@@ -120,24 +130,40 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       );
     }
 
-    const created = await prisma.equipmentRequest.create({
-      data: {
-        eventId: event.id,
-        sessionId: data.sessionId,
-        equipmentId: data.equipmentId,
-        quantityRequested: data.quantityRequested,
-        technicalRequirements: data.technicalRequirements,
-        startsAt: window.startsAt,
-        endsAt: window.endsAt,
-        requestedBy: actor.id,
-        status: "requested",
-      },
-      include: {
-        equipment: { select: { id: true, name: true, category: true } },
-        session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
-      },
+    // SPM-54: the first equipment requirement recorded for an Approved event
+    // begins planning, in the same transaction as the requirement itself.
+    // SPM-62: on a Confirmed event it moves the event back to Planning instead.
+    const { created, planningStarted, confirmationReverted, safetyCheckClosed } = await prisma.$transaction(async (tx) => {
+      const created = await tx.equipmentRequest.create({
+        data: {
+          eventId: event.id,
+          sessionId: data.sessionId,
+          equipmentId: data.equipmentId,
+          quantityRequested: data.quantityRequested,
+          technicalRequirements: data.technicalRequirements,
+          startsAt: window.startsAt,
+          endsAt: window.endsAt,
+          requestedBy: actor.id,
+          status: "requested",
+        },
+        include: {
+          equipment: { select: { id: true, name: true, category: true } },
+          session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+        },
+      });
+      const planningStarted = await beginPlanningIfApproved(tx, event, actor.id, PLANNING_REASONS.equipmentAdded);
+      const confirmationReverted = await revertConfirmationIfConfirmed(tx, event, actor.id, PLANNING_REASONS.equipmentAdded);
+      // SPM-88: and closes the safety check it rests on.
+      const safetyCheckClosed = await closeSafetyCheckAfterChange(
+        tx,
+        event,
+        actor.id,
+        CLOSE_REASONS.equipment,
+        confirmationReverted
+      );
+      return { created, planningStarted, confirmationReverted, safetyCheckClosed };
     });
-    return NextResponse.json(created, { status: 201 });
+    return NextResponse.json({ ...created, planningStarted, confirmationReverted, safetyCheckClosed }, { status: 201 });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });

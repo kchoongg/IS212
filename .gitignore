@@ -6,6 +6,9 @@ dist/
 *.log
 .DS_Store
 coverage/
+# Playwright's results, report and traces (npm run test:e2e).
+test-results/
+playwright-report/
 .neon
 
 # TypeScript's incremental build cache. Rewritten by every `tsc` and
@@ -18,3 +21,6 @@ tsconfig.tsbuildinfo
 AGENTS.md
 CLAUDE.md
 "*.tsbuildinfo" 
+
+# Excel lock files (created while a workbook is open)
+~$*

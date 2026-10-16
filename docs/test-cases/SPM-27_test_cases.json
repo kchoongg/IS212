@@ -1,0 +1,203 @@
+{
+  "story_key": "SPM-27",
+  "story_title": "As an Event Organiser, I want to view the current status of my event request so that I know how far it has progressed",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-10-02",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Event Organiser can view the current status of their event."
+    },
+    {
+      "id": "AC2",
+      "text": "The status reflects the latest action performed on the event."
+    },
+    {
+      "id": "AC3",
+      "text": "The system displays appropriate statuses such as Submitted, Under Review, Approved, Planning, Confirmed, Completed, Rejected, Postponed, Withdrawn or Cancelled."
+    },
+    {
+      "id": "AC4",
+      "text": "The Event Organiser cannot manually change the event status."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-27-TC01",
+      "title": "My Events shows each of the organiser's events with its current status badge",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case.\nLogged in as Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123), Event Organiser, Bayu Energy Partners.",
+      "steps": [
+        "Click 'My Events' in the sidebar"
+      ],
+      "test_data": "SPM27 Bayu Safety Briefing: Submitted | SPM27 Bayu Investor Day: Submitted | SPM27 Bayu Town Hall: Submitted | SPM27 Bayu Grid Workshop: Under review | SPM27 Bayu Contractor Briefing: Under review | SPM27 Bayu Supplier Day: Approved | SPM27 Bayu Leadership Retreat: Planning | SPM27 Bayu Annual Conference: Confirmed | SPM27 Bayu Graduate Induction: Completed | SPM27 Bayu Overnight Site Visit: Rejected | SPM27 Bayu Community Fair: Postponed | SPM27 Bayu Partner Lunch: Withdrawn | SPM27 Bayu Wind Farm Tour: Withdrawn | SPM27 Bayu Product Showcase: Cancelled",
+      "expected_result": "Step 1: Each of the 14 SPM27 events shows a coloured status badge with exactly the label listed in Test data, so all 10 statuses appear: Submitted, Under review, Approved, Planning, Confirmed, Completed, Rejected, Postponed, Withdrawn, Cancelled (some on more than one event). No status is shown as a raw value such as 'under_review'. Only Bayu Energy Partners events are listed; no other company's events appear."
+    },
+    {
+      "id": "SPM-27-TC02",
+      "title": "Event page status changes after another role acts on the event",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder before and after this case.\n'SPM27 Bayu Investor Day' is Submitted with no coordinator.\nAccounts: Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123), Event Organiser; Grace Lim (grace.lim@connectsphere.com / password123), Event Operations Manager.",
+      "steps": [
+        "Log in as Hakim Zulkifli",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Investor Day'",
+        "Log out and log in as Grace Lim",
+        "Click 'Assignments' in the sidebar",
+        "On the 'SPM27 Bayu Investor Day' row, choose 'Hui Shan Neo' in 'Assign to'",
+        "Click 'Assign'",
+        "Log out and log in as Hakim Zulkifli",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Investor Day'"
+      ],
+      "test_data": "Event: SPM27 Bayu Investor Day | Coordinator: Hui Shan Neo",
+      "expected_result": "Step 3: The badge under the title and the Details 'Status' row both read 'Submitted'.\nStep 10: The badge and the Details 'Status' row both read 'Under review'."
+    },
+    {
+      "id": "SPM-27-TC03",
+      "title": "Choosing 'Keep request' in the withdrawal dialog leaves the status unchanged",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case.\n'SPM27 Bayu Grid Workshop' is Under review, coordinator Hui Shan Neo.\nLogged in as Hui Shan Neo (huishan.neo@connectsphere.com / password123), Event Coordinator.\nWithdrawal follows customer clarification #103: the organiser asks the Event Coordinator outside the system, and the assigned coordinator records the withdrawal while the request is Under review. Withdrawn is final.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open 'SPM27 Bayu Grid Workshop'",
+        "Click 'Record withdrawal'",
+        "In the dialog, click 'Keep request'",
+        "Reload the page"
+      ],
+      "test_data": "Event: SPM27 Bayu Grid Workshop (Under review)",
+      "expected_result": "Step 3: A dialog titled 'Record this withdrawal?' appears.\nStep 4: The dialog closes.\nStep 5: The badge still reads 'Under review' and the 'Record withdrawal' button is still shown."
+    },
+    {
+      "id": "SPM-27-TC04",
+      "title": "Coordinator records a withdrawal and the organiser sees Withdrawn",
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder before and after this case (SPM-27-TC03 does not change the data, so this case can run straight after it).\n'SPM27 Bayu Grid Workshop' is Under review, coordinator Hui Shan Neo.\nAccounts: Hui Shan Neo (huishan.neo@connectsphere.com / password123), Event Coordinator; Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123), Event Organiser.\nWithdrawal follows customer clarification #103: the organiser asks the Event Coordinator outside the system, and the assigned coordinator records the withdrawal while the request is Under review. Withdrawn is final.",
+      "steps": [
+        "Log in as Hui Shan Neo",
+        "Click 'All Events' in the sidebar",
+        "Open 'SPM27 Bayu Grid Workshop'",
+        "Click 'Record withdrawal'",
+        "In the dialog 'Record this withdrawal?', click 'Record withdrawal'",
+        "Log out and log in as Hakim Zulkifli",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Grid Workshop'"
+      ],
+      "test_data": "Event: SPM27 Bayu Grid Workshop (Under review)",
+      "expected_result": "Step 5: The message 'The withdrawal has been recorded.' is shown, the badge changes to 'Withdrawn' and the 'Record withdrawal' button is gone.\nStep 8: The badge and the Details 'Status' row read 'Withdrawn'."
+    },
+    {
+      "id": "SPM-27-TC05",
+      "title": "Organiser has no way to change the status of their event",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: run `npm run fixtures:spm27` from the project folder if it has not been run for this test pass.\nLogged in as Hakim Zulkifli (hakim.zulkifli@bayuenergypa.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Safety Briefing'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Contractor Briefing'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Supplier Day'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Leadership Retreat'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Annual Conference'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Community Fair'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Graduate Induction'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Overnight Site Visit'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Product Showcase'",
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM27 Bayu Partner Lunch'"
+      ],
+      "test_data": "Submitted: SPM27 Bayu Safety Briefing | Under review: SPM27 Bayu Contractor Briefing | Approved: SPM27 Bayu Supplier Day | Planning: SPM27 Bayu Leadership Retreat | Confirmed: SPM27 Bayu Annual Conference | Postponed: SPM27 Bayu Community Fair | Completed: SPM27 Bayu Graduate Induction | Rejected: SPM27 Bayu Overnight Site Visit | Cancelled: SPM27 Bayu Product Showcase | Withdrawn: SPM27 Bayu Partner Lunch",
+      "expected_result": "Step 2: On 'SPM27 Bayu Safety Briefing', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 4: On 'SPM27 Bayu Contractor Briefing', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 6: On 'SPM27 Bayu Supplier Day', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 8: On 'SPM27 Bayu Leadership Retreat', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 10: On 'SPM27 Bayu Annual Conference', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 12: On 'SPM27 Bayu Community Fair', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 14: On 'SPM27 Bayu Graduate Induction', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 16: On 'SPM27 Bayu Overnight Site Visit', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 18: On 'SPM27 Bayu Product Showcase', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status.\nStep 20: On 'SPM27 Bayu Partner Lunch', the status is shown only as the badge and the read-only Details 'Status' row; there is no 'Record withdrawal' button and no button, dropdown or field that changes the status."
+    },
+    {
+      "id": "SPM-27-TC06",
+      "title": "Only the assigned coordinator is offered 'Record withdrawal'",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data freshly loaded: run `npm run fixtures:spm27` from the project folder just before this case.\n'SPM27 Bayu Contractor Briefing' is Under review with coordinator Hui Shan Neo; 'SPM27 Bayu Supplier Day' is Approved with coordinator Hui Shan Neo.\nWithdrawal follows customer clarification #103: the organiser asks the Event Coordinator outside the system, and the assigned coordinator records the withdrawal while the request is Under review. Withdrawn is final.",
+      "steps": [
+        "Log in as Grace Lim (grace.lim@connectsphere.com / password123)",
+        "Click 'All Events' in the sidebar",
+        "Open 'SPM27 Bayu Contractor Briefing'",
+        "Log out and log in as Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Click 'All Events' in the sidebar",
+        "Open 'SPM27 Bayu Contractor Briefing'",
+        "Log out and log in as Hui Shan Neo (huishan.neo@connectsphere.com / password123)",
+        "Click 'All Events' in the sidebar",
+        "Open 'SPM27 Bayu Supplier Day'"
+      ],
+      "test_data": "Event Operations Manager: Grace Lim | Unassigned Event Coordinator: Daniel Tan | Assigned Event Coordinator: Hui Shan Neo | Under review: SPM27 Bayu Contractor Briefing | Approved: SPM27 Bayu Supplier Day",
+      "expected_result": "Step 3: No 'Record withdrawal' button is shown.\nStep 6: No 'Record withdrawal' button is shown.\nStep 9: No 'Record withdrawal' button is shown, because the event is past review."
+    },
+    {
+      "id": "SPM-27-TC07",
+      "title": "A withdrawn request is closed for the Operations Manager and the coordinator",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "Test data loaded: run `npm run fixtures:spm27` from the project folder if it has not been run for this test pass.\n'SPM27 Bayu Partner Lunch' and 'SPM27 Bayu Wind Farm Tour' were withdrawn while Under review (coordinator Hui Shan Neo).",
+      "steps": [
+        "Log in as Hui Shan Neo (huishan.neo@connectsphere.com / password123)",
+        "Click 'Review Queue' in the sidebar",
+        "Click 'All Events' in the sidebar",
+        "Open 'SPM27 Bayu Wind Farm Tour'",
+        "Open the 'Equipment' tab"
+      ],
+      "test_data": "Withdrawn: SPM27 Bayu Partner Lunch | Withdrawn: SPM27 Bayu Wind Farm Tour",
+      "expected_result": "Step 2: Neither 'SPM27 Bayu Partner Lunch' nor 'SPM27 Bayu Wind Farm Tour' is listed.\nStep 4: The badge reads 'Withdrawn' and there is no 'Record withdrawal' or 'Review request' action.\nStep 5: The tab shows 'This event is withdrawn — equipment requirements can no longer be changed.' with no add, edit or remove controls."
+    }
+  ],
+  "open_questions": [],
+  "code_references": [
+    "src/lib/statuses.ts",
+    "src/lib/permissions.ts",
+    "src/lib/validation/events.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/events/[id]/coordinator/route.ts",
+    "src/app/api/assignments/route.ts",
+    "src/app/events/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/venues/search/page.tsx",
+    "docs/ConnectSphere_Status_Lifecycle.drawio",
+    "docs/PERMISSIONS.md",
+    "scripts/seed-spm27.ts",
+    "prisma/seed.ts",
+    "src/app/queue/page.tsx"
+  ]
+}

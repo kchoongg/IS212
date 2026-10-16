@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can, canViewEvent } from "@/lib/permissions";
 import { parseEventReference } from "@/lib/format";
@@ -17,8 +18,8 @@ import { parseWallClock, searchVenues, type VenueSearchFilters } from "@/lib/ven
 // Every parameter is optional; none at all returns the whole active catalogue.
 
 /// Bookings and blocks further than this from the requested window cannot
-/// reach it. Setup and turnaround take at most one adjacent slot (#123), which
-/// is never more than a day away; two days is a margin, not a rule.
+/// reach it: a booking reaches only as far as its venue's setup and turnaround
+/// minutes (SPM-93), which are hours, not days. Two days is a margin, not a rule.
 const NEIGHBOUR_MS = 2 * 24 * 60 * 60 * 1000;
 
 export async function GET(req: NextRequest) {
@@ -71,6 +72,8 @@ export async function GET(req: NextRequest) {
 
   // Retired venues are out of the catalogue, so they are never search results
   // (SPM-39 AC6: inactive venues are not presented as available options).
+  // SPM-82 (AC6): the time an expired hold took up counts as free.
+  await expireDueHolds();
   const venues = await prisma.venue.findMany({
     where: { isActive: true },
     include: {

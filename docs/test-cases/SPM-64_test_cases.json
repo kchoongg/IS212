@@ -1,0 +1,586 @@
+{
+  "story_key": "SPM-64",
+  "story_title": "As the assigned Event Coordinator, I want to set up attendee registration for an event so that Attendees can register only when, and in the numbers, the event allows",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-10-09",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The assigned Event Coordinator can enable or disable attendee registration for an event."
+    },
+    {
+      "id": "AC2",
+      "text": "The Coordinator can set a registration capacity for the event."
+    },
+    {
+      "id": "AC3",
+      "text": "The registration capacity cannot exceed the capacity of the event's booked venue for its selected room layout."
+    },
+    {
+      "id": "AC4",
+      "text": "Given the event has more than one venue booking, when the Coordinator sets the registration capacity, then they select which venue booking the capacity is measured against, and the capacity cannot exceed that venue's capacity for its selected layout (see SPM-81)."
+    },
+    {
+      "id": "AC5",
+      "text": "The Coordinator can set a registration opening date and closing date that are separate from the event date."
+    },
+    {
+      "id": "AC6",
+      "text": "The closing date cannot be earlier than the opening date or later than the event's start."
+    },
+    {
+      "id": "AC7",
+      "text": "The Coordinator can extend or reopen a closed registration period, provided the event has not started."
+    },
+    {
+      "id": "AC8",
+      "text": "Given registration is enabled, when the settings are incomplete (no capacity or no registration period), then the event's registration setup is shown as an outstanding arrangement (see Track Outstanding Arrangements)."
+    },
+    {
+      "id": "AC9",
+      "text": "Given Attendees are registered or on the waiting list, when the Coordinator lowers the registration capacity below that number or disables registration, then the change is saved and the event's registrations are flagged for review rather than changed (see SPM-68)."
+    },
+    {
+      "id": "AC10",
+      "text": "The Event Organiser can view the registration settings for their event but cannot change them."
+    },
+    {
+      "id": "AC11",
+      "text": "Users other than the assigned Coordinator cannot change registration settings."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-09: written before the code, then checked against the built code on 2026-10-09: every message, label and page address in the cases is what the code shows (27 page tests in src/app/__tests__/event-registration-pages.test.tsx render the Overview with the cases' wording), and the server side of every case was run against the SPM64 fixtures on the shared database through the running app's API (all 29 checks as expected). Corrected while checking: the app writes September as 'Sept' (en-GB), the rejected room in TC09 is Marina Grand Hall (no 'Marina Bay Ballroom' is seeded), 'SPM64 Orchard Data Forum' moved to 18 Mar 2027 and 'SPM64 Attendee Open Day' to 13 May 2027 (their rooms were already booked on the first dates), and TC01 now lists the 'Measured against' row and the incomplete-setup alert. Not yet clicked through by a person in a browser.",
+    "RESOLVED 2026-10-09: the story has 11 ACs. The draft's AC12 ('Update Event Information does not edit registration settings') was dropped: SPM-62's strict schema already refuses those fields, and no regression cases are written for it.",
+    "RESOLVED 2026-10-09: where. The existing 'Registration' card on the event's Overview. For the assigned coordinator, while the event is Approved, Planning or Confirmed, the card header has a 'Change registration settings' button. It turns the card into a form with: the checkbox 'Attendees need to register for this event', 'Registration capacity', 'Capacity measured against' (only when the event has two or more pending or approved venue bookings), 'Registration opens', 'Registration closes', and the buttons 'Save registration settings' and 'Cancel'. After a save, the card is read-only again, with a green alert 'Registration settings saved.' and, if the save flagged anything, a 'Flagged for review' list in SPM-62's style. Answer: confirmed. The settings live on the existing Registration card rather than on a new page, because the organiser and every other role already see that card read-only, so AC10 and AC11 need no new screen. The button and form are only for the assigned coordinator in Approved, Planning or Confirmed. The form uses noValidate so the page's own messages show, not the browser's.",
+    "RESOLVED 2026-10-09: the read-only card. 'Registration': 'Enabled' or 'Not enabled for this event'. When enabled: 'Capacity' (or '—'), 'Measured against' as '<venue name> (<code>), <Layout> layout – up to <n>' (or '—'), 'Opens' and 'Closes' as dates and times (or '—'). Disabling keeps the saved values: they show again when registration is turned back on. Answer: confirmed, with one addition. An attendee never sees 'Measured against': which booking the capacity is measured against is internal planning information, so it stays off ATTENDEE_EVENT_FIELDS. Everyone else who can see the event sees it.",
+    "RESOLVED 2026-10-09: messages. A capacity that isn't a whole number of at least 1: 'Enter a whole number, at least 1.' (as on the event request form). Over the limit: 'Registration capacity can't be more than <n>, the capacity of <venue> (<code>) in its <Layout> layout.' No pending or approved booking: 'Book a venue for this event before setting a registration capacity.' A booking with no layout: 'The venue booking has no room layout, so its capacity isn't known. Book the venue with a room layout first.' Several bookings and none chosen: 'Choose which venue booking the capacity is measured against.' Closing not after opening: 'Registration closes at must be after it opens.' (as on the request form). Closing after the start: 'Registration must close no later than the event starts.' A period change once the event has started: 'The event has started, so the registration period can't be changed.' Each message shows under its own field, and nothing is saved. Answer: confirmed. Two are reused word for word from the event request form so the app says the same thing in both places ('Enter a whole number, at least 1.', 'Registration closes at must be after it opens.'). 'Registration must close no later than the event starts.' is deliberately different from the request form's 'Registration must close before the event starts.', because this story allows closing exactly at the start (AC6). An empty capacity is NOT an error here, unlike on the request form ('Enter how many attendees can register.'): AC8 requires that an incomplete setup can be saved.",
+    "RESOLVED 2026-10-09: the limit is the room's capacity for the booked layout (VenueLayout, #112), never the room's maximum capacity. Pending and approved bookings count; rejected and cancelled bookings are never offered and never count. With one such booking it's used automatically and no 'Capacity measured against' field is shown. Answer: confirmed (agreed in step 0 of plan.md, customer answer #112).",
+    "RESOLVED 2026-10-09: the period (AC5, AC6). Opening must be strictly before closing, so an equal time is refused. Closing may be at the event's start exactly, but not after it. Extending or reopening (AC7, #42, #127) is just changing 'Registration closes' to a later time, even when the old one has passed. Any change to the dates is refused once the event has started. Answer: confirmed (agreed in step 0, customer answers #30 and #42). No separate rule is needed for the opening date against the event start: opening before closing and closing no later than the start already put it before the start.",
+    "RESOLVED 2026-10-09: outstanding (AC8, #80). While registration is enabled, the card shows an amber alert 'Registration setup is incomplete' when the capacity, the opening date or the closing date is missing ('Still needed: registration capacity, opening date, closing date.', listing only what is missing), or when the booking the capacity was measured against is no longer pending or approved ('The venue booking the capacity was measured against is no longer active. Choose another booking.'). The alert goes as soon as all of these are met, or when registration is disabled. Saving an incomplete setup is never refused. It is listed as an outstanding arrangement, and 'Confirm event' is refused with SPM-34's message: 'This event cannot be confirmed yet: registration setup is incomplete (still needed: …).' or '… registration capacity is measured against a venue booking that is no longer active.' An event already Confirmed stays Confirmed. Answer: confirmed (agreed 2026-10-09 with Sammi Chua, including the lost-booking condition from Week 7 change #4).",
+    "RESOLVED 2026-10-09: flags (AC9). The 'Flagged for review' line reads 'Registrations: <n> attendees – the registration capacity was lowered below the number registered or waitlisted' or '… – registration was turned off'. <n> counts registered and waitlisted attendees, not withdrawn ones. Lowering to exactly <n> flags nothing. Answer: confirmed. The line follows SPM-62's 'Flagged for review' format ('Registrations: 12 attendees – the date or time changed') and its attendee count wording ('1 attendee' / '<n> attendees'), so SPM-68 lists every story's flags the same way.",
+    "RESOLVED 2026-10-09 (#10): a registered or waitlisted attendee keeps seeing a Confirmed event after its registration is turned off. A withdrawn attendee does not, and sees 'This event doesn't exist, or you don't have access to it.' Answer: confirmed (agreed 2026-10-09 with Sammi Chua).",
+    "RESOLVED 2026-10-09: who. Only the coordinator assigned to the event, only in Approved, Planning or Confirmed (SPM-62's window; Postponed is excluded). The organiser (AC10) and everyone else (AC11) see the read-only card with no button. Answer: confirmed (agreed in step 0; same window as SPM-62).",
+    "RESOLVED 2026-10-09: out of scope, so no cases. Attendee sign-up enforcing the dates and capacity, the waiting list (#26, #44), VIPs added over capacity (#99, #33), per-session capacity (#74), a derived Open/Closed label (#127), and clearing a flag (SPM-68).",
+    "RESOLVED 2026-10-09: Not reachable from the screens, so covered by unit tests only: a booking from another event sent as the measured booking; a request from a non-coordinator that bypasses the hidden button; that a flag is merged into an existing registration review reason rather than replacing it; and that Registration rows are never changed by a save (no attendee list screen exists to show it). Answer: noted. Each is covered by a route or unit test in its slice.",
+    "RESOLVED 2026-10-09: fixtures. `npm run fixtures:spm64` (scripts/seed-spm64.ts) deletes and recreates only the twelve 'SPM64 …' events (seed keys spm64_*), with their bookings, measured booking, registration settings and registrations; the same events (without those) are at the end of prisma/seed.ts. It stops without changing anything if one of its rooms is already held at that time. No pinned reference numbers: find each event by title.",
+    "RESOLVED 2026-10-09: navigation in TC24. Venue Staff reach an event from 'Booking Requests' (pending requests link to the event). Technical Support has no sidebar link to any event Overview (NAV_BY_ROLE), so their step types /events. That gap is recorded in DOCUMENTATION.md Known Gaps, not fixed in SPM-64. Answer: confirmed by Sammi Chua, 2026-10-09."
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-64-TC01",
+      "title": "The assigned coordinator turns registration on",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM64 …' event.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Orchard Data Forum'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Click 'Save registration settings'",
+        "Reload the page"
+      ],
+      "test_data": "Event: SPM64 Orchard Data Forum (Planning) | Registration: off -> on",
+      "expected_result": "Step 1: The Registration card shows 'Registration: Not enabled for this event' and a 'Change registration settings' button.\nStep 2: The card shows the checkbox 'Attendees need to register for this event', not ticked, and the buttons 'Save registration settings' and 'Cancel'.\nStep 3: 'Registration capacity', 'Registration opens' and 'Registration closes' appear, empty.\nStep 4: A green alert 'Registration settings saved.' appears. The card shows 'Registration: Enabled', 'Capacity: —', 'Measured against: —', 'Opens: —' and 'Closes: —', and an amber alert 'Registration setup is incomplete' reads 'Still needed: registration capacity, opening date, closing date.' (checked in SPM-64-TC16).\nStep 5: The card still shows 'Registration: Enabled'."
+    },
+    {
+      "id": "SPM-64-TC02",
+      "title": "Turning registration off keeps its saved settings for when it is turned back on",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Closed Registration Seminar'",
+        "Click 'Change registration settings' on the Registration card",
+        "Untick 'Attendees need to register for this event'",
+        "Click 'Save registration settings'",
+        "Click 'Change registration settings'",
+        "Tick 'Attendees need to register for this event'",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Closed Registration Seminar (Confirmed, no registrations) | Capacity 50 | Opens 1 Aug 2026, 09:00 | Closes 30 Sept 2026, 17:00",
+      "expected_result": "Step 1: The card shows 'Registration: Enabled', 'Capacity: 50', 'Opens: 1 Aug 2026, 09:00' and 'Closes: 30 Sept 2026, 17:00'.\nStep 4: 'Registration settings saved.' appears, the card shows 'Registration: Not enabled for this event', and no 'Flagged for review' list is shown (nobody holds a place). The status badge still reads 'Confirmed'.\nStep 6: 'Registration capacity' shows 50, 'Registration opens' 1 Aug 2026 09:00 and 'Registration closes' 30 Sept 2026 17:00.\nStep 7: The card shows 'Registration: Enabled', 'Capacity: 50' and the same opening and closing times as in step 1."
+    },
+    {
+      "id": "SPM-64-TC03",
+      "title": "Registration settings can't be changed on a Postponed event",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Postponed Product Talk'"
+      ],
+      "test_data": "Event: SPM64 Postponed Product Talk (Postponed, coordinator Daniel Tan)",
+      "expected_result": "Step 1: The status badge reads 'Postponed'. The Registration card shows 'Registration: Not enabled for this event' and has no 'Change registration settings' button."
+    },
+    {
+      "id": "SPM-64-TC04",
+      "title": "Setting a capacity on an event with one booking measures it against that booking automatically",
+      "linked_ac": [
+        "AC2",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Orchard Data Forum'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 60 in 'Registration capacity'",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Orchard Data Forum (one approved booking: Orchard Seminar Room, Classroom, up to 70) | Registration capacity: 60",
+      "expected_result": "Step 3: 'Registration capacity' appears. There is no 'Capacity measured against' field, because the event has one booking.\nStep 5: 'Registration settings saved.' appears. The card shows 'Capacity: 60' and 'Measured against: Orchard Seminar Room (ORC-SEM), Classroom layout – up to 70'."
+    },
+    {
+      "id": "SPM-64-TC05",
+      "title": "A capacity that isn't a whole number of at least 1 is refused",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Orchard Data Forum'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 0 in 'Registration capacity'",
+        "Click 'Save registration settings'",
+        "Change 'Registration capacity' to -5",
+        "Click 'Save registration settings'",
+        "Change 'Registration capacity' to 12.5",
+        "Click 'Save registration settings'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM64 Orchard Data Forum | Registration capacity: 0, then -5, then 12.5",
+      "expected_result": "Step 5: 'Enter a whole number, at least 1.' shows under 'Registration capacity'. The form stays open and no 'Registration settings saved.' alert appears.\nStep 7: The same message shows under 'Registration capacity', and nothing is saved.\nStep 9: The same message shows under 'Registration capacity', and nothing is saved.\nStep 10: The card shows 'Registration: Not enabled for this event', as before."
+    },
+    {
+      "id": "SPM-64-TC06",
+      "title": "The capacity can equal the room's capacity for the booked layout, but not exceed it",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Orchard Data Forum'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 71 in 'Registration capacity'",
+        "Click 'Save registration settings'",
+        "Change 'Registration capacity' to 70",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Orchard Data Forum | Booking: Orchard Seminar Room, Classroom layout (70; the room holds 120 as a theatre) | Capacity: 71, then 70",
+      "expected_result": "Step 5: 'Registration capacity can't be more than 70, the capacity of Orchard Seminar Room (ORC-SEM) in its Classroom layout.' shows under 'Registration capacity', and nothing is saved. The room's 120-seat theatre capacity is not used.\nStep 7: 'Registration settings saved.' appears, and the card shows 'Capacity: 70'."
+    },
+    {
+      "id": "SPM-64-TC07",
+      "title": "A capacity can't be set before the event has a venue booking",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Unbooked Strategy Day'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 30 in 'Registration capacity'",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Unbooked Strategy Day (Approved, no venue bookings) | Capacity: 30",
+      "expected_result": "Step 5: 'Book a venue for this event before setting a registration capacity.' shows under 'Registration capacity'. The form stays open and nothing is saved."
+    },
+    {
+      "id": "SPM-64-TC08",
+      "title": "A capacity can't be set when the booking has no room layout",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Layout-Free Networking Night'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 30 in 'Registration capacity'",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Layout-Free Networking Night (approved booking at Orchard Seminar Room with no layout) | Capacity: 30",
+      "expected_result": "Step 5: 'The venue booking has no room layout, so its capacity isn't known. Book the venue with a room layout first.' shows under 'Registration capacity'. The form stays open and nothing is saved."
+    },
+    {
+      "id": "SPM-64-TC09",
+      "title": "With two bookings the coordinator chooses which one the capacity is measured against",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Twin Room Workshop'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Open the 'Capacity measured against' list",
+        "Choose 'Orchard Studio (ORC-STU) · Classroom · up to 40 · Pending'",
+        "Enter 45 in 'Registration capacity'",
+        "Click 'Save registration settings'",
+        "Change 'Registration capacity' to 40",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Twin Room Workshop | Bookings: Orchard Seminar Room Classroom 70 (Approved), Orchard Studio Classroom 40 (Pending), Marina Grand Hall (Rejected) | Chosen: Orchard Studio | Capacity: 45, then 40",
+      "expected_result": "Step 3: 'Registration capacity' and 'Capacity measured against' appear. The list is set to 'Choose a booking'.\nStep 4: The list offers exactly two bookings: 'Orchard Seminar Room (ORC-SEM) · Classroom · up to 70 · Approved' and 'Orchard Studio (ORC-STU) · Classroom · up to 40 · Pending'. The rejected Marina Grand Hall booking is not offered.\nStep 7: 'Registration capacity can't be more than 40, the capacity of Orchard Studio (ORC-STU) in its Classroom layout.' shows under 'Registration capacity', and nothing is saved.\nStep 9: 'Registration settings saved.' appears. The card shows 'Capacity: 40' and 'Measured against: Orchard Studio (ORC-STU), Classroom layout – up to 40'."
+    },
+    {
+      "id": "SPM-64-TC10",
+      "title": "With two bookings a capacity can't be saved until a booking is chosen",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Twin Room Workshop'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 30 in 'Registration capacity'",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Twin Room Workshop (two live bookings) | Capacity: 30 | 'Capacity measured against' left at 'Choose a booking'",
+      "expected_result": "Step 5: 'Choose which venue booking the capacity is measured against.' shows under 'Capacity measured against'. The form stays open and nothing is saved."
+    },
+    {
+      "id": "SPM-64-TC11",
+      "title": "The registration period is set separately from the event's own date",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Orchard Data Forum'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 1 Feb 2027, 09:00 in 'Registration opens'",
+        "Enter 10 Mar 2027, 17:00 in 'Registration closes'",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Orchard Data Forum (18 Mar 2027, 09:00–17:00) | Opens: 1 Feb 2027, 09:00 | Closes: 10 Mar 2027, 17:00",
+      "expected_result": "Step 1: 'When' in the Details card shows '18 Mar 2027, 09:00–17:00'.\nStep 6: 'Registration settings saved.' appears. The card shows 'Opens: 1 Feb 2027, 09:00' and 'Closes: 10 Mar 2027, 17:00'. 'When' in the Details card still shows '18 Mar 2027, 09:00–17:00'."
+    },
+    {
+      "id": "SPM-64-TC12",
+      "title": "Registration can't close before, or at the same moment as, it opens",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Orchard Data Forum'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 1 Mar 2027, 09:00 in 'Registration opens'",
+        "Enter 1 Feb 2027, 09:00 in 'Registration closes'",
+        "Click 'Save registration settings'",
+        "Change 'Registration closes' to 1 Mar 2027, 09:00",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Orchard Data Forum | Opens: 1 Mar 2027, 09:00 | Closes: 1 Feb 2027, 09:00, then 1 Mar 2027, 09:00",
+      "expected_result": "Step 6: 'Registration closes at must be after it opens.' shows under 'Registration closes', and nothing is saved.\nStep 8: The same message shows under 'Registration closes' for a closing time equal to the opening time, and nothing is saved."
+    },
+    {
+      "id": "SPM-64-TC13",
+      "title": "Registration can close exactly when the event starts, but not after",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Orchard Data Forum'",
+        "Click 'Change registration settings' on the Registration card",
+        "Tick 'Attendees need to register for this event'",
+        "Enter 1 Feb 2027, 09:00 in 'Registration opens'",
+        "Enter 18 Mar 2027, 09:01 in 'Registration closes'",
+        "Click 'Save registration settings'",
+        "Change 'Registration closes' to 18 Mar 2027, 09:00",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Orchard Data Forum (starts 18 Mar 2027, 09:00) | Opens: 1 Feb 2027, 09:00 | Closes: 18 Mar 2027, 09:01, then 09:00",
+      "expected_result": "Step 6: 'Registration must close no later than the event starts.' shows under 'Registration closes', and nothing is saved.\nStep 8: 'Registration settings saved.' appears, and the card shows 'Closes: 18 Mar 2027, 09:00'."
+    },
+    {
+      "id": "SPM-64-TC14",
+      "title": "A registration period that has closed is reopened by moving its closing date later",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Closed Registration Seminar'",
+        "Click 'Change registration settings' on the Registration card",
+        "Change 'Registration closes' to 28 Feb 2027, 17:00",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Closed Registration Seminar (Confirmed, starts 10 Mar 2027, 09:00) | Closes: 30 Sept 2026, 17:00 (already past) -> 28 Feb 2027, 17:00",
+      "expected_result": "Step 1: The card shows 'Closes: 30 Sept 2026, 17:00', a date that has already passed.\nStep 4: 'Registration settings saved.' appears. The card shows 'Opens: 1 Aug 2026, 09:00' and 'Closes: 28 Feb 2027, 17:00'. The status badge still reads 'Confirmed'."
+    },
+    {
+      "id": "SPM-64-TC15",
+      "title": "The registration period can't be changed once the event has started",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Started Showcase'",
+        "Click 'Change registration settings' on the Registration card",
+        "Change 'Registration closes' to 2 Oct 2026, 09:00",
+        "Click 'Save registration settings'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM64 Started Showcase (Confirmed, started 1 Oct 2026, 09:00) | Closes: 1 Oct 2026, 09:00 -> 2 Oct 2026, 09:00",
+      "expected_result": "Step 4: 'The event has started, so the registration period can't be changed.' shows under 'Registration closes', and nothing is saved.\nStep 5: The card still shows 'Closes: 1 Oct 2026, 09:00'."
+    },
+    {
+      "id": "SPM-64-TC16",
+      "title": "Incomplete registration setup is outstanding and blocks confirmation until every setting is in place",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Incomplete Setup Gala'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click 'Change registration settings' on the Registration card",
+        "Enter 60 in 'Registration capacity'",
+        "Click 'Save registration settings'",
+        "Click 'Change registration settings'",
+        "Enter 1 Mar 2027, 09:00 in 'Registration opens'",
+        "Enter 27 Apr 2027, 17:00 in 'Registration closes'",
+        "Click 'Save registration settings'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM64 Incomplete Setup Gala (Planning, approved Orchard Seminar Room Classroom booking, no equipment, registration on with nothing else set) | Capacity: 60 | Opens: 1 Mar 2027, 09:00 | Closes: 27 Apr 2027, 17:00",
+      "expected_result": "Step 1: The Registration card shows an amber alert 'Registration setup is incomplete' reading 'Still needed: registration capacity, opening date, closing date.'\nStep 2: The 'Confirm this event?' dialog opens.\nStep 3: A red alert reads 'This event cannot be confirmed yet: registration setup is incomplete (still needed: registration capacity, opening date, closing date).' The status badge still reads 'Planning'.\nStep 6: 'Registration settings saved.' appears, so an incomplete setup can be saved. The amber alert now reads 'Still needed: opening date, closing date.'\nStep 10: 'Registration settings saved.' appears, and the amber alert is gone.\nStep 12: The notice 'The event is confirmed. The organiser can now see the arrangements.' appears, and the status badge reads 'Confirmed'."
+    },
+    {
+      "id": "SPM-64-TC17",
+      "title": "Registration that is turned off is not an outstanding arrangement",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Incomplete Setup Gala'",
+        "Click 'Change registration settings' on the Registration card",
+        "Untick 'Attendees need to register for this event'",
+        "Click 'Save registration settings'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM64 Incomplete Setup Gala (Planning, registration on with nothing else set) | Registration: on -> off",
+      "expected_result": "Step 4: 'Registration settings saved.' appears. The card shows 'Registration: Not enabled for this event', and the amber 'Registration setup is incomplete' alert is gone.\nStep 6: The notice 'The event is confirmed. The organiser can now see the arrangements.' appears, and the status badge reads 'Confirmed'."
+    },
+    {
+      "id": "SPM-64-TC18",
+      "title": "A capacity measured against a booking that is no longer active is outstanding until another booking is chosen",
+      "linked_ac": [
+        "AC8",
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Lost Booking Expo'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Click 'Change registration settings' on the Registration card",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Lost Booking Expo | Capacity 40, measured against an Orchard Seminar Room booking that was rejected | Remaining booking: Orchard Studio, Classroom, up to 40 (Approved)",
+      "expected_result": "Step 1: The Registration card shows 'Capacity: 40' and an amber alert 'Registration setup is incomplete' reading 'The venue booking the capacity was measured against is no longer active. Choose another booking.'\nStep 3: A red alert reads 'This event cannot be confirmed yet: registration capacity is measured against a venue booking that is no longer active.' The status badge still reads 'Planning'.\nStep 4: 'Registration capacity' shows 40. There is no 'Capacity measured against' field, because one active booking remains.\nStep 5: 'Registration settings saved.' appears. The card shows 'Measured against: Orchard Studio (ORC-STU), Classroom layout – up to 40', and the amber alert is gone."
+    },
+    {
+      "id": "SPM-64-TC19",
+      "title": "Lowering the capacity below the attendees holding a place saves it and flags the registrations",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Full House Masterclass'",
+        "Click 'Change registration settings' on the Registration card",
+        "Change 'Registration capacity' to 14",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Full House Masterclass | 12 registered, 3 waitlisted, 2 withdrawn (15 hold a place) | Capacity: 20 -> 14",
+      "expected_result": "Step 4: 'Registration settings saved.' appears with a 'Flagged for review' list holding one line: 'Registrations: 15 attendees – the registration capacity was lowered below the number registered or waitlisted'. The card shows 'Capacity: 14'."
+    },
+    {
+      "id": "SPM-64-TC20",
+      "title": "Lowering the capacity to exactly the attendees holding a place flags nothing",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Full House Masterclass'",
+        "Click 'Change registration settings' on the Registration card",
+        "Change 'Registration capacity' to 15",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Full House Masterclass | 15 hold a place (12 registered, 3 waitlisted) | Capacity: 20 -> 15",
+      "expected_result": "Step 4: 'Registration settings saved.' appears with no 'Flagged for review' list. The card shows 'Capacity: 15'."
+    },
+    {
+      "id": "SPM-64-TC21",
+      "title": "Turning registration off with only waitlisted attendees saves it and flags the registrations",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Waitlist Only Briefing'",
+        "Click 'Change registration settings' on the Registration card",
+        "Untick 'Attendees need to register for this event'",
+        "Click 'Save registration settings'"
+      ],
+      "test_data": "Event: SPM64 Waitlist Only Briefing | 0 registered, 4 waitlisted | Registration: on -> off",
+      "expected_result": "Step 4: 'Registration settings saved.' appears with a 'Flagged for review' list holding one line: 'Registrations: 4 attendees – registration was turned off'. The card shows 'Registration: Not enabled for this event'."
+    },
+    {
+      "id": "SPM-64-TC22",
+      "title": "A registered attendee still sees the event after registration is turned off, and a withdrawn one doesn't",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nBefore and after: run `npm run fixtures:spm64` (never `npx prisma db seed`, which wipes everyone's data).\nStart logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Attendee Open Day'",
+        "Note the event's reference (EVT- number) shown on the page",
+        "Click 'Change registration settings' on the Registration card",
+        "Untick 'Attendees need to register for this event'",
+        "Click 'Save registration settings'",
+        "Log out and log in as Lee Wei Ming (lee.wei.ming@example.com / password123)",
+        "Type /events/<reference from step 2> after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>) and press Enter",
+        "Log out and log in as Anita Devi (anita.devi@example.com / password123)",
+        "Type /events/<reference from step 2> after the site address in the browser address bar and press Enter"
+      ],
+      "test_data": "Event: SPM64 Attendee Open Day (Confirmed) | Lee Wei Ming: registered | Anita Devi: withdrawn | Registration: on -> off",
+      "expected_result": "Step 5: 'Registration settings saved.' appears with the 'Flagged for review' line 'Registrations: 1 attendee – registration was turned off'.\nStep 7: The 'SPM64 Attendee Open Day' event page opens with the 'Confirmed' status badge, and the Registration card reads 'Registration: Not enabled for this event'.\nStep 9: The page shows 'This event doesn't exist, or you don't have access to it.'"
+    },
+    {
+      "id": "SPM-64-TC23",
+      "title": "The organiser and a colleague from their company see the settings but can't change them",
+      "linked_ac": [
+        "AC10"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nNothing is saved in this case.\nStart logged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123), who organised every 'SPM64 …' event.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM64 Twin Room Workshop'",
+        "Click 'My Events' in the sidebar and open 'SPM64 Closed Registration Seminar'",
+        "Log out and log in as Raj Kumar (raj.kumar@straitsmedic.com / password123), from the same company",
+        "Click 'My Events' in the sidebar and open 'SPM64 Closed Registration Seminar'"
+      ],
+      "test_data": "Events: SPM64 Twin Room Workshop (registration off), SPM64 Closed Registration Seminar (on, capacity 50, 1 Aug 2026 09:00 – 30 Sept 2026 17:00) | Organiser: Evelyn Chen | Colleague: Raj Kumar (Straits Medical Institute)",
+      "expected_result": "Step 1: The Registration card shows 'Registration: Not enabled for this event' and no 'Change registration settings' button.\nStep 2: The card shows 'Registration: Enabled', 'Capacity: 50', 'Measured against: Orchard Seminar Room (ORC-SEM), Classroom layout – up to 70', 'Opens: 1 Aug 2026, 09:00' and 'Closes: 30 Sept 2026, 17:00', with no 'Change registration settings' button.\nStep 4: The same values as in step 2, with no 'Change registration settings' button."
+    },
+    {
+      "id": "SPM-64-TC24",
+      "title": "Staff other than the assigned coordinator can't change registration settings",
+      "linked_ac": [
+        "AC11"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nNothing is saved in this case.\nStart logged in as Priya Raj (priya.raj@connectsphere.com / password123), a coordinator who is not assigned to any 'SPM64 …' event.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Closed Registration Seminar'",
+        "Log out and log in as Grace Lim (grace.lim@connectsphere.com / password123), Event Operations Manager",
+        "Click 'All Events' in the sidebar and open 'SPM64 Closed Registration Seminar'",
+        "Log out and log in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff",
+        "Click 'Booking Requests' in the sidebar",
+        "Click 'SPM64 Twin Room Workshop' on its pending Orchard Studio request",
+        "Log out and log in as Kenji Sato (kenji.sato@connectsphere.com / password123), Technical Support",
+        "Type /events after the site address in the browser address bar (e.g. http://localhost:3000/events) and press Enter (Technical Support has no sidebar link to events)",
+        "Open 'SPM64 Closed Registration Seminar'"
+      ],
+      "test_data": "Events: SPM64 Closed Registration Seminar (Confirmed, coordinator Daniel Tan, registration on, capacity 50), SPM64 Twin Room Workshop (Planning, pending Orchard Studio booking, registration off) | Users: Priya Raj, Grace Lim, Marcus Wong, Kenji Sato",
+      "expected_result": "Step 1: The event page opens. The Registration card shows 'Registration: Enabled' and 'Capacity: 50', with no 'Change registration settings' button.\nStep 3: The same card, with no 'Change registration settings' button.\nStep 5: The Booking Requests list shows the pending Orchard Studio request for 'SPM64 Twin Room Workshop'.\nStep 6: The 'SPM64 Twin Room Workshop' event page opens. The Registration card shows 'Registration: Not enabled for this event', with no 'Change registration settings' button.\nStep 9: The 'SPM64 Closed Registration Seminar' Registration card shows 'Registration: Enabled' and 'Capacity: 50', with no 'Change registration settings' button."
+    },
+    {
+      "id": "SPM-64-TC25",
+      "title": "An attendee sees an open event's registration details but can't change them",
+      "linked_ac": [
+        "AC11"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm64` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM64 …' events, never anyone else's data).\nNothing is saved in this case.\nStart logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM64 Attendee Open Day'",
+        "Note the event's reference (EVT- number) shown on the page",
+        "Log out and log in as Lee Wei Ming (lee.wei.ming@example.com / password123)",
+        "Type /events/<reference from step 2> after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 2>) and press Enter"
+      ],
+      "test_data": "Event: SPM64 Attendee Open Day (Confirmed, registration on, capacity 60) | Attendee: Lee Wei Ming",
+      "expected_result": "Step 4: The event page opens. The Registration card shows 'Registration: Enabled' and 'Capacity: 60', with no 'Change registration settings' button."
+    }
+  ],
+  "code_references": [
+    "src/app/api/events/[id]/registration/route.ts",
+    "src/lib/registrationSettings.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/permissions.ts",
+    "src/lib/validation/registrations.ts",
+    "src/app/events/[id]/RegistrationCard.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/api/events/[id]/route.ts",
+    "prisma/schema.prisma",
+    "scripts/seed-spm64.ts"
+  ]
+}

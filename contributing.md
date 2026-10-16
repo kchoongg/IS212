@@ -71,13 +71,40 @@ git commit -m "add user model and migration"
 git push -u origin PROJ-123-user-model
 ```
 
-You do **not** need the key in every commit message. The branch name already carries it, so every commit on the branch links to the ticket automatically.
+You do **not** need to type the key in your commit messages. Git adds it for you from the branch name: on `PROJ-123-user-model`, the commit above is saved as `PROJ-123: add user model and migration` (`.githooks/prepare-commit-msg`, switched on by `npm install`). That keeps every commit linked to its ticket even after the branch is merged and deleted.
+
+It leaves the message alone on a branch with no key (`main`, `docs/...`, `ci/...`), when you already typed the key, and on merge commits. Run `npm install` once after pulling this change to turn it on.
 
 (First push needs `-u origin <branch-name>`. After that, plain `git push` works.)
 
 ### 4. Test before you ask for review
 
 Run the app and the tests locally. Check your own changes first — reviewer time is expensive, and "it didn't run" is a wasted round trip.
+
+CI runs the same checks on every PR (`.github/workflows/ci.yml`): Lint, Type-check, Unit tests, Build and Migrations. To run them yourself before pushing:
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
+```
+
+Lint and the tests also run automatically every time you `git push` (`.githooks/pre-push`, switched on by `npm install`). Run `npm install` once after pulling this change to turn it on.
+
+- **Lint fails:** the push is cancelled and the error is shown. Fix it and push again.
+- **Tests fail:** the failures are listed, and the push goes through. We write tests before the code, so failing tests are normal until a ticket's code is finished.
+
+A red check on your PR means one of these failed — open the **Checks** tab on the PR to see which, fix it, and push to the same branch. A PR whose code is not finished yet will be red; open it as a **draft** so reviewers know. Merge only when every check is green.
+
+### Tests come first
+
+We work test-driven. For a new ticket, in Claude Code:
+
+1. Run `/generate-test-cases SPM-123` before writing any code. It writes the manual test cases (the Excel file) and the automated tests, which fail because the code is not there yet.
+2. Read the "contract" comment at the top of each new test file and the "DECIDED" entries in the open questions. They say what you are about to build. Change anything you disagree with now.
+3. Write the code until the tests pass. Leave `npm run test:watch -- <part of the test file name>` running in a terminal: it re-runs those tests each time you save.
+4. Run `/generate-test-cases SPM-123` again. It checks the tests against the finished code and fills any gaps.
 
 ### 5. Open a pull request
 

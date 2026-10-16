@@ -4,9 +4,9 @@
 // toLocaleDateString() picking a different format per component and per
 // machine. Times are Singapore time throughout release 1.
 
-/// Exported because slot derivation needs the same zone this file displays in
-/// (src/lib/venueSlots.ts). Two copies of a timezone is a drift waiting to
-/// happen - a booking shown at 14:00 but bucketed as if it were 06:00.
+/// Exported because booking times are read in the same zone this file displays in
+/// (src/lib/venueTime.ts). Two copies of a timezone is a drift waiting to
+/// happen - a booking shown at 14:00 but checked as if it were 06:00.
 export const TIME_ZONE = "Asia/Singapore";
 const LOCALE = "en-SG";
 

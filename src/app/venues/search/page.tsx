@@ -16,19 +16,21 @@ import {
   PageHeader,
   Select,
 } from "@/components/ui";
+import { BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { LAYOUTS, toOptions } from "@/lib/eventForm";
 import { eventReference, formatVenue } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
-import { layoutLabel } from "@/lib/venueSuitability";
+import { DEFAULT_SPACE_PURPOSE, layoutLabel } from "@/lib/venueSuitability";
 import {
   EMPTY_SEARCH,
   searchFormErrors,
+  searchFromBooking,
   searchFromEvent,
   searchQuery,
   shouldStartPlanning,
-  START_PLANNING_REASON,
+  type ReplaceableBooking,
   type SearchableEvent,
   type SearchFormValues,
 } from "@/lib/venueSearchForm";
@@ -42,6 +44,14 @@ import {
 // /venues/search?event=EVT-000123 it is pre-filled from that event's
 // requirements, which is the story: "search and filter venues using event
 // requirements".
+//
+// SPM-68: opened as /venues/search?event=EVT-000123&booking=<id> it is the
+// search for a room to REPLACE that booking, which Review Flagged
+// Arrangements flagged. The form is filled from the booking itself - its
+// date, times and layout - with the event's present attendance and
+// requirements, and each result can be requested straight away. Requesting
+// one changes nothing about the flagged booking or the event: the coordinator
+// releases the old room separately (SPM-67).
 
 interface Facility {
   id: string;
@@ -76,6 +86,12 @@ interface EventForSearch extends SearchableEvent {
   sessions?: (NonNullable<SearchableEvent["sessions"]>[number] & { label: string | null })[];
 }
 
+/// The booking being replaced, as GET /api/events/[id]/venue-bookings lists it.
+interface BookingToReplace extends ReplaceableBooking {
+  id: string;
+  venue: { name: string };
+}
+
 const LAYOUT_OPTIONS = [{ value: "", label: "Any layout" }, ...toOptions(LAYOUTS)];
 
 export default function VenueSearchPage() {
@@ -89,21 +105,30 @@ export default function VenueSearchPage() {
 
 function VenueSearch() {
   const router = useRouter();
-  const eventRef = useSearchParams().get("event") ?? undefined;
+  const query = useSearchParams();
+  const eventRef = query.get("event") ?? undefined;
+  // SPM-68: only meaningful with an event - a booking belongs to one.
+  const bookingId = (eventRef && query.get("booking")) || undefined;
   const { user, state } = useCurrentUser();
-  const selfUrl = eventRef ? `/venues/search?event=${eventRef}` : "/venues/search";
+  const selfUrl = eventRef
+    ? `/venues/search?event=${eventRef}${bookingId ? `&booking=${bookingId}` : ""}`
+    : "/venues/search";
 
   const [values, setValues] = useState<SearchFormValues>(EMPTY_SEARCH);
   const [errors, setErrors] = useState<ReturnType<typeof searchFormErrors>>({});
   const [facilities, setFacilities] = useState<Facility[] | null>(null);
   const [event, setEvent] = useState<EventForSearch | null>(null);
   const [sessionId, setSessionId] = useState("");
+  /// SPM-68: the flagged booking this search is looking to replace.
+  const [replacing, setReplacing] = useState<BookingToReplace | null>(null);
   const [data, setData] = useState<SearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
-  /// Set once this visit has moved the event from Approved to Planning, or
-  /// tried to and failed - either way the coordinator is told.
+  /// Set once a Search on this visit has moved the event from Approved to
+  /// Planning, or tried to and failed - either way the coordinator is told.
   const [planning, setPlanning] = useState<"started" | "failed" | null>(null);
+  /// Open while the coordinator is being asked whether to begin planning.
+  const [confirmPlanning, setConfirmPlanning] = useState(false);
 
   const search = useCallback(
     async (next: SearchFormValues) => {
@@ -146,11 +171,12 @@ function VenueSearch() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [facRes, eventRes] = await Promise.all([
+      const [facRes, eventRes, bookingsRes] = await Promise.all([
         authedFetch("/api/facilities"),
         eventRef ? authedFetch(`/api/events/${eventRef}`) : Promise.resolve(null),
+        eventRef && bookingId ? authedFetch(`/api/events/${eventRef}/venue-bookings`) : Promise.resolve(null),
       ]);
-      if (facRes.status === 401 || eventRes?.status === 401) {
+      if (facRes.status === 401 || eventRes?.status === 401 || bookingsRes?.status === 401) {
         router.push(loginUrlFor(selfUrl));
         return;
       }
@@ -167,27 +193,52 @@ function VenueSearch() {
         setEvent(loaded);
         initial = searchFromEvent(loaded);
 
-        // Starting the venue search is what moves an Approved event into
-        // Planning (the lifecycle diagram's "search" edge). Through the
-        // existing status route, so its permission check and status history
-        // apply exactly as for any other move. A failure here must not stop
-        // the search itself - it is reported, and the search goes on.
-        if (user && shouldStartPlanning(loaded, user)) {
-          const res = await authedFetch(`/api/events/${eventRef}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "planning", reason: START_PLANNING_REASON }),
-          });
-          setPlanning(res.ok ? "started" : "failed");
-          if (res.ok) setEvent({ ...loaded, status: "planning" });
+        // SPM-68 (AC11): replacing a booking starts from that booking. One
+        // that cannot be found (it was withdrawn in another tab, say) leaves
+        // the ordinary search for the event.
+        const bookings: BookingToReplace[] = bookingsRes?.ok ? ((await bookingsRes.json()).bookings ?? []) : [];
+        const booking = bookings.find((b) => b.id === bookingId);
+        if (booking) {
+          setReplacing(booking);
+          initial = searchFromBooking(loaded, booking);
         }
       }
       setValues(initial);
+      // This first search only fills the page - it does not begin planning
+      // (see startPlanning below).
       await search(initial);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [eventRef, router, search, selfUrl, user]);
+  }, [eventRef, bookingId, router, search, selfUrl]);
+
+  // Starting the venue search is what moves an Approved event into Planning
+  // (the lifecycle diagram's "search" edge) - and "starting" means the
+  // coordinator pressing Search (SPM-54, decided 2026-10-02), not the page
+  // opening and not Clear filters. The server makes the move, the same way it
+  // does for a booking request or an equipment change, and says whether it
+  // did. The coordinator is asked first (BeginPlanningDialog); cancelling
+  // leaves the event Approved and does not run the search. A failure here must
+  // not stop the search itself - it is reported, and the search goes on.
+  const startPlanning = async () => {
+    if (!user || !event || !eventRef || !shouldStartPlanning(event, user)) return;
+    try {
+      const res = await authedFetch(`/api/events/${eventRef}/begin-planning`, { method: "POST" });
+      if (!res.ok) {
+        setPlanning("failed");
+        return;
+      }
+      // False when it had already begun elsewhere (another tab, a booking
+      // request) - nothing to say then.
+      const { planningStarted } = await res.json();
+      if (planningStarted) {
+        setPlanning("started");
+        setEvent({ ...event, status: "planning" });
+      }
+    } catch {
+      setPlanning("failed");
+    }
+  };
 
   useEffect(() => {
     if (state === "anonymous") {
@@ -252,9 +303,11 @@ function VenueSearch() {
       <PageHeader
         title="Find a venue"
         subtitle={
-          event
-            ? `Filled in from ${event.title ?? "this event"}'s requirements. Change any filter and search again.`
-            : "Only venues matching every filter you set are shown."
+          replacing
+            ? `Filled in from the flagged booking at ${replacing.venue.name}. Change any filter and search again.`
+            : event
+              ? `Filled in from ${event.title ?? "this event"}'s requirements. Change any filter and search again.`
+              : "Only venues matching every filter you set are shown."
         }
         breadcrumbs={
           event && reference
@@ -274,8 +327,8 @@ function VenueSearch() {
       )}
       {planning === "failed" && (
         <Alert variant="warning" title="The event is still Approved" className="mb-6">
-          Its status could not be moved to Planning. The search below still works; try reopening
-          this page.
+          Its status could not be moved to Planning. The search below still works; try searching
+          again.
         </Alert>
       )}
 
@@ -287,6 +340,13 @@ function VenueSearch() {
               className="flex flex-col gap-4"
               onSubmit={(e) => {
                 e.preventDefault();
+                // This Search would begin planning: ask first. A search the
+                // form refuses is not a search started, so it is not asked about.
+                const valid = Object.keys(searchFormErrors(values)).length === 0;
+                if (valid && user && event && shouldStartPlanning(event, user)) {
+                  setConfirmPlanning(true);
+                  return;
+                }
                 void search(values);
               }}
             >
@@ -415,6 +475,22 @@ function VenueSearch() {
                     wanted={wanted}
                     layout={values.layout}
                     suitabilityHref={reference ? `/events/${reference}/venue` : undefined}
+                    // SPM-68 (AC12): the replacement is requested with the
+                    // ordinary request form (S-15), for the same session and
+                    // the same space (SPM-90): what it is for - the main
+                    // programme for a booking made before spaces were named -
+                    // and the attendance and layout searched for.
+                    requestHref={
+                      replacing && reference
+                        ? `/events/${reference}/booking/new?${new URLSearchParams({
+                            venue: venue.id,
+                            ...(replacing.session ? { session: replacing.session.id } : {}),
+                            purpose: replacing.purpose?.trim() || DEFAULT_SPACE_PURPOSE,
+                            ...(values.attendance.trim() ? { attendance: values.attendance.trim() } : {}),
+                            layout: values.layout,
+                          })}`
+                        : undefined
+                    }
                   />
                 ))}
               </div>
@@ -422,6 +498,16 @@ function VenueSearch() {
           </DataState>
         </div>
       </div>
+
+      <BeginPlanningDialog
+        open={confirmPlanning}
+        onConfirm={() => {
+          setConfirmPlanning(false);
+          void startPlanning();
+          void search(values);
+        }}
+        onCancel={() => setConfirmPlanning(false)}
+      />
     </div>
   );
 }
@@ -431,11 +517,13 @@ function VenueCard({
   wanted,
   layout,
   suitabilityHref,
+  requestHref,
 }: {
   venue: VenueResult;
   wanted: Set<string>;
   layout: string;
   suitabilityHref?: string;
+  requestHref?: string;
 }) {
   // Requested facilities first, so the card confirms what was asked for
   // before listing everything else the room has.
@@ -478,13 +566,23 @@ function VenueCard({
             </ul>
           )}
         </div>
-        {/* Booking a venue is S-15 (SPM-42), not built yet - so no "Request"
-            button. From an event, the next useful step is the suitability
-            check, which also shows the nice-to-haves this search ignored. */}
-        {suitabilityHref && (
-          <ButtonLink href={suitabilityHref} variant="secondary" size="sm" className="shrink-0">
-            Check suitability
-          </ButtonLink>
+        {/* From an event, the next useful step is the suitability check
+            (the Venue tab, SPM-41), which also shows the nice-to-haves this
+            search ignored and is where a venue is normally requested. A
+            search for a replacement (SPM-68) can request the venue directly. */}
+        {(suitabilityHref || requestHref) && (
+          <div className="flex shrink-0 flex-col items-stretch gap-2">
+            {requestHref && (
+              <ButtonLink href={requestHref} size="sm">
+                Request booking
+              </ButtonLink>
+            )}
+            {suitabilityHref && (
+              <ButtonLink href={suitabilityHref} variant="secondary" size="sm">
+                Check suitability
+              </ButtonLink>
+            )}
+          </div>
         )}
       </CardBody>
     </Card>

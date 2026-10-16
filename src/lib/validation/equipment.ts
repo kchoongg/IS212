@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { OUT_OF_SERVICE_TYPES } from "@/lib/equipmentOutOfService";
 
 // ---- Equipment ----
 
@@ -49,6 +50,18 @@ export const updateEquipmentRequestSchema = z
   });
 export type UpdateEquipmentRequestInput = z.infer<typeof updateEquipmentRequestSchema>;
 
+// ---- Technical Support's update of one request line (SPM-50) ----
+
+// Only the shape is checked here. Which status a line may move to, the reason
+// "Unavailable" needs and the 500-character cap depend on the line's current
+// status, so they live in src/lib/equipmentFulfilment.ts where the route and
+// the screen share them.
+export const updateEquipmentFulfilmentSchema = z.object({
+  status: z.string().min(1),
+  staffNotes: z.string(),
+});
+export type UpdateEquipmentFulfilmentInput = z.infer<typeof updateEquipmentFulfilmentSchema>;
+
 // ---- Recording units out of service (SPM-48 AC7 / SPM-55) ----
 
 // How many units of an item are unavailable, damaged or under maintenance - one
@@ -56,8 +69,15 @@ export type UpdateEquipmentRequestInput = z.infer<typeof updateEquipmentRequestS
 // The reason is free text and optional (SPM-55: "can provide a reason").
 // "Cannot exceed the total" needs the item, so the route checks that
 // (see checkOutOfService in src/lib/equipment.ts).
-export const recordOutOfServiceSchema = z.object({
-  quantityOutOfService: z.number().int().nonnegative(),
-  reason: z.string().trim().max(500).optional(),
-});
+// SPM-55: which of the three kinds it is, required while any unit is out.
+export const recordOutOfServiceSchema = z
+  .object({
+    quantityOutOfService: z.number().int().nonnegative(),
+    type: z.enum(OUT_OF_SERVICE_TYPES).optional(),
+    reason: z.string().trim().max(500).optional(),
+  })
+  .refine((d) => d.quantityOutOfService === 0 || d.type !== undefined, {
+    message: "Choose a type.",
+    path: ["type"],
+  });
 export type RecordOutOfServiceInput = z.infer<typeof recordOutOfServiceSchema>;

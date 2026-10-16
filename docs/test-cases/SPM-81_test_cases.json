@@ -1,0 +1,316 @@
+{
+  "story_key": "SPM-81",
+  "story_title": "As the assigned Event Coordinator, I want to request more than one venue for the same event so that a larger event can use several spaces at the same time, such as an auditorium and breakout rooms",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-10",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Coordinator can submit more than one venue booking request for the same event (and the same session, where applicable), including for the same date and times."
+    },
+    {
+      "id": "AC2",
+      "text": "Each venue's availability and conflicts are checked independently; one venue being unavailable does not block a request for another."
+    },
+    {
+      "id": "AC3",
+      "text": "Bookings for the same event at different venues do not conflict with each other."
+    },
+    {
+      "id": "AC4",
+      "text": "The same venue cannot be requested twice for the same event for overlapping times."
+    },
+    {
+      "id": "AC5",
+      "text": "Each booking request is reviewed by Venue Staff separately and has its own status."
+    },
+    {
+      "id": "AC6",
+      "text": "All of the event's venue bookings are shown together on the event, each with its venue, times and status."
+    },
+    {
+      "id": "AC7",
+      "text": "Given one of the event's venue bookings is rejected, changed, withdrawn or released, when that happens, then the event's other venue bookings are unchanged."
+    },
+    {
+      "id": "AC8",
+      "text": "An event with a single venue booking continues to behave as it does today."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-81-TC01",
+      "title": "The Coordinator requests two different venues for the same event at the same date and times, and both requests are accepted and listed together",
+      "linked_ac": [
+        "AC1",
+        "AC3",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm81` from the project folder before this case (it only touches the 'SPM81 …' events and venues, never anyone else's data). Run it again after this case: the case sends two booking requests.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM81 Leadership Summit'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM81 Auditorium (SPM81-AUD)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'",
+        "Click 'Request booking' on 'SPM81 Breakout Room A (SPM81-BRA)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM81 Leadership Summit | When: 3 Aug 2027, 09:00–17:00 | No sessions | Status: Planning | No booking requests yet\nVenues: SPM81 Auditorium (SPM81-AUD), setup 30 min, turnaround 30 min; SPM81 Breakout Room A (SPM81-BRA), no setup or turnaround\nBoth requested for 3 Aug 2027, 09:00–17:00",
+      "expected_result": "Step 4: The 'Request a venue booking' page opens for 'SPM81 Leadership Summit' at 'SPM81 Auditorium (SPM81-AUD)'. 'Date' shows 3 Aug 2027, 'Start time' 09:00 and 'End time' 17:00, with 'Room in use: 08:30–17:30'.\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown.\nStep 6: The Venue tab's 'Booking requests' card lists 'SPM81 Auditorium (SPM81-AUD)' with '3 Aug 2027, 09:00–17:00 · Theatre' and the 'Pending' badge. 'Request booking' is still offered on 'SPM81 Breakout Room A (SPM81-BRA)'.\nStep 7: The page opens for 'SPM81 Breakout Room A (SPM81-BRA)' with the same date and times: 3 Aug 2027, 09:00 to 17:00.\nStep 8: A green alert 'Booking request sent to Venue Staff.' is shown. The request is not refused because the event already has a request for the Auditorium at the same times.\nStep 9: The 'Booking requests' card lists both requests together: 'SPM81 Auditorium (SPM81-AUD)' and 'SPM81 Breakout Room A (SPM81-BRA)', each with '3 Aug 2027, 09:00–17:00 · Theatre' and its own 'Pending' badge."
+    },
+    {
+      "id": "SPM-81-TC02",
+      "title": "For a multi-session event, two venues can be requested for the same session, and each request is listed with that session",
+      "linked_ac": [
+        "AC1",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm81` before this case, and again after it: the case sends two booking requests.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM81 …' event.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM81 Two-Track Conference'",
+        "Click the 'Venue' tab",
+        "Choose 'Day 1 — 5 Aug 2027, 09:00–12:00' in the 'Session' picker",
+        "Click 'Request booking' on 'SPM81 Auditorium (SPM81-AUD)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'",
+        "With 'Day 1 — 5 Aug 2027, 09:00–12:00' chosen in the 'Session' picker, click 'Request booking' on 'SPM81 Breakout Room A (SPM81-BRA)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM81 Two-Track Conference | Sessions: 'Day 1' 5 Aug 2027, 09:00–12:00; 'Day 2' 6 Aug 2027, 09:00–12:00\nBoth venues requested for the Day 1 session, 5 Aug 2027, 09:00–12:00",
+      "expected_result": "Step 4: The 'Request a venue booking' page shows 'Session: Day 1 — 5 Aug 2027, 09:00–12:00' and 'Venue: SPM81 Auditorium (SPM81-AUD)'.\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown.\nStep 7: The page shows 'Session: Day 1 — 5 Aug 2027, 09:00–12:00' and 'Venue: SPM81 Breakout Room A (SPM81-BRA)'.\nStep 8: A green alert 'Booking request sent to Venue Staff.' is shown: the same session may ask for a second venue.\nStep 9: The 'Booking requests' card lists 'SPM81 Auditorium (SPM81-AUD)' and 'SPM81 Breakout Room A (SPM81-BRA)', each with 'Day 1 · 5 Aug 2027, 09:00–12:00 · Theatre' and the 'Pending' badge. No request is listed for Day 2."
+    },
+    {
+      "id": "SPM-81-TC03",
+      "title": "A venue that is unavailable, and one that is already booked by another event, are each refused on their own, and a third venue can still be requested for the same times",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm81` before this case, and again after it: the case sends one booking request.\n'SPM81 Rival Booking' holds an Approved booking at SPM81 Auditorium on 10 Aug 2027, 10:00–12:00 (room in use 09:30–12:30).\nSPM81 Breakout Room B is unavailable for maintenance on 10 Aug 2027, 08:00–13:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM81 Sales Kickoff'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM81 Breakout Room B (SPM81-BRB)'",
+        "Click 'Submit request'",
+        "Click 'Cancel'",
+        "Click 'Request booking' on 'SPM81 Auditorium (SPM81-AUD)'",
+        "Click 'Submit request'",
+        "Click 'Cancel'",
+        "Click 'Request booking' on 'SPM81 Breakout Room A (SPM81-BRA)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM81 Sales Kickoff | When: 10 Aug 2027, 10:00–12:00 | No booking requests yet\nSPM81 Breakout Room B: unavailable 10 Aug 2027, 08:00–13:00 (maintenance)\nSPM81 Auditorium: Approved for SPM81 Rival Booking, 10 Aug 2027, 10:00–12:00\nSPM81 Breakout Room A: free",
+      "expected_result": "Step 4: The request is not sent. A red alert reads 'SPM81 Breakout Room B is unavailable at this time (maintenance, 10 Aug 2027, 08:00–13:00).'\nStep 5: The Venue tab opens and no booking request has been added. 'Request booking' is still offered on the other two venues.\nStep 7: The request is not sent. A red alert reads 'SPM81 Auditorium is already booked for <reference> SPM81 Rival Booking on 10 Aug 2027, 09:30–12:30.'\nStep 10: A green alert 'Booking request sent to Venue Staff.' is shown: the two refusals do not stop a request for a venue that is free.\nStep 11: The 'Booking requests' card lists only 'SPM81 Breakout Room A (SPM81-BRA)' with '10 Aug 2027, 10:00–12:00 · Theatre' and the 'Pending' badge."
+    },
+    {
+      "id": "SPM-81-TC04",
+      "title": "A venue the event has already requested or booked cannot be requested again for the same or overlapping times",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm81` has been run since the last full `npx prisma db seed`.\n'SPM81 Repeat Request' has a Pending request at SPM81 Auditorium and an Approved booking at SPM81 Breakout Room A, both for 12 Aug 2027, 09:00–12:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case: every submit is refused.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM81 Repeat Request'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM81 Auditorium (SPM81-AUD)'",
+        "Click 'Submit request'",
+        "Change 'Start time' to 08:00, change 'End time' to 13:00 and click 'Submit request'",
+        "Click 'Cancel'",
+        "Click 'Request booking' on 'SPM81 Breakout Room A (SPM81-BRA)'",
+        "Click 'Submit request'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM81 Repeat Request | When: 12 Aug 2027, 09:00–12:00\nExisting: SPM81 Auditorium, Pending, 09:00–12:00; SPM81 Breakout Room A, Approved, 09:00–12:00\nTried: Auditorium 09:00–12:00 (the same times); Auditorium 08:00–13:00 (wider, overlapping); Breakout Room A 09:00–12:00",
+      "expected_result": "Step 2: The 'Booking requests' card lists 'SPM81 Auditorium (SPM81-AUD)' with the 'Pending' badge and 'SPM81 Breakout Room A (SPM81-BRA)' with the 'Approved' badge, each with '12 Aug 2027, 09:00–12:00 · Theatre'.\nStep 4: The request is not sent. A red alert reads 'This event already has a pending request for SPM81 Auditorium on 12 Aug 2027, 09:00–12:00.'\nStep 5: The request is not sent. The same red alert is shown, naming the earlier request's own times: 'This event already has a pending request for SPM81 Auditorium on 12 Aug 2027, 09:00–12:00.'\nStep 8: The request is not sent. A red alert reads 'This event already has SPM81 Breakout Room A booked on 12 Aug 2027, 09:00–12:00.'\nStep 9: The Venue tab opens and the 'Booking requests' card still lists exactly the two requests from step 2."
+    },
+    {
+      "id": "SPM-81-TC05",
+      "title": "Venue Staff see each of an event's venue requests as its own card, and approving one leaves the other Pending",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm81` before this case. Do not run it again afterwards: go straight on to SPM-81-TC06, and reset after that one.\n'SPM81 Partner Day' has two Pending requests for 17 Aug 2027, 09:00–12:00: one at SPM81 Auditorium and one at SPM81 Breakout Room A.\nLogged out.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM81 Auditorium' card for 'SPM81 Partner Day' (use Ctrl+F) and click 'Approve'",
+        "Click 'Approve' in the dialog"
+      ],
+      "test_data": "Event: SPM81 Partner Day | When: 17 Aug 2027, 09:00–12:00\nRequests: SPM81 Auditorium (SPM81-AUD), Pending; SPM81 Breakout Room A (SPM81-BRA), Pending",
+      "expected_result": "Step 2: The 'Booking Requests' page lists two separate cards for 'SPM81 Partner Day': 'SPM81 Auditorium (SPM81-AUD)' and 'SPM81 Breakout Room A (SPM81-BRA)'. Each has its own 'Pending' badge, a 'Requested' row reading '17 Aug 2027, 09:00–12:00', and its own 'Approve' and 'Reject with a reason' buttons.\nStep 3: The 'Approve this booking?' dialog names only the Auditorium: 'This books SPM81 Auditorium (SPM81-AUD) for <reference> SPM81 Partner Day on 17 Aug 2027, 09:00–12:00.'\nStep 4: A green alert 'Booking approved' reads 'SPM81 Auditorium (SPM81-AUD) for <reference> SPM81 Partner Day on 17 Aug 2027, 09:00–12:00 is now Approved — the room is booked.' The Auditorium card leaves the list. The 'SPM81 Breakout Room A' card for 'SPM81 Partner Day' is still listed with the 'Pending' badge, no 'Conflict' badge, and its 'Approve' button enabled."
+    },
+    {
+      "id": "SPM-81-TC06",
+      "title": "Rejecting one of an event's venue requests leaves its other, approved booking unchanged",
+      "linked_ac": [
+        "AC7",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-81-TC05 has just been run (SPM81 Auditorium is Approved for 'SPM81 Partner Day'; its request for SPM81 Breakout Room A is still Pending).\nStill logged in as Marcus Wong, on the 'Booking Requests' page.\nRun `npm run fixtures:spm81` after this case.",
+      "steps": [
+        "Find the 'SPM81 Breakout Room A' card for 'SPM81 Partner Day' (use Ctrl+F) and click 'Reject with a reason'",
+        "Type the reason in 'Reason for rejection' and click 'Reject request'",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM81 Partner Day'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Reason for rejection: Breakout Room A is reserved for staff training that morning.",
+      "expected_result": "Step 2: A green alert 'Booking request rejected' reads 'SPM81 Breakout Room A (SPM81-BRA) for <reference> SPM81 Partner Day on 17 Aug 2027, 09:00–12:00 is now Rejected. The Coordinator can see your reason on the event's Venue tab.' The card leaves the list.\nStep 5: On the Overview, the 'Venue' row still reads 'SPM81 Auditorium (SPM81-AUD)'.\nStep 6: The 'Booking requests' card lists both requests. 'SPM81 Auditorium (SPM81-AUD)', '17 Aug 2027, 09:00–12:00 · Theatre', still has the 'Approved' badge. 'SPM81 Breakout Room A (SPM81-BRA)', '17 Aug 2027, 09:00–12:00 · Theatre', has the 'Rejected' badge and 'Reason from Venue Staff: Breakout Room A is reserved for staff training that morning.'"
+    },
+    {
+      "id": "SPM-81-TC07",
+      "title": "An event's venue bookings are shown together, each with its own venue, times and status, and the Overview names every approved room",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm81` has been run since the last full `npx prisma db seed`.\n'SPM81 Showcase Day' (19 Aug 2027, 09:00–17:00) has three venue bookings: SPM81 Auditorium, Approved, 09:00–17:00; SPM81 Breakout Room A, Approved, 08:30–17:30; SPM81 Breakout Room B, Pending, 09:00–17:00.\nLogged out.\nNothing is saved in this case.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM81 Showcase Day'",
+        "Click the 'Venue' tab",
+        "Log out",
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM81 Showcase Day'"
+      ],
+      "test_data": "Event: SPM81 Showcase Day | When: 19 Aug 2027, 09:00–17:00\nBookings: SPM81 Auditorium (SPM81-AUD), Approved, 09:00–17:00 | SPM81 Breakout Room A (SPM81-BRA), Approved, 08:30–17:30 | SPM81 Breakout Room B (SPM81-BRB), Pending, 09:00–17:00\nOrganiser: Rachel Ng",
+      "expected_result": "Step 2: On the Overview, the 'Venue' row reads 'SPM81 Breakout Room A (SPM81-BRA) · SPM81 Auditorium (SPM81-AUD)': both approved rooms, and not SPM81 Breakout Room B, whose request is still Pending.\nStep 3: One 'Booking requests' card lists all three: 'SPM81 Auditorium (SPM81-AUD)' with '19 Aug 2027, 09:00–17:00 · Theatre' and 'Approved'; 'SPM81 Breakout Room A (SPM81-BRA)' with '19 Aug 2027, 08:30–17:30 · Theatre' and 'Approved'; 'SPM81 Breakout Room B (SPM81-BRB)' with '19 Aug 2027, 09:00–17:00 · Theatre' and 'Pending'.\nStep 6: The organiser's Overview shows the same 'Venue' row: 'SPM81 Breakout Room A (SPM81-BRA) · SPM81 Auditorium (SPM81-AUD)'."
+    },
+    {
+      "id": "SPM-81-TC08",
+      "title": "An event with a single venue booking is shown as before: one room on the Overview and one request on the Venue tab",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm81` has been run since the last full `npx prisma db seed`.\n'SPM81 Solo Workshop' has one Approved booking, at SPM81 Auditorium on 26 Aug 2027, 09:00–12:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM81 Solo Workshop'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM81 Solo Workshop | When: 26 Aug 2027, 09:00–12:00\nBooking: SPM81 Auditorium (SPM81-AUD), Approved, 09:00–12:00",
+      "expected_result": "Step 1: On the Overview, the 'Venue' row reads 'SPM81 Auditorium (SPM81-AUD)' and nothing else.\nStep 2: The 'Booking requests' card lists one request: 'SPM81 Auditorium (SPM81-AUD)' with '26 Aug 2027, 09:00–12:00 · Theatre' and the 'Approved' badge. The venue list below it is unchanged: each suitable venue has 'Suitable' and a 'Request booking' button."
+    },
+    {
+      "id": "SPM-81-TC09",
+      "title": "A second session of the same event cannot request a room one of its sessions already holds at overlapping times, but can take it as that session ends",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm81` before this case, and again after it: the case sends one booking request.\n'SPM81 Parallel Tracks' has three sessions on 24 Aug 2027. Its 'Morning plenary' session has a Pending request at SPM81 Auditorium for 09:00–12:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM81 Parallel Tracks'",
+        "Click the 'Venue' tab",
+        "Choose 'Workshop — 24 Aug 2027, 10:00–12:00' in the 'Session' picker",
+        "Click 'Request booking' on 'SPM81 Auditorium (SPM81-AUD)'",
+        "Click 'Submit request'",
+        "Click 'Cancel'",
+        "Choose 'Afternoon plenary — 24 Aug 2027, 12:00–15:00' in the 'Session' picker",
+        "Click 'Request booking' on 'SPM81 Auditorium (SPM81-AUD)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM81 Parallel Tracks | Sessions on 24 Aug 2027: 'Morning plenary' 09:00–12:00; 'Workshop' 10:00–12:00; 'Afternoon plenary' 12:00–15:00\nExisting: SPM81 Auditorium, Pending, for 'Morning plenary', 09:00–12:00\nTried: Auditorium for 'Workshop' 10:00–12:00 (overlaps); Auditorium for 'Afternoon plenary' 12:00–15:00 (starts as the first ends)",
+      "expected_result": "Step 2: The 'Booking requests' card lists 'SPM81 Auditorium (SPM81-AUD)' with 'Morning plenary · 24 Aug 2027, 09:00–12:00 · Theatre' and the 'Pending' badge.\nStep 5: The request is not sent. A red alert reads 'This event already has a pending request for SPM81 Auditorium on 24 Aug 2027, 09:00–12:00.'\nStep 6: The Venue tab opens and the 'Booking requests' card still lists only the Morning plenary's request.\nStep 9: A green alert 'Booking request sent to Venue Staff.' is shown: the Afternoon plenary starts at 12:00, exactly when the Morning plenary's request ends, so the times only meet.\nStep 10: The 'Booking requests' card lists 'SPM81 Auditorium (SPM81-AUD)' twice: 'Morning plenary · 24 Aug 2027, 09:00–12:00 · Theatre' and 'Afternoon plenary · 24 Aug 2027, 12:00–15:00 · Theatre', each with the 'Pending' badge."
+    },
+    {
+      "id": "SPM-81-TC10",
+      "title": "After Venue Staff reject one venue, the same venue can be requested again, and the event's other booking is unchanged",
+      "linked_ac": [
+        "AC4",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm81` before this case, and again after it: the case sends one booking request.\n'SPM81 Second Attempt' (31 Aug 2027, 09:00–12:00) has a Rejected request at SPM81 Auditorium and an Approved booking at SPM81 Breakout Room A.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM81 Second Attempt'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM81 Auditorium (SPM81-AUD)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM81 Second Attempt | When: 31 Aug 2027, 09:00–12:00\nExisting: SPM81 Auditorium, Rejected, reason 'Stage lighting is being serviced that morning.'; SPM81 Breakout Room A, Approved\nRequested again: SPM81 Auditorium, 31 Aug 2027, 09:00–12:00",
+      "expected_result": "Step 2: The 'Booking requests' card lists 'SPM81 Auditorium (SPM81-AUD)' with the 'Rejected' badge and 'Reason from Venue Staff: Stage lighting is being serviced that morning.', and 'SPM81 Breakout Room A (SPM81-BRA)' with the 'Approved' badge.\nStep 4: A green alert 'Booking request sent to Venue Staff.' is shown: a rejected request holds nothing, so asking for the same venue and times again is not a repeat.\nStep 5: The 'Booking requests' card lists three requests: 'SPM81 Auditorium (SPM81-AUD)' with 'Pending' (the new one), 'SPM81 Auditorium (SPM81-AUD)' with 'Rejected' and its reason, and 'SPM81 Breakout Room A (SPM81-BRA)' still with 'Approved'. Each shows '31 Aug 2027, 09:00–12:00 · Theatre'."
+    },
+    {
+      "id": "SPM-81-TC11",
+      "title": "Venue Staff can approve two venues for the same event at the same times; the second approval is not treated as a conflict",
+      "linked_ac": [
+        "AC3",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm81` before this case, and again after it: the case approves two booking requests.\n'SPM81 Twin Rooms' has two Pending requests for 2 Sep 2027, 09:00–12:00: one at SPM81 Auditorium and one at SPM81 Breakout Room A.\nLogged out.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM81 Auditorium' card for 'SPM81 Twin Rooms' (use Ctrl+F) and click 'Approve'",
+        "Click 'Approve' in the dialog",
+        "Find the 'SPM81 Breakout Room A' card for 'SPM81 Twin Rooms' and click 'Approve'",
+        "Click 'Approve' in the dialog",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM81 Twin Rooms'",
+        "Click the 'Venue' tab"
+      ],
+      "test_data": "Event: SPM81 Twin Rooms | When: 2 Sep 2027, 09:00–12:00\nRequests: SPM81 Auditorium (SPM81-AUD), Pending; SPM81 Breakout Room A (SPM81-BRA), Pending",
+      "expected_result": "Step 4: A green alert 'Booking approved' reads 'SPM81 Auditorium (SPM81-AUD) for <reference> SPM81 Twin Rooms on 2 Sep 2027, 09:00–12:00 is now Approved — the room is booked.'\nStep 5: The 'SPM81 Breakout Room A' card has no 'Conflict' badge and its 'Approve' button is enabled, although the same event now holds the Auditorium for the same times. The 'Approve this booking?' dialog opens.\nStep 6: A green alert 'Booking approved' reads 'SPM81 Breakout Room A (SPM81-BRA) for <reference> SPM81 Twin Rooms on 2 Sep 2027, 09:00–12:00 is now Approved — the room is booked.'\nStep 9: On the Overview, the 'Venue' row names both rooms: 'SPM81 Auditorium (SPM81-AUD)' and 'SPM81 Breakout Room A (SPM81-BRA)'.\nStep 10: The 'Booking requests' card lists both, each with '2 Sep 2027, 09:00–12:00 · Theatre' and the 'Approved' badge."
+    }
+  ],
+  "open_questions": [
+    "Written 2026-10-10, before any SPM-81 code. Checked against Week 7 Customer Changes (Change #3), the discussion logs up to 20261006 (#41, #109, #128) and the code on main. Finding: the request rules already checked one venue at a time and exempted the event's own bookings (SPM-42, SPM-44, SPM-93), so nothing stopped a second venue. The only code SPM-81 changed is the AC4 rule below (built 2026-10-10, after the cases). All 11 cases passed when run by hand on 2026-10-11 (kayalvizhi24), on the build with main merged in.",
+    "RESOLVED 2026-10-10 (AC4, decided by kayalvizhi24): AC4 is followed as written. The same venue cannot be requested twice for the same EVENT at overlapping times, whichever session asks. This changes SPM-44's rule, which refused a repeat only for the same event AND the same session (PR #37 review; findDuplicateRequest() in src/lib/venueConflict.ts), so two sessions could hold one room at the same time. Sessions that only meet (one ends as the next starts) are still allowed, and the event's own bookings still never count as a clash with 'another event', so its setup and turnaround do not get in its own way. Covered by SPM-81-TC09.",
+    "RESOLVED 2026-10-10 (AC1, a room for part of the event): the rule that a request must cover the event's (or session's) whole time is kept (SPM-42, reworded by SPM-93). Reasons: Week 7 Change #3 and the user story both describe spaces used 'at the same time'; AC1 asks only for 'including for the same date and times'; AC8 says a single booking behaves as today; and a room needed for only part of the day already has a route: make that part a session (Week 4 multi-session events), which is booked for its own times. Requests may still be wider than the event. If the customer later asks for part-time rooms on an event without sessions, that is a new decision about what the first venue must cover.",
+    "DECIDED 2026-10-10 (AC6): 'shown together on the event' is the 'Booking requests' card on the event's Venue tab, which lists every request with its venue, times, layout and status, and the Overview's 'Venue' row, which names every approved room ('<room> (<code>) · <room> (<code>)', earliest start first). Both exist today, so no new screen or wording is added. A fuller list with outstanding/complete status belongs to Track Outstanding Arrangements (SPM-33, in progress), whose AC2 lists each venue booking separately.",
+    "DECIDED 2026-10-10: no new label, message or page address is introduced by these cases. Every quoted text is what the app shows today (SPM-42, SPM-43, SPM-44, SPM-93).",
+    "DECIDED 2026-10-10 (AC4 wording): when the room is held by a DIFFERENT session of the same event, the refusal says 'This event already has a pending request for <venue> on <date>, <times>.' (or '… already has <venue> booked on …' once approved), with the earlier request's own times. When the same session asks twice it still names the session ('Day 1 already has …'), as SPM-44 built it.",
+    "RESOLVED 2026-10-10 (AC7): only rejection is tested by hand here. No screen lets anyone change, withdraw or release a single venue booking yet: withdrawing and releasing are Withdraw or Release Venue Booking (SPM-67, To Do), whose description says the rule that the event's other bookings are unchanged 'is covered by SPM-81'. So when SPM-67 is built, its cases must include an event with two bookings and check that the other one is unchanged; until then that half of AC7 cannot be run by hand. Each booking is its own record and a decision writes only that record (automated tests assert this). A venue edit (SPM-39) or an event change (SPM-62) flags bookings for review rather than changing them, and has its own cases.",
+    "RESOLVED 2026-10-10 (out of scope, SPM-90): an event with one Approved and one Pending venue booking can still be confirmed, and submitted for a safety check, because both rules ask only whether a venue is held. 'Every required venue booking must be confirmed' is SPM-90's criterion, so no case here tries to confirm an event.",
+    "RESOLVED 2026-10-10 (#109 and #41): #109 said holding several candidate venues for one event was not required for Release 1; Week 7 Change #3 now requires several venues for one event. The system does not tell a candidate from a needed room: every pending request is a hold. #41 (one hold or booking per venue and overlapping period) is unchanged, because it is per venue.",
+    "For the team, not an SPM-81 criterion: the equipment availability check works out transfer time from 'the event's venue' and picks one (an approved booking first; src/lib/equipmentAvailabilityService.ts, venueFor()). With two rooms booked it is not defined which one the equipment goes to. SPM-90 records what each space is for, which may be the place to settle it.",
+    "Fixtures: scripts/seed-spm81.ts (`npm run fixtures:spm81`) deletes and recreates the 11 'SPM81 …' events (spm81_ seed keys) with their bookings and sessions, and resets SPM81 Auditorium (SPM81-AUD), SPM81 Breakout Room A (SPM81-BRA) and SPM81 Breakout Room B (SPM81-BRB) with Breakout Room B's one maintenance period. The same venues and events (without bookings, sessions or maintenance) are at the end of prisma/seed.ts. No schema change and no migration."
+  ],
+  "code_references": [
+    "src/lib/venueBookingRequest.ts",
+    "src/lib/venueConflict.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/equipmentAvailabilityService.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/venue-bookings/[id]/route.ts",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/bookings/page.tsx",
+    "scripts/seed-spm81.ts",
+    "prisma/seed.ts",
+    "src/lib/__tests__/venueConflict.test.ts",
+    "src/lib/__tests__/venueBookingRequest.test.ts",
+    "src/app/api/__tests__/event-venue.test.ts"
+  ]
+}

@@ -1,0 +1,48 @@
+#!/bin/sh
+# Runs as each commit message is prepared.
+#
+# Puts the Jira key from the branch name at the front of the message, so a
+# commit on SPM-33-Track-Outstanding-Arrangements made with
+#
+#   git commit -m "fix the readiness count"
+#
+# is saved as "SPM-33: fix the readiness count". Jira links a commit by the
+# key in its message, so every commit then shows on its ticket even after the
+# branch is merged or deleted.
+#
+# It leaves the message alone when:
+#   - the branch name does not start with a key (main, docs/..., ci/...)
+#   - the message already contains the key
+#   - Git wrote the message itself: a merge, a squash, or an amended commit
+#   - there is no branch at all (in the middle of a rebase)
+#
+# Switched on by `npm install` (the "prepare" script in package.json points
+# Git at this folder), like pre-push. It never blocks a commit.
+#
+# To commit without it: git commit --no-verify
+
+MSG_FILE=$1
+SOURCE=$2
+
+case "$SOURCE" in
+  merge | squash | commit) exit 0 ;;
+esac
+
+BRANCH=$(git symbolic-ref --quiet --short HEAD) || exit 0
+
+# "SPM-33" from "SPM-33-Track-Outstanding-Arrangements". A lower-case key
+# ("spm-33-...") is accepted and written in capitals, which is what Jira matches.
+KEY=$(printf '%s' "$BRANCH" | grep -oiE '^[a-z][a-z0-9]*-[0-9]+' | tr '[:lower:]' '[:upper:]')
+[ -z "$KEY" ] && exit 0
+
+# Already there? Git's own "# On branch SPM-33-..." comment lines do not count,
+# and SPM-3 is not found inside SPM-33.
+grep -v '^#' "$MSG_FILE" | grep -qiE "(^|[^A-Za-z0-9])$KEY([^0-9]|\$)" && exit 0
+
+# Only the first line changes. With no -m the editor opens on "SPM-33: " and
+# the instructions Git puts below it are untouched.
+TMP="$MSG_FILE.key"
+{
+  printf '%s: ' "$KEY"
+  cat "$MSG_FILE"
+} > "$TMP" && mv "$TMP" "$MSG_FILE"

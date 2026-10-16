@@ -134,6 +134,8 @@ async function main() {
     ["Aisha Omar", "aisha.omar", "tech_support", "Technical Services"],
     ["Vikram Nair", "vikram.nair", "tech_support", "Technical Services"],
     ["Chloe Teo", "chloe.teo", "tech_support", "Technical Services"],
+    // SPM-85 (Week 7 change #6). Same account as scripts/seed-spm85.ts.
+    ["Hana Yusof", "hana.yusof", "safety_officer", "Safety & Compliance"],
   ];
   for (const [fullName, handle, role, department] of staff) {
     const email = `${handle}@connectsphere.com`;
@@ -203,6 +205,22 @@ async function main() {
       },
     });
     attendeeIds.push(u.id);
+  }
+
+  // SPM-71 (View Notifications) test accounts - the same four as
+  // scripts/seed-spm71.ts, which also gives them their notifications. Kept out
+  // of attendeeIds on purpose: its length decides which attendee the base seed
+  // registers for which event, so adding to it would reshuffle every story's
+  // registrations.
+  const spm71Accounts: [string, string, string, string | null][] = [
+    ["Leon Koh", "leon.koh@connectsphere.com", "coordinator", "Event Management"],
+    ["Ivy Lim", "ivy.lim@connectsphere.com", "coordinator", "Event Management"],
+    ["Owen Teo", "owen.teo@connectsphere.com", "venue_staff", "Venue Operations"],
+    ["Zara Ong", "zara.ong@example.com", "attendee", null],
+  ];
+  for (const [fullName, email, role, department] of spm71Accounts) {
+    const u = await prisma.user.create({ data: { email, passwordHash, fullName, role, department } });
+    users[email] = u.id;
   }
 
   // -------------------------------------------------------------------
@@ -333,13 +351,13 @@ async function main() {
         "Blackout blinds", "Step-free access", "Wheelchair spaces", "Hearing induction loop", "Accessible toilet"] },
     { code: "CBP-MTG1", name: "Changi Meeting Room 1", description: "Standard meeting room for planning sessions",
       building: "Changi Business Park", floor: "L3", maxCapacity: 20, opensAt: "08:00", closesAt: "20:00",
-      setupMinutes: 20, teardownMinutes: 15,
+      setupMinutes: 30, teardownMinutes: 15, // SPM-93: was 20, rounded up to a 15-minute step
       layouts: [["boardroom", 20], ["u_shape", 14]],
       facilities: ["High-density WiFi", "Fixed ceiling projector", "Video conferencing suite",
         "Natural light", "Step-free access", "Accessible toilet"] },
     { code: "CBP-MTG2", name: "Changi Meeting Room 2", description: "Standard meeting room, adjacent to Room 1",
       building: "Changi Business Park", floor: "L3", maxCapacity: 20, opensAt: "08:00", closesAt: "20:00",
-      setupMinutes: 20, teardownMinutes: 15,
+      setupMinutes: 30, teardownMinutes: 15, // SPM-93: was 20, rounded up to a 15-minute step
       layouts: [["boardroom", 20], ["u_shape", 14]],
       facilities: ["High-density WiFi", "Fixed ceiling projector", "Video conferencing suite",
         "Natural light", "Step-free access", "Accessible toilet"] },
@@ -369,6 +387,157 @@ async function main() {
       building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
       setupMinutes: 0, teardownMinutes: 0,
       layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    // SPM-43 fixtures (scripts/seed-spm43.ts): a room with one maintenance
+    // period (SPM-43-TC13) and a room the tester retires and restores
+    // (SPM-43-TC14) - dedicated, so neither touches another story's bookings.
+    { code: "SPM43-MNT", name: "SPM43 Maintenance Room", description: "SPM-43 test venue: closed for maintenance on 14 May 2027",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM43-RET", name: "SPM43 Retire Test Room", description: "SPM-43 test venue: retired and restored by SPM-43-TC14",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    // SPM-44 fixture (scripts/seed-spm44.ts, PLAIN_ROOM there - keep in step):
+    // no setup or turnaround, so a booking holds exactly the slots asked for.
+    { code: "SPM44-PLN", name: "SPM44 Conflict Room", description: "SPM-44 test venue: no setup or turnaround, so slots are exact",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "24:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 60], ["theatre", 60]],
+      facilities: [] },
+    // SPM-93 fixtures (scripts/seed-spm93.ts): the Week 7 example room (30 min
+    // setup, 45 min turnaround), a room needing neither, and a room whose
+    // minutes SPM-93-TC07 edits - dedicated, so the cases' bookings meet no one else's.
+    { code: "SPM93-STU", name: "SPM93 Studio", description: "SPM-93 test venue: 30 min setup, 45 min turnaround",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 45,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM93-QCK", name: "SPM93 Quick Room", description: "SPM-93 test venue: no setup or turnaround",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM93-SET", name: "SPM93 Settings Room", description: "SPM-93 test venue: setup and turnaround edited by SPM-93-TC07",
+      building: "Orchard Hub", floor: "L2", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 45,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    // SPM-45 fixtures (scripts/seed-spm45.ts): six rooms Venue Staff mark
+    // unavailable - dedicated, so doing so flags no other story's bookings.
+    // Only SPM45-SET has setup and turnaround time (the Week 7 example's).
+    { code: "SPM45-DAT", name: "SPM45 Dates Room", description: "SPM-45 test venue: no unavailable period, no bookings",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-PER", name: "SPM45 Period Room", description: "SPM-45 test venue: four bookings around 10-15 Jun 2027",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-SET", name: "SPM45 Setup Room", description: "SPM-45 test venue: 30 min setup, 45 min turnaround",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 30, teardownMinutes: 45,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-STA", name: "SPM45 Status Room", description: "SPM-45 test venue: an approved, a pending and a finished booking",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-NOW", name: "SPM45 Closure Room", description: "SPM-45 test venue: unavailable from 1 Oct 2026 to 1 Dec 2028, 09:00",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    { code: "SPM45-BAK", name: "SPM45 Reopened Room", description: "SPM-45 test venue: was unavailable 1 Sep to 1 Oct 2026, 12:00",
+      building: "Orchard Hub", floor: "L1", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [] },
+    // SPM-81 fixtures (scripts/seed-spm81.ts): a main room and two breakout
+    // rooms, so one event can ask for several - dedicated, so the cases'
+    // bookings meet no one else's.
+    { code: "SPM81-AUD", name: "SPM81 Auditorium", description: "SPM-81 test venue: the main room, 30 min setup and turnaround",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 30,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM81-BRA", name: "SPM81 Breakout Room A", description: "SPM-81 test venue: breakout room, no setup or turnaround",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM81-BRB", name: "SPM81 Breakout Room B", description: "SPM-81 test venue: breakout room, unavailable on 10 Aug 2027 (SPM-81-TC03)",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    // SPM-67 fixtures (scripts/seed-spm67.ts): a room with setup and
+    // turnaround, and two without - dedicated, so the bookings the cases
+    // withdraw, release and request meet no one else's.
+    { code: "SPM67-HAL", name: "SPM67 Hall", description: "SPM-67 test venue: 30 min setup and turnaround",
+      building: "Orchard Hub", floor: "L4", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 30, teardownMinutes: 30,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM67-STU", name: "SPM67 Studio", description: "SPM-67 test venue: no setup or turnaround",
+      building: "Orchard Hub", floor: "L4", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM67-ANX", name: "SPM67 Annex", description: "SPM-67 test venue: no setup or turnaround",
+      building: "Orchard Hub", floor: "L4", maxCapacity: 60, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    // SPM-90 fixtures (scripts/seed-spm90.ts): a hall that seats the whole
+    // event, a breakout room that only suits a smaller space, and an annexe
+    // without the step-free access every SPM90 event requires.
+    { code: "SPM90-HALL", name: "SPM90 Main Hall", description: "SPM-90 test venue: seats the whole event",
+      building: "Orchard Hub", floor: "L5", maxCapacity: 200, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 200], ["classroom", 120]],
+      facilities: ["Step-free access"] },
+    { code: "SPM90-BRK", name: "SPM90 Breakout Room", description: "SPM-90 test venue: suits a breakout space, not the whole event",
+      building: "Orchard Hub", floor: "L5", maxCapacity: 30, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 30], ["classroom", 20]],
+      facilities: ["Step-free access"] },
+    { code: "SPM90-ANX", name: "SPM90 Annexe", description: "SPM-90 test venue: no step-free access",
+      building: "Orchard Hub", floor: "L5", maxCapacity: 30, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 30], ["classroom", 20]],
+      facilities: [] },
+    // SPM-68 fixtures (scripts/seed-spm68.ts): rooms of different sizes for
+    // the flagged bookings and their replacement - dedicated, so the live
+    // availability the cases quote depends on no one else's bookings. The
+    // script also retires the Retired Room and gives the Closed Room its
+    // unavailable period; here they are plain rooms.
+    ...([
+      ["SPM68-HAL", "SPM68 Hall", "seats 100 in theatre layout", 100],
+      ["SPM68-ANX", "SPM68 Annex", "seats 60 in theatre layout", 60],
+      ["SPM68-SPR", "SPM68 Spare Room", "the replacement, seats 200 in theatre layout", 200],
+      ["SPM68-CLS", "SPM68 Closed Room", "unavailable for maintenance on 9 Oct 2027, 08:00-18:00", 60],
+      ["SPM68-RET", "SPM68 Retired Room", "retired", 60],
+    ] as const).map(([code, name, what, theatre]): VenueSeed => ({
+      code, name, description: `SPM-68 test venue: ${what}`,
+      building: "Orchard Hub", floor: "L5", maxCapacity: theatre, opensAt: "07:00", closesAt: "22:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", theatre], ["classroom", 40]],
+      facilities: ["Fixed ceiling projector", "Step-free access"],
+    })),
+    // SPM-82 fixture (scripts/seed-spm82.ts, HOLD_ROOM there - keep in step):
+    // 60 minutes of setup and of turnaround, so a lapsed hold's freed time
+    // visibly includes them (SPM-82-TC10).
+    { code: "SPM82-HOLD", name: "SPM82 Hold Room", description: "SPM-82 test venue: 60 minutes of setup and of turnaround",
+      building: "Orchard Hub", floor: "L3", maxCapacity: 80, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 60, teardownMinutes: 60,
+      layouts: [["theatre", 80], ["classroom", 40]],
       facilities: [] },
   ];
 
@@ -514,9 +683,14 @@ async function main() {
     key: string; title: string; purpose?: string; description?: string;
     category?: string; organiser: string; coordinator?: string; status: string;
     days: number; startHour?: number; durationHours?: number;
+    /// Minutes past startHour - day() truncates a fractional hour. SPM-93's
+    /// off-grid events (14:10, 09:05) need it; everything else starts on the hour.
+    startMinute?: number;
     attendance?: number; layout?: string; regEnabled?: boolean; regCapacity?: number;
     accessibilityNotes?: string; rejectionReason?: string; cancellationReason?: string;
     specialRequirements?: string;
+    /// Overrides CHAIN[status] - SPM-27's events carry their own history.
+    chain?: string[];
   };
 
   const eventData: EventSeed[] = [
@@ -814,43 +988,44 @@ async function main() {
     fixture("fx_grad2", "Graduation Ceremony 2", "2026-10-30", 10, 4, "Grace Abdullah"),
 
     // SPM-49 test-case events (docs/test-cases/SPM-49_Test_Cases.xlsx): Reserve
-    // Equipment. Several of these are reserved by an actual call to
+    // Equipment. In Planning - Technical Support only sees and reserves an
+    // event's equipment once the Coordinator has started planning (BPMN). Several of these are reserved by an actual call to
     // POST .../reserve while running the cases, not seeded already-reserved -
     // only the events that need to already HOLD stock before the case starts
     // (Fashion Show, Gala Night, Trade Mixer, Summit Lunch, Reserved Showcase)
     // are seeded with a reservation below.
-    fixture("fx49_spring_fair", "Spring Fair", "2027-02-02", 9, 6, "Rachel Ng", { status: "under_review" }),
-    fixture("fx49_founders_day", "Founders Day", "2027-02-04", 9, 6, "James Koh", { status: "under_review" }),
-    fixture("fx49_autumn_fair", "Autumn Fair", "2027-02-09", 9, 6, "Melissa Yap", { status: "under_review" }),
-    fixture("fx49_winter_fair", "Winter Fair", "2027-02-16", 9, 6, "Kelvin Loh", { status: "under_review" }),
-    fixture("fx49_harvest_fair", "Harvest Fair", "2027-03-02", 9, 6, "Samuel Ong", { status: "under_review" }),
-    fixture("fx49_summer_fair", "Summer Fair", "2027-03-09", 9, 6, "Faridah Aziz", { status: "under_review" }),
-    fixture("fx49_craft_market", "Craft Market", "2027-03-16", 9, 6, "Grace Abdullah", { status: "under_review" }),
-    fixture("fx49_fashion_show", "Fashion Show", "2027-03-23", 14, 6, "Evelyn Chen", { status: "under_review" }),
-    fixture("fx49_after_party", "After Party", "2027-03-23", 20, 3, "Hakim Zulkifli", { status: "under_review" }),
-    fixture("fx49_product_demo_day", "Product Demo Day", "2027-03-15", 10, 4, "Budi Santoso", { status: "under_review" }),
-    fixture("fx49_partner_lunch", "Partner Lunch", "2027-03-15", 11, 2, "Rachel Ng", { status: "under_review" }),
-    fixture("fx49_sales_kickoff", "Sales Kickoff", "2027-04-05", 9, 6, "James Koh", { status: "under_review" }),
-    fixture("fx49_board_retreat", "Board Retreat", "2027-04-26", 9, 6, "Melissa Yap", { status: "under_review" }),
-    fixture("fx49_trade_show", "Trade Show", "2027-04-12", 9, 6, "Kelvin Loh", { status: "under_review" }),
-    fixture("fx49_media_briefing", "Media Briefing", "2027-04-13", 9, 6, "Samuel Ong", { status: "under_review" }),
-    fixture("fx49_careers_day", "Careers Day", "2027-04-19", 9, 6, "Faridah Aziz", { status: "under_review" }),
-    fixture("fx49_wrap_party", "Wrap Party", "2027-04-21", 18, 3, "Grace Abdullah", { status: "under_review" }),
-    fixture("fx49_innovation_day", "Innovation Day", "2027-05-03", 9, 6, "Evelyn Chen", { status: "under_review" }),
-    fixture("fx49_gala_night", "Gala Night", "2027-05-10", 18, 4, "Hakim Zulkifli", { status: "under_review" }),
-    fixture("fx49_awards_dinner", "Awards Dinner", "2027-05-10", 19, 4, "Budi Santoso", { status: "under_review" }),
-    fixture("fx49_popup_store", "Pop-up Store", "2027-05-17", 9, 6, "Rachel Ng", { status: "under_review" }),
-    fixture("fx49_flash_sale", "Flash Sale", "2027-05-17", 9, 6, "James Koh", { status: "under_review" }),
-    fixture("fx49_it_bootcamp", "IT Bootcamp", "2027-05-24", 9, 6, "Melissa Yap", { status: "under_review" }),
+    fixture("fx49_spring_fair", "Spring Fair", "2027-02-02", 9, 6, "Rachel Ng"),
+    fixture("fx49_founders_day", "Founders Day", "2027-02-04", 9, 6, "James Koh"),
+    fixture("fx49_autumn_fair", "Autumn Fair", "2027-02-09", 9, 6, "Melissa Yap"),
+    fixture("fx49_winter_fair", "Winter Fair", "2027-02-16", 9, 6, "Kelvin Loh"),
+    fixture("fx49_harvest_fair", "Harvest Fair", "2027-03-02", 9, 6, "Samuel Ong"),
+    fixture("fx49_summer_fair", "Summer Fair", "2027-03-09", 9, 6, "Faridah Aziz"),
+    fixture("fx49_craft_market", "Craft Market", "2027-03-16", 9, 6, "Grace Abdullah"),
+    fixture("fx49_fashion_show", "Fashion Show", "2027-03-23", 14, 6, "Evelyn Chen"),
+    fixture("fx49_after_party", "After Party", "2027-03-23", 20, 3, "Hakim Zulkifli"),
+    fixture("fx49_product_demo_day", "Product Demo Day", "2027-03-15", 10, 4, "Budi Santoso"),
+    fixture("fx49_partner_lunch", "Partner Lunch", "2027-03-15", 11, 2, "Rachel Ng"),
+    fixture("fx49_sales_kickoff", "Sales Kickoff", "2027-04-05", 9, 6, "James Koh"),
+    fixture("fx49_board_retreat", "Board Retreat", "2027-04-26", 9, 6, "Melissa Yap"),
+    fixture("fx49_trade_show", "Trade Show", "2027-04-12", 9, 6, "Kelvin Loh"),
+    fixture("fx49_media_briefing", "Media Briefing", "2027-04-13", 9, 6, "Samuel Ong"),
+    fixture("fx49_careers_day", "Careers Day", "2027-04-19", 9, 6, "Faridah Aziz"),
+    fixture("fx49_wrap_party", "Wrap Party", "2027-04-21", 18, 3, "Grace Abdullah"),
+    fixture("fx49_innovation_day", "Innovation Day", "2027-05-03", 9, 6, "Evelyn Chen"),
+    fixture("fx49_gala_night", "Gala Night", "2027-05-10", 18, 4, "Hakim Zulkifli"),
+    fixture("fx49_awards_dinner", "Awards Dinner", "2027-05-10", 19, 4, "Budi Santoso"),
+    fixture("fx49_popup_store", "Pop-up Store", "2027-05-17", 9, 6, "Rachel Ng"),
+    fixture("fx49_flash_sale", "Flash Sale", "2027-05-17", 9, 6, "James Koh"),
+    fixture("fx49_it_bootcamp", "IT Bootcamp", "2027-05-24", 9, 6, "Melissa Yap"),
     fixture("fx49_cancelled_roadshow", "Cancelled Roadshow", "2027-06-01", 9, 6, "Kelvin Loh",
       { status: "cancelled", cancellationReason: "Client withdrew the request." }),
-    fixture("fx49_trade_mixer", "Trade Mixer", "2027-06-07", 18, 3, "Samuel Ong", { status: "under_review" }),
+    fixture("fx49_trade_mixer", "Trade Mixer", "2027-06-07", 18, 3, "Samuel Ong"),
     // Runs its Day 1 session on the same date Trade Mixer holds all the stock,
     // and Day 2 three weeks later - sessions created further down.
-    fixture("fx49_two_day_forum", "Two-Day Forum", "2027-06-07", 9, 368, "Faridah Aziz", { status: "under_review" }),
-    fixture("fx49_summit_lunch", "Summit Lunch", "2027-06-14", 12, 2, "Grace Abdullah", { status: "under_review" }),
-    fixture("fx49_product_expo", "Product Expo", "2027-06-14", 9, 6, "Evelyn Chen", { status: "under_review" }),
-    fixture("fx49_reserved_showcase", "Reserved Showcase", "2027-07-05", 9, 6, "Rachel Ng", { status: "under_review" }),
+    fixture("fx49_two_day_forum", "Two-Day Forum", "2027-06-07", 9, 368, "Faridah Aziz"),
+    fixture("fx49_summit_lunch", "Summit Lunch", "2027-06-14", 12, 2, "Grace Abdullah"),
+    fixture("fx49_product_expo", "Product Expo", "2027-06-14", 9, 6, "Evelyn Chen"),
+    fixture("fx49_reserved_showcase", "Reserved Showcase", "2027-07-05", 9, 6, "Rachel Ng"),
   );
 
   // -----------------------------------------------------------------
@@ -979,6 +1154,9 @@ async function main() {
       category: "workshop", organiser: "Budi Santoso", coordinator: "priya.raj@connectsphere.com",
       days: daysUntil("2027-02-18"), startHour: 20, durationHours: 24, attendance: 90, layout: "exhibition",
       rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+  );
+
+  // -----------------------------------------------------------------
   // SPM-42 QA fixtures (Request Venue Booking). The SAME events as
   // scripts/seed-spm42.ts (`npm run fixtures:spm42`) - keep the two in step.
   // Sessions and the two blocker bookings are created further down.
@@ -1010,6 +1188,754 @@ async function main() {
     spm42("spm42_after_reject", "SPM42 After Rejection", "2027-03-17", 10, 6),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-54 QA fixtures (Begin Event Planning) - the events
+  // docs/test-cases/SPM-54_test_cases.json uses. The SAME events as
+  // scripts/seed-spm54.ts (`npm run fixtures:spm54`), which resets them on
+  // the shared database without a reseed after a test case moves one to
+  // Planning - keep the two in step.
+  // Pushed LAST so no earlier event's EVT- reference number shifts. They are
+  // events 145-154, so they get EVT-000145 to EVT-000154 - the numbers the
+  // fixture script pins and the SPM-54 test cases quote. Add new events AFTER
+  // this block, or those numbers move.
+  // -----------------------------------------------------------------
+  eventData.push(
+    { key: "spm54_begin", title: "SPM54 Straits Clinical Forum", status: "approved",
+      purpose: "Share the 2027 clinical audit results",
+      category: "seminar", organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-04"), startHour: 9, durationHours: 4, attendance: 120, layout: "theatre" },
+    { key: "spm54_approved", title: "SPM54 Meridian Budget Briefing", status: "approved",
+      purpose: "Brief department heads on the 2028 budget",
+      category: "meeting", organiser: "James Koh", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-05"), startHour: 14, durationHours: 3, attendance: 20, layout: "boardroom" },
+    { key: "spm54_under_review", title: "SPM54 Harbourline Agents Seminar", status: "under_review",
+      purpose: "Product update for insurance agents",
+      category: "seminar", organiser: "Preeti Sharma", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-10"), startHour: 9, durationHours: 3, attendance: 60, layout: "theatre" },
+    { key: "spm54_confirmed", title: "SPM54 Anchorpoint Fleet Briefing", status: "confirmed",
+      purpose: "Annual fleet safety briefing",
+      category: "seminar", organiser: "Melissa Yap", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-11"), startHour: 9, durationHours: 3, attendance: 90, layout: "theatre" },
+    { key: "spm54_rejected", title: "SPM54 Nusantara Overnight Sprint", status: "rejected",
+      purpose: "Overnight product sprint",
+      category: "workshop", organiser: "Budi Santoso", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-12"), startHour: 20, durationHours: 24, attendance: 70, layout: "exhibition",
+      rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." },
+    { key: "spm54_planning", title: "SPM54 Kirana Store Managers Workshop", status: "planning",
+      purpose: "Store operations workshop",
+      category: "workshop", organiser: "Faridah Aziz", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-18"), startHour: 9, durationHours: 3, attendance: 40, layout: "classroom" },
+    { key: "spm54_begin_booking", title: "SPM54 Pearl Delta Supplier Briefing", status: "approved",
+      purpose: "Brief suppliers on the 2028 sourcing plan",
+      category: "seminar", organiser: "Samuel Ong", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-25"), startHour: 9, durationHours: 3, attendance: 50, layout: "theatre" },
+    { key: "spm54_begin_equipment", title: "SPM54 Sundara Service Workshop", status: "approved",
+      purpose: "Front-of-house service workshop",
+      category: "workshop", organiser: "Dewi Kartika", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-26"), startHour: 14, durationHours: 3, attendance: 30, layout: "classroom" },
+    { key: "spm54_begin_save", title: "SPM54 Tanjong Legal Seminar", status: "approved",
+      purpose: "Client seminar on the 2027 employment law changes",
+      category: "seminar", organiser: "Aaron Sim", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-27"), startHour: 9, durationHours: 3, attendance: 45, layout: "theatre" },
+    { key: "spm54_begin_remove", title: "SPM54 Civic Trust Teachers Briefing", status: "approved",
+      purpose: "Briefing for teachers on the 2028 curriculum",
+      category: "seminar", organiser: "Grace Abdullah", coordinator: "daniel.tan@connectsphere.com",
+      days: daysUntil("2027-08-31"), startHour: 9, durationHours: 3, attendance: 35, layout: "classroom" },
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-27 QA fixtures (View Event Status) - one event per status for one
+  // organiser. The SAME events as scripts/seed-spm27.ts
+  // (`npm run fixtures:spm27`) - keep the two in step.
+  // After SPM-54, whose events are pinned to EVT-000145..154.
+  // -----------------------------------------------------------------
+  const spm27Review = ["submitted", "under_review"];
+  const spm27Planning = [...spm27Review, "approved", "planning"];
+  const spm27 = (
+    key: string, title: string, status: string, chain: string[], days: number, startHour: number,
+    durationHours: number, category: string, attendance: number, layout: string,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, chain, days, startHour, durationHours, category, attendance, layout,
+    organiser: "Hakim Zulkifli", purpose: "SPM-27 event status test event",
+    coordinator: chain.includes("under_review") ? "huishan.neo@connectsphere.com" : undefined,
+    ...options,
+  });
+  eventData.push(
+    spm27("spm27_safety_briefing", "SPM27 Bayu Safety Briefing", "submitted", ["submitted"], 70, 9, 3, "training", 40, "classroom"),
+    spm27("spm27_grid_workshop", "SPM27 Bayu Grid Workshop", "under_review", spm27Review, 72, 9, 6, "workshop", 30, "u_shape"),
+    spm27("spm27_investor_day", "SPM27 Bayu Investor Day", "submitted", ["submitted"], 74, 10, 5, "conference", 120, "theatre"),
+    spm27("spm27_town_hall", "SPM27 Bayu Town Hall", "submitted", ["submitted"], 76, 15, 2, "meeting", 150, "theatre"),
+    spm27("spm27_contractor_briefing", "SPM27 Bayu Contractor Briefing", "under_review", spm27Review, 78, 9, 3, "seminar", 50, "theatre"),
+    spm27("spm27_supplier_day", "SPM27 Bayu Supplier Day", "approved", [...spm27Review, "approved"], 80, 9, 7, "exhibition", 90, "exhibition"),
+    spm27("spm27_leadership_retreat", "SPM27 Bayu Leadership Retreat", "planning", spm27Planning, 82, 9, 8, "meeting", 25, "boardroom"),
+    spm27("spm27_annual_conference", "SPM27 Bayu Annual Conference", "confirmed", [...spm27Planning, "confirmed"], 84, 9, 9, "conference", 200, "theatre"),
+    spm27("spm27_graduate_induction", "SPM27 Bayu Graduate Induction", "completed", [...spm27Planning, "confirmed", "completed"], -20, 9, 6, "training", 35, "classroom"),
+    spm27("spm27_overnight_site_visit", "SPM27 Bayu Overnight Site Visit", "rejected", [...spm27Review, "rejected"], 86, 20, 14, "workshop", 60, "exhibition",
+      { rejectionReason: "No ConnectSphere venue is licensed for overnight occupancy." }),
+    spm27("spm27_community_fair", "SPM27 Bayu Community Fair", "postponed", [...spm27Planning, "postponed"], 88, 10, 6, "exhibition", 300, "exhibition"),
+    spm27("spm27_partner_lunch", "SPM27 Bayu Partner Lunch", "withdrawn", [...spm27Review, "withdrawn"], 90, 12, 2, "networking", 40, "banquet"),
+    spm27("spm27_wind_farm_tour", "SPM27 Bayu Wind Farm Tour", "withdrawn", [...spm27Review, "withdrawn"], 92, 9, 4, "seminar", 30, "theatre"),
+    spm27("spm27_product_showcase", "SPM27 Bayu Product Showcase", "cancelled", [...spm27Planning, "cancelled"], 94, 14, 4, "exhibition", 150, "exhibition",
+      { cancellationReason: "Product launch moved to next financial year." }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-34 QA fixtures (Confirm Event). The SAME events as
+  // scripts/seed-spm34.ts (`npm run fixtures:spm34`) - keep the two in step.
+  //
+  // The events only. The bookings, equipment requests and sessions that put
+  // each one in its particular state are created by that script alone, so run
+  // it once after a full reseed or every one of these confirms trivially.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm34 = (
+    key: string, title: string, date: string, durationHours: number,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    status: "planning", purpose: "SPM-34 confirm event test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours, attendance: 40, layout: "theatre",
+    ...options,
+  });
+  eventData.push(
+    spm34("spm34_ready", "SPM34 Ready To Confirm", "2027-05-10", 6),
+    spm34("spm34_venue_only", "SPM34 Venue Only", "2027-05-11", 4),
+    spm34("spm34_partial", "SPM34 Partially Fulfilled", "2027-05-12", 4),
+    spm34("spm34_no_venue", "SPM34 No Venue", "2027-05-13", 4),
+    spm34("spm34_pending_venue", "SPM34 Pending Venue", "2027-05-14", 4),
+    spm34("spm34_equipment_short", "SPM34 Equipment Short", "2027-05-15", 4),
+    spm34("spm34_sessions", "SPM34 Two Day Forum", "2027-05-17", 27),
+    spm34("spm34_other_coordinator", "SPM34 Another Coordinator", "2027-05-18", 4,
+      { coordinator: "priya.raj@connectsphere.com" }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-50 QA fixtures (Review and Update Equipment Request). The SAME events
+  // and equipment lines as scripts/seed-spm50.ts (`npm run fixtures:spm50`) -
+  // keep the two in step. In August 2027, clear of every SPM-49 event, so
+  // their SPM-49 equipment items show the numbers the SPM-50 cases expect.
+  // Their equipment lines are created further down (spm50Requests).
+  // Pushed LAST - after SPM-54 (whose events are pinned to EVT-000145..154)
+  // and SPM-27 - so no earlier event's EVT- reference number shifts. Add
+  // new events AFTER this block.
+  // -----------------------------------------------------------------
+  eventData.push(
+    fixture("spm50_robotics_expo", "Robotics Expo", "2027-08-02", 9, 6, "Rachel Ng"),
+    fixture("spm50_design_week", "Design Week", "2027-08-16", 9, 6, "Melissa Yap"),
+    fixture("spm50_charity_briefing", "Charity Briefing", "2027-08-23", 9, 3, "Evelyn Chen"),
+    fixture("spm50_charity_gala", "Charity Gala", "2027-08-23", 10, 4, "Hakim Zulkifli"),
+    // Confirmed: Technical Support still sees its equipment (to prepare it) but
+    // cannot change it.
+    fixture("spm50_confirmed_launch", "Confirmed Launch", "2027-08-30", 9, 6, "Budi Santoso", { status: "confirmed" }),
+    // Not in Planning yet, so Technical Support does not see their equipment.
+    fixture("spm50_pending_showcase", "Pending Showcase", "2027-09-06", 9, 6, "Samuel Ong", { status: "under_review" }),
+    fixture("spm50_approved_briefing", "Approved Briefing", "2027-09-13", 9, 3, "Kelvin Loh", { status: "approved" }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-43 QA fixtures (Review Venue Booking Request). The SAME events as
+  // scripts/seed-spm43.ts (`npm run fixtures:spm43`) - keep the two in step.
+  // Their sessions, booking requests and the maintenance period are created
+  // further down.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm43 = (
+    key: string, title: string, date: string, startHour: number, durationHours: number,
+    attendance: number, layout: string, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-43 venue booking review test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance, layout, ...options,
+  });
+  eventData.push(
+    spm43("spm43_approve", "SPM43 Leadership Offsite", "2027-05-04", 9, 8, 100, "theatre"),
+    spm43("spm43_reject", "SPM43 Product Briefing", "2027-05-05", 14, 3, 150, "theatre"),
+    spm43("spm43_suggest", "SPM43 Awards Dinner", "2027-05-06", 19, 3, 80, "banquet"),
+    spm43("spm43_arrangement", "SPM43 Investor Update", "2027-05-08", 14, 2, 90, "theatre"),
+    spm43("spm43_confirmed", "SPM43 Board Strategy Day", "2027-05-07", 9, 8, 120, "theatre"),
+    spm43("spm43_turnaround", "SPM43 Evening Recital", "2027-05-07", 19, 3, 200, "theatre"),
+    spm43("spm43_rival_a", "SPM43 Design Workshop", "2027-05-10", 14, 3, 30, "classroom"),
+    spm43("spm43_rival_b", "SPM43 Coding Workshop", "2027-05-10", 13, 4, 24, "classroom"),
+    spm43("spm43_sessions", "SPM43 Two-Day Forum", "2027-05-11", 9, 32, 60, "theatre"),
+    spm43("spm43_cancelled_event", "SPM43 Cancelled Launch", "2027-05-13", 9, 8, 140, "theatre",
+      { status: "cancelled", cancellationReason: "Client withdrew the launch" }),
+    spm43("spm43_maintenance", "SPM43 Staff Briefing", "2027-05-14", 9, 2, 30, "classroom"),
+    spm43("spm43_retire", "SPM43 Team Retrospective", "2027-05-17", 14, 2, 20, "classroom"),
+    spm43("spm43_under_review", "SPM43 Policy Briefing", "2027-05-18", 9, 3, 30, "classroom", { status: "under_review" }),
+    spm43("spm43_after_turnaround", "SPM43 Alumni Lecture", "2027-05-08", 14, 3, 150, "theatre"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-62 QA fixtures (Update Event Information). The SAME events as
+  // scripts/seed-spm62.ts (`npm run fixtures:spm62`) - keep the two in step.
+  //
+  // The events only. Their venue bookings, reserved equipment, registrations
+  // and required facility are created by that script alone, so run it once
+  // after a full reseed or there is nothing for a change to flag.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm62 = (
+    key: string, title: string, status: string, organiser: string, date: string,
+    startHour: number, durationHours: number, attendance: number, layout: string,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser, coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-62 update event information test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout, ...options,
+  });
+  eventData.push(
+    spm62("spm62_harbour", "SPM62 Harbour Leadership Summit", "planning", "Evelyn Chen", "2027-03-17", 9, 8, 80, "theatre",
+      { regEnabled: true, regCapacity: 100 }),
+    spm62("spm62_kirana", "SPM62 Kirana Supplier Day", "planning", "Faridah Aziz", "2027-04-21", 10, 6, 60, "theatre",
+      { regEnabled: true, regCapacity: 50 }),
+    spm62("spm62_bayu", "SPM62 Bayu Energy Outlook", "approved", "Hakim Zulkifli", "2027-05-12", 9, 3, 40, "theatre",
+      { category: "seminar" }),
+    spm62("spm62_anchorpoint", "SPM62 Anchorpoint Logistics Forum", "approved", "Melissa Yap", "2027-05-18", 9, 3, 50, "theatre",
+      { category: "seminar" }),
+    spm62("spm62_pharmacy", "SPM62 Straits Pharmacy Forum", "confirmed", "Evelyn Chen", "2027-06-09", 9, 8, 120, "theatre",
+      { regEnabled: true, regCapacity: 150 }),
+    spm62("spm62_meridian", "SPM62 Meridian Quarterly Review", "confirmed", "James Koh", "2027-06-16", 14, 3, 30, "boardroom",
+      { category: "meeting" }),
+    spm62("spm62_sundara", "SPM62 Sundara Hospitality Showcase", "confirmed", "Dewi Kartika", "2027-06-23", 10, 8, 70, "exhibition",
+      { category: "exhibition" }),
+    spm62("spm62_civic", "SPM62 Civic Learning Day", "under_review", "Grace Abdullah", "2027-07-07", 9, 6, 60, "classroom",
+      { category: "training" }),
+    spm62("spm62_pearl", "SPM62 Pearl Delta Plant Tour", "completed", "Samuel Ong", "2026-09-10", 9, 4, 25, "theatre",
+      { category: "networking" }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-44 QA fixtures (Booking Conflict Detection). The SAME events as
+  // scripts/seed-spm44.ts (`npm run fixtures:spm44`) - keep the two in step.
+  //
+  // The SPM44-PLN room is in venueData above, and the bookings these events
+  // hold plus the room's maintenance period (AC8) are created after the SPM-43
+  // bookings below, so a full reseed leaves the conflict cases ready to run.
+  // Pushed LAST - after SPM-54 (pinned to EVT-000145..154), SPM-62 and every
+  // other story's fixtures - so no earlier event's EVT- reference number shifts.
+  // SPM-64's block follows.
+  // -----------------------------------------------------------------
+  const spm44 = (
+    key: string, title: string, date: string, startHour: number, durationHours: number,
+    options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-44 booking conflict test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "classroom", ...options,
+  });
+  const PRIYA = "priya.raj@connectsphere.com";
+  eventData.push(
+    spm44("spm44_holder_approved", "SPM44 Approved Holder", "2027-04-05", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_clash_approved", "SPM44 Clash With Approved", "2027-04-05", 14, 2),
+    spm44("spm44_adjacent", "SPM44 Adjacent Slot", "2027-04-05", 9, 2),
+    spm44("spm44_holder_pending", "SPM44 Pending Holder", "2027-04-06", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_clash_pending", "SPM44 Clash With Pending", "2027-04-06", 14, 2),
+    spm44("spm44_holder_rejected", "SPM44 Rejected Holder", "2027-04-07", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_after_rejected", "SPM44 After Rejected", "2027-04-07", 14, 2),
+    spm44("spm44_holder_cancelled", "SPM44 Cancelled Holder", "2027-04-08", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_after_cancelled", "SPM44 After Cancelled", "2027-04-08", 14, 2),
+    spm44("spm44_setup_holder", "SPM44 Setup Holder", "2027-04-09", 14, 2,
+      { coordinator: PRIYA, attendance: 40, layout: "theatre" }),
+    spm44("spm44_setup_clash", "SPM44 Setup Clash", "2027-04-09", 9, 2, { attendance: 40, layout: "theatre" }),
+    spm44("spm44_midnight_holder", "SPM44 Midnight Holder", "2027-04-12", 20, 2,
+      { coordinator: PRIYA, attendance: 40, layout: "theatre" }),
+    spm44("spm44_midnight_clash", "SPM44 Midnight Clash", "2027-04-13", 9, 2,
+      { attendance: 40, layout: "theatre" }),
+    spm44("spm44_approval_holder", "SPM44 Approval Holder", "2027-04-25", 14, 2, { coordinator: PRIYA }),
+    spm44("spm44_approval_rival", "SPM44 Approval Rival", "2027-04-25", 14, 2),
+    spm44("spm44_blocked", "SPM44 Blocked Room", "2027-04-20", 9, 2),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-93 QA fixtures (Book Venues in 15-Minute Units). The SAME events as
+  // scripts/seed-spm93.ts (`npm run fixtures:spm93`) - keep the two in step.
+  //
+  // The events only. Their bookings, the Two-Day Forum's sessions and SPM93
+  // Studio's maintenance period are created by that script alone, so run it
+  // once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm93 = (key: string, title: string, date: string, from: string, to: string): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+      purpose: "SPM-93 venue booking in 15-minute units test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "theatre",
+    };
+  };
+  eventData.push(
+    spm93("spm93_masterclass", "SPM93 Morning Masterclass", "2027-06-08", "10:00", "12:00"),
+    spm93("spm93_quick_demo", "SPM93 Quick Demo", "2027-06-08", "10:00", "12:00"),
+    spm93("spm93_early_huddle", "SPM93 Early Huddle", "2027-06-08", "08:15", "08:45"),
+    spm93("spm93_afternoon_review", "SPM93 Afternoon Review", "2027-06-08", "13:15", "14:00"),
+    spm93("spm93_follow_on", "SPM93 Follow-on Session", "2027-06-08", "12:00", "13:00"),
+    spm93("spm93_product_clinic", "SPM93 Product Clinic", "2027-06-09", "14:10", "15:50"),
+    spm93("spm93_partner_lunch", "SPM93 Partner Lunch", "2027-06-10", "12:00", "13:00"),
+    spm93("spm93_team_sync", "SPM93 Team Sync", "2027-06-10", "14:15", "15:00"),
+    spm93("spm93_validation", "SPM93 Validation Workshop", "2027-06-11", "10:00", "12:00"),
+    spm93("spm93_breakfast", "SPM93 Breakfast Briefing", "2027-06-13", "07:30", "09:00"),
+    spm93("spm93_evening_forum", "SPM93 Evening Forum", "2027-06-13", "20:00", "21:15"),
+    spm93("spm93_lunch_and_learn", "SPM93 Lunch and Learn", "2027-06-14", "12:00", "13:00"),
+    spm93("spm93_sunset_talk", "SPM93 Sunset Talk", "2027-06-14", "18:00", "19:00"),
+    spm93("spm93_supplier_day", "SPM93 Supplier Day", "2027-06-15", "10:00", "12:00"),
+    spm93("spm93_vendor_qa", "SPM93 Vendor Q&A", "2027-06-15", "13:00", "14:00"),
+    spm93("spm93_buyer_briefing", "SPM93 Buyer Briefing", "2027-06-15", "13:15", "14:00"),
+    spm93("spm93_twilight_workshop", "SPM93 Twilight Workshop", "2027-06-16", "18:30", "20:00"),
+    // Runs from Day 1's start (17 Jun 09:05) to Day 2's end (18 Jun 17:30).
+    { ...spm93("spm93_two_day_forum", "SPM93 Two-Day Forum", "2027-06-17", "09:05", "17:30"), durationHours: 32 + 25 / 60 },
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-86 QA fixtures (Submit Event for Operational Safety Check). The SAME
+  // events as scripts/seed-spm86.ts (`npm run fixtures:spm86`) - keep the two
+  // in step.
+  //
+  // The events only. Their venue bookings, equipment and review flags are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm86 = (key: string, title: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-86 submit for safety check test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 40, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm86("spm86_ready", "SPM86 Harbour Safety Ready", "2027-07-19"),
+    spm86("spm86_partial", "SPM86 Partly Reserved Kit", "2027-07-20"),
+    spm86("spm86_outstanding", "SPM86 Arrangements Outstanding", "2027-07-21"),
+    spm86("spm86_flagged_venue", "SPM86 Flagged Venue Booking", "2027-07-22"),
+    spm86("spm86_flagged_equipment", "SPM86 Flagged Equipment", "2027-07-23"),
+    spm86("spm86_two_tabs", "SPM86 Two Tabs Submit", "2027-07-26"),
+    spm86("spm86_other_coordinator", "SPM86 Another Coordinator", "2027-07-27",
+      { coordinator: "priya.raj@connectsphere.com" }),
+    spm86("spm86_approved", "SPM86 Not Yet Planning", "2027-07-28", { status: "approved" }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-45 QA fixtures (Record Venue Unavailability). The SAME events as
+  // scripts/seed-spm45.ts (`npm run fixtures:spm45`) - keep the two in step.
+  // Their approved bookings and the two unavailable periods are created
+  // further down.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm45 = (key: string, title: string, date: string, from: string, to: string, options: Partial<EventSeed> = {}): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+      purpose: "SPM-45 venue unavailability test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "classroom", ...options,
+    };
+  };
+  eventData.push(
+    spm45("spm45_before", "SPM45 Morning Briefing", "2027-06-10", "11:00", "13:00"),
+    spm45("spm45_first", "SPM45 Afternoon Workshop", "2027-06-10", "13:00", "15:00"),
+    spm45("spm45_last", "SPM45 Closing Seminar", "2027-06-15", "10:00", "13:00"),
+    spm45("spm45_after", "SPM45 Return Forum", "2027-06-15", "13:00", "15:00"),
+    spm45("spm45_turnaround", "SPM45 Early Talk", "2027-06-21", "07:30", "08:30"),
+    spm45("spm45_setup", "SPM45 Later Talk", "2027-06-22", "13:30", "14:30"),
+    spm45("spm45_approved", "SPM45 Approved Review", "2027-07-05", "09:00", "12:00"),
+    spm45("spm45_pending", "SPM45 Pending Request", "2027-07-05", "14:00", "17:00"),
+    spm45("spm45_finished", "SPM45 Finished Meeting", "2026-09-15", "09:00", "12:00", { status: "completed" }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-81 QA fixtures (Request More Than One Venue for an Event). The SAME
+  // events as scripts/seed-spm81.ts (`npm run fixtures:spm81`) - keep the two
+  // in step.
+  //
+  // The events only. Their bookings, the Two-Track Conference's sessions and
+  // SPM81 Breakout Room B's maintenance period are created by that script
+  // alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm81 = (key: string, title: string, date: string, startHour: number, durationHours: number): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-81 more than one venue for an event test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "theatre",
+  });
+  eventData.push(
+    spm81("spm81_summit", "SPM81 Leadership Summit", "2027-08-03", 9, 8),
+    // Runs from Day 1's start (5 Aug 09:00) to Day 2's end (6 Aug 12:00).
+    spm81("spm81_conference", "SPM81 Two-Track Conference", "2027-08-05", 9, 27),
+    spm81("spm81_rival", "SPM81 Rival Booking", "2027-08-10", 10, 2),
+    spm81("spm81_kickoff", "SPM81 Sales Kickoff", "2027-08-10", 10, 2),
+    spm81("spm81_repeat", "SPM81 Repeat Request", "2027-08-12", 9, 3),
+    spm81("spm81_partner_day", "SPM81 Partner Day", "2027-08-17", 9, 3),
+    spm81("spm81_showcase", "SPM81 Showcase Day", "2027-08-19", 9, 8),
+    spm81("spm81_solo", "SPM81 Solo Workshop", "2027-08-26", 9, 3),
+    spm81("spm81_parallel", "SPM81 Parallel Tracks", "2027-08-24", 9, 6),
+    spm81("spm81_second_attempt", "SPM81 Second Attempt", "2027-08-31", 9, 3),
+    spm81("spm81_twin_rooms", "SPM81 Twin Rooms", "2027-09-02", 9, 3),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-64 QA fixtures (Configure Event Registration). The SAME events as
+  // scripts/seed-spm64.ts (`npm run fixtures:spm64`) - keep the two in step.
+  //
+  // The events only. Their venue bookings, the booking each capacity is
+  // measured against, the exact registration periods and the registered,
+  // waitlisted and withdrawn attendees are created by that script alone, so
+  // run it once after a full reseed. Pushed LAST, after SPM-81, so no earlier
+  // event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm64 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    attendance: number, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-64 configure event registration test event", category: "seminar",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "classroom", ...options,
+  });
+  eventData.push(
+    spm64("spm64_orchard", "SPM64 Orchard Data Forum", "planning", "2027-03-18", 9, 8, 60, { category: "conference" }),
+    spm64("spm64_twin", "SPM64 Twin Room Workshop", "planning", "2027-03-24", 9, 8, 60, { category: "workshop" }),
+    spm64("spm64_unbooked", "SPM64 Unbooked Strategy Day", "approved", "2027-03-31", 9, 8, 30, { category: "meeting" }),
+    spm64("spm64_layoutfree", "SPM64 Layout-Free Networking Night", "planning", "2027-04-07", 18, 4, 50,
+      { category: "networking", layout: undefined }),
+    spm64("spm64_closed", "SPM64 Closed Registration Seminar", "confirmed", "2027-03-10", 9, 8, 50,
+      { regEnabled: true, regCapacity: 50 }),
+    spm64("spm64_started", "SPM64 Started Showcase", "confirmed", "2026-10-01", 9, 32, 40,
+      { category: "exhibition", regEnabled: true, regCapacity: 40 }),
+    spm64("spm64_fullhouse", "SPM64 Full House Masterclass", "planning", "2027-04-14", 9, 8, 20,
+      { category: "training", regEnabled: true, regCapacity: 20 }),
+    spm64("spm64_waitlist", "SPM64 Waitlist Only Briefing", "planning", "2027-04-21", 9, 3, 10,
+      { regEnabled: true, regCapacity: 10 }),
+    spm64("spm64_incomplete", "SPM64 Incomplete Setup Gala", "planning", "2027-04-28", 18, 4, 60,
+      { category: "networking", regEnabled: true }),
+    spm64("spm64_lost", "SPM64 Lost Booking Expo", "planning", "2027-05-05", 9, 8, 40,
+      { category: "exhibition", regEnabled: true, regCapacity: 40 }),
+    spm64("spm64_openday", "SPM64 Attendee Open Day", "confirmed", "2027-05-13", 9, 8, 60,
+      { regEnabled: true, regCapacity: 60 }),
+    spm64("spm64_postponed", "SPM64 Postponed Product Talk", "postponed", "2027-05-19", 9, 3, 30),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-55 QA fixtures (Record Equipment Unavailability). The SAME events as
+  // scripts/seed-spm55.ts (`npm run fixtures:spm55`) - keep the two in step.
+  //
+  // The events only. Their dedicated "SPM55 …" equipment items and the
+  // reservations on them are created by that script alone, so run it once
+  // after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm55 = (key: string, title: string, date: string, startHour: number, durationHours: number,
+    options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-55 record equipment unavailability test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 40, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm55("spm55_availability_check", "SPM55 Availability Check Forum", "2027-08-09", 9, 4),
+    spm55("spm55_return_check", "SPM55 Return Check Seminar", "2027-08-23", 9, 4),
+    spm55("spm55_harbour_launch", "SPM55 Harbour Product Launch", "2027-08-10", 9, 6),
+    spm55("spm55_quiet_board", "SPM55 Quiet Board Meeting", "2027-08-24", 14, 2),
+    spm55("spm55_past_roadshow", "SPM55 Past Roadshow", "2026-09-01", 9, 6, { status: "completed" }),
+    spm55("spm55_morning_showcase", "SPM55 Morning Showcase", "2027-08-17", 9, 3),
+    spm55("spm55_evening_showcase", "SPM55 Evening Showcase", "2027-08-17", 18, 3),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-33 QA fixtures (Track Outstanding Arrangements). The SAME events as
+  // scripts/seed-spm33.ts (`npm run fixtures:spm33`) - keep the two in step.
+  //
+  // The events only. The sessions, venue bookings and equipment requests that
+  // put each one in its particular state - pending, flagged, cannot be provided,
+  // marked as not required - are created by that script alone, so run it once
+  // after a full reseed or every Readiness list shows only "No venue booked".
+  // Pushed LAST so no earlier event's EVT- reference number shifts. SPM-85's
+  // block follows.
+  // -----------------------------------------------------------------
+  const spm33 = (
+    key: string, title: string, date: string, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+    purpose: "SPM-33 track outstanding arrangements test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 30, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm33("spm33_two_room", "SPM33 Two Room Conference", "2027-07-12"),
+    spm33("spm33_nothing", "SPM33 Nothing Booked", "2027-07-13"),
+    spm33("spm33_sessions", "SPM33 Two Day Forum", "2027-07-14", { durationHours: 27 }),
+    spm33("spm33_date_changed", "SPM33 Date Changed", "2027-07-16"),
+    spm33("spm33_stage", "SPM33 Stage Unavailable", "2027-07-19"),
+    spm33("spm33_breakout", "SPM33 Breakout Not Needed", "2027-07-20"),
+    spm33("spm33_single_pending", "SPM33 Single Pending Room", "2027-07-21"),
+    // Registration on, with its dates but no capacity: outstanding setup.
+    spm33("spm33_registration", "SPM33 Registration Not Needed", "2027-07-22", { regEnabled: true }),
+    spm33("spm33_waive_confirm", "SPM33 Waive Then Confirm", "2027-07-23"),
+    spm33("spm33_other_coordinator", "SPM33 Another Coordinator", "2027-07-26", { coordinator: PRIYA }),
+    spm33("spm33_confirmed", "SPM33 Confirmed With Waiver", "2027-07-27", { status: "confirmed" }),
+    // Added 2026-10-12, after SPM-81 and SPM-86 reached main: a second venue
+    // requested through the Venue tab, and the safety check's four states.
+    // Their bookings, equipment and safety checks come from the script.
+    spm33("spm33_add_breakout", "SPM33 Add A Breakout Room", "2027-08-02"),
+    spm33("spm33_safety_pending", "SPM33 Awaiting Safety Review", "2027-07-28", { status: "safety_review" }),
+    spm33("spm33_safety_approved", "SPM33 Safety Approved", "2027-07-29"),
+    spm33("spm33_safety_changes", "SPM33 Safety Changes Requested", "2027-07-30"),
+    spm33("spm33_safety_rejected", "SPM33 Safety Rejected", "2027-07-31"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-85 QA fixtures (Safety Officer Role and Access). The SAME events as
+  // scripts/seed-spm85.ts (`npm run fixtures:spm85`) - keep the two in step.
+  //
+  // The events only. Their sessions, venue bookings, equipment, facility
+  // requirements, the Harbour forum's safety check submission and the launch's
+  // registrations are created by that script alone, so run it once after a
+  // full reseed. The Safety Officer account is in the staff list above.
+  // Pushed LAST so no earlier event's EVT- reference number shifts. SPM-51's
+  // block follows.
+  // -----------------------------------------------------------------
+  const spm85 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-85 Safety Officer role and access test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm85("spm85_forum", "SPM85 Harbour Safety Forum", "safety_review", "2027-09-27", 9, 8, 200,
+      { accessibilityNotes: "Two wheelchair users attending; keep the aisle beside row A clear." }),
+    spm85("spm85_launch", "SPM85 Riverside Product Launch", "confirmed", "2027-09-24", 19, 3, 80,
+      { regEnabled: true, regCapacity: 80 }),
+    spm85("spm85_planning", "SPM85 Marina Networking Night", "planning", "2027-09-20", 18, 3, 50),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-71 QA fixtures (View Notifications). The SAME events as
+  // scripts/seed-spm71.ts (`npm run fixtures:spm71`) - keep the two in step.
+  //
+  // The events only. Their booking, equipment, Zara Ong's registration and
+  // every notification the cases read are created by that script alone, so
+  // run it once after a full reseed. The test accounts are created above.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm71 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number, coordinator: string, layout: string): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator,
+    purpose: "SPM-71 view notifications test event", category: "networking",
+    days: daysUntil(date), startHour, durationHours, attendance, layout,
+  });
+  eventData.push(
+    spm71("spm71_gala", "SPM71 Harbour Lights Gala", "planning", "2027-11-08", 18, 4, 120, "leon.koh@connectsphere.com", "theatre"),
+    spm71("spm71_fair", "SPM71 Riverside Tech Fair", "planning", "2027-11-15", 9, 8, 60, "leon.koh@connectsphere.com", "classroom"),
+    spm71("spm71_showcase", "SPM71 Reassigned Showcase", "planning", "2027-11-22", 10, 6, 80, "ivy.lim@connectsphere.com", "theatre"),
+    spm71("spm71_supper", "SPM71 Postponed Supper Club", "postponed", "2027-11-29", 19, 3, 40, "leon.koh@connectsphere.com", "banquet"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-51 QA fixtures (Register for Event). The SAME events as
+  // scripts/seed-spm51.ts (`npm run fixtures:spm51`) - keep the two in step.
+  //
+  // The events only. Their exact registration periods (some open, one not
+  // yet, one closed, one with none) and the registered, waitlisted and
+  // withdrawn attendees are created by that script alone, so run it once
+  // after a full reseed. Pushed LAST, after SPM-85, so no earlier event's EVT-
+  // reference number shifts. SPM-67's block follows.
+  // -----------------------------------------------------------------
+  const spm51 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-51 register for event test event", category: "seminar",
+    days: daysUntil(date), startHour: 9, durationHours: 8, attendance: 50, layout: "classroom",
+    regEnabled: true, regCapacity: 50, ...options,
+  });
+  eventData.push(
+    spm51("spm51_harbour", "SPM51 Harbour Open House", "confirmed", "2028-01-15"),
+    spm51("spm51_lastseat", "SPM51 Last Seat Masterclass", "confirmed", "2028-01-22", { regCapacity: 3, attendance: 3 }),
+    spm51("spm51_soldout", "SPM51 Sold Out Summit", "confirmed", "2028-01-29", { regCapacity: 3, attendance: 3 }),
+    spm51("spm51_earlybird", "SPM51 Early Bird Seminar", "confirmed", "2028-01-20"),
+    spm51("spm51_closed", "SPM51 Closed Doors Workshop", "confirmed", "2027-12-10"),
+    spm51("spm51_undated", "SPM51 Undated Talk", "confirmed", "2028-02-05"),
+    spm51("spm51_private", "SPM51 Private Board Dinner", "confirmed", "2028-02-12", { regEnabled: false, regCapacity: undefined }),
+    spm51("spm51_planning", "SPM51 Planning Stage Forum", "planning", "2028-02-19"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-67 QA fixtures (Withdraw or Release Venue Booking). The SAME events
+  // as scripts/seed-spm67.ts (`npm run fixtures:spm67`) - keep the two in
+  // step.
+  //
+  // The events only. Their bookings - pending, approved, rejected, withdrawn
+  // and released - are created by that script alone, so run it once after a
+  // full reseed.
+  // Pushed LAST, after SPM-51, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm67 = (key: string, title: string, date: string, from: string, to: string): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+      purpose: "SPM-67 withdraw or release venue booking test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "theatre",
+    };
+  };
+  eventData.push(
+    spm67("spm67_pending_pair", "SPM67 Pending Pair", "2027-11-02", "09:00", "12:00"),
+    spm67("spm67_release_pair", "SPM67 Release Pair", "2027-11-04", "09:00", "12:00"),
+    spm67("spm67_held_hall", "SPM67 Held Hall", "2027-11-09", "10:00", "12:00"),
+    spm67("spm67_booked_hall", "SPM67 Booked Hall", "2027-11-09", "15:00", "16:00"),
+    spm67("spm67_afternoon_briefing", "SPM67 Afternoon Briefing", "2027-11-09", "12:15", "14:15"),
+    spm67("spm67_only_room", "SPM67 Only Room", "2027-11-16", "09:00", "12:00"),
+    spm67("spm67_fresh_start", "SPM67 Fresh Start", "2027-11-18", "09:00", "12:00"),
+    spm67("spm67_status_mix", "SPM67 Status Mix", "2027-11-23", "09:00", "12:00"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-87 QA fixtures (Conduct Operational Safety Check). The SAME events as
+  // scripts/seed-spm87.ts (`npm run fixtures:spm87`) - keep the two in step.
+  //
+  // The events only. Their dedicated venue (SPM87 Hillside Studio) and its
+  // maintenance period, the bookings, equipment and pending safety checks are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm87 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-87 conduct operational safety check test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm87("spm87_hillside", "SPM87 Hillside Workshop", "safety_review", "2027-10-08", 10, 3, 50,
+      { accessibilityNotes: "Two attendees use wheelchairs; step-free route needed" }),
+    spm87("spm87_lakeside", "SPM87 Lakeside Conference", "safety_review", "2027-10-12", 9, 8, 60),
+    spm87("spm87_waterfront", "SPM87 Waterfront Gala", "safety_review", "2027-10-18", 18, 4, 60),
+    spm87("spm87_rooftop", "SPM87 Rooftop Launch Party", "safety_review", "2027-10-20", 19, 3, 300),
+    spm87("spm87_twin_tab", "SPM87 Twin Tab Briefing", "safety_review", "2027-10-22", 9, 2, 30),
+    spm87("spm87_unsubmitted", "SPM87 Unsubmitted Planning Day", "planning", "2027-10-26", 9, 4, 40),
+  );
+
+  // SPM-90 QA fixtures (Check Each Venue Against Its Own Requirements). The
+  // SAME events as scripts/seed-spm90.ts (`npm run fixtures:spm90`) - keep the
+  // two in step.
+  //
+  // The events and their mandatory "Step-free access" requirement (in the
+  // facility requirements block below). Their bookings - each with what its
+  // space is for and that space's own attendance and layout - and the Two-Day
+  // Forum's sessions are created by that script alone, so run it once after a
+  // full reseed.
+  // Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm90 = (key: string, title: string, date: string, durationHours: number): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-90 check each venue against its own requirements test event", category: "conference",
+    days: daysUntil(date), startHour: 9, durationHours, attendance: 150, layout: "theatre",
+  });
+  const SPM90_EVENTS: EventSeed[] = [
+    spm90("spm90_conference", "SPM90 Annual Conference", "2027-09-07", 8),
+    spm90("spm90_training", "SPM90 Training Day", "2027-09-09", 8),
+    spm90("spm90_expo", "SPM90 Product Expo", "2027-09-14", 8),
+    spm90("spm90_awards", "SPM90 Awards Night", "2027-09-16", 8),
+    spm90("spm90_solo", "SPM90 Solo Seminar", "2027-09-21", 3),
+    // Runs from Day 1's start (23 Sep 09:00) to Day 2's end (24 Sep 12:00).
+    spm90("spm90_forum", "SPM90 Two-Day Forum", "2027-09-23", 27),
+  ];
+  eventData.push(...SPM90_EVENTS);
+
+  // SPM-68 QA fixtures (Review Flagged Arrangements). The SAME events as
+  // scripts/seed-spm68.ts (`npm run fixtures:spm68`) - keep the two in step.
+  //
+  // The events only. Their bookings, equipment reservations, registrations
+  // and review flags - and the two SPM68 equipment items - are created by
+  // that script alone, so run it once after a full reseed.
+  // Pushed LAST, after SPM-87 and SPM-90, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm68 = (
+    key: string, title: string, date: string, attendance: number, extra: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-68 review flagged arrangements test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 8,
+    attendance, layout: "theatre", ...extra,
+  });
+  eventData.push(
+    spm68("spm68_listing", "SPM68 Listing Summit", "2027-10-07", 50, { regEnabled: true, regCapacity: 60 }),
+    spm68("spm68_attendance", "SPM68 Attendance Review", "2027-10-06", 80),
+    spm68("spm68_outgrown", "SPM68 Outgrown Room", "2027-10-08", 150),
+    spm68("spm68_trouble", "SPM68 Venue Trouble Day", "2027-10-09", 40),
+    spm68("spm68_moved", "SPM68 Moved Date", "2027-10-14", 40),
+    spm68("spm68_kit", "SPM68 Kit Recheck", "2027-10-15", 40),
+    spm68("spm68_short", "SPM68 Short Kit", "2027-10-16", 40),
+    spm68("spm68_capacity", "SPM68 Capacity Cut", "2027-10-17", 40, { regEnabled: true, regCapacity: 10 }),
+    spm68("spm68_off", "SPM68 Registration Off", "2027-10-18", 40),
+    spm68("spm68_ready", "SPM68 Ready To Confirm", "2027-10-20", 40, { regEnabled: true, regCapacity: 30 }),
+    spm68("spm68_partner", "SPM68 Partner Briefing", "2027-10-21", 40, { coordinator: "priya.raj@connectsphere.com" }),
+    spm68("spm68_waived", "SPM68 Waived Room", "2027-10-23", 40),
+    spm68("spm68_breakout", "SPM68 Breakout Growth", "2027-10-25", 150),
+    spm68("spm68_cancelled", "SPM68 Cancelled Day", "2027-10-24", 40, {
+      status: "cancelled", cancellationReason: "Client called the event off",
+    }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-82 QA fixtures (Expire Tentative Venue Hold). The SAME events as
+  // scripts/seed-spm82.ts (`npm run fixtures:spm82`) - keep the two in step.
+  //
+  // The events only. Their venue bookings - the holds that expire, and the
+  // approved, rejected and withdrawn ones beside them - are created by that
+  // script alone, so run it once after a full reseed. It also moves SPM82
+  // Short Notice Meetup to 3 days after it is run; the date here is a
+  // placeholder. Pushed LAST so no earlier event's EVT- reference number shifts.
+  // -----------------------------------------------------------------
+  const spm82 = (key: string, title: string, date: string, startHour: number, durationHours: number): EventSeed => ({
+    key, title, status: "planning", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-82 expire tentative venue hold test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance: 30, layout: "theatre",
+  });
+  eventData.push(
+    spm82("spm82_briefing", "SPM82 Harbour Product Briefing", "2027-02-08", 9, 3),
+    spm82("spm82_countdown", "SPM82 Countdown Clinic", "2027-02-15", 9, 3),
+    spm82("spm82_lapsed", "SPM82 Lapsed Workshop", "2027-02-22", 14, 3),
+    spm82("spm82_warn", "SPM82 Closing Soon Forum", "2027-03-01", 9, 3),
+    spm82("spm82_expired_only", "SPM82 Expired Only Talk", "2027-03-01", 14, 2),
+    spm82("spm82_rival", "SPM82 Rival Seminar", "2027-02-22", 17, 2),
+    spm82("spm82_fresh", "SPM82 Fresh Request Expo", "2027-03-08", 9, 3),
+    spm82("spm82_short", "SPM82 Short Notice Meetup", "2027-03-15", 10, 2),
+  );
+
+  // SPM-88 QA fixtures (Resolve Safety Check Outcome). The SAME events as
+  // scripts/seed-spm88.ts (`npm run fixtures:spm88`) - keep the two in step.
+  //
+  // The events only. Their dedicated venue (SPM88 Harbour Studio), bookings,
+  // equipment and safety checks - with the dates SPM-88-TC01 quotes - are
+  // created by that script alone, so run it once after a full reseed.
+  // Pushed LAST, after SPM-82, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const SPM88_BEFORE_SAFETY = ["submitted", "under_review", "approved", "planning"];
+  const spm88 = (key: string, title: string, status: string, date: string, startHour: number,
+    durationHours: number, attendance: number): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-88 resolve safety check outcome test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre",
+    chain: {
+      planning: SPM88_BEFORE_SAFETY,
+      safety_review: [...SPM88_BEFORE_SAFETY, "safety_review"],
+      safety_cleared: [...SPM88_BEFORE_SAFETY, "safety_review", "safety_cleared"],
+      confirmed: [...SPM88_BEFORE_SAFETY, "safety_review", "safety_cleared", "confirmed"],
+    }[status],
+  });
+  eventData.push(
+    spm88("spm88_returned", "SPM88 Harbour Returned Forum", "planning", "2027-11-02", 9, 4, 60),
+    spm88("spm88_riverside", "SPM88 Riverside Review", "safety_review", "2027-11-04", 9, 4, 200),
+    spm88("spm88_gala", "SPM88 Approved Gala", "safety_cleared", "2027-11-09", 18, 4, 60),
+    spm88("spm88_seminar", "SPM88 Approved Seminar", "safety_cleared", "2027-11-11", 9, 4, 40),
+    spm88("spm88_showcase", "SPM88 Pending Showcase", "safety_review", "2027-11-12", 9, 4, 50),
+    spm88("spm88_workshop", "SPM88 Pending Workshop", "safety_review", "2027-11-16", 9, 4, 30),
+    spm88("spm88_expo", "SPM88 Confirmed Expo", "confirmed", "2027-11-18", 9, 8, 120),
+    spm88("spm88_unchecked", "SPM88 Unchecked Launch", "planning", "2027-11-23", 9, 4, 40),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -1018,8 +1944,9 @@ async function main() {
       where: { id: organiserId },
       select: { organisationId: true },
     });
-    const startsAt = e.status === "draft" ? null : day(e.days, e.startHour ?? 9);
-    const endsAt = startsAt ? new Date(startsAt.getTime() + (e.durationHours ?? 4) * 3_600_000) : null;
+    const startsAt = e.status === "draft" ? null : day(e.days, e.startHour ?? 9, e.startMinute ?? 0);
+    // Rounded: a fractional duration (SPM-93: 32h25m) would otherwise end a millisecond early.
+    const endsAt = startsAt ? new Date(startsAt.getTime() + Math.round((e.durationHours ?? 4) * 3_600_000)) : null;
 
     const created = await prisma.event.create({
       data: {
@@ -1091,6 +2018,9 @@ async function main() {
       ["Livestream capability", true], ["Green room", false]]],
     ["spm28_approve", [["Built-in PA system", true], ["Fixed ceiling projector", true]]],
   );
+  // SPM-90 fixtures - same as scripts/seed-spm90.ts: every space of these
+  // events, a breakout room included, must have step-free access.
+  facReqs.push(...SPM90_EVENTS.map((e): [string, [string, boolean][]] => [e.key, [["Step-free access", true]]]));
   for (const [eventKey, reqs] of facReqs) {
     for (const [facilityName, isMandatory] of reqs) {
       await prisma.eventFacilityRequirement.create({
@@ -1115,6 +2045,8 @@ async function main() {
     cancelled: ["submitted", "under_review", "approved", "planning", "cancelled"],
     // SPM-30's postponed fixture; same chain as scripts/seed-spm30.ts.
     postponed: ["submitted", "under_review", "approved", "planning", "postponed"],
+    // SPM-85's forum is waiting for its Operational Safety Check (SPM-86).
+    safety_review: ["submitted", "under_review", "approved", "planning", "safety_review"],
   };
   const REASONS: Record<string, string> = {
     under_review: "Coordinator assigned",
@@ -1125,9 +2057,11 @@ async function main() {
     rejected: "Overnight occupancy not licensed",
     cancelled: "Client withdrew the request",
     postponed: "Client requested a later date",
+    withdrawn: "Organiser asked to withdraw; coordinator recorded it",
+    safety_review: "Submitted for an Operational Safety Check",
   };
   for (const e of eventData) {
-    const chain = CHAIN[e.status];
+    const chain = e.chain ?? CHAIN[e.status];
     let prev = "draft";
     for (let i = 0; i < chain.length; i++) {
       const to = chain[i];
@@ -1192,8 +2126,9 @@ async function main() {
   // [eventKey, venueCode, status] — no two 'approved' rows share a venue and
   // an overlapping time. That rule is enforced by route code, not the
   // database, so the seed has to respect it itself.
+  // No PENDING row belongs to a Submitted or Under review event: since SPM-54
+  // a venue can only be requested once the event is approved.
   const bookings: [string, string, string, string?][] = [
-    ["submitted", "ORC-SEM", "pending"],
     ["submitted", "MAR-AUD", "rejected", "Auditorium seating is fixed theatre-style and cannot support parallel tracks."],
     ["planning", "MAR-GH", "approved"],
     ["expo_day", "ORC-GAL", "approved"],
@@ -1210,7 +2145,6 @@ async function main() {
     ["confirmed_cpd", "ONE-SEM", "approved"],
     ["planning_safety", "CBP-CONF", "pending"],
     ["planning_field", "ORC-STU", "pending"],
-    ["review_journal", "CBP-MTG1", "pending"],
     ["completed_annual", "MAR-GH", "approved"],
     ["completed_induction", "ORC-SEM", "approved"],
     ["completed_retreat", "MAR-BR1", "approved"],
@@ -1229,6 +2163,10 @@ async function main() {
       data: {
         eventId: ev.id,
         venueId: venues[venueCode],
+        // SPM-90: each of these is its event's only room, so its space is the
+        // main programme, on the event's own attendance and layout.
+        purpose: "Main programme",
+        expectedAttendance: seed.attendance,
         layoutName: seed.layout,
         startsAt: ev.startsAt!,
         endsAt: ev.endsAt!,
@@ -1259,6 +2197,19 @@ async function main() {
       needsReview: true,
       reviewReason: "layout_capacity_below_attendance",
       flaggedAt: day(-2),
+    },
+  });
+
+  // One rejected request carries a suggested alternative (SPM-43 AC6), so the
+  // two columns that story added - suggestedVenueId and suggestedAlternative -
+  // hold something on a fresh database. Venue Staff refused Marina Auditorium
+  // for the developer summit's parallel tracks and pointed at the room whose
+  // partitions can split; nothing was booked by the suggestion.
+  await prisma.venueBooking.updateMany({
+    where: { eventId: events["submitted"].id, venueId: venues["MAR-AUD"], status: "rejected" },
+    data: {
+      suggestedVenueId: venues["ORC-SEM"],
+      suggestedAlternative: "The movable partitions there can split the room for parallel tracks.",
     },
   });
 
@@ -1439,6 +2390,11 @@ async function main() {
     ["spm28_launch", "Streaming Encoder", 1, null, "requested"],
     ["spm28_approve", "Handheld Wireless Mic", 2, null, "requested"],
   );
+  // SPM-54 fixtures - same as scripts/seed-spm54.ts. Requested by the organiser.
+  eqReqs.push(
+    ["spm54_begin_save", "Handheld Wireless Mic", 2, null, "requested"],
+    ["spm54_begin_remove", "Handheld Wireless Mic", 1, null, "requested"],
+  );
   for (let i = 0; i < eqReqs.length; i++) {
     const [eventKey, eqName, requested, reserved, status, note] = eqReqs[i];
     const ev = events[eventKey];
@@ -1455,7 +2411,12 @@ async function main() {
         startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
         endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
         status,
-        requestedBy: seed.coordinator ? users[seed.coordinator] : users["daniel.tan@connectsphere.com"],
+        // SPM-54's items stand for what the organiser asked for on the request
+        // form: on an Approved event the coordinator cannot have recorded
+        // anything yet, since their first equipment action begins planning.
+        requestedBy: eventKey.startsWith("spm54_")
+          ? users[`organiser:${seed.organiser}`]
+          : seed.coordinator ? users[seed.coordinator] : users["daniel.tan@connectsphere.com"],
         requestedAt: day(seed.days - 27),
         // SPM-49-TC20 is run as chloe.teo and needs a reservation someone
         // else made, so that one reviewer is fixed rather than rotated.
@@ -1463,6 +2424,42 @@ async function main() {
           ? users[eventKey === "fx49_reserved_showcase" ? "kenji.sato@connectsphere.com" : techStaff[i % techStaff.length]]
           : undefined,
         reviewedAt: reviewed ? day(seed.days - 25) : undefined,
+      },
+    });
+  }
+
+  // SPM-50 test-case requests - same rows as scripts/seed-spm50.ts. Kept out
+  // of eqReqs because some already carry Technical Support's notes, and the
+  // reviewer is fixed rather than rotated, so the names the cases see are stable.
+  // [eventKey, equipment, requested, reserved|null, status, technical requirements, staff notes, reviewer]
+  const spm50Requests: [string, string, number, number | null, string, string | null, string | null, string | null][] = [
+    ["spm50_robotics_expo", "Wireless Presenter", 2, null, "requested", "Must pair with the stage laptop over USB-C", null, null],
+    ["spm50_robotics_expo", "Confidence Monitor", 3, null, "requested", "Floor wedges facing the speaker, HDMI from the lectern", null, null],
+    ["spm50_design_week", "Ring Light", 2, null, "unavailable", null, "Both units out for repair", "aisha.omar@connectsphere.com"],
+    ["spm50_design_week", "Confidence Monitor", 1, null, "requested", null, null, null],
+    ["spm50_charity_briefing", "Mobile Charging Cart", 1, 1, "reserved", null, null, "kenji.sato@connectsphere.com"],
+    ["spm50_charity_gala", "Mobile Charging Cart", 1, null, "requested", null, null, null],
+    ["spm50_confirmed_launch", "Wireless Presenter", 2, 2, "reserved", null, null, "kenji.sato@connectsphere.com"],
+    ["spm50_pending_showcase", "Wireless Presenter", 1, null, "requested", null, null, null],
+    ["spm50_approved_briefing", "Wireless Presenter", 1, null, "requested", null, null, null],
+  ];
+  for (const [eventKey, eqName, requested, reserved, status, requirements, staffNotes, reviewer] of spm50Requests) {
+    const ev = events[eventKey];
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: ev.id,
+        equipmentId: equip[eqName],
+        quantityRequested: requested,
+        quantityReserved: reserved ?? undefined,
+        technicalRequirements: requirements ?? undefined,
+        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
+        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(ev.days - 27),
+        reviewedBy: reviewer ? users[reviewer] : undefined,
+        reviewedAt: reviewer ? day(ev.days - 25) : undefined,
+        staffNotes: staffNotes ?? undefined,
       },
     });
   }
@@ -1566,6 +2563,192 @@ async function main() {
         eventId: spm42Forum.id, label,
         startsAt: day(daysUntil(date), from), endsAt: day(daysUntil(date), from + 3),
         expectedAttendance: attendance, preferredLayout: layout,
+      },
+    });
+  }
+
+  // SPM-43: the booking requests Venue Staff find on Booking Requests, the
+  // two sessions of the Two-Day Forum, and the one maintenance period on
+  // SPM43-MNT (SPM-43-TC13). Same as scripts/seed-spm43.ts. Each request
+  // holds whole slots on its own date - [first hour, last hour] below are the
+  // customer's slot edges (#50): AM 7-12, PM 13-18, Night 19-24.
+  const spm43Sessions: Record<string, string> = {};
+  for (const [label, date, from, attendance, layout] of [
+    ["Day 1", "2027-05-11", 9, 60, "theatre"],
+    ["Day 2", "2027-05-12", 14, 30, "classroom"],
+  ] as const) {
+    const session = await prisma.eventSession.create({
+      data: {
+        eventId: events["spm43_sessions"].id, label,
+        startsAt: day(daysUntil(date), from), endsAt: day(daysUntil(date), from + 3),
+        expectedAttendance: attendance, preferredLayout: layout,
+      },
+    });
+    spm43Sessions[label] = session.id;
+  }
+  const spm43Bookings: {
+    event: string; venue: string; date: string; from: number; to: number; layout: string;
+    status?: "approved"; session?: string; note?: string;
+  }[] = [
+    { event: "spm43_approve", venue: "ORC-SEM", date: "2027-05-04", from: 7, to: 18, layout: "theatre",
+      note: "Lectern and two handheld microphones." },
+    { event: "spm43_reject", venue: "MAR-AUD", date: "2027-05-05", from: 13, to: 18, layout: "theatre" },
+    { event: "spm43_suggest", venue: "ORC-GAL", date: "2027-05-06", from: 19, to: 24, layout: "banquet",
+      note: "Round tables of ten, stage for the awards." },
+    { event: "spm43_arrangement", venue: "ONE-AUD", date: "2027-05-08", from: 13, to: 18, layout: "theatre" },
+    { event: "spm43_confirmed", venue: "MAR-AUD", date: "2027-05-07", from: 7, to: 18, layout: "theatre",
+      status: "approved" },
+    { event: "spm43_turnaround", venue: "MAR-AUD", date: "2027-05-07", from: 19, to: 24, layout: "theatre" },
+    { event: "spm43_rival_a", venue: "ORC-STU", date: "2027-05-10", from: 13, to: 18, layout: "classroom" },
+    { event: "spm43_rival_b", venue: "ORC-STU", date: "2027-05-10", from: 13, to: 18, layout: "classroom" },
+    { event: "spm43_sessions", venue: "ONE-SEM", date: "2027-05-11", from: 7, to: 12, layout: "theatre",
+      session: "Day 1" },
+    { event: "spm43_sessions", venue: "JUR-TRN", date: "2027-05-12", from: 13, to: 18, layout: "classroom",
+      session: "Day 2", note: "Tables in rows, power at every seat." },
+    { event: "spm43_cancelled_event", venue: "CBP-CONF", date: "2027-05-13", from: 7, to: 18, layout: "theatre" },
+    { event: "spm43_maintenance", venue: "SPM43-MNT", date: "2027-05-14", from: 7, to: 12, layout: "classroom" },
+    { event: "spm43_retire", venue: "SPM43-RET", date: "2027-05-17", from: 13, to: 18, layout: "classroom" },
+    // Not creatable in the app since SPM-54 - stands for a request made
+    // before that rule (SPM-43-TC15).
+    { event: "spm43_under_review", venue: "ORC-STU", date: "2027-05-18", from: 7, to: 12, layout: "classroom" },
+    // Its setup slot (8 May AM) follows Board Strategy Day's turnaround
+    // (7 May Night), so it does not clash (SPM-43-TC16).
+    { event: "spm43_after_turnaround", venue: "MAR-AUD", date: "2027-05-08", from: 13, to: 18, layout: "theatre" },
+  ];
+  for (const b of spm43Bookings) {
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[b.event].id,
+        sessionId: b.session ? spm43Sessions[b.session] : undefined,
+        venueId: venues[b.venue],
+        layoutName: b.layout,
+        startsAt: day(daysUntil(b.date), b.from),
+        endsAt: day(daysUntil(b.date), b.to),
+        status: b.status ?? "pending",
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(-3),
+        requirementsNote: b.note,
+        decidedBy: b.status ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: b.status ? day(-2) : undefined,
+      },
+    });
+  }
+  await prisma.venueUnavailability.create({
+    data: {
+      venueId: venues["SPM43-MNT"],
+      startsAt: day(daysUntil("2027-05-14"), 0),
+      endsAt: day(daysUntil("2027-05-14"), 24),
+      reason: "maintenance",
+      notes: "SPM-43 fixture: floor resurfacing",
+      createdBy: users["marcus.wong@connectsphere.com"],
+    },
+  });
+
+  // SPM-44: the bookings its holder events already have, and SPM44-PLN's
+  // maintenance period (AC8). Same as scripts/seed-spm44.ts - each booking
+  // spans its event's own times, as the script stores it. The block's notes
+  // start "SPM44" because that is how the script finds it to replace it.
+  const spm44Bookings: {
+    event: string; venue: string; date: string; from: number; to: number; layout: string;
+    status: "approved" | "pending" | "rejected" | "cancelled"; by: string; reason?: string;
+  }[] = [
+    { event: "spm44_holder_approved", venue: "SPM44-PLN", date: "2027-04-05", from: 14, to: 16, layout: "classroom",
+      status: "approved", by: PRIYA },
+    { event: "spm44_holder_pending", venue: "SPM44-PLN", date: "2027-04-06", from: 14, to: 16, layout: "classroom",
+      status: "pending", by: PRIYA },
+    { event: "spm44_holder_rejected", venue: "SPM44-PLN", date: "2027-04-07", from: 14, to: 16, layout: "classroom",
+      status: "rejected", by: PRIYA, reason: "Room needed for internal works." },
+    { event: "spm44_holder_cancelled", venue: "SPM44-PLN", date: "2027-04-08", from: 14, to: 16, layout: "classroom",
+      status: "cancelled", by: PRIYA, reason: "Released by the coordinator." },
+    { event: "spm44_setup_holder", venue: "ORC-SEM", date: "2027-04-09", from: 14, to: 16, layout: "theatre",
+      status: "approved", by: PRIYA },
+    { event: "spm44_midnight_holder", venue: "ORC-SEM", date: "2027-04-12", from: 20, to: 22, layout: "theatre",
+      status: "approved", by: PRIYA },
+    // AC6: approved first, so the rival below can no longer be approved.
+    { event: "spm44_approval_holder", venue: "SPM44-PLN", date: "2027-04-25", from: 14, to: 16, layout: "classroom",
+      status: "approved", by: PRIYA },
+    { event: "spm44_approval_rival", venue: "SPM44-PLN", date: "2027-04-25", from: 14, to: 16, layout: "classroom",
+      status: "pending", by: "daniel.tan@connectsphere.com" },
+  ];
+  for (const b of spm44Bookings) {
+    const decided = b.status !== "pending";
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[b.event].id,
+        venueId: venues[b.venue],
+        layoutName: b.layout,
+        startsAt: day(daysUntil(b.date), b.from),
+        endsAt: day(daysUntil(b.date), b.to),
+        status: b.status,
+        requestedBy: users[b.by],
+        requestedAt: day(-3),
+        decidedBy: decided ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: decided ? day(-2) : undefined,
+        decisionReason: b.reason,
+      },
+    });
+  }
+  await prisma.venueUnavailability.create({
+    data: {
+      venueId: venues["SPM44-PLN"],
+      startsAt: day(daysUntil("2027-04-20"), 0),
+      endsAt: day(daysUntil("2027-04-22"), 0),
+      reason: "maintenance",
+      notes: "SPM44 test block: air-handling unit replacement.",
+      createdBy: users["marcus.wong@connectsphere.com"],
+    },
+  });
+
+  // SPM-45 fixtures, the same as scripts/seed-spm45.ts. Each booking spans its
+  // event's own times, placed against the period its test case records:
+  //   SPM45-PER  each meets an edge of 10 Jun 13:00 - 15 Jun 13:00, two from
+  //              outside it and two from inside (TC09)
+  //   SPM45-SET  a turnaround that runs into 21 Jun 09:00 - 22 Jun 13:00, and a
+  //              setup that starts as it ends (TC13)
+  //   SPM45-STA  an approved, a pending and a finished booking (TC14)
+  // and two periods that already exist - one under way (TC15, TC16), one that
+  // has passed (TC17).
+  const spm45Bookings: [string, string, string][] = [
+    ["spm45_before", "SPM45-PER", "approved"],
+    ["spm45_first", "SPM45-PER", "approved"],
+    ["spm45_last", "SPM45-PER", "approved"],
+    ["spm45_after", "SPM45-PER", "approved"],
+    ["spm45_turnaround", "SPM45-SET", "approved"],
+    ["spm45_setup", "SPM45-SET", "approved"],
+    ["spm45_approved", "SPM45-STA", "approved"],
+    ["spm45_pending", "SPM45-STA", "pending"],
+    ["spm45_finished", "SPM45-STA", "approved"],
+  ];
+  for (const [event, venueCode, status] of spm45Bookings) {
+    const approved = status === "approved";
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[event].id,
+        venueId: venues[venueCode],
+        layoutName: "classroom",
+        startsAt: events[event].startsAt!,
+        endsAt: events[event].endsAt!,
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(-3),
+        decidedBy: approved ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: approved ? day(-2) : undefined,
+      },
+    });
+  }
+  // [venue, unavailable from (date, hour), available again (date, hour), reason]
+  const spm45Periods: [string, string, number, string, number, string][] = [
+    ["SPM45-NOW", "2026-10-01", 0, "2028-12-01", 9, "renovation"],
+    ["SPM45-BAK", "2026-09-01", 0, "2026-10-01", 12, "maintenance"],
+  ];
+  for (const [code, from, fromHour, until, untilHour, reason] of spm45Periods) {
+    await prisma.venueUnavailability.create({
+      data: {
+        venueId: venues[code],
+        startsAt: day(daysUntil(from), fromHour),
+        endsAt: day(daysUntil(until), untilHour),
+        reason,
+        createdBy: users["marcus.wong@connectsphere.com"],
       },
     });
   }

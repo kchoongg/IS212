@@ -8,7 +8,6 @@ import {
   parseWallClock,
   searchVenues,
   toWallClock,
-  withinOpeningHours,
   type SearchableVenue,
 } from "../venueSearch";
 
@@ -17,7 +16,7 @@ import {
 // describe the same rooms.
 //
 // Times are Singapore wall-clock with an explicit +08:00 offset, the same
-// convention as venueSlots.test.ts - so the tests pass on a machine in any zone.
+// convention as venueTime.test.ts - so the tests pass on a machine in any zone.
 
 const sgt = (iso: string) => new Date(`${iso}+08:00`);
 const at = (from: string, to: string) => ({ startsAt: sgt(from), endsAt: sgt(to) });
@@ -68,7 +67,7 @@ const ONE_ROOF = venue({
 });
 const NO_LAYOUTS = venue({ name: "Empty Shell", layouts: [] });
 
-const DAY = at("2026-12-09T09:00:00", "2026-12-09T11:00:00"); // AM only
+const DAY = at("2026-12-09T09:00:00", "2026-12-09T11:00:00");
 
 describe("AC5 - room layout", () => {
   it("matches a venue that offers the layout and drops one that does not", () => {
@@ -127,85 +126,73 @@ describe("AC4 and AC6 - accessibility and facilities", () => {
   });
 });
 
-describe("AC1 - date and time: opening hours (#46)", () => {
+// SPM-93: the window a search asks about is widened by the venue's setup and
+// turnaround minutes before anything is compared with it (Week 7 Customer
+// Changes, Change #1) - the same occupied period a booking request is checked on.
+describe("AC1 - date and time: opening hours (#46), setup and turnaround included", () => {
   it("drops a venue that opens after the event starts", () => {
     // One-North Rooftop opens at 16:00.
-    expect(withinOpeningHours(ONE_ROOF, DAY)).toBe(false);
-    expect(withinOpeningHours(ONE_ROOF, at("2026-12-09T17:00:00", "2026-12-09T22:00:00"))).toBe(true);
+    expect(failedCriteria(ONE_ROOF, { window: DAY })).toContain("opening_hours");
   });
 
-  it("drops a venue that closes before the event ends", () => {
-    expect(withinOpeningHours(ORC_SEM, at("2026-12-09T19:00:00", "2026-12-09T22:30:00"))).toBe(false);
+  it("allows setup to start at opening and turnaround to end at closing exactly", () => {
+    // Orchard: open 08:00-22:00, 60 min setup, 30 min turnaround.
+    expect(failedCriteria(ORC_SEM, { window: at("2026-12-09T09:00:00", "2026-12-09T21:30:00") })).toEqual([]);
   });
 
-  it("allows starting at opening and ending at closing exactly", () => {
-    expect(withinOpeningHours(ORC_SEM, at("2026-12-09T08:00:00", "2026-12-09T22:00:00"))).toBe(true);
+  it("drops a venue whose setup would start before it opens", () => {
+    expect(failedCriteria(ORC_SEM, { window: at("2026-12-09T08:45:00", "2026-12-09T11:00:00") })).toEqual(["opening_hours"]);
   });
 
-  it("reads an end at midnight as 24:00, the end of the day", () => {
-    const allNight = venue({ opensAt: "07:00", closesAt: "23:59" });
-    expect(withinOpeningHours(allNight, at("2026-12-09T19:00:00", "2026-12-10T00:00:00"))).toBe(false);
-  });
-
-  it("checks the first day's start and the last day's end of a multi-day event", () => {
-    expect(withinOpeningHours(ORC_SEM, at("2026-12-09T09:00:00", "2026-12-10T18:00:00"))).toBe(true);
-  });
-
-  it("does not hide a venue whose stored hours cannot be read", () => {
-    expect(withinOpeningHours(venue({ opensAt: "late", closesAt: "?" }), DAY)).toBe(true);
+  it("drops a venue whose turnaround would end after it closes", () => {
+    expect(failedCriteria(ORC_SEM, { window: at("2026-12-09T19:00:00", "2026-12-09T21:45:00") })).toEqual(["opening_hours"]);
   });
 });
 
-describe("AC1 - date and time: occupancy, via SPM-46's slot rules", () => {
+describe("AC1 - date and time: occupancy, setup and turnaround included (SPM-93)", () => {
   const approved = (from: string, to: string, eventId = "other") => ({
     ...at(from, to),
     eventId,
     status: "approved",
   });
-
-  it("drops a venue with an approved booking in the same slot (#107)", () => {
-    // Different minutes, same AM slot - consumed in full.
-    const booked = venue({ bookings: [approved("2026-12-09T11:00:00", "2026-12-09T11:45:00")] });
-    expect(occupancyConflict(booked, at("2026-12-09T08:00:00", "2026-12-09T09:00:00"))).toBe("booked");
+  // SPM93 Studio: 30 min setup, 45 min turnaround; SPM93 Morning Masterclass
+  // approved 8 Jun 2027 10:00-12:00, so the room is in use 09:30-12:45.
+  const studio = venue({
+    name: "SPM93 Studio",
+    setupMinutes: 30,
+    teardownMinutes: 45,
+    bookings: [approved("2027-06-08T10:00:00", "2027-06-08T12:00:00")],
   });
 
-  it("drops a venue whose turnaround slot is taken by the other booking (#123)", () => {
-    // An AM booking with turnaround holds PM. A PM search must not get it.
-    const booked = venue({ bookings: [approved("2026-12-09T09:00:00", "2026-12-09T11:00:00")] });
-    expect(occupancyConflict(booked, at("2026-12-09T14:00:00", "2026-12-09T16:00:00"))).toBe("booked");
+  it("SPM-93-TC17: drops a venue whose turnaround would run into an approved booking's setup", () => {
+    expect(occupancyConflict(studio, at("2027-06-08T08:15:00", "2027-06-08T09:00:00"))).toBe("booked");
   });
 
-  it("counts the REQUESTED event's own setup slot too", () => {
-    // A Night booking the day before, with its turnaround, holds this morning's
-    // AM. Even without that, THIS AM event needs the previous Night for setup.
-    const booked = venue({
-      setupMinutes: 60,
-      teardownMinutes: 0,
-      bookings: [approved("2026-12-08T19:00:00", "2026-12-08T22:00:00")],
-    });
-    expect(occupancyConflict(booked, DAY)).toBe("booked");
+  it("SPM-93-TC17: offers it when the turnaround ends as that setup starts", () => {
+    expect(occupancyConflict(studio, at("2027-06-08T08:15:00", "2027-06-08T08:45:00"))).toBeNull();
   });
 
-  it("offers the venue when setup and turnaround leave a free slot between", () => {
-    // Night booking, no turnaround recorded; this search is next day's PM, whose
-    // setup slot is AM - free.
-    const quiet = venue({
-      setupMinutes: 60,
-      teardownMinutes: 0,
-      bookings: [approved("2026-12-08T19:00:00", "2026-12-08T22:00:00")],
-    });
-    expect(occupancyConflict(quiet, at("2026-12-09T14:00:00", "2026-12-09T17:00:00"))).toBeNull();
+  it("drops a venue whose setup would run into an approved booking's turnaround", () => {
+    expect(occupancyConflict(studio, at("2027-06-08T13:00:00", "2027-06-08T14:00:00"))).toBe("booked");
+    expect(occupancyConflict(studio, at("2027-06-08T13:15:00", "2027-06-08T14:00:00"))).toBeNull();
   });
 
-  it("drops a venue on tentative hold for the time (#41), on the hold's own slots only", () => {
+  it("no longer takes a whole slot: a booking minutes away does not clash (#126, #128)", () => {
+    const quick = venue({ setupMinutes: 0, teardownMinutes: 0, bookings: [approved("2026-12-09T11:00:00", "2026-12-09T11:45:00")] });
+    expect(occupancyConflict(quick, at("2026-12-09T08:00:00", "2026-12-09T09:00:00"))).toBeNull();
+    expect(occupancyConflict(quick, at("2026-12-09T11:45:00", "2026-12-09T12:00:00"))).toBeNull();
+    expect(occupancyConflict(quick, at("2026-12-09T11:30:00", "2026-12-09T12:00:00"))).toBe("booked");
+  });
+
+  it("drops a venue on tentative hold for the time (#41), the hold's setup and turnaround included", () => {
+    // SPM93 Partner Lunch, pending 10 Jun 12:00-13:00: held 11:30-13:45.
     const held = venue({
-      setupMinutes: 0,
-      teardownMinutes: 0,
-      bookings: [{ ...at("2026-12-09T09:00:00", "2026-12-09T11:00:00"), eventId: "x", status: "pending" }],
+      setupMinutes: 30,
+      teardownMinutes: 45,
+      bookings: [{ ...at("2027-06-10T12:00:00", "2027-06-10T13:00:00"), eventId: "x", status: "pending" }],
     });
-    expect(occupancyConflict(held, DAY)).toBe("on_hold");
-    // The hold claims no turnaround, so the PM slot is still offered.
-    expect(occupancyConflict(held, at("2026-12-09T14:00:00", "2026-12-09T16:00:00"))).toBeNull();
+    expect(occupancyConflict(held, at("2027-06-10T14:00:00", "2027-06-10T15:00:00"))).toBe("on_hold");
+    expect(occupancyConflict(held, at("2027-06-10T14:15:00", "2027-06-10T15:00:00"))).toBeNull();
   });
 
   it("ignores rejected and cancelled requests", () => {
@@ -224,13 +211,14 @@ describe("AC1 - date and time: occupancy, via SPM-46's slot rules", () => {
     expect(occupancyConflict(own, DAY, "evt-2")).toBe("booked");
   });
 
-  it("drops a venue blocked for maintenance, setup time included", () => {
+  it("SPM-93-TC12: drops a venue whose setup would run into an unavailable period", () => {
     const blocked = venue({
-      unavailability: [{ ...at("2026-12-08T00:00:00", "2026-12-08T23:59:00"), reason: "renovation" }],
+      setupMinutes: 30,
+      teardownMinutes: 45,
+      unavailability: [{ ...at("2027-06-16T14:00:00", "2027-06-16T18:00:00"), reason: "maintenance" }],
     });
-    // The block ends the day before, but this AM event's setup is that Night.
-    expect(occupancyConflict(blocked, DAY)).toBe("unavailable");
-    expect(occupancyConflict(venue({ setupMinutes: 0, unavailability: blocked.unavailability }), DAY)).toBeNull();
+    expect(occupancyConflict(blocked, at("2027-06-16T18:15:00", "2027-06-16T20:00:00"))).toBe("unavailable");
+    expect(occupancyConflict(blocked, at("2027-06-16T18:30:00", "2027-06-16T20:00:00"))).toBeNull();
   });
 
   it("reports the most serious reason when several apply", () => {
@@ -275,6 +263,17 @@ describe("AC7 - results only display venues matching every selected criterion", 
     const names = searchVenues(catalogue, { attendance: 50 }).map((v) => v.name);
     // Orchard classroom 60, Rooftop cabaret 100, Marina classroom 250.
     expect(names).toEqual(["Orchard Seminar Room", "One-North Rooftop Terrace", "Marina Grand Hall"]);
+  });
+
+  it("ranks by the chosen layout's fit, and by name when two fit as tightly", () => {
+    const a = venue({ name: "Beta Room", layouts: [{ layoutName: "theatre", capacity: 80 }, { layoutName: "classroom", capacity: 40 }] });
+    const b = venue({ name: "Alpha Room", layouts: [{ layoutName: "theatre", capacity: 80 }] });
+    const c = venue({ name: "Cosy Room", layouts: [{ layoutName: "theatre", capacity: 60 }] });
+    expect(searchVenues([a, b, c], { attendance: 40, layout: "theatre" }).map((v) => v.name)).toEqual([
+      "Cosy Room",
+      "Alpha Room",
+      "Beta Room",
+    ]);
   });
 
   it("lists by name otherwise", () => {

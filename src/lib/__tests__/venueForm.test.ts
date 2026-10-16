@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { INITIAL_VENUE, validateVenueForm, venuePayload, type VenueFormValues } from "../venueForm";
+import { INITIAL_VENUE, toVenueFormValues, validateVenueForm, venuePayload, type VenueFormValues } from "../venueForm";
 
 // Opening hours only. Venue.opensAt/closesAt are NOT NULL in the schema, and an
 // emptied field used to be sent as undefined - which PATCH reads as "leave this
@@ -59,5 +59,70 @@ describe("venuePayload - opening hours", () => {
     const payload = venuePayload({ ...VALID, opensAt: "07:00", closesAt: "23:00" });
     expect(payload.opensAt).toBe("07:00");
     expect(payload.closesAt).toBe("23:00");
+  });
+});
+
+// SPM-93 AC5: setup and turnaround are set in minutes, in 15-minute steps,
+// zero included.
+describe("validateVenueForm - setup and turnaround minutes", () => {
+  it.each(["0", "15", "30", "45", "240"])("SPM-93-TC07: accepts %s minutes for both", (minutes) => {
+    expect(validateVenueForm({ ...VALID, setupMinutes: minutes, teardownMinutes: minutes })).toEqual({});
+  });
+
+  it("SPM-93-TC07: refuses 20 minutes of setup and 50 of turnaround, naming both fields", () => {
+    expect(validateVenueForm({ ...VALID, setupMinutes: "20", teardownMinutes: "50" })).toEqual({
+      setupMinutes: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.",
+      teardownMinutes: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.",
+    });
+  });
+
+  it("keeps the whole-number message for negative or non-numeric minutes", () => {
+    expect(validateVenueForm({ ...VALID, setupMinutes: "-15", teardownMinutes: "1.5" })).toEqual({
+      setupMinutes: "Enter a whole number of minutes, 0 or more.",
+      teardownMinutes: "Enter a whole number of minutes, 0 or more.",
+    });
+  });
+});
+
+describe("toVenueFormValues", () => {
+  const saved = {
+    id: "v1",
+    code: "ORC-SEM",
+    name: "Orchard Seminar Room",
+    description: "Level 3, by the lifts",
+    building: "Orchard Hub",
+    floor: "3",
+    address: "1 Orchard Road",
+    maxCapacity: 120,
+    opensAt: "08:00",
+    closesAt: "22:00",
+    setupMinutes: 30,
+    teardownMinutes: 15,
+    isActive: true,
+    layouts: [{ layoutName: "theatre", capacity: 100 }],
+    facilities: [{ facilityId: "wifi" }],
+  };
+
+  it("fills the form in with what is saved, numbers as text", () => {
+    expect(toVenueFormValues(saved)).toEqual({
+      code: "ORC-SEM",
+      name: "Orchard Seminar Room",
+      description: "Level 3, by the lifts",
+      building: "Orchard Hub",
+      floor: "3",
+      address: "1 Orchard Road",
+      maxCapacity: "120",
+      opensAt: "08:00",
+      closesAt: "22:00",
+      setupMinutes: "30",
+      teardownMinutes: "15",
+      facilityIds: ["wifi"],
+      layouts: [{ layoutName: "theatre", capacity: "100" }],
+    });
+  });
+
+  it("leaves the optional fields empty when nothing is saved for them", () => {
+    const values = toVenueFormValues({ ...saved, description: null, floor: null, address: null });
+    expect([values.description, values.floor, values.address]).toEqual(["", "", ""]);
   });
 });

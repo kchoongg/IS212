@@ -1,0 +1,432 @@
+{
+  "story_key": "SPM-93",
+  "story_title": "As an Event Coordinator, I want to book a venue for the times my event needs, in 15-minute steps, so that a venue is not held for a whole morning, afternoon or night when the event needs only part of it",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-08",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "A venue booking request is made for a start time and an end time on a 15-minute grid (e.g. 10:00–12:15), not by choosing AM, PM or Night slots."
+    },
+    {
+      "id": "AC2",
+      "text": "The requested times default to the event's (or the session's) own start and end, widened to the nearest 15 minutes where they do not fall on the grid."
+    },
+    {
+      "id": "AC3",
+      "text": "Given a start or end time is not on a 15-minute boundary, or the end is not after the start, when the request is submitted, then it is refused and the time is identified."
+    },
+    {
+      "id": "AC4",
+      "text": "Any period within the venue's opening hours can be booked; there is no fixed lunch or dinner blackout."
+    },
+    {
+      "id": "AC5",
+      "text": "Each venue's setup time and turnaround time are set in minutes, in 15-minute steps (including zero), instead of whole adjacent slots."
+    },
+    {
+      "id": "AC6",
+      "text": "When availability and conflicts are checked, a booking occupies the venue from its start minus the venue's setup time to its end plus the venue's turnaround time."
+    },
+    {
+      "id": "AC7",
+      "text": "Two bookings at the same venue conflict when their occupied periods overlap; occupied periods that only meet end to start do not conflict."
+    },
+    {
+      "id": "AC8",
+      "text": "Venue Staff reviewing a request see the requested times and the occupied period including setup and turnaround."
+    },
+    {
+      "id": "AC9",
+      "text": "The venue availability calendar shows bookings, holds and unavailable periods at their actual times, with setup and turnaround shown separately from the booked time."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-93-TC01",
+      "title": "A request defaults to the event's times widened to the 15-minute grid, shows the setup and turnaround around them, and is sent as times, not slots",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` from the project folder before this case (it only touches the 'SPM93 …' events and venues, never anyone else's data). Run it again after this case: the case sends a booking request.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM93 Product Clinic'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM93 Product Clinic | When: 9 Jun 2027, 14:10–15:50 | No sessions | Status: Planning\nVenue: SPM93 Studio (SPM93-STU) | Open 07:00–22:00 | Setup 30 min | Turnaround 45 min",
+      "expected_result": "Step 4: The 'Request a venue booking' page opens for 'SPM93 Product Clinic' at 'SPM93 Studio (SPM93-STU)'. There are no AM, PM or Night checkboxes. 'Date' shows 9 Jun 2027, 'Start time' shows 14:00 and 'End time' shows 16:00 (the event's 14:10–15:50 widened to the 15-minute grid). Below them: 'Setup: 13:30–14:00 (30 min)', 'Turnaround: 16:00–16:45 (45 min)' and 'Room in use: 13:30–16:45'.\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown.\nStep 6: The Venue tab's 'Booking requests' card lists 'SPM93 Studio (SPM93-STU)' with '9 Jun 2027, 14:00–16:00 · Theatre' and the 'Pending' badge."
+    },
+    {
+      "id": "SPM-93-TC02",
+      "title": "For a multi-session event the request defaults to the chosen session's own times, widened only where they are off the grid",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm93` has been run since the last full `npx prisma db seed`.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM93 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Two-Day Forum'",
+        "Click the 'Venue' tab",
+        "Choose 'Day 1 — 17 Jun 2027, 09:05–11:50' in the 'Session' picker",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Click 'Cancel'",
+        "Choose 'Day 2 — 18 Jun 2027, 14:00–17:30' in the 'Session' picker",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM93 Two-Day Forum | Sessions: 'Day 1' 17 Jun 2027, 09:05–11:50; 'Day 2' 18 Jun 2027, 14:00–17:30\nVenue: SPM93 Studio (SPM93-STU) | Setup 30 min | Turnaround 45 min",
+      "expected_result": "Step 4: The 'Request a venue booking' page shows 'Session: Day 1 — 17 Jun 2027, 09:05–11:50'. 'Date' shows 17 Jun 2027, 'Start time' 09:00 and 'End time' 12:00 (the session's times widened outwards to the grid, not the event's). 'Room in use: 08:30–12:45'.\nStep 5: The Venue tab opens again and no booking request has been added.\nStep 7: The page shows 'Session: Day 2 — 18 Jun 2027, 14:00–17:30'. 'Date' shows 18 Jun 2027, 'Start time' 14:00 and 'End time' 17:30, unchanged because both are already on the grid. 'Room in use: 13:30–18:15'.\nStep 8: The Venue tab opens again and no booking request has been added."
+    },
+    {
+      "id": "SPM-93-TC03",
+      "title": "Times off the 15-minute grid, and an end that is not after the start, are refused and the wrong time is named",
+      "linked_ac": [
+        "AC3",
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm93` has been run since the last full `npx prisma db seed`.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case: every submit is refused.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Validation Workshop'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'Start time' to 10:10 and click 'Submit request'",
+        "Change 'Start time' back to 10:00, change 'End time' to 12:20 and click 'Submit request'",
+        "Change 'End time' to 10:00 and click 'Submit request'",
+        "Change 'End time' to 09:45 and click 'Submit request'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM93 Validation Workshop | When: 11 Jun 2027, 10:00–12:00\nVenue: SPM93 Studio (SPM93-STU)\nTimes tried: start 10:10; end 12:20; end 10:00 (equal to start); end 09:45 (before start)",
+      "expected_result": "Step 4: The request is not sent. Under 'Start time' the error 'Choose a start time on a 15-minute step (:00, :15, :30 or :45).' is shown. 'End time' has no error.\nStep 5: The request is not sent. The 'Start time' error is gone. Under 'End time' the error 'Choose an end time on a 15-minute step (:00, :15, :30 or :45).' is shown.\nStep 6: The request is not sent. Under 'End time' the error 'The end time must be after the start time.' is shown.\nStep 7: The request is not sent. Under 'End time' the same error 'The end time must be after the start time.' is shown.\nStep 8: The Venue tab opens and its 'Booking requests' card has no request for SPM93 Studio."
+    },
+    {
+      "id": "SPM-93-TC04",
+      "title": "Requested times that do not cover the event's own time are refused",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm93` has been run since the last full `npx prisma db seed`.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case: the submit is refused.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Validation Workshop'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'Start time' to 10:30 and click 'Submit request'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM93 Validation Workshop | When: 11 Jun 2027, 10:00–12:00\nRequested: 11 Jun 2027, 10:30–12:00",
+      "expected_result": "Step 4: The request is not sent. A red alert reads 'The requested times do not cover the event's time (11 Jun 2027, 10:00–12:00).'\nStep 5: The Venue tab opens and its 'Booking requests' card has no request for SPM93 Studio."
+    },
+    {
+      "id": "SPM-93-TC05",
+      "title": "The old lunch and dinner gaps (12:00–13:00 and 18:00–19:00) can be booked",
+      "linked_ac": [
+        "AC4",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case sends two booking requests.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Lunch and Learn'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Quick Room (SPM93-QCK)'",
+        "Click 'Submit request'",
+        "Click 'All Events' in the sidebar and open 'SPM93 Sunset Talk'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Quick Room (SPM93-QCK)'",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Events: SPM93 Lunch and Learn, 14 Jun 2027, 12:00–13:00; SPM93 Sunset Talk, 14 Jun 2027, 18:00–19:00\nVenue: SPM93 Quick Room (SPM93-QCK) | Open 07:00–22:00 | Setup 0 min | Turnaround 0 min",
+      "expected_result": "Step 3: 'Date' shows 14 Jun 2027, 'Start time' 12:00 and 'End time' 13:00.\nStep 4: A green alert 'Booking request sent to Venue Staff.' is shown.\nStep 7: 'Date' shows 14 Jun 2027, 'Start time' 18:00 and 'End time' 19:00.\nStep 8: A green alert 'Booking request sent to Venue Staff.' is shown.\nStep 9: The 'Booking requests' card lists 'SPM93 Quick Room (SPM93-QCK)' with '14 Jun 2027, 18:00–19:00 · Theatre' and the 'Pending' badge."
+    },
+    {
+      "id": "SPM-93-TC06",
+      "title": "The room in use, setup and turnaround included, must fit within opening hours; times that just fit are accepted, a quarter-hour more is refused",
+      "linked_ac": [
+        "AC4",
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case sends two booking requests.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Breakfast Briefing'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'Start time' to 07:15 and click 'Submit request'",
+        "Change 'Start time' back to 07:30 and click 'Submit request'",
+        "Click 'All Events' in the sidebar and open 'SPM93 Evening Forum'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'End time' to 21:30 and click 'Submit request'",
+        "Change 'End time' back to 21:15 and click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM93 Studio (SPM93-STU) | Open 07:00–22:00 | Setup 30 min | Turnaround 45 min\nEvents: SPM93 Breakfast Briefing, 13 Jun 2027, 07:30–09:00; SPM93 Evening Forum, 13 Jun 2027, 20:00–21:15\nTried: 07:15–09:00 (room in use 06:45–09:45), 07:30–09:00 (07:00–09:45), 20:00–21:30 (19:30–22:15), 20:00–21:15 (19:30–22:00)",
+      "expected_result": "Step 4: 'Room in use: 06:45–09:45' is shown. The request is not sent; a red alert reads 'SPM93 Studio is open 07:00–22:00. With its 30 min setup and 45 min turnaround, choose times between 07:30 and 21:15.'\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown: setup starts exactly at opening time.\nStep 9: 'Room in use: 19:30–22:15' is shown. The request is not sent; a red alert reads 'SPM93 Studio is open 07:00–22:00. With its 30 min setup and 45 min turnaround, choose times between 07:30 and 21:15.'\nStep 10: A green alert 'Booking request sent to Venue Staff.' is shown: turnaround ends exactly at closing time."
+    },
+    {
+      "id": "SPM-93-TC07",
+      "title": "Venue Staff set setup and turnaround time in 15-minute steps, including zero; other minute values are refused",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case changes SPM93 Settings Room, a venue with no bookings that only this case uses.\nLogged out.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar and click the 'SPM93 Settings Room' row",
+        "Change 'Setup time (minutes)' to 20, change 'Turnaround time (minutes)' to 50, and click 'Save changes'",
+        "Change 'Setup time (minutes)' to 0, change 'Turnaround time (minutes)' to 15, and click 'Save changes'",
+        "Click 'Venues' in the sidebar and click the 'SPM93 Settings Room' row"
+      ],
+      "test_data": "Venue: SPM93 Settings Room (SPM93-SET) | Before: setup 30 min, turnaround 45 min\nRefused: setup 20, turnaround 50\nAccepted: setup 0, turnaround 15",
+      "expected_result": "Step 2: The venue edit page opens with 'Setup time (minutes)' 30 and 'Turnaround time (minutes)' 45. The hint under the setup field reads 'In 15-minute steps: 0, 15, 30, 45 and so on.'\nStep 3: Nothing is saved. Under 'Setup time (minutes)' and under 'Turnaround time (minutes)' the error 'Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.' is shown.\nStep 4: A green alert 'Changes saved' is shown with 'No approved bookings were affected, so nobody needed to be notified.'\nStep 5: The edit page shows 'Setup time (minutes)' 0 and 'Turnaround time (minutes)' 15."
+    },
+    {
+      "id": "SPM-93-TC08",
+      "title": "At a venue with no setup or turnaround, the room is in use only for the booked times, so a booking can start the minute another ends",
+      "linked_ac": [
+        "AC5",
+        "AC6",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case sends a booking request.\n'SPM93 Quick Demo' holds an Approved booking at SPM93 Quick Room on 8 Jun 2027, 10:00–12:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Follow-on Session'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Quick Room (SPM93-QCK)'",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM93 Quick Room (SPM93-QCK) | Setup 0 min | Turnaround 0 min\nApproved: SPM93 Quick Demo, 8 Jun 2027, 10:00–12:00\nRequested: SPM93 Follow-on Session, 8 Jun 2027, 12:00–13:00",
+      "expected_result": "Step 3: 'Start time' shows 12:00 and 'End time' 13:00. Instead of setup and turnaround lines the page reads 'No setup or turnaround needed at this venue.' and 'Room in use: 12:00–13:00'.\nStep 4: A green alert 'Booking request sent to Venue Staff.' is shown: the room in use ends at 12:00 for SPM93 Quick Demo and starts at 12:00 for this request, which only meet."
+    },
+    {
+      "id": "SPM-93-TC09",
+      "title": "A request whose turnaround runs into an approved booking's setup is refused; one whose turnaround ends as that setup starts is accepted",
+      "linked_ac": [
+        "AC6",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case sends a booking request.\n'SPM93 Morning Masterclass' holds an Approved booking at SPM93 Studio on 8 Jun 2027, 10:00–12:00, so the room is in use 09:30–12:45.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Early Huddle'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'End time' to 09:00 and click 'Submit request'",
+        "Change 'End time' back to 08:45 and click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM93 Studio (SPM93-STU) | Setup 30 min | Turnaround 45 min\nApproved: SPM93 Morning Masterclass, 8 Jun 2027, 10:00–12:00 (room in use 09:30–12:45)\nEvent: SPM93 Early Huddle, 8 Jun 2027, 08:15–08:45\nTried: 08:15–09:00 (room in use 07:45–09:45), then 08:15–08:45 (room in use 07:45–09:30)",
+      "expected_result": "Step 3: 'Start time' shows 08:15, 'End time' 08:45 and 'Room in use: 07:45–09:30'.\nStep 4: 'Room in use: 07:45–09:45' is shown. The request is not sent; a red alert reads 'SPM93 Studio is already booked for <reference> SPM93 Morning Masterclass on 8 Jun 2027, 09:30–09:45.' (the event times never meet the Masterclass's 10:00–12:00; only the turnaround reaches its setup, for those 15 minutes).\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown: the room in use ends at 09:30, exactly when the Masterclass's setup begins."
+    },
+    {
+      "id": "SPM-93-TC10",
+      "title": "A request whose setup runs into an approved booking's turnaround is refused; one whose setup starts as that turnaround ends is accepted",
+      "linked_ac": [
+        "AC6",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case sends a booking request.\n'SPM93 Morning Masterclass' holds an Approved booking at SPM93 Studio on 8 Jun 2027, 10:00–12:00, so the room is in use 09:30–12:45.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Afternoon Review'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'Start time' to 13:00 and click 'Submit request'",
+        "Change 'Start time' back to 13:15 and click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM93 Studio (SPM93-STU) | Setup 30 min | Turnaround 45 min\nApproved: SPM93 Morning Masterclass, 8 Jun 2027, 10:00–12:00 (room in use 09:30–12:45)\nEvent: SPM93 Afternoon Review, 8 Jun 2027, 13:15–14:00\nTried: 13:00–14:00 (room in use 12:30–14:45), then 13:15–14:00 (room in use 12:45–14:45)",
+      "expected_result": "Step 3: 'Start time' shows 13:15, 'End time' 14:00 and 'Room in use: 12:45–14:45'.\nStep 4: 'Room in use: 12:30–14:45' is shown. The request is not sent; a red alert reads 'SPM93 Studio is already booked for <reference> SPM93 Morning Masterclass on 8 Jun 2027, 12:30–12:45.'\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown: the setup starts at 12:45, exactly when the Masterclass's turnaround ends."
+    },
+    {
+      "id": "SPM-93-TC11",
+      "title": "A pending request (tentative hold) also holds the room for its setup and turnaround",
+      "linked_ac": [
+        "AC6",
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case sends a booking request.\n'SPM93 Partner Lunch' has a Pending booking request at SPM93 Studio on 10 Jun 2027, 12:00–13:00, so the room is held 11:30–13:45.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Team Sync'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'Start time' to 14:00 and click 'Submit request'",
+        "Change 'Start time' back to 14:15 and click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM93 Studio (SPM93-STU) | Setup 30 min | Turnaround 45 min\nPending: SPM93 Partner Lunch, 10 Jun 2027, 12:00–13:00 (held 11:30–13:45)\nEvent: SPM93 Team Sync, 10 Jun 2027, 14:15–15:00\nTried: 14:00–15:00 (room in use 13:30–15:45), then 14:15–15:00 (room in use 13:45–15:45)",
+      "expected_result": "Step 4: The request is not sent. A red alert reads 'SPM93 Studio is on hold for <reference> SPM93 Partner Lunch on 10 Jun 2027, 13:30–13:45.'\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown: the setup starts at 13:45, exactly when the Partner Lunch's turnaround ends."
+    },
+    {
+      "id": "SPM-93-TC12",
+      "title": "A request whose setup would run into an unavailable period is refused; one whose setup starts as the period ends is accepted",
+      "linked_ac": [
+        "AC6",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case sends a booking request.\nSPM93 Studio is unavailable for maintenance on 16 Jun 2027, 14:00–18:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM93 Twilight Workshop'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM93 Studio (SPM93-STU)'",
+        "Change 'Start time' to 18:15 and click 'Submit request'",
+        "Change 'Start time' back to 18:30 and click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM93 Studio (SPM93-STU) | Setup 30 min | Turnaround 45 min\nUnavailable: 16 Jun 2027, 14:00–18:00 (maintenance)\nEvent: SPM93 Twilight Workshop, 16 Jun 2027, 18:30–20:00\nTried: 18:15–20:00 (room in use 17:45–20:45), then 18:30–20:00 (room in use 18:00–20:45)",
+      "expected_result": "Step 3: 'Start time' shows 18:30, 'End time' 20:00 and 'Room in use: 18:00–20:45'.\nStep 4: 'Room in use: 17:45–20:45' is shown. The request is not sent; a red alert reads 'SPM93 Studio is unavailable at this time (maintenance, 16 Jun 2027, 14:00–18:00).' (the event times are after the maintenance, only the setup reaches into it).\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown: setup starts at 18:00, exactly when the maintenance ends."
+    },
+    {
+      "id": "SPM-93-TC13",
+      "title": "Venue Staff see a request's times and the room in use including setup and turnaround, on the card and in the approve dialog",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm93` has been run since the last full `npx prisma db seed`.\n'SPM93 Partner Lunch' has a Pending booking request at SPM93 Studio on 10 Jun 2027, 12:00–13:00.\nLogged in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff.\nNothing is saved in this case: the approve dialog is cancelled.",
+      "steps": [
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM93 Studio' card for 'SPM93 Partner Lunch' (use Ctrl+F) and click 'Approve'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Request: SPM93 Partner Lunch at SPM93 Studio (SPM93-STU), 10 Jun 2027, 12:00–13:00\nVenue: setup 30 min, turnaround 45 min",
+      "expected_result": "Step 1: The 'Booking Requests' page lists a card 'SPM93 Studio (SPM93-STU)' for 'SPM93 Partner Lunch' with the 'Pending' badge. Its 'Requested' row reads '10 Jun 2027, 12:00–13:00' and under it 'Setup: 11:30–12:00 (30 min)', 'Turnaround: 13:00–13:45 (45 min)' and 'Room in use: 11:30–13:45'. Nothing on the card mentions AM, PM or Night.\nStep 2: The 'Approve this booking?' dialog reads 'This books SPM93 Studio (SPM93-STU) for <reference> SPM93 Partner Lunch on 10 Jun 2027, 12:00–13:00. No other event can then be booked into the room from 11:30 to 13:45, which includes its setup and turnaround time.'\nStep 3: The dialog closes and the card still shows 'Pending'."
+    },
+    {
+      "id": "SPM-93-TC14",
+      "title": "After one request is approved, a request whose setup overlaps its turnaround is in conflict, and one that only meets it can still be approved",
+      "linked_ac": [
+        "AC7",
+        "AC8",
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm93` before this case, and again after it: the case approves two booking requests.\nThree Pending requests at SPM93 Studio on 15 Jun 2027: 'SPM93 Supplier Day' 10:00–12:00, 'SPM93 Vendor Q&A' 13:00–14:00 and 'SPM93 Buyer Briefing' 13:15–14:00. None shows 'Conflict' yet.\nLogged in as Marcus Wong (marcus.wong@connectsphere.com / password123), Venue Staff.",
+      "steps": [
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM93 Studio' card for 'SPM93 Supplier Day' (use Ctrl+F) and click 'Approve'",
+        "Click 'Approve' in the dialog",
+        "Find the card for 'SPM93 Vendor Q&A'",
+        "Find the card for 'SPM93 Buyer Briefing' and click 'Approve'",
+        "Click 'Approve' in the dialog"
+      ],
+      "test_data": "Venue: SPM93 Studio (SPM93-STU) | Setup 30 min | Turnaround 45 min\nSPM93 Supplier Day 10:00–12:00 (room in use 09:30–12:45)\nSPM93 Vendor Q&A 13:00–14:00 (room in use 12:30–14:45)\nSPM93 Buyer Briefing 13:15–14:00 (room in use 12:45–14:45)",
+      "expected_result": "Step 3: A green alert 'Booking approved' reads 'SPM93 Studio (SPM93-STU) for <reference> SPM93 Supplier Day on 15 Jun 2027, 10:00–12:00 is now Approved — the room is booked.' The Supplier Day card leaves the list.\nStep 4: The Vendor Q&A card shows a red 'Conflict' badge and the alert 'This request cannot be approved as it stands' with 'This overlaps an approved booking: <reference> SPM93 Supplier Day holds SPM93 Studio on 15 Jun 2027, 10:00–12:00 (room in use 09:30–12:45). The clash is through setup or turnaround time.' and an 'Open the calendar' link. Its 'Approve' button is disabled.\nStep 5: The Buyer Briefing card has no 'Conflict' badge, its 'Approve' button is enabled, and the 'Approve this booking?' dialog opens.\nStep 6: A green alert 'Booking approved' reads 'SPM93 Studio (SPM93-STU) for <reference> SPM93 Buyer Briefing on 15 Jun 2027, 13:15–14:00 is now Approved — the room is booked.': its room in use starts at 12:45, exactly when the Supplier Day's ends."
+    },
+    {
+      "id": "SPM-93-TC15",
+      "title": "The availability calendar shows an approved booking and a pending hold at their actual times, with setup and turnaround as separate entries",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm93` has been run since the last full `npx prisma db seed`, and no booking request has been sent for an 'SPM93 …' event since.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "On the 'SPM93 Studio' row, click 'View availability'",
+        "Set 'From' to 8 Jun 2027 and 'To' to 10 Jun 2027 and click 'Show availability'"
+      ],
+      "test_data": "Venue: SPM93 Studio (SPM93-STU) | Open 07:00–22:00 | Setup 30 min | Turnaround 45 min\nApproved: SPM93 Morning Masterclass, 8 Jun 2027, 10:00–12:00\nPending: SPM93 Partner Lunch, 10 Jun 2027, 12:00–13:00",
+      "expected_result": "Step 2: The 'SPM93 Studio availability' page opens. The grid has two columns, 'Day' and 'Schedule'; there are no AM, PM or Night columns.\nStep 3: The subtitle reads '8 Jun 2027 – 10 Jun 2027 · open 07:00–22:00 · setup 30 min, turnaround 45 min'. Three day rows. 'Tue 8 Jun 2027' lists, in this order, 'Setup 09:30–10:00 · SPM93 Morning Masterclass', 'Booked 10:00–12:00 · SPM93 Morning Masterclass' and 'Turnaround 12:00–12:45 · SPM93 Morning Masterclass'. 'Wed 9 Jun 2027' shows 'Free'. 'Thu 10 Jun 2027' lists 'Setup 11:30–12:00 · SPM93 Partner Lunch', 'Requested 12:00–13:00 · SPM93 Partner Lunch' and 'Turnaround 13:00–13:45 · SPM93 Partner Lunch'. The 'Approved bookings' card lists SPM93 Morning Masterclass with '8 Jun 2027, 10:00–12:00' and 'Room in use 09:30–12:45'. The 'Requested, not yet approved' card lists SPM93 Partner Lunch with '10 Jun 2027, 12:00–13:00'. Nothing on the page mentions AM, PM or Night slots."
+    },
+    {
+      "id": "SPM-93-TC16",
+      "title": "The calendar shows a part-day unavailable period at its times, and no setup or turnaround entries for a venue that needs none",
+      "linked_ac": [
+        "AC9",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm93` has been run since the last full `npx prisma db seed`, and no booking request has been sent for an 'SPM93 …' event since.\nSPM93 Studio is unavailable for maintenance on 16 Jun 2027, 14:00–18:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'Venues' in the sidebar",
+        "On the 'SPM93 Studio' row, click 'View availability'",
+        "Set 'From' to 16 Jun 2027 and 'To' to 16 Jun 2027 and click 'Show availability'",
+        "Choose 'SPM93 Quick Room (SPM93-QCK)' in the 'Venue' picker, set 'From' and 'To' to 8 Jun 2027 and click 'Show availability'"
+      ],
+      "test_data": "SPM93 Studio: unavailable 16 Jun 2027, 14:00–18:00, reason Maintenance\nSPM93 Quick Room: setup 0 min, turnaround 0 min | Approved: SPM93 Quick Demo, 8 Jun 2027, 10:00–12:00",
+      "expected_result": "Step 3: The 'Wed 16 Jun 2027' row lists 'Unavailable 14:00–18:00 · Maintenance' and nothing else; the rest of the day is not marked unavailable. The 'Unavailable periods' card lists 'Maintenance' with '16 Jun 2027, 14:00–18:00'.\nStep 4: The title changes to 'SPM93 Quick Room availability' and the subtitle ends 'setup 0 min, turnaround 0 min'. The 'Tue 8 Jun 2027' row lists only 'Booked 10:00–12:00 · SPM93 Quick Demo', with no 'Setup' or 'Turnaround' entry. The 'Approved bookings' card shows 'Room in use 10:00–12:00'."
+    },
+    {
+      "id": "SPM-93-TC17",
+      "title": "Find a venue leaves out a venue whose setup or turnaround would overlap an approved booking, and offers it when the times only meet",
+      "linked_ac": [
+        "AC6",
+        "AC7"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm93` has been run since the last full `npx prisma db seed`.\n'SPM93 Morning Masterclass' holds an Approved booking at SPM93 Studio on 8 Jun 2027, 10:00–12:00 (room in use 09:30–12:45).\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'Venues' in the sidebar and click 'Find a venue'",
+        "Set 'From' to 8 Jun 2027, 08:15 and 'To' to 8 Jun 2027, 09:00, leave every other filter empty, and click 'Search'",
+        "Change 'To' to 8 Jun 2027, 08:45 and click 'Search'"
+      ],
+      "test_data": "From: 8 Jun 2027, 08:15 | To: 8 Jun 2027, 09:00, then 08:45\nSPM93 Studio: setup 30 min, turnaround 45 min",
+      "expected_result": "Step 2: 'SPM93 Studio' is not in the results (its turnaround would run to 09:45, into the Masterclass's setup from 09:30). 'SPM93 Quick Room' is in the results.\nStep 3: 'SPM93 Studio' is now in the results (the room would be in use 07:45–09:30, which only meets the Masterclass's setup)."
+    }
+  ],
+  "open_questions": [
+    "Written before the code (TDD, 2026-10-08), then built to them on 2026-10-08: every label, message and page address in the cases is what the code shows, and all 17 cases passed when run by hand. Checked against the Week 1 briefing, Week 4 instructions, Week 7 Customer Changes and the discussion logs up to 20261006 (#124-#129). Entries marked DECIDED were chosen by the team rather than taken from the story; change them in code and cases together.",
+    "DECIDED 2026-10-08: the request page (S-15, 'Request a venue booking') replaces the AM/PM/Night checkboxes with 'Date', 'Start time' and 'End time' fields (one date per request, as before). The time fields accept any minute, so an off-grid time reaches the page's own check and its message rather than the browser's. Under them: 'Setup: HH:MM–HH:MM (N min)', 'Turnaround: HH:MM–HH:MM (N min)' and 'Room in use: HH:MM–HH:MM', or 'No setup or turnaround needed at this venue.' and 'Room in use: …' when both are zero.",
+    "DECIDED 2026-10-08: refusal messages (AC3). Shown under the field: 'Choose a start time on a 15-minute step (:00, :15, :30 or :45).', 'Choose an end time on a 15-minute step (:00, :15, :30 or :45).', 'The end time must be after the start time.' The server applies the same checks.",
+    "DECIDED 2026-10-08: the SPM-42 rule that the request must cover the event's (or session's) own time is kept, reworded 'The requested times do not cover the event's time (<date>, <times>).' ('session's' for a session).",
+    "DECIDED 2026-10-08 (AC4, AC6): the whole room-in-use period, setup and turnaround included, must fit within the venue's opening hours, at request time and in Find a venue. Refusal: '<venue> is open 07:00–22:00. With its <n> min setup and <n> min turnaround, choose times between <earliest start> and <latest end>.' Not stated outright; inferred from Week 1 briefing (venue suitability depends on 'operating hours, setup requirements, and the turnaround time'), Week 7 Change #1 (setup and turnaround are when the venue is 'effectively occupied' and 'must be included when checking availability') and #46 (Venue Staff maintain operating hours). Our own question #131 (Q3, hours a venue can be booked) is still unanswered on 2026-10-08; if the customer rules otherwise, that ruling wins.",
+    "RESOLVED 2026-10-08 (AC6, AC7): a PENDING request (tentative hold, #41) also holds the room for its setup and turnaround when a new request is checked, and the calendar shows its setup and turnaround too. Before this story a hold claimed only its own slots. At approval only approved bookings block, as in SPM-43. Source: #41 ('Only one active tentative hold or confirmed booking should exist for the same venue and overlapping time period') with Week 7 Change #1 (setup and turnaround 'must be included when checking availability and detecting booking conflicts').",
+    "DECIDED 2026-10-08: refusals follow SPM-44 (Detect Venue Booking Conflicts, merged to main 2026-10-08), which names what is in the way (its AC9), with SPM-93's times in place of slots. At request time: '<venue> is already booked for <reference> <title> on <date>, <from>–<to>.' and '<venue> is on hold for <reference> <title> on <date>, <from>–<to>.', where the times are the minutes both need; '<venue> is unavailable at this time (<reason>, <the period's own times>).'; a repeat of the same request: 'This event already has a pending request for <venue> on <date>, <times>.' At approval: 'This overlaps an approved booking: <reference> <title> holds <venue> on <date>, <times> (room in use <times>).' plus ' The clash is through setup or turnaround time.' when the event times themselves do not overlap.",
+    "DECIDED 2026-10-08: on Booking Requests (S-22) the 'Requested' row shows '<date>, <start>–<end>' with the Setup, Turnaround and Room in use lines underneath (AC8). The approve dialog reads 'This books <venue> for <reference> <title> on <date>, <times>. No other event can then be booked into the room from <start> to <end>, which includes its setup and turnaround time.' The event's Venue tab shows each request as '<date>, <start>–<end> · <layout>'.",
+    "DECIDED 2026-10-08: venue form labels become 'Setup time (minutes)' and 'Turnaround time (minutes)' (the customer's word; the database field stays teardownMinutes). Hint 'In 15-minute steps: 0, 15, 30, 45 and so on.' Error 'Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.' The existing 'Enter a whole number of minutes, 0 or more.' still covers negative and non-numeric values. The calendar subtitle says 'turnaround' instead of 'teardown'. Week 7 Change #1 names only 'setup time' and 'turnaround time'; #43's 'teardown' is the same period.",
+    "DECIDED 2026-10-08 (AC9): the availability calendar (S-21) keeps one row per day but replaces the AM/PM/Night columns with one 'Schedule' column. Each entry reads '<kind> HH:MM–HH:MM · <event title or reason>', in time order, where kind is 'Setup', 'Booked', 'Turnaround', 'Requested' (a pending hold) or 'Unavailable'. An empty day shows 'Free' ('Closed' for a retired venue). The Unavailable periods card shows times, not just dates. The warning about minutes 'outside the AM, PM and Night slots' is removed. Layout is ours to choose: #6 says calendar granularity 'is a UI/UX question, please propose'.",
+    "RESOLVED 2026-10-08: two base-seed venues (CBP-MTG1, CBP-MTG2) had setup 20 min, not a 15-minute step (AC5). scripts/spm93-round-turnaround.ts rounds such values UP on the shared database (dry run by default, --apply to write; no reseed), and prisma/seed.ts now says 30. Rounding up is our choice, so Venue Staff never get less time than they recorded. Week 7 Change #1: bookings that become problematic are 'identified rather than silently removed' - the script lists any approved upcoming booking that then clashes or no longer fits the opening hours, and changes none. Flagging them for the coordinator is SPM-80 (Re-check Bookings When Setup or Turnaround Time Changes). NOT RUN yet on the shared database - Venue Staff/the team should run the dry run and agree before --apply.",
+    "RESOLVED 2026-10-08: bookings made before this story were stored as whole slots (e.g. 07:00–12:00 for AM) and are kept as stored, not narrowed. Under the new rule their setup and turnaround are added in minutes; any that now clash, or no longer fit opening hours, are identified for review rather than changed or removed (Week 7 Change #1, #120).",
+    "RESOLVED 2026-10-08: a request starts and ends on one date, so the latest end is 23:45. This never limits a real booking: AC4 keeps bookings within opening hours, and no venue closes later than 23:00 (latest in prisma/seed.ts: 23:00).",
+    "RESOLVED 2026-10-08: SPM-42, SPM-43 and SPM-46 are Done and are not reopened (Week 7 Guide to Managing Changes, scenario 2: a new requirement gets a new story). SPM-93 is that story: its own cases cover the changed behaviour, and the slot-based cases of SPM-42, SPM-43 and SPM-46 stand as the record of what those stories delivered. UI_DESIGN.md and docs/CUSTOMER_CLARIFICATIONS.md are updated.",
+    "OPEN for SPM-44's owner: SPM-44 (In Review) was merged to main with slot-based rules; this story moved its src/lib/venueConflict.ts to times, as SPM-93's description says it would. Two things change for SPM-44: (1) its test cases (docs/test-cases/SPM-44_test_cases.json) quote slot wording such as 'on 21 Oct 2026, AM' and will now read times; (2) SPM-44 had a pending request hold only its own slots, while SPM-93 (RESOLVED above, from #41 and Week 7 Change #1) has it hold its setup and turnaround too. SPM-44's acceptance criteria themselves are left as written.",
+    "RESOLVED 2026-10-08: #129 renames the Event Operations Manager to Event Coordinator Lead (display name only). No SPM-93 case uses that role, so nothing here changes.",
+    "Fixtures: scripts/seed-spm93.ts (`npm run fixtures:spm93`) deletes and recreates the 18 'SPM93 …' events (spm93_ seed keys) with their bookings and sessions, and resets SPM93 Studio (SPM93-STU), SPM93 Quick Room (SPM93-QCK) and SPM93 Settings Room (SPM93-SET) with Studio's one maintenance period. The same venues and events (without bookings, sessions or maintenance) are at the end of prisma/seed.ts."
+  ],
+  "code_references": [
+    "src/lib/venueTime.ts",
+    "src/lib/venueBookingRequest.ts",
+    "src/lib/venueBookingReview.ts",
+    "src/lib/venueSearch.ts",
+    "src/lib/venueAvailability.ts",
+    "src/lib/venueForm.ts",
+    "src/lib/validation/venues.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/api/venues/[id]/availability/route.ts",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/bookings/page.tsx",
+    "src/app/venues/[id]/availability/page.tsx",
+    "src/components/VenueForm.tsx",
+    "scripts/seed-spm93.ts",
+    "scripts/spm93-round-turnaround.ts",
+    "prisma/seed.ts"
+  ]
+}

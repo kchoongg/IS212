@@ -1,0 +1,298 @@
+{
+  "story_key": "SPM-90",
+  "story_title": "As the assigned Event Coordinator, I want each venue booked for an event to be checked against what that particular space is needed for so that a breakout room is not judged by the whole event's attendance and the event is only confirmed when every room is secured",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-13",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "For each venue booking request, the Coordinator records what the space is for (e.g. main programme, breakout room) and the expected attendance and room layout for that space."
+    },
+    {
+      "id": "AC2",
+      "text": "Given the event has only one venue booking, when the request is made, then the space's expected attendance and layout default to the event's own."
+    },
+    {
+      "id": "AC3",
+      "text": "Each venue's suitability is checked independently, against the attendance, layout, accessibility and facilities recorded for that space rather than the event's total expected attendance."
+    },
+    {
+      "id": "AC4",
+      "text": "Given a venue is unsuitable for its space, when the check runs, then the unmet requirement is identified for that booking only and the event's other bookings are not affected."
+    },
+    {
+      "id": "AC5",
+      "text": "The purpose of each space is shown with its booking wherever the event's venue bookings are listed, including to Venue Staff reviewing the request."
+    },
+    {
+      "id": "AC6",
+      "text": "Given an event has more than one venue booking, when the Coordinator attempts to confirm the event, then every required venue booking must be confirmed; otherwise confirmation is refused and the unconfirmed booking is identified."
+    },
+    {
+      "id": "AC7",
+      "text": "An event with a single venue booking is checked and confirmed as it is today."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-90-TC01",
+      "title": "The first venue request for an event starts on the event's own attendance and layout, and is listed with what the space is for",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm90` from the project folder before this case (it only touches the 'SPM90 …' events and venues, never anyone else's data). Do not run it again afterwards: go straight on to SPM-90-TC02, and reset after that one.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM90 Annual Conference'",
+        "Click the 'Venue' tab",
+        "Find 'SPM90 Main Hall (SPM90-HALL)' in the venue list (use Ctrl+F) and click 'Request booking' on it",
+        "Click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM90 Annual Conference | When: 7 Sep 2027, 09:00–17:00 | Expected attendance 150 | Layout Theatre | No sessions | Status: Planning | No booking requests yet\nVenue: SPM90 Main Hall (SPM90-HALL), Theatre 200, Classroom 120\nNothing is typed on the request form: every field is left as it opens",
+      "expected_result": "Step 3: A card 'The space you need' shows 'Expected attendance for this space' 150 and 'Room layout' Theatre, the event's own. 'SPM90 Main Hall (SPM90-HALL)' has the 'Suitable' badge.\nStep 4: The 'Request a venue booking' page opens. 'What is this space for?' reads 'Main programme', 'Expected attendance for this space' reads 150 and 'Room layout' reads Theatre.\nStep 5: A green alert 'Booking request sent to Venue Staff.' is shown.\nStep 6: The 'Booking requests' card lists 'SPM90 Main Hall (SPM90-HALL)' with 'Main programme · 7 Sep 2027, 09:00–17:00 · Theatre · 150 attendees' and the 'Pending' badge."
+    },
+    {
+      "id": "SPM-90-TC02",
+      "title": "A breakout room too small for the whole event is suitable once it is checked against its own attendance and layout, and is requested and listed with its own purpose",
+      "linked_ac": [
+        "AC1",
+        "AC3",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-90-TC01 has just been run ('SPM90 Annual Conference' has a Pending request at SPM90 Main Hall for its main programme).\nStill logged in as Daniel Tan, on the event's Venue tab.\nRun `npm run fixtures:spm90` after this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Annual Conference'",
+        "Click the 'Venue' tab",
+        "Find 'SPM90 Breakout Room (SPM90-BRK)' in the venue list (use Ctrl+F)",
+        "In 'The space you need', change 'Expected attendance for this space' to 20, choose 'Classroom' in 'Room layout' and click 'Check venues'",
+        "Click 'Request booking' on 'SPM90 Breakout Room (SPM90-BRK)'",
+        "Type the purpose in 'What is this space for?' and click 'Submit request'",
+        "Click 'Back to Venue'"
+      ],
+      "test_data": "Event: SPM90 Annual Conference | Expected attendance 150 | Layout Theatre | Mandatory accessibility requirement: Step-free access\nSPM90 Breakout Room (SPM90-BRK): Theatre 30, Classroom 20, has Step-free access\nSPM90 Annexe (SPM90-ANX): Theatre 30, Classroom 20, no Step-free access\nSpace: What is this space for? = Breakout room | Expected attendance for this space = 20 | Room layout = Classroom",
+      "expected_result": "Step 3: Checked against the event's own 150 in Theatre, 'SPM90 Breakout Room (SPM90-BRK)' has the 'Not suitable' badge, the line 'Theatre capacity is 30 - this space expects 150.' and no 'Request booking' button.\nStep 4: The list is checked again. 'SPM90 Breakout Room (SPM90-BRK)' now has the 'Suitable' badge and a 'Request booking' button. 'SPM90 Main Hall (SPM90-HALL)' is still 'Suitable'. 'SPM90 Annexe (SPM90-ANX)' is 'Not suitable' with only the line 'Missing accessibility feature: Step-free access.': the event's accessibility need still applies to this space.\nStep 5: The 'Request a venue booking' page opens for 'SPM90 Breakout Room (SPM90-BRK)'. 'What is this space for?' is empty, 'Expected attendance for this space' reads 20 and 'Room layout' reads Classroom.\nStep 6: A green alert 'Booking request sent to Venue Staff.' is shown. The request is not refused although the room seats far fewer than the event's 150.\nStep 7: The 'Booking requests' card lists both requests, each with its own space: 'SPM90 Breakout Room (SPM90-BRK)' with 'Breakout room · 7 Sep 2027, 09:00–17:00 · Classroom · 20 attendees' and 'Pending'; 'SPM90 Main Hall (SPM90-HALL)' with 'Main programme · 7 Sep 2027, 09:00–17:00 · Theatre · 150 attendees' and 'Pending', unchanged."
+    },
+    {
+      "id": "SPM-90-TC03",
+      "title": "A request for a room that cannot seat its own space is refused naming that room's unmet requirement, and the event's other booking is unchanged",
+      "linked_ac": [
+        "AC4",
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm90` has been run.\n'SPM90 Training Day' (9 Sep 2027, 09:00–17:00) has one Approved booking: SPM90 Main Hall, main programme, 150 attendees, Theatre.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case: the submit is refused.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Training Day'",
+        "Click the 'Venue' tab",
+        "In 'The space you need', change 'Expected attendance for this space' to 20, choose 'Classroom' in 'Room layout' and click 'Check venues'",
+        "Click 'Request booking' on 'SPM90 Breakout Room (SPM90-BRK)'",
+        "Type the purpose in 'What is this space for?', change 'Expected attendance for this space' to 25 and click 'Submit request'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM90 Training Day | Expected attendance 150 | Layout Theatre\nExisting: SPM90 Main Hall (SPM90-HALL), Approved, Main programme, Theatre, 150 attendees\nSPM90 Breakout Room (SPM90-BRK): Classroom 20\nSpace tried: What is this space for? = Breakout room | Expected attendance for this space = 25 | Room layout = Classroom",
+      "expected_result": "Step 2: The 'Booking requests' card lists 'SPM90 Main Hall (SPM90-HALL)' with 'Main programme · 9 Sep 2027, 09:00–17:00 · Theatre · 150 attendees' and the 'Approved' badge.\nStep 5: The request is not sent. A red alert reads 'SPM90 Breakout Room is not suitable for this space: Classroom capacity is 20 - this space expects 25.' It names the space's 25, not the event's 150.\nStep 6: The Venue tab opens. The 'Booking requests' card still lists only 'SPM90 Main Hall (SPM90-HALL)', still 'Approved', with 'Main programme · 9 Sep 2027, 09:00–17:00 · Theatre · 150 attendees'."
+    },
+    {
+      "id": "SPM-90-TC04",
+      "title": "A room is suitable when its layout seats exactly the space's attendance, not suitable one above it, and not suitable for a layout it does not offer",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm90` has been run.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Training Day'",
+        "Click the 'Venue' tab",
+        "In 'The space you need', change 'Expected attendance for this space' to 20, choose 'Classroom' in 'Room layout' and click 'Check venues'",
+        "Change 'Expected attendance for this space' to 21 and click 'Check venues'",
+        "Change 'Expected attendance for this space' to 20, choose 'Boardroom' in 'Room layout' and click 'Check venues'"
+      ],
+      "test_data": "SPM90 Breakout Room (SPM90-BRK): Theatre 30, Classroom 20, no Boardroom layout\nSPM90 Main Hall (SPM90-HALL): Theatre 200, Classroom 120, no Boardroom layout\nChecked: 20 in Classroom (exactly the capacity); 21 in Classroom (one over); 20 in Boardroom (layout not offered)",
+      "expected_result": "Step 3: 'SPM90 Breakout Room (SPM90-BRK)' has the 'Suitable' badge and a 'Request booking' button.\nStep 4: 'SPM90 Breakout Room (SPM90-BRK)' has the 'Not suitable' badge, the line 'Classroom capacity is 20 - this space expects 21.' and no 'Request booking' button. 'SPM90 Main Hall (SPM90-HALL)' is still 'Suitable'.\nStep 5: 'SPM90 Breakout Room (SPM90-BRK)' and 'SPM90 Main Hall (SPM90-HALL)' are each 'Not suitable' with the line 'Boardroom layout is not offered.' The 'Booking requests' card is unchanged throughout: 'SPM90 Main Hall (SPM90-HALL)', 'Approved'."
+    },
+    {
+      "id": "SPM-90-TC05",
+      "title": "A venue request cannot be sent without saying what the space is for, or with an attendance below 1",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm90` has been run.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\n'SPM90 Training Day' already has an Approved booking at SPM90 Main Hall.\nNothing is saved in this case: every submit is refused.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Training Day'",
+        "Click the 'Venue' tab",
+        "In 'The space you need', change 'Expected attendance for this space' to 20, choose 'Classroom' in 'Room layout' and click 'Check venues'",
+        "Click 'Request booking' on 'SPM90 Breakout Room (SPM90-BRK)'",
+        "Leave 'What is this space for?' empty and click 'Submit request'",
+        "Type the purpose in 'What is this space for?', change 'Expected attendance for this space' to 0 and click 'Submit request'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "What is this space for? = (empty), then Breakout room\nExpected attendance for this space = 20, then 0",
+      "expected_result": "Step 4: 'What is this space for?' is empty, because the event already has a venue booking.\nStep 5: The request is not sent. 'Say what this space is for.' is shown under 'What is this space for?'.\nStep 6: The request is not sent. 'Enter a whole number of at least 1.' is shown under 'Expected attendance for this space'.\nStep 7: The Venue tab opens and the 'Booking requests' card lists only 'SPM90 Main Hall (SPM90-HALL)': no request was added."
+    },
+    {
+      "id": "SPM-90-TC06",
+      "title": "Venue Staff see what each requested space is for, with that space's own attendance and layout, on each booking request",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm90` has been run.\n'SPM90 Product Expo' (14 Sep 2027, 09:00–17:00, expected attendance 150) has two Pending requests: SPM90 Main Hall for its main programme and SPM90 Breakout Room for a breakout room.\nLogged out.\nNothing is saved in this case.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM90 Main Hall' card for 'SPM90 Product Expo' (use Ctrl+F)",
+        "Find the 'SPM90 Breakout Room' card for 'SPM90 Product Expo'"
+      ],
+      "test_data": "Event: SPM90 Product Expo | Expected attendance 150 | Layout Theatre\nRequests: SPM90 Main Hall (SPM90-HALL), Pending, Main programme, Theatre, 150 attendees | SPM90 Breakout Room (SPM90-BRK), Pending, Breakout room, Classroom, 20 attendees",
+      "expected_result": "Step 3: The card shows a 'Space' row reading 'Main programme', 'Layout' reading 'Theatre' and 'Expected attendance' reading 150.\nStep 4: The card shows a 'Space' row reading 'Breakout room', 'Layout' reading 'Classroom' and 'Expected attendance' reading 20: the breakout room's own figure, not the event's 150."
+    },
+    {
+      "id": "SPM-90-TC07",
+      "title": "The purpose of each space is shown with its booking on the event's Venue tab, Overview and Readiness tab",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm90` has been run.\n'SPM90 Awards Night' (16 Sep 2027, 09:00–17:00) has an Approved booking at SPM90 Main Hall for its main programme and a Pending request at SPM90 Breakout Room for a breakout room.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Awards Night'",
+        "Click the 'Venue' tab",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM90 Awards Night | Expected attendance 150 | Layout Theatre\nBookings: SPM90 Main Hall (SPM90-HALL), Approved, Main programme, Theatre, 150 attendees | SPM90 Breakout Room (SPM90-BRK), Pending, Breakout room, Classroom, 20 attendees",
+      "expected_result": "Step 1: On the Overview, the 'Venue bookings' card lists the approved room with its purpose: 'SPM90 Main Hall (SPM90-HALL) · Main programme · Theatre · seats 200'. The Breakout Room is not listed there: its request is still Pending.\nStep 2: The 'Booking requests' card lists 'SPM90 Main Hall (SPM90-HALL)' with 'Main programme · 16 Sep 2027, 09:00–17:00 · Theatre · 150 attendees' and 'Approved', and 'SPM90 Breakout Room (SPM90-BRK)' with 'Breakout room · 16 Sep 2027, 09:00–17:00 · Classroom · 20 attendees' and 'Pending'.\nStep 3: Under 'Venue bookings', 'SPM90 Main Hall' shows 'Space: Main programme · Booking status: Approved' and 'Complete'; 'SPM90 Breakout Room' shows 'Space: Breakout room · Booking status: Pending' and 'Outstanding'."
+    },
+    {
+      "id": "SPM-90-TC08",
+      "title": "An event with one approved and one pending venue booking cannot be confirmed, and the refusal names the room that is not yet approved and what it is for",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm90` has been run.\n'SPM90 Awards Night' is in Planning with an Approved booking at SPM90 Main Hall and a Pending request at SPM90 Breakout Room. It has no equipment and registration is not enabled, so nothing else is outstanding.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nConfirmation is refused in this case, so nothing is changed.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Awards Night'",
+        "Click the 'Readiness' tab",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM90 Awards Night | Status: Planning\nBookings: SPM90 Main Hall (SPM90-HALL), Approved, Main programme | SPM90 Breakout Room (SPM90-BRK), Pending, Breakout room",
+      "expected_result": "Step 2: The message '1 arrangement still blocks confirmation' is shown. 'SPM90 Breakout Room' is 'Outstanding' and reads 'SPM90 Breakout Room (Breakout room) for this event is still awaiting a decision from Venue Staff.' 'SPM90 Main Hall' is 'Complete'.\nStep 5: The event is NOT confirmed. The message 'This event cannot be confirmed yet: SPM90 Breakout Room (Breakout room) for this event is still awaiting a decision from Venue Staff.' is shown. It does not name SPM90 Main Hall. The status badge still reads 'Planning'."
+    },
+    {
+      "id": "SPM-90-TC09",
+      "title": "Once Venue Staff approve the last pending room, an event with two venue bookings can be confirmed",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm90` before this case, and again after it: the case approves a booking and confirms the event.\n'SPM90 Awards Night' is in Planning with an Approved booking at SPM90 Main Hall and a Pending request at SPM90 Breakout Room.\nLogged out.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Find the 'SPM90 Breakout Room' card for 'SPM90 Awards Night' (use Ctrl+F) and click 'Approve'",
+        "Click 'Approve' in the dialog",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM90 Awards Night'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM90 Awards Night | When: 16 Sep 2027, 09:00–17:00\nBookings before: SPM90 Main Hall (SPM90-HALL), Approved | SPM90 Breakout Room (SPM90-BRK), Pending",
+      "expected_result": "Step 4: A green alert 'Booking approved' reads 'SPM90 Breakout Room (SPM90-BRK) for <reference> SPM90 Awards Night on 16 Sep 2027, 09:00–17:00 is now Approved — the room is booked.'\nStep 7: On the Overview, the 'Venue bookings' card lists both rooms: 'SPM90 Main Hall (SPM90-HALL) · Main programme · Theatre · seats 200' and 'SPM90 Breakout Room (SPM90-BRK) · Breakout room · Classroom · seats 20'.\nStep 9: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge changes to 'Confirmed'."
+    },
+    {
+      "id": "SPM-90-TC10",
+      "title": "An event with a single approved venue booking made before this change is listed without a purpose and is confirmed as before",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm90` before this case, and again after it: the case confirms the event.\n'SPM90 Solo Seminar' (21 Sep 2027, 09:00–12:00, expected attendance 150, Theatre) is in Planning with one Approved booking at SPM90 Main Hall. The booking has no purpose recorded, like every booking made before this story.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Solo Seminar'",
+        "Click the 'Venue' tab",
+        "Click the 'Overview' tab",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog"
+      ],
+      "test_data": "Event: SPM90 Solo Seminar | When: 21 Sep 2027, 09:00–12:00 | Expected attendance 150 | Layout Theatre\nBooking: SPM90 Main Hall (SPM90-HALL), Approved, Theatre, 150 attendees, no purpose recorded",
+      "expected_result": "Step 1: On the Overview, the 'Venue' row reads 'SPM90 Main Hall (SPM90-HALL)' and the 'Venue bookings' card reads 'SPM90 Main Hall (SPM90-HALL) · Theatre · seats 200', with no purpose.\nStep 2: The 'Booking requests' card lists one request: 'SPM90 Main Hall (SPM90-HALL)' with '21 Sep 2027, 09:00–12:00 · Theatre · 150 attendees' and the 'Approved' badge. 'The space you need' shows 150 and Theatre, the event's own, so the venue list is judged as before: 'SPM90 Main Hall (SPM90-HALL)' is 'Suitable'.\nStep 5: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge changes to 'Confirmed'."
+    },
+    {
+      "id": "SPM-90-TC11",
+      "title": "For a multi-session event, the first venue request for a session starts on that session's own attendance and layout",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "`npm run fixtures:spm90` has been run.\n'SPM90 Two-Day Forum' has two sessions and no booking requests: 'Day 1' 23 Sep 2027, 09:00–12:00, 150 attendees, Theatre; 'Day 2' 24 Sep 2027, 09:00–12:00, 20 attendees, Classroom.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM90 Two-Day Forum'",
+        "Click the 'Venue' tab",
+        "Choose 'Day 2 — 24 Sep 2027, 09:00–12:00' in the 'Session' picker",
+        "Click 'Request booking' on 'SPM90 Breakout Room (SPM90-BRK)'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM90 Two-Day Forum | Sessions: 'Day 1' 23 Sep 2027, 09:00–12:00, 150 attendees, Theatre; 'Day 2' 24 Sep 2027, 09:00–12:00, 20 attendees, Classroom\nSPM90 Breakout Room (SPM90-BRK): Theatre 30, Classroom 20",
+      "expected_result": "Step 2: With 'Day 1 — 23 Sep 2027, 09:00–12:00' in the 'Session' picker, 'The space you need' shows 150 and Theatre, and 'SPM90 Breakout Room (SPM90-BRK)' is 'Not suitable'.\nStep 3: 'The space you need' changes to 20 and Classroom, Day 2's own, and 'SPM90 Breakout Room (SPM90-BRK)' is 'Suitable'.\nStep 4: The 'Request a venue booking' page shows 'Session: Day 2 — 24 Sep 2027, 09:00–12:00'. 'What is this space for?' reads 'Main programme', 'Expected attendance for this space' reads 20 and 'Room layout' reads Classroom.\nStep 5: The Venue tab opens and no booking request is listed."
+    }
+  ],
+  "open_questions": [
+    "Written 2026-10-13, before any SPM-90 code (test-first), then checked against the built screens the same day: no wording in the cases had to change. Checked against Week 7 Customer Changes (Change #3), docs/CUSTOMER_CLARIFICATIONS.md, SPM-81's cases and open questions, and the code on this branch. All 11 cases passed when run by hand on 2026-10-13 (kayalvizhi24), with the migration applied and `npm run fixtures:spm90` loaded. The browser writes September as 'Sept' where the cases say 'Sep'; that is the browser's date format and counts as a match. SPM-90-TC02, TC04 and TC05 were reworded during the pass to open their event first. Every 'DECIDED' entry below is wording or behaviour chosen here, not in the story.",
+    "RESOLVED 2026-10-13 (AC3, decided by kayalvizhi24): facilities and accessibility requirements stay the event's and apply to every space it books; only attendance and layout are the space's own. AC3 mentions the 'accessibility and facilities recorded for that space', but AC1 has the Coordinator record only the purpose, attendance and layout, and the estimate sizes the story as 'a small migration for purpose and attendance per booking'. Week 7 Change #3, the Week 1 and Week 4 briefings, the discussion board and CUSTOMER_CLARIFICATIONS.md were checked: none asks for facilities per room, and sessions already work this way (UI_DESIGN.md: 'Facilities, accessibility needs and registration stay event-wide'). So a breakout room must still have the event's mandatory 'Step-free access' (SPM-90-TC02). Per-room facility lists would be a new, larger story touching SPM-39, SPM-40 and SPM-62.",
+    "FINDING (AC6): confirmation is already refused while any listed venue booking is pending. Track Outstanding Arrangements (SPM-33, merged after SPM-81) lists each pending or approved booking as its own arrangement, and Confirm refuses on every required one that is not approved (src/lib/eventConfirmation.ts; SPM-33-TC01). The Known Gap 'An event with more than one venue can be confirmed while one is still pending' in DOCUMENTATION.md is out of date and is removed with this story. What SPM-90 adds for AC6 is the space's purpose in the refusal and on the Readiness tab, so the unconfirmed booking is identified by what it is for (SPM-90-TC08).",
+    "RESOLVED 2026-10-13 (AC6, 'required'): a venue booking the Coordinator has marked as not required does not stop confirmation. That is SPM-33's rule and is covered by its cases, so no case here repeats it. A rejected, withdrawn or released request is not a booking and never blocks.",
+    "DECIDED 2026-10-13 (AC1, AC3, where the space is recorded): the Venue tab gets a card 'The space you need' with 'Expected attendance for this space' (number), 'Room layout' (the same layout list as the event form, plus 'Not set') and a 'Check venues' button. The venue list is judged against those two values and the event's facilities. Without this, a breakout room would be 'Not suitable' for the event's attendance and would have no 'Request booking' button at all. 'Request booking' carries the two values to the request form.",
+    "DECIDED 2026-10-13 (AC1, the request form): 'Request a venue booking' gets three fields above 'Date': 'What is this space for?' (text, required, up to 100 characters, hint 'For example main programme or breakout room.'), 'Expected attendance for this space' (whole number, at least 1, required) and 'Room layout'. The read-only 'Layout' row in the summary above the form is removed. Messages: 'Say what this space is for.' and 'Enter a whole number of at least 1.', each under its field.",
+    "DECIDED 2026-10-13 (AC2, defaults): attendance and layout start on the event's own (the session's own, for a multi-session event) for every request; the Coordinator changes them for a smaller space. 'What is this space for?' starts as 'Main programme' when the event (or that session) has no pending or approved booking yet, and empty otherwise, so a second room has to be named. Choosing another session on the Venue tab resets 'The space you need' to that session's values.",
+    "DECIDED 2026-10-13 (AC3, AC4 wording): the capacity line changes from '… - your event expects N.' to '… - this space expects N.', and the refusal from '<venue> is not suitable for this event: …' to '<venue> is not suitable for this space: …', because the figure is no longer always the event's. The Venue tab's subtitle becomes 'Each venue is checked against the attendance and layout of the space you need, and this event's facilities and accessibility needs.' One case of another story quotes the old wording and is listed in DOCUMENTATION.md Known Gaps: SPM-42-TC02.",
+    "DECIDED 2026-10-13 (AC5, where the purpose is shown): (1) the Venue tab's 'Booking requests' card, as '<purpose> · <session> · <date and times> · <layout> · <N> attendees'; (2) Venue Staff's 'Booking Requests' page, as a 'Space' row, with 'Expected attendance' now the space's own figure; (3) the Overview's 'Venue bookings' card, as '<room> (<code>) · <purpose> · <layout> · seats <n>'; (4) the Readiness tab, as 'Space: <purpose>' before 'Booking status', and in the outstanding reason as '<room> (<purpose>) for this event …'. The one-line 'Venue' summary rows (Overview, organiser's glance) still name rooms only.",
+    "DECIDED 2026-10-13 (bookings made before this story): the migration adds two nullable columns to venue_bookings, purpose and expected_attendance. It fills expected_attendance for existing bookings from their session's or event's attendance (what they were checked against) and leaves purpose empty. A booking with no purpose shows no purpose segment (Venue tab, Overview, Readiness) and 'Not recorded' in Venue Staff's 'Space' row. Covered by SPM-90-TC10.",
+    "DECIDED 2026-10-13 (limits not in the story): a space's attendance is not capped by the event's expected attendance, and the spaces' attendances are not added up or compared with the event's total. The story asks for neither.",
+    "DECIDED 2026-10-13 (venue changes, SPM-39): when Venue Staff edit or retire a venue, a booking is re-checked against its own space's attendance (falling back to the session's or event's for a booking without one), so a 20-person breakout room is not flagged because the room no longer seats the whole event. No manual case here: it is SPM-39's screen, covered by automated tests.",
+    "RESOLVED 2026-10-13 (out of scope): 'Search with filters' (Find a venue, SPM-40) still filters by the event's own requirements; its 'Request booking' opens the form on the event's defaults, which the Coordinator can change there. Submit for safety check (SPM-86) uses the same arrangements rule as Confirm and is not re-tested here.",
+    "For the team, still open from SPM-81: the equipment availability check works out transfer time from 'the event's venue' and picks one booking (venueFor() in src/lib/equipmentAvailabilityService.ts). Recording what each space is for does not by itself say which room the equipment goes to. Not changed by this story unless the team decides a rule (for example: the 'Main programme' space, or the largest).",
+    "Fixtures: scripts/seed-spm90.ts, run as `npm run fixtures:spm90`, deletes and recreates only the 'SPM90 …' events (spm90_ seed keys) and resets three venues in Orchard Hub with no setup or turnaround: SPM90 Main Hall (SPM90-HALL; Theatre 200, Classroom 120; Step-free access), SPM90 Breakout Room (SPM90-BRK; Theatre 30, Classroom 20; Step-free access) and SPM90 Annexe (SPM90-ANX; Theatre 30, Classroom 20; no facilities). Every event is Planning, Daniel Tan's, organiser Rachel Ng, 150 attendees, Theatre, mandatory 'Step-free access', no equipment, registration off: 'SPM90 Annual Conference' 7 Sep 2027 09:00–17:00, no bookings (TC01, TC02); 'SPM90 Training Day' 9 Sep 2027 09:00–17:00, Main Hall Approved as Main programme / 150 / Theatre (TC03 to TC05); 'SPM90 Product Expo' 14 Sep 2027 09:00–17:00, Main Hall Pending as Main programme / 150 / Theatre and Breakout Room Pending as Breakout room / 20 / Classroom (TC06); 'SPM90 Awards Night' 16 Sep 2027 09:00–17:00, Main Hall Approved and Breakout Room Pending, same spaces (TC07 to TC09); 'SPM90 Solo Seminar' 21 Sep 2027 09:00–12:00, Main Hall Approved with 150 attendees and no purpose (TC10); 'SPM90 Two-Day Forum' with sessions 'Day 1' 23 Sep 2027 09:00–12:00, 150, Theatre and 'Day 2' 24 Sep 2027 09:00–12:00, 20, Classroom, no bookings (TC11). The same venues and events (without bookings or sessions) are at the end of prisma/seed.ts. Migration 20261013120000_add_venue_booking_space is applied with `npx prisma migrate deploy`; the shared database is never reseeded."
+  ],
+  "code_references": [
+    "prisma/schema.prisma",
+    "prisma/migrations/20261013120000_add_venue_booking_space/migration.sql",
+    "src/lib/venueSuitability.ts",
+    "src/lib/venueBookingRequest.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/eventArrangements.ts",
+    "src/lib/validation/venues.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/api/events/[id]/venue-suitability/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/venue-bookings/route.ts",
+    "src/app/api/venues/[id]/route.ts",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/readiness/page.tsx",
+    "src/app/bookings/page.tsx",
+    "scripts/seed-spm90.ts",
+    "prisma/seed.ts"
+  ]
+}

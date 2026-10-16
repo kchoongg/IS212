@@ -13,7 +13,11 @@ warning, for rebuilding a file written before 2026-09-30 without changing it.
 
 The layout of each test case sheet comes from Test_Case_Template.xlsx (sheet "TC01").
 This script copies that sheet once per test case, so the format never drifts.
-It also adds a Summary sheet (traceability + coverage) and an Open Questions sheet.
+Each sheet carries its own case's summary (the JSON "title") under the Test Case
+ID, so a tester reading one sheet knows what it checks without the Summary sheet.
+It also adds a Summary sheet (traceability + coverage) and, when any question is
+still unanswered, an Open Questions sheet. Entries starting "RESOLVED" stay in
+the JSON as the decision record and are left out of the workbook.
 
 Requires: pip install openpyxl
 """
@@ -36,12 +40,13 @@ TEMPLATE_SHEET = "TC01"
 # Cells in the template (column B holds the values)
 FIELD_CELLS = {
     "id": "B2",
-    "preconditions": "B3",
-    "steps": "B4",
-    "test_data": "B5",
-    "expected_result": "B6",
-    "created_by": "B7",
-    "creation_date": "B8",
+    "summary": "B3",
+    "preconditions": "B4",
+    "steps": "B5",
+    "test_data": "B6",
+    "expected_result": "B7",
+    "created_by": "B8",
+    "creation_date": "B9",
 }
 REQUIRED_TC_FIELDS = ["id", "title", "linked_ac", "type", "source",
                       "preconditions", "steps", "test_data", "expected_result"]
@@ -178,6 +183,12 @@ def write_cell(ws, ref, value, bold=False, fill=None):
     return c
 
 
+def still_open(data):
+    """The open_questions entries that are not marked RESOLVED."""
+    return [q for q in data.get("open_questions") or []
+            if not as_text(q).lstrip().upper().startswith("RESOLVED")]
+
+
 def build(data, out_path):
     wb = load_workbook(TEMPLATE)
     if TEMPLATE_SHEET not in wb.sheetnames:
@@ -200,6 +211,8 @@ def build(data, out_path):
 
         values = {
             "id": tc["id"],
+            # The same words as the Title column of the Summary sheet.
+            "summary": as_text(tc["title"]),
             "preconditions": as_text(tc["preconditions"]),
             "steps": steps,
             "test_data": as_text(tc["test_data"]),
@@ -266,19 +279,23 @@ def build(data, out_path):
         summary.column_dimensions[col].width = width
 
     # ---- Open Questions sheet ----
-    oq = wb.create_sheet("Open Questions", 1)
-    write_cell(oq, "A1", "#", bold=True, fill=HEADER_FILL)
-    write_cell(oq, "B1", "Question / ambiguity for the PO or developer", bold=True, fill=HEADER_FILL)
-    write_cell(oq, "C1", "Answer", bold=True, fill=HEADER_FILL)
-    questions = data.get("open_questions") or ["None raised"]
-    for i, q in enumerate(questions, start=2):
-        write_cell(oq, f"A{i}", i - 1)
-        write_cell(oq, f"B{i}", q)
-        write_cell(oq, f"C{i}", None)
-        oq.row_dimensions[i].height = row_height(q, 70)
-    oq.column_dimensions["A"].width = 5
-    oq.column_dimensions["B"].width = 75
-    oq.column_dimensions["C"].width = 40
+    # Only questions still waiting for an answer. A "RESOLVED <date>: ..." entry
+    # stays in the JSON as the record of the decision but is not a question for
+    # the reader, and a workbook with nothing left to ask gets no sheet at all.
+    questions = still_open(data)
+    if questions:
+        oq = wb.create_sheet("Open Questions", 1)
+        write_cell(oq, "A1", "#", bold=True, fill=HEADER_FILL)
+        write_cell(oq, "B1", "Question / ambiguity for the PO or developer", bold=True, fill=HEADER_FILL)
+        write_cell(oq, "C1", "Answer", bold=True, fill=HEADER_FILL)
+        for i, q in enumerate(questions, start=2):
+            write_cell(oq, f"A{i}", i - 1)
+            write_cell(oq, f"B{i}", q)
+            write_cell(oq, f"C{i}", None)
+            oq.row_dimensions[i].height = row_height(q, 70)
+        oq.column_dimensions["A"].width = 5
+        oq.column_dimensions["B"].width = 75
+        oq.column_dimensions["C"].width = 40
 
     wb.active = 0
     out_path.parent.mkdir(parents=True, exist_ok=True)

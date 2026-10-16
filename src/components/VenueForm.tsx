@@ -257,28 +257,29 @@ export function VenueForm({
           />
         </Field>
 
+        {/* SPM-93 AC5: in 15-minute steps, the smallest unit of booking. No
+            `step` attribute on these: the browser would then refuse 20 before
+            the form can say why. */}
         <Field
-          label="Setup minutes"
-          hint="How long the room is occupied before an event starts."
+          label="Setup time (minutes)"
+          hint="In 15-minute steps: 0, 15, 30, 45 and so on."
           error={errors.setupMinutes}
         >
           <Input
             name="setupMinutes"
             type="number"
             min={0}
-            step={1}
             inputMode="numeric"
             value={values.setupMinutes}
             onChange={(e) => setValue("setupMinutes", e.target.value)}
           />
         </Field>
 
-        <Field label="Teardown minutes" error={errors.teardownMinutes}>
+        <Field label="Turnaround time (minutes)" error={errors.teardownMinutes}>
           <Input
             name="teardownMinutes"
             type="number"
             min={0}
-            step={1}
             inputMode="numeric"
             value={values.teardownMinutes}
             onChange={(e) => setValue("teardownMinutes", e.target.value)}

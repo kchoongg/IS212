@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can, eventListWhere, visibleEventsFor } from "@/lib/permissions";
+import { SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { createEventSchema } from "@/lib/validation";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
@@ -20,11 +21,30 @@ export async function GET(req: NextRequest) {
   // organisation's submitted ones (never a colleague's private draft), an
   // attendee sees only confirmed events open for registration, and internal
   // staff see everything except drafts.
+  const isAttendee = actor.role === "attendee";
   const events = await prisma.event.findMany({
     where: eventListWhere(actor),
     orderBy: { createdAt: "desc" },
-    include: { facilityRequirements: { include: { facility: true } } },
+    include: {
+      facilityRequirements: { include: { facility: true } },
+      // SPM-51 (Browse Events): which company is running each event.
+      ...(isAttendee ? { organisation: { select: { name: true } } } : {}),
+    },
   });
+
+  // SPM-51 AC1: an attendee is told, per event, whether they can register.
+  // The seats taken are counted for every event in one query.
+  if (isAttendee) {
+    const counts = await prisma.registration.groupBy({
+      by: ["eventId"],
+      where: { eventId: { in: events.map((e) => e.id) }, status: { in: SEAT_TAKING } },
+      _count: { _all: true },
+    });
+    const taken = new Map(counts.map((c) => [c.eventId, c._count._all]));
+    const now = new Date();
+    const withState = events.map((e) => ({ ...e, registrationState: registrationState(e, taken.get(e.id) ?? 0, now) }));
+    return NextResponse.json(visibleEventsFor(actor, withState));
+  }
 
   // An attendee gets the public subset of each event, not the whole record.
   return NextResponse.json(visibleEventsFor(actor, events));

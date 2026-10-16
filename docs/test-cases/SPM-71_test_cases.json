@@ -1,0 +1,253 @@
+{
+  "story_key": "SPM-71",
+  "story_title": "SPM-71: As a ConnectSphere user, I want to view my notifications in the system so that I can see what has changed and go straight to the event that needs my attention.",
+  "created_by": "TAN JORDAN",
+  "creation_date": "2026-10-13",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "A logged-in user can view a list of their in-app notifications, newest first."
+    },
+    {
+      "id": "AC2",
+      "text": "Each notification shows what happened, the event it relates to, and when it occurred."
+    },
+    {
+      "id": "AC3",
+      "text": "Unread notifications are distinguishable from read ones, and the number of unread notifications is shown in the navigation."
+    },
+    {
+      "id": "AC4",
+      "text": "The user can mark a notification as read, and can mark all notifications as read."
+    },
+    {
+      "id": "AC5",
+      "text": "Selecting a notification opens the related event or arrangement."
+    },
+    {
+      "id": "AC6",
+      "text": "Given the user no longer has access to the related event, when they select the notification, then they see an access-denied state and no restricted information."
+    },
+    {
+      "id": "AC7",
+      "text": "A user sees only their own notifications."
+    },
+    {
+      "id": "AC8",
+      "text": "Given the user has no notifications, when they open the list, then an empty state is shown."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-71-TC01",
+      "title": "A coordinator sees their five notifications newest first, each saying what happened, which event and when",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm71 has been run (it creates the test accounts and resets their notifications without reseeding). Logged in as Leon Koh (Event Coordinator).",
+      "steps": [
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Coordinator: leon.koh@connectsphere.com / password123\nLeon's notifications, newest first: You have been assigned an event (12 Oct 2026, 09:00), Booking needs review (11 Oct 2026, 15:30), Equipment out of service - reservation needs review (10 Oct 2026, 11:00), An event has been reassigned (9 Oct 2026, 17:00), Equipment out of service - reservation needs review (8 Oct 2026, 16:45)",
+      "expected_result": "Step 1: The Notifications page lists exactly five notifications, newest first: 'You have been assigned an event' (12 Oct 2026, 09:00), 'Booking needs review' (11 Oct 2026, 15:30), 'Equipment out of service - reservation needs review' (10 Oct 2026, 11:00), 'An event has been reassigned' (9 Oct 2026, 17:00) and 'Equipment out of service - reservation needs review' (8 Oct 2026, 16:45). Each shows its message, the event it is about with its reference (e.g. 'SPM71 Harbour Lights Gala · EVT-…'), and the date and time it happened. Ivy Lim's 'You have been assigned an event' for SPM71 Reassigned Showcase is not listed."
+    },
+    {
+      "id": "SPM-71-TC02",
+      "title": "Unread notifications are marked 'Unread' and their number shows on the bell and the sidebar",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm71 has been run. Logged in as Leon Koh (Event Coordinator), who has three unread and two read notifications.",
+      "steps": [
+        "Look at the bell at the top of the page and the 'Notifications' link in the sidebar",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Unread: You have been assigned an event; Booking needs review; Equipment out of service (8 Oct 2026)\nRead: Equipment out of service (10 Oct 2026); An event has been reassigned",
+      "expected_result": "Step 1: The bell shows '3' and the sidebar's 'Notifications' link shows '3'.\nStep 2: The three unread notifications are shown in bold with an 'Unread' label and a 'Mark as read' button. The two read ones ('Equipment out of service - reservation needs review' of 10 Oct 2026 and 'An event has been reassigned') are in normal weight with neither."
+    },
+    {
+      "id": "SPM-71-TC03",
+      "title": "Marking one notification as read removes its Unread label and lowers the unread count",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm71 before this case. Logged in as Leon Koh (Event Coordinator). This case changes data: go straight on to SPM-71-TC04, and run npm run fixtures:spm71 after it.",
+      "steps": [
+        "Click 'Notifications' in the sidebar",
+        "Click 'Mark as read' on 'Booking needs review'"
+      ],
+      "test_data": "Notification: Booking needs review (11 Oct 2026, 15:30)",
+      "expected_result": "Step 1: Three notifications are Unread, and the sidebar's 'Notifications' link shows '3'.\nStep 2: 'Booking needs review' loses its 'Unread' label, its bold and its 'Mark as read' button. The bell and the sidebar's 'Notifications' link now show '2'."
+    },
+    {
+      "id": "SPM-71-TC04",
+      "title": "Mark all as read clears every unread notification and the count, and it stays that way after reloading",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-71-TC03 has just been run (Leon Koh has two unread notifications left). Logged in as Leon Koh. Run npm run fixtures:spm71 after this case.",
+      "steps": [
+        "Click 'Mark all as read'",
+        "Reload the page"
+      ],
+      "test_data": "Unread before: You have been assigned an event; Equipment out of service (8 Oct 2026)",
+      "expected_result": "Step 1: No notification is labelled 'Unread' and none has a 'Mark as read' button. The 'Mark all as read' button is gone, and neither the bell nor the sidebar's 'Notifications' link shows a number.\nStep 2: All five notifications are still read and no count is shown."
+    },
+    {
+      "id": "SPM-71-TC05",
+      "title": "Selecting a notification opens its event and marks it as read",
+      "linked_ac": [
+        "AC5",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm71 before and after this case. Logged in as Leon Koh (Event Coordinator).",
+      "steps": [
+        "Click 'Notifications' in the sidebar",
+        "Click 'You have been assigned an event'",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Notification: You have been assigned an event (SPM71 Harbour Lights Gala)",
+      "expected_result": "Step 2: The Overview of 'SPM71 Harbour Lights Gala' opens.\nStep 3: 'You have been assigned an event' is no longer labelled 'Unread', and the sidebar's 'Notifications' link shows '2'."
+    },
+    {
+      "id": "SPM-71-TC06",
+      "title": "Selecting a booking or equipment notification opens that arrangement on the event",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm71 before and after this case. Logged in as Leon Koh (Event Coordinator).",
+      "steps": [
+        "Click 'Notifications' in the sidebar",
+        "Click 'Booking needs review'",
+        "Click 'Notifications' in the sidebar",
+        "Click 'Equipment out of service - reservation needs review' dated 10 Oct 2026, 11:00"
+      ],
+      "test_data": "Booking needs review: SPM71 Harbour Lights Gala, Orchard Seminar Room (ORC-SEM)\nEquipment out of service (10 Oct 2026): SPM71 Riverside Tech Fair, Powered Speaker",
+      "expected_result": "Step 2: The Venue tab of 'SPM71 Harbour Lights Gala' opens (Find a venue), with the event's booking at Orchard Seminar Room (ORC-SEM) listed under its booking requests.\nStep 4: The Equipment requirements page of 'SPM71 Riverside Tech Fair' opens, listing 'Powered Speaker'."
+    },
+    {
+      "id": "SPM-71-TC07",
+      "title": "A coordinator taken off an event who selects its equipment notification sees an access-denied message and no equipment",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm71 before and after this case. 'SPM71 Reassigned Showcase' was reassigned from Leon Koh to Ivy Lim after Leon was notified about its equipment. Logged in as Leon Koh (Event Coordinator).",
+      "steps": [
+        "Click 'Notifications' in the sidebar",
+        "Click 'Equipment out of service - reservation needs review' dated 8 Oct 2026, 16:45"
+      ],
+      "test_data": "Event: SPM71 Reassigned Showcase (now Ivy Lim's), reserved equipment: Stage Riser Section x4",
+      "expected_result": "Step 2: The Equipment requirements page of 'SPM71 Reassigned Showcase' shows 'Only the coordinator assigned to this event can view and manage its equipment requirements.' No equipment is listed - 'Stage Riser Section' does not appear - and there is no 'Add equipment' section."
+    },
+    {
+      "id": "SPM-71-TC08",
+      "title": "An attendee who selects a notification about an event they can no longer see is told it is not available, with no event details",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm71 before and after this case. 'SPM71 Postponed Supper Club' was confirmed when Zara Ong was notified and is now Postponed, so an attendee can no longer see it. Logged in as Zara Ong (Attendee).",
+      "steps": [
+        "Click 'Notifications' in the sidebar",
+        "Click 'Event postponed'"
+      ],
+      "test_data": "Attendee: zara.ong@example.com / password123\nEvent: SPM71 Postponed Supper Club (Postponed)",
+      "expected_result": "Step 1: The Notifications page lists 'Event postponed' for 'SPM71 Postponed Supper Club', labelled 'Unread'.\nStep 2: The event page shows 'This event doesn't exist, or you don't have access to it.' Its date, description and venue are not shown."
+    },
+    {
+      "id": "SPM-71-TC09",
+      "title": "Another coordinator sees only their own notification and none of Leon Koh's",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm71 has been run. Logged in as Ivy Lim (Event Coordinator), who has one notification of her own.",
+      "steps": [
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Coordinator: ivy.lim@connectsphere.com / password123\nIvy's notification: You have been assigned an event (SPM71 Reassigned Showcase, 9 Oct 2026, 17:00)",
+      "expected_result": "Step 1: The Notifications page lists exactly one notification, 'You have been assigned an event' for 'SPM71 Reassigned Showcase', and the sidebar's 'Notifications' link shows '1'. None of Leon Koh's notifications ('Booking needs review', 'Equipment out of service - reservation needs review', 'An event has been reassigned', or his 'You have been assigned an event' for SPM71 Harbour Lights Gala) appear."
+    },
+    {
+      "id": "SPM-71-TC10",
+      "title": "A user with no notifications sees an empty state and no unread count",
+      "linked_ac": [
+        "AC8",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm71 has been run. Logged in as Owen Teo (Venue Staff), who has no notifications.",
+      "steps": [
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Venue Staff: owen.teo@connectsphere.com / password123",
+      "expected_result": "Step 1: The Notifications page shows 'No notifications' and 'Updates about your events will appear here.' There is no 'Mark all as read' button, and neither the bell nor the sidebar's 'Notifications' link shows a number."
+    },
+    {
+      "id": "SPM-71-TC11",
+      "title": "A visitor who is not logged in is sent to log in first, then shown their notifications",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm71 has been run. Logged out.",
+      "steps": [
+        "Type /notifications after the site address in the browser address bar (e.g. http://localhost:3000/notifications) and press Enter",
+        "Type leon.koh@connectsphere.com in Email",
+        "Type password123 in Password",
+        "Click 'Log in'"
+      ],
+      "test_data": "Address: /notifications\nCoordinator: leon.koh@connectsphere.com / password123",
+      "expected_result": "Step 1: The Log in page opens instead; no notification is shown.\nStep 4: The Notifications page opens, listing Leon Koh's five notifications."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-13: Page 'Notifications' at /notifications (S-04), subtitle 'What has happened on your events, newest first.' Each notification shows its title, its message, the event as '<event title> · <reference>', and when it happened ('12 Oct 2026, 09:00'). An unread one is bold with an 'Unread' label and a 'Mark as read' button; 'Mark all as read' sits in the page header while any is unread. Empty state: 'No notifications' / 'Updates about your events will appear here.' Load failure: 'Could not load your notifications.' with Retry.",
+    "DECIDED 2026-10-13: The unread count is shown on the top-bar bell (UI_DESIGN.md §4.1: 'notification bell with unread count') and on the sidebar's 'Notifications' link, as a number; no number at all when nothing is unread, and '99+' above 99. It refreshes when the user moves between pages and as soon as they mark something read.",
+    "DECIDED 2026-10-13: Selecting a notification marks it as read and opens what it is about. Where it goes depends on what it says: a booking that needs review opens the event's Venue tab, equipment that needs review opens the event's Equipment tab, and everything else opens the event's Overview. A notification with no event is not a link.",
+    "DECIDED 2026-10-13: Access to what a notification links to is decided by that screen, exactly as for anyone who types its address - the notification does not carry any of the event's details beyond what it already says. So a user who has lost access sees that screen's own refusal (AC6).",
+    "DECIDED 2026-10-13: The whole history is listed, newest first, with no paging. The shared database holds 15 notifications today; paging can be added if lists grow long.",
+    "DECIDED 2026-10-13: SPM-71's test accounts are its own (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee), created by npm run fixtures:spm71, because the unread counts the cases quote must not move when other testers' work notifies a shared account such as Daniel Tan.",
+    "RESOLVED 2026-10-13: Choosing which notifications arrive by email or in the app (clarification #37) and delivery timing (#55) are about sending notifications, not viewing them, and are out of scope here.",
+    "RESOLVED 2026-10-13: Marking a notification as unread again is not asked for by AC4, so it is not built."
+  ],
+  "code_references": [
+    "src/lib/notificationView.ts",
+    "src/lib/notifications.ts",
+    "src/lib/validation/notifications.ts",
+    "src/app/api/notifications/route.ts",
+    "src/app/api/notifications/unread-count/route.ts",
+    "src/app/api/notifications/[id]/route.ts",
+    "src/app/api/notifications/read-all/route.ts",
+    "src/app/notifications/page.tsx",
+    "src/components/AppShell.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/events/[id]/venue/page.tsx",
+    "src/lib/permissions.ts",
+    "scripts/seed-spm71.ts",
+    "prisma/seed.ts"
+  ]
+}

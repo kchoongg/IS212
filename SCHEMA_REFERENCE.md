@@ -31,15 +31,17 @@ Copy from here rather than typing from memory.
 | Field | Allowed values |
 |---|---|
 | `User.role` | `organiser` `coordinator` `venue_staff` `tech_support` `attendee` `ops_manager` |
-| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `confirmed` `completed` `cancelled` `rejected` `postponed` |
-| `VenueBooking.status` | `pending` `approved` `rejected` `cancelled` |
-| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` — comma-separated, one or more |
+| `Event.status` | `draft` `submitted` `under_review` `approved` `planning` `safety_review` `safety_cleared` `confirmed` `completed` `cancelled` `rejected` `postponed` |
+| `SafetyCheck.status` | `pending` (SPM-86) `approved` `changes_requested` `rejected` (SPM-87) `closed` (SPM-88) |
+| *(note)* | `Event.status = safety_cleared` is shown as **"Safety approved"** (SPM-87). It is not `safety_approved`, which is the Readiness tab's safety-check badge key (SPM-33). |
+| `VenueBooking.status` | `pending` `approved` `rejected` `withdrawn` `released` `expired` (SPM-82: a pending request - a tentative hold - not approved by `holdExpiresAt`) |
+| `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
 | `ClarificationRequest.status` | `open` `answered` `closed` |
 | `EventChangeRequest.status` | `pending` `approved` `rejected` `withdrawn` |
 | `Facility.category` | `facility` `accessibility` |
-| `VenueUnavailability.reason` | `maintenance` `renovation` `safety` `internal_activity` `other` |
+| `VenueUnavailability.reason` | `maintenance` `equipment_failure` `renovation` `safety` `internal_activity` `other` |
 | layout names | `theatre` `classroom` `boardroom` `banquet` `exhibition` `u_shape` `cabaret` |
 
 The Zod schemas in `src/lib/validation/` (one file per domain) enforce most of
@@ -57,6 +59,7 @@ erDiagram
   users ||--o{ registrations : registers
   users ||--o{ notifications : receives
   events ||--o{ event_status_history : logs
+  events ||--o{ safety_checks : "submitted for"
   events ||--o{ clarification_requests : has
   events ||--o{ event_change_requests : has
   events ||--o{ event_facility_requirements : requires
@@ -84,7 +87,7 @@ erDiagram
 | Jordan | auth | `User`, `Organisation` |
 | Kristen | events | `Event`, `EventSession`, `EventStatusHistory`, `ClarificationRequest`, `EventChangeRequest`, `EventFacilityRequirement` |
 | Kayal | venues | `Venue`, `VenueLayout`, `Facility`, `VenueFacility`, `VenueBooking`, `VenueUnavailability` |
-| Janelle | equipment | `Equipment`, `EquipmentRequest` |
+| Janelle | equipment; safety checks | `Equipment`, `EquipmentRequest`, `SafetyCheck` |
 | Sammi | registrations | `Registration` |
 | shared | - | `Notification` - any domain may create one |
 
@@ -128,7 +131,7 @@ Postgres table `users` &middot; `prisma.user`
 | `isActive` | Boolean |  | Deactivate leavers rather than deleting them. Defaults to `true`. |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
-**Relations:** `organisation` &rarr; Organisation, `organisedEvents` &rarr; Event[], `coordinatedEvents` &rarr; Event[], `statusChanges` &rarr; EventStatusHistory[], `clarificationsRaised` &rarr; ClarificationRequest[], `changeRequestsRaised` &rarr; EventChangeRequest[], `changeRequestsReviewed` &rarr; EventChangeRequest[], `bookingsRequested` &rarr; VenueBooking[], `bookingsDecided` &rarr; VenueBooking[], `unavailabilityCreated` &rarr; VenueUnavailability[], `equipmentRequested` &rarr; EquipmentRequest[], `equipmentReviewed` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[]
+**Relations:** `organisation` &rarr; Organisation, `organisedEvents` &rarr; Event[], `coordinatedEvents` &rarr; Event[], `statusChanges` &rarr; EventStatusHistory[], `clarificationsRaised` &rarr; ClarificationRequest[], `changeRequestsRaised` &rarr; EventChangeRequest[], `changeRequestsReviewed` &rarr; EventChangeRequest[], `bookingsRequested` &rarr; VenueBooking[], `bookingsDecided` &rarr; VenueBooking[], `bookingsCancelled` &rarr; VenueBooking[], `unavailabilityCreated` &rarr; VenueUnavailability[], `equipmentRequested` &rarr; EquipmentRequest[], `equipmentReviewed` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[], `safetyChecksSubmitted` &rarr; SafetyCheck[], `safetyChecksDecided` &rarr; SafetyCheck[]
 
 **Watch out:**
 
@@ -151,8 +154,8 @@ Postgres table `venues` &middot; `prisma.venue`
 | `maxCapacity` | Int | req | Absolute ceiling. The per-layout number is usually lower - use VenueLayout for suitability. |
 | `opensAt` | String |  | "HH:MM" text, 24-hour. Zero-padded so string comparison works. Defaults to `"08:00"`. |
 | `closesAt` | String |  | "HH:MM" text. Defaults to `"22:00"`. |
-| `setupMinutes` | Int |  | Optional. Ignore unless you are handling turnaround time. Defaults to `0`. |
-| `teardownMinutes` | Int |  | Optional. Defaults to `0`. |
+| `setupMinutes` | Int |  | Setup time before each booking, in 15-minute steps, zero included (SPM-93; enforced by `createVenueSchema`/`updateVenueSchema`, not the database). Defaults to `0`. |
+| `teardownMinutes` | Int |  | The customer's **turnaround** time after each booking - labelled "Turnaround time (minutes)" on screen. 15-minute steps, zero included. Defaults to `0`. |
 | `isActive` | Boolean |  | Retire a venue without orphaning its past bookings. Defaults to `true`. |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
@@ -235,8 +238,13 @@ Postgres table `events` &middot; `prisma.event`
 | `specialRequirements` | String |  |  |
 | `registrationEnabled` | Boolean |  | Defaults to `false`. |
 | `registrationCapacity` | Int |  | Seats open to the public. NOT the same as expectedAttendance. |
-| `registrationOpensAt` | DateTime |  |  |
-| `registrationClosesAt` | DateTime |  |  |
+| `registrationOpensAt` | DateTime |  | Separate from the event date (SPM-64): opens before it closes. |
+| `registrationClosesAt` | DateTime |  | No later than `startsAt` (SPM-64); can be moved later to reopen registration until the event starts. |
+| `registrationVenueBookingId` | String |  | VenueBooking id (SET NULL if the booking is deleted). The booking the registration capacity is measured against (SPM-64): the capacity can't exceed that room's capacity in the booked layout. Set with the capacity; NULL until one is set. A booking that is no longer pending or approved leaves registration setup incomplete. |
+| `registrationReviewReason` | String |  | Set when a change to the event may affect attendees already registered or waitlisted (SPM-62: the date or time changed; SPM-64: capacity lowered below them or registration turned off). Comma-separated reason codes, as `VenueBooking.reviewReason`. NULL = not flagged. Registrations themselves are not changed. |
+| `registrationNotRequired` | Boolean |  | SPM-33: the assigned coordinator marked the registration setup as not required, so an enabled but incomplete setup no longer prevents confirmation. The settings are NOT changed. Defaults to `false`. |
+| `registrationNotRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `registrationNotRequiredByUser`. NULL when never decided. |
+| `registrationNotRequiredAt` | DateTime |  | When that decision was made. |
 | `rejectionReason` | String |  | Required when rejecting - the route enforces it. |
 | `cancellationReason` | String |  |  |
 | `submittedAt` | DateTime |  |  |
@@ -244,7 +252,7 @@ Postgres table `events` &middot; `prisma.event`
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 | `updatedAt` | DateTime | req |  |
 
-**Relations:** `organiser` &rarr; User, `organisation` &rarr; Organisation, `coordinator` &rarr; User, `facilityRequirements` &rarr; EventFacilityRequirement[], `statusHistory` &rarr; EventStatusHistory[], `clarifications` &rarr; ClarificationRequest[], `changeRequests` &rarr; EventChangeRequest[], `sessions` &rarr; EventSession[], `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[]
+**Relations:** `organiser` &rarr; User, `organisation` &rarr; Organisation, `coordinator` &rarr; User, `facilityRequirements` &rarr; EventFacilityRequirement[], `statusHistory` &rarr; EventStatusHistory[], `clarifications` &rarr; ClarificationRequest[], `changeRequests` &rarr; EventChangeRequest[], `sessions` &rarr; EventSession[], `venueBookings` &rarr; VenueBooking[], `equipmentRequests` &rarr; EquipmentRequest[], `registrations` &rarr; Registration[], `notifications` &rarr; Notification[], `safetyChecks` &rarr; SafetyCheck[]
 
 **Watch out:**
 
@@ -301,6 +309,25 @@ Audit trail of status changes. Event.status holds only the current value.
 
 **Relations:** `event` &rarr; Event, `user` &rarr; User
 
+### `SafetyCheck`
+
+Postgres table `safety_checks` &middot; `prisma.safetyCheck` &middot; added by SPM-86 (migration `20261009120000_add_safety_check`)
+
+One row per submission of an event for an Operational Safety Check (Week 7 change #6). Submitting moves the event to `safety_review` and creates a `pending` row; an event keeps every row, so earlier decisions stay visible. SPM-88: a significant change while a row is `pending` or `approved` sets it to `closed`, writing who closed it, when and what changed into `decidedBy`, `decidedAt` and `decisionNote`; the event's Overview lists every row as its Safety check history.
+
+| Field | Type | | Notes |
+|---|---|---|---|
+| `id` | String |  | Defaults to `uuid()`. |
+| `eventId` | String | req | Cascade-deleted with the event. |
+| `status` | String | req | Defaults to `pending`. See Status values. |
+| `submittedBy` | String | req | The assigned coordinator who submitted it. |
+| `submittedAt` | DateTime |  | Defaults to `now()`. |
+| `decidedBy` | String |  | SPM-87: the Safety Officer who decided. NULL while pending. SPM-88: the coordinator whose change closed it, once `closed`. |
+| `decidedAt` | DateTime |  | SPM-87. NULL while pending. |
+| `decisionNote` | String |  | SPM-87: the reason for a rejection, or the changes required. SPM-88: what changed, once `closed`. Internal only (SPM-88). |
+
+**Relations:** `event` &rarr; Event, `submitter` &rarr; User, `decider` &rarr; User
+
 ### `ClarificationRequest`
 
 Postgres table `clarification_requests` &middot; `prisma.clarificationRequest`
@@ -355,28 +382,47 @@ Postgres table `venue_bookings` &middot; `prisma.venueBooking`
 | `eventId` | String | req |  |
 | `sessionId` | String |  | Set only for a multi-session event's session-specific booking. NULL means the booking applies to the whole event, as before EventSession existed. |
 | `venueId` | String | req |  |
-| `layoutName` | String |  | What Venue Staff physically set up. |
+| `layoutName` | String |  | What Venue Staff physically set up. Since SPM-90 the layout of THIS space, which may differ from the event's preferred layout. |
+| `purpose` | String |  | What this space is for, in the Coordinator's words - "Main programme", "Breakout room" (SPM-90). Up to 100 characters. NULL on a booking made before SPM-90. |
+| `expectedAttendance` | Int |  | How many people THIS space is for - what the venue was judged against, not the event's total (SPM-90). Copied at request time. Existing bookings were filled from their session or event. |
 | `startsAt` | DateTime | req | COPIED from the event (or session) at request time. Do not read it live - changing an event must not silently move an approved booking. |
 | `endsAt` | DateTime | req |  |
-| `status` | String |  | pending \| approved \| rejected \| cancelled. Only `approved` blocks a venue. Defaults to `"pending"`. |
+| `status` | String |  | pending \| approved \| rejected \| withdrawn \| released. `pending` and `approved` hold the venue (see Watch out); `withdrawn` (was pending) and `released` (was approved) are the assigned Coordinator taking it back (SPM-67) and hold nothing. Defaults to `"pending"`. |
 | `requestedBy` | String | req |  |
 | `requestedAt` | DateTime |  | Defaults to `now()`. |
 | `requirementsNote` | String |  |  |
 | `decidedBy` | String |  |  |
 | `decidedAt` | DateTime |  |  |
 | `decisionReason` | String |  | Required when rejecting. |
+| `suggestedVenueId` | String |  | Another venue Venue Staff suggested when rejecting (SPM-43). A suggestion only - nothing is booked. NULL unless rejected with one; set to NULL if that venue is ever deleted. |
+| `suggestedAlternative` | String |  | An alternative arrangement in words, given when rejecting (SPM-43) - another date, time or layout. NULL unless rejected with one. |
 | `needsReview` | Boolean |  | A venue change may have invalidated this booking. The booking is NOT changed - a human decides. Defaults to `false`. |
 | `reviewReason` | String |  | Why it was flagged: comma-separated codes, see Status values. NULL when `needsReview` is false. |
 | `flaggedAt` | DateTime |  | When it was last flagged. NULL when never flagged. |
+| `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this booking as not required for the event, so it no longer prevents confirmation. The booking is NOT changed, withdrawn or released. Defaults to `false`. |
+| `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
+| `notRequiredAt` | DateTime |  | When that decision was made. |
+| `cancelledBy` | String |  | SPM-67: the Coordinator who withdrew or released it. Relation `canceller`. NULL unless `withdrawn` or `released`. |
+| `cancelledAt` | DateTime |  | When it was withdrawn or released. |
+| `cancellationReason` | String |  | The Coordinator's reason - optional. Shown on the Venue tab as 'Reason for withdrawal' or 'Reason for release'. |
+| `holdExpiresAt` | DateTime |  | SPM-82: when this pending request (a tentative hold) stops holding the venue unless approved first. Set on request - 7 days later, or the event's start if sooner - and changeable by Venue Staff while pending. NULL on bookings made before SPM-82, which never expire. Indexed with `status` for the expiry sweep. |
+| `expiryWarningSentAt` | DateTime |  | SPM-82: when the Coordinator was warned the hold is about to expire, so the warning goes once. Cleared when the expiry is moved. |
 
-**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User
+**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `venue` &rarr; Venue, `suggestedVenue` &rarr; Venue, `requester` &rarr; User, `decider` &rarr; User, `canceller` &rarr; User
 
 **Watch out:**
 
-- Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`. The same test appears in three places - write it once and reuse it.
-- Only compare against `status: 'approved'`. Pending requests may legitimately compete for the same slot.
+- **`approved` is the confirmed booking.** There is no separate "confirmed" value: Venue Staff approving a pending request (`PATCH /api/venue-bookings/[id]`, SPM-43) is what books the room. The screens label it "Approved"; "Confirmed" is an *event* status.
+- A booking is decided once, from `pending` only, and deciding it never touches the Event. Withdrawing (from `pending`) or releasing (from `approved`; Venue Staff are notified) never touches it either (SPM-67, `PATCH /api/events/[id]/venue-bookings/[bookingId]`).
+- `venue` and `suggestedVenue` both point at Venue, so the relations are named (`BookingVenue`, `BookingSuggestedVenue`). On the Venue side they are `bookings` and `suggestedIn`.
+
+- `startsAt`/`endsAt` are the requested times only, on a 15-minute grid since SPM-93 (bookings made before it hold whole-slot times such as 07:00-12:00, and are kept as stored). **Setup and turnaround are never stored on the booking**: a booking occupies the room from `startsAt` minus the venue's `setupMinutes` to `endsAt` plus its `teardownMinutes` (Week 7 Change #1). Compare occupied periods with `occupiedWindow()` in `src/lib/venueTime.ts`.
+- Overlap test: `a.startsAt < b.endsAt AND a.endsAt > b.startsAt`, on occupied periods - `overlapping()` in `src/lib/venueTime.ts`. Periods that only meet end to start do not clash.
+- At **request** time a pending request blocks too (a tentative hold, #41), setup and turnaround included. At **approval** only `approved` bookings block: rival pending requests may compete for the same time, and approving one is how Venue Staff choose.
 - `needsReview` is a flag, never an action. When a venue is edited or retired, `PATCH /api/venues/[id]` sets it on affected bookings and notifies the coordinator; it does not change the booking's venue, layout, times or status, and it does not touch the Event. Only `approved` bookings that have not yet finished are candidates - a pending booking is not a commitment, so there is nothing to protect by flagging it.
-- **Nothing clears the flag yet.** There is no route for a coordinator to acknowledge or resolve one - that is a separate story. Do not assume a flagged booking is unresolved in real life.
+- A change to the event's own information sets it too (Update Event Information, SPM-62): `event_schedule_changed`, `event_attendance_changed`, `event_requirements_changed`, on pending and approved bookings that have not finished. Those codes share the column with the venue codes above, so every writer adds reasons through `addReviewReasons()` (`src/lib/reviewFlags.ts`), which keeps codes it does not recognise. Never parse the column into your own codes before writing it back.
+- After the Safety Officer returns a safety check, the assigned Coordinator may flag the event's bookings and equipment with `safety_check_returned` (SPM-88, `POST /api/events/[id]/safety-flags`). The flag blocks resubmission until cleared in SPM-68.
+- **The assigned Coordinator clears the flag** in Review Flagged Arrangements (SPM-68): `POST /api/flagged-arrangements` sets `needsReview` to false and `reviewReason` to NULL - nothing else - and only while the booking still meets the event's requirements. `flaggedAt` is left as the record of when it was last flagged. `EquipmentRequest` is cleared the same way, and `Event.registrationReviewReason` is set to NULL when the registrations are marked as reviewed. A withdrawn or released booking (SPM-67) keeps whatever flag it had: only `pending` and `approved` bookings are ever listed or counted, so read `needsReview` together with `status`.
 - `reviewReason` accumulates. A second venue edit merges its codes into the existing list rather than replacing them, so parse it as a set.
 
 ### `VenueUnavailability`
@@ -391,8 +437,8 @@ Maintenance blocks. No event, no requester, no approval step — which is why th
 | `venueId` | String | req |  |
 | `startsAt` | DateTime | req |  |
 | `endsAt` | DateTime | req |  |
-| `reason` | String | req | maintenance \| renovation \| safety \| internal_activity \| other |
-| `notes` | String |  |  |
+| `reason` | String | req | maintenance \| equipment_failure \| renovation \| safety \| internal_activity \| other (`UNAVAILABILITY_REASONS`, SPM-45) |
+| `notes` | String |  | What the reason is when `reason` is `other` - required then, by the routes; null for a listed reason written through the app. |
 | `createdBy` | String | req |  |
 | `createdAt` | DateTime |  | Defaults to `now()`. |
 
@@ -413,6 +459,7 @@ Tracked by quantity, not by serial number: a coordinator requests "3 projectors"
 | `totalQuantity` | Int | req | How many ConnectSphere owns. |
 | `quantityInMaintenance` | Int |  | Out of service - unavailable, damaged or under maintenance. Set by Technical Support through `PATCH /api/equipment/[id]/out-of-service` (SPM-48 AC7), never more than `totalQuantity`. Available = total - maintenance - reserved. Defaults to `0`. |
 | `outOfServiceReason` | String |  | Why those units are out of service. NULL when none are - recording 0 clears it. |
+| `outOfServiceType` | String |  | SPM-55: `unavailable` \| `damaged` \| `under_maintenance`, required while any unit is out. NULL when none are (and for units recorded before SPM-55). |
 | `isActive` | Boolean |  | Defaults to `true`. `false` retires an item: it is not offered for new requests (`GET /api/equipment` and the add-equipment routes), and an existing request for it shows as Unavailable with 0 available. |
 | `locationVenueId` | String |  | SPM-48. Where the item is kept. NULL means ConnectSphere storage - the default, because equipment is returned there after every event (customer Q&A #2, #5). Set to a `Venue` only for kit that lives at that venue: no transfer time is then added for an event at the same venue. `ON DELETE SET NULL`. |
 
@@ -447,6 +494,12 @@ Request and reservation in one table: a reservation only ever comes from a reque
 | `reviewedBy` | String |  |  |
 | `reviewedAt` | DateTime |  |  |
 | `staffNotes` | String |  |  |
+| `needsReview` | Boolean |  | A change to the event (SPM-62: its date or time) may have invalidated this request. The request is NOT changed - the coordinator keeps or replaces it (SPM-68). Defaults to `false`. |
+| `reviewReason` | String |  | Why it was flagged: comma-separated codes, merged with any already there. SPM-62's event codes, `equipment_unavailable` when units of the item were marked out of service and the units left no longer cover this reservation (SPM-55), and `safety_check_returned` when the coordinator flagged it after a returned safety check (SPM-88). |
+| `flaggedAt` | DateTime |  | When it was last flagged. |
+| `notRequired` | Boolean |  | SPM-33: the assigned coordinator marked this line as not required (e.g. an item Technical Support cannot provide, agreed to be non-essential), so it no longer prevents confirmation. Its status and anything reserved are NOT changed. Defaults to `false`. |
+| `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
+| `notRequiredAt` | DateTime |  | When that decision was made. |
 
 **Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User
 
@@ -512,7 +565,7 @@ Postgres table `notifications` &middot; `prisma.notification`
 |---|---|---|---|
 | `id` | String |  | Defaults to `uuid()`. |
 | `recipientId` | String | req | One row per person, not per event. |
-| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`. |
+| `type` | String | req | Free string, no constraint. Written so far: `booking_needs_review`, `booking_venue_retired`, `booking_venue_unavailable` (SPM-45), `safety_check_submitted` (SPM-86, to every `safety_officer`), `equipment_unavailable` (SPM-55, to the coordinator of each reservation left short), `safety_check_decided` (SPM-87, to the assigned coordinator, with the reason or changes). |
 | `title` | String | req |  |
 | `body` | String | req |  |
 | `eventId` | String |  | Lets the notification deep-link to what caused it. |
@@ -541,6 +594,7 @@ double-booked venue. These rules live in route code:
 | Rejection reason | `api/events/[id]` PATCH | a reason is given when status becomes `rejected` |
 | Venue suitability | venues domain (to write) | layout capacity >= attendance, all mandatory facilities present |
 | Booking conflict | venues domain (to write) | no overlapping `approved` booking or unavailability |
+| Booking decision | `src/lib/venueBookingReview.ts`, applied by `api/venue-bookings/[id]` PATCH | decided once, from `pending`; approval re-checks approved bookings and unavailability (times plus each venue's setup and turnaround minutes, SPM-93) under a lock on the venue row; a rejection needs a reason; a suggested venue must be active and different |
 | Venue change impact | `src/lib/venueImpact.ts`, applied by `api/venues/[id]` PATCH | which future `approved` bookings a venue edit or retirement newly breaks, so they can be flagged. Pure functions, unit tested without a database. Does NOT yet cover narrowed `opensAt`/`closesAt` - that needs a timezone convention the codebase has not settled |
 | Equipment availability | equipment domain (to write) | requested <= total - maintenance - overlapping reservations |
 | Registration | `api/registrations` POST | event confirmed, within window, not already registered, seats left |
@@ -644,7 +698,12 @@ The data deliberately contains things to find: venues that lack a hearing loop s
 suitability checks can rule them out, equipment in maintenance so availability is
 not just the total, an event rejected with a reason on record, a change request
 refused because the room caps at 40, and one approved future booking that starts
-out flagged for review because its room was made too small for it.
+out flagged for review because its room was made too small for it, and one
+rejected booking that carries a suggested venue and arrangement.
+
+**Keep it in step with the schema.** Every schema change is reflected here in
+the same change, even though nobody is reseeding - see DOCUMENTATION.md,
+"Changing the Schema", step 5.
 
 **Watch out:**
 

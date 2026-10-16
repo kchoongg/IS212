@@ -1,7 +1,22 @@
 import { z } from "zod";
-import { SLOTS, isDayKey } from "@/lib/venueSlots";
+import { BOOKING_STEP_MINUTES, isDayKey, isOnGrid } from "@/lib/venueTime";
+import { SPACE_ATTENDANCE_ERROR, SPACE_PURPOSE_MAX, SPACE_PURPOSE_REQUIRED } from "@/lib/venueSuitability";
+import {
+  OTHER_REASON_ERROR,
+  OTHER_REASON_MAX,
+  PERIOD_ORDER_ERROR,
+  TIME_GRID_ERROR,
+  UNAVAILABILITY_REASONS,
+  periodInterval,
+} from "@/lib/venueUnavailability";
 
 // ---- Venues ----
+
+const stepMinutes = z
+  .number()
+  .int()
+  .nonnegative()
+  .multipleOf(BOOKING_STEP_MINUTES, { message: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on." });
 
 // CHANGED: `location` split into building/floor/address (story 9 filters by
 // location, so it has to be queryable, not one free-text blob). `capacity`
@@ -17,8 +32,10 @@ export const createVenueSchema = z.object({
   maxCapacity: z.number().int().positive(),
   opensAt: z.string().regex(/^\d{2}:\d{2}$/).optional(),
   closesAt: z.string().regex(/^\d{2}:\d{2}$/).optional(),
-  setupMinutes: z.number().int().nonnegative().optional(),
-  teardownMinutes: z.number().int().nonnegative().optional(),
+  /// SPM-93 AC5: in 15-minute steps, zero included - the smallest unit of
+  /// booking (#126, #128). venueForm.ts gives the same message on screen.
+  setupMinutes: stepMinutes.optional(),
+  teardownMinutes: stepMinutes.optional(),
   /// Facility IDs this venue has, both `facility` and `accessibility` ones.
   facilityIds: z.array(z.string().uuid()).optional(),
   /// Optional per-layout capacities, e.g. [{ layoutName: "theatre", capacity: 500 }]
@@ -36,6 +53,9 @@ export type CreateVenueInput = z.infer<typeof createVenueSchema>;
 // ADDED (SPM-40): GET /api/venues/search. Query strings, so every value
 // arrives as text; empty strings are treated as "filter not set" rather than
 // errors, because that is what an untouched form field sends.
+/// A layout picker's "Not set" arrives as "", which means no layout.
+const blankToNull = (value: unknown) => (typeof value === "string" && value.trim() === "" ? null : value);
+
 const blankToUndefined = (value: unknown) =>
   typeof value === "string" && value.trim() === "" ? undefined : value;
 
@@ -124,19 +144,91 @@ export const venueAvailabilityQuerySchema = z.object({
 });
 export type VenueAvailabilityQuery = z.infer<typeof venueAvailabilityQuerySchema>;
 
-// ADDED (SPM-42): POST /api/events/[id]/venue-bookings. An empty `slots` list
-// is allowed through on purpose - checkVenueBookingRequest()
-// (src/lib/venueBookingRequest.ts) refuses it with the message the screen shows.
+// ADDED (SPM-42): POST /api/events/[id]/venue-bookings. SPM-93: a date and a
+// start and end time instead of slots. The times are only required to be
+// strings here: an off-grid or inverted time is refused by
+// checkVenueBookingRequest() (src/lib/venueBookingRequest.ts), with the
+// message and the field the screen shows (AC3).
 export const createVenueBookingSchema = z.object({
   venueId: z.string().uuid(),
-  /// Required by the route when the event has sessions (AC4).
+  /// Required by the route when the event has sessions.
   sessionId: z.string().uuid().optional(),
   day: availabilityDay,
-  slots: z
-    .array(z.enum(SLOTS))
-    .max(SLOTS.length)
-    .refine((slots) => new Set(slots).size === slots.length, { message: "Each slot may appear only once" }),
+  startTime: z.string().max(5),
+  endTime: z.string().max(5),
   /// 'Venue requirements' (AC6). Optional; blank means none given.
   requirementsNote: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+  /// SPM-90 (AC1): what this space is for, e.g. "Main programme".
+  purpose: z.string().trim().min(1, SPACE_PURPOSE_REQUIRED).max(SPACE_PURPOSE_MAX),
+  /// SPM-90: the space's own attendance and layout. Left out, the route uses
+  /// the session's, else the event's (AC2). A null layout means "not set".
+  expectedAttendance: z.number().int().min(1, SPACE_ATTENDANCE_ERROR).optional(),
+  layoutName: z.preprocess(blankToNull, z.string().trim().max(50).nullable().optional()),
 });
 export type CreateVenueBookingInput = z.infer<typeof createVenueBookingSchema>;
+
+// ADDED (SPM-45): POST /api/venues/[id]/unavailability and PATCH
+// .../unavailability/[periodId]. A period is stated as the date and time the
+// venue becomes unavailable and the date and time it is available again, on
+// the 15-minute grid (AC1; #126, #128), and the second must be later (AC2).
+// `otherReason` only means something for "other", where it is required; the
+// routes ignore it for any other reason.
+const gridTime = z.string().refine(isOnGrid, { message: TIME_GRID_ERROR });
+
+export const venueUnavailabilitySchema = z
+  .object({
+    fromDay: availabilityDay,
+    fromTime: gridTime,
+    untilDay: availabilityDay,
+    untilTime: gridTime,
+    reason: z.enum(UNAVAILABILITY_REASONS),
+    otherReason: z.preprocess(blankToUndefined, z.string().trim().max(OTHER_REASON_MAX).optional()),
+  })
+  .superRefine((period, ctx) => {
+    // A refused day or time still reaches here; there is nothing to compare.
+    const readable =
+      isDayKey(period.fromDay) && isDayKey(period.untilDay) && isOnGrid(period.fromTime) && isOnGrid(period.untilTime);
+    const { startsAt, endsAt } = periodInterval(period);
+    if (readable && endsAt.getTime() <= startsAt.getTime()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: PERIOD_ORDER_ERROR, path: ["untilTime"] });
+    }
+    if (period.reason === "other" && !period.otherReason) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: OTHER_REASON_ERROR, path: ["otherReason"] });
+    }
+  });
+export type VenueUnavailabilityInput = z.infer<typeof venueUnavailabilitySchema>;
+
+// ADDED (SPM-43): PATCH /api/venue-bookings/[id]. A blank `reason` is allowed
+// through on purpose - checkBookingDecision() (src/lib/venueBookingReview.ts)
+// refuses it with the message the screen shows. The suggestion (AC6) exists
+// only on a rejection: approving with amended details is not allowed (#110).
+export const decideVenueBookingSchema = z.discriminatedUnion("decision", [
+  z.object({ decision: z.literal("approve") }).strict(),
+  z.object({
+    decision: z.literal("reject"),
+    reason: z.string().max(2000),
+    suggestedVenueId: z.preprocess(blankToUndefined, z.string().uuid().optional()),
+    suggestedAlternative: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+  }),
+]);
+export type DecideVenueBookingInput = z.infer<typeof decideVenueBookingSchema>;
+
+// ADDED (SPM-67): PATCH /api/events/[id]/venue-bookings/[bookingId]. The
+// assigned Coordinator withdraws a pending request or releases an approved
+// booking. The reason is optional (AC5 "can record"); a blank one is none.
+export const changeVenueBookingSchema = z
+  .object({
+    action: z.enum(["withdraw", "release"]),
+    reason: z.preprocess(blankToUndefined, z.string().trim().max(2000).optional()),
+  })
+  .strict();
+export type ChangeVenueBookingInput = z.infer<typeof changeVenueBookingSchema>;
+
+/// SPM-82 (AC3): Venue Staff move a tentative hold's expiry. The rules - in the
+/// future, not after the event starts, only while pending - are
+/// checkHoldExpiryChange() (src/lib/holdExpiry.ts); this only checks it is a
+/// date at all.
+export const changeHoldExpirySchema = z.object({
+  holdExpiresAt: z.coerce.date({ message: "Choose the date and time the hold should expire." }),
+});
+export type ChangeHoldExpiryInput = z.infer<typeof changeHoldExpirySchema>;

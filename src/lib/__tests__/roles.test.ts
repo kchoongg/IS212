@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   ROLES,
+  activeNavHref,
   eventTabsFor,
   isExternalRole,
+  isSelfRegisterableRole,
   navFor,
   roleLabel,
 } from "../roles";
@@ -48,6 +50,18 @@ describe("navFor", () => {
     expect(hrefs).toEqual(["/dashboard", "/browse", "/registrations", "/notifications"]);
   });
 
+  // SPM-68 (written before the code): the coordinator's list of flagged
+  // arrangements is theirs alone, straight after the Review Queue.
+  it("gives the coordinator Flagged Arrangements after the Review Queue, and nobody else", () => {
+    const coordinator = navFor("coordinator");
+    const queue = coordinator.findIndex((item) => item.href === "/queue");
+
+    expect(coordinator[queue + 1]).toEqual({ href: "/flagged", label: "Flagged Arrangements" });
+    for (const role of ROLES.filter((r) => r !== "coordinator")) {
+      expect(navFor(role).map((item) => item.href)).not.toContain("/flagged");
+    }
+  });
+
   it("degrades to the dashboard for an unknown role instead of an empty sidebar", () => {
     expect(navFor("future_role")).toEqual([{ href: "/dashboard", label: "Dashboard" }]);
   });
@@ -89,5 +103,66 @@ describe("isExternalRole", () => {
     expect(isExternalRole("venue_staff")).toBe(false);
     expect(isExternalRole("tech_support")).toBe(false);
     expect(isExternalRole("ops_manager")).toBe(false);
+  });
+});
+
+describe("activeNavHref", () => {
+  const techSupport = navFor("tech_support");
+
+  it("highlights only Equipment Requests on the requests queue, not Equipment as well", () => {
+    expect(activeNavHref(techSupport, "/equipment/requests")).toBe("/equipment/requests");
+  });
+
+  it("keeps Equipment Requests highlighted on one event's request page", () => {
+    expect(activeNavHref(techSupport, "/equipment/requests/EVT-000123")).toBe("/equipment/requests");
+  });
+
+  it("highlights Equipment on the catalogue itself", () => {
+    expect(activeNavHref(techSupport, "/equipment")).toBe("/equipment");
+  });
+
+  it("keeps a section highlighted on the pages under it", () => {
+    expect(activeNavHref(navFor("organiser"), "/events/EVT-000123/equipment")).toBe("/events");
+  });
+
+  it("does not treat a shared prefix as a match", () => {
+    expect(activeNavHref([{ href: "/events", label: "Events" }], "/eventsx")).toBeNull();
+  });
+
+  it("highlights nothing when no link matches", () => {
+    expect(activeNavHref(techSupport, "/profile")).toBeNull();
+  });
+});
+
+// SPM-85 (Week 7 change #6): the Safety Officer reviews the operational
+// safety of planned events, and sees only what that review needs.
+describe("the Safety Officer (SPM-85)", () => {
+  it("AC1: is a role of its own, shown as 'Safety Officer'", () => {
+    expect(ROLES).toContain("safety_officer");
+    expect(roleLabel("safety_officer")).toBe("Safety Officer");
+  });
+
+  it("AC1: is internal, and cannot be claimed at the public Create an account form", () => {
+    expect(isExternalRole("safety_officer")).toBe(false);
+    expect(isSelfRegisterableRole("safety_officer")).toBe(false);
+  });
+
+  it("AC2: has Dashboard, Safety Checks, All Events and Notifications, and nothing else", () => {
+    expect(navFor("safety_officer")).toEqual([
+      { href: "/dashboard", label: "Dashboard" },
+      { href: "/safety-checks", label: "Safety Checks" },
+      { href: "/events", label: "All Events" },
+      { href: "/notifications", label: "Notifications" },
+    ]);
+  });
+
+  it("AC2: is the only role with a Safety Checks link", () => {
+    for (const role of ROLES.filter((r) => r !== "safety_officer")) {
+      expect(navFor(role).map((item) => item.href), role).not.toContain("/safety-checks");
+    }
+  });
+
+  it("AC3, AC6: sees an event's Overview and Equipment, but not its Attendees or the venue search", () => {
+    expect(eventTabsFor("safety_officer")).toEqual(["overview", "equipment"]);
   });
 });

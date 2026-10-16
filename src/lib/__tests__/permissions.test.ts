@@ -9,14 +9,24 @@ import {
   STATUS_TRANSITION_ROLES,
   can,
   canAssignCoordinator,
+  canBeginPlanning,
+  canConfigureRegistration,
+  canConfirmEvent,
+  canUpdateEventInformation,
   canReviewEvent,
   canCheckEquipmentAvailability,
   canReserveEquipment,
+  canUpdateEquipmentFulfilment,
   canRequestVenueBooking,
   canEditEventContent,
   canManageEquipmentRequests,
   canSetEventStatus,
+  canSubmitForSafetyCheck,
+  canRecordSafetyDecision,
   canViewEquipmentRequests,
+  techSupportSeesEquipment,
+  TECH_SUPPORT_EQUIPMENT_STATUSES,
+  canWithdrawEvent,
   canViewEvent,
   eventListWhere,
   isAssignedCoordinator,
@@ -132,6 +142,17 @@ describe("the role matrix", () => {
     expect(can("coordinator", "venue:view")).toBe(true);
   });
 
+  it("SPM-55: shows equipment's operational status to internal staff only", () => {
+    for (const role of ["coordinator", "ops_manager", "tech_support"]) {
+      expect(can(role, "equipment:view_status"), role).toBe(true);
+    }
+    // The organiser may pick from the catalogue (equipment:view) but not see
+    // what is out of service, or why.
+    for (const role of ["organiser", "venue_staff", "attendee"]) {
+      expect(can(role, "equipment:view_status"), role).toBe(false);
+    }
+  });
+
   it("lets no role write a catalogue it does not own", () => {
     for (const role of ROLES) {
       if (role !== "venue_staff") expect(can(role, "venue:manage")).toBe(false);
@@ -201,6 +222,27 @@ describe("canViewEvent", () => {
     expect(canViewEvent(attendee, event({ status: "rejected", registrationEnabled: true }))).toBe(false);
   });
 
+  // SPM-64 (#10: attendees "can view events that they register for"):
+  // turning registration off must not hide the event from the people already
+  // holding a place. Manual case SPM-64-TC22.
+  it("keeps showing a confirmed event to an attendee who holds a place after registration is turned off", () => {
+    expect(
+      canViewEvent(attendee, event({ status: "confirmed", registrationEnabled: false, attendeeHoldsPlace: true }))
+    ).toBe(true);
+  });
+
+  it("doesn't show it to an attendee who holds no place (withdrawn, or never registered)", () => {
+    expect(
+      canViewEvent(attendee, event({ status: "confirmed", registrationEnabled: false, attendeeHoldsPlace: false }))
+    ).toBe(false);
+  });
+
+  it("still hides an event that is not confirmed from an attendee who holds a place", () => {
+    expect(
+      canViewEvent(attendee, event({ status: "planning", registrationEnabled: false, attendeeHoldsPlace: true }))
+    ).toBe(false);
+  });
+
   it("shows internal staff every event that has left draft", () => {
     for (const staff of [coordinator, opsManager, venueStaff, techSupport]) {
       expect(canViewEvent(staff, event({ status: "submitted" }))).toBe(true);
@@ -233,8 +275,15 @@ describe("eventListWhere", () => {
     expect(where.OR).toEqual([{ organiserId: "organiser-7" }]);
   });
 
-  it("gives an attendee only confirmed, registerable events", () => {
-    expect(eventListWhere(attendee)).toEqual({ status: "confirmed", registrationEnabled: true });
+  // CHANGED (SPM-64, #10): plus the confirmed events they hold a place in.
+  it("gives an attendee confirmed events open for registration, or that they hold a place in", () => {
+    expect(eventListWhere(attendee)).toEqual({
+      status: "confirmed",
+      OR: [
+        { registrationEnabled: true },
+        { registrations: { some: { attendeeId: "attendee-1", status: { in: ["registered", "waitlisted"] } } } },
+      ],
+    });
   });
 
   it("matches nothing for a role that cannot view events at all", () => {
@@ -380,6 +429,17 @@ describe("canReserveEquipment (SPM-49)", () => {
   });
 });
 
+describe("canUpdateEquipmentFulfilment (SPM-50)", () => {
+  it("lets Technical Support update fulfilment status and technical notes", () => {
+    expect(canUpdateEquipmentFulfilment(techSupport)).toBe(true);
+  });
+
+  it("SPM-50-TC12: stops a Coordinator or Organiser from updating them", () => {
+    expect(canUpdateEquipmentFulfilment(coordinator)).toBe(false);
+    expect(canUpdateEquipmentFulfilment(organiserA)).toBe(false);
+  });
+});
+
 describe("canRequestVenueBooking (SPM-42)", () => {
   it("SPM-42-TC01: the assigned coordinator can request a venue booking", () => {
     expect(canRequestVenueBooking(coordinator, event({ status: "approved", coordinatorId: "coordinator-1" }))).toBe(true);
@@ -399,10 +459,16 @@ describe("canRequestVenueBooking (SPM-42)", () => {
 });
 
 describe("canViewEquipmentRequests", () => {
-  it("lets Technical Support view any event's equipment, assigned or not", () => {
-    expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1" }))).toBe(
-      true
-    );
+  it("lets Technical Support view the equipment of any event in planning or confirmed, assigned or not", () => {
+    for (const status of ["planning", "confirmed"]) {
+      expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1", status }))).toBe(true);
+    }
+  });
+
+  it("hides an event's equipment from Technical Support before planning and after it ends (BPMN)", () => {
+    for (const status of ["submitted", "under_review", "approved", "postponed", "cancelled", "rejected", "completed", "withdrawn"]) {
+      expect(canViewEquipmentRequests(techSupport, event({ coordinatorId: "coordinator-1", status }))).toBe(false);
+    }
   });
 
   it("lets the assigned coordinator view it — because managing it requires seeing it", () => {
@@ -492,15 +558,33 @@ describe("canSetEventStatus", () => {
     expect(canSetEventStatus(attendee, confirmed, "cancelled")).toBe(false);
   });
 
-  // Postponement was NOT narrowed by that clarification - the organiser may
-  // still postpone their own event. Kept as its own test so a future change to
-  // one rule cannot silently take the other with it.
-  it("still lets the owning organiser postpone, unlike cancelling", () => {
+  // SPM-27 AC4: the organiser cannot change the status themselves, so
+  // postponing is the coordinator's too. An organiser asks through a change
+  // request instead (decision 2026-10-01).
+  it("SPM-27-TC05: lets ONLY the assigned coordinator postpone an event", () => {
     const confirmed = event({ status: "confirmed", coordinatorId: "coordinator-1" });
-    expect(canSetEventStatus(organiserA, confirmed, "postponed")).toBe(true);
     expect(canSetEventStatus(coordinator, confirmed, "postponed")).toBe(true);
+    expect(canSetEventStatus(organiserA, confirmed, "postponed")).toBe(false);
     expect(canSetEventStatus(organiserB, confirmed, "postponed")).toBe(false);
     expect(canSetEventStatus(opsManager, confirmed, "postponed")).toBe(false);
+  });
+
+  it("SPM-27-TC05: no role can move an event back to draft", () => {
+    const submitted = event({ status: "submitted" });
+    expect(canSetEventStatus(organiserA, submitted, "draft")).toBe(false);
+  });
+
+  // Clarification #103: the organiser asks outside the system and the
+  // coordinator records the withdrawal.
+  it("SPM-27-TC06: lets ONLY the assigned coordinator record a withdrawal", () => {
+    const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    expect(canSetEventStatus(coordinator, underReview, "withdrawn")).toBe(true);
+    expect(canSetEventStatus(otherCoordinator, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(organiserA, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(colleagueA, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(organiserB, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(opsManager, underReview, "withdrawn")).toBe(false);
+    expect(canSetEventStatus(attendee, underReview, "withdrawn")).toBe(false);
   });
 
   it("keeps event:cancel and the cancelled transition in step", () => {
@@ -516,6 +600,35 @@ describe("canSetEventStatus", () => {
   it("refuses a status nobody owns rather than defaulting to allow", () => {
     expect(canSetEventStatus(coordinator, event(), "deleted")).toBe(false);
     expect(canSetEventStatus(coordinator, event(), "")).toBe(false);
+  });
+});
+
+// SPM-27: whether the event page offers "Record withdrawal" - the assigned
+// coordinator, and only while the request is Under review (#103).
+describe("canWithdrawEvent", () => {
+  it("SPM-27-TC04: offers it to the assigned coordinator while Under review", () => {
+    expect(
+      canWithdrawEvent(coordinator, event({ status: "under_review", coordinatorId: "coordinator-1" }))
+    ).toBe(true);
+  });
+
+  it("SPM-27-TC05: does not offer it before review or from Approved onwards", () => {
+    for (const status of [
+      "submitted", "approved", "planning", "confirmed", "postponed",
+      "completed", "rejected", "cancelled", "withdrawn",
+    ]) {
+      expect(
+        canWithdrawEvent(coordinator, event({ status, coordinatorId: "coordinator-1" })),
+        status
+      ).toBe(false);
+    }
+  });
+
+  it("SPM-27-TC06: does not offer it to anyone but the assigned coordinator", () => {
+    const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+    for (const actor of [organiserA, colleagueA, organiserB, otherCoordinator, opsManager, attendee]) {
+      expect(canWithdrawEvent(actor, underReview), actor.id).toBe(false);
+    }
   });
 });
 
@@ -593,6 +706,171 @@ describe("visibleEventFor", () => {
   it("does not narrow the record for anyone else", () => {
     for (const other of [organiserA, coordinator, opsManager, venueStaff, techSupport]) {
       expect(visibleEventFor(other, full)).toBe(full);
+    }
+  });
+});
+
+describe("canBeginPlanning (SPM-54)", () => {
+  it("lets the assigned coordinator begin planning an approved event (AC1)", () => {
+    const approved = event({ status: "approved", coordinatorId: "coordinator-1" });
+    expect(canBeginPlanning(coordinator, approved)).toBe(true);
+  });
+
+  it("only from Approved (AC2)", () => {
+    for (const status of [
+      "draft", "submitted", "under_review", "planning", "confirmed",
+      "postponed", "completed", "rejected", "cancelled",
+    ]) {
+      expect(canBeginPlanning(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  });
+
+  it("not for a coordinator who is not assigned, nor any other role", () => {
+    const approved = event({ status: "approved", coordinatorId: "coordinator-1" });
+    for (const other of [otherCoordinator, opsManager, organiserA, attendee]) {
+      expect(canBeginPlanning(other, approved)).toBe(false);
+    }
+  });
+});
+
+describe("techSupportSeesEquipment (BPMN: Technical Support's lane is Planning and Confirmed)", () => {
+  it("is Planning, Safety review and Confirmed only", () => {
+    // SPM-86: Safety review sits between Planning and Confirmed, so Technical
+    // Support keep sight of what they reserved while the check is pending.
+    expect(TECH_SUPPORT_EQUIPMENT_STATUSES).toEqual(["planning", "safety_review", "safety_cleared", "confirmed"]);
+    expect(techSupportSeesEquipment("planning")).toBe(true);
+    expect(techSupportSeesEquipment("safety_review")).toBe(true);
+    expect(techSupportSeesEquipment("approved")).toBe(false);
+  });
+});
+
+describe("canSubmitForSafetyCheck (SPM-86)", () => {
+  const inPlanning = event({ status: "planning", coordinatorId: "coordinator-1" });
+
+  it("lets the assigned coordinator submit an event in Planning (AC1)", () => {
+    expect(canSubmitForSafetyCheck(coordinator, inPlanning)).toBe(true);
+  });
+
+  it("only from Planning - not again while a check is pending (AC6), nor before planning begins", () => {
+    for (const status of [
+      "draft", "submitted", "under_review", "approved", "safety_review", "confirmed",
+      "postponed", "completed", "rejected", "cancelled",
+    ]) {
+      expect(canSubmitForSafetyCheck(coordinator, event({ status, coordinatorId: "coordinator-1" })), status).toBe(false);
+    }
+  });
+
+  it("not for a coordinator who is not assigned, nor any other role (AC7)", () => {
+    for (const other of [otherCoordinator, opsManager, organiserA, venueStaff, techSupport, attendee]) {
+      expect(canSubmitForSafetyCheck(other, inPlanning), other.role).toBe(false);
+    }
+  });
+});
+
+describe("canRecordSafetyDecision (SPM-87)", () => {
+  const safetyOfficer = actor("safety_officer");
+  const inReview = event({ status: "safety_review", coordinatorId: "coordinator-1" });
+
+  it("lets the Safety Officer decide an event in Safety review", () => {
+    expect(canRecordSafetyDecision(safetyOfficer, inReview)).toBe(true);
+  });
+
+  it("SPM-87-TC10: only while it is in Safety review (AC11)", () => {
+    for (const status of ["planning", "safety_cleared", "confirmed", "approved", "cancelled"]) {
+      expect(canRecordSafetyDecision(safetyOfficer, event({ status, coordinatorId: "coordinator-1" })), status).toBe(false);
+    }
+  });
+
+  it("SPM-87-TC11: for no other role, the assigned coordinator included (AC12)", () => {
+    for (const other of [coordinator, otherCoordinator, opsManager, organiserA, venueStaff, techSupport, attendee]) {
+      expect(canRecordSafetyDecision(other, inReview), other.role).toBe(false);
+    }
+  });
+
+  it("SPM-87-TC04: lets the assigned coordinator confirm a Safety approved event", () => {
+    expect(canConfirmEvent(coordinator, event({ status: "safety_cleared", coordinatorId: "coordinator-1" }))).toBe(true);
+  });
+
+  it("keeps Safety approved among the statuses a coordinator can be reassigned in", () => {
+    expect(REASSIGNABLE_STATUSES).toContain("safety_cleared");
+  });
+});
+
+describe("REASSIGNABLE_STATUSES (SPM-86)", () => {
+  it("includes Safety review, so a coordinator can still be replaced while the check is pending", () => {
+    expect(REASSIGNABLE_STATUSES).toContain("safety_review");
+  });
+});
+
+// SPM-85 (Week 7 change #6). The Safety Officer reviews the operational safety
+// of planned events: they read what a review needs and change nothing.
+describe("the Safety Officer (SPM-85)", () => {
+  const safetyOfficer = actor("safety_officer");
+  // The kind of event they review: assigned, arranged, and in Safety review.
+  const underCheck = event({ coordinatorId: "coordinator-1", status: "safety_review" });
+
+  it("AC1: has a defined set of permissions of its own", () => {
+    expect(ROLE_PERMISSIONS.safety_officer).toEqual(["event:view", "event:safety_check", "facility:view"]);
+  });
+
+  it("AC3: sees every event that has left Draft, like the rest of ConnectSphere's staff", () => {
+    for (const status of ["submitted", "under_review", "approved", "planning", "safety_review", "confirmed", "completed"]) {
+      expect(canViewEvent(safetyOfficer, event({ status })), status).toBe(true);
+    }
+    expect(eventListWhere(safetyOfficer)).toEqual({ status: { not: "draft" } });
+  });
+
+  it("AC3: never sees an organiser's draft", () => {
+    expect(canViewEvent(safetyOfficer, event({ status: "draft" }))).toBe(false);
+  });
+
+  it("AC3: sees an event's equipment arrangements, whatever stage it is at", () => {
+    for (const status of ["approved", "planning", "safety_review", "confirmed"]) {
+      expect(canViewEquipmentRequests(safetyOfficer, event({ coordinatorId: "coordinator-1", status })), status).toBe(true);
+    }
+  });
+
+  it("AC3: is given the whole event record, not the attendee's public subset", () => {
+    const record = { id: "e1", title: "Forum", expectedAttendance: 200, accessibilityNotes: "Step-free", sessions: [] };
+    expect(visibleEventFor(safetyOfficer, record)).toEqual(record);
+  });
+
+  it("AC4: cannot change an event's information, venue bookings, equipment or registration", () => {
+    expect(canEditEventContent(safetyOfficer, event({ status: "draft" }))).toBe(false);
+    expect(canUpdateEventInformation(safetyOfficer, underCheck)).toBe(false);
+    expect(canRequestVenueBooking(safetyOfficer, underCheck)).toBe(false);
+    expect(canManageEquipmentRequests(safetyOfficer, underCheck)).toBe(false);
+    expect(canConfigureRegistration(safetyOfficer, underCheck)).toBe(false);
+    for (const action of ["event:edit_draft", "venue:manage", "venue_booking:request", "equipment:manage", "equipment_request:manage"] as const) {
+      expect(can("safety_officer", action), action).toBe(false);
+    }
+  });
+
+  it("AC5: cannot assign coordinators, review requests, approve bookings, reserve equipment or confirm events", () => {
+    expect(canAssignCoordinator(safetyOfficer, event({ status: "submitted" }))).toBe(false);
+    expect(canReviewEvent(safetyOfficer, event({ coordinatorId: "safety_officer-1", status: "under_review" }))).toBe(false);
+    expect(can("safety_officer", "venue_booking:decide")).toBe(false);
+    expect(canReserveEquipment(safetyOfficer)).toBe(false);
+    expect(canUpdateEquipmentFulfilment(safetyOfficer)).toBe(false);
+    expect(canCheckEquipmentAvailability(safetyOfficer)).toBe(false);
+    expect(canConfirmEvent(safetyOfficer, event({ coordinatorId: "safety_officer-1", status: "planning" }))).toBe(false);
+    expect(canSubmitForSafetyCheck(safetyOfficer, event({ coordinatorId: "safety_officer-1", status: "planning" }))).toBe(false);
+  });
+
+  it("AC5: cannot move an event to any status", () => {
+    for (const to of Object.keys(STATUS_TRANSITION_ROLES)) {
+      expect(canSetEventStatus(safetyOfficer, underCheck, to), to).toBe(false);
+    }
+  });
+
+  it("AC6: cannot see who is registered for an event", () => {
+    expect(can("safety_officer", "registration:view_list")).toBe(false);
+    expect(can("safety_officer", "registration:create")).toBe(false);
+  });
+
+  it("AC8: is the only role that works the Operational Safety Check", () => {
+    for (const role of ROLES) {
+      expect(can(role, "event:safety_check"), role).toBe(role === "safety_officer");
     }
   });
 });

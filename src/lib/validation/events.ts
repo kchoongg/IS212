@@ -203,11 +203,40 @@ export type CreateEventInput = z.infer<typeof createEventSchema>;
 export const updateEventStatusSchema = z.object({
   status: z.enum([
     "draft", "submitted", "under_review", "rejected", "approved",
-    "planning", "postponed", "confirmed", "completed", "cancelled",
+    "planning", "safety_review", "postponed", "confirmed", "completed", "cancelled", "withdrawn",
   ]),
   reason: z.string().optional(),
 });
 export type UpdateEventStatusInput = z.infer<typeof updateEventStatusSchema>;
+
+// SPM-33: marking one arrangement of an event as not required, or as required
+// again. A venue booking and an equipment line are named by their own id, so
+// an event's other bookings are never touched; registration setup belongs to
+// the event itself. The kinds are WAIVABLE_KINDS (src/lib/eventConfirmation.ts)
+// - an arrangement that may never be waived, such as the Operational Safety
+// Check (SPM-86), is simply not a kind this accepts.
+export const markArrangementSchema = z.union([
+  z.object({
+    kind: z.enum(["venue", "equipment"]),
+    id: z.string().uuid(),
+    notRequired: z.boolean(),
+  }),
+  z.object({
+    kind: z.literal("registration"),
+    notRequired: z.boolean(),
+  }),
+]);
+export type MarkArrangementInput = z.infer<typeof markArrangementSchema>;
+
+// ADDED (SPM-68): POST /api/flagged-arrangements. The assigned Coordinator
+// keeps a flagged venue booking or equipment reservation, or marks an event's
+// flagged registrations as reviewed. `id` is the booking's, the request's, or
+// - for registrations, which are flagged on the event itself - the event's.
+export const reviewFlaggedArrangementSchema = z.object({
+  kind: z.enum(["venue_booking", "equipment_request", "registrations"]),
+  id: z.string().uuid(),
+});
+export type ReviewFlaggedArrangementInput = z.infer<typeof reviewFlaggedArrangementSchema>;
 
 // SPM-24: editing a saved draft. Every field is optional — the organiser may
 // only be changing one thing — so this cannot reuse createEventSchema, which
@@ -255,6 +284,35 @@ export const updateEventDraftSchema = z
     path: ["sessions"],
   });
 export type UpdateEventDraftInput = z.infer<typeof updateEventDraftSchema>;
+
+// SPM-62: the assigned coordinator updating an event's information after
+// approval. Every field optional - only what changed is sent - but none of the
+// required ones may be cleared, since the event has long since left draft.
+// Strict: the organiser, coordinator, status, equipment (Equipment tab,
+// SPM-47), sessions (follow-up story) and registration settings (Configure
+// Event Registration, SPM-64) are not changed here, and a body that tries is
+// refused rather than half-applied. Messages as in eventForm.ts.
+export const updateEventInformationSchema = z
+  .object({
+    title: z.string().trim().min(1, "Give the event a name so you can find it again.").optional(),
+    category: z.string().trim().min(1, "Choose the type of event.").optional(),
+    purpose: z.string().optional(),
+    description: z.string().optional(),
+    startsAt: z.string({ invalid_type_error: "Enter when the event starts." }).datetime().optional(),
+    endsAt: z.string({ invalid_type_error: "Enter when the event ends." }).datetime().optional(),
+    expectedAttendance: z
+      .number({ invalid_type_error: "Enter how many people you expect." })
+      .int("Enter a whole number of people, at least 1.")
+      .positive("Enter a whole number of people, at least 1.")
+      .optional(),
+    // null = "No preference", which is a real choice to save.
+    preferredLayout: z.string().nullable().optional(),
+    accessibilityNotes: z.string().optional(),
+    specialRequirements: z.string().optional(),
+    facilityIds: z.array(z.string().uuid()).optional(),
+  })
+  .strict();
+export type UpdateEventInformationInput = z.infer<typeof updateEventInformationSchema>;
 
 // SPM-30: assign or reassign an event's coordinator. The route checks the
 // person is an active Event Coordinator; this only checks the shape.

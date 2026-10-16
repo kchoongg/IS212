@@ -3,7 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
 import { canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
-import { isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
+import { CLOSE_REASONS } from "@/lib/safetyResolution";
+import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { ZodError } from "zod";
 
 // PATCH/DELETE one EquipmentRequest row within S-16 — SPM-47 AC6:
@@ -63,22 +66,51 @@ export async function PATCH(
         { status: 400 }
       );
     }
+    // ADDED (SPM-54): arrangements wait for approval.
+    if (isBeforeApproval(existing.event.status)) {
+      return NextResponse.json(
+        { error: "Equipment can be recorded once this request has been approved" },
+        { status: 400 }
+      );
+    }
 
     // sessionId is deliberately not editable here, same reasoning as
     // equipmentId: moving a requirement to a different session is "remove
     // this row, add another", not an edit.
-    const updated = await prisma.equipmentRequest.update({
-      where: { id: requestId },
-      data: {
-        quantityRequested: data.quantityRequested,
-        technicalRequirements: data.technicalRequirements,
-      },
-      include: {
-        equipment: { select: { id: true, name: true, category: true } },
-        session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
-      },
+    //
+    // SPM-54: saving a change on an Approved event begins planning, in the same
+    // transaction as the change.
+    // SPM-62: on a Confirmed event it moves the event back to Planning instead.
+    const { updated, planningStarted, confirmationReverted, safetyCheckClosed } = await prisma.$transaction(async (tx) => {
+      const updated = await tx.equipmentRequest.update({
+        where: { id: requestId },
+        data: {
+          quantityRequested: data.quantityRequested,
+          technicalRequirements: data.technicalRequirements,
+        },
+        include: {
+          equipment: { select: { id: true, name: true, category: true } },
+          session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+        },
+      });
+      const planningStarted = await beginPlanningIfApproved(tx, existing.event, actor.id, PLANNING_REASONS.equipmentUpdated);
+      const confirmationReverted = await revertConfirmationIfConfirmed(
+        tx,
+        existing.event,
+        actor.id,
+        PLANNING_REASONS.equipmentUpdated
+      );
+      // SPM-88: and closes the safety check it rests on.
+      const safetyCheckClosed = await closeSafetyCheckAfterChange(
+        tx,
+        existing.event,
+        actor.id,
+        CLOSE_REASONS.equipment,
+        confirmationReverted
+      );
+      return { updated, planningStarted, confirmationReverted, safetyCheckClosed };
     });
-    return NextResponse.json(updated);
+    return NextResponse.json({ ...updated, planningStarted, confirmationReverted, safetyCheckClosed });
   } catch (err) {
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
@@ -112,7 +144,34 @@ export async function DELETE(
       { status: 400 }
     );
   }
+  if (isBeforeApproval(existing.event.status)) {
+    return NextResponse.json(
+      { error: "Equipment can be recorded once this request has been approved" },
+      { status: 400 }
+    );
+  }
 
-  await prisma.equipmentRequest.delete({ where: { id: requestId } });
-  return new NextResponse(null, { status: 204 });
+  // SPM-54: removing a row from an Approved event begins planning too, so this
+  // answers with a body (was 204) to tell the screen when it did.
+  // SPM-62: or, on a Confirmed event, moves it back to Planning.
+  const { planningStarted, confirmationReverted, safetyCheckClosed } = await prisma.$transaction(async (tx) => {
+    await tx.equipmentRequest.delete({ where: { id: requestId } });
+    const planningStarted = await beginPlanningIfApproved(tx, existing.event, actor.id, PLANNING_REASONS.equipmentRemoved);
+    const confirmationReverted = await revertConfirmationIfConfirmed(
+      tx,
+      existing.event,
+      actor.id,
+      PLANNING_REASONS.equipmentRemoved
+    );
+    // SPM-88: and closes the safety check it rests on.
+    const safetyCheckClosed = await closeSafetyCheckAfterChange(
+      tx,
+      existing.event,
+      actor.id,
+      CLOSE_REASONS.equipment,
+      confirmationReverted
+    );
+    return { planningStarted, confirmationReverted, safetyCheckClosed };
+  });
+  return NextResponse.json({ planningStarted, confirmationReverted, safetyCheckClosed });
 }

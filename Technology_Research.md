@@ -8,7 +8,7 @@ ConnectSphere.
 the stack the project now runs on. Requirements are drawn from the **IS212
 Scrum Project Instructions**, the **customer briefing**, and **customer
 clarifications**. Items marked **(planned)** are decisions the team has made
-but not yet set up in the repo — currently CI/CD.
+but not yet set up in the repo — currently a Neon branch per CI run.
 
 ---
 
@@ -80,14 +80,16 @@ them unit-testable with Vitest (R5) and easier to explain (R6).
 Not in scope. The team does not plan to host the app; it runs locally
 (`npm run dev`) against the shared Neon database, including for demos.
 
-### 2.5b CI/CD (planned)
+### 2.5b CI/CD
 
-No pipeline exists yet (there is no `.github/workflows`, and the
-`ci/cd-pipeline` branch has no commits beyond `main`). The intended pipeline
-is GitHub Actions running `npm run lint`, `npm test`, and `npm run build` on
-every pull request to `main`. It checks and builds the code only; there is
-no deploy step, since the app is not hosted (§2.5a). This is the part of R5
-that is not yet met.
+GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on
+each push to `main`. Five checks run in parallel: `npm run lint`,
+`npx tsc --noEmit`, `npm test`, `npm run build`, and a migrations check that
+replays `prisma/migrations` against a throwaway Postgres container. It
+checks and builds the code only; there is no deploy step, since the app is
+not hosted (§2.5a). The pipeline needs no secrets and never touches the
+shared Neon database. The unit-test check also measures coverage (§2.9).
+Still planned: a Neon branch per run (§2.5).
 
 ### 2.6 Authentication
 
@@ -117,11 +119,18 @@ that is not yet met.
 | Option | Advantages | Disadvantages |
 |---|---|---|
 | Jest | Large ecosystem | Slower, more TS/ESM config — costs R1's time and R5's CI feedback speed |
-| **Vitest** ✅ | Minimal config (R1); fast runs locally and, once CI exists, in the pipeline (R5); Jest-compatible API | Smaller ecosystem — not a practical issue here |
+| **Vitest** ✅ | Minimal config (R1); fast runs locally and in the CI pipeline (R5); Jest-compatible API; runs the UI tests too, with React Testing Library and jsdom | Smaller ecosystem — not a practical issue here |
 
-Coverage measurement is not configured yet — no coverage provider is
-installed and `vitest.config.mts` has no coverage settings. Adding
-`@vitest/coverage-v8` is needed before the ~100% target in R5 can be shown.
+Coverage is measured with `@vitest/coverage-v8` (`npm run test:coverage`),
+counting every file under `src/` whether or not a test imports it. CI prints
+the table and attaches the HTML report to each run, and fails below a
+minimum (95% statements, 92% branches, `vitest.config.mts`). As measured on 2026-10-02: 99.5% of statements overall —
+the API routes 99.6% (each handler called with the database mocked,
+`src/app/api/__tests__`), `src/lib` 99.3%, the pages 99.7% and the
+components 99.3% (rendered with React Testing Library in jsdom with the network mocked,
+`src/app/__tests__` and `src/components/__tests__`). The 18 statements left
+are defensive guards no test can reach. These are unit and component tests:
+nothing yet drives the real app against a real database end to end.
 
 ### 2.10 UI library
 
@@ -145,7 +154,7 @@ by Next.js. **Selected: React.**
 | R2 — cross-domain workflow coupling | Monolith + shared DB, Prisma's single schema, TypeScript's cross-domain type checks |
 | R3 — relational integrity | PostgreSQL for structure; business rules in tested application code |
 | R4 — 6-role, org-scoped access | Hand-rolled auth: role in the session token, organisation looked up per request |
-| R5 — traceable testing in CI | Now: TypeScript, Zod, Vitest, ESLint, Prisma migrations. Planned: CI pipeline, coverage reporting, Neon branch-per-run |
+| R5 — traceable testing in CI | Now: TypeScript, Zod, Vitest, ESLint, Prisma migrations, GitHub Actions CI pipeline, coverage reporting. Planned: Neon branch-per-run |
 | R6 — explainable decisions | Hand-rolled auth, framework-aligned lint/UI, Zod's single pattern |
 
 ---
@@ -166,7 +175,7 @@ by Next.js. **Selected: React.**
 | Linting | ESLint (`eslint-config-next`) |
 | Workflow | GitHub + Jira, one branch per ticket (e.g. `SPM-40-search-filter-venues`) |
 | App hosting | None — runs locally; hosting not in scope |
-| CI/CD | GitHub Actions (lint, test, build; no deploy) — **planned**, not yet set up |
+| CI/CD | GitHub Actions (lint, type-check, test, build, migrations; no deploy) |
 
 ---
 
@@ -185,9 +194,9 @@ Neon's cold start adds latency to the first query on an idle branch, and
 hand-rolled auth explicitly leaves password recovery unbuilt (deferred per
 `#64`, not overlooked).
 
-**Not yet in place:** the CI/CD pipeline and coverage reporting are planned
-but not set up, so R5 is only partly met today. Hosting the app is not
-planned; it runs locally.
+**Not yet in place:** the coverage target in R5 is met (99.5%, §2.9), but
+by unit and component tests only — there is no end-to-end test against a
+running app and database, and no Neon branch per CI run. Hosting the app is not planned; it runs locally.
 
 **Known gap:** clarifications `#71`, `#44`, `#55` describe schedule-driven
 behaviour (auto-completing events, expiring waitlist offers, batched

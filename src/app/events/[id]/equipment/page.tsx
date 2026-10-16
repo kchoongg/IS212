@@ -18,11 +18,13 @@ import {
   StatusBadge,
   Tabs,
 } from "@/components/ui";
+import { BEGIN_PLANNING_NOTICE, BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
-import { isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { SAFETY_HELD_STATUSES, backToPlanningWarning } from "@/lib/safetyResolution";
 import { EventGlance } from "../EventGlance";
 
 // S-16. "As an Event Coordinator, I want to record the equipment required for
@@ -73,6 +75,8 @@ interface EquipmentRequestRow {
   quantityReserved: number | null;
   technicalRequirements: string | null;
   status: string;
+  /// SPM-50: Technical Support's notes on this line - read-only here.
+  staffNotes: string | null;
   equipment: { id: string; name: string; category: string | null };
   session: EventSessionInfo | null;
 }
@@ -132,6 +136,49 @@ export default function EventEquipmentPage() {
   const [newRow, setNewRow] = useState<NewRow>(EMPTY_NEW_ROW);
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  /// SPM-54: set once an add, a save or a removal on this visit has moved the
+  /// event from Approved to Planning, so the coordinator is told.
+  const [planningStarted, setPlanningStarted] = useState(false);
+  /// SPM-62: set once a change on this visit has moved a Confirmed event back
+  /// to Planning, so the coordinator is told.
+  const [confirmationReverted, setConfirmationReverted] = useState(false);
+  /// SPM-88: set once a change on this visit has closed the event's safety
+  /// check and moved it back to Planning.
+  const [safetyCheckClosed, setSafetyCheckClosed] = useState(false);
+  /// The add or save waiting on a question first, if any: "Begin planning?"
+  /// on an Approved event, or "Move this event back to Planning?" on a
+  /// Confirmed one (SPM-62).
+  const [pendingPlanning, setPendingPlanning] = useState<
+    { kind: "add" } | { kind: "save"; row: EquipmentRequestRow } | null
+  >(null);
+
+  /// The server says when a write began planning; reflect it without a reload.
+  function notePlanningStarted(body: { planningStarted?: boolean }) {
+    if (!body.planningStarted) return;
+    setPlanningStarted(true);
+    setEvent((current) => (current ? { ...current, status: "planning" } : current));
+  }
+
+  /// SPM-62: and when it moved a Confirmed event back to Planning.
+  function noteConfirmationReverted(body: { confirmationReverted?: boolean }) {
+    if (!body.confirmationReverted) return;
+    setConfirmationReverted(true);
+    setEvent((current) => (current ? { ...current, status: "planning" } : current));
+  }
+
+  /// SPM-88: or closed its safety check (from Safety review or Safety approved).
+  function noteSafetyCheckClosed(body: { confirmationReverted?: boolean; safetyCheckClosed?: boolean }) {
+    if (!body.safetyCheckClosed || body.confirmationReverted) return;
+    setSafetyCheckClosed(true);
+    // Only a loaded event can be changed, so there is always one here.
+    setEvent((current) => ({ ...current!, status: "planning" }));
+  }
+
+  function noteStatusChange(body: { planningStarted?: boolean; confirmationReverted?: boolean; safetyCheckClosed?: boolean }) {
+    notePlanningStarted(body);
+    noteConfirmationReverted(body);
+    noteSafetyCheckClosed(body);
+  }
 
   const load = useCallback(async () => {
     setLoadError(null);
@@ -198,9 +245,24 @@ export default function EventEquipmentPage() {
   // equipment, confirmed 2026-09-19 as intended even though it's broader
   // than AC6's literal wording. Ownership for the Organiser case is enforced
   // server-side (canViewEquipmentRequests) — a role check is enough here.
-  const canView = user && ["organiser", "coordinator", "tech_support"].includes(user.role);
+  // SPM-85 (AC3): the Safety Officer reads the arrangements for a safety
+  // review, read-only like the organiser (canEdit below is the coordinator's).
+  const canView = user && ["organiser", "coordinator", "tech_support", "safety_officer"].includes(user.role);
   const locked = event ? isTerminalEventStatus(event.status) : false;
-  const canEdit = isCoordinator && !locked && !notPermitted;
+  // SPM-54: recording equipment waits for approval - the first requirement
+  // recorded for an Approved event is what begins planning.
+  const awaitingApproval = event ? isBeforeApproval(event.status) : false;
+  const canEdit = isCoordinator && !locked && !awaitingApproval && !notPermitted;
+  // The next add, save or removal would move the event to Planning, so the
+  // coordinator is asked first (canEdit already means "the assigned one").
+  const willBeginPlanning = canEdit && event?.status === "approved";
+  // SPM-62 (AC4, AC6): equipment requirements are important information, so
+  // the next change to a Confirmed event moves it back to Planning - asked
+  // first, as the information form does.
+  // SPM-88 (AC5, AC6): and one in Safety review or Safety approved, closing
+  // its safety check. The same question, worded for the status.
+  const willCloseSafety = canEdit && SAFETY_HELD_STATUSES.includes(event?.status ?? "");
+  const willUnconfirm = (canEdit && event?.status === "confirmed") || willCloseSafety;
 
   const equipmentOptions = useMemo(() => {
     // Scoped to the session currently chosen in "Add equipment" - uniqueness
@@ -248,11 +310,15 @@ export default function EventEquipmentPage() {
     });
   }
 
-  async function saveRow(row: EquipmentRequestRow) {
+  async function saveRow(row: EquipmentRequestRow, confirmed = false) {
     const draft = draftFor(row);
     const quantity = Number(draft.quantityRequested);
     if (!draft.quantityRequested || !Number.isInteger(quantity) || quantity < 1) {
       setRowError((current) => ({ ...current, [row.id]: "Enter a whole number, at least 1." }));
+      return;
+    }
+    if ((willBeginPlanning || willUnconfirm) && !confirmed) {
+      setPendingPlanning({ kind: "save", row });
       return;
     }
 
@@ -271,6 +337,7 @@ export default function EventEquipmentPage() {
         return;
       }
       setRequests((current) => current?.map((r) => (r.id === row.id ? body : r)) ?? current);
+      noteStatusChange(body);
       setDrafts((current) => {
         const next = { ...current };
         delete next[row.id];
@@ -287,12 +354,13 @@ export default function EventEquipmentPage() {
     setRemovingId(id);
     try {
       const res = await authedFetch(`/api/events/${eventId}/equipment/${id}`, { method: "DELETE" });
-      if (!res.ok && res.status !== 204) {
-        const body = await res.json();
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
         setLoadError(body.error ?? "Could not remove this row.");
         return;
       }
       setRequests((current) => current?.filter((r) => r.id !== id) ?? current);
+      noteStatusChange(body);
     } catch {
       setLoadError("Could not reach the server.");
     } finally {
@@ -301,7 +369,7 @@ export default function EventEquipmentPage() {
     }
   }
 
-  async function addRow() {
+  async function addRow(confirmed = false) {
     setAddError(null);
     const quantity = Number(newRow.quantityRequested);
     if (!newRow.equipmentId) {
@@ -310,6 +378,10 @@ export default function EventEquipmentPage() {
     }
     if (!newRow.quantityRequested || !Number.isInteger(quantity) || quantity < 1) {
       setAddError("Enter a whole number, at least 1.");
+      return;
+    }
+    if ((willBeginPlanning || willUnconfirm) && !confirmed) {
+      setPendingPlanning({ kind: "add" });
       return;
     }
 
@@ -330,12 +402,21 @@ export default function EventEquipmentPage() {
         return;
       }
       setRequests((current) => [...(current ?? []), body]);
+      noteStatusChange(body);
       setNewRow(EMPTY_NEW_ROW);
     } catch {
       setAddError("Could not reach the server.");
     } finally {
       setAdding(false);
     }
+  }
+
+  /// Carries out the add or save the question was about, once answered.
+  function runPending() {
+    const pending = pendingPlanning;
+    setPendingPlanning(null);
+    if (pending?.kind === "add") void addRow(true);
+    if (pending?.kind === "save") void saveRow(pending.row, true);
   }
 
   if (state === "loading" || (state === "authenticated" && !user)) {
@@ -398,6 +479,28 @@ export default function EventEquipmentPage() {
             </Alert>
           )}
 
+          {planningStarted && (
+            <Alert variant="success" title="Planning has started">
+              This event has moved from Approved to Planning now that its equipment requirements
+              are being worked on.
+            </Alert>
+          )}
+
+          {(confirmationReverted || safetyCheckClosed) && (
+            <Alert
+              variant="warning"
+              title={confirmationReverted ? "This event is no longer confirmed" : "The safety check was closed"}
+            >
+              Changing its equipment moved it back to Planning. It needs to be submitted for a safety check again.
+            </Alert>
+          )}
+
+          {isCoordinator && awaitingApproval && !notPermitted && (
+            <Alert variant="info">
+              Equipment can be recorded once this request has been approved.
+            </Alert>
+          )}
+
           {notPermitted ? (
             <Alert variant="info">{notPermitted}</Alert>
           ) : (
@@ -454,6 +557,15 @@ export default function EventEquipmentPage() {
                             )}
                           </div>
                         </div>
+
+                        {/* SPM-50 AC5: Technical Support's update shows on the
+                            event it belongs to - read-only for everyone here;
+                            it is written on the Equipment request page. */}
+                        {row.staffNotes && (
+                          <p className="mt-2 text-sm text-ink-2">
+                            <span className="font-medium text-ink">Technical Support notes:</span> {row.staffNotes}
+                          </p>
+                        )}
 
                         {rowError[row.id] && (
                           <Alert variant="error" className="mt-3">
@@ -643,6 +755,38 @@ export default function EventEquipmentPage() {
         onCancel={() => setConfirmRemoveId(null)}
       >
         Technical Support will no longer see this item requested for this event.
+        {/* SPM-54: one dialog, not two - this removal would begin planning. */}
+        {willBeginPlanning && (
+          <p className="mt-2">
+            This is the first venue or equipment action for this event, so it will also move from
+            Approved to Planning. {BEGIN_PLANNING_NOTICE}
+          </p>
+        )}
+        {/* SPM-62: likewise for a Confirmed event going back to Planning. */}
+        {willUnconfirm && (
+          <p className="mt-2">
+            {willCloseSafety
+              ? "It will also close the safety check and move the event back to Planning."
+              : "It will also move from Confirmed back to Planning."}
+          </p>
+        )}
+      </ConfirmDialog>
+
+      <BeginPlanningDialog
+        open={pendingPlanning !== null && willBeginPlanning}
+        onConfirm={runPending}
+        onCancel={() => setPendingPlanning(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingPlanning !== null && willUnconfirm}
+        title="Move this event back to Planning?"
+        confirmLabel="Continue"
+        confirmVariant="primary"
+        onConfirm={runPending}
+        onCancel={() => setPendingPlanning(null)}
+      >
+        {event && backToPlanningWarning(event.title, event.status, "equipment")}
       </ConfirmDialog>
     </div>
   );
