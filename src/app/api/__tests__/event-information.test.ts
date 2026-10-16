@@ -7,13 +7,16 @@
 //     "Validation failed" (strict schema).
 //   -> 401 no session; 404 malformed / unknown / not visible (canViewEvent);
 //      403 "Only the coordinator assigned to this event can change its information" for anyone else;
-//      400 "Event information can only be changed while the event is Approved, Planning or Confirmed.";
+//      400 "Event information can only be changed while the event is Approved, Planning, Safety review, Safety approved or Confirmed.";
 //      400 { error, details.fieldErrors } for the same field rules as the draft edit, plus a start
 //          before registration closes: startsAt "Registration closes after this start time. Change the
 //          registration period first.";
 //      400 "Session times and attendance can't be changed here yet." for schedule/attendance/layout on a
 //          multi-session event;
-//      200 { event, importantChanges, statusReverted, flagged }; 500 on a database failure.
+//      200 { event, importantChanges, statusReverted, flagged, safetyCheckClosed }; 500 on a database failure.
+//      SPM-88 (AC5, AC6): also allowed in Safety review and Safety approved. An important change there
+//        closes the safety check and returns the event to Planning (safetyCheckClosed: true); one that
+//        moves a Confirmed event back closes its approval too.
 //      `flagged` words what THIS save flagged, one line per arrangement, for the page to show:
 //        "Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed"
 //        "Equipment: 4K Portable Projector × 2 – the date or time changed"
@@ -117,6 +120,8 @@ function given(
   db.equipmentRequest.findMany.mockResolvedValue(equipment);
   db.registration.count.mockResolvedValue(registrations);
   db.event.update.mockImplementation(async ({ data }: { data: object }) => ({ ...row, ...data }));
+  db.event.updateMany.mockResolvedValue({ count: 1 });
+  db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
   return token;
 }
 
@@ -204,13 +209,13 @@ describe("PATCH /api/events/[id]/information - who may change it", () => {
 
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({
-        error: "Event information can only be changed while the event is Approved, Planning or Confirmed.",
+        error: "Event information can only be changed while the event is Approved, Planning, Safety review, Safety approved or Confirmed.",
       });
       nothingWritten();
     }
   );
 
-  it.each(["approved", "planning", "confirmed"])("accepts an ordinary edit while the event is %s", async (status) => {
+  it.each(["approved", "planning", "safety_review", "safety_cleared", "confirmed"])("accepts an ordinary edit while the event is %s", async (status) => {
     const token = given({ status });
 
     expect((await save(token, { description: "New programme" })).status).toBe(200);
@@ -595,6 +600,82 @@ describe("PATCH /api/events/[id]/information - a Confirmed event", () => {
     expect((await res.json()).statusReverted).toBe(false);
     expect(eventData()).not.toHaveProperty("status");
     expect(eventData().registrationReviewReason).toBe("event_schedule_changed");
+  });
+});
+
+describe("PATCH /api/events/[id]/information - while a safety check is open (SPM-88)", () => {
+  it.each(["safety_review", "safety_cleared"])(
+    "SPM-88-TC09/TC11: an ordinary edit leaves a %s event and its check alone",
+    async (status) => {
+      const token = given({ status });
+
+      const body = await (await save(token, { description: "New programme" })).json();
+
+      expect(body.safetyCheckClosed).toBe(false);
+      expect(db.event.updateMany).not.toHaveBeenCalled();
+      expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
+      expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["safety_review", "safety_cleared"])(
+    "SPM-88-TC07: an important change moves a %s event back to Planning and closes its check",
+    async (status) => {
+      const token = given({ status });
+
+      const body = await (await save(token, { expectedAttendance: 90 })).json();
+
+      expect(body.safetyCheckClosed).toBe(true);
+      expect(callArg(db.event.updateMany)).toEqual({ where: { id: ID.event, status }, data: { status: "planning" } });
+      expect(callArg(db.eventStatusHistory.create).data).toEqual({
+        eventId: ID.event,
+        fromStatus: status,
+        toStatus: "planning",
+        changedBy: ID.user,
+        reason: "Safety check closed: the expected attendance changed",
+      });
+      expect(callArg(db.safetyCheck.updateMany)).toEqual({
+        where: { eventId: ID.event, status: { in: ["pending", "approved"] } },
+        data: { status: "closed", decidedBy: ID.user, decidedAt: expect.any(Date), decisionNote: "the expected attendance changed" },
+      });
+    }
+  );
+
+  it("still flags what the change affects", async () => {
+    const token = given({ status: "safety_cleared" });
+
+    await save(token, { expectedAttendance: 90 });
+
+    expect(callArg(db.venueBooking.update).data.needsReview).toBe(true);
+  });
+
+  it("SPM-88-TC12: closes the approval of a Confirmed event the change moves back to Planning", async () => {
+    const token = given({ status: "confirmed" });
+
+    const body = await (await save(token, { startsAt: NEW_START, endsAt: NEW_END })).json();
+
+    expect(body).toMatchObject({ statusReverted: true, safetyCheckClosed: true });
+    expect(callArg(db.safetyCheck.updateMany).data).toMatchObject({ status: "closed", decisionNote: "the date or time changed" });
+    // SPM-62's history row is the only one.
+    expect(db.eventStatusHistory.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the check of a Confirmed event that stays Confirmed", async () => {
+    const token = given({ status: "confirmed" }, { bookings: [], equipment: [], registrations: 12 });
+
+    const body = await (await save(token, { startsAt: NEW_START, endsAt: NEW_END })).json();
+
+    expect(body.safetyCheckClosed).toBe(false);
+    expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not touch a check on a Planning event", async () => {
+    const token = given({ status: "planning" });
+
+    const body = await (await save(token, { startsAt: NEW_START, endsAt: NEW_END })).json();
+
+    expect(body.safetyCheckClosed).toBe(false);
+    expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
   });
 });
 

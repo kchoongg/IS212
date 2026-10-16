@@ -23,6 +23,8 @@ import {
   type ImportantChange,
 } from "@/lib/eventChangeImpact";
 import { addReviewReasons } from "@/lib/reviewFlags";
+import { closeReasonFor } from "@/lib/safetyResolution";
+import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
 import type { UpdateEventInformationInput } from "@/lib/validation";
 
@@ -46,6 +48,10 @@ export interface AppliedChange {
   statusReverted: boolean;
   /// What THIS change flagged, worded for the person who made it.
   flagged: string[];
+  /// SPM-88: the change closed the event's safety check - it was in Safety
+  /// review or Safety approved, or Confirmed and moved back - and the event
+  /// has to be submitted for a safety check again.
+  safetyCheckClosed: boolean;
 }
 
 
@@ -184,6 +190,12 @@ export async function applyEventInformation(
     });
   }
 
+  // SPM-88 (AC5, AC6): an important change undoes the safety check the event
+  // rests on, so it is checked again before it can be confirmed.
+  const safetyCheckClosed =
+    changes.length > 0 &&
+    (await closeSafetyCheckAfterChange(tx, event, actorId, closeReasonFor(changes), statusReverted, now));
+
   const flagged = [
     ...affected.venueBookings.map(({ id, reasons }) => {
       const { venue, session } = bookings.find((b) => b.id === id)!;
@@ -199,5 +211,5 @@ export async function applyEventInformation(
       : []),
   ];
 
-  return { event: updated, importantChanges: changes, statusReverted, flagged };
+  return { event: updated, importantChanges: changes, statusReverted, flagged, safetyCheckClosed };
 }

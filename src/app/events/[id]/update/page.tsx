@@ -23,7 +23,12 @@ import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formEr
 import { CATEGORIES, LAYOUTS, toFormValues, toOptions, type EventRecord, type Facility } from "@/lib/eventForm";
 import { formatDateTimeRange } from "@/lib/format";
 import { CHANGE_LABELS } from "@/lib/eventChangeImpact";
-import { EVENT_INFORMATION_STATUSES, canUpdateEventInformation } from "@/lib/permissions";
+import {
+  EVENT_INFORMATION_EDIT_STATUSES,
+  EVENT_INFORMATION_STATUS_MESSAGE,
+  canUpdateEventInformation,
+} from "@/lib/permissions";
+import { BACK_TO_PLANNING_SAVED, backToPlanningWarning } from "@/lib/safetyResolution";
 import {
   changedPayload,
   formChanges,
@@ -52,7 +57,9 @@ type LoadedEvent = EventRecord & {
 };
 
 interface SaveResult {
-  statusReverted: boolean;
+  /// Back in Planning: from Confirmed (SPM-62), or with its safety check
+  /// closed (SPM-88).
+  backInPlanning: boolean;
   flagged: string[];
 }
 
@@ -135,8 +142,8 @@ export default function UpdateEventInformationPage() {
     if (!canUpdateEventInformation(actor, { ...event, coordinatorId: event.coordinatorId ?? null })) {
       return "Only the coordinator assigned to this event can change its information.";
     }
-    if (!EVENT_INFORMATION_STATUSES.includes(event.status)) {
-      return "Event information can only be changed while the event is Approved, Planning or Confirmed.";
+    if (!EVENT_INFORMATION_EDIT_STATUSES.includes(event.status)) {
+      return EVENT_INFORMATION_STATUS_MESSAGE;
     }
     return null;
   })();
@@ -180,7 +187,8 @@ export default function UpdateEventInformationPage() {
     }
     // AC6: a Confirmed event goes back to Planning on an important change,
     // which the organiser and the rest of the team will see - ask first.
-    if (event.status === "confirmed" && changes.length > 0) {
+    // SPM-88: so does one in Safety review or Safety approved.
+    if (backToPlanningWarning(event.title, event.status, "information") && changes.length > 0) {
       setAsking(true);
       return;
     }
@@ -203,7 +211,10 @@ export default function UpdateEventInformationPage() {
         focusFirstError(formRef.current, fieldErrors);
         return;
       }
-      setResult({ statusReverted: Boolean(body.statusReverted), flagged: body.flagged ?? [] });
+      setResult({
+        backInPlanning: Boolean(body.statusReverted || body.safetyCheckClosed),
+        flagged: body.flagged ?? [],
+      });
     } catch {
       setFormError("Could not reach the server. Check your connection and try again.");
       focusFirstError(formRef.current, {});
@@ -275,9 +286,7 @@ export default function UpdateEventInformationPage() {
       <div className="flex max-w-2xl flex-col gap-4">
         {header}
         <Alert variant="success">
-          {result.statusReverted
-            ? "Event information updated. The event is back in Planning and needs to be confirmed again."
-            : "Event information updated."}
+          {result.backInPlanning ? BACK_TO_PLANNING_SAVED : "Event information updated."}
         </Alert>
         {result.flagged.length > 0 && (
           <Alert variant="warning" title="Flagged for review">
@@ -462,8 +471,7 @@ export default function UpdateEventInformationPage() {
         onConfirm={() => void save()}
         onCancel={() => setAsking(false)}
       >
-        {event.title || "This event"} is Confirmed. Saving these changes moves it back to Planning so it can be
-        confirmed again.
+        {backToPlanningWarning(event.title, event.status, "information")}
       </ConfirmDialog>
     </div>
   );

@@ -18,6 +18,7 @@ import {
 } from "@/components/ui";
 import { BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { authedFetch } from "@/lib/session";
+import { SAFETY_CLOSED_NOTICE, SAFETY_CLOSED_TITLE } from "@/lib/safetyResolution";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { LAYOUTS, toOptions } from "@/lib/eventForm";
@@ -124,6 +125,8 @@ function BookingRequestForm() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [planningStarted, setPlanningStarted] = useState(false);
+  // SPM-88: the request closed the safety check the event rested on.
+  const [safetyCheckClosed, setSafetyCheckClosed] = useState(false);
   /// Open while the coordinator is being asked whether to begin planning.
   const [confirmPlanning, setConfirmPlanning] = useState(false);
 
@@ -235,6 +238,7 @@ function BookingRequestForm() {
         // SPM-54: the first request for an Approved event begins planning.
         const created = await res.json().catch(() => ({}));
         setPlanningStarted(created.planningStarted === true);
+        setSafetyCheckClosed(created.safetyCheckClosed === true);
         setSent(true);
         return;
       }
@@ -301,6 +305,11 @@ function BookingRequestForm() {
           {planningStarted && (
             <Alert variant="success" title="Planning has started">
               This event has moved from Approved to Planning now that a venue booking has been requested.
+            </Alert>
+          )}
+          {safetyCheckClosed && (
+            <Alert variant="warning" title={SAFETY_CLOSED_TITLE}>
+              {SAFETY_CLOSED_NOTICE}
             </Alert>
           )}
         </div>

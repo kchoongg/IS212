@@ -298,6 +298,15 @@ significant change, SPM-88) and `cancelled`. Only the Safety Officer decides
 Safety approved the coordinator confirms; a significant change returns it to
 Planning (SPM-88). The Safety Officer role itself (`safety_officer`) is SPM-85's.
 
+**A significant change returns it to Planning** (SPM-88, decided 2026-10-15).
+Not a status anyone sets: the assigned coordinator's own important information
+change (SPM-62), equipment change, or venue booking requested, withdrawn or
+released, while the event is in Safety review or Safety approved, closes the
+check and moves the event back (`closeSafetyCheckAfterChange()`). Other roles'
+actions never do. Confirm needs an approved check. After a returned check only
+the assigned coordinator flags the arrangements it concerns
+(`canFlagForSafetyReview()`).
+
 **Arrangements wait for approval.** While an event is `submitted` or
 `under_review`, the assigned coordinator may search venues but may not request
 a booking or add, change or remove equipment (`isBeforeApproval()` in
@@ -331,12 +340,13 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events` | `eventListWhere(actor)` filters in SQL; attendees get the public subset |
 | `POST /api/events` | `event:create` — organiser only |
 | `GET /api/events/[id]` | `canViewEvent()` → 404; `visibleEventFor()` narrows the fields |
-| `GET /api/events/[id]` (safety check) | `safetyCheck` (who submitted the latest Operational Safety Check, and when) is added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
+| `GET /api/events/[id]` (safety check) | `safetyCheck` (the latest Operational Safety Check: who submitted it and when, and the decision) and `safetyHistory` (every check, newest first, SPM-88) are added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403. `safety_review` is refused (400): it is entered only through `POST /api/events/[id]/safety-check` (SPM-86) |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
 | `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
 | `GET /api/events/[id]/registration` | Same 404 / 403 checks; the assigned coordinator's list of bookings to measure the capacity against (SPM-64) |
-| `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-62) |
+| `PATCH /api/events/[id]/information` | `canViewEvent()` → 404, then `canUpdateEventInformation()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_EDIT_STATUSES` → 400 (Approved, Planning, Safety review, Safety approved or Confirmed - SPM-88 added the safety statuses) (SPM-62) |
+| `POST /api/events/[id]/safety-flags` | `canViewEvent()` → 404, then `canFlagForSafetyReview()` → 403 (the assigned coordinator only), then `safetyFlagsSchema` → 400, at least one arrangement → 400, then the event must be in Planning with a returned latest check (`canFlagAfterReturn()`) → 400, then each id must be one of the event's pending or approved bookings or its equipment lines that are not cancelled → 400 (SPM-88) |
 | `GET /api/events/[id]/arrangements` | `canViewArrangements()` (`event:confirm` - any coordinator) → 403, then `canViewEvent()` → 404. The answer's `canManage` is true only for the assigned coordinator while the event is in Planning (SPM-33) |
 | `PATCH /api/events/[id]/arrangements` | `canViewEvent()` → 404, then `canMarkArrangements()` → 403 (the assigned coordinator only), then `ARRANGEMENT_MARKING_STATUSES` → 400 (Planning only). Records who decided and when (SPM-33) |
 | `POST /api/events/[id]/safety-decision` | `canViewEvent()` → 404, then `event:safety_check` → 403 (Safety Officer only), then the event must be in Safety review with a pending check (400 "This safety check has already been decided."), then `safetyDecisionSchema` → 400 for a missing reason (SPM-87) |

@@ -436,6 +436,33 @@ describe("Event Venue tab", () => {
       expect(await screen.findByText("Not needed.", { exact: false })).toHaveTextContent("Reason for withdrawal: Not needed.");
     });
 
+    it("still says what happened when the answer has no body", async () => {
+      const api = open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(200) });
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      await waitFor(() => expect(api.sent(PATCH_B1)).toHaveLength(1));
+      expect(await screen.findByText("Request withdrawn")).toBeInTheDocument();
+    });
+
+    it("SPM-88: adds that the withdrawal closed the event's safety check", async () => {
+      const api = open({
+        [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
+        [PATCH_B1]: { id: "b1", status: "withdrawn", safetyCheckClosed: true },
+      });
+      await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
+
+      await userEvent.click(within(dialog()).getByRole("button", { name: "Withdraw request", hidden: true }));
+
+      await waitFor(() => expect(api.sent(PATCH_B1)).toHaveLength(1));
+      expect(
+        await screen.findByText(
+          "Hall A (HALL-A) on 4 Mar 2027, 13:30–17:00 is now Withdrawn. You can request another venue below. The event's safety check was closed and it is back in Planning. Submit it for a safety check again once the arrangements are settled."
+        )
+      ).toBeInTheDocument();
+    });
+
     it("SPM-67-TC03: asks before releasing, and says Venue Staff have been notified", async () => {
       const api = open({
         [INFO]: info({ canChangeBookings: true, bookings: [row({ status: "approved" })] }),
@@ -1038,6 +1065,27 @@ describe("Venue booking request form", () => {
     expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
   });
 
+  // SPM-88 (AC5, AC6): a booking request closes the safety check the event rests on.
+  it("SPM-88: says when the request closed the event's safety check", async () => {
+    open({ [POST]: reply(201, { id: "b1", planningStarted: false, safetyCheckClosed: true }) });
+    await date();
+
+    await submit();
+
+    expect(await screen.findByText("The safety check was closed")).toBeInTheDocument();
+    expect(screen.getByText("The event's safety check was closed and it is back in Planning. Submit it for a safety check again once the arrangements are settled.")).toBeInTheDocument();
+  });
+
+  it("says nothing about a safety check the request did not close", async () => {
+    open({ [POST]: reply(201, { id: "b1", planningStarted: false, safetyCheckClosed: false }) });
+    await date();
+
+    await submit();
+
+    await screen.findByText("Booking request sent to Venue Staff.");
+    expect(screen.queryByText("The safety check was closed")).not.toBeInTheDocument();
+  });
+
   it("shows the reason instead of the form when a booking cannot be requested", async () => {
     open({ [INFO]: info({ cannotRequest: "A venue cannot be requested for a completed, cancelled or rejected event." }) });
 
@@ -1194,10 +1242,13 @@ describe("SPM-90: the space a venue is needed for", () => {
       await userEvent.selectOptions(layout(), "classroom");
       await check();
 
-      await waitFor(() =>
-        expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(
-          `/api/events/${REF}/venue-suitability?session=s1&attendance=20&layout=classroom`
-        )
+      // A longer wait than the default 1s: CI's runner was slow enough to time out here.
+      await waitFor(
+        () =>
+          expect(api.sent(SUITABILITY).map((c) => c.url)).toContain(
+            `/api/events/${REF}/venue-suitability?session=s1&attendance=20&layout=classroom`
+          ),
+        { timeout: 3000 }
       );
     });
 
