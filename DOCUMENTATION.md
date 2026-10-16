@@ -1023,6 +1023,83 @@ what changed, why, and the migration name if there is one.
     Yeo's registrations); the same events are appended to `prisma/seed.ts`
     after SPM-88's.
   - Test cases: `docs/test-cases/SPM-52_Test_Cases.xlsx` (10).
+  - **Decision record: the withdraw rules.**
+    - *Context:* AC1 says a registered attendee can withdraw, and sets no
+      limit. A withdrawal changes the event's numbers (places taken, the
+      Withdrawn count), and an event that is over or cancelled is history:
+      who registered for it must not change afterwards.
+    - *Decision:* a withdrawal needs **all** of these, checked in this order
+      by `withdrawRefusal()`, and each refusal has its own message:
+      1. the registration is `registered` (`WITHDRAWABLE`). Waiting list is
+         SPM-66's to leave; Attended and Withdrawn have no place to give back
+         → "Only an active registration can be withdrawn";
+      2. the event is not `cancelled` → "This event has been cancelled, so
+         there is nothing to withdraw from";
+      3. the event is not finished (`TERMINAL_EVENT_STATUSES`) and its
+         `endsAt` has not passed, even if it is still Confirmed → "This event
+         is over, so the registration can no longer be withdrawn".
+
+      The row is updated, never deleted (`withdrawn` + `withdrawnAt`), and
+      only while its status is still the one read (`updateMany` on
+      `{ id, status }`), so a second tab or a double click withdraws once.
+      The freed seat needs no write: seats are counted from `SEAT_TAKING`.
+    - *Why one pure function:* the route refuses with it, and My
+      Registrations and the "Your registration" card hide Withdraw with it
+      (`canWithdraw()`), so a button is never offered for a request the
+      server would refuse.
+    - *Rejected:* deleting the row (loses My Registrations' history and
+      SPM-51's reactivation); a cut-off at registration close or event start
+      (no AC asks for it - Known Gap); letting the waiting list move up here
+      (SPM-66).
+  - **Sequence: registering, then withdrawing.**
+
+    ```mermaid
+    sequenceDiagram
+      actor A as Attendee
+      participant UI as Event page / My Registrations
+      participant Reg as POST /api/registrations
+      participant Wd as PATCH /api/registrations/[id]
+      participant Rules as registrationEligibility.ts
+      participant DB as Postgres (Prisma)
+
+      A->>UI: Register (dietary, accessibility)
+      UI->>Reg: { eventId, ... }
+      Reg->>DB: find event
+      Reg->>Rules: registrationState(event, 0, now)
+      Rules-->>Reg: open, or a refusal (400)
+      Reg->>DB: find own registration (eventId, attendeeId)
+      alt already registered / waitlisted
+        Reg-->>UI: 400 "Already registered for this event"
+      else none, or withdrawn
+        Reg->>DB: transaction: count SEAT_TAKING
+        Reg->>Rules: registrationState(event, taken, now)
+        Rules-->>Reg: full → 400 "This event is full"
+        Reg->>DB: create, or reactivate the withdrawn row
+        Reg-->>UI: 201 registration (status registered)
+      end
+
+      A->>UI: Withdraw
+      UI-->>A: "Withdraw from <event>?" Keep my place / Withdraw
+      A->>UI: Withdraw
+      UI->>Wd: { status: "withdrawn" }
+      Wd->>DB: find registration + event (status, endsAt)
+      alt not the caller's own
+        Wd-->>UI: 404 "Registration not found"
+      end
+      Wd->>Rules: withdrawRefusal(status, event, now)
+      alt refused
+        Rules-->>Wd: message
+        Wd-->>UI: 400 message (shown in the dialog)
+      else allowed
+        Wd->>DB: updateMany where { id, status } → withdrawn, withdrawnAt
+        alt count = 0 (withdrawn meanwhile)
+          Wd-->>UI: 400 "Only an active registration can be withdrawn"
+        else
+          Wd-->>UI: 200 registration (status withdrawn)
+          UI-->>A: "You have withdrawn from …", reloads
+        end
+      end
+    ```
 
 ### 2026-10-15 — Janelle
 - **SPM-88 (Resolve Safety Check Outcome).** What follows the Safety Officer's
