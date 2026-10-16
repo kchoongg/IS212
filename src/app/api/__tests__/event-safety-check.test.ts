@@ -25,7 +25,7 @@ vi.mock("@/lib/prisma");
 
 import { POST as submit } from "@/app/api/events/[id]/safety-check/route";
 import { GET, PATCH } from "@/app/api/events/[id]/route";
-import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const REF = "EVT-000007";
 const NOW = new Date("2026-10-09T06:30:00Z");
@@ -99,6 +99,12 @@ describe("POST /api/events/[id]/safety-check", () => {
 
   it("is 401 without a session", async () => {
     expect((await post()).status).toBe(401);
+  });
+
+  it("SPM-82: expires overdue holds before judging whether the arrangements are ready", async () => {
+    await post(given());
+
+    expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findMany.mock.invocationCallOrder[0]);
   });
 
   it("is 404 for a malformed reference", async () => {

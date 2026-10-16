@@ -12,7 +12,7 @@ import { GET as unreadCount } from "@/app/api/notifications/unread-count/route";
 import { PATCH as markOne } from "@/app/api/notifications/[id]/route";
 import { POST as markAll } from "@/app/api/notifications/read-all/route";
 import { ROLES } from "@/lib/roles";
-import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const NOTE = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
@@ -110,6 +110,16 @@ describe("GET /api/notifications/unread-count", () => {
 
   it("is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
+  });
+
+  // SPM-82 (AC9): the count is asked for on every page change, so it is where
+  // holds are warned about and expired while anyone is using the app.
+  it("SPM-82: expires and warns about holds before counting, so a new notice is counted", async () => {
+    db.notification.count.mockResolvedValue(0);
+
+    await get(signIn(user("coordinator")));
+
+    expect(holdExpirySweepOrder()).toBeLessThan(db.notification.count.mock.invocationCallOrder[0]);
   });
 
   it("AC3: counts the caller's own unread notifications", async () => {

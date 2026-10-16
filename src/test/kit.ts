@@ -117,3 +117,14 @@ export function params<T extends Record<string, string>>(values: T): { params: P
 export function callArg(fn: Mock, call = 0) {
   return fn.mock.calls[call]?.[0];
 }
+
+/// SPM-82: the order in which the route ran the statement that expires overdue
+/// tentative holds (expireDueHolds, src/lib/holdExpiryService.ts), or null if
+/// it never did. A route that reads bookings must run it first, so an expired
+/// hold is never read as pending - compare with another mock's
+/// `invocationCallOrder[0]`.
+export function holdExpirySweepOrder(): number | null {
+  const calls = db.$queryRaw.mock.calls as unknown[][];
+  const index = calls.findIndex(([sql]) => Array.isArray(sql) && (sql as string[]).join("").includes("SET status = 'expired'"));
+  return index < 0 ? null : db.$queryRaw.mock.invocationCallOrder[index];
+}
