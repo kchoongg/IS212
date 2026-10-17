@@ -993,6 +993,25 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-17 — Kristen Choong (regression testing)
+- **End-of-sprint regression testing guide**, `docs/REGRESSION_TESTING.md`
+  (Word copy `docs/Regression_Testing_Guide.docx`): which stories to retest
+  after a sprint, how to pick the cases, the smoke run, and how to record
+  results without touching the story workbooks.
+- **Regression logs** in `docs/regression/`: Sprint 2's, and Sprint 3's
+  for the run before the sprint review. Sprint 3's has one sheet per
+  tester with every case's steps, a smoke run split between the team as a
+  relay, and 30 cases rewritten for this run because their story's version
+  is out of date.
+- **Out-of-date test cases.** Sprint 3's log lists 83 story test cases that
+  SPM-93 (no more booking slots) and SPM-88 (Confirm waits for the safety
+  check) made out of date, with each story's owner. Updating them in
+  `docs/test-cases/` is for each owner after the run.
+- Why: to check before each sprint review that earlier stories still work.
+- Migration: none.
+
+---
+
 ### 2026-10-16 — Sammi Chua (SPM-52, Withdraw from Event)
 - **SPM-52 (Withdraw from Event).** An Attendee withdraws a Registered
   registration from My Registrations (S-27, a Withdraw button on the row) or
