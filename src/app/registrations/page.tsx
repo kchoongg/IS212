@@ -1,22 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { DataState, PageHeader, StatusBadge, Table, type Column } from "@/components/ui";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Alert, Button, DataState, PageHeader, StatusBadge, Table, type Column } from "@/components/ui";
 import { RequirePermission } from "@/components/RequirePermission";
+import { WithdrawRegistrationDialog, type WithdrawTarget } from "@/components/WithdrawRegistrationDialog";
 import { eventReference, formatDateTimeRange } from "@/lib/format";
+import { canWithdraw, withdrawWarning } from "@/lib/registrationEligibility";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 
 // S-27 My Registrations (SPM-51 AC6): the attendee's registrations and each
-// one's status, newest first (GET /api/registrations). Withdrawing is a
-// separate story (#20), so there is no Withdraw here yet.
+// one's status, newest first (GET /api/registrations).
+// SPM-52: Withdraw on each registration that holds a seat.
 
 interface RegistrationRow {
   id: string;
   status: string;
   registeredAt: string;
-  event: { sequenceNumber: number; title: string | null; startsAt: string | null; endsAt: string | null };
+  event: {
+    sequenceNumber: number;
+    title: string | null;
+    status: string;
+    startsAt: string | null;
+    endsAt: string | null;
+    registrationEnabled: boolean;
+    registrationClosesAt: string | null;
+  };
 }
 
 function MyRegistrations() {
@@ -24,6 +34,18 @@ function MyRegistrations() {
   const { state } = useCurrentUser();
   const [rows, setRows] = useState<RegistrationRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState<WithdrawTarget | null>(null);
+  const [withdrawn, setWithdrawn] = useState<string | null>(null);
+  // SPM-52: the event page sends the attendee here (?withdrawn=<registration
+  // id>) when they can no longer see the event they withdrew from. The id,
+  // not the title, so the message only names a withdrawal that happened.
+  const searchParams = useSearchParams();
+  const [fromEventPage, setFromEventPage] = useState(searchParams.get("withdrawn"));
+  const withdrawnFromEventPage = fromEventPage
+    ? rows?.find((row) => row.id === fromEventPage && row.status === "withdrawn")
+    : undefined;
+  const withdrawnMessage =
+    withdrawn ?? (withdrawnFromEventPage ? withdrawnFromEventPage.event.title || "the event" : null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -57,11 +79,44 @@ function MyRegistrations() {
     },
     { key: "when", header: "When", render: (row) => formatDateTimeRange(row.event.startsAt, row.event.endsAt) },
     { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: "actions",
+      header: "Actions",
+      hideLabelOnMobile: true,
+      className: "text-right",
+      render: (row) =>
+        canWithdraw(row.status, row.event, new Date()) ? (
+          <Button
+            variant="secondary"
+            size="sm"
+            // The row opens the event; this button must not do that too. The
+            // mobile card listens for Enter/Space, so the keypress is stopped too.
+            onClick={(e) => {
+              e.stopPropagation();
+              setWithdrawn(null);
+              setFromEventPage(null);
+              setWithdrawing({
+                id: row.id,
+                eventTitle: row.event.title,
+                warning: withdrawWarning(row.event, new Date()),
+              });
+            }}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            Withdraw
+          </Button>
+        ) : null,
+    },
   ];
 
   return (
     <div>
       <PageHeader title="My Registrations" subtitle="The events you have registered for, and their status." />
+      {withdrawnMessage && (
+        <Alert variant="success" className="mb-4">
+          You have withdrawn from {withdrawnMessage}.
+        </Alert>
+      )}
       <DataState
         data={rows}
         error={error}
@@ -81,6 +136,15 @@ function MyRegistrations() {
           />
         )}
       </DataState>
+      <WithdrawRegistrationDialog
+        target={withdrawing}
+        onCancel={() => setWithdrawing(null)}
+        onWithdrawn={() => {
+          setWithdrawn(withdrawing?.eventTitle || "the event");
+          setWithdrawing(null);
+          void load();
+        }}
+      />
     </div>
   );
 }
@@ -92,7 +156,10 @@ export default function RegistrationsPage() {
       title="My Registrations"
       reason="Registrations belong to an Attendee account."
     >
-      <MyRegistrations />
+      {/* useSearchParams needs a Suspense boundary above it. */}
+      <Suspense fallback={null}>
+        <MyRegistrations />
+      </Suspense>
     </RequirePermission>
   );
 }

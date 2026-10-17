@@ -126,7 +126,7 @@ cite.
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
 | S-26 | Browse events | `/browse` | Confirmed, registration-enabled events, each with a registration badge (Open, Not open yet + "Opens <date>", Closed, Full, Dates not set), soonest first (SPM-51). Registering happens on the event page's "Your registration" card. |
-| S-27 | My registrations | `/registrations` | My registrations and their status (SPM-51); withdraw is #20, not built. |
+| S-27 | My registrations | `/registrations` | My registrations and their status (SPM-51). Each Registered row for an event that isn't cancelled, completed or over has **Withdraw** (SPM-52), behind the same dialog as on S-06; afterwards "You have withdrawn from <event title>." and the row stays, as Withdrawn. |
 
 *(Attendees reach a public view of an event through S-06, rendered with the
 attendee variant — see §4.3.)*
@@ -244,7 +244,10 @@ Registration capacity, Capacity measured against (only with two or more active
 venue bookings), Registration opens, Registration closes, and "Save
 registration settings" / "Cancel". Each server refusal shows under its own
 field, and a save that flags the registrations lists them under "Flagged for
-review".
+review". The organiser and coordinators also see "Places taken" ("3 of 10 · 7
+left", or just the number with no capacity or with registration turned off) and
+"Withdrawn" (SPM-52), whether or not registration is enabled; no other role
+does.
 
 A tab the role cannot see is **not rendered** — not rendered-and-disabled.
 Disabled tabs leak the existence of internal planning information, which §8b of
@@ -530,7 +533,7 @@ getting right.
 | Equipment out of service | S-24, S-25 | Availability shown as `total − out of service − reserved`; the breakdown is visible, not just the result. Marking units out of service flags the reservations it leaves short and lists them (SPM-55). |
 | Registration full | S-06 "Your registration" | No Register button: "This event is full. You can join the waiting list instead." and, until Join and Respond to Waiting List is built, "Joining the waiting list isn't available yet." (SPM-51). |
 | Registration not open or closed | S-06 "Your registration" | No Register button (hidden, not disabled): "Registration opens 1 Nov 2027, 09:00." or "Registration closed on 30 Sept 2026, 17:00." With no dates: "Registration dates haven't been set for this event." (SPM-51). |
-| Already registered | S-06 "Your registration" | Register replaced by the status badge and "You registered on <date>." or "You're on the waiting list." Withdraw comes with #20 (SPM-51). |
+| Already registered | S-06 "Your registration" | Register replaced by the status badge and "You registered on <date>." or "You're on the waiting list." (SPM-51). A Registered one also has **Withdraw** (SPM-52): "Withdraw from <event title>?" — "Your place is released and can be taken by someone else. To attend, you would have to register again, and the event may be full by then." — "Keep my place" / "Withdraw"; afterwards "You have withdrawn from this event." and Register is offered again. Waiting list, Attended and Withdrawn have no Withdraw (leaving the waiting list is SPM-66), and neither does any registration once the event is cancelled, completed or past its end. |
 | Significant change proposed | S-10, S-17 | Amber warning listing exactly which arrangements will need re-checking (venue, equipment, registrations). |
 | Event cancelled with live bookings | S-06 cancel | `ConfirmDialog` listing the bookings and reservations that will be released. |
 | Rejecting without a reason | S-13, S-22 | Submit blocked; reason field errors. The server enforces this too. |

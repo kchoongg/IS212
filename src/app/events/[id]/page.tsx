@@ -234,7 +234,10 @@ export default function EventOverviewPage() {
   const [flagging, setFlagging] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
+  /// `whenGone` is called instead of showing "doesn't exist" when the event
+  /// can no longer be seen (SPM-52: an attendee who withdrew from an event
+  /// with registration turned off could only see it while holding a place).
+  const load = useCallback(async (whenGone?: () => void) => {
     setError(null);
     try {
       const res = await authedFetch(`/api/events/${eventId}`);
@@ -243,6 +246,12 @@ export default function EventOverviewPage() {
         return;
       }
       if (res.status === 404) {
+        if (whenGone) {
+          whenGone();
+          return;
+        }
+        // Not the old title and status badge above the error.
+        setEvent(null);
         setError("This event doesn't exist, or you don't have access to it.");
         return;
       }
@@ -865,9 +874,19 @@ export default function EventOverviewPage() {
           {user?.role === "attendee" && event.registrationState && (
             <RegisterPanel
               eventId={event.id}
+              eventTitle={event.title}
+              eventStatus={event.status}
+              eventEndsAt={event.endsAt}
+              registrationEnabled={event.registrationEnabled}
+              registrationClosesAt={event.registrationClosesAt}
               state={event.registrationState}
               myRegistration={event.myRegistration ?? null}
               onRegistered={() => void load()}
+              // SPM-52: if the event is gone once they withdraw, My
+              // Registrations says so and shows the row as Withdrawn.
+              onWithdrawn={(registrationId) =>
+                void load(() => router.replace(`/registrations?withdrawn=${encodeURIComponent(registrationId)}`))
+              }
             />
           )}
         </div>

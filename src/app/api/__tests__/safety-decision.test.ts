@@ -15,7 +15,7 @@
 //     each venue booking's venue carries opensAt, closesAt and `unavailable` - its
 //     VenueUnavailability periods on the event's Singapore dates (AC2).
 
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 
 vi.mock("@/lib/prisma");
 
@@ -238,6 +238,11 @@ describe("POST /api/events/[id]/safety-decision", () => {
 });
 
 describe("GET /api/events/[id] - the decision and the venue restrictions", () => {
+  // SPM-52: the organiser and coordinator also get the registrations counted.
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+  });
+
   const get = (token: string) => GET(req("GET", `/api/events/${REF}`, { token }), params({ id: REF }));
 
   it("SPM-87-TC06: gives staff the decision, who made it, when, and the note (AC10)", async () => {

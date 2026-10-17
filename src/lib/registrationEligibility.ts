@@ -12,6 +12,8 @@
 // and the screens call it, so the reason a button is missing and the reason a
 // request is refused are the same rule.
 
+import { isTerminalEventStatus } from "./statuses";
+
 /// The registration statuses that take a seat. A waitlisted attendee is
 /// waiting for one, and a withdrawn one gave theirs back.
 export const SEAT_TAKING = ["registered", "attended"];
@@ -62,4 +64,72 @@ export function registrationState(event: EligibilityFields, seatsTaken: number, 
 
   if (event.registrationCapacity != null && seatsTaken >= event.registrationCapacity) return { kind: "full" };
   return { kind: "open" };
+}
+
+/// Withdraw from Event (SPM-52): only a registration that holds a seat now can
+/// be withdrawn. Leaving the waiting list is Join and Respond to Waiting List
+/// (SPM-66); an attended or already withdrawn one has nothing to give back.
+export const WITHDRAWABLE = ["registered"];
+
+export const WITHDRAW_REFUSALS = {
+  not_active: "Only an active registration can be withdrawn",
+  cancelled: "This event has been cancelled, so there is nothing to withdraw from",
+  over: "This event is over, so the registration can no longer be withdrawn",
+};
+
+export interface WithdrawEventFields {
+  status: string;
+  /// A Date on the server, an ISO string on the screens.
+  endsAt: Date | string | null;
+}
+
+/// Why this registration can't be withdrawn now, or null if it can. An event
+/// that is cancelled, completed or past its end keeps its registrations as
+/// they were - its history must not change.
+export function withdrawRefusal(status: string, event: WithdrawEventFields, now: Date): string | null {
+  if (!WITHDRAWABLE.includes(status)) return WITHDRAW_REFUSALS.not_active;
+  if (event.status === "cancelled") return WITHDRAW_REFUSALS.cancelled;
+  if (isTerminalEventStatus(event.status)) return WITHDRAW_REFUSALS.over;
+  if (event.endsAt && new Date(event.endsAt) <= now) return WITHDRAW_REFUSALS.over;
+  return null;
+}
+
+export function canWithdraw(status: string, event: WithdrawEventFields, now: Date): boolean {
+  return withdrawRefusal(status, event, now) === null;
+}
+
+export const WITHDRAW_WARNINGS = {
+  disabled:
+    "Registration for this event has been turned off, so you can't register again. Once you withdraw, you won't be able to open this event any more.",
+  closed: "Registration for this event has closed, so you can't register again.",
+};
+
+export interface WithdrawWarningFields {
+  registrationEnabled: boolean;
+  /// A Date on the server, an ISO string on the screens.
+  registrationClosesAt: Date | string | null;
+}
+
+/// SPM-52: said in the Withdraw question when the attendee couldn't register
+/// again afterwards, or null when they could. With registration turned off they
+/// only see the event while they hold a place (#10, canViewEvent()), so they
+/// lose it too.
+export function withdrawWarning(event: WithdrawWarningFields, now: Date): string | null {
+  if (!event.registrationEnabled) return WITHDRAW_WARNINGS.disabled;
+  if (event.registrationClosesAt && new Date(event.registrationClosesAt) < now) return WITHDRAW_WARNINGS.closed;
+  return null;
+}
+
+export interface RegistrationCounts {
+  /// Seats held now (SEAT_TAKING).
+  taken: number;
+  withdrawn: number;
+}
+
+/// SPM-52 AC5: what the organiser and coordinator see on the Registration
+/// card, from the event's registrations counted by status.
+export function registrationCounts(byStatus: { status: string; count: number }[]): RegistrationCounts {
+  const sum = (statuses: string[]) =>
+    byStatus.filter((s) => statuses.includes(s.status)).reduce((total, s) => total + s.count, 0);
+  return { taken: sum(SEAT_TAKING), withdrawn: sum(["withdrawn"]) };
 }

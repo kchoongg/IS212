@@ -26,7 +26,18 @@ export async function GET(req: NextRequest) {
         id: true,
         status: true,
         registeredAt: true,
-        event: { select: { sequenceNumber: true, title: true, startsAt: true, endsAt: true } },
+        event: {
+          select: {
+            sequenceNumber: true,
+            title: true,
+            status: true,
+            startsAt: true,
+            endsAt: true,
+            // SPM-52: for the Withdraw question's warning (withdrawWarning()).
+            registrationEnabled: true,
+            registrationClosesAt: true,
+          },
+        },
       },
     });
     return NextResponse.json(registrations);
