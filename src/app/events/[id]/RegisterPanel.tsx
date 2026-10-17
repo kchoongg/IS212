@@ -181,6 +181,7 @@ export function RegisterPanel({
           setConfirmWithdraw(false);
           setRegistered(false);
           setWithdrawn(true);
+          // v8 ignore next -- the dialog only opens while holding is set
           if (holding) onWithdrawn(holding.id);
         }}
       />

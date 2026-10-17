@@ -275,6 +275,13 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(within(rowOf("SPM52 Members Gala")).getByText("Withdrawn")).toBeInTheDocument();
   });
 
+  it("names an untitled event in general words when sent here after withdrawing", async () => {
+    const untitled = registration("r1", "withdrawn", "", 52, "2028-04-01");
+    open([{ ...untitled, event: { ...untitled.event, title: null } }], "/registrations?withdrawn=r1");
+
+    expect(await screen.findByText("You have withdrawn from the event.")).toBeInTheDocument();
+  });
+
   it("says nothing when the registration in the address was not withdrawn", async () => {
     open(rows(), "/registrations?withdrawn=r1");
     await screen.findByRole("table");
