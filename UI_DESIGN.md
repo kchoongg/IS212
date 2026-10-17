@@ -89,7 +89,7 @@ cite.
 | S-08 | Event request form | `/events/new`, `/events/[id]/edit` | Create/edit a request. Save draft or submit. |
 | S-09 | Clarification response | `/events/[id]` → Discussion tab | Answer a coordinator's question. |
 | S-10 | Change request form | `/events/[id]/change-request` | Request a change after submission. |
-| S-11 | Registration list (own event) | `/events/[id]` → Attendees tab | Who registered for my event. |
+| S-11 | Registration list (own event) | `/events/[id]/attendees` (Attendees tab) | Who registered for my event (SPM-65). Above the table: "3 of 3 places taken · 1 on the waiting list" (no limit when capacity isn't set). Columns Attendee (with "Added by <name>" for a manually added attendee), Contact (email, phone), Status (Registered, Waiting list, Withdrawn, Attended) and Registered (date, plus "Withdrew …"), oldest first. Re-reads every 15 seconds while in view. When registration is not enabled it says so instead of showing an empty list. Only the organiser who raised the event and the assigned coordinator: anyone else, including another organiser at the same client and a coordinator not assigned to the event, has no Attendees tab, and typing its address shows "Not authorised". |
 
 ### 3.3 Event Coordinator
 

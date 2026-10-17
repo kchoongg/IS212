@@ -86,6 +86,8 @@ interface BookingInfo {
   cannotRequest: string | null;
   /// SPM-67: whether this user may withdraw or release the event's bookings.
   canChangeBookings?: boolean;
+  /// SPM-65: whether this user may open the Attendees tab.
+  canViewRegistrationList?: boolean;
   bookings: {
     id: string;
     status: string;
@@ -323,7 +325,8 @@ function EventVenueScreen() {
     return null;
   }
 
-  const tabs = user ? eventTabItemsFor(user.role, eventId) : [];
+  // v8 ignore next -- RequirePermission renders this screen only for a signed-in user
+  const tabs = user ? eventTabItemsFor(user.role, eventId, booking?.canViewRegistrationList) : [];
   const suitableCount = data?.results.filter((r) => r.suitable).length ?? 0;
 
   return (

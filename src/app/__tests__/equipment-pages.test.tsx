@@ -196,6 +196,20 @@ describe("Event equipment tab", () => {
       expect(screen.getByRole("heading", { name: "Event at a glance" })).toBeInTheDocument();
     });
 
+    // SPM-65: the Attendees tab only where the server says the list is theirs.
+    it.each([
+      ["the assigned coordinator", true],
+      ["a coordinator not assigned to the event", false],
+    ])("offers %s the Attendees tab only when the registrations are theirs", async (_who, canView) => {
+      open("coordinator", { [EVENT]: event({ canViewRegistrationList: canView }) });
+
+      await itemRow("Projector");
+      const tabs = within(screen.getByRole("navigation", { name: "Sections" })).getAllByRole("link");
+      expect(tabs.map((t) => t.textContent)).toEqual(
+        canView ? ["Overview", "Venue", "Equipment", "Attendees", "Readiness"] : ["Overview", "Venue", "Equipment", "Readiness"]
+      );
+    });
+
     it("counts a single item in the singular", async () => {
       open("coordinator", { [LIST]: [projectorRow()] });
 

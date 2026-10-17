@@ -159,21 +159,39 @@ describe("Event overview", () => {
   });
 
   it.each([
-    ["organiser", ["Overview", "Equipment"]],
+    ["organiser", ["Overview", "Equipment", "Attendees"]],
     // SPM-33: the Readiness tab is built, for coordinators only.
-    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
+    ["coordinator", ["Overview", "Venue", "Equipment", "Attendees", "Readiness"]],
     ["venue_staff", ["Overview", "Venue"]],
     ["tech_support", ["Overview", "Equipment"]],
     ["ops_manager", ["Overview"]],
     ["attendee", ["Overview"]],
   ])("offers %s the tabs %j", async (role, expected) => {
-    open(role, role === "attendee" ? publicEvent() : event(), { "GET /api/assignments": { coordinators: [] } });
+    // As the server says it for the organiser who raised the event and its
+    // assigned coordinator; the other roles never have the Attendees tab.
+    open(role, role === "attendee" ? publicEvent() : event({ canViewRegistrationList: true }), {
+      "GET /api/assignments": { coordinators: [] },
+    });
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
     const tabs = within(screen.getByRole("navigation", { name: "Sections" })).getAllByRole("link");
 
     expect(tabs.map((t) => t.textContent)).toEqual(expected);
     expect(tabs[0]).toHaveAttribute("aria-current", "page");
+  });
+
+  // SPM-65 (AC8, AC1): another organiser at the same client, or a coordinator
+  // not assigned to the event, can open it but not its registration list.
+  it.each([
+    ["organiser", ["Overview", "Equipment"]],
+    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
+  ])("offers %s no Attendees tab on an event whose registrations are not theirs", async (role, expected) => {
+    open(role, event({ canViewRegistrationList: false }), { "GET /api/assignments": { coordinators: [] } });
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+    const tabs = within(screen.getByRole("navigation", { name: "Sections" })).getAllByRole("link");
+
+    expect(tabs.map((t) => t.textContent)).toEqual(expected);
   });
 
   it("sends the owner of a draft to the editor instead", async () => {

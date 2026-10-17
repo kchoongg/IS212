@@ -453,8 +453,13 @@ allowed to see.
 - **`registration:view_list`** gives the organiser and coordinators the counts
   on the event's Registration card — places taken and withdrawn — from
   `GET /api/events/[id]` (SPM-52, AC5). It is per role, so every coordinator
-  who can see the event gets them, not only the assigned one. The attendee
-  list screen (S-11) is not built.
+  who can see the event gets them, not only the assigned one.
+  It also guards the registration list (SPM-65,
+  `GET /api/events/[id]/registrations`, the Attendees tab) through
+  `canViewRegistrationList()`: the organiser who owns the event and the
+  coordinator assigned to it - not another organiser of the same client.
+  The event screens' APIs return its answer as `canViewRegistrationList`, so
+  the Attendees tab is left out for everyone else rather than refused.
 - **`users.role` has no database constraint.** `registerSchema` guards the
   register route; a direct database write is not guarded.
   - Corrected 2026-09-18: this entry previously read "Zod guards the register

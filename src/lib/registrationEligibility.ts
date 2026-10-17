@@ -123,13 +123,16 @@ export function withdrawWarning(event: WithdrawWarningFields, now: Date): string
 export interface RegistrationCounts {
   /// Seats held now (SEAT_TAKING).
   taken: number;
+  /// SPM-65 AC5: on the waiting list, holding no seat yet.
+  waitlisted: number;
   withdrawn: number;
 }
 
 /// SPM-52 AC5: what the organiser and coordinator see on the Registration
-/// card, from the event's registrations counted by status.
+/// card, from the event's registrations counted by status. SPM-65 AC5: and on
+/// the registration list.
 export function registrationCounts(byStatus: { status: string; count: number }[]): RegistrationCounts {
   const sum = (statuses: string[]) =>
     byStatus.filter((s) => statuses.includes(s.status)).reduce((total, s) => total + s.count, 0);
-  return { taken: sum(SEAT_TAKING), withdrawn: sum(["withdrawn"]) };
+  return { taken: sum(SEAT_TAKING), waitlisted: sum(["waitlisted"]), withdrawn: sum(["withdrawn"]) };
 }

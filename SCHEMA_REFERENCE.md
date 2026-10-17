@@ -57,6 +57,7 @@ erDiagram
   organisations ||--o{ events : "is client for"
   users ||--o{ events : organises
   users ||--o{ registrations : registers
+  users ||--o{ registrations : "adds (optional)"
   users ||--o{ notifications : receives
   events ||--o{ event_status_history : logs
   events ||--o{ safety_checks : "submitted for"
@@ -547,8 +548,9 @@ Postgres table `registrations` &middot; `prisma.registration`
 | `withdrawnAt` | DateTime |  | When the attendee withdrew (SPM-52, `PATCH /api/registrations/[id]`). NULL unless `withdrawn`. |
 | `dietaryRequirements` | String |  | The attendee's own needs, not the event's. |
 | `accessibilityRequirements` | String |  |  |
+| `addedById` | String |  | Who added this registration on the attendee's behalf (SPM-65, AC4), shown as "Added by <name>" on the Attendees tab. Set by Manually Add Attendee - nothing writes it yet. NULL = the attendee registered themselves. `ON DELETE SET NULL`. |
 
-**Relations:** `event` &rarr; Event, `attendee` &rarr; User
+**Relations:** `event` &rarr; Event, `attendee` &rarr; User, `addedBy` &rarr; User
 
 **Unique:** `@@unique([eventId, attendeeId])`
 

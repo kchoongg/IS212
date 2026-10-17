@@ -133,6 +133,9 @@ interface EventDetail extends RegistrationEvent {
   safetyCheck?: SafetyCheckEntry | null;
   /// SPM-88 (AC1): every check, newest first. Staff only, like safetyCheck.
   safetyHistory?: SafetyCheckEntry[];
+  /// SPM-65: whether this user may open the Attendees tab. Absent for a role
+  /// that never has it.
+  canViewRegistrationList?: boolean;
 }
 
 interface SafetyCheckEntry {
@@ -592,7 +595,7 @@ export default function EventOverviewPage() {
     return null;
   }
 
-  const tabs = user ? eventTabItemsFor(user.role, eventId) : [];
+  const tabs = user ? eventTabItemsFor(user.role, eventId, event?.canViewRegistrationList) : [];
 
   return (
     <div className="max-w-3xl">

@@ -24,6 +24,7 @@ import {
   canSubmitForSafetyCheck,
   canRecordSafetyDecision,
   canViewEquipmentRequests,
+  canViewRegistrationList,
   techSupportSeesEquipment,
   TECH_SUPPORT_EQUIPMENT_STATUSES,
   canWithdrawEvent,
@@ -873,4 +874,33 @@ describe("the Safety Officer (SPM-85)", () => {
       expect(can(role, "event:safety_check"), role).toBe(role === "safety_officer");
     }
   });
+});
+
+describe("canViewRegistrationList (SPM-65)", () => {
+  const theirs = event({ coordinatorId: "coordinator-1", status: "confirmed", registrationEnabled: true });
+
+  it("AC1: lets the organiser responsible for the event view its registrations", () => {
+    expect(canViewRegistrationList(organiserA, theirs)).toBe(true);
+  });
+
+  it("AC1: lets the coordinator assigned to the event view its registrations", () => {
+    expect(canViewRegistrationList(coordinator, theirs)).toBe(true);
+  });
+
+  it("AC8: stops an organiser who is not responsible for the event - a colleague at the same client included", () => {
+    expect(canViewRegistrationList(colleagueA, theirs)).toBe(false);
+    expect(canViewRegistrationList(organiserB, theirs)).toBe(false);
+  });
+
+  it("stops a coordinator who is not assigned to the event, and every coordinator while it has none", () => {
+    expect(canViewRegistrationList(otherCoordinator, theirs)).toBe(false);
+    expect(canViewRegistrationList(coordinator, event({ coordinatorId: null }))).toBe(false);
+  });
+
+  it.each(ROLES.filter((role) => role !== "organiser" && role !== "coordinator"))(
+    "AC9: stops the %s role, whatever their relationship to the event",
+    (role) => {
+      expect(canViewRegistrationList(actor(role, "organiser-1", CLIENT_A), theirs)).toBe(false);
+    }
+  );
 });
