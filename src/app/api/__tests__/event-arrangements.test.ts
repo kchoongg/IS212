@@ -287,6 +287,8 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(res.status).toBe(200);
     expect(body.event).toEqual({ sequenceNumber: 7, title: "Town Hall", status: "planning" });
     expect(body.canManage).toBe(true);
+    // SPM-65: their tab bar offers the Attendees tab.
+    expect(body.canViewRegistrationList).toBe(true);
     expect(body.blocking).toBe(1);
     expect(listed(body).map((a: ListedArrangement) => [a.kind, a.name, a.status, a.state])).toEqual([
       ["venue", "Hall A", "approved", "complete"],
@@ -446,6 +448,8 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(res.status).toBe(200);
     expect(body.canManage).toBe(false);
     expect(listed(body)).toHaveLength(1);
+    // SPM-65: nor open its Attendees tab.
+    expect(body.canViewRegistrationList).toBe(false);
   });
 
   // SPM-68: the Readiness tab links a flagged arrangement to the Flagged

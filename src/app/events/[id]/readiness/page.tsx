@@ -62,6 +62,8 @@ interface Readiness {
   /// SPM-68: the assigned coordinator, whatever the event's status - a flagged
   /// arrangement is theirs to keep or replace on the Flagged Arrangements page.
   canReviewFlags?: boolean;
+  /// SPM-65: whether this user may open the Attendees tab.
+  canViewRegistrationList?: boolean;
   /// How many arrangements are required and not complete.
   blocking: number;
   arrangements: Arrangement[];
@@ -280,7 +282,8 @@ export default function EventReadinessPage() {
     );
   }
 
-  const tabs = user ? eventTabItemsFor(user.role, eventId) : [];
+  // v8 ignore next -- canView above needs a signed-in user, so `user` is always set here
+  const tabs = user ? eventTabItemsFor(user.role, eventId, data?.canViewRegistrationList) : [];
 
   return (
     <div className="max-w-3xl">

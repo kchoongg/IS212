@@ -14,8 +14,9 @@ import type { RegistrationCounts } from "@/lib/registrationEligibility";
 // S-11, the Attendees tab (SPM-65, View Registration List): who has registered
 // for this event, for the Organiser responsible for it and the Coordinator
 // assigned to it. Who may see it is decided by GET /api/events/[id]/registrations
-// (canViewRegistrationList()); the page only shows the tab to the roles that
-// might, and says so when the server refuses.
+// (canViewRegistrationList()). The tab bar on the other event screens offers
+// the tab only where that rule allows it (eventTabs.ts); typing the address
+// anyway gets "Not authorised" here.
 //
 // AC6: the list is read again every 15 seconds while the tab is open and in
 // view, and as soon as it comes back into view, so registrations, withdrawals
@@ -165,7 +166,8 @@ export default function EventAttendeesPage() {
     );
   }
 
-  const tabs = eventTabItemsFor(user.role, eventId);
+  // Past the refusal above, so Attendees is offered - it is this screen.
+  const tabs = eventTabItemsFor(user.role, eventId, true);
 
   return (
     <div className="max-w-5xl">

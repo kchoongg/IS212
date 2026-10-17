@@ -10,6 +10,7 @@ import {
   canEditEventContent,
   canSetEventStatus,
   canViewEvent,
+  canViewRegistrationList,
   visibleEventFor,
   type Actor,
 } from "@/lib/permissions";
@@ -213,6 +214,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       visibleEventFor(actor, {
         ...shaped,
         registrationCounts: registrationCounts(byStatus.map((s) => ({ status: s.status, count: s._count._all }))),
+        // SPM-65: whether to offer the Attendees tab - the registration
+        // list's own rule, so the tab is never shown only to be refused.
+        canViewRegistrationList: canViewRegistrationList(actor, event),
       })
     );
   }

@@ -177,7 +177,7 @@
     },
     {
       "id": "SPM-65-TC08",
-      "title": "An organiser at the same client who did not raise the event can open the event but not its registration list",
+      "title": "An organiser at the same client who did not raise the event can open the event but has no Attendees tab and cannot open the list by typing its address",
       "linked_ac": [
         "AC8"
       ],
@@ -187,10 +187,11 @@
       "steps": [
         "Click 'My Events' in the sidebar",
         "Click 'SPM65 Harbourfront Seminar' in the list",
-        "Click the 'Attendees' tab"
+        "Note the event's reference from the browser address bar (the part after /events/, starting EVT-)",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/attendees) and press Enter"
       ],
       "test_data": "Event: SPM65 Harbourfront Seminar (organised by Evelyn Chen) | Organiser: Raj Kumar (same client, not responsible)",
-      "expected_result": "Step 2: The event page 'SPM65 Harbourfront Seminar' opens, with an 'Attendees' tab.\nStep 3: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names, emails or places taken are shown."
+      "expected_result": "Step 2: The event page 'SPM65 Harbourfront Seminar' opens with the tabs 'Overview' and 'Equipment'. There is no 'Attendees' tab.\nStep 4: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names, emails or places taken are shown."
     },
     {
       "id": "SPM-65-TC09",
@@ -213,7 +214,7 @@
     },
     {
       "id": "SPM-65-TC10",
-      "title": "A coordinator who is not assigned to the event cannot view its registration list",
+      "title": "A coordinator who is not assigned to the event has no Attendees tab and cannot open the list by typing its address",
       "linked_ac": [
         "AC1"
       ],
@@ -223,10 +224,11 @@
       "steps": [
         "Click 'All Events' in the sidebar",
         "Click 'SPM65 Harbourfront Seminar' in the list",
-        "Click the 'Attendees' tab"
+        "Note the event's reference from the browser address bar (the part after /events/, starting EVT-)",
+        "Type /events/<reference from step 3>/attendees after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference from step 3>/attendees) and press Enter"
       ],
       "test_data": "Event: SPM65 Harbourfront Seminar (assigned to Daniel Tan) | Coordinator: Priya Raj (not assigned)",
-      "expected_result": "Step 3: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names, emails or places taken are shown."
+      "expected_result": "Step 2: The event page 'SPM65 Harbourfront Seminar' opens with the tabs 'Overview', 'Venue', 'Equipment' and 'Readiness'. There is no 'Attendees' tab.\nStep 4: A red message 'Not authorised' says 'You can only view the registrations for events you are responsible for.' No attendee names, emails or places taken are shown."
     },
     {
       "id": "SPM-65-TC11",
@@ -279,7 +281,7 @@
     "RESOLVED 2026-10-15: AC6. The tab reads the list again every 15 seconds while it is in view, and straight away when it comes back into view (decided 2026-10-15). No refresh is needed, but a change can take up to 15 seconds to appear.",
     "RESOLVED 2026-10-15: AC6 waiting-list changes. Nobody can join or leave the waiting list from the app yet (Join and Respond to Waiting List, SPM-66), so no case moves an attendee on or off it. The list reads waiting-list registrations the same way as the others, so they will update the same way once SPM-66 is built.",
     "RESOLVED 2026-10-15: AC7. When registration is not enabled the tab says 'Registration is not enabled for this event'. If attendees registered before it was turned off, they are still listed under that message (SPM65 Paused Forum), so the organiser does not lose sight of them.",
-    "RESOLVED 2026-10-15: AC8. The organiser who raised the event is the responsible one. Another organiser at the same client can open the event (as before) but gets 'Not authorised' on its Attendees tab; an organiser from another client cannot see the event at all. AC1 reads 'the assigned Event Coordinator', so another coordinator is refused too (SPM-65-TC10).",
+    "RESOLVED 2026-10-15: AC8. The organiser who raised the event is the responsible one. Another organiser at the same client can open the event (as before) but has no Attendees tab, and typing its address shows 'Not authorised' (changed 2026-10-17: the tab used to be shown and then refused); an organiser from another client cannot see the event at all. AC1 reads 'the assigned Event Coordinator', so another coordinator is refused too (SPM-65-TC10).",
     "RESOLVED 2026-10-15: AC9. Attendees, Venue Staff and Technical Support have no 'Attendees' tab, and typing the tab's address shows 'Not authorised'. The Operations Manager and Safety Officer are refused too; the story names neither, so the unit tests cover them rather than a manual case.",
     "RESOLVED 2026-10-15: not reachable from the screens, so covered by route tests only (src/app/api/__tests__/event-registrations-list.test.ts): calling the registrations API without logging in, and for a draft event.",
     "RESOLVED 2026-10-15: fixtures. `npm run fixtures:spm65` (scripts/seed-spm65.ts) deletes and recreates only the six 'SPM65 …' events (seed keys spm65_*), with their registration settings and registrations, at fixed registration dates; the same events (without those) are at the end of prisma/seed.ts, and the base seed gives them no random registrations. No pinned reference numbers: find each event by title. The open events' registration runs to 31 Dec 2027, so SPM-65-TC04 holds until then."

@@ -139,6 +139,8 @@ describe("GET /api/events/[id]/venue-bookings", () => {
       willBeginPlanning: false,
       // SPM-67: the assigned coordinator may withdraw or release.
       canChangeBookings: true,
+      // SPM-65: and the tab bar offers them the Attendees tab.
+      canViewRegistrationList: true,
       bookings,
     });
     expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
@@ -160,6 +162,8 @@ describe("GET /api/events/[id]/venue-bookings", () => {
     expect(body.cannotRequest).toBe("Only the assigned Coordinator can request a venue booking.");
     // SPM-67 AC9: nor withdraw or release one.
     expect(body.canChangeBookings).toBe(false);
+    // SPM-65: nor open the Attendees tab - only the assigned coordinator may.
+    expect(body.canViewRegistrationList).toBe(false);
   });
 
   it("says a request on an approved event will begin planning", async () => {

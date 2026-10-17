@@ -15,16 +15,24 @@ import type { TabItem } from "@/components/ui";
 // EVENT_TABS_BY_ROLE.
 //
 // Attendees (S-11) is built by SPM-65; the organiser and the coordinator have
-// it. The registration list itself decides whether this is their event.
+// it in EVENT_TABS_BY_ROLE, but only for their own event.
 const IMPLEMENTED_TABS: EventTab[] = ["overview", "venue", "equipment", "attendees", "readiness"];
 
-export function eventTabItemsFor(role: string, eventId: string): TabItem[] {
+/// `canViewRegistrationList` is the server's canViewRegistrationList() for
+/// this event, from whichever API the screen loads. Until it is known the
+/// Attendees tab is left out, so it never shows only to be refused.
+export function eventTabItemsFor(role: string, eventId: string, canViewRegistrationList = false): TabItem[] {
   const allowed = eventTabsFor(role);
   return IMPLEMENTED_TABS.filter(
     // The Venue tab is the suitability check (SPM-41), which reads the venue
     // catalogue. An organiser has the tab in EVENT_TABS_BY_ROLE but not
     // venue:view, so it would only ever 403 for them - leave it out.
-    (tab) => allowed.includes(tab) && (tab !== "venue" || can(role, "venue:view"))
+    // Attendees is per event: another organiser at the same client, or a
+    // coordinator not assigned to it, can open the event but not its list.
+    (tab) =>
+      allowed.includes(tab) &&
+      (tab !== "venue" || can(role, "venue:view")) &&
+      (tab !== "attendees" || canViewRegistrationList)
   ).map((tab) => ({
     key: tab,
     label: EVENT_TAB_LABELS[tab],

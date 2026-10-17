@@ -306,6 +306,22 @@ describe("GET /api/events/[id]", () => {
       where: { eventId: ID.event },
       _count: { _all: true },
     });
+    // SPM-65: and the page offers them the Attendees tab.
+    expect(body.canViewRegistrationList).toBe(true);
+  });
+
+  // SPM-65 (AC8, AC1): they can open the event, so its tab bar is drawn, but
+  // the registration list is not theirs - no Attendees tab.
+  it.each([
+    ["an organiser at the same client who did not raise it", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
+    ["a coordinator who is not assigned to it", () => user("coordinator", { id: ID.thirdUser })],
+  ])("tells %s they cannot open its Attendees tab", async (_who, actor) => {
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+
+    const res = await get(signIn(actor()));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).canViewRegistrationList).toBe(false);
   });
 
   it.each(ROLES.filter((role) => role !== "attendee" && !can(role, "registration:view_list")))(

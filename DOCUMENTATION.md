@@ -1116,6 +1116,13 @@ what changed, why, and the migration name if there is one.
   not raise the event can open the event but gets 403 here (AC8); every other
   role is refused (AC9). The usual order: 401, 404 for an event the user
   can't see, then 403.
+- **The tab is shown only to those two** (changed 2026-10-17). It used to be
+  shown to every organiser and coordinator, who then got "Not authorised".
+  Now `GET /api/events/[ref]`, `…/venue-bookings` and `…/arrangements` return
+  `canViewRegistrationList` (the same rule), and `eventTabItemsFor()` leaves
+  Attendees out unless it is true - so another organiser at the same client,
+  or a coordinator not assigned to the event, has no Attendees tab, like Venue
+  Staff and Technical Support. Typing the address still gets "Not authorised".
 - **Manually added attendees (AC4):** new nullable `registrations.added_by_id`
   (FK to users, `ON DELETE SET NULL`). NULL means the attendee registered
   themselves. Nothing writes it yet — *Manually Add Attendee* must set it to

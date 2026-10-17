@@ -458,6 +458,8 @@ allowed to see.
   `GET /api/events/[id]/registrations`, the Attendees tab) through
   `canViewRegistrationList()`: the organiser who owns the event and the
   coordinator assigned to it - not another organiser of the same client.
+  The event screens' APIs return its answer as `canViewRegistrationList`, so
+  the Attendees tab is left out for everyone else rather than refused.
 - **`users.role` has no database constraint.** `registerSchema` guards the
   register route; a direct database write is not guarded.
   - Corrected 2026-09-18: this entry previously read "Zod guards the register
