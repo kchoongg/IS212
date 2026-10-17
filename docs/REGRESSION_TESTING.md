@@ -116,12 +116,15 @@ blue row starts each story and names its fixture script. Each case row has the
 preconditions, test data, steps and expected results, so there is no need to
 open the story workbooks.
 
-Do the smoke run first, together, before splitting up.
+Do the smoke run first, together, before splitting up to work through your
+own sheets.
 
 **Smoke run.** Take one new event through the whole flow, logging in as each
-role in turn. Create a new event for this, titled `REG S<N> <your name>`, so no
-story's fixtures are touched. The tracker's **Smoke run** sheet has the
-accounts and what to check at each step. As of sprint 3 the flow is:
+role in turn. Create a new event for this, titled `REG S<N> Smoke`, so no
+story's fixtures are touched. Run it as a relay on a call: each person stays
+logged in as one or two roles on their own laptop and does their steps when the
+event reaches them. The tracker's **Smoke run** sheet says who does each step,
+which account to use and what to check. As of sprint 3 the flow is:
 
 1. Event Organiser logs in, creates an event request, saves it as a draft,
    reopens it and submits it.
@@ -166,7 +169,7 @@ the rows on the **Scope** sheet and the testers' sheets with this sprint's
 | Sheet | What goes in it |
 | --- | --- |
 | Summary | Date, testers and the commit tested, the three automated checks (step 1), and the result counts per tester, which fill in by themselves. |
-| Smoke run | The result of each step of the smoke run. |
+| Smoke run | Who does each step of the smoke run, and its result. |
 | One sheet per tester | That tester's cases in run order, each with its preconditions, test data, steps and expected results, then the result, date and notes. IDs ending in `-R` were rewritten for this run. |
 | Out-of-date cases | Every story test case that a later story has made out of date, which story changed it, and whether its owner has updated it. |
 | Scope | Every earlier story, whether it is in scope, and why. |
