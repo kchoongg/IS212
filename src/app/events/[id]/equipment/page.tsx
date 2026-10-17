@@ -66,6 +66,8 @@ interface EventInfo {
   // hidden for every event that currently exists, and activates on its own
   // once event creation actually supports adding sessions.
   sessions: EventSessionInfo[];
+  /// SPM-65: whether this user may open the Attendees tab.
+  canViewRegistrationList?: boolean;
 }
 
 interface EquipmentRequestRow {
@@ -423,7 +425,7 @@ export default function EventEquipmentPage() {
     return null;
   }
 
-  const tabs = user ? eventTabItemsFor(user.role, eventId) : [];
+  const tabs = user ? eventTabItemsFor(user.role, eventId, event?.canViewRegistrationList) : [];
 
   if (!canView) {
     return (

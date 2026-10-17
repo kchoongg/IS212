@@ -6,9 +6,11 @@ import { parseEventReference } from "@/lib/format";
 import {
   REVIEWABLE_STATUSES,
   REVIEW_OUTCOMES,
+  can,
   canEditEventContent,
   canSetEventStatus,
   canViewEvent,
+  canViewRegistrationList,
   visibleEventFor,
   type Actor,
 } from "@/lib/permissions";
@@ -20,7 +22,7 @@ import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
-import { SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
+import { SEAT_TAKING, registrationCounts, registrationState } from "@/lib/registrationEligibility";
 import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
@@ -188,7 +190,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       prisma.registration.count({ where: { eventId: event.id, status: { in: SEAT_TAKING } } }),
       prisma.registration.findUnique({
         where: { eventId_attendeeId: { eventId: event.id, attendeeId: actor.id } },
-        select: { status: true, registeredAt: true },
+        // SPM-52: and its id, for Withdraw.
+        select: { id: true, status: true, registeredAt: true },
       }),
     ]);
     return NextResponse.json(
@@ -196,6 +199,24 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         ...shaped,
         registrationState: registrationState(event, seatsTaken, new Date()),
         myRegistration: myRegistration ?? null,
+      })
+    );
+  }
+  // SPM-52 AC5: the organiser and the coordinator see how many places are
+  // taken and how many attendees withdrew, so a withdrawal shows up here.
+  if (can(actor.role, "registration:view_list")) {
+    const byStatus = await prisma.registration.groupBy({
+      by: ["status"],
+      where: { eventId: event.id },
+      _count: { _all: true },
+    });
+    return NextResponse.json(
+      visibleEventFor(actor, {
+        ...shaped,
+        registrationCounts: registrationCounts(byStatus.map((s) => ({ status: s.status, count: s._count._all }))),
+        // SPM-65: whether to offer the Attendees tab - the registration
+        // list's own rule, so the tab is never shown only to be refused.
+        canViewRegistrationList: canViewRegistrationList(actor, event),
       })
     );
   }

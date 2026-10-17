@@ -14,15 +14,33 @@ import { mockApi, render, reply, router, screen, setRoute, signedInAs, signedOut
 
 const LIST = "GET /api/registrations";
 
-const registration = (id: string, status: string, title: string | null, sequenceNumber: number, day: string) => ({
+const registration = (
+  id: string,
+  status: string,
+  title: string | null,
+  sequenceNumber: number,
+  day: string,
+  eventStatus = "confirmed",
+  registration: { registrationEnabled: boolean; registrationClosesAt: string | null } = {
+    registrationEnabled: true,
+    registrationClosesAt: "2027-12-31T09:00:00.000Z",
+  }
+) => ({
   id,
   status,
   registeredAt: "2026-10-05T02:00:00.000Z",
-  event: { sequenceNumber, title, startsAt: `${day}T01:00:00.000Z`, endsAt: `${day}T09:00:00.000Z` },
+  event: {
+    sequenceNumber,
+    title,
+    status: eventStatus,
+    startsAt: `${day}T01:00:00.000Z`,
+    endsAt: `${day}T09:00:00.000Z`,
+    ...registration,
+  },
 });
 
-function open(rows: unknown) {
-  setRoute("/registrations");
+function open(rows: unknown, path = "/registrations") {
+  setRoute(path);
   const api = mockApi({ ...signedInAs("attendee"), [LIST]: rows });
   render(<RegistrationsPage />);
   return api;
@@ -115,4 +133,172 @@ describe("only attendees have registrations (TC12)", () => {
       expect(api.sent(LIST)).toEqual([]);
     }
   );
+});
+
+// SPM-52 Withdraw from Event.
+describe("SPM-52 an attendee withdraws from My Registrations", () => {
+  const WITHDRAW = "PATCH /api/registrations/r1";
+  const rows = () => [
+    registration("r1", "registered", "SPM52 Riverside Forum", 52, "2028-02-10"),
+    registration("r2", "waitlisted", "SPM51 Sold Out Summit", 44, "2028-01-29"),
+    registration("r3", "attended", "Earlier Event", 3, "2027-11-02"),
+    registration("r4", "withdrawn", "Dropped Event", 4, "2027-11-09"),
+  ];
+  const withdrawButton = (title: string) => within(rowOf(title)).queryByRole("button", { name: "Withdraw" });
+  const dialog = () => screen.getByRole("dialog", { hidden: true });
+
+  it("offers Withdraw only on a registration that holds a seat (AC1)", async () => {
+    open(rows());
+    await screen.findByRole("table");
+
+    expect(withdrawButton("SPM52 Riverside Forum")).toBeInTheDocument();
+    expect(withdrawButton("SPM51 Sold Out Summit")).not.toBeInTheDocument();
+    expect(withdrawButton("Earlier Event")).not.toBeInTheDocument();
+    expect(withdrawButton("Dropped Event")).not.toBeInTheDocument();
+  });
+
+  it("offers no Withdraw for an event that is over or cancelled", async () => {
+    open([
+      registration("r5", "registered", "Cancelled Gala", 5, "2028-02-17", "cancelled"),
+      registration("r6", "registered", "Past Clinic", 6, "2026-09-15", "completed"),
+      registration("r7", "registered", "Ended Talk", 7, "2026-09-16"),
+    ]);
+    await screen.findByRole("table");
+
+    expect(withdrawButton("Cancelled Gala")).not.toBeInTheDocument();
+    expect(withdrawButton("Past Clinic")).not.toBeInTheDocument();
+    expect(withdrawButton("Ended Talk")).not.toBeInTheDocument();
+  });
+
+  it("asks first, naming the event and what happens to the place, without opening the event", async () => {
+    const api = open(rows());
+    await screen.findByRole("table");
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+
+    expect(within(dialog()).getByRole("heading", { hidden: true, name: "Withdraw from SPM52 Riverside Forum?" })).toBeInTheDocument();
+    expect(dialog()).toHaveTextContent("Your place is released and can be taken by someone else.");
+    expect(router.push).not.toHaveBeenCalled();
+    expect(api.sent(WITHDRAW)).toEqual([]);
+  });
+
+  it("sends nothing when the attendee keeps their place", async () => {
+    const api = open(rows());
+    await screen.findByRole("table");
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Keep my place" }));
+
+    expect(api.sent(WITHDRAW)).toEqual([]);
+  });
+
+  it("withdraws once confirmed, says so, and shows it as Withdrawn (AC1, AC2)", async () => {
+    const api = open(rows());
+    await screen.findByRole("table");
+    api.on(WITHDRAW, { id: "r1", status: "withdrawn" });
+    api.on(LIST, [registration("r1", "withdrawn", "SPM52 Riverside Forum", 52, "2028-02-10")]);
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await screen.findByText("You have withdrawn from SPM52 Riverside Forum.")).toBeInTheDocument();
+    expect(api.sent(WITHDRAW)[0].body).toEqual({ status: "withdrawn" });
+    await waitFor(() => expect(within(rowOf("SPM52 Riverside Forum")).getByText("Withdrawn")).toBeInTheDocument());
+    expect(withdrawButton("SPM52 Riverside Forum")).not.toBeInTheDocument();
+  });
+
+  it("shows the server's refusal in the dialog", async () => {
+    const api = open(rows());
+    await screen.findByRole("table");
+    api.on(WITHDRAW, reply(400, { error: "Only an active registration can be withdrawn" }));
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await within(dialog()).findByText("Only an active registration can be withdrawn")).toBeInTheDocument();
+    expect(screen.queryByText(/You have withdrawn from/)).not.toBeInTheDocument();
+  });
+
+  it("says so in general words when the server gives no reason", async () => {
+    const api = open(rows());
+    await screen.findByRole("table");
+    api.on(WITHDRAW, reply(400, {}));
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await within(dialog()).findByText("Could not withdraw your registration.")).toBeInTheDocument();
+  });
+
+  it("opens the question, not the event, when Withdraw is pressed with the keyboard on a phone", async () => {
+    open(rows());
+    await screen.findByRole("table");
+    // The phone layout's card opens the event on Enter; its Withdraw button must not.
+    const card = screen.getAllByText("SPM52 Riverside Forum").map((el) => el.closest("li")).find(Boolean)!;
+
+    within(card).getByRole("button", { name: "Withdraw" }).focus();
+    await userEvent.keyboard("{Enter}");
+
+    expect(within(dialog()).getByRole("heading", { hidden: true, name: "Withdraw from SPM52 Riverside Forum?" })).toBeInTheDocument();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("warns before withdrawing from an event whose registration is turned off", async () => {
+    open([
+      registration("r1", "registered", "SPM52 Members Gala", 52, "2028-04-01", "confirmed", {
+        registrationEnabled: false,
+        registrationClosesAt: null,
+      }),
+    ]);
+    await screen.findByRole("table");
+
+    await userEvent.click(withdrawButton("SPM52 Members Gala")!);
+
+    expect(dialog()).toHaveTextContent(
+      "Registration for this event has been turned off, so you can't register again. Once you withdraw, you won't be able to open this event any more."
+    );
+  });
+
+  it("asks with no warning while the attendee could register again", async () => {
+    open(rows());
+    await screen.findByRole("table");
+
+    await userEvent.click(withdrawButton("SPM52 Riverside Forum")!);
+
+    expect(dialog()).not.toHaveTextContent("you can't register again");
+  });
+
+  it("says so when sent here after withdrawing from an event page it can no longer show", async () => {
+    open([registration("r1", "withdrawn", "SPM52 Members Gala", 52, "2028-04-01")], "/registrations?withdrawn=r1");
+
+    expect(await screen.findByText("You have withdrawn from SPM52 Members Gala.")).toBeInTheDocument();
+    expect(within(rowOf("SPM52 Members Gala")).getByText("Withdrawn")).toBeInTheDocument();
+  });
+
+  it("names an untitled event in general words when sent here after withdrawing", async () => {
+    const untitled = registration("r1", "withdrawn", "", 52, "2028-04-01");
+    open([{ ...untitled, event: { ...untitled.event, title: null } }], "/registrations?withdrawn=r1");
+
+    expect(await screen.findByText("You have withdrawn from the event.")).toBeInTheDocument();
+  });
+
+  it("says nothing when the registration in the address was not withdrawn", async () => {
+    open(rows(), "/registrations?withdrawn=r1");
+    await screen.findByRole("table");
+
+    expect(screen.queryByText(/You have withdrawn from/)).not.toBeInTheDocument();
+  });
+
+  it("names an untitled event in general words", async () => {
+    const untitled = registration("r1", "registered", "", 52, "2028-02-10");
+    const api = open([{ ...untitled, event: { ...untitled.event, title: null } }]);
+    await screen.findByRole("table");
+    api.on(WITHDRAW, { id: "r1", status: "withdrawn" });
+
+    await userEvent.click(within(screen.getByRole("table")).getByRole("button", { name: "Withdraw" }));
+    expect(within(dialog()).getByRole("heading", { hidden: true, name: "Withdraw from this event?" })).toBeInTheDocument();
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Withdraw" }));
+
+    expect(await screen.findByText("You have withdrawn from the event.")).toBeInTheDocument();
+  });
 });

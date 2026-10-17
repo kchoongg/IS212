@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { can, canBeginPlanning, canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
+import {
+  can,
+  canBeginPlanning,
+  canRequestVenueBooking,
+  canViewEvent,
+  canViewRegistrationList,
+} from "@/lib/permissions";
 import { eventReference, parseEventReference } from "@/lib/format";
 import { createVenueBookingSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
@@ -109,6 +115,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // approved booking (PATCH .../venue-bookings/[bookingId]). Unlike a new
     // request, an event awaiting approval may still let one go.
     canChangeBookings: canRequestVenueBooking(actor, event) && canChangeBookingsOf(event.status),
+    // SPM-65: whether the Venue tab's tab bar offers Attendees.
+    canViewRegistrationList: canViewRegistrationList(actor, event),
     bookings,
   });
 }

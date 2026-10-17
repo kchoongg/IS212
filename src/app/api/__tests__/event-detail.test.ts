@@ -1,9 +1,11 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/prisma");
 
 import { GET, PATCH } from "@/app/api/events/[id]/route";
+import { ROLES } from "@/lib/roles";
+import { can } from "@/lib/permissions";
 import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
 
 const REF = "EVT-000007";
@@ -52,6 +54,11 @@ afterEach(() => {
 });
 
 describe("GET /api/events/[id]", () => {
+  // SPM-52: the organiser and coordinator also get the registrations counted.
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+  });
+
   it("is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
@@ -241,14 +248,23 @@ describe("GET /api/events/[id]", () => {
   it("gives an attendee their own registration for the event", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
-    db.registration.findUnique.mockResolvedValue({ status: "waitlisted", registeredAt: new Date("2026-10-05T02:00:00Z") });
+    db.registration.findUnique.mockResolvedValue({
+      id: ID.registration,
+      status: "waitlisted",
+      registeredAt: new Date("2026-10-05T02:00:00Z"),
+    });
 
     const body = await (await get(token)).json();
 
-    expect(body.myRegistration).toEqual({ status: "waitlisted", registeredAt: "2026-10-05T02:00:00.000Z" });
+    expect(body.myRegistration).toEqual({
+      id: ID.registration,
+      status: "waitlisted",
+      registeredAt: "2026-10-05T02:00:00.000Z",
+    });
+    // SPM-52: with its id, for Withdraw.
     expect(callArg(db.registration.findUnique)).toEqual({
       where: { eventId_attendeeId: { eventId: ID.event, attendeeId: ID.thirdUser } },
-      select: { status: true, registeredAt: true },
+      select: { id: true, status: true, registeredAt: true },
     });
   });
 
@@ -268,6 +284,67 @@ describe("GET /api/events/[id]", () => {
 
     expect(body).not.toHaveProperty("registrationState");
     expect(body).not.toHaveProperty("myRegistration");
+  });
+
+  // SPM-52 AC4 + AC5: a withdrawal shows up for the organiser and coordinator.
+  it.each([
+    ["the organiser", organiser],
+    ["the coordinator", coordinator],
+  ])("gives %s the places taken and the withdrawals", async (_who, actor) => {
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+    db.registration.groupBy.mockResolvedValue([
+      { status: "registered", _count: { _all: 11 } },
+      { status: "waitlisted", _count: { _all: 2 } },
+      { status: "withdrawn", _count: { _all: 1 } },
+    ]);
+
+    const body = await (await get(signIn(actor()))).json();
+
+    expect(body.registrationCounts).toEqual({ taken: 11, waitlisted: 2, withdrawn: 1 });
+    expect(callArg(db.registration.groupBy)).toEqual({
+      by: ["status"],
+      where: { eventId: ID.event },
+      _count: { _all: true },
+    });
+    // SPM-65: and the page offers them the Attendees tab.
+    expect(body.canViewRegistrationList).toBe(true);
+  });
+
+  // SPM-65 (AC8, AC1): they can open the event, so its tab bar is drawn, but
+  // the registration list is not theirs - no Attendees tab.
+  it.each([
+    ["an organiser at the same client who did not raise it", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
+    ["a coordinator who is not assigned to it", () => user("coordinator", { id: ID.thirdUser })],
+  ])("tells %s they cannot open its Attendees tab", async (_who, actor) => {
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+
+    const res = await get(signIn(actor()));
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).canViewRegistrationList).toBe(false);
+  });
+
+  it.each(ROLES.filter((role) => role !== "attendee" && !can(role, "registration:view_list")))(
+    "doesn't count the registrations for %s",
+    async (role) => {
+      db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+
+      const res = await get(signIn(user(role)));
+
+      expect(res.status).toBe(200);
+      expect(await res.json()).not.toHaveProperty("registrationCounts");
+      expect(db.registration.groupBy).not.toHaveBeenCalled();
+    }
+  );
+
+  it("doesn't count every registration for an attendee", async () => {
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+    db.registration.findUnique.mockResolvedValue(null);
+
+    const body = await (await get(signIn(user("attendee", { id: ID.thirdUser })))).json();
+
+    expect(body).not.toHaveProperty("registrationCounts");
+    expect(db.registration.groupBy).not.toHaveBeenCalled();
   });
 
   it("loads only the approved venue bookings, so a pending request is never shown as settled", async () => {

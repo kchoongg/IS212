@@ -197,13 +197,14 @@ describe("focusFirstError", () => {
 });
 
 describe("eventTabItemsFor", () => {
-  const labels = (role: string) => eventTabItemsFor(role, "EVT-000007").map((t) => t.label);
+  // As for the organiser who raised the event, or its assigned coordinator.
+  const labels = (role: string) => eventTabItemsFor(role, "EVT-000007", true).map((t) => t.label);
 
   it.each([
     // SPM-33: the Readiness tab is built, and only a coordinator has it
     // (EVENT_TABS_BY_ROLE in roles.ts).
-    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
-    ["organiser", ["Overview", "Equipment"]],
+    ["coordinator", ["Overview", "Venue", "Equipment", "Attendees", "Readiness"]],
+    ["organiser", ["Overview", "Equipment", "Attendees"]],
     ["venue_staff", ["Overview", "Venue"]],
     ["tech_support", ["Overview", "Equipment"]],
     ["ops_manager", ["Overview"]],
@@ -213,11 +214,22 @@ describe("eventTabItemsFor", () => {
     expect(labels(role)).toEqual(expected);
   });
 
+  // SPM-65: another organiser at the same client, a coordinator not assigned
+  // to the event, or a screen that has not heard back yet.
+  it.each([
+    ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
+    ["organiser", ["Overview", "Equipment"]],
+  ])("leaves Attendees out for %s when the registration list is not theirs", (role, expected) => {
+    expect(eventTabItemsFor(role, "EVT-000007", false).map((t) => t.label)).toEqual(expected);
+    expect(eventTabItemsFor(role, "EVT-000007").map((t) => t.label)).toEqual(expected);
+  });
+
   it("links Overview to the event itself and every other tab beneath it", () => {
-    expect(eventTabItemsFor("coordinator", "EVT-000007")).toEqual([
+    expect(eventTabItemsFor("coordinator", "EVT-000007", true)).toEqual([
       { key: "overview", label: "Overview", href: "/events/EVT-000007" },
       { key: "venue", label: "Venue", href: "/events/EVT-000007/venue" },
       { key: "equipment", label: "Equipment", href: "/events/EVT-000007/equipment" },
+      { key: "attendees", label: "Attendees", href: "/events/EVT-000007/attendees" },
       { key: "readiness", label: "Readiness", href: "/events/EVT-000007/readiness" },
     ]);
   });

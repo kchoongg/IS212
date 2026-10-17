@@ -9,6 +9,7 @@ import {
   canMarkArrangements,
   canViewArrangements,
   canViewEvent,
+  canViewRegistrationList,
   type Actor,
 } from "@/lib/permissions";
 import { markArrangementSchema } from "@/lib/validation";
@@ -55,6 +56,8 @@ async function readiness(actor: Actor, event: LoadedEvent) {
     // ahead, unlike marking above. Not once the event is over or called off:
     // that page no longer lists it.
     canReviewFlags: canMarkArrangements(actor, event) && !isTerminalEventStatus(event.status),
+    // SPM-65: whether the Readiness tab's tab bar offers Attendees.
+    canViewRegistrationList: canViewRegistrationList(actor, event),
     blocking: blockingArrangements(arrangements).length,
     arrangements,
   };

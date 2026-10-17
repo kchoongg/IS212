@@ -56,6 +56,7 @@ export const ID = {
   otherSession: "abababab-abab-4bab-8bab-abababababab",
   facility: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
   booking: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  registration: "edededed-eded-4ded-8ded-edededededed",
 } as const;
 
 /// A user of the given role. External roles get a client organisation by

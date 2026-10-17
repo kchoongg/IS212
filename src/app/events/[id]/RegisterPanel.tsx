@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Alert, Button, Card, CardBody, CardHeader, Field, Input, StatusBadge } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { formatDate, formatDateTime } from "@/lib/format";
-import type { RegistrationState } from "@/lib/registrationEligibility";
+import { canWithdraw, withdrawWarning, type RegistrationState } from "@/lib/registrationEligibility";
+import { WithdrawRegistrationDialog } from "@/components/WithdrawRegistrationDialog";
 
 // Register for Event (SPM-51): the attendee's "Your registration" card on the
 // event page. Whether they can register is the server's rule
@@ -16,6 +17,7 @@ import type { RegistrationState } from "@/lib/registrationEligibility";
 export type RegistrationStateJson = { kind: RegistrationState["kind"]; opensAt?: string; closesAt?: string };
 
 export interface MyRegistration {
+  id: string;
   status: string;
   registeredAt: string;
 }
@@ -26,10 +28,21 @@ const HOLDS_A_PLACE = ["registered", "attended", "waitlisted"];
 interface Props {
   /// The event's id (POST /api/registrations takes the id, not the reference).
   eventId: string;
+  /// For the Withdraw question (SPM-52).
+  eventTitle: string | null;
+  /// SPM-52: no Withdraw once the event is over or cancelled.
+  eventStatus: string;
+  eventEndsAt: string | null;
+  /// SPM-52: for the warning when they couldn't register again (withdrawWarning()).
+  registrationEnabled: boolean;
+  registrationClosesAt: string | null;
   state: RegistrationStateJson;
   myRegistration: MyRegistration | null;
   /// Called after registering, to reload the event.
   onRegistered: () => void;
+  /// Called after withdrawing (SPM-52), with the registration's id. The page
+  /// reloads the event, which the attendee may no longer be able to see.
+  onWithdrawn: (registrationId: string) => void;
 }
 
 function Message({ state }: { state: RegistrationStateJson }) {
@@ -55,12 +68,25 @@ function Message({ state }: { state: RegistrationStateJson }) {
   }
 }
 
-export function RegisterPanel({ eventId, state, myRegistration, onRegistered }: Props) {
+export function RegisterPanel({
+  eventId,
+  eventTitle,
+  eventStatus,
+  eventEndsAt,
+  registrationEnabled,
+  registrationClosesAt,
+  state,
+  myRegistration,
+  onRegistered,
+  onWithdrawn,
+}: Props) {
   const [dietary, setDietary] = useState("");
   const [accessibility, setAccessibility] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registered, setRegistered] = useState(false);
+  const [confirmWithdraw, setConfirmWithdraw] = useState(false);
+  const [withdrawn, setWithdrawn] = useState(false);
 
   async function register(e: React.FormEvent) {
     e.preventDefault();
@@ -80,6 +106,7 @@ export function RegisterPanel({ eventId, state, myRegistration, onRegistered }: 
         return;
       }
       setRegistered(true);
+      setWithdrawn(false);
       onRegistered();
     } catch {
       setError("Could not reach the server. Check your connection and try again.");
@@ -96,6 +123,7 @@ export function RegisterPanel({ eventId, state, myRegistration, onRegistered }: 
       <CardBody>
         <div className="flex flex-col gap-4">
           {registered && <Alert variant="success">You&apos;re registered for this event.</Alert>}
+          {withdrawn && <Alert variant="success">You have withdrawn from this event.</Alert>}
           {error && <Alert variant="error">{error}</Alert>}
 
           {holding ? (
@@ -106,6 +134,12 @@ export function RegisterPanel({ eventId, state, myRegistration, onRegistered }: 
                   ? "You're on the waiting list."
                   : `You registered on ${formatDate(holding.registeredAt)}.`}
               </span>
+              {/* SPM-52: Withdraw, for a registration holding a seat. */}
+              {canWithdraw(holding.status, { status: eventStatus, endsAt: eventEndsAt }, new Date()) && (
+                <Button variant="secondary" size="sm" onClick={() => setConfirmWithdraw(true)}>
+                  Withdraw
+                </Button>
+              )}
             </div>
           ) : state.kind === "open" ? (
             <form noValidate onSubmit={(e) => void register(e)} className="flex flex-col gap-4">
@@ -132,6 +166,25 @@ export function RegisterPanel({ eventId, state, myRegistration, onRegistered }: 
           )}
         </div>
       </CardBody>
+      <WithdrawRegistrationDialog
+        target={
+          confirmWithdraw && holding
+            ? {
+                id: holding.id,
+                eventTitle,
+                warning: withdrawWarning({ registrationEnabled, registrationClosesAt }, new Date()),
+              }
+            : null
+        }
+        onCancel={() => setConfirmWithdraw(false)}
+        onWithdrawn={() => {
+          setConfirmWithdraw(false);
+          setRegistered(false);
+          setWithdrawn(true);
+          // v8 ignore next -- the dialog only opens while holding is set
+          if (holding) onWithdrawn(holding.id);
+        }}
+      />
     </Card>
   );
 }

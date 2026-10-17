@@ -1903,6 +1903,7 @@ async function main() {
     spm82("spm82_short", "SPM82 Short Notice Meetup", "2027-03-15", 10, 2),
   );
 
+  // -----------------------------------------------------------------
   // SPM-88 QA fixtures (Resolve Safety Check Outcome). The SAME events as
   // scripts/seed-spm88.ts (`npm run fixtures:spm88`) - keep the two in step.
   //
@@ -1934,6 +1935,56 @@ async function main() {
     spm88("spm88_workshop", "SPM88 Pending Workshop", "safety_review", "2027-11-16", 9, 4, 30),
     spm88("spm88_expo", "SPM88 Confirmed Expo", "confirmed", "2027-11-18", 9, 8, 120),
     spm88("spm88_unchecked", "SPM88 Unchecked Launch", "planning", "2027-11-23", 9, 4, 40),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-52 QA fixtures (Withdraw from Event). The SAME events as
+  // scripts/seed-spm52.ts (`npm run fixtures:spm52`) - keep the two in step.
+  //
+  // The events only. Their exact registration periods and Marcus Yeo's
+  // registered, waitlisted, withdrawn and attended registrations are created
+  // by that script alone, so run it once after a full reseed. Pushed LAST,
+  // after SPM-88, so no earlier event's EVT- reference number shifts. Add new
+  // events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm52 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-52 withdraw from event test event", category: "seminar",
+    days: daysUntil(date), startHour: 9, durationHours: 8, attendance: 20, layout: "classroom",
+    regEnabled: true, regCapacity: 20, ...options,
+  });
+  eventData.push(
+    spm52("spm52_riverside", "SPM52 Riverside Forum", "confirmed", "2028-03-04", { regCapacity: 10, attendance: 10 }),
+    spm52("spm52_lastplace", "SPM52 Last Place Clinic", "confirmed", "2028-03-11", { regCapacity: 2, attendance: 2 }),
+    spm52("spm52_waitlist", "SPM52 Waiting List Workshop", "confirmed", "2028-03-18", { regCapacity: 1, attendance: 1 }),
+    spm52("spm52_dropped", "SPM52 Dropped Plans Seminar", "confirmed", "2028-03-25"),
+    spm52("spm52_past", "SPM52 Past Wellness Clinic", "completed", "2026-09-15"),
+    spm52("spm52_gala", "SPM52 Members Gala", "confirmed", "2028-04-01", { regEnabled: false }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-65 QA fixtures (View Registration List). The SAME events as
+  // scripts/seed-spm65.ts (`npm run fixtures:spm65`) - keep the two in step.
+  //
+  // The events only. Their registration periods and their registered,
+  // waitlisted, withdrawn, attended and organiser-added registrations are
+  // created by that script alone, so run it once after a full reseed. Pushed
+  // LAST, after SPM-52, so no earlier event's EVT- reference number shifts.
+  // Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm65 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-65 view registration list test event", category: "seminar",
+    days: daysUntil(date), startHour: 9, durationHours: 8, attendance: 30, layout: "classroom",
+    regEnabled: true, ...options,
+  });
+  eventData.push(
+    spm65("spm65_harbour", "SPM65 Harbourfront Seminar", "confirmed", "2028-05-04", { regCapacity: 3, attendance: 3 }),
+    spm65("spm65_past", "SPM65 Past Health Talk", "completed", "2026-09-20", { regCapacity: 10, attendance: 10 }),
+    spm65("spm65_live", "SPM65 Live Update Workshop", "confirmed", "2028-05-11", { regCapacity: 5, attendance: 5 }),
+    spm65("spm65_open", "SPM65 Open Lecture", "confirmed", "2028-05-18"),
+    spm65("spm65_closed", "SPM65 Closed Doors Gala", "confirmed", "2028-05-25", { regEnabled: false }),
+    spm65("spm65_paused", "SPM65 Paused Forum", "confirmed", "2028-06-01", { regEnabled: false, regCapacity: 20, attendance: 20 }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -2769,6 +2820,11 @@ async function main() {
     // SPM-30's fixtures carry no registrations, so a reseed matches what
     // `npm run fixtures:spm30` writes to the shared database.
     if (e.key.startsWith("spm30_")) continue;
+    // SPM-52's exact registrations come from `npm run fixtures:spm52`; random
+    // ones would overfill its one- and two-place events.
+    if (e.key.startsWith("spm52_")) continue;
+    // SPM-65's exact registrations come from `npm run fixtures:spm65`.
+    if (e.key.startsWith("spm65_")) continue;
     const ev = events[e.key];
     const past = e.days < 0;
     // A realistic fraction of capacity, capped by how many attendees exist.

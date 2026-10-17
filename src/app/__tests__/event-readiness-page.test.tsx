@@ -234,6 +234,20 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/events/EVT-000007");
     });
 
+    // SPM-65: the Attendees tab only where the server says the list is theirs.
+    it.each([
+      ["the assigned coordinator", true],
+      ["a coordinator not assigned to the event", false],
+    ])("offers %s the Attendees tab only when the registrations are theirs", async (_who, canView) => {
+      open([auditorium], { [LIST]: payload([auditorium], { canViewRegistrationList: canView }) });
+
+      await screen.findByRole("heading", { name: "Gala Dinner" });
+      const tabs = within(screen.getByRole("navigation", { name: "Sections" })).getAllByRole("link");
+      expect(tabs.map((t) => t.textContent)).toEqual(
+        canView ? ["Overview", "Venue", "Equipment", "Attendees", "Readiness"] : ["Overview", "Venue", "Equipment", "Readiness"]
+      );
+    });
+
     it("says so when the event does not exist or cannot be seen", async () => {
       open([], { [LIST]: reply(404, { error: "Not found" }) });
 

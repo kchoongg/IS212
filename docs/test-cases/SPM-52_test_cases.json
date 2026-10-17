@@ -1,0 +1,223 @@
+{
+  "story_key": "SPM-52",
+  "story_title": "As an Attendee, I want to withdraw from an event I registered for so that my place can become available again where permitted",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-10-15",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "A registered attendee can withdraw their registration."
+    },
+    {
+      "id": "AC2",
+      "text": "The registration status changes appropriately."
+    },
+    {
+      "id": "AC3",
+      "text": "The attendee can no longer be treated as an active registrant."
+    },
+    {
+      "id": "AC4",
+      "text": "The event's available capacity is updated where applicable."
+    },
+    {
+      "id": "AC5",
+      "text": "Relevant Event Organisers or Coordinators can see the updated registration information."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-15: written after the code (branch SPM-52-Withdraw-from-Event). Every label, message and page address in the cases is what the code shows, and the page tests for My Registrations, the 'Your registration' card and the Registration card render the screens with the cases' wording. Run 2026-10-16 in Chromium (Playwright following each case's steps against `npm run dev` and the shared database, re-running `npm run fixtures:spm52` where a case says to): all 10 passed. 'Log out and log in as' was done in a fresh browser session.",
+    "RESOLVED 2026-10-15: where Withdraw is. A 'Withdraw' button on each 'Registered' row of My Registrations (the 'My Registrations' sidebar link), and beside 'You registered on <date>.' in the 'Your registration' card on the event page (UI_DESIGN S-27 and S-06 both expected it with #20). Both ask first: 'Withdraw from <event title>?' with 'Your place is released and can be taken by someone else. To attend, you would have to register again, and the event may be full by then.', buttons 'Keep my place' and 'Withdraw'. Afterwards: 'You have withdrawn from <event title>.' (My Registrations) or 'You have withdrawn from this event.' (event page). The text promises nothing about the waiting list, which is SPM-66.",
+    "RESOLVED 2026-10-15: AC2 status. Withdrawing sets the registration to 'Withdrawn' (badge 'Withdrawn') and records when. The row is kept, not deleted, so My Registrations still lists it and the attendee can register again while registration is open (SPM-51 already reactivates a withdrawn row).",
+    "RESOLVED 2026-10-15: only a 'Registered' registration can be withdrawn. Leaving the waiting list is Join and Respond to Waiting List (SPM-66), so a 'Waiting list' row has no Withdraw; 'Attended' and 'Withdrawn' rows have nothing to give back. Out of scope, so no case: what happens to the freed place when there is a waiting list (SPM-66) and notifications (SPM-53).",
+    "RESOLVED 2026-10-15: AC5. The organiser and coordinators see two extra rows on the event's Registration card while registration is enabled: 'Places taken' ('3 of 10 · 7 left', or just the number when no capacity is set) and 'Withdrawn' (how many attendees have withdrawn). Places taken counts Registered and Attended, as SPM-51's capacity rule does. The full list of who registered is the Attendees tab (S-11), a separate story. Other roles (Ops Manager, Venue Staff, Technical Support, Safety Officer, Attendee) don't see the rows. Decided with the team on 2026-10-13.",
+    "OPEN: an attendee can withdraw at any time - after registration has closed, and even after the event's date while it is still Confirmed. The acceptance criteria set no cut-off. Should withdrawing stop at some point (e.g. when registration closes, or when the event starts)?",
+    "OPEN: the 'Places taken' and 'Withdrawn' rows only show while registration is enabled. When the coordinator turns registration off after attendees registered (as for 'SPM52 Members Gala'), the organiser and coordinator see 'Not enabled for this event' and no counts, so a later withdrawal is not visible to them. Should the counts show whenever the event has registrations?",
+    "OPEN: every coordinator who can see the event gets the counts, not only its assigned coordinator (the registration:view_list permission is per role). Is 'relevant coordinator' the assigned one only?",
+    "RESOLVED 2026-10-15: not reachable from the screens, so covered by route tests only (src/app/api/__tests__/registration-withdraw.test.ts): a non-attendee calling the withdraw API, withdrawing another attendee's registration (404, nothing changed), and a request asking for any status other than withdrawn.",
+    "RESOLVED 2026-10-15: fixtures. `npm run fixtures:spm52` (scripts/seed-spm52.ts) deletes and recreates only the six 'SPM52 …' events (seed keys spm52_*), with their registration settings and Marcus Yeo's registrations; the same events (without those) are at the end of prisma/seed.ts, and the base seed gives them no random registrations. No pinned reference numbers: find each event by title. The open events' registration runs to 31 Dec 2027, so the cases hold until then."
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-52-TC01",
+      "title": "The organiser sees how many places are taken and how many attendees have withdrawn",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm52` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM52 …' events, never anyone else's data), and nobody has withdrawn from 'SPM52 Riverside Forum' since.\nLogged in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123), who organised every 'SPM52 …' event.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM52 Riverside Forum' in the list"
+      ],
+      "test_data": "Event: SPM52 Riverside Forum (capacity 10; 4 registered, 1 withdrawn) | Organiser: Evelyn Chen",
+      "expected_result": "Step 2: The event page opens with the heading 'SPM52 Riverside Forum'. The Registration card shows 'Registration' Enabled, 'Capacity' 10, 'Places taken' '4 of 10 · 6 left' and 'Withdrawn' '1'."
+    },
+    {
+      "id": "SPM-52-TC02",
+      "title": "A registered attendee withdraws from My Registrations, and the registration is shown as Withdrawn",
+      "linked_ac": ["AC1", "AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Before: run `npm run fixtures:spm52` (never `npx prisma db seed`, which wipes everyone's data).\nDo not reset after: SPM-52-TC03 and SPM-52-TC04 continue from this withdrawal; reset after SPM-52-TC04.\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee.",
+      "steps": [
+        "Click 'My Registrations' in the sidebar",
+        "Click 'Withdraw' on the 'SPM52 Riverside Forum' row",
+        "Click 'Withdraw' in the dialog",
+        "Refresh the page (F5)"
+      ],
+      "test_data": "Attendee: Marcus Yeo | Event: SPM52 Riverside Forum",
+      "expected_result": "Step 1: The 'My Registrations' page lists 'SPM52 Riverside Forum' (4 Mar 2028, 09:00–17:00) with the badge 'Registered' and a 'Withdraw' button.\nStep 2: The event page does not open. A dialog asks 'Withdraw from SPM52 Riverside Forum?' and says 'Your place is released and can be taken by someone else. To attend, you would have to register again, and the event may be full by then.', with the buttons 'Keep my place' and 'Withdraw'.\nStep 3: The dialog closes. A green message says 'You have withdrawn from SPM52 Riverside Forum.' The row's badge is now 'Withdrawn' and it has no 'Withdraw' button.\nStep 4: 'SPM52 Riverside Forum' is still listed with the badge 'Withdrawn' and no 'Withdraw' button."
+    },
+    {
+      "id": "SPM-52-TC03",
+      "title": "After withdrawing, the event page no longer shows the attendee as registered and offers Register instead",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-52-TC02 has just been run (Marcus Yeo has withdrawn from 'SPM52 Riverside Forum').\nDo not reset after: SPM-52-TC04 continues from the same withdrawal.\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee.\nNothing is saved in this case: do not click Register.",
+      "steps": [
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM52 Riverside Forum' row"
+      ],
+      "test_data": "Attendee: Marcus Yeo | Event: SPM52 Riverside Forum",
+      "expected_result": "Step 2: The event page 'SPM52 Riverside Forum' opens. The 'Your registration' card shows the 'Dietary requirements' and 'Accessibility requirements' fields and a 'Register' button. It shows no 'Registered' badge, no 'You registered on …' line and no 'Withdraw' button."
+    },
+    {
+      "id": "SPM-52-TC04",
+      "title": "The organiser and the coordinator see one place freed and one more withdrawal after an attendee withdraws",
+      "linked_ac": ["AC4", "AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-52-TC03 has just been run (it follows SPM-52-TC02, in which Marcus Yeo withdrew from 'SPM52 Riverside Forum').\nAfter: run `npm run fixtures:spm52` (never `npx prisma db seed`, which wipes everyone's data).\nNothing is saved in this case.",
+      "steps": [
+        "Log out and log in as Evelyn Chen (evelyn.chen@straitsmedic.com / password123), who organised every 'SPM52 …' event",
+        "Click 'My Events' in the sidebar",
+        "Click 'SPM52 Riverside Forum' in the list",
+        "Log out and log in as Daniel Tan (daniel.tan@connectsphere.com / password123), the coordinator assigned to every 'SPM52 …' event",
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM52 Riverside Forum' in the list"
+      ],
+      "test_data": "Event: SPM52 Riverside Forum (capacity 10; now 3 registered, 2 withdrawn) | Organiser: Evelyn Chen | Coordinator: Daniel Tan",
+      "expected_result": "Step 3: The Registration card shows 'Places taken' '3 of 10 · 7 left' and 'Withdrawn' '2' (it was '4 of 10 · 6 left' and '1' before Marcus Yeo withdrew).\nStep 6: The Registration card shows 'Places taken' '3 of 10 · 7 left' and 'Withdrawn' '2'."
+    },
+    {
+      "id": "SPM-52-TC05",
+      "title": "Withdrawing from a full event from its event page frees the place, so another attendee can register",
+      "linked_ac": ["AC1", "AC3", "AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Before and after: run `npm run fixtures:spm52` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee.",
+      "steps": [
+        "Click 'Browse Events' in the sidebar",
+        "Click 'SPM52 Last Place Clinic'",
+        "Click 'Withdraw' in the 'Your registration' card",
+        "Click 'Withdraw' in the dialog",
+        "Click 'Browse Events' in the sidebar",
+        "Log out and log in as Tan Jia Hui (tan.jia.hui@example.com / password123), an Attendee",
+        "Click 'Browse Events' in the sidebar",
+        "Click 'SPM52 Last Place Clinic'",
+        "Click 'Register'"
+      ],
+      "test_data": "Event: SPM52 Last Place Clinic (capacity 2; Marcus Yeo and Anita Devi registered) | Attendees: Marcus Yeo, Tan Jia Hui",
+      "expected_result": "Step 1: 'SPM52 Last Place Clinic' is listed with the badge 'Full'.\nStep 2: The event page opens. The 'Your registration' card shows the badge 'Registered', 'You registered on <date>.' and a 'Withdraw' button.\nStep 3: A dialog asks 'Withdraw from SPM52 Last Place Clinic?' with the buttons 'Keep my place' and 'Withdraw'.\nStep 4: The dialog closes. The card shows a green 'You have withdrawn from this event.' and now offers the 'Dietary requirements' and 'Accessibility requirements' fields and a 'Register' button.\nStep 5: 'SPM52 Last Place Clinic' now has the badge 'Open'.\nStep 8: The 'Your registration' card offers a 'Register' button, not 'This event is full.'.\nStep 9: A green message says 'You're registered for this event.' and the card shows the badge 'Registered'."
+    },
+    {
+      "id": "SPM-52-TC06",
+      "title": "Choosing 'Keep my place' in the withdraw dialog leaves the registration unchanged",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm52` has been run from the project folder since the last full `npx prisma db seed`, and since SPM-52-TC02 was last run (Marcus Yeo holds his place on 'SPM52 Riverside Forum').\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM52 Riverside Forum' row",
+        "Click 'Withdraw' in the 'Your registration' card",
+        "Click 'Keep my place'",
+        "Click 'My Registrations' in the sidebar"
+      ],
+      "test_data": "Attendee: Marcus Yeo | Event: SPM52 Riverside Forum",
+      "expected_result": "Step 2: The event page opens. The 'Your registration' card shows the badge 'Registered', 'You registered on <date>.' and a 'Withdraw' button. The Registration card has no 'Places taken' or 'Withdrawn' rows (they are for the organiser and coordinator).\nStep 3: A dialog asks 'Withdraw from SPM52 Riverside Forum?'.\nStep 4: The dialog closes with no message. The card still shows the badge 'Registered', 'You registered on <date>.' and the 'Withdraw' button.\nStep 5: 'SPM52 Riverside Forum' is still listed with the badge 'Registered' and a 'Withdraw' button."
+    },
+    {
+      "id": "SPM-52-TC07",
+      "title": "Only a Registered registration offers Withdraw: waiting list, withdrawn and attended ones do not",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm52` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM52 …' events, never anyone else's data).\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM52 Waiting List Workshop' row"
+      ],
+      "test_data": "Attendee: Marcus Yeo | Events: SPM52 Waiting List Workshop (waiting list), SPM52 Dropped Plans Seminar (withdrawn), SPM52 Past Wellness Clinic (attended), SPM52 Riverside Forum (registered)",
+      "expected_result": "Step 1: 'SPM52 Waiting List Workshop' has the badge 'Waiting list', 'SPM52 Dropped Plans Seminar' has 'Withdrawn' and 'SPM52 Past Wellness Clinic' has 'Attended'; none of the three has a 'Withdraw' button. 'SPM52 Riverside Forum' ('Registered') does.\nStep 2: The event page opens. The 'Your registration' card shows the badge 'Waiting list' and 'You're on the waiting list.', with no 'Withdraw' button."
+    },
+    {
+      "id": "SPM-52-TC08",
+      "title": "After withdrawing from an event whose registration was turned off, the attendee can no longer open it",
+      "linked_ac": ["AC2", "AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Before and after: run `npm run fixtures:spm52` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee. 'SPM52 Members Gala' had its registration turned off after he registered.",
+      "steps": [
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM52 Members Gala' row",
+        "Click 'My Registrations' in the sidebar",
+        "Click 'Withdraw' on the 'SPM52 Members Gala' row",
+        "Click 'Withdraw' in the dialog",
+        "Click the 'SPM52 Members Gala' row"
+      ],
+      "test_data": "Attendee: Marcus Yeo | Event: SPM52 Members Gala (registration not enabled)",
+      "expected_result": "Step 1: 'SPM52 Members Gala' is listed with the badge 'Registered' and a 'Withdraw' button.\nStep 2: The event page opens. The Registration card says 'Not enabled for this event'; the 'Your registration' card shows the badge 'Registered' and a 'Withdraw' button.\nStep 4: A dialog asks 'Withdraw from SPM52 Members Gala?'.\nStep 5: A green message says 'You have withdrawn from SPM52 Members Gala.' and the row's badge is now 'Withdrawn'.\nStep 6: The page says 'This event doesn't exist, or you don't have access to it.' - he no longer holds a place, so the event is no longer shown to him."
+    },
+    {
+      "id": "SPM-52-TC09",
+      "title": "The Ops Manager does not see the places taken or the withdrawals on the Registration card",
+      "linked_ac": ["AC5"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Test data loaded: `npm run fixtures:spm52` has been run from the project folder since the last full `npx prisma db seed` (it only touches the 'SPM52 …' events, never anyone else's data).\nLogged in as Grace Lim (grace.lim@connectsphere.com / password123), the Ops Manager.\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Click 'SPM52 Riverside Forum' in the list"
+      ],
+      "test_data": "Event: SPM52 Riverside Forum | Ops Manager: Grace Lim",
+      "expected_result": "Step 2: The event page opens. The Registration card shows 'Registration' Enabled, 'Capacity' 10, 'Opens' and 'Closes', but no 'Places taken' or 'Withdrawn' rows."
+    },
+    {
+      "id": "SPM-52-TC10",
+      "title": "Withdrawing a second time from another open tab is refused, and the registration stays Withdrawn",
+      "linked_ac": ["AC2"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "Before and after: run `npm run fixtures:spm52` (never `npx prisma db seed`, which wipes everyone's data).\nLogged in as Marcus Yeo (marcus.yeo@example.com / password123), an Attendee.",
+      "steps": [
+        "Click 'My Registrations' in the sidebar",
+        "Open a new browser tab, type /registrations after the site address in its address bar (e.g. http://localhost:3000/registrations) and press Enter",
+        "In the new tab, click 'Withdraw' on the 'SPM52 Riverside Forum' row",
+        "Click 'Withdraw' in the dialog",
+        "Switch back to the first tab and click 'Withdraw' on the 'SPM52 Riverside Forum' row",
+        "Click 'Withdraw' in the dialog",
+        "Click 'Keep my place'",
+        "Refresh the page (F5)"
+      ],
+      "test_data": "Attendee: Marcus Yeo | Event: SPM52 Riverside Forum | Two tabs of My Registrations",
+      "expected_result": "Step 4: In the new tab, a green message says 'You have withdrawn from SPM52 Riverside Forum.' and the row's badge is 'Withdrawn'.\nStep 5: The first tab, not yet refreshed, still shows 'Registered'. A dialog asks 'Withdraw from SPM52 Riverside Forum?'.\nStep 6: The dialog stays open and shows, in red, 'Only an active registration can be withdrawn'.\nStep 8: 'SPM52 Riverside Forum' is listed with the badge 'Withdrawn' and no 'Withdraw' button."
+    }
+  ],
+  "code_references": [
+    "src/app/api/registrations/[id]/route.ts",
+    "src/lib/registrationEligibility.ts",
+    "src/lib/validation/registrations.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/components/WithdrawRegistrationDialog.tsx",
+    "src/app/registrations/page.tsx",
+    "src/app/events/[id]/RegisterPanel.tsx",
+    "src/app/events/[id]/RegistrationCard.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/lib/permissions.ts",
+    "src/lib/roles.ts",
+    "src/lib/statuses.ts",
+    "scripts/seed-spm52.ts"
+  ]
+}
