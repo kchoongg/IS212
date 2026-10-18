@@ -198,7 +198,7 @@
         "Click 'Save'"
       ],
       "test_data": "Technical notes: Presenters need fresh AAA batteries; USB-C dongle is in kit bag 3 -> (empty)",
-      "expected_result": "Step 5: 'Update saved.' appears. The Status chip still shows 'Requested'.\nStep 6: The line shows 'Technical Support notes: Presenters need fresh AAA batteries; USB-C dongle is in kit bag 3', separately from 'Technical requirements: Must pair with the stage laptop over USB-C', which is unchanged. It also shows 'Last updated by Vikram Nair, ' followed by the date and time of the save (for example '2 Oct 2026, 14:05').\nStep 9: 'Update saved.' appears and the line shows 'Technical Support notes: —'. The Status chip still shows 'Requested'."
+      "expected_result": "Step 5: 'Update saved.' appears. The Status chip still shows 'Requested'.\nStep 6: The line shows 'Technical Support notes: Presenters need fresh AAA batteries; USB-C dongle is in kit bag 3', separately from 'Technical requirements: Must pair with the stage laptop over USB-C', which is unchanged. It also shows 'Last updated by Vikram Nair, ' followed by the date and time of the save (for example '2 Oct 2026, 14:05'). The line's Requested, Reserved, Status and Availability boxes and its 'Update' and 'Reserve' buttons stay on the right of its details, level with the other lines, at any laptop window width - the long note wraps within the details (SPM-102).\nStep 9: 'Update saved.' appears and the line shows 'Technical Support notes: —'. The Status chip still shows 'Requested'."
     },
     {
       "id": "SPM-50-TC09",
@@ -331,7 +331,8 @@
     "DECIDED - technical notes storage (TC08, TC10): stored in the existing EquipmentRequest.staffNotes column, separate from the Coordinator's technicalRequirements. The assigned Coordinator and the owning Organiser see them read-only.",
     "ANSWERED, out of scope - notifying the Coordinator when an item is marked 'Cannot be provided' belongs to the batched notification story, so no case is written here (same position as SPM-49).",
     "BUILT (AC1) - the Equipment request page now shows each line's 'Technical requirements' from the Coordinator, 'Technical Support notes', and 'Last updated by' (TC01, TC08, TC08).",
-    "Test data - `npm run fixtures:spm50` (scripts/seed-spm50.ts) creates or resets the SPM-50 events: Robotics Expo, Design Week, Charity Briefing, Charity Gala, Confirmed Launch, Pending Showcase and Approved Briefing (Aug-Sep 2027, assigned Coordinator daniel.tan, Robotics Expo owned by Rachel Ng). prisma/seed.ts creates the same rows. Run the script again before repeating any case that saves a change."
+    "Test data - `npm run fixtures:spm50` (scripts/seed-spm50.ts) creates or resets the SPM-50 events: Robotics Expo, Design Week, Charity Briefing, Charity Gala, Confirmed Launch, Pending Showcase and Approved Briefing (Aug-Sep 2027, assigned Coordinator daniel.tan, Robotics Expo owned by Rachel Ng). prisma/seed.ts creates the same rows. Run the script again before repeating any case that saves a change.",
+    "RESOLVED 2026-10-18 (SPM-102): found in the Sprint 3 regression run - on a narrower window a long Technical Support note pushed the line's controls below its details. Fixed; TC08's step 6 now checks the controls stay on the right."
   ],
   "code_references": [
     "src/lib/equipmentFulfilment.ts",

@@ -401,7 +401,7 @@ function LineRow({
   onChangeDraft,
   onCancelUpdate,
   onSaveUpdate,
-}: LineRowProps) {
+}: Readonly<LineRowProps>) {
   const { result } = line;
   const statusOptions = fulfilmentOptionsFor(line.requestStatus);
   // Errors about the notes go under the notes field; anything else (a lost
@@ -411,7 +411,10 @@ function LineRow({
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
-      <div className="min-w-0 space-y-1">
+      {/* SPM-102: grows into the space beside the controls and wraps its own
+          text there, so long notes no longer push the controls below. They
+          still drop below on a phone, where the details have under 16rem. */}
+      <div className="min-w-0 flex-[1_1_16rem] space-y-1">
         <p className="text-sm font-medium text-ink">
           {line.equipmentName}
           {line.sessionLabel && <span className="font-normal text-ink-3"> · {line.sessionLabel}</span>}
@@ -549,7 +552,7 @@ function transferNote(line: Line, result: AvailabilityResult): string {
 }
 
 /// A labelled line of text under the availability figures; "—" when empty.
-function LineDetail({ label, value }: { label: string; value: string | null }) {
+function LineDetail({ label, value }: Readonly<{ label: string; value: string | null }>) {
   return (
     <p className="text-xs text-ink-2">
       <span className="font-medium text-ink">{label}:</span> {orEmpty(value)}
@@ -557,7 +560,7 @@ function LineDetail({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function Column({ label, children }: { label: string; children: React.ReactNode }) {
+function Column({ label, children }: Readonly<{ label: string; children: React.ReactNode }>) {
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-ink-3">{label}</p>
@@ -568,7 +571,7 @@ function Column({ label, children }: { label: string; children: React.ReactNode 
 
 /// A count in a bordered box, like the mockup's quantity boxes. "—" when there
 /// is no number yet (nothing reserved so far).
-function NumberBox({ value }: { value: number | null }) {
+function NumberBox({ value }: Readonly<{ value: number | null }>) {
   return (
     <div className="mx-auto flex h-9 w-16 items-center justify-center rounded-md border border-line-strong bg-surface text-base text-ink">
       {value ?? "—"}
