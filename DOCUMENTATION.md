@@ -993,6 +993,24 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-18 — Jordan
+- **SPM-103 (bug, found in the Sprint 3 regression run, step 1).**
+  `npm run verify:login` failed 2 of its 29 checks: the assigned coordinator's
+  cancel was refused. The app was right; the script's setup predated two
+  rules. A coordinator may only change an assigned event's status, and only
+  the Ops Manager assigns (SPM-30). An event can only be cancelled from
+  Approved onwards (SPM-27).
+  - The setup now: the organiser submits; the Ops Manager assigns the
+    coordinator (`PUT /api/events/<ref>/coordinator`, which moves it to Under
+    review); the coordinator approves.
+  - A setup step the app refuses now stops the run, naming the step
+    (`setupStep()`), instead of failing silently and surfacing later as a
+    cancellation failure.
+  - The four cancel checks are unchanged. Script only - no app code changed.
+    29/29 against `npm run dev`.
+
+---
+
 ### 2026-10-18 — Janelle
 - **SPM-102 (bug, found in the Sprint 3 regression run, SPM-50-TC08).** On
   Technical Support's equipment request page, a line with long Technical
