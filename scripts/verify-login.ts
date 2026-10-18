@@ -55,6 +55,14 @@ async function expectStatus(ac: string, name: string, expected: number, res: Res
   return body;
 }
 
+/// SPM-103: a step that only sets up a check, not a check itself. If the app
+/// refuses it, nothing after it can mean anything, so stop and say which step.
+async function setupStep(name: string, res: Response) {
+  if (res.ok) return;
+  const hint = (await res.text()).slice(0, 200).replace(/\s+/g, " ");
+  throw new Error(`Setup step failed - ${name}: got ${res.status} — ${hint}`);
+}
+
 function post(path: string, body: unknown, token?: string) {
   return fetch(`${BASE}${path}`, {
     method: "POST",
@@ -220,12 +228,25 @@ async function main() {
 
     // Out of draft, so the refusals below are the CANCELLATION rule talking and
     // not draft privacy (which would answer 404 for everyone but the owner).
-    await asOrganiser(`/api/events/${createdEventRef}`, {
-      method: "PATCH", body: JSON.stringify({ status: "submitted" }),
-    });
-    await asCoordinator(`/api/events/${createdEventRef}`, {
-      method: "PATCH", body: JSON.stringify({ status: "under_review" }),
-    });
+    //
+    // CHANGED (SPM-103): the event has to reach Approved, the first status it
+    // can be cancelled from (SPM-27, EVENT_TRANSITIONS), and the coordinator
+    // has to be the ASSIGNED one (SPM-30, canSetEventStatus) - which only the
+    // Ops Manager can make them, and which moves the event to Under review.
+    // A refused step stops the run here, rather than surfacing later as a
+    // misleading cancellation failure.
+    await setupStep("the organiser submits the event",
+      await asOrganiser(`/api/events/${createdEventRef}`, {
+        method: "PATCH", body: JSON.stringify({ status: "submitted" }),
+      }));
+    await setupStep("the Ops Manager assigns the coordinator (moves it to Under review)",
+      await asOpsManager(`/api/events/${createdEventRef}/coordinator`, {
+        method: "PUT", body: JSON.stringify({ coordinatorId: coordinator.id }),
+      }));
+    await setupStep("the assigned coordinator approves the event",
+      await asCoordinator(`/api/events/${createdEventRef}`, {
+        method: "PATCH", body: JSON.stringify({ status: "approved" }),
+      }));
 
     await expectStatus("AC4", "the OWNING ORGANISER cannot cancel their own event", 403,
       await asOrganiser(`/api/events/${createdEventRef}`, {
