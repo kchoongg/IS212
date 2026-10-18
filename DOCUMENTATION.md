@@ -794,6 +794,7 @@ traceability the module asks for.
 | `npm run coverage:changed` | After `test:coverage`: lists the lines your branch adds or changes under `src/` that no test runs, compared with `origin/main`. CI runs the same check on every PR |
 | `npm run test:e2e` | End-to-end smoke tests (`e2e/`): builds nothing itself, so run `npm run build` first; starts the app on port 3100 and drives it in Chromium. Needs `DATABASE_URL` to a **local**, migrated and seeded Postgres - it refuses any other database, because the tests change data. CI runs them on every PR with its own database |
 | `npm run test:e2e:ui` | The same, in Playwright's viewer: watch each step, or replay a failed run's trace |
+| `npm run test:integration` | Integration tests (`integration/`): the route handlers with the real Prisma client against a real Postgres - no mocked database. Needs `DATABASE_URL` to a **local**, migrated and seeded Postgres - it refuses any other database. Each test creates its own rows and deletes them after. CI runs them on every PR with its own database |
 | `npm run test-cases:check` | Says whether the story in your branch name has its `docs/test-cases/` document. CI runs it on every PR, as a warning |
 | `npm run verify:permissions` | SPM-4 acceptance check over HTTP — needs `npm run dev` running in another terminal |
 | `npm run fixtures:spm27` | Adds or resets SPM-27's 14 test events ("SPM27 Bayu …", one per status, organiser Hakim Zulkifli) without reseeding — deletes and recreates only events whose `seedKey` starts with `spm27_`. Re-run before each SPM-27 test pass |
@@ -843,6 +844,27 @@ neon env pull                  # refresh .env for that branch
 ```
 
 Branch off a seeded branch and the data comes with it — no re-seeding.
+
+### Keeping the integration and end-to-end tests current
+
+Both run on every PR, so a merge that breaks one fails CI on that PR - fix it
+in the same PR, not later. What each depends on, so you know when your change
+touches it:
+
+| If your PR changes… | Check |
+|---|---|
+| A seeded account's email, name or role (`prisma/seed.ts`) | `e2e/accounts.ts` |
+| Marina Auditorium (MAR-AUD) in the seed: its name, code, opening hours, setup or turnaround | `e2e/event-request-journey.spec.ts` picks it because 09:00–17:00 fits its hours |
+| Visible text the journey reads: labels, button names, headings, success messages (event form, Review, Assign, Venue tab, Request booking form, Booking Requests) | `e2e/event-request-journey.spec.ts` |
+| The sidebar (`NAV_BY_ROLE`) | Nothing - `e2e/login.spec.ts` reads it |
+| A booking route's path or body (`POST /api/events/[id]/venue-bookings`, `PATCH /api/venue-bookings/[id]`), or the calendar's response (`GET /api/venues/[id]/availability`) | `integration/venue-booking.test.ts` |
+| The conflict message wording (`src/lib/venueConflict.ts`: "is on hold for…", "is already booked for…") | `integration/venue-booking.test.ts` checks it names the booking in the way |
+| A column a new venue, user, organisation or event must have (new required field) | `integration/world.ts`, which creates them |
+| The booking request rules (opening hours, covering the event's own times) | `integration/world.ts` makes a venue open 08:00–22:00 with no setup or turnaround, and requests the event's exact times |
+
+When a test fails because the app changed **on purpose**, update the test in
+the same PR and say so in your changelog entry; when it fails because the app
+is **wrong**, fix the app. Never loosen an assertion just to make it pass.
 
 ---
 
@@ -946,7 +968,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. The same holds for each of an event's rooms (SPM-90, decided 2026-10-13): a breakout room is judged on its own attendance and layout, but must still have every facility the event requires. | events / venues |
-| **No route-level tests outside auth/permissions** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Business rules — venue suitability, booking conflicts, capacity — are unit tested only; nothing exercises those routes over HTTP. | unclaimed |
+| **Few route-level tests against a real database** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Since 2026-10-19 `npm run test:integration` covers booking requests at the same moment (SPM-44) and approval making the room booked (SPM-43) on a real Postgres. Other business rules — equipment quantities, hold expiry, registration capacity — are still unit tested against a mocked database only. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
@@ -992,6 +1014,32 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-19 — Kayalvizhi (integration tests, longer end-to-end journey)
+- **Integration tests added** (`integration/`, `npm run test:integration`,
+  own config `vitest.integration.config.mts`). The route handlers and the
+  real Prisma client against a real Postgres - no `vi.mock("@/lib/prisma")`.
+  Each test makes its own client, people and venue (names no seed row uses)
+  and deletes them after. Two tests:
+  - SPM-44 AC4, AC5, AC9: two booking requests for the same room at
+    overlapping times, sent at the same moment - exactly one is accepted, the
+    other is refused naming the first. Checked that it catches the bug it is
+    for: with the venue row lock removed from the request route, both were
+    accepted, 3 runs out of 3.
+  - SPM-43 AC3, AC7: a request approved by Venue Staff shows on the
+    availability calendar as booked (requested before), and another event is
+    then refused those times.
+- **New CI check: Integration tests**, on every PR, with its own throwaway
+  Postgres 18, migrated and seeded first.
+- **End-to-end journey extended** (`e2e/event-request-journey.spec.ts`):
+  after approval the coordinator requests Marina Auditorium from the Venue
+  tab, and Venue Staff approve it on Booking Requests. The event's day is now
+  random from 2030 on, so a local re-run does not find the room taken.
+- Both refuse any database not on your own machine; the shared Neon database
+  is never touched.
+- **New section: "Keeping the integration and end-to-end tests current"**
+  (under Everyday Commands): what each test depends on, so a later
+  merge that changes it knows to update the test in the same PR.
 
 ### 2026-10-18 — Jordan
 - **SPM-103 (bug, found in the Sprint 3 regression run, step 1).**
