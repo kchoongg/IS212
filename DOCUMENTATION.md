@@ -993,6 +993,23 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-18 — Janelle
+- **SPM-102 (bug, found in the Sprint 3 regression run, SPM-50-TC08).** On
+  Technical Support's equipment request page, a line with long Technical
+  Support notes had its controls (Requested, Reserved, Status, Availability,
+  Update, Reserve) drop below its details, while the other lines kept theirs
+  on the right. It showed only on narrower windows, which is why the original
+  SPM-50 run passed. The details column now takes the space beside the
+  controls and wraps its text there (`flex-[1_1_16rem]` in
+  `src/app/equipment/requests/[id]/page.tsx`); on a phone the controls still
+  go below, as before. Layout only - no data or behaviour changed.
+- SPM-50-TC08 now also checks the controls stay on the right (JSON and
+  workbook).
+- Same file: the line's components take read-only props (`Readonly<…>`,
+  SonarQube S6759). Types only.
+
+---
+
 ### 2026-10-17 — Kristen Choong (regression testing)
 - **End-of-sprint regression testing guide**, `docs/REGRESSION_TESTING.md`
   (Word copy `docs/Regression_Testing_Guide.docx`): which stories to retest
