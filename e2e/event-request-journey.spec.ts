@@ -2,10 +2,12 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 import type { Role } from "../src/lib/roles";
 import { ACCOUNTS, logInAs } from "./accounts";
 
-// Smoke: the request journey every event starts with, across the four roles
-// that take part (SPM-21, SPM-30, SPM-28, then SPM-42 and SPM-43 for its
-// venue). Each role has its own browser session, as each person has their own
-// laptop.
+// The core journey, end to end: an organiser's request through review, venue,
+// equipment, registration setup, the Operational Safety Check and
+// confirmation, until an attendee registers. Every role takes part, each in
+// its own browser session, as each person has their own laptop. Stories in
+// order: SPM-25, SPM-30, SPM-28, SPM-42/43, SPM-47/49, SPM-64, SPM-86/87,
+// SPM-34, SPM-51.
 
 async function sessionFor(browser: Browser, role: Role): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
@@ -21,9 +23,17 @@ function dayForThisRun(): string {
   return new Date(Date.UTC(2030, 0, 1) + dayNumber * 86_400_000).toISOString().slice(0, 10);
 }
 
-test("an organiser's request is assigned a coordinator by the Ops Manager, approved, then booked into a venue", async ({
+/// Today's date in Singapore, the browser's time zone (playwright.config.ts).
+function todayInSingapore(): string {
+  return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+}
+
+test("a request goes from submission to Confirmed - venue, equipment, registration and safety check - and an attendee registers", async ({
   browser,
 }) => {
+  // Seven roles and about forty steps: well past the 30s default, which is
+  // for a single screen's test. Each step still waits on its own condition.
+  test.setTimeout(150_000);
   // Unique per run, so the test can find its own event on a database that
   // earlier local runs have already added to.
   const title = `E2E Harbour Summit ${Date.now()}`;
@@ -85,6 +95,9 @@ test("an organiser's request is assigned a coordinator by the Ops Manager, appro
     .getByRole("link", { name: "Request booking" })
     .click();
   await expect(coordinator.getByRole("heading", { level: 1, name: "Request a venue booking" })).toBeVisible();
+  // A room layout, so a registration capacity can be measured against it
+  // later (SPM-64: theatre seats 220 here).
+  await coordinator.getByLabel("Room layout").selectOption({ label: "Theatre" });
   await coordinator.getByRole("button", { name: "Submit request" }).click();
   await coordinator.getByRole("dialog").getByRole("button", { name: "Continue" }).click();
   await expect(coordinator.getByText("Booking request sent to Venue Staff.")).toBeVisible();
@@ -107,4 +120,63 @@ test("an organiser's request is assigned a coordinator by the Ops Manager, appro
   await expect(venueStaff.getByText(/is now Approved — the room is booked\./)).toBeVisible();
   // Decided, so it has left the list of requests waiting for a decision.
   await expect(venueStaff.getByRole("link", { name: reference, exact: true })).toHaveCount(0);
+
+  // The coordinator asks for one presentation clicker on the Equipment tab
+  // (SPM-47)...
+  await coordinator.goto(`${eventPath}/equipment`);
+  await coordinator.getByLabel("Equipment", { exact: true }).selectOption({ label: "Presentation Clicker — IT" });
+  await coordinator.getByLabel("Quantity", { exact: true }).fill("1");
+  await coordinator.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(coordinator.getByText("Presentation Clicker", { exact: true })).toBeVisible();
+
+  // ...and Technical Support reserve it (SPM-49).
+  const techSupport = await sessionFor(browser, "tech_support");
+  await techSupport.goto(`/equipment/requests/${reference}`);
+  await techSupport.getByRole("button", { name: "Reserve", exact: true }).click();
+  await expect(techSupport.getByText("Reservation saved: 1 reserved.")).toBeVisible();
+
+  // The coordinator turns registration on: 50 places, open from today until
+  // an hour before the event (SPM-64). Set before the safety check, as an
+  // incomplete setup would hold up confirmation.
+  await coordinator.goto(eventPath);
+  await coordinator.getByRole("button", { name: "Change registration settings" }).click();
+  await coordinator.getByLabel("Attendees need to register for this event").check();
+  await coordinator.getByLabel("Registration capacity").fill("50");
+  await coordinator.getByLabel("Registration opens").fill(`${todayInSingapore()}T00:00`);
+  await coordinator.getByLabel("Registration closes").fill(`${day}T08:00`);
+  await coordinator.getByRole("button", { name: "Save registration settings" }).click();
+  await expect(coordinator.getByText("Registration settings saved.")).toBeVisible();
+
+  // Venue and equipment are both held, so it can go for its Operational
+  // Safety Check (SPM-86)...
+  await coordinator.getByRole("button", { name: "Submit for safety check" }).click();
+  await coordinator.getByRole("dialog").getByRole("button", { name: "Submit", exact: true }).click();
+  await expect(
+    coordinator.getByText("The event has been submitted for a safety check. The Safety Officer has been notified.")
+  ).toBeVisible();
+
+  // ...which the Safety Officer approves (SPM-87).
+  const safetyOfficer = await sessionFor(browser, "safety_officer");
+  await safetyOfficer.goto(eventPath);
+  await safetyOfficer.getByRole("button", { name: "Record safety decision" }).click();
+  const decision = safetyOfficer.getByRole("dialog");
+  await decision.getByRole("radio", { name: "Approve", exact: true }).check();
+  await decision.getByRole("button", { name: "Record decision" }).click();
+  await expect(safetyOfficer.getByText("Safety check approved. The coordinator has been notified.")).toBeVisible();
+
+  // The coordinator confirms it (SPM-34).
+  await coordinator.reload();
+  await coordinator.getByRole("button", { name: "Confirm event", exact: true }).click();
+  await coordinator.getByRole("dialog").getByRole("button", { name: "Confirm event", exact: true }).click();
+  await expect(coordinator.getByText("The event is confirmed. The organiser can now see the arrangements.")).toBeVisible();
+
+  // Now Confirmed and open for registration, an attendee finds it on Browse
+  // Events and registers (SPM-51).
+  const attendee = await sessionFor(browser, "attendee");
+  await attendee.goto("/browse");
+  // Its row in the table (the list shown instead on a phone is hidden here).
+  await attendee.getByRole("row").filter({ hasText: title }).click();
+  await expect(attendee).toHaveURL(new RegExp(`${eventPath}$`));
+  await attendee.getByRole("button", { name: "Register", exact: true }).click();
+  await expect(attendee.getByText("You're registered for this event.")).toBeVisible();
 });
