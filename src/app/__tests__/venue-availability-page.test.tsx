@@ -99,7 +99,7 @@ const cardOf = (title: string) => screen.getByRole("heading", { name: title }).c
 
 describe("Venue availability", () => {
   describe("who can open it", () => {
-    it("sends an anonymous visitor to log in, remembering the venue and range", async () => {
+    it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering the venue and range", async () => {
       setRoute("/venues/v1/availability?from=2027-03-01&to=2027-03-07", { id: "v1" });
       mockApi(signedOut());
 
@@ -112,7 +112,7 @@ describe("Venue availability", () => {
       );
     });
 
-    it("tells a role without access so, plainly, and shows nothing of the calendar", async () => {
+    it("[SPM-46][AC6] tells a role without access so, plainly, and shows nothing of the calendar", async () => {
       open(reply(403, { error: "Venue availability is for ConnectSphere staff" }), { role: "organiser" });
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Venue availability is for ConnectSphere staff");
@@ -127,13 +127,13 @@ describe("Venue availability", () => {
       ]);
     });
 
-    it("has its own words for the refusal when the server gives none", async () => {
+    it("[SPM-46][AC6] has its own words for the refusal when the server gives none", async () => {
       open(reply(403, {}), { role: "attendee" });
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Venue availability is for ConnectSphere staff");
     });
 
-    it("sends the user to log in when their session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
       open(reply(401, {}));
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues%2Fv1%2Favailability"));
@@ -141,14 +141,14 @@ describe("Venue availability", () => {
   });
 
   describe("the header", () => {
-    it("names the venue, the range, its opening hours and its turnaround", async () => {
+    it("[SPM-46][AC1] names the venue, the range, its opening hours and its turnaround", async () => {
       open({ venue: { setupMinutes: 60, teardownMinutes: 30 }, to: "2027-03-10" });
 
       expect(await screen.findByRole("heading", { level: 1, name: "Hall A availability" })).toBeInTheDocument();
       expect(screen.getByText("4 Mar 2027 – 10 Mar 2027 · open 07:00–23:59 · setup 60 min, turnaround 30 min")).toBeInTheDocument();
     });
 
-    it("links the venue in the breadcrumb to its editor for Venue Staff only", async () => {
+    it("[SPM-22][AC3] links the venue in the breadcrumb to its editor for Venue Staff only", async () => {
       open({}, { role: "venue_staff" });
       await grid();
 
@@ -159,7 +159,7 @@ describe("Venue availability", () => {
       ]);
     });
 
-    it("names the venue in the breadcrumb without a link for a coordinator", async () => {
+    it("[SPM-22][AC3] names the venue in the breadcrumb without a link for a coordinator", async () => {
       open();
       await grid();
 
@@ -170,7 +170,7 @@ describe("Venue availability", () => {
       ]);
     });
 
-    it("calls the venue 'Venue' in the breadcrumb while it loads", async () => {
+    it("[SPM-98] calls the venue 'Venue' in the breadcrumb while it loads", async () => {
       open(() => new Promise(() => {}));
       await screen.findByRole("status", { name: "Loading" });
 
@@ -181,7 +181,7 @@ describe("Venue availability", () => {
       ]);
     });
 
-    it("shows a placeholder and disables the week buttons until the calendar has loaded", async () => {
+    it("[SPM-46] shows a placeholder and disables the week buttons until the calendar has loaded", async () => {
       open(() => new Promise(() => {}));
 
       expect(await screen.findByRole("status", { name: "Loading" })).toBeInTheDocument();
@@ -191,7 +191,7 @@ describe("Venue availability", () => {
   });
 
   describe("the range", () => {
-    it("asks for the server's default week when the address gives none, and shows which week that was", async () => {
+    it("[SPM-46][AC1] asks for the server's default week when the address gives none, and shows which week that was", async () => {
       const api = open({ from: "2027-03-04", to: "2027-03-10" });
 
       await grid();
@@ -201,7 +201,7 @@ describe("Venue availability", () => {
       expect(screen.getByLabelText("To")).toHaveValue("2027-03-10");
     });
 
-    it("asks for the range in the address", async () => {
+    it("[SPM-46][AC1] asks for the range in the address", async () => {
       const api = open({}, { query: "?from=2027-03-04&to=2027-03-04" });
 
       await grid();
@@ -209,7 +209,7 @@ describe("Venue availability", () => {
       expect(api.sent(ROUTE)[0].url).toBe("/api/venues/v1/availability?from=2027-03-04&to=2027-03-04");
     });
 
-    it("Previous week and Next week move the whole range by seven days", async () => {
+    it("[SPM-46][AC1] Previous week and Next week move the whole range by seven days", async () => {
       open({ from: "2027-03-04", to: "2027-03-10" });
       await grid();
 
@@ -220,7 +220,7 @@ describe("Venue availability", () => {
       expect(router.push).toHaveBeenNthCalledWith(2, "/venues/v1/availability?from=2027-02-25&to=2027-03-03");
     });
 
-    it("Show availability navigates to the dates typed in", async () => {
+    it("[SPM-46][AC1] Show availability navigates to the dates typed in", async () => {
       open();
       await grid();
       set(screen.getByLabelText("From"), "2027-04-01");
@@ -231,7 +231,7 @@ describe("Venue availability", () => {
       expect(router.push).toHaveBeenCalledWith("/venues/v1/availability?from=2027-04-01&to=2027-04-14");
     });
 
-    it("Show availability with the dates cleared asks for the server's default week", async () => {
+    it("[SPM-46][AC1] Show availability with the dates cleared asks for the server's default week", async () => {
       open();
       await grid();
       set(screen.getByLabelText("From"), "");
@@ -242,7 +242,7 @@ describe("Venue availability", () => {
       expect(router.push).toHaveBeenCalledWith("/venues/v1/availability?");
     });
 
-    it("shows the server's sentence for a range it refuses", async () => {
+    it("[SPM-46][AC1] shows the server's sentence for a range it refuses", async () => {
       open(reply(400, { error: "Choose a range of 62 days or fewer - this one is 63." }), {
         query: "?from=2027-01-01&to=2027-03-04",
       });
@@ -256,7 +256,7 @@ describe("Venue availability", () => {
   describe("the venue picker", () => {
     const optionLabels = () => within(screen.getByLabelText("Venue")).getAllByRole("option").map((o) => o.textContent);
 
-    it("lists the venues by name with their codes, and starts on the one being shown", async () => {
+    it("[SPM-46][AC1] lists the venues by name with their codes, and starts on the one being shown", async () => {
       open();
       await grid();
 
@@ -264,7 +264,7 @@ describe("Venue availability", () => {
       expect(screen.getByLabelText("Venue")).toHaveValue("v1");
     });
 
-    it("asks for active venues only as a coordinator", async () => {
+    it("[SPM-39][AC6] asks for active venues only as a coordinator", async () => {
       const api = open();
       await grid();
 
@@ -272,7 +272,7 @@ describe("Venue availability", () => {
       expect(api.sent(VENUES)[0].url).toBe("/api/venues");
     });
 
-    it("asks for retired venues too as Venue Staff, and marks them", async () => {
+    it("[SPM-46][AC1] asks for retired venues too as Venue Staff, and marks them", async () => {
       const api = open({}, {
         role: "venue_staff",
         routes: { [VENUES]: [...catalogue, { id: "v3", code: "OLD", name: "Old Hall", isActive: false }] },
@@ -283,7 +283,7 @@ describe("Venue availability", () => {
       expect(api.sent(VENUES)[0].url).toBe("/api/venues?includeRetired=true");
     });
 
-    it("always includes the venue on screen, even when the list does not", async () => {
+    it("[SPM-46][AC1] always includes the venue on screen, even when the list does not", async () => {
       open({ venue: { isActive: false } }, { routes: { [VENUES]: [catalogue[0]] } });
       await grid();
 
@@ -293,14 +293,14 @@ describe("Venue availability", () => {
     it.each([
       ["answers with an error", reply(500, {})],
       ["cannot be reached", () => Promise.reject(new Error("offline"))],
-    ])("still shows the calendar when the venue list %s", async (_case, answer) => {
+    ])("[SPM-46][AC1] still shows the calendar when the venue list %s", async (_case, answer) => {
       open({}, { routes: { [VENUES]: answer } });
 
       expect(await grid()).toBeInTheDocument();
       expect(optionLabels()).toEqual(["Hall A (HALL-A)"]);
     });
 
-    it("Show availability goes to the venue that was picked, keeping the range", async () => {
+    it("[SPM-46][AC1] Show availability goes to the venue that was picked, keeping the range", async () => {
       open();
       await grid();
       await waitFor(() => expect(optionLabels()).toHaveLength(2));
@@ -313,7 +313,7 @@ describe("Venue availability", () => {
   });
 
   describe("the schedule (SPM-93 AC9)", () => {
-    it("has a row per day and one Schedule column - no AM, PM or Night columns", async () => {
+    it("[SPM-93][AC9] has a row per day and one Schedule column - no AM, PM or Night columns", async () => {
       open({ to: "2027-03-05" });
 
       const table = await grid();
@@ -325,19 +325,19 @@ describe("Venue availability", () => {
       ]);
     });
 
-    it("says a day with nothing on is Free", async () => {
+    it("[SPM-93][AC9] says a day with nothing on is Free", async () => {
       open();
 
       expect(await schedule()).toHaveTextContent(/^Free$/);
     });
 
-    it("names the event and its actual times in a booking's entry", async () => {
+    it("[SPM-93][AC9] [SPM-46][AC3] names the event and its actual times in a booking's entry", async () => {
       open({ bookings: [booking()] });
 
       expect(entries(await schedule())).toEqual(["Booked13:00–18:00· Town Hall"]);
     });
 
-    it("SPM-93-TC15: shows a booking's setup and turnaround as their own entries, either side of the booked time", async () => {
+    it("[SPM-93][AC9] SPM-93-TC15: shows a booking's setup and turnaround as their own entries, either side of the booked time", async () => {
       open({ venue: { setupMinutes: 30, teardownMinutes: 45 }, bookings: [booking()] });
 
       expect(entries(await schedule())).toEqual([
@@ -347,13 +347,13 @@ describe("Venue availability", () => {
       ]);
     });
 
-    it("SPM-93-TC15: shows a request not yet approved, with its setup and turnaround, as Requested", async () => {
+    it("[SPM-93][AC9] SPM-93-TC15: shows a request not yet approved, with its setup and turnaround, as Requested", async () => {
       open({ venue: { setupMinutes: 30, teardownMinutes: 0 }, holds: [{ id: "h1", eventId: "e2", eventTitle: "Summit", ...PM }] });
 
       expect(entries(await schedule())).toEqual(["Setup12:30–13:00· Summit", "Requested13:00–18:00· Summit"]);
     });
 
-    it("SPM-93-TC16: shows an unavailable period at its times, with its reason", async () => {
+    it("[SPM-93][AC9] [SPM-46][AC4] SPM-93-TC16: shows an unavailable period at its times, with its reason", async () => {
       open({
         unavailability: [
           { id: "u1", reason: "internal_activity", notes: null, startsAt: new Date("2027-03-04T06:00:00.000Z"), endsAt: new Date("2027-03-04T10:00:00.000Z") },
@@ -363,7 +363,7 @@ describe("Venue availability", () => {
       expect(entries(await schedule())).toEqual(["Unavailable14:00–18:00· Internal activity"]);
     });
 
-    it("lists everything on a day in time order", async () => {
+    it("[SPM-93][AC9] lists everything on a day in time order", async () => {
       open({
         bookings: [booking({ eventTitle: null })],
         unavailability: [{ id: "u1", reason: "maintenance", notes: null, startsAt: new Date("2027-03-04T01:00:00.000Z"), endsAt: new Date("2027-03-04T02:00:00.000Z") }],
@@ -372,7 +372,7 @@ describe("Venue availability", () => {
       expect(entries(await schedule())).toEqual(["Unavailable09:00–10:00· Maintenance", "Booked13:00–18:00· Untitled event"]);
     });
 
-    it("shows an empty day of a retired venue as Closed, never Free", async () => {
+    it("[SPM-39][AC6] shows an empty day of a retired venue as Closed, never Free", async () => {
       open({ venue: { isActive: false }, to: "2027-03-05", bookings: [booking()] });
 
       expect(entries(await schedule())).toEqual(["Booked13:00–18:00· Town Hall"]);
@@ -380,7 +380,7 @@ describe("Venue availability", () => {
       expect(screen.getByText("This venue is retired")).toBeInTheDocument();
     });
 
-    it("explains what each kind of entry means", async () => {
+    it("[SPM-93][AC9] explains what each kind of entry means", async () => {
       open();
       await grid();
 
@@ -398,14 +398,14 @@ describe("Venue availability", () => {
   });
 
   describe("approved bookings", () => {
-    it("says so when there are none in the range", async () => {
+    it("[SPM-46][AC3][AC7] says so when there are none in the range", async () => {
       open();
       await grid();
 
       expect(cardOf("Approved bookings")).toHaveTextContent("No approved bookings in this range.");
     });
 
-    it("lists each with its event status, session, times, room-in-use window and layout", async () => {
+    it("[SPM-46][AC3][AC7] lists each with its event status, session, times, room-in-use window and layout", async () => {
       open({ bookings: [booking({ sessionLabel: "Day 1" })] });
       await grid();
 
@@ -418,7 +418,7 @@ describe("Venue availability", () => {
       expect(card).toHaveTextContent("Layout: U-shape");
     });
 
-    it("SPM-93-TC15: widens 'Room in use' by the venue's setup and turnaround minutes", async () => {
+    it("[SPM-93][AC6][AC9] SPM-93-TC15: widens 'Room in use' by the venue's setup and turnaround minutes", async () => {
       open({ venue: { setupMinutes: 30, teardownMinutes: 45 }, bookings: [booking({ layoutName: null })] });
       await grid();
 
@@ -429,7 +429,7 @@ describe("Venue availability", () => {
       expect(card).not.toHaveTextContent("Layout:");
     });
 
-    it("gives both dates when the room is in use across midnight", async () => {
+    it("[SPM-93][AC9] gives both dates when the room is in use across midnight", async () => {
       open({
         venue: { setupMinutes: 60, teardownMinutes: 30 },
         bookings: [booking({ startsAt: new Date("2027-03-04T11:00:00.000Z"), endsAt: new Date("2027-03-04T16:00:00.000Z") })],
@@ -439,7 +439,7 @@ describe("Venue availability", () => {
       expect(cardOf("Approved bookings")).toHaveTextContent(/Room in use 4 Mar 2027, 18:00 – 5 Mar 2027, 00:30/);
     });
 
-    it("SPM-93-TC05: shows a booking in the old lunch gap at its times, with no warning", async () => {
+    it("[SPM-93][AC4] SPM-93-TC05: shows a booking in the old lunch gap at its times, with no warning", async () => {
       // 12:15-12:45 Singapore time: once between the AM and PM slots, now an ordinary booking (#126).
       open({ bookings: [booking({ startsAt: new Date("2027-03-04T04:15:00.000Z"), endsAt: new Date("2027-03-04T04:45:00.000Z") })] });
 
@@ -447,7 +447,7 @@ describe("Venue availability", () => {
       expect(cardOf("Approved bookings")).not.toHaveTextContent(/slot/i);
     });
 
-    it("says nothing about overlaps for a booking that has none", async () => {
+    it("[SPM-46][AC5] says nothing about overlaps for a booking that has none", async () => {
       open({ bookings: [booking()] });
       await grid();
 
@@ -456,14 +456,14 @@ describe("Venue availability", () => {
   });
 
   describe("unavailable periods", () => {
-    it("says so when there are none in the range", async () => {
+    it("[SPM-46][AC4] says so when there are none in the range", async () => {
       open();
       await grid();
 
       expect(cardOf("Unavailable periods")).toHaveTextContent("No unavailable periods in this range.");
     });
 
-    it("SPM-93-TC16: lists each with its reason, notes and times", async () => {
+    it("[SPM-46][AC4] SPM-93-TC16: lists each with its reason, notes and times", async () => {
       open({ unavailability: [{ id: "u1", reason: "renovation", notes: "Floor resurfacing", ...PM }] });
       await grid();
 
@@ -476,7 +476,7 @@ describe("Venue availability", () => {
   });
 
   describe("overlaps", () => {
-    it("flags the range and names what each item overlaps with", async () => {
+    it("[SPM-46][AC5] flags the range and names what each item overlaps with", async () => {
       open({
         bookings: [booking(), booking({ id: "b2", eventId: "e2", eventTitle: "Summit" })],
         unavailability: [{ id: "u1", reason: "maintenance", notes: null, ...PM }],
@@ -489,7 +489,7 @@ describe("Venue availability", () => {
       expect(cardOf("Unavailable periods")).toHaveTextContent("Overlaps with: Town Hall; Summit");
     });
 
-    it("names an overlap it has no details for in general words", async () => {
+    it("[SPM-46][AC5] names an overlap it has no details for in general words", async () => {
       const body = availability({ bookings: [booking()] });
       body.bookings[0].overlaps = { bookingIds: ["gone"], unavailabilityIds: ["gone-too"] };
       body.hasOverlaps = true;
@@ -501,7 +501,7 @@ describe("Venue availability", () => {
       );
     });
 
-    it("says nothing about overlaps when there are none", async () => {
+    it("[SPM-46][AC5] says nothing about overlaps when there are none", async () => {
       open({ bookings: [booking()] });
       await grid();
 
@@ -510,7 +510,7 @@ describe("Venue availability", () => {
   });
 
   describe("requests not yet approved", () => {
-    it("are listed on their own card, apart from the approved bookings", async () => {
+    it("[SPM-93][AC9] are listed on their own card, apart from the approved bookings", async () => {
       open({ holds: [{ id: "h1", eventId: "e2", eventTitle: "Summit", ...PM }, { id: "h2", eventId: "e3", eventTitle: null, ...PM }] });
       await grid();
 
@@ -524,7 +524,7 @@ describe("Venue availability", () => {
       expect(cardOf("Approved bookings")).toHaveTextContent("No approved bookings in this range.");
     });
 
-    it("have no card at all when there are none", async () => {
+    it("[SPM-93][AC9] have no card at all when there are none", async () => {
       open();
       await grid();
 
@@ -533,19 +533,19 @@ describe("Venue availability", () => {
   });
 
   describe("when it cannot be loaded", () => {
-    it("falls back to a general message when the server gives no reason", async () => {
+    it("[SPM-46] falls back to a general message when the server gives no reason", async () => {
       open(reply(500, {}));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this venue's availability.");
     });
 
-    it("says the venue was not found", async () => {
+    it("[SPM-46] says the venue was not found", async () => {
       open(reply(404, { error: "Venue not found" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Venue not found");
     });
 
-    it("explains a network failure", async () => {
+    it("[SPM-46] explains a network failure", async () => {
       open(() => Promise.reject(new Error("offline")));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(

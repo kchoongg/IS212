@@ -116,7 +116,7 @@ const click = (name: string, inside: HTMLElement) => userEvent.click(within(insi
 
 describe("Flagged Arrangements (SPM-68)", () => {
   describe("who can open it", () => {
-    it("sends an anonymous visitor to log in, remembering where they were going", async () => {
+    it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering where they were going", async () => {
       setRoute("/flagged");
       mockApi(signedOut());
 
@@ -125,7 +125,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fflagged"));
     });
 
-    it.each(OTHER_ROLES)("refuses %s, and never asks for the list", async (role) => {
+    it.each(OTHER_ROLES)("[SPM-68][AC1] refuses %s, and never asks for the list", async (role) => {
       setRoute("/flagged");
       const api = mockApi(signedInAs(role));
 
@@ -143,7 +143,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
 
   describe("the list", () => {
     // AC1, AC2, AC4.
-    it("shows a flagged venue booking with its event, the booking, why it was flagged and its current result", async () => {
+    it("[SPM-68][AC2][AC4] shows a flagged venue booking with its event, the booking, why it was flagged and its current result", async () => {
       open(flagged({ venueBookings: [booking({ reasons: ["the date or time changed", "the expected attendance changed"] })] }));
 
       expect(await screen.findByRole("heading", { name: "Flagged Arrangements" })).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(within(item).getByRole("button", { name: "Keep booking" })).toBeInTheDocument();
     });
 
-    it("names what a booking no longer meets under suitability and availability", async () => {
+    it("[SPM-68][AC4][AC7] names what a booking no longer meets under suitability and availability", async () => {
       open(
         flagged({
           venueBookings: [
@@ -184,7 +184,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
     it.each([
       ["not suitable", { suitability: { ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] } }],
       ["not available", { availability: { ok: false, unmet: ["Hall has been retired."] } }],
-    ])("offers no Keep booking for a booking that is %s, and says why it can't be kept", async (_what, result) => {
+    ])("[SPM-68][AC7] offers no Keep booking for a booking that is %s, and says why it can't be kept", async (_what, result) => {
       open(flagged({ venueBookings: [booking(result)] }));
 
       const [item] = itemsOf(await bookings());
@@ -195,7 +195,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(within(item).getByRole("link", { name: "Open Venue tab" })).toBeInTheDocument();
     });
 
-    it("says nothing about keeping a booking that still fits", async () => {
+    it("[SPM-68][AC6] says nothing about keeping a booking that still fits", async () => {
       open(flagged({ venueBookings: [booking()] }));
 
       const [item] = itemsOf(await bookings());
@@ -203,7 +203,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(within(item).getByRole("button", { name: "Keep booking" })).toBeInTheDocument();
     });
 
-    it("offers no Keep reservation for equipment that can no longer be covered, and links to the Equipment tab", async () => {
+    it("[SPM-68][AC5][AC7] offers no Keep reservation for equipment that can no longer be covered, and links to the Equipment tab", async () => {
       open(
         flagged({
           equipmentRequests: [
@@ -226,7 +226,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       }
     });
 
-    it("says when a flagged booking or reservation is marked as not required, and still offers to keep it", async () => {
+    it("[SPM-68][AC6] [SPM-33][AC10] says when a flagged booking or reservation is marked as not required, and still offers to keep it", async () => {
       const note = "Marked as not required for this event, so it does not block confirmation.";
       open(flagged({ venueBookings: [booking({ notRequired: true }), booking({ id: "b2" })] }));
 
@@ -236,13 +236,13 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(required).not.toHaveTextContent("Marked as not required");
     });
 
-    it("says so for equipment marked as not required too", async () => {
+    it("[SPM-68][AC6] [SPM-33][AC10] says so for equipment marked as not required too", async () => {
       open(flagged({ equipmentRequests: [equipment({ notRequired: true })] }));
 
       expect(itemsOf(await kit())[0]).toHaveTextContent("Marked as not required for this event");
     });
 
-    it("says which space a booking is for (SPM-90)", async () => {
+    it("[SPM-68][AC2] [SPM-90][AC5] says which space a booking is for (SPM-90)", async () => {
       open(flagged({ venueBookings: [booking({ purpose: "Breakout room" }), booking({ id: "b2", purpose: null })] }));
 
       const [named, unnamed] = itemsOf(await bookings());
@@ -250,14 +250,14 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(unnamed).not.toHaveTextContent("Space:");
     });
 
-    it("says which session a session's booking is for", async () => {
+    it("[SPM-68][AC2] says which session a session's booking is for", async () => {
       open(flagged({ venueBookings: [booking({ session: { id: "s1", label: "Day 1" } })] }));
 
       expect(itemsOf(await bookings())[0]).toHaveTextContent("Day 1");
     });
 
     // AC3: the page shows what it is given - one item per flagged booking, nothing else.
-    it("gives each flagged booking its own item, in the order they were read", async () => {
+    it("[SPM-68][AC3] gives each flagged booking its own item, in the order they were read", async () => {
       open(
         flagged({
           venueBookings: [
@@ -275,7 +275,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
     });
 
     // AC11.
-    it("links a flagged booking to a venue search for its replacement", async () => {
+    it("[SPM-68][AC11] links a flagged booking to a venue search for its replacement", async () => {
       open(flagged({ venueBookings: [booking()] }));
 
       const [item] = itemsOf(await bookings());
@@ -286,7 +286,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
     });
 
     // AC2, AC5.
-    it("shows a flagged equipment reservation with its event, the item, why and its current availability", async () => {
+    it("[SPM-68][AC2][AC5] shows a flagged equipment reservation with its event, the item, why and its current availability", async () => {
       open(flagged({ equipmentRequests: [equipment()] }));
 
       expect(await tabLink("Equipment reservations")).toHaveAttribute("aria-current", "page");
@@ -300,7 +300,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
     });
 
     // AC8.
-    it("shows flagged registrations with how many are registered and waitlisted, and why", async () => {
+    it("[SPM-68][AC8] shows flagged registrations with how many are registered and waitlisted, and why", async () => {
       open(
         flagged({
           registrations: [
@@ -322,13 +322,13 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(within(item).getByRole("link", { name: "Open Overview" })).toHaveAttribute("href", "/events/EVT-000041");
     });
 
-    it("says which session an unnamed session's booking is for", async () => {
+    it("[SPM-68][AC2] says which session an unnamed session's booking is for", async () => {
       open(flagged({ venueBookings: [booking({ session: { id: "s2", label: null }, layoutName: null })] }));
 
       expect(itemsOf(await bookings())[0]).toHaveTextContent("Session · 8 Oct 2027, 09:00–17:00");
     });
 
-    it("says which session an equipment line is for, and calls an unnamed session 'Session'", async () => {
+    it("[SPM-68][AC2] says which session an equipment line is for, and calls an unnamed session 'Session'", async () => {
       open(
         flagged({
           equipmentRequests: [
@@ -344,14 +344,14 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(unnamed).toHaveTextContent("Availability: 2 reserved, 1 available for these dates.");
     });
 
-    it("copes with an event that has no title", async () => {
+    it("[SPM-68] copes with an event that has no title", async () => {
       open(flagged({ venueBookings: [booking({ event: { ...EVENT, title: null } })] }));
 
       const [item] = itemsOf(await bookings());
       expect(within(item).getByRole("link", { name: "Untitled event" })).toHaveAttribute("href", "/events/EVT-000041");
     });
 
-    it("says so when nothing is flagged", async () => {
+    it("[SPM-68][AC1] says so when nothing is flagged", async () => {
       open();
 
       expect(await screen.findByText("Nothing is flagged")).toBeInTheDocument();
@@ -369,7 +369,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
         registrations: [registrations()],
       });
 
-    it("has one tab per kind, each a link saying how many are flagged", async () => {
+    it("[SPM-68][AC1] has one tab per kind, each a link saying how many are flagged", async () => {
       open(everything());
 
       const venue = await tabLink("Venue bookings");
@@ -383,7 +383,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(registrationTab).toHaveTextContent(/Registrations\s*1$/);
     });
 
-    it("opens on Venue bookings, and shows that kind alone", async () => {
+    it("[SPM-68][AC1] opens on Venue bookings, and shows that kind alone", async () => {
       open(everything());
 
       expect(itemsOf(await bookings())).toHaveLength(2);
@@ -397,7 +397,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       ["equipment", "Equipment reservations", "Flagged equipment reservations"],
       ["registrations", "Registrations", "Flagged registrations"],
       ["venue", "Venue bookings", "Flagged venue bookings"],
-    ])("shows the tab named in the address: %s", async (tab, label, list) => {
+    ])("[SPM-68][AC1] shows the tab named in the address: %s", async (tab, label, list) => {
       open(everything(), {}, tab);
 
       expect(await screen.findByRole("list", { name: list })).toBeInTheDocument();
@@ -405,7 +405,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(screen.getAllByRole("list")).toHaveLength(1);
     });
 
-    it("opens on the first kind that has something flagged when no tab is named", async () => {
+    it("[SPM-68][AC1] opens on the first kind that has something flagged when no tab is named", async () => {
       open(flagged({ registrations: [registrations()] }));
 
       expect(itemsOf(await registrationList())).toHaveLength(1);
@@ -415,7 +415,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await tabLink("Equipment reservations")).toHaveTextContent(/^Equipment reservations$/);
     });
 
-    it("says so on a tab with nothing flagged, when it is the one asked for", async () => {
+    it("[SPM-68][AC1] says so on a tab with nothing flagged, when it is the one asked for", async () => {
       open(flagged({ registrations: [registrations()] }), {}, "venue");
 
       expect(await screen.findByText("No venue bookings are flagged")).toBeInTheDocument();
@@ -427,19 +427,19 @@ describe("Flagged Arrangements (SPM-68)", () => {
     it.each([
       ["equipment", "No equipment reservations are flagged"],
       ["registrations", "No registrations are flagged"],
-    ])("words the empty %s tab for its own kind", async (tab, words) => {
+    ])("[SPM-68][AC1] words the empty %s tab for its own kind", async (tab, words) => {
       open(flagged({ venueBookings: [booking()] }), {}, tab);
 
       expect(await screen.findByText(words)).toBeInTheDocument();
     });
 
-    it("ignores a tab it does not know, and opens the first kind with something flagged", async () => {
+    it("[SPM-68][AC1] ignores a tab it does not know, and opens the first kind with something flagged", async () => {
       open(flagged({ equipmentRequests: [equipment()] }), {}, "safety");
 
       expect(itemsOf(await kit())).toHaveLength(1);
     });
 
-    it("has no tabs when nothing at all is flagged", async () => {
+    it("[SPM-68][AC1] has no tabs when nothing at all is flagged", async () => {
       open();
 
       expect(await screen.findByText("Nothing is flagged")).toBeInTheDocument();
@@ -449,7 +449,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
 
   describe("keeping a venue booking", () => {
     // AC6.
-    it("asks the server to keep it, then says the flag is cleared and reads the list again", async () => {
+    it("[SPM-68][AC6] asks the server to keep it, then says the flag is cleared and reads the list again", async () => {
       const api = open(flagged({ venueBookings: [booking()], registrations: [registrations()] }), { [KEEP]: { cleared: true } });
       const [item] = itemsOf(await bookings());
       api.on(LIST, flagged({ registrations: [registrations()] }));
@@ -468,7 +468,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
 
     // AC7.
     // The booking fitted when the page loaded; the event's attendance was raised since.
-    it("shows the server's refusal in the item, and leaves it listed", async () => {
+    it("[SPM-68][AC7] shows the server's refusal in the item, and leaves it listed", async () => {
       const refusal = "Hall no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150.";
       const api = open(flagged({ venueBookings: [booking()] }), {
         [KEEP]: reply(400, { error: refusal, unmet: ["Theatre capacity is 100 - this space expects 150."] }),
@@ -483,7 +483,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(api.sent(KEEP)).toHaveLength(1);
     });
 
-    it("puts a refusal on the item that was refused, not on its neighbour", async () => {
+    it("[SPM-68][AC7] puts a refusal on the item that was refused, not on its neighbour", async () => {
       open(
         flagged({ venueBookings: [booking({ id: "b1" }), booking({ id: "b2", venue: { id: "v2", code: "ANX", name: "Annex" } })] }),
         { [KEEP]: reply(400, { error: "Annex no longer meets this event's requirements: Annex has been retired." }) }
@@ -496,7 +496,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(within(first).queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("says so when the request could not be sent at all", async () => {
+    it("[SPM-68] says so when the request could not be sent at all", async () => {
       open(flagged({ venueBookings: [booking()] }), { [KEEP]: reply(500, {}) });
       const [item] = itemsOf(await bookings());
 
@@ -505,7 +505,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await within(item).findByRole("alert")).toHaveTextContent("Could not clear the flag. Try again.");
     });
 
-    it("says so when the server answers with an empty body", async () => {
+    it("[SPM-68] says so when the server answers with an empty body", async () => {
       open(flagged({ venueBookings: [booking()] }), { [KEEP]: reply(500) });
       const [item] = itemsOf(await bookings());
 
@@ -514,7 +514,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await within(item).findByRole("alert")).toHaveTextContent("Could not clear the flag. Try again.");
     });
 
-    it("says so when the network fails", async () => {
+    it("[SPM-68] says so when the network fails", async () => {
       open(flagged({ venueBookings: [booking()] }), {
         [KEEP]: () => {
           throw new Error("offline");
@@ -527,7 +527,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await within(item).findByRole("alert")).toHaveTextContent("Could not clear the flag. Try again.");
     });
 
-    it("names an untitled event as such in what it says afterwards", async () => {
+    it("[SPM-68] names an untitled event as such in what it says afterwards", async () => {
       const api = open(flagged({ venueBookings: [booking({ event: { ...EVENT, title: null } })] }), { [KEEP]: { cleared: true } });
       const [item] = itemsOf(await bookings());
       api.on(LIST, flagged());
@@ -537,7 +537,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await screen.findByText("Hall for Untitled event was kept as it is.")).toBeInTheDocument();
     });
 
-    it("sends the user to log in when their session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
       open(flagged({ venueBookings: [booking()] }), { [KEEP]: reply(401, {}) });
       const [item] = itemsOf(await bookings());
 
@@ -549,7 +549,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
 
   describe("keeping an equipment reservation", () => {
     // AC6.
-    it("asks the server to keep it and says the flag is cleared", async () => {
+    it("[SPM-68][AC6] asks the server to keep it and says the flag is cleared", async () => {
       const api = open(flagged({ equipmentRequests: [equipment()] }), { [KEEP]: { cleared: true } });
       const [item] = itemsOf(await kit());
       api.on(LIST, flagged());
@@ -562,7 +562,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
     });
 
     // AC7.
-    it("shows the server's refusal in the item, and leaves it listed", async () => {
+    it("[SPM-68][AC7] shows the server's refusal in the item, and leaves it listed", async () => {
       const refusal = "Projector no longer meets this event's requirements: 2 reserved, 1 available for these dates.";
       open(flagged({ equipmentRequests: [equipment()] }), { [KEEP]: reply(400, { error: refusal }) });
       const [item] = itemsOf(await kit());
@@ -576,7 +576,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
 
   describe("marking registrations as reviewed", () => {
     // AC9.
-    it("asks the server to clear the event's flag and says no registration was changed", async () => {
+    it("[SPM-68][AC9] asks the server to clear the event's flag and says no registration was changed", async () => {
       const api = open(flagged({ registrations: [registrations()] }), { [KEEP]: { cleared: true } });
       const [item] = itemsOf(await registrationList());
       api.on(LIST, flagged());
@@ -595,7 +595,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
   // AC12: the flagged booking stays until the coordinator releases it - on
   // the event's Venue tab (SPM-67), not here.
   describe("releasing or withdrawing a flagged booking", () => {
-    it("links each flagged booking to its event's Venue tab, where it is released or withdrawn", async () => {
+    it("[SPM-68][AC12] links each flagged booking to its event's Venue tab, where it is released or withdrawn", async () => {
       open(
         flagged({
           venueBookings: [booking({ id: "b1" }), booking({ id: "b2", status: "pending", event: { ...EVENT, reference: "EVT-000052" } })],
@@ -607,7 +607,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(within(pending).getByRole("link", { name: "Open Venue tab" })).toHaveAttribute("href", "/events/EVT-000052/venue");
     });
 
-    it("has no button that releases or withdraws a booking", async () => {
+    it("[SPM-68][AC14] has no button that releases or withdraws a booking", async () => {
       open(flagged({ venueBookings: [booking(), booking({ id: "b2", status: "pending" })] }));
 
       await bookings();
@@ -619,7 +619,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
     it.each([
       ["an equipment reservation", "equipment"],
       ["registrations", "registrations"],
-    ])("offers no Venue tab link on %s", async (_what, tab) => {
+    ])("[SPM-68][AC12] offers no Venue tab link on %s", async (_what, tab) => {
       open(flagged({ equipmentRequests: [equipment()], registrations: [registrations()] }), {}, tab);
 
       await screen.findByRole("list");
@@ -628,13 +628,13 @@ describe("Flagged Arrangements (SPM-68)", () => {
   });
 
   describe("when it cannot load", () => {
-    it("sends the user to log in when their session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
       open(reply(401, {}));
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fflagged"));
     });
 
-    it("says so when the network fails", async () => {
+    it("[SPM-68] says so when the network fails", async () => {
       open(() => {
         throw new Error("offline");
       });
@@ -642,7 +642,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("offline");
     });
 
-    it("says something went wrong when the failure carries no message", async () => {
+    it("[SPM-68] says something went wrong when the failure carries no message", async () => {
       open(() => {
         throw "offline";
       });
@@ -650,7 +650,7 @@ describe("Flagged Arrangements (SPM-68)", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
-    it("shows the failure with a Retry that loads again", async () => {
+    it("[SPM-68] shows the failure with a Retry that loads again", async () => {
       const api = open(reply(500, {}));
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the flagged arrangements.");
 

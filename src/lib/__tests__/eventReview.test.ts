@@ -23,11 +23,11 @@ function request(over: Partial<ReviewableRequest> = {}): ReviewableRequest {
 }
 
 describe("missingRequestFields", () => {
-  it("flags nothing on a complete request", () => {
+  it("[SPM-28][AC3] flags nothing on a complete request", () => {
     expect(missingRequestFields(request())).toEqual([]);
   });
 
-  it("flags empty text, a missing schedule and empty lists, in page order", () => {
+  it("[SPM-28][AC3] flags empty text, a missing schedule and empty lists, in page order", () => {
     expect(
       missingRequestFields(
         request({ description: null, accessibilityNotes: null, startsAt: null, facilityRequirements: [] })
@@ -35,30 +35,30 @@ describe("missingRequestFields", () => {
     ).toEqual(["Description", "When", "Accessibility needs", "Facilities"]);
   });
 
-  it("treats whitespace as empty", () => {
+  it("[SPM-28][AC3] treats whitespace as empty", () => {
     expect(missingRequestFields(request({ description: "   " }))).toEqual(["Description"]);
   });
 
-  it("flags registration capacity only when registration is enabled", () => {
+  it("[SPM-28][AC3] flags registration capacity only when registration is enabled", () => {
     expect(missingRequestFields(request({ registrationEnabled: false, registrationCapacity: null }))).toEqual([]);
     expect(missingRequestFields(request({ registrationEnabled: true, registrationCapacity: null }))).toEqual([
       "Registration capacity",
     ]);
   });
 
-  it("does not treat zero attendance as missing", () => {
+  it("[SPM-28][AC3] does not treat zero attendance as missing", () => {
     expect(missingRequestFields(request({ expectedAttendance: 0 }))).toEqual([]);
   });
 });
 
 describe("isBlankReason", () => {
-  it("rejects empty and whitespace-only reasons", () => {
+  it("[SPM-28][AC5] rejects empty and whitespace-only reasons", () => {
     expect(isBlankReason("")).toBe(true);
     expect(isBlankReason("   ")).toBe(true);
     expect(isBlankReason("\n\t")).toBe(true);
   });
 
-  it("accepts any real text", () => {
+  it("[SPM-28][AC5] accepts any real text", () => {
     expect(isBlankReason("Headcount not confirmed")).toBe(false);
   });
 });

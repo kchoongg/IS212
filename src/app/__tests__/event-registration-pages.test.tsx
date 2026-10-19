@@ -112,7 +112,7 @@ async function startEditing() {
 }
 
 describe("the Registration card, read-only", () => {
-  it("shows the settings with the booking the capacity is measured against (TC23)", async () => {
+  it("[SPM-64][AC4] shows the settings with the booking the capacity is measured against (TC23)", async () => {
     open("organiser", event(enabled), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -127,7 +127,7 @@ describe("the Registration card, read-only", () => {
     expect(valueOf("Closes")).toHaveTextContent("30 Sept 2026, 17:00");
   });
 
-  it("names just the room when the booking's layout is no longer one the room offers", async () => {
+  it("[SPM-64][AC4] names just the room when the booking's layout is no longer one the room offers", async () => {
     open(
       "organiser",
       event({ ...enabled, registrationVenueBooking: { ...seminarBooking, layoutName: "banquet" } }),
@@ -140,7 +140,7 @@ describe("the Registration card, read-only", () => {
     expect(valueOf("Measured against")).toHaveTextContent(/^Orchard Seminar Room \(ORC-SEM\)$/);
   });
 
-  it("says when registration is not enabled, without the other rows", async () => {
+  it("[SPM-64][AC1] says when registration is not enabled, without the other rows", async () => {
     open("organiser", event(), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -151,7 +151,7 @@ describe("the Registration card, read-only", () => {
 });
 
 describe("AC10 the organiser sees the settings but can't change them", () => {
-  it("gives the organiser no way to change them (TC23)", async () => {
+  it("[SPM-64][AC10] gives the organiser no way to change them (TC23)", async () => {
     open("organiser", event(enabled), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -166,7 +166,7 @@ describe("AC11 nobody but the assigned coordinator gets the controls", () => {
     ["the Ops Manager", "ops_manager", {}],
     ["Venue Staff", "venue_staff", {}],
     ["Technical Support", "tech_support", {}],
-  ])("shows %s the settings with no button (TC24)", async (_who, role, who) => {
+  ])("[SPM-64][AC11] shows %s the settings with no button (TC24)", async (_who, role, who) => {
     const api = open(role, event(enabled), {}, who);
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -176,7 +176,7 @@ describe("AC11 nobody but the assigned coordinator gets the controls", () => {
     expect(api.sent(SETTINGS)).toEqual([]);
   });
 
-  it("shows an attendee the public settings, without the booking or a button (TC25)", async () => {
+  it("[SPM-64][AC11] [SPM-51][AC4] shows an attendee the public settings, without the booking or a button (TC25)", async () => {
     const { registrationVenueBookingId: _id, registrationVenueBooking: _b, ...publicSettings } = enabled;
     open("attendee", { ...event({ status: "confirmed" }), ...publicSettings, registrationVenueBooking: undefined });
 
@@ -187,7 +187,7 @@ describe("AC11 nobody but the assigned coordinator gets the controls", () => {
     expect(changeButton()).not.toBeInTheDocument();
   });
 
-  it("gives the assigned coordinator no button outside Approved, Planning and Confirmed (TC03)", async () => {
+  it("[SPM-64][AC11] gives the assigned coordinator no button outside Approved, Planning and Confirmed (TC03)", async () => {
     open("coordinator", event({ status: "postponed" }), {}, COORDINATOR);
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -197,7 +197,7 @@ describe("AC11 nobody but the assigned coordinator gets the controls", () => {
 });
 
 describe("AC1 the assigned coordinator turns registration on and off", () => {
-  it("opens the form with the switch off and only the switch showing", async () => {
+  it("[SPM-64][AC1] opens the form with the switch off and only the switch showing", async () => {
     asCoordinator();
 
     const box = await startEditing();
@@ -207,7 +207,7 @@ describe("AC1 the assigned coordinator turns registration on and off", () => {
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
-  it("turns registration on, sending only the switch, then shows it saved (TC01)", async () => {
+  it("[SPM-64][AC1] turns registration on, sending only the switch, then shows it saved (TC01)", async () => {
     const api = asCoordinator();
     const box = await startEditing();
 
@@ -226,7 +226,7 @@ describe("AC1 the assigned coordinator turns registration on and off", () => {
     expect(changeButton()).toBeInTheDocument();
   });
 
-  it("turns registration off, keeping the saved values in the form (TC02)", async () => {
+  it("[SPM-64][AC1] turns registration off, keeping the saved values in the form (TC02)", async () => {
     const api = asCoordinator(event({ ...enabled, status: "confirmed" }));
     const box = await startEditing();
 
@@ -241,7 +241,7 @@ describe("AC1 the assigned coordinator turns registration on and off", () => {
     expect(api.sent(SAVE)[0].body).toEqual({ registrationEnabled: false });
   });
 
-  it("closes the form on Cancel without sending anything", async () => {
+  it("[SPM-64][AC1] closes the form on Cancel without sending anything", async () => {
     const api = asCoordinator();
     await userEvent.click(await startEditing());
 
@@ -253,7 +253,7 @@ describe("AC1 the assigned coordinator turns registration on and off", () => {
 });
 
 describe("AC2 + AC3 the capacity", () => {
-  it("sends the capacity as a number, with no booking choice for a single booking (TC04)", async () => {
+  it("[SPM-64][AC2] sends the capacity as a number, with no booking choice for a single booking (TC04)", async () => {
     const api = asCoordinator();
     await userEvent.click(await startEditing());
 
@@ -266,7 +266,7 @@ describe("AC2 + AC3 the capacity", () => {
     expect(screen.queryByLabelText("Capacity measured against")).not.toBeInTheDocument();
   });
 
-  it("shows the server's refusal under 'Registration capacity' and keeps the form open (TC05, TC06)", async () => {
+  it("[SPM-64][AC2][AC3] shows the server's refusal under 'Registration capacity' and keeps the form open (TC05, TC06)", async () => {
     const message =
       "Registration capacity can't be more than 70, the capacity of Orchard Seminar Room (ORC-SEM) in its Classroom layout.";
     asCoordinator(event(), { [SAVE]: reply(400, { error: message, details: { fieldErrors: { registrationCapacity: [message] } } }) });
@@ -282,7 +282,7 @@ describe("AC2 + AC3 the capacity", () => {
 });
 
 describe("AC4 choosing the booking the capacity is measured against", () => {
-  it("offers only the active bookings when there are several, and sends the one chosen (TC09)", async () => {
+  it("[SPM-64][AC4] offers only the active bookings when there are several, and sends the one chosen (TC09)", async () => {
     const api = asCoordinator(event(), { [SETTINGS]: { bookings: [seminarOption, studioOption] } });
     await userEvent.click(await startEditing());
 
@@ -306,7 +306,7 @@ describe("AC4 choosing the booking the capacity is measured against", () => {
     });
   });
 
-  it("leaves the layout and capacity out of a booking that has neither", async () => {
+  it("[SPM-64][AC4] leaves the layout and capacity out of a booking that has neither", async () => {
     const bare = { ...studioOption, layoutName: null, layoutCapacity: null };
     asCoordinator(event(), { [SETTINGS]: { bookings: [seminarOption, bare] } });
     await userEvent.click(await startEditing());
@@ -315,7 +315,7 @@ describe("AC4 choosing the booking the capacity is measured against", () => {
     expect(within(picker).getByRole("option", { name: "Orchard Studio (ORC-STU) · Pending" })).toBeInTheDocument();
   });
 
-  it("still opens the form when the bookings cannot be loaded", async () => {
+  it("[SPM-64] still opens the form when the bookings cannot be loaded", async () => {
     const api = asCoordinator(event(), { [SETTINGS]: reply(500, {}) });
     await userEvent.click(await startEditing());
 
@@ -324,7 +324,7 @@ describe("AC4 choosing the booking the capacity is measured against", () => {
     expect(saveButton()).toBeInTheDocument();
   });
 
-  it("shows a missing choice under 'Capacity measured against' (TC10)", async () => {
+  it("[SPM-64][AC4] shows a missing choice under 'Capacity measured against' (TC10)", async () => {
     const message = "Choose which venue booking the capacity is measured against.";
     asCoordinator(event(), {
       [SETTINGS]: { bookings: [seminarOption, studioOption] },
@@ -342,7 +342,7 @@ describe("AC4 choosing the booking the capacity is measured against", () => {
   // one active booking left, the coordinator only presses Save, so the form
   // must send that booking - otherwise nothing changes and the setup stays
   // incomplete.
-  it("moves a lost measured booking to the only active one left, so Save sends it (TC18)", async () => {
+  it("[SPM-64][AC4] moves a lost measured booking to the only active one left, so Save sends it (TC18)", async () => {
     const lostEvent = event({
       ...enabled,
       registrationCapacity: 40,
@@ -361,7 +361,7 @@ describe("AC4 choosing the booking the capacity is measured against", () => {
 });
 
 describe("AC5 - AC7 the registration period", () => {
-  it("sends the dates typed, as full date-times (TC11, TC14)", async () => {
+  it("[SPM-64][AC5] sends the dates typed, as full date-times (TC11, TC14)", async () => {
     const api = asCoordinator();
     await userEvent.click(await startEditing());
 
@@ -378,7 +378,7 @@ describe("AC5 - AC7 the registration period", () => {
     });
   });
 
-  it("shows a refused period under 'Registration closes' (TC12, TC13, TC15)", async () => {
+  it("[SPM-64][AC6] shows a refused period under 'Registration closes' (TC12, TC13, TC15)", async () => {
     const message = "Registration must close no later than the event starts.";
     asCoordinator(event(), {
       [SAVE]: reply(400, { error: message, details: { fieldErrors: { registrationClosesAt: [message] } } }),
@@ -394,7 +394,7 @@ describe("AC5 - AC7 the registration period", () => {
 });
 
 describe("AC8 incomplete setup is shown as outstanding", () => {
-  it("lists what is still needed while registration is on (TC16)", async () => {
+  it("[SPM-64][AC8] lists what is still needed while registration is on (TC16)", async () => {
     asCoordinator(event({ registrationEnabled: true }));
 
     const title = await screen.findByText("Registration setup is incomplete");
@@ -404,7 +404,7 @@ describe("AC8 incomplete setup is shown as outstanding", () => {
     );
   });
 
-  it("says when the booking the capacity was measured against is no longer active (TC18)", async () => {
+  it("[SPM-64][AC8] says when the booking the capacity was measured against is no longer active (TC18)", async () => {
     asCoordinator(event({ ...enabled, registrationVenueBooking: { ...seminarBooking, status: "rejected" } }));
 
     await screen.findByText("Registration setup is incomplete");
@@ -417,7 +417,7 @@ describe("AC8 incomplete setup is shown as outstanding", () => {
   it.each([
     ["fully set up", enabled],
     ["turned off", { registrationEnabled: false }],
-  ])("shows no alert when registration is %s (TC16, TC17)", async (_state, settings) => {
+  ])("[SPM-64][AC8] shows no alert when registration is %s (TC16, TC17)", async (_state, settings) => {
     asCoordinator(event(settings));
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -427,7 +427,7 @@ describe("AC8 incomplete setup is shown as outstanding", () => {
 });
 
 describe("AC9 what a save flagged", () => {
-  it("lists the registrations the save flagged for review (TC19)", async () => {
+  it("[SPM-64][AC9] lists the registrations the save flagged for review (TC19)", async () => {
     const line =
       "Registrations: 15 attendees – the registration capacity was lowered below the number registered or waitlisted";
     const api = asCoordinator(event({ ...enabled, registrationCapacity: 20 }));
@@ -444,7 +444,7 @@ describe("AC9 what a save flagged", () => {
 });
 
 describe("a save answered without a flagged list", () => {
-  it("is saved, with nothing flagged", async () => {
+  it("[SPM-64][AC9] is saved, with nothing flagged", async () => {
     const api = asCoordinator();
     await userEvent.click(await startEditing());
 
@@ -457,7 +457,7 @@ describe("a save answered without a flagged list", () => {
 });
 
 describe("when saving goes wrong", () => {
-  it("shows a refusal that names no field above the form", async () => {
+  it("[SPM-64] shows a refusal that names no field above the form", async () => {
     asCoordinator(event(), {
       [SAVE]: reply(400, {
         error: "Registration settings can only be changed while the event is Approved, Planning or Confirmed.",
@@ -473,7 +473,7 @@ describe("when saving goes wrong", () => {
     expect(saveButton()).toBeInTheDocument();
   });
 
-  it("says so when the server can't be reached", async () => {
+  it("[SPM-64] says so when the server can't be reached", async () => {
     asCoordinator(event(), {
       [SAVE]: () => {
         throw new TypeError("Failed to fetch");
@@ -494,7 +494,7 @@ describe("when saving goes wrong", () => {
 describe("SPM-52 the places taken and withdrawals", () => {
   const counts = { registrationCounts: { taken: 12, waitlisted: 0, withdrawn: 3 } };
 
-  it("shows the organiser the places taken out of the capacity, and the withdrawals", async () => {
+  it("[SPM-52][AC4][AC5] shows the organiser the places taken out of the capacity, and the withdrawals", async () => {
     open("organiser", event({ ...enabled, ...counts }), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -503,7 +503,7 @@ describe("SPM-52 the places taken and withdrawals", () => {
     expect(valueOf("Withdrawn")).toHaveTextContent("3");
   });
 
-  it("shows the coordinator the same", async () => {
+  it("[SPM-52][AC4][AC5] shows the coordinator the same", async () => {
     asCoordinator(event({ ...enabled, ...counts }));
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -512,7 +512,7 @@ describe("SPM-52 the places taken and withdrawals", () => {
     expect(valueOf("Withdrawn")).toHaveTextContent("3");
   });
 
-  it("shows only the number taken when there is no capacity", async () => {
+  it("[SPM-52][AC4][AC5] shows only the number taken when there is no capacity", async () => {
     open("organiser", event({ ...enabled, registrationCapacity: null, ...counts }), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -520,7 +520,7 @@ describe("SPM-52 the places taken and withdrawals", () => {
     expect(valueOf("Places taken")?.textContent).toBe("12");
   });
 
-  it("never shows fewer than none left", async () => {
+  it("[SPM-52][AC4][AC5] never shows fewer than none left", async () => {
     const over = { registrationCounts: { taken: 52, waitlisted: 0, withdrawn: 0 } };
     open("organiser", event({ ...enabled, ...over }), {}, { id: "organiser-id" });
 
@@ -529,7 +529,7 @@ describe("SPM-52 the places taken and withdrawals", () => {
     expect(valueOf("Places taken")).toHaveTextContent("52 of 50 · 0 left");
   });
 
-  it("shows no counts when the event doesn't send them", async () => {
+  it("[SPM-52][AC4][AC5] shows no counts when the event doesn't send them", async () => {
     open("organiser", event(enabled), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });
@@ -538,7 +538,7 @@ describe("SPM-52 the places taken and withdrawals", () => {
     expect(valueOf("Withdrawn")).toBeUndefined();
   });
 
-  it("keeps showing the counts after registration is turned off, without a capacity", async () => {
+  it("[SPM-52][AC4][AC5] keeps showing the counts after registration is turned off, without a capacity", async () => {
     open("organiser", event(counts), {}, { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "SPM64 Orchard Data Forum" });

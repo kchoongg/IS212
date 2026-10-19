@@ -60,11 +60,11 @@ function nothingWritten() {
 }
 
 describe("POST /api/events/[id]/safety-flags - who may flag", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await post(undefined)).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference, an unknown event, or one the user may not see", async () => {
+  it("[SPM-88] is 404 for a malformed reference, an unknown event, or one the user may not see", async () => {
     const token = given();
     expect((await post(token, both, "nope")).status).toBe(404);
 
@@ -80,7 +80,7 @@ describe("POST /api/events/[id]/safety-flags - who may flag", () => {
     ["a coordinator who is not assigned", () => user("coordinator", { id: ID.otherUser })],
     ["the Safety Officer", () => user("safety_officer", { id: ID.otherUser })],
     ["the Ops Manager", () => user("ops_manager", { id: ID.otherUser })],
-  ])("SPM-88-TC05: is 403 for %s", async (_who, actor) => {
+  ])("[SPM-88][AC3] SPM-88-TC05: is 403 for %s", async (_who, actor) => {
     const token = given({ actor: actor() });
 
     const res = await post(token);
@@ -98,7 +98,7 @@ describe("POST /api/events/[id]/safety-flags - what is refused", () => {
     [{ venueBookingIds: "x" }],
     [{ venueBookingIds: [42] }],
     [{ venueBookingIds: [ID.booking], extra: true }],
-  ])("refuses a malformed body %j", async (body) => {
+  ])("[SPM-88][AC3] refuses a malformed body %j", async (body) => {
     const res = await post(given(), body);
 
     expect(res.status).toBe(400);
@@ -107,7 +107,7 @@ describe("POST /api/events/[id]/safety-flags - what is refused", () => {
   });
 
   it.each([[{}], [{ venueBookingIds: [], equipmentRequestIds: [] }]])(
-    "SPM-88-TC05: asks for at least one arrangement (%j)",
+    "[SPM-88][AC3] SPM-88-TC05: asks for at least one arrangement (%j)",
     async (body) => {
       const res = await post(given(), body);
 
@@ -123,7 +123,7 @@ describe("POST /api/events/[id]/safety-flags - what is refused", () => {
     ["the check was closed by a change", { check: "closed" }],
     ["the event was never submitted", { check: null }],
     ["the event is no longer in Planning", { row: event({ status: "safety_cleared" }), check: "rejected" }],
-  ])("SPM-88-TC05: refuses when %s", async (_case, setup) => {
+  ])("[SPM-88][AC3] SPM-88-TC05: refuses when %s", async (_case, setup) => {
     const res = await post(given(setup));
 
     expect(res.status).toBe(400);
@@ -131,7 +131,7 @@ describe("POST /api/events/[id]/safety-flags - what is refused", () => {
     nothingWritten();
   });
 
-  it("reads the event's latest check", async () => {
+  it("[SPM-88][AC3] reads the event's latest check", async () => {
     await post(given());
 
     expect(callArg(db.safetyCheck.findFirst)).toMatchObject({
@@ -140,7 +140,7 @@ describe("POST /api/events/[id]/safety-flags - what is refused", () => {
     });
   });
 
-  it("refuses an arrangement that is not one of the event's current ones", async () => {
+  it("[SPM-88][AC3] refuses an arrangement that is not one of the event's current ones", async () => {
     const token = given();
     db.equipmentRequest.findMany.mockResolvedValue([]);
 
@@ -151,7 +151,7 @@ describe("POST /api/events/[id]/safety-flags - what is refused", () => {
     nothingWritten();
   });
 
-  it("looks only among the event's pending or approved bookings and its equipment that is not cancelled", async () => {
+  it("[SPM-88][AC3] looks only among the event's pending or approved bookings and its equipment that is not cancelled", async () => {
     await post(given());
 
     expect(callArg(db.venueBooking.findMany).where).toEqual({
@@ -169,7 +169,7 @@ describe("POST /api/events/[id]/safety-flags - what is refused", () => {
 
 describe("POST /api/events/[id]/safety-flags - flagging", () => {
   it.each(["changes_requested", "rejected"])(
-    "SPM-88-TC03: flags each chosen arrangement after a %s check, and changes nothing else",
+    "[SPM-88][AC3] SPM-88-TC03: flags each chosen arrangement after a %s check, and changes nothing else",
     async (check) => {
       const res = await post(given({ check }));
 
@@ -193,7 +193,7 @@ describe("POST /api/events/[id]/safety-flags - flagging", () => {
     }
   );
 
-  it("flags only the kind chosen", async () => {
+  it("[SPM-88][AC3] flags only the kind chosen", async () => {
     const token = given();
 
     const res = await post(token, { venueBookingIds: [ID.booking] });
@@ -203,7 +203,7 @@ describe("POST /api/events/[id]/safety-flags - flagging", () => {
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it("flags equipment alone", async () => {
+  it("[SPM-88][AC3] flags equipment alone", async () => {
     const token = given();
 
     const res = await post(token, { equipmentRequestIds: [ID.request] });
@@ -213,7 +213,7 @@ describe("POST /api/events/[id]/safety-flags - flagging", () => {
     expect(db.venueBooking.update).not.toHaveBeenCalled();
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-88] answers 500 when the database fails", async () => {
     const token = given();
     db.venueBooking.update.mockRejectedValue(new Error("down"));
 

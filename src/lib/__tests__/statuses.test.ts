@@ -29,7 +29,7 @@ const EVENT_STATUSES = [
 ];
 
 describe("statusLabel", () => {
-  it("gives every event status from the schema a human label", () => {
+  it("[SPM-27][AC3] gives every event status from the schema a human label", () => {
     for (const status of EVENT_STATUSES) {
       const label = statusLabel(status);
       expect(label).not.toContain("_");
@@ -37,7 +37,7 @@ describe("statusLabel", () => {
     }
   });
 
-  it("humanises an unknown status rather than blanking the page", () => {
+  it("[SPM-27][AC3] humanises an unknown status rather than blanking the page", () => {
     // A status added server-side before the UI knows about it should degrade,
     // not break.
     expect(statusLabel("awaiting_arrangements")).toBe("Awaiting arrangements");
@@ -45,7 +45,7 @@ describe("statusLabel", () => {
 });
 
 describe("Withdrawn and released venue bookings (SPM-67)", () => {
-  it("SPM-67-TC07: labels both in grey, apart from pending, approved and rejected", () => {
+  it("[SPM-67][AC6] SPM-67-TC07: labels both in grey, apart from pending, approved and rejected", () => {
     expect(statusLabel("withdrawn")).toBe("Withdrawn");
     expect(statusLabel("released")).toBe("Released");
     expect(statusTone("withdrawn")).toBe("neutral");
@@ -57,19 +57,19 @@ describe("Withdrawn and released venue bookings (SPM-67)", () => {
 });
 
 describe("Expired venue holds (SPM-82)", () => {
-  it("AC8: reads 'Expired', grey like the other bookings that hold nothing", () => {
+  it("[SPM-82][AC8] AC8: reads 'Expired', grey like the other bookings that hold nothing", () => {
     expect(statusLabel("expired")).toBe("Expired");
     expect(statusTone("expired")).toBe("neutral");
   });
 });
 
 describe("Safety approved (SPM-87)", () => {
-  it("reads 'Safety approved', a step on the way to Confirmed like Approved", () => {
+  it("[SPM-87][AC7] reads 'Safety approved', a step on the way to Confirmed like Approved", () => {
     expect(statusLabel("safety_cleared")).toBe("Safety approved");
     expect(statusTone("safety_cleared")).toBe("progress");
   });
 
-  it("is entered only from Safety review, and cannot be postponed or reviewed again", () => {
+  it("[SPM-87][AC7] is entered only from Safety review, and cannot be postponed or reviewed again", () => {
     for (const from of ["planning", "approved", "confirmed", "under_review"]) {
       expect(canTransition(from, "safety_cleared"), from).toBe(false);
     }
@@ -79,17 +79,17 @@ describe("Safety approved (SPM-87)", () => {
 });
 
 describe("Safety review (SPM-86)", () => {
-  it("reads 'Safety review' as a status awaiting someone else's review, like Under review", () => {
+  it("[SPM-86][AC4] reads 'Safety review' as a status awaiting someone else's review, like Under review", () => {
     expect(statusLabel("safety_review")).toBe("Safety review");
     expect(statusTone("safety_review")).toBe("info");
   });
 
-  it("cannot be confirmed straight from Safety review, nor postponed", () => {
+  it("[SPM-86][AC3] cannot be confirmed straight from Safety review, nor postponed", () => {
     expect(canTransition("safety_review", "confirmed")).toBe(false);
     expect(canTransition("safety_review", "postponed")).toBe(false);
   });
 
-  it("is entered from Planning only", () => {
+  it("[SPM-86][AC3] is entered from Planning only", () => {
     for (const from of ["approved", "confirmed", "postponed", "under_review"]) {
       expect(canTransition(from, "safety_review"), from).toBe(false);
     }
@@ -97,7 +97,7 @@ describe("Safety review (SPM-86)", () => {
 });
 
 describe("statusTone", () => {
-  it("marks the statuses that mean something went wrong as danger", () => {
+  it("[SPM-27][AC3] marks the statuses that mean something went wrong as danger", () => {
     expect(statusTone("rejected")).toBe("danger");
     expect(statusTone("cancelled")).toBe("danger");
     expect(statusTone("unavailable")).toBe("danger");
@@ -107,37 +107,37 @@ describe("statusTone", () => {
     expect(statusTone("partial")).toBe("warning");
   });
 
-  it("marks settled, good outcomes as success", () => {
+  it("[SPM-27][AC3] marks settled, good outcomes as success", () => {
     expect(statusTone("confirmed")).toBe("success");
     expect(statusTone("reserved")).toBe("success");
     expect(statusTone("registered")).toBe("success");
   });
 
-  it("marks states waiting on somebody as warning", () => {
+  it("[SPM-27][AC3] marks states waiting on somebody as warning", () => {
     expect(statusTone("pending")).toBe("warning");
     expect(statusTone("waitlisted")).toBe("warning");
     expect(statusTone("partially_fulfilled")).toBe("warning");
   });
 
-  it("falls back to neutral for an unknown status", () => {
+  it("[SPM-27][AC3] falls back to neutral for an unknown status", () => {
     expect(statusTone("awaiting_arrangements")).toBe("neutral");
   });
 });
 
 describe("isTerminalEventStatus", () => {
-  it("recognises finished and abandoned events", () => {
+  it("[SPM-5][AC2] recognises finished and abandoned events", () => {
     expect(isTerminalEventStatus("completed")).toBe(true);
     expect(isTerminalEventStatus("cancelled")).toBe(true);
     expect(isTerminalEventStatus("rejected")).toBe(true);
   });
 
-  it("treats in-flight events as live, so their actions stay available", () => {
+  it("[SPM-5][AC2] treats in-flight events as live, so their actions stay available", () => {
     expect(isTerminalEventStatus("draft")).toBe(false);
     expect(isTerminalEventStatus("confirmed")).toBe(false);
     expect(isTerminalEventStatus("postponed")).toBe(false);
   });
 
-  it("SPM-27-TC07: treats a withdrawn request as finished", () => {
+  it("[SPM-5][AC2] SPM-27-TC07: treats a withdrawn request as finished", () => {
     expect(isTerminalEventStatus("withdrawn")).toBe(true);
   });
 });
@@ -174,13 +174,13 @@ describe("canTransition", () => {
     ["postponed", "cancelled"],
   ];
 
-  it("SPM-27-TC04: allows every move on the lifecycle", () => {
+  it("[SPM-5][AC2] SPM-27-TC04: allows every move on the lifecycle", () => {
     for (const [from, to] of LEGAL) {
       expect(canTransition(from, to), `${from} -> ${to}`).toBe(true);
     }
   });
 
-  it("SPM-27-TC05: refuses every move that is not on the lifecycle", () => {
+  it("[SPM-5][AC2] SPM-27-TC05: refuses every move that is not on the lifecycle", () => {
     const statuses = [...EVENT_STATUSES, "withdrawn"];
     for (const from of statuses) {
       for (const to of statuses) {
@@ -190,7 +190,7 @@ describe("canTransition", () => {
     }
   });
 
-  it("SPM-27-TC05: refuses skipping steps and going back to draft", () => {
+  it("[SPM-5][AC2] SPM-27-TC05: refuses skipping steps and going back to draft", () => {
     expect(canTransition("draft", "confirmed")).toBe(false);
     expect(canTransition("submitted", "approved")).toBe(false);
     expect(canTransition("submitted", "draft")).toBe(false);
@@ -201,7 +201,7 @@ describe("canTransition", () => {
     expect(canTransition("postponed", "planning")).toBe(false);
   });
 
-  it("SPM-27-TC05: nothing moves out of a final status, including to itself", () => {
+  it("[SPM-5][AC2] SPM-27-TC05: nothing moves out of a final status, including to itself", () => {
     for (const from of ["completed", "rejected", "cancelled", "withdrawn"]) {
       for (const to of [...EVENT_STATUSES, "withdrawn"]) {
         expect(canTransition(from, to), `${from} -> ${to}`).toBe(false);
@@ -209,14 +209,14 @@ describe("canTransition", () => {
     }
   });
 
-  it("SPM-27-TC05: refuses unknown statuses", () => {
+  it("[SPM-5][AC2] SPM-27-TC05: refuses unknown statuses", () => {
     expect(canTransition("deleted", "submitted")).toBe(false);
     expect(canTransition("draft", "deleted")).toBe(false);
   });
 });
 
 describe("transitionError", () => {
-  it("SPM-27-TC05: names both statuses by their labels", () => {
+  it("[SPM-5][AC2] SPM-27-TC05: names both statuses by their labels", () => {
     expect(transitionError("withdrawn", "withdrawn")).toBe(
       "This event is Withdrawn and can't be moved to Withdrawn."
     );
@@ -228,7 +228,7 @@ describe("transitionError", () => {
 
 describe("isBeforeApproval", () => {
   // SPM-54: venue and equipment arrangements wait for approval.
-  it("is true only for the statuses a request passes through before approval", () => {
+  it("[SPM-5][AC1] is true only for the statuses a request passes through before approval", () => {
     for (const status of ["draft", "submitted", "under_review"]) {
       expect(isBeforeApproval(status)).toBe(true);
     }
@@ -239,16 +239,16 @@ describe("isBeforeApproval", () => {
 });
 
 describe("equipment labels (SPM-50)", () => {
-  it("shows a request Technical Support can't provide as 'Cannot be provided'", () => {
+  it("[SPM-50][AC3] shows a request Technical Support can't provide as 'Cannot be provided'", () => {
     expect(statusLabel("unavailable")).toBe("Cannot be provided");
   });
 
-  it("shows no stock free as 'None available', so the two never read the same", () => {
+  it("[SPM-50][AC3] shows no stock free as 'None available', so the two never read the same", () => {
     expect(statusLabel(availabilityStatusKey("unavailable"))).toBe("None available");
     expect(statusLabel(availabilityStatusKey("unavailable"))).not.toBe(statusLabel("unavailable"));
   });
 
-  it("leaves the other availability results as they were", () => {
+  it("[SPM-50][AC3] leaves the other availability results as they were", () => {
     expect(statusLabel(availabilityStatusKey("available"))).toBe("Available");
     expect(statusLabel(availabilityStatusKey("partial"))).toBe("Partial");
   });
@@ -259,13 +259,13 @@ describe("equipment labels (SPM-50)", () => {
 // completed, an outstanding and a not-required arrangement never look alike
 // (AC7, AC10). The wording and tones are decided here, not in the story.
 describe("arrangement states (SPM-33)", () => {
-  it("labels the three states an arrangement can be in", () => {
+  it("[SPM-33][AC7][AC10] labels the three states an arrangement can be in", () => {
     expect(statusLabel("complete")).toBe("Complete");
     expect(statusLabel("outstanding")).toBe("Outstanding");
     expect(statusLabel("not_required")).toBe("Not required");
   });
 
-  it("gives each state its own tone, so they can be told apart at a glance", () => {
+  it("[SPM-33][AC7][AC10] gives each state its own tone, so they can be told apart at a glance", () => {
     expect(statusTone("complete")).toBe("success");
     expect(statusTone("outstanding")).toBe("warning");
     expect(statusTone("not_required")).toBe("neutral");
@@ -282,7 +282,7 @@ describe("safety check labels on the Readiness tab (SPM-33)", () => {
     ["safety_approved", "Approved", "success"],
     ["safety_changes_requested", "Changes requested", "warning"],
     ["safety_rejected", "Rejected", "danger"],
-  ])("shows %s as %s", (key, label, tone) => {
+  ])("[SPM-33][AC6] shows %s as %s", (key, label, tone) => {
     expect(statusLabel(key)).toBe(label);
     expect(statusTone(key)).toBe(tone);
   });
@@ -296,12 +296,12 @@ describe("registration statuses on the registration list (SPM-65)", () => {
     ["waitlisted", "Waiting list", "warning"],
     ["withdrawn", "Withdrawn", "neutral"],
     ["attended", "Attended", "info"],
-  ])("shows %s as %s", (key, label, tone) => {
+  ])("[SPM-65][AC3] shows %s as %s", (key, label, tone) => {
     expect(statusLabel(key)).toBe(label);
     expect(statusTone(key)).toBe(tone);
   });
 
-  it("gives each of the four its own tone", () => {
+  it("[SPM-65][AC3] gives each of the four its own tone", () => {
     const tones = ["registered", "waitlisted", "withdrawn", "attended"].map(statusTone);
     expect(new Set(tones).size).toBe(4);
   });

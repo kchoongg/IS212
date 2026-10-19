@@ -97,25 +97,25 @@ describe("POST /api/events/[id]/safety-check", () => {
     expect(db.notification.createMany).not.toHaveBeenCalled();
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await post()).status).toBe(401);
   });
 
-  it("SPM-82: expires overdue holds before judging whether the arrangements are ready", async () => {
+  it("[SPM-82][AC4] SPM-82: expires overdue holds before judging whether the arrangements are ready", async () => {
     await post(given());
 
     expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findMany.mock.invocationCallOrder[0]);
   });
 
-  it("is 404 for a malformed reference", async () => {
+  it("[SPM-86] is 404 for a malformed reference", async () => {
     expect((await post(given(), "nope")).status).toBe(404);
   });
 
-  it("is 404 for an event that does not exist", async () => {
+  it("[SPM-86] is 404 for an event that does not exist", async () => {
     expect((await post(given(null))).status).toBe(404);
   });
 
-  it("is 404 for an event the user cannot see, before any role check", async () => {
+  it("[SPM-86] is 404 for an event the user cannot see, before any role check", async () => {
     const stranger = user("organiser", { id: ID.otherUser, organisationId: ID.otherOrg });
     const res = await post(given(event(), stranger));
 
@@ -129,7 +129,7 @@ describe("POST /api/events/[id]/safety-check", () => {
     ["Venue Staff", () => user("venue_staff", { id: ID.otherUser })],
     ["Technical Support", () => user("tech_support", { id: ID.otherUser })],
     ["the organiser who owns the event", () => user("organiser", { id: "organiser-id" })],
-  ])("SPM-86-TC10: is 403 for %s (AC7)", async (_who, actor) => {
+  ])("[SPM-86][AC7] SPM-86-TC10: is 403 for %s (AC7)", async (_who, actor) => {
     const res = await post(given(event(), actor()));
 
     expect(res.status).toBe(403);
@@ -137,7 +137,7 @@ describe("POST /api/events/[id]/safety-check", () => {
     expectNothingWritten();
   });
 
-  it("answers with no submitter name when the submitter's name cannot be found", async () => {
+  it("[SPM-86][AC8] answers with no submitter name when the submitter's name cannot be found", async () => {
     const token = given();
     const lookUp = db.user.findUnique.getMockImplementation()!;
     db.user.findUnique.mockImplementation(async (args: { select?: object }) =>
@@ -150,7 +150,7 @@ describe("POST /api/events/[id]/safety-check", () => {
     expect((await res.json()).safetyCheck.submittedBy).toBeNull();
   });
 
-  it("SPM-86-TC01: moves a ready event to Safety review, records who and when, and notifies the Safety Officers", async () => {
+  it("[SPM-86][AC1][AC3][AC5][AC8] SPM-86-TC01: moves a ready event to Safety review, records who and when, and notifies the Safety Officers", async () => {
     vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
     const token = given();
 
@@ -193,7 +193,7 @@ describe("POST /api/events/[id]/safety-check", () => {
     );
   });
 
-  it("names an untitled event 'An event' in the notification", async () => {
+  it("[SPM-86][AC5] names an untitled event 'An event' in the notification", async () => {
     await post(given(event({ title: null })));
 
     expect(callArg(db.notification.createMany).data[0].body).toBe(
@@ -201,7 +201,7 @@ describe("POST /api/events/[id]/safety-check", () => {
     );
   });
 
-  it("reads the arrangements of this event only", async () => {
+  it("[SPM-86][AC1] reads the arrangements of this event only", async () => {
     await post(given());
 
     for (const fn of [db.eventSession.findMany, db.venueBooking.findMany, db.equipmentRequest.findMany]) {
@@ -209,13 +209,13 @@ describe("POST /api/events/[id]/safety-check", () => {
     }
   });
 
-  it("SPM-86-TC05: accepts equipment Technical Support could only partly supply", async () => {
+  it("[SPM-86][AC1] SPM-86-TC05: accepts equipment Technical Support could only partly supply", async () => {
     const res = await post(given(event(), assignedCoordinator(), { equipment: [reservedMic({ status: "partially_fulfilled" })] }));
 
     expect(res.status).toBe(200);
   });
 
-  it("still submits when no Safety Officer account exists yet", async () => {
+  it("[SPM-86][AC5] still submits when no Safety Officer account exists yet", async () => {
     const token = given();
     db.user.findMany.mockResolvedValue([]);
 
@@ -226,7 +226,7 @@ describe("POST /api/events/[id]/safety-check", () => {
   });
 
   describe("refuses, writing nothing", () => {
-    it("SPM-86-TC06: while a venue and an equipment request are outstanding, naming each (AC2)", async () => {
+    it("[SPM-86][AC2] SPM-86-TC06: while a venue and an equipment request are outstanding, naming each (AC2)", async () => {
       const res = await post(
         given(event(), assignedCoordinator(), {
           bookings: [approvedBooking({ status: "pending" })],
@@ -248,7 +248,7 @@ describe("POST /api/events/[id]/safety-check", () => {
       expectNothingWritten();
     });
 
-    it("SPM-86-TC07: while an approved venue booking is flagged for review (AC2)", async () => {
+    it("[SPM-86][AC2] SPM-86-TC07: while an approved venue booking is flagged for review (AC2)", async () => {
       const res = await post(
         given(event(), assignedCoordinator(), {
           bookings: [approvedBooking({ needsReview: true, reviewReason: "event_schedule_changed" })],
@@ -263,7 +263,7 @@ describe("POST /api/events/[id]/safety-check", () => {
       expectNothingWritten();
     });
 
-    it("SPM-86-TC08: while reserved equipment is flagged for review (AC2)", async () => {
+    it("[SPM-86][AC2] SPM-86-TC08: while reserved equipment is flagged for review (AC2)", async () => {
       const res = await post(
         given(event(), assignedCoordinator(), {
           equipment: [reservedMic({ needsReview: true, reviewReason: "event_schedule_changed" })],
@@ -277,7 +277,7 @@ describe("POST /api/events/[id]/safety-check", () => {
       expectNothingWritten();
     });
 
-    it("SPM-86-TC02: an event already in Safety review (AC6)", async () => {
+    it("[SPM-86][AC6] SPM-86-TC02: an event already in Safety review (AC6)", async () => {
       const res = await post(given(event({ status: "safety_review" })));
 
       expect(res.status).toBe(400);
@@ -285,7 +285,7 @@ describe("POST /api/events/[id]/safety-check", () => {
       expectNothingWritten();
     });
 
-    it("SPM-86-TC09: a second submission that arrives after the first was saved (AC6)", async () => {
+    it("[SPM-86][AC6] SPM-86-TC09: a second submission that arrives after the first was saved (AC6)", async () => {
       const token = given();
       db.event.updateMany.mockResolvedValue({ count: 0 });
 
@@ -302,7 +302,7 @@ describe("POST /api/events/[id]/safety-check", () => {
       ["approved", "This event is Approved and can't be moved to Safety review."],
       ["confirmed", "This event is Confirmed and can't be moved to Safety review."],
       ["cancelled", "This event is Cancelled and can't be moved to Safety review."],
-    ])("SPM-86-TC11: an event that is %s, not in Planning", async (status, message) => {
+    ])("[SPM-86][AC1] SPM-86-TC11: an event that is %s, not in Planning", async (status, message) => {
       const res = await post(given(event({ status })));
 
       expect(res.status).toBe(400);
@@ -311,7 +311,7 @@ describe("POST /api/events/[id]/safety-check", () => {
     });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-86] answers 500 when the database fails", async () => {
     const token = given();
     db.event.updateMany.mockRejectedValue(new Error("connection lost"));
 
@@ -336,7 +336,7 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
       safetyChecks: [{ status: "pending", submittedAt: NOW, submitter: { fullName: "Daniel Tan" } }],
     });
 
-  it("SPM-86-TC02: gives staff the latest safety check, with who submitted it and when", async () => {
+  it("[SPM-86][AC8] SPM-86-TC02: gives staff the latest safety check, with who submitted it and when", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(withCheck());
 
@@ -366,7 +366,7 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
     });
   });
 
-  it("gives no submitter name when the submitter's account is gone", async () => {
+  it("[SPM-86][AC8] gives no submitter name when the submitter's account is gone", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(
       event({ status: "safety_review", safetyChecks: [{ status: "pending", submittedAt: NOW, submitter: null }] })
@@ -375,14 +375,14 @@ describe("GET /api/events/[id] - the pending safety check (AC8)", () => {
     expect((await (await get(token)).json()).safetyCheck.submittedBy).toBeNull();
   });
 
-  it("gives staff null when the event was never submitted", async () => {
+  it("[SPM-86][AC8] gives staff null when the event was never submitted", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(event({ safetyChecks: [] }));
 
     expect((await (await get(token)).json()).safetyCheck).toBeNull();
   });
 
-  it("SPM-86-TC03: never gives the Event Organiser who submitted it", async () => {
+  it("[SPM-88][AC10] SPM-86-TC03: never gives the Event Organiser who submitted it", async () => {
     const token = signIn(user("organiser", { id: "organiser-id" }));
     db.event.findUnique.mockResolvedValue(withCheck());
 
@@ -418,7 +418,7 @@ describe("GET /api/events/[id] - the safety check history (SPM-88 AC1)", () => {
     decisionNote: "Fire exits are blocked by the stage set.",
   };
 
-  it("SPM-88-TC01: gives staff every submission and decision, newest first", async () => {
+  it("[SPM-88][AC1] SPM-88-TC01: gives staff every submission and decision, newest first", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(event({ status: "planning", safetyChecks: [returned, rejected] }));
 
@@ -445,14 +445,14 @@ describe("GET /api/events/[id] - the safety check history (SPM-88 AC1)", () => {
     expect(body.safetyCheck).toEqual(body.safetyHistory[0]);
   });
 
-  it("gives staff an empty history when the event was never submitted", async () => {
+  it("[SPM-88][AC1] gives staff an empty history when the event was never submitted", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(event({ safetyChecks: [] }));
 
     expect((await (await get(token)).json()).safetyHistory).toEqual([]);
   });
 
-  it("SPM-88-TC02: never gives the Event Organiser the history", async () => {
+  it("[SPM-88][AC10] SPM-88-TC02: never gives the Event Organiser the history", async () => {
     const token = signIn(user("organiser", { id: "organiser-id" }));
     db.event.findUnique.mockResolvedValue(event({ status: "planning", safetyChecks: [returned, rejected] }));
 
@@ -464,7 +464,7 @@ describe("GET /api/events/[id] - the safety check history (SPM-88 AC1)", () => {
 });
 
 describe("PATCH /api/events/[id] - Safety review is not set through the status route", () => {
-  it("refuses { status: 'safety_review' }, writing nothing", async () => {
+  it("[SPM-86][AC3] refuses { status: 'safety_review' }, writing nothing", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(event());
 

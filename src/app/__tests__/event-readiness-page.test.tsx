@@ -192,7 +192,7 @@ const markRequired = (item: HTMLElement) => within(item).getByRole("button", { n
 
 describe("Event Readiness tab (SPM-33)", () => {
   describe("who can open it", () => {
-    it("sends an anonymous visitor to log in", async () => {
+    it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
       setRoute(`/events/${REF}/readiness`, { id: REF });
       mockApi(signedOut());
 
@@ -201,7 +201,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       await waitFor(() => expect(router.push).toHaveBeenCalledWith(LOGIN));
     });
 
-    it("renders nothing until it knows who is looking", () => {
+    it("[SPM-33] renders nothing until it knows who is looking", () => {
       setRoute(`/events/${REF}/readiness`, { id: REF });
       mockApi({ "GET /api/auth/me": () => new Promise(() => {}) });
 
@@ -212,7 +212,7 @@ describe("Event Readiness tab (SPM-33)", () => {
 
     // The roles come from roles.ts, so giving a role the tab moves this with it.
     it.each(ROLES.filter((role) => !eventTabsFor(role).includes("readiness")))(
-      "turns %s away, without asking for the arrangements",
+      "[SPM-22][AC4] turns %s away, without asking for the arrangements",
       async (role) => {
         const api = open([auditorium], {}, role);
 
@@ -227,7 +227,7 @@ describe("Event Readiness tab (SPM-33)", () => {
   describe("its breadcrumb", () => {
     it.each([
       ["coordinator", "Events"],
-    ])("for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+    ])("[SPM-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
       open([auditorium], {}, role);
       await screen.findByRole("heading", { name: "Gala Dinner" });
 
@@ -241,7 +241,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     it.each([
       ["loading", () => { open([auditorium], { [LIST]: () => new Promise(() => {}) }); }],
       ["in error", () => { open([auditorium], { [LIST]: reply(500, {}) }); }],
-    ])("reads 'Event' for the event while %s", async (_case, openIt) => {
+    ])("[SPM-98] reads 'Event' for the event while %s", async (_case, openIt) => {
       openIt();
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -252,7 +252,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       ]);
     });
 
-    it("is the same trail when access is refused", async () => {
+    it("[SPM-98] is the same trail when access is refused", async () => {
       open([auditorium], {}, "organiser");
       await screen.findByRole("alert");
 
@@ -265,7 +265,7 @@ describe("Event Readiness tab (SPM-33)", () => {
   });
 
   describe("loading it", () => {
-    it("shows the event, its reference and its tabs, with Readiness current", async () => {
+    it("[SPM-33] shows the event, its reference and its tabs, with Readiness current", async () => {
       open();
 
       expect(await screen.findByRole("heading", { name: "Gala Dinner" })).toBeInTheDocument();
@@ -280,7 +280,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     it.each([
       ["the assigned coordinator", true],
       ["a coordinator not assigned to the event", false],
-    ])("offers %s the Attendees tab only when the registrations are theirs", async (_who, canView) => {
+    ])("[SPM-22][AC2] offers %s the Attendees tab only when the registrations are theirs", async (_who, canView) => {
       open([auditorium], { [LIST]: payload([auditorium], { canViewRegistrationList: canView }) });
 
       await screen.findByRole("heading", { name: "Gala Dinner" });
@@ -290,7 +290,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       );
     });
 
-    it("says so when the event does not exist or cannot be seen", async () => {
+    it("[SPM-33] says so when the event does not exist or cannot be seen", async () => {
       open([], { [LIST]: reply(404, { error: "Not found" }) });
 
       expect(
@@ -299,13 +299,13 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(screen.getByRole("heading", { name: "Event" })).toBeInTheDocument();
     });
 
-    it("shows a general error when loading fails without a reason", async () => {
+    it("[SPM-33] shows a general error when loading fails without a reason", async () => {
       open([], { [LIST]: () => Promise.reject("offline") });
 
       expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
     });
 
-    it("says so when the arrangements fail to load, and Retry loads them again", async () => {
+    it("[SPM-33] says so when the arrangements fail to load, and Retry loads them again", async () => {
       const api = open([], { [LIST]: reply(500, { error: "Internal server error" }) });
 
       expect(await screen.findByText("Could not load this event's arrangements.")).toBeInTheDocument();
@@ -317,7 +317,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(screen.queryByText("Could not load this event's arrangements.")).not.toBeInTheDocument();
     });
 
-    it("sends the coordinator to log in when the session has ended", async () => {
+    it("[SPM-22][AC4] sends the coordinator to log in when the session has ended", async () => {
       open([], { [LIST]: reply(401, { error: "Not authenticated" }) });
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith(LOGIN));
@@ -326,7 +326,7 @@ describe("Event Readiness tab (SPM-33)", () => {
 
   describe("what it lists", () => {
     // SPM-90 AC5 (written before the code).
-    it("SPM-90-TC07: shows what each booked space is for, before its booking status", async () => {
+    it("[SPM-90][AC5] SPM-90-TC07: shows what each booked space is for, before its booking status", async () => {
       open([
         { ...auditorium, purpose: "Main programme" },
         { ...studioPending, purpose: "Breakout room" },
@@ -336,14 +336,14 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(await row("Orchard Studio")).toHaveTextContent("Space: Breakout room · Booking status: Pending");
     });
 
-    it("SPM-90-TC10: shows no space for a booking made without one", async () => {
+    it("[SPM-90][AC7] SPM-90-TC10: shows no space for a booking made without one", async () => {
       open([{ ...auditorium, purpose: null }]);
 
       expect(await row("Marina Auditorium")).not.toHaveTextContent("Space:");
     });
 
     // AC1, AC2.
-    it("lists each venue booking separately, with its own status", async () => {
+    it("[SPM-33][AC2] lists each venue booking separately, with its own status", async () => {
       open([auditorium, studioPending]);
 
       const approved = await row("Marina Auditorium");
@@ -357,7 +357,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(pending).toHaveTextContent(/still awaiting a decision from Venue Staff/i);
     });
 
-    it("says no venue is booked when the event has none", async () => {
+    it("[SPM-33][AC1] says no venue is booked when the event has none", async () => {
       open([noVenue]);
 
       const item = await row("No venue booked");
@@ -366,7 +366,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(item).toHaveTextContent(/no venue is booked for this event/i);
     });
 
-    it("shows which session a booking belongs to", async () => {
+    it("[SPM-33][AC2] shows which session a booking belongs to", async () => {
       open([
         arrangement({ session: { id: "s1", label: "Day 1" } }),
         { ...noVenue, session: { id: "s2", label: "Day 2" }, missing: "no venue is booked for the Day 2 session" },
@@ -376,14 +376,14 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(await row("No venue booked")).toHaveTextContent("Day 2");
     });
 
-    it("still says which part of the event an arrangement is for when the session has no name", async () => {
+    it("[SPM-33][AC2] still says which part of the event an arrangement is for when the session has no name", async () => {
       open([arrangement({ session: { id: "s1", label: null } })]);
 
       expect(await row("Marina Auditorium")).toHaveTextContent("Session");
     });
 
     // AC3.
-    it("lists each equipment line with its own status, and what is still outstanding", async () => {
+    it("[SPM-33][AC3] lists each equipment line with its own status, and what is still outstanding", async () => {
       open([auditorium, micReserved, deskRequested]);
 
       const mic = await row("Handheld Wireless Mic");
@@ -396,7 +396,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(desk).toHaveTextContent(/not reserved yet/i);
     });
 
-    it("shows an equipment line Technical Support cannot provide as outstanding", async () => {
+    it("[SPM-33][AC3] shows an equipment line Technical Support cannot provide as outstanding", async () => {
       open([
         auditorium,
         outstanding({
@@ -416,7 +416,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     });
 
     // Held, as for Confirm and Submit for safety check (SPM-86): nothing to mark.
-    it("shows a partly reserved equipment line as complete, with nothing to mark", async () => {
+    it("[SPM-33][AC3][AC7] shows a partly reserved equipment line as complete, with nothing to mark", async () => {
       open([auditorium, arrangement({ kind: "equipment", id: "r4", name: "Audio Mixing Desk", status: "partially_fulfilled" })]);
 
       const desk = await row("Audio Mixing Desk");
@@ -427,7 +427,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     });
 
     // AC4.
-    it("shows a flagged booking as outstanding, with why it was flagged", async () => {
+    it("[SPM-33][AC4] shows a flagged booking as outstanding, with why it was flagged", async () => {
       open([
         outstanding({
           flagReason: "the date or time changed",
@@ -443,7 +443,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(item).toHaveTextContent(/flagged for review: the date or time changed/i);
     });
 
-    it("shows flagged equipment as outstanding, with why it was flagged", async () => {
+    it("[SPM-33][AC4] shows flagged equipment as outstanding, with why it was flagged", async () => {
       open([
         auditorium,
         outstanding({
@@ -493,13 +493,13 @@ describe("Event Readiness tab (SPM-33)", () => {
       const reviewLink = (item: HTMLElement) => within(item).queryByRole("link", { name: "Review in Flagged Arrangements" });
       const keepButton = (item: HTMLElement, name = "Keep booking") => within(item).queryByRole("button", { name });
 
-      it("links a flagged booking to the Venue bookings tab of Flagged Arrangements", async () => {
+      it("[SPM-68][AC1] links a flagged booking to the Venue bookings tab of Flagged Arrangements", async () => {
         openWith([flaggedBooking]);
 
         expect(reviewLink(await row("Marina Auditorium"))).toHaveAttribute("href", "/flagged?tab=venue");
       });
 
-      it("links flagged equipment to the Equipment reservations tab", async () => {
+      it("[SPM-68][AC1] links flagged equipment to the Equipment reservations tab", async () => {
         openWith([auditorium, flaggedMic]);
 
         expect(reviewLink(await row("Handheld Wireless Mic"))).toHaveAttribute("href", "/flagged?tab=equipment");
@@ -508,7 +508,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(keepButton(await row("Marina Auditorium"))).not.toBeInTheDocument();
       });
 
-      it("offers Keep booking on a flagged booking that still meets the event's requirements", async () => {
+      it("[SPM-68][AC6] offers Keep booking on a flagged booking that still meets the event's requirements", async () => {
         openWith([flaggedBooking]);
 
         const item = await row("Marina Auditorium");
@@ -518,7 +518,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(keepButton(item, "Mark as not required")).toBeInTheDocument();
       });
 
-      it("offers Keep reservation on flagged equipment that is still available", async () => {
+      it("[SPM-68][AC6] offers Keep reservation on flagged equipment that is still available", async () => {
         openWith([auditorium, flaggedMic], {
           routes: { [FLAGGED]: live([], [{ id: flaggedMic.id, availability: { ok: true, summary: "2 reserved, 4 available for these dates." } }]) },
         });
@@ -527,7 +527,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         await waitFor(() => expect(keepButton(item, "Keep reservation")).toBeInTheDocument());
       });
 
-      it("offers no Keep on a booking that no longer fits, and says what is unmet", async () => {
+      it("[SPM-68][AC7] offers no Keep on a booking that no longer fits, and says what is unmet", async () => {
         openWith([flaggedBooking], {
           routes: {
             [FLAGGED]: live([
@@ -550,7 +550,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(reviewLink(item)).toBeInTheDocument();
       });
 
-      it("offers no Keep on equipment that can no longer be covered, and names the shortfall", async () => {
+      it("[SPM-68][AC7] offers no Keep on equipment that can no longer be covered, and names the shortfall", async () => {
         openWith([auditorium, flaggedMic], {
           routes: { [FLAGGED]: live([], [{ id: flaggedMic.id, availability: { ok: false, summary: "2 reserved, 1 available for these dates." } }]) },
         });
@@ -563,7 +563,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(keepButton(item, "Keep reservation")).not.toBeInTheDocument();
       });
 
-      it("keeps the booking, says the flag is cleared, and shows the list as it now stands", async () => {
+      it("[SPM-68][AC6] keeps the booking, says the flag is cleared, and shows the list as it now stands", async () => {
         const api = openWith([flaggedBooking], { routes: { [KEEP]: { cleared: true } } });
         const item = await row("Marina Auditorium");
         await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
@@ -580,7 +580,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(reviewLink(after)).not.toBeInTheDocument();
       });
 
-      it("keeps equipment by its own kind", async () => {
+      it("[SPM-68][AC6] keeps equipment by its own kind", async () => {
         const api = openWith([auditorium, flaggedMic], {
           routes: {
             [FLAGGED]: live([], [{ id: flaggedMic.id, availability: { ok: true, summary: "2 reserved, 4 available for these dates." } }]),
@@ -597,7 +597,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       });
 
       // The page's result was out of date: the server still decides (AC7).
-      it("shows the server's refusal, and clears nothing", async () => {
+      it("[SPM-68][AC7] shows the server's refusal, and clears nothing", async () => {
         const refusal = "Marina Auditorium no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150.";
         openWith([flaggedBooking], { routes: { [KEEP]: reply(400, { error: refusal }) } });
         const item = await row("Marina Auditorium");
@@ -619,7 +619,7 @@ describe("Event Readiness tab (SPM-33)", () => {
           },
           "Could not reach the server. Check your connection and try again.",
         ],
-      ])("says so when the server %s", async (_what, answer, message) => {
+      ])("[SPM-68] says so when the server %s", async (_what, answer, message) => {
         openWith([flaggedBooking], { routes: { [KEEP]: answer } });
         const item = await row("Marina Auditorium");
         await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
@@ -629,7 +629,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(await screen.findByText(message)).toBeInTheDocument();
       });
 
-      it("sends the user to log in when their session has expired", async () => {
+      it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
         openWith([flaggedBooking], { routes: { [KEEP]: reply(401, {}) } });
         const item = await row("Marina Auditorium");
         await waitFor(() => expect(keepButton(item)).toBeInTheDocument());
@@ -647,7 +647,7 @@ describe("Event Readiness tab (SPM-33)", () => {
             throw new Error("offline");
           },
         ],
-      ])("keeps the link and offers no Keep when the live result %s", async (_what, answer) => {
+      ])("[SPM-68][AC7] keeps the link and offers no Keep when the live result %s", async (_what, answer) => {
         const api = openWith([flaggedBooking], { routes: { [FLAGGED]: answer } });
 
         const item = await row("Marina Auditorium");
@@ -657,7 +657,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(item).not.toHaveTextContent("can't be kept");
       });
 
-      it("offers no Keep on a flagged arrangement the live list does not have", async () => {
+      it("[SPM-68] offers no Keep on a flagged arrangement the live list does not have", async () => {
         const api = openWith([flaggedBooking], { routes: { [FLAGGED]: live([]) } });
 
         const item = await row("Marina Auditorium");
@@ -665,7 +665,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(keepButton(item)).not.toBeInTheDocument();
       });
 
-      it("still links a flagged request Venue Staff have not decided, which is outstanding for that reason", async () => {
+      it("[SPM-33][AC4] still links a flagged request Venue Staff have not decided, which is outstanding for that reason", async () => {
         openWith([
           outstanding({
             status: "pending",
@@ -677,7 +677,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(reviewLink(await row("Marina Auditorium"))).toBeInTheDocument();
       });
 
-      it("does not ask for the live result when nothing on the event is flagged", async () => {
+      it("[SPM-68] does not ask for the live result when nothing on the event is flagged", async () => {
         const api = openWith([outstanding({ status: "pending", missing: "Marina Auditorium for this event is still awaiting a decision from Venue Staff" })]);
 
         const item = await row("Marina Auditorium");
@@ -686,7 +686,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       });
 
       // Marking as not required waives it for confirmation; the flag is still there.
-      it("keeps the link and Keep on a flagged arrangement that is marked as not required", async () => {
+      it("[SPM-68][AC6] [SPM-33][AC10] keeps the link and Keep on a flagged arrangement that is marked as not required", async () => {
         openWith([arrangement({ flagReason: "the date or time changed", state: "not_required", required: false, complete: false, waived: true })]);
 
         const item = await row("Marina Auditorium");
@@ -698,7 +698,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       it.each([
         ["another coordinator, who would not find it listed", { canReviewFlags: false }],
         ["an answer that does not say", {}],
-      ])("has neither link nor Keep for %s, and does not ask for the live result", async (_who, overrides) => {
+      ])("[SPM-68] has neither link nor Keep for %s, and does not ask for the live result", async (_who, overrides) => {
         const api = openWith([flaggedBooking], { overrides });
 
         const item = await row("Marina Auditorium");
@@ -707,7 +707,7 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(api.sent(FLAGGED)).toHaveLength(0);
       });
 
-      it("has no link on a kind the Flagged Arrangements page has no tab for", async () => {
+      it("[SPM-68] has no link on a kind the Flagged Arrangements page has no tab for", async () => {
         openWith([outstanding({ kind: "registration", id: null, name: "Registration setup", status: null, flagReason: "the date or time changed", missing: "registration setup is incomplete" })]);
 
         expect(reviewLink(await row("Registration setup"))).not.toBeInTheDocument();
@@ -715,7 +715,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     });
 
     // AC5.
-    it("shows registration that is enabled but incomplete as outstanding", async () => {
+    it("[SPM-33][AC5] shows registration that is enabled but incomplete as outstanding", async () => {
       open([auditorium, registrationIncomplete]);
 
       const item = await row("Registration setup");
@@ -725,7 +725,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     });
 
     // The account that marked it has since been removed: the time still stands.
-    it("still says when an arrangement was marked as not required if nobody is named", async () => {
+    it("[SPM-33][AC10] still says when an arrangement was marked as not required if nobody is named", async () => {
       open([auditorium, { ...stageWaived, notRequiredBy: null }]);
 
       const stage = await row("Portable Stage");
@@ -735,7 +735,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     });
 
     // AC7, AC10.
-    it("tells complete, outstanding and not-required arrangements apart", async () => {
+    it("[SPM-33][AC7][AC10] tells complete, outstanding and not-required arrangements apart", async () => {
       open([auditorium, deskRequested, stageWaived]);
 
       const complete = await row("Marina Auditorium");
@@ -758,7 +758,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     });
 
     // Briefing 8f (Auditability), customer answer #14: who did it, and when.
-    it("says who marked an arrangement as not required, and when", async () => {
+    it("[SPM-33][AC10] says who marked an arrangement as not required, and when", async () => {
       open([auditorium, deskRequested, stageWaived]);
 
       expect(await row("Portable Stage")).toHaveTextContent(
@@ -771,19 +771,19 @@ describe("Event Readiness tab (SPM-33)", () => {
 
   // AC11.
   describe("what is preventing confirmation", () => {
-    it("counts the outstanding arrangements, leaving out those marked as not required", async () => {
+    it("[SPM-33][AC11] counts the outstanding arrangements, leaving out those marked as not required", async () => {
       open([auditorium, studioPending, deskRequested, stageWaived]);
 
       expect(await screen.findByText("2 arrangements still block confirmation")).toBeInTheDocument();
     });
 
-    it("counts a single one in the singular", async () => {
+    it("[SPM-33][AC11] counts a single one in the singular", async () => {
       open([auditorium, deskRequested]);
 
       expect(await screen.findByText("1 arrangement still blocks confirmation")).toBeInTheDocument();
     });
 
-    it("says nothing is blocking once everything is complete or not required", async () => {
+    it("[SPM-33][AC11] says nothing is blocking once everything is complete or not required", async () => {
       open([auditorium, micReserved, stageWaived]);
 
       expect(await screen.findByText("Nothing is blocking confirmation")).toBeInTheDocument();
@@ -793,7 +793,7 @@ describe("Event Readiness tab (SPM-33)", () => {
 
   // Cleaned up 2026-10-12 so a first-time user can read it.
   describe("how it is laid out", () => {
-    it("groups the arrangements into sections, in the order they are worked through", async () => {
+    it("[SPM-33] groups the arrangements into sections, in the order they are worked through", async () => {
       open([auditorium, deskRequested, registrationIncomplete]);
 
       await row("Marina Auditorium");
@@ -805,7 +805,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(within(screen.getByRole("list", { name: "Equipment" })).getByText("Audio Mixing Desk")).toBeInTheDocument();
     });
 
-    it("says what each state means", async () => {
+    it("[SPM-33][AC7][AC10] says what each state means", async () => {
       open();
 
       await row("Marina Auditorium");
@@ -815,7 +815,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(key).toHaveTextContent("Not requiredMarked as not needed for this event.");
     });
 
-    it("says what an arrangement's own status is the status of", async () => {
+    it("[SPM-33] says what an arrangement's own status is the status of", async () => {
       open([
         auditorium,
         arrangement({ session: { id: "s1", label: "Day 1" }, id: "b9", name: "Orchard Studio", status: "pending" }),
@@ -827,7 +827,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(await row("Audio Mixing Desk")).toHaveTextContent("Request status: Requested");
     });
 
-    it("says when the event has no equipment, or registration is not enabled", async () => {
+    it("[SPM-33][AC3][AC5] says when the event has no equipment, or registration is not enabled", async () => {
       open([auditorium]);
 
       expect(await screen.findByText("No equipment has been recorded for this event.")).toBeInTheDocument();
@@ -835,7 +835,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     });
 
     // SPM-64: registration that is off is not required, but nobody waived it.
-    it("shows registration that is not enabled as not required, with nothing to mark", async () => {
+    it("[SPM-33][AC5][AC10] shows registration that is not enabled as not required, with nothing to mark", async () => {
       open([
         auditorium,
         arrangement({
@@ -860,14 +860,14 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(within(item).queryByRole("button")).not.toBeInTheDocument();
     });
 
-    it("gives an arrangement of a kind it does not know a section of its own", async () => {
+    it("[SPM-33] gives an arrangement of a kind it does not know a section of its own", async () => {
       open([auditorium, arrangement({ kind: "catering", id: "c1", name: "Lunch for 30", status: null })]);
 
       expect(await row("Lunch for 30")).toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Catering" })).toBeInTheDocument();
     });
 
-    it("tells a confirmed event that it is confirmed, not what blocks confirmation", async () => {
+    it("[SPM-33] tells a confirmed event that it is confirmed, not what blocks confirmation", async () => {
       open([], {
         [LIST]: payload([auditorium], { canManage: false, event: { sequenceNumber: 7, title: "Gala Dinner", status: "confirmed" } }),
       });
@@ -900,7 +900,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       ["safety_approved", "Approved", "Complete"],
       ["safety_changes_requested", "Changes requested", "Outstanding"],
       ["safety_rejected", "Rejected", "Outstanding"],
-    ])("shows a check that is %s as '%s'", async (status, label, state) => {
+    ])("[SPM-33][AC6] shows a check that is %s as '%s'", async (status, label, state) => {
       open([auditorium, safety(status)]);
 
       const item = await row("Operational Safety Check");
@@ -909,13 +909,13 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(item).toHaveTextContent(state);
     });
 
-    it("says who submitted it and when", async () => {
+    it("[SPM-33][AC6] says who submitted it and when", async () => {
       open([auditorium, safety("safety_awaiting_review")]);
 
       expect(await row("Operational Safety Check")).toHaveTextContent("Submitted by Daniel Tan on 9 Oct 2026, 14:30");
     });
 
-    it("never offers to mark it as not required, even to the assigned coordinator", async () => {
+    it("[SPM-33][AC9] never offers to mark it as not required, even to the assigned coordinator", async () => {
       open([deskRequested, safety("safety_not_submitted")]);
 
       const item = await row("Operational Safety Check");
@@ -924,21 +924,21 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(markNotRequired(await row("Audio Mixing Desk"))).toBeEnabled();
     });
 
-    it("says Confirm does not wait for it yet, and leaves it out of the count", async () => {
+    it("[SPM-33][AC6] says Confirm does not wait for it yet, and leaves it out of the count", async () => {
       open([auditorium, safety("safety_not_submitted")]);
 
       expect(await row("Operational Safety Check")).toHaveTextContent("Confirm event does not wait for it yet.");
       expect(await screen.findByText("Nothing is blocking confirmation")).toBeInTheDocument();
     });
 
-    it("counts a check awaiting review as blocking, without saying Confirm does not wait", async () => {
+    it("[SPM-33][AC6][AC11] counts a check awaiting review as blocking, without saying Confirm does not wait", async () => {
       open([auditorium, safety("safety_awaiting_review", { blocksConfirmation: true })]);
 
       expect(await screen.findByText("1 arrangement still blocks confirmation")).toBeInTheDocument();
       expect(await row("Operational Safety Check")).not.toHaveTextContent("does not wait for it");
     });
 
-    it("does not say so once the check is approved", async () => {
+    it("[SPM-33][AC6] does not say so once the check is approved", async () => {
       open([auditorium, safety("safety_approved")]);
 
       expect(await row("Operational Safety Check")).not.toHaveTextContent("does not wait for it");
@@ -947,7 +947,7 @@ describe("Event Readiness tab (SPM-33)", () => {
 
   // AC8.
   describe("marking an arrangement as not required", () => {
-    it("offers it on every outstanding booking, equipment line and registration setup", async () => {
+    it("[SPM-33][AC8] offers it on every outstanding booking, equipment line and registration setup", async () => {
       open([studioPending, deskRequested, registrationIncomplete]);
 
       for (const name of ["Orchard Studio", "Audio Mixing Desk", "Registration setup"]) {
@@ -955,7 +955,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       }
     });
 
-    it("does not offer it on a complete arrangement, or on a missing venue", async () => {
+    it("[SPM-33][AC8] does not offer it on a complete arrangement, or on a missing venue", async () => {
       open([noVenue, micReserved]);
 
       for (const name of ["No venue booked", "Handheld Wireless Mic"]) {
@@ -965,7 +965,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       }
     });
 
-    it("sends the equipment line, then shows it as not required and no longer blocking", async () => {
+    it("[SPM-33][AC8][AC11] sends the equipment line, then shows it as not required and no longer blocking", async () => {
       const api = open([auditorium, deskRequested], {
         [MARK]: payload([auditorium, notRequired(deskRequested)]),
       });
@@ -980,7 +980,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(markRequired(await row("Audio Mixing Desk"))).toBeEnabled();
     });
 
-    it("sends a venue booking by its own id, so the event's other bookings are untouched", async () => {
+    it("[SPM-33][AC8] [SPM-81][AC7] sends a venue booking by its own id, so the event's other bookings are untouched", async () => {
       const api = open([auditorium, studioPending], {
         [MARK]: payload([auditorium, notRequired(studioPending)]),
       });
@@ -993,7 +993,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(await row("Marina Auditorium")).toHaveTextContent("Complete");
     });
 
-    it("sends registration setup without an id", async () => {
+    it("[SPM-33][AC8] sends registration setup without an id", async () => {
       const api = open([auditorium, registrationIncomplete], {
         [MARK]: payload([auditorium, notRequired(registrationIncomplete)]),
       });
@@ -1004,7 +1004,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(api.sent(MARK)[0].body).toEqual({ kind: "registration", notRequired: true });
     });
 
-    it("reverses the decision: the arrangement is outstanding and blocking again", async () => {
+    it("[SPM-33][AC8] reverses the decision: the arrangement is outstanding and blocking again", async () => {
       const api = open([auditorium, stageWaived], {
         [MARK]: payload([
           auditorium,
@@ -1022,7 +1022,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(await screen.findByText("1 arrangement still blocks confirmation")).toBeInTheDocument();
     });
 
-    it("shows the server's reason when it refuses, and leaves the arrangement as it was", async () => {
+    it("[SPM-33][AC8] shows the server's reason when it refuses, and leaves the arrangement as it was", async () => {
       open([auditorium, deskRequested], {
         [MARK]: reply(400, { error: "Arrangements can only be marked as not required while the event is in Planning." }),
       });
@@ -1036,7 +1036,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(screen.getByText("1 arrangement still blocks confirmation")).toBeInTheDocument();
     });
 
-    it("says the arrangement could not be updated when the server gives no reason", async () => {
+    it("[SPM-33][AC8] says the arrangement could not be updated when the server gives no reason", async () => {
       open([auditorium, deskRequested], { [MARK]: reply(500, {}) });
 
       await userEvent.click(markNotRequired(await row("Audio Mixing Desk")));
@@ -1044,7 +1044,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(await screen.findByText("Could not update this arrangement.")).toBeInTheDocument();
     });
 
-    it("says so when the server cannot be reached", async () => {
+    it("[SPM-33][AC8] says so when the server cannot be reached", async () => {
       open([auditorium, deskRequested], {
         [MARK]: () => {
           throw new TypeError("Failed to fetch");
@@ -1059,7 +1059,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(await row("Audio Mixing Desk")).toHaveTextContent("Outstanding");
     });
 
-    it("sends the coordinator to log in when the session has ended", async () => {
+    it("[SPM-22][AC4] sends the coordinator to log in when the session has ended", async () => {
       open([auditorium, deskRequested], { [MARK]: reply(401, { error: "Not authenticated" }) });
 
       await userEvent.click(markNotRequired(await row("Audio Mixing Desk")));
@@ -1072,7 +1072,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     it.each([
       ["another coordinator's event", { canManage: false }],
       ["an event that is already Confirmed", { canManage: false, event: { sequenceNumber: 7, title: "Gala Dinner", status: "confirmed" } }],
-    ])("lists the arrangements of %s but offers nothing to change", async (_case, overrides) => {
+    ])("[SPM-33][AC8] lists the arrangements of %s but offers nothing to change", async (_case, overrides) => {
       open([], { [LIST]: payload([auditorium, deskRequested, stageWaived], overrides) });
 
       expect(await row("Audio Mixing Desk")).toHaveTextContent("Outstanding");

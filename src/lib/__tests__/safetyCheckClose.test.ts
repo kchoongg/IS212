@@ -25,7 +25,7 @@ beforeEach(() => {
 });
 
 describe("closeSafetyCheck", () => {
-  it("closes the event's pending or approved check, recording who, when and why", async () => {
+  it("[SPM-88][AC5][AC6] closes the event's pending or approved check, recording who, when and why", async () => {
     expect(await closeSafetyCheck(tx, "e1", "u1", "the equipment changed", now)).toBe(true);
 
     expect(callArg(db.safetyCheck.updateMany)).toEqual({
@@ -34,7 +34,7 @@ describe("closeSafetyCheck", () => {
     });
   });
 
-  it("says so when there was no open check", async () => {
+  it("[SPM-88][AC5][AC6] says so when there was no open check", async () => {
     db.safetyCheck.updateMany.mockResolvedValue({ count: 0 });
 
     expect(await closeSafetyCheck(tx, "e1", "u1", "the equipment changed", now)).toBe(false);
@@ -43,7 +43,7 @@ describe("closeSafetyCheck", () => {
 
 describe("closeSafetyCheckAfterChange", () => {
   it.each(["safety_review", "safety_cleared"])(
-    "SPM-88-TC07/TC10: moves a %s event back to Planning, records why, and closes its check",
+    "[SPM-88][AC6] SPM-88-TC07/TC10: moves a %s event back to Planning, records why, and closes its check",
     async (status) => {
       expect(await closeSafetyCheckAfterChange(tx, { id: "e1", status }, "u1", "the equipment changed", false, now)).toBe(true);
 
@@ -59,7 +59,7 @@ describe("closeSafetyCheckAfterChange", () => {
     }
   );
 
-  it("does nothing when another change got there first", async () => {
+  it("[SPM-88][AC6] does nothing when another change got there first", async () => {
     db.event.updateMany.mockResolvedValue({ count: 0 });
 
     expect(await closeSafetyCheckAfterChange(tx, { id: "e1", status: "safety_review" }, "u1", "x", false, now)).toBe(false);
@@ -67,14 +67,14 @@ describe("closeSafetyCheckAfterChange", () => {
     expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
   });
 
-  it("SPM-88-TC12: closes the approval of a Confirmed event the caller has just moved back", async () => {
+  it("[SPM-88][AC5] SPM-88-TC12: closes the approval of a Confirmed event the caller has just moved back", async () => {
     expect(await closeSafetyCheckAfterChange(tx, { id: "e1", status: "confirmed" }, "u1", "the equipment changed", true, now)).toBe(true);
 
     expect(db.event.updateMany).not.toHaveBeenCalled();
     expect(callArg(db.safetyCheck.updateMany).where).toEqual({ eventId: "e1", status: { in: ["pending", "approved"] } });
   });
 
-  it.each(["approved", "planning", "confirmed"])("SPM-88-TC11: leaves a %s event alone", async (status) => {
+  it.each(["approved", "planning", "confirmed"])("[SPM-88][AC7] SPM-88-TC11: leaves a %s event alone", async (status) => {
     expect(await closeSafetyCheckAfterChange(tx, { id: "e1", status }, "u1", "x", false, now)).toBe(false);
     expect(db.event.updateMany).not.toHaveBeenCalled();
     expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();

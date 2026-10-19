@@ -64,7 +64,7 @@ async function approvedEvent(request: APIRequestContext, title: string, day: str
   return reference;
 }
 
-test("a second event's request for a room already held at that time is refused, naming the event that holds it", async ({
+test("[SPM-44][AC5][AC9] a second event's request for a room already held at that time is refused, naming the event that holds it", async ({
   page,
   request,
 }) => {

@@ -56,7 +56,7 @@ const panel = async () =>
 const registerButton = () => screen.queryByRole("button", { name: "Register" });
 
 describe("AC2 + AC5 an attendee registers for an eligible event", () => {
-  it("offers the two optional fields and Register (TC02)", async () => {
+  it("[SPM-51][AC2] offers the two optional fields and Register (TC02)", async () => {
     open();
 
     await screen.findByRole("heading", { name: "Your registration" });
@@ -66,7 +66,7 @@ describe("AC2 + AC5 an attendee registers for an eligible event", () => {
     expect(registerButton()).toBeInTheDocument();
   });
 
-  it("sends the event and what was typed, then says they are registered (TC02)", async () => {
+  it("[SPM-51][AC2][AC5] sends the event and what was typed, then says they are registered (TC02)", async () => {
     const api = open();
     await screen.findByRole("heading", { name: "Your registration" });
 
@@ -81,7 +81,7 @@ describe("AC2 + AC5 an attendee registers for an eligible event", () => {
     expect(registerButton()).not.toBeInTheDocument();
   });
 
-  it("leaves out fields left empty", async () => {
+  it("[SPM-51][AC5] leaves out fields left empty", async () => {
     const api = open();
     await screen.findByRole("heading", { name: "Your registration" });
 
@@ -92,7 +92,7 @@ describe("AC2 + AC5 an attendee registers for an eligible event", () => {
     expect(api.sent(REGISTER)[0].body).toEqual({ eventId: "event-uuid" });
   });
 
-  it("sends accessibility requirements on their own, trimmed", async () => {
+  it("[SPM-51][AC5] sends accessibility requirements on their own, trimmed", async () => {
     const api = open();
     await screen.findByRole("heading", { name: "Your registration" });
 
@@ -107,7 +107,7 @@ describe("AC2 + AC5 an attendee registers for an eligible event", () => {
 });
 
 describe("AC6 + AC7 an attendee who already holds a place sees it instead of Register", () => {
-  it("shows a registration with the date it was made (TC02)", async () => {
+  it("[SPM-51][AC6] shows a registration with the date it was made (TC02)", async () => {
     open(publicEvent({ myRegistration: { status: "registered", registeredAt: "2026-10-05T02:00:00.000Z" } }));
 
     const card = await panel();
@@ -117,7 +117,7 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(registerButton()).not.toBeInTheDocument();
   });
 
-  it("shows a place on the waiting list (TC11)", async () => {
+  it("[SPM-51][AC6] shows a place on the waiting list (TC11)", async () => {
     open(publicEvent({ registrationState: { kind: "full" }, myRegistration: { status: "waitlisted", registeredAt: "2026-10-05T02:00:00.000Z" } }));
 
     const card = await panel();
@@ -127,7 +127,7 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(registerButton()).not.toBeInTheDocument();
   });
 
-  it("offers Register again to an attendee who withdrew", async () => {
+  it("[SPM-51][AC2] [SPM-52][AC3] offers Register again to an attendee who withdrew", async () => {
     open(publicEvent({ myRegistration: { status: "withdrawn", registeredAt: "2026-10-05T02:00:00.000Z" } }));
 
     await screen.findByRole("heading", { name: "Your registration" });
@@ -135,7 +135,7 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(registerButton()).toBeInTheDocument();
   });
 
-  it("shows the server's refusal when a second registration is made from another tab (TC03)", async () => {
+  it("[SPM-51][AC7] shows the server's refusal when a second registration is made from another tab (TC03)", async () => {
     open(publicEvent(), { [REGISTER]: reply(400, { error: "Already registered for this event" }) });
     await screen.findByRole("heading", { name: "Your registration" });
 
@@ -145,7 +145,7 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(screen.queryByText("You're registered for this event.")).not.toBeInTheDocument();
   });
 
-  it("drops the old title and status badge when the event can no longer be loaded", async () => {
+  it("[SPM-51] drops the old title and status badge when the event can no longer be loaded", async () => {
     const api = open();
     await screen.findByRole("heading", { level: 1, name: "SPM51 Harbour Open House" });
     api.on(REGISTER, reply(201, { id: "r1" }));
@@ -159,7 +159,7 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(screen.queryByText(REF)).not.toBeInTheDocument();
   });
 
-  it("shows a general refusal when the server gives no reason", async () => {
+  it("[SPM-51] shows a general refusal when the server gives no reason", async () => {
     open(publicEvent(), { [REGISTER]: reply(400, {}) });
     await screen.findByRole("heading", { name: "Your registration" });
 
@@ -168,7 +168,7 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(await screen.findByText("Could not register for this event.")).toBeInTheDocument();
   });
 
-  it("says so when the server can't be reached", async () => {
+  it("[SPM-51] says so when the server can't be reached", async () => {
     open(publicEvent(), {
       [REGISTER]: () => {
         throw new TypeError("Failed to fetch");
@@ -192,7 +192,7 @@ describe("AC3 + AC4 an event outside its period can't be registered for, and say
     ["not open yet, with no opening date sent", { kind: "not_open" }, "Registration opens —."],
     ["closed, with no closing date sent", { kind: "closed" }, "Registration closed on —."],
     ["not enabled", { kind: "disabled" }, "Registration is not enabled for this event."],
-  ])("says when an event is %s, with no Register button (TC06-TC08)", async (_state, state, message) => {
+  ])("[SPM-51][AC3][AC4] says when an event is %s, with no Register button (TC06-TC08)", async (_state, state, message) => {
     open(publicEvent({ registrationState: state }));
 
     expect(await screen.findByText(message)).toBeInTheDocument();
@@ -202,7 +202,7 @@ describe("AC3 + AC4 an event outside its period can't be registered for, and say
 });
 
 describe("AC9 + AC10 a full event offers the waiting list instead of Register", () => {
-  it("says the event is full and offers the waiting list, with no Register button (TC05)", async () => {
+  it("[SPM-51][AC9][AC10] says the event is full and offers the waiting list, with no Register button (TC05)", async () => {
     open(publicEvent({ registrationState: { kind: "full" } }));
 
     expect(await screen.findByText("This event is full. You can join the waiting list instead.")).toBeInTheDocument();
@@ -211,7 +211,7 @@ describe("AC9 + AC10 a full event offers the waiting list instead of Register", 
     expect(screen.queryByLabelText("Dietary requirements")).not.toBeInTheDocument();
   });
 
-  it("shows the refusal when the last seat went while the page was open (TC05)", async () => {
+  it("[SPM-51][AC9] shows the refusal when the last seat went while the page was open (TC05)", async () => {
     open(publicEvent(), { [REGISTER]: reply(400, { error: "This event is full" }) });
     await screen.findByRole("heading", { name: "Your registration" });
 
@@ -223,7 +223,7 @@ describe("AC9 + AC10 a full event offers the waiting list instead of Register", 
 
 describe("only an attendee gets the card (TC12)", () => {
   it.each(["coordinator", "organiser", "ops_manager", "venue_staff", "tech_support"])(
-    "doesn't show it to %s",
+    "[SPM-22][AC3] doesn't show it to %s",
     async (role) => {
       open(
         { ...publicEvent(), organiserId: "o1", organisationId: "org", coordinatorId: "c1", coordinator: null, facilityRequirements: [] },
@@ -250,7 +250,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
       .getByRole("heading", { hidden: true, name: "Withdraw from SPM51 Harbour Open House?" })
       .closest("dialog") as HTMLElement;
 
-  it("offers Withdraw next to a registration (AC1)", async () => {
+  it("[SPM-52][AC1] offers Withdraw next to a registration (AC1)", async () => {
     open(publicEvent({ myRegistration: mine("registered") }));
 
     await panel();
@@ -258,7 +258,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(withdrawButton()).toBeInTheDocument();
   });
 
-  it.each(["waitlisted", "attended"])("offers no Withdraw on a %s registration", async (status) => {
+  it.each(["waitlisted", "attended"])("[SPM-52][AC1] offers no Withdraw on a %s registration", async (status) => {
     open(publicEvent({ myRegistration: mine(status) }));
 
     await panel();
@@ -270,7 +270,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     ["cancelled", { status: "cancelled" }],
     ["completed", { status: "completed", startsAt: "2026-09-15T01:00:00.000Z", endsAt: "2026-09-15T09:00:00.000Z" }],
     ["ended", { startsAt: "2026-09-15T01:00:00.000Z", endsAt: "2026-09-15T09:00:00.000Z" }],
-  ])("offers no Withdraw once the event is %s", async (_case, eventFields) => {
+  ])("[SPM-52][AC1] offers no Withdraw once the event is %s", async (_case, eventFields) => {
     open(publicEvent({ ...eventFields, myRegistration: mine("registered") }));
 
     await panel();
@@ -278,7 +278,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(withdrawButton()).not.toBeInTheDocument();
   });
 
-  it("withdraws once confirmed, says so, and offers Register again (AC1-AC3)", async () => {
+  it("[SPM-52][AC1][AC2][AC3] withdraws once confirmed, says so, and offers Register again (AC1-AC3)", async () => {
     const api = open(publicEvent({ myRegistration: mine("registered") }));
     await panel();
     api.on(WITHDRAW, { id: "reg-1", status: "withdrawn" });
@@ -294,7 +294,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(screen.queryByText("You registered on 5 Oct 2026.")).not.toBeInTheDocument();
   });
 
-  it("asks with no warning while the attendee could register again", async () => {
+  it("[SPM-52][AC1] asks with no warning while the attendee could register again", async () => {
     open(publicEvent({ myRegistration: mine("registered") }));
     await panel();
 
@@ -303,7 +303,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(dialog()).not.toHaveTextContent("you can't register again");
   });
 
-  it("warns that registration has closed before withdrawing", async () => {
+  it("[SPM-52][AC1] warns that registration has closed before withdrawing", async () => {
     open(
       publicEvent({
         registrationClosesAt: "2026-10-01T09:00:00.000Z",
@@ -320,7 +320,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
 
   // Bug: with registration turned off, the attendee could only see the event while holding a place,
   // so the reload after withdrawing is a 404, and they were told the event doesn't exist.
-  it("warns first, then takes the attendee to My Registrations when registration is turned off", async () => {
+  it("[SPM-52][AC1] warns first, then takes the attendee to My Registrations when registration is turned off", async () => {
     const api = open(
       publicEvent({ registrationEnabled: false, registrationState: { kind: "disabled" }, myRegistration: mine("registered") })
     );
@@ -339,7 +339,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(screen.queryByText("This event doesn't exist, or you don't have access to it.")).not.toBeInTheDocument();
   });
 
-  it("stays on the event page when it can still be seen once withdrawn", async () => {
+  it("[SPM-52][AC1] stays on the event page when it can still be seen once withdrawn", async () => {
     const api = open(publicEvent({ myRegistration: mine("registered") }));
     await panel();
     api.on(WITHDRAW, { id: "reg-1", status: "withdrawn" });
@@ -352,7 +352,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(router.replace).not.toHaveBeenCalled();
   });
 
-  it("sends nothing when the attendee keeps their place", async () => {
+  it("[SPM-52][AC1] sends nothing when the attendee keeps their place", async () => {
     const api = open(publicEvent({ myRegistration: mine("registered") }));
     await panel();
 
@@ -363,7 +363,7 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(screen.getByText("You registered on 5 Oct 2026.")).toBeInTheDocument();
   });
 
-  it("says so when the server can't be reached", async () => {
+  it("[SPM-52] says so when the server can't be reached", async () => {
     open(publicEvent({ myRegistration: mine("registered") }), {
       [WITHDRAW]: () => {
         throw new TypeError("Failed to fetch");

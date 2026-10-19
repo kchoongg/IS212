@@ -39,26 +39,26 @@ function check(input: { sessions?: { id: string; label: string | null }[]; booki
 const PREFIX = "This event cannot be submitted for a safety check yet: ";
 
 describe("checkSafetySubmission - ready (AC1)", () => {
-  it("accepts an approved venue and reserved equipment", () => {
+  it("[SPM-86][AC1] accepts an approved venue and reserved equipment", () => {
     expect(check({ bookings: [booking()], equipment: [item()] })).toEqual({ ok: true });
   });
 
-  it("accepts equipment Technical Support could only partly supply, as Confirm event does", () => {
+  it("[SPM-86][AC1] accepts equipment Technical Support could only partly supply, as Confirm event does", () => {
     expect(check({ bookings: [booking()], equipment: [item({ status: "partially_fulfilled" })] })).toEqual({ ok: true });
   });
 
-  it("accepts an event that recorded no equipment at all", () => {
+  it("[SPM-86][AC1] accepts an event that recorded no equipment at all", () => {
     expect(check({ bookings: [booking()] })).toEqual({ ok: true });
   });
 
-  it("ignores a flag on a booking that is no longer in play", () => {
+  it("[SPM-86][AC1] ignores a flag on a booking that is no longer in play", () => {
     const rejected = booking({ status: "rejected", needsReview: true, reviewReason: "event_schedule_changed" });
     expect(check({ bookings: [rejected, booking()], equipment: [item()] })).toEqual({ ok: true });
   });
 });
 
 describe("checkSafetySubmission - refused (AC2)", () => {
-  it("names a pending venue and an unreserved item, and not the item that is reserved", () => {
+  it("[SPM-86][AC2] names a pending venue and an unreserved item, and not the item that is reserved", () => {
     const result = check({
       bookings: [booking({ status: "pending" })],
       equipment: [item(), item({ status: "requested", equipmentName: "Audio Mixing Desk" })],
@@ -77,14 +77,14 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     });
   });
 
-  it("refuses an event with no venue at all", () => {
+  it("[SPM-86][AC2] refuses an event with no venue at all", () => {
     const result = check({ equipment: [item()] });
 
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error).toBe(PREFIX + "no venue is booked for this event.");
   });
 
-  it("refuses an approved venue booking that is flagged for review, with the reason in words", () => {
+  it("[SPM-86][AC2] refuses an approved venue booking that is flagged for review, with the reason in words", () => {
     const flagged = booking({ needsReview: true, reviewReason: "event_schedule_changed" });
 
     const result = check({ bookings: [flagged], equipment: [item()] });
@@ -97,7 +97,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
   });
 
   // SPM-88 (AC3, SPM-88-TC04): flags set after a returned check block resubmission.
-  it("refuses an arrangement flagged after the safety check was returned, saying so", () => {
+  it("[SPM-86][AC2] refuses an arrangement flagged after the safety check was returned, saying so", () => {
     const flagged = booking({ needsReview: true, reviewReason: "safety_check_returned" });
 
     const result = check({ bookings: [flagged], equipment: [item()] });
@@ -110,7 +110,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     });
   });
 
-  it("refuses reserved equipment that is flagged for review, naming only that item", () => {
+  it("[SPM-86][AC2] refuses reserved equipment that is flagged for review, naming only that item", () => {
     const flagged = item({ needsReview: true, reviewReason: "event_schedule_changed" });
 
     const result = check({ bookings: [booking()], equipment: [flagged] });
@@ -120,13 +120,13 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
-  it("flags partly fulfilled equipment the same as reserved", () => {
+  it("[SPM-86][AC2] flags partly fulfilled equipment the same as reserved", () => {
     const flagged = item({ status: "partially_fulfilled", needsReview: true, reviewReason: "event_schedule_changed" });
 
     expect(check({ bookings: [booking()], equipment: [flagged] }).ok).toBe(false);
   });
 
-  it("words a reason a venue edit stored (SPM-39)", () => {
+  it("[SPM-86][AC2] words a reason a venue edit stored (SPM-39)", () => {
     const flagged = booking({ needsReview: true, reviewReason: "venue_retired" });
 
     const result = check({ bookings: [flagged] });
@@ -136,7 +136,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
-  it("words a reason SPM-55 stored when units went out of service", () => {
+  it("[SPM-86][AC2] words a reason SPM-55 stored when units went out of service", () => {
     const flagged = item({ needsReview: true, reviewReason: "equipment_unavailable" });
 
     const result = check({ bookings: [booking()], equipment: [flagged] });
@@ -146,7 +146,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
-  it("lists every reason a flag carries", () => {
+  it("[SPM-86][AC2] lists every reason a flag carries", () => {
     const flagged = booking({ needsReview: true, reviewReason: "event_schedule_changed,event_attendance_changed" });
 
     const result = check({ bookings: [flagged] });
@@ -156,7 +156,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
-  it("still refuses a flag whose reason it does not recognise", () => {
+  it("[SPM-86][AC2] still refuses a flag whose reason it does not recognise", () => {
     const flagged = booking({ needsReview: true, reviewReason: "something_new" });
 
     const result = check({ bookings: [flagged] });
@@ -166,13 +166,13 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
-  it("still refuses a flag with no reason stored", () => {
+  it("[SPM-86][AC2] still refuses a flag with no reason stored", () => {
     const result = check({ bookings: [booking({ needsReview: true, reviewReason: null })] });
 
     expect(!result.ok && result.error).toBe(PREFIX + `the venue booking at ${VENUE} for this event is flagged for review.`);
   });
 
-  it("calls a session with no label 'one session'", () => {
+  it("[SPM-86][AC2] calls a session with no label 'one session'", () => {
     const result = check({
       sessions: [{ id: "s1", label: null }],
       bookings: [booking({ sessionId: "s1", needsReview: true, reviewReason: "venue_retired" })],
@@ -183,7 +183,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     ]);
   });
 
-  it("names the session of a flagged booking on a multi-session event", () => {
+  it("[SPM-86][AC2] names the session of a flagged booking on a multi-session event", () => {
     const sessions = [
       { id: "s1", label: "Day 1" },
       { id: "s2", label: "Day 2" },
@@ -201,7 +201,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
     );
   });
 
-  it("lists unheld arrangements before flagged ones", () => {
+  it("[SPM-86][AC2] lists unheld arrangements before flagged ones", () => {
     const result = check({
       bookings: [booking({ needsReview: true, reviewReason: "venue_retired" })],
       equipment: [item({ status: "requested" })],
@@ -215,7 +215,7 @@ describe("checkSafetySubmission - refused (AC2)", () => {
 });
 
 describe("SAFETY_CHECK_PENDING_MESSAGE (AC6)", () => {
-  it("is the message for a second submission", () => {
+  it("[SPM-86][AC6] is the message for a second submission", () => {
     expect(SAFETY_CHECK_PENDING_MESSAGE).toBe("A safety check is already pending for this event.");
   });
 });
@@ -223,7 +223,7 @@ describe("SAFETY_CHECK_PENDING_MESSAGE (AC6)", () => {
 // Added when SPM-33 (Track Outstanding Arrangements) was merged in. AC1:
 // "equipment arrangements are reserved or marked as not required".
 describe("checkSafetySubmission - arrangements marked as not required (SPM-33)", () => {
-  it("accepts an event whose only unreserved item is marked as not required", () => {
+  it("[SPM-86][AC1] [SPM-33][AC11] accepts an event whose only unreserved item is marked as not required", () => {
     const result = checkSafetySubmission({
       sessions: [],
       bookings: [booking()],
@@ -233,7 +233,7 @@ describe("checkSafetySubmission - arrangements marked as not required (SPM-33)",
     expect(result).toEqual({ ok: true });
   });
 
-  it("accepts a spare venue request that is marked as not required while another venue is approved", () => {
+  it("[SPM-86][AC1] [SPM-33][AC11] accepts a spare venue request that is marked as not required while another venue is approved", () => {
     const result = checkSafetySubmission({
       sessions: [],
       bookings: [booking(), booking({ status: "pending", venueName: "Orchard Studio", notRequired: true })],
@@ -243,7 +243,7 @@ describe("checkSafetySubmission - arrangements marked as not required (SPM-33)",
     expect(result).toEqual({ ok: true });
   });
 
-  it("does not name a flagged booking or item that is marked as not required", () => {
+  it("[SPM-86][AC2] [SPM-33][AC11] does not name a flagged booking or item that is marked as not required", () => {
     const flag = { needsReview: true, reviewReason: "event_schedule_changed", notRequired: true };
     const result = checkSafetySubmission({
       sessions: [],
@@ -254,7 +254,7 @@ describe("checkSafetySubmission - arrangements marked as not required (SPM-33)",
     expect(result).toEqual({ ok: true });
   });
 
-  it("still refuses an event whose only venue booking is marked as not required", () => {
+  it("[SPM-86][AC2] [SPM-33][AC11] still refuses an event whose only venue booking is marked as not required", () => {
     const result = checkSafetySubmission({
       sessions: [],
       bookings: [booking({ notRequired: true })],

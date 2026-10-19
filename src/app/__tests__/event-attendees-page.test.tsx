@@ -85,7 +85,7 @@ afterEach(() => {
 
 describe("Attendees tab (SPM-65)", () => {
   describe("who can open it", () => {
-    it("sends an anonymous visitor to log in", async () => {
+    it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
       setRoute(`/events/${REF}/attendees`, { id: REF });
       mockApi(signedOut());
 
@@ -96,7 +96,7 @@ describe("Attendees tab (SPM-65)", () => {
 
     // AC9. The roles come from roles.ts, so giving a role the tab moves this with it.
     it.each(ROLES.filter((role) => !eventTabsFor(role).includes("attendees")))(
-      "AC9: turns %s away, without asking for the registrations",
+      "[SPM-65][AC9] AC9: turns %s away, without asking for the registrations",
       async (role) => {
         const api = open({}, role);
 
@@ -107,7 +107,7 @@ describe("Attendees tab (SPM-65)", () => {
       }
     );
 
-    it("AC8: says so when the server refuses an organiser who is not responsible for the event, and stops asking", async () => {
+    it("[SPM-65][AC8] AC8: says so when the server refuses an organiser who is not responsible for the event, and stops asking", async () => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       const api = open({ [LIST]: reply(403, { error: "Forbidden" }) });
 
@@ -118,7 +118,7 @@ describe("Attendees tab (SPM-65)", () => {
       expect(api.sent(LIST)).toHaveLength(1);
     });
 
-    it("AC1: shows the tab to the organiser and the coordinator, with Attendees current", async () => {
+    it("[SPM-65][AC1] AC1: shows the tab to the organiser and the coordinator, with Attendees current", async () => {
       open({}, "coordinator");
 
       expect(await screen.findByRole("heading", { name: "Harbourfront Seminar" })).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("Attendees tab (SPM-65)", () => {
     it.each([
       ["organiser", "My Events"],
       ["coordinator", "Events"],
-    ])("for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+    ])("[SPM-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
       open({}, role);
       await screen.findByRole("heading", { name: "Harbourfront Seminar" });
 
@@ -148,7 +148,7 @@ describe("Attendees tab (SPM-65)", () => {
     it.each([
       ["loading", () => { open({ [LIST]: () => new Promise(() => {}) }, "coordinator"); }],
       ["in error", () => { open({ [LIST]: reply(500, {}) }, "coordinator"); }],
-    ])("reads 'Event' for the event while %s", async (_case, openIt) => {
+    ])("[SPM-98] reads 'Event' for the event while %s", async (_case, openIt) => {
       openIt();
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -159,7 +159,7 @@ describe("Attendees tab (SPM-65)", () => {
       ]);
     });
 
-    it("is the same trail when access is refused", async () => {
+    it("[SPM-98] is the same trail when access is refused", async () => {
       open({ [LIST]: reply(403, { error: "Forbidden" }) });
       await screen.findByRole("alert");
 
@@ -172,13 +172,13 @@ describe("Attendees tab (SPM-65)", () => {
   });
 
   describe("loading it", () => {
-    it("says so when the event does not exist or cannot be seen", async () => {
+    it("[SPM-65] says so when the event does not exist or cannot be seen", async () => {
       open({ [LIST]: reply(404, { error: "Not found" }) });
 
       expect(await screen.findByText("This event doesn't exist, or you don't have access to it.")).toBeInTheDocument();
     });
 
-    it("says so when the registrations fail to load, and Retry loads them again", async () => {
+    it("[SPM-65] says so when the registrations fail to load, and Retry loads them again", async () => {
       const api = open({ [LIST]: reply(500, { error: "Internal server error" }) });
 
       expect(await screen.findByText("Could not load this event's registrations.")).toBeInTheDocument();
@@ -189,13 +189,13 @@ describe("Attendees tab (SPM-65)", () => {
       expect(await rowOf("Marcus Yeo")).toBeInTheDocument();
     });
 
-    it("shows a general error when the server cannot be reached", async () => {
+    it("[SPM-65] shows a general error when the server cannot be reached", async () => {
       open({ [LIST]: () => Promise.reject("offline") });
 
       expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
     });
 
-    it("sends the user to log in when the session has ended", async () => {
+    it("[SPM-22][AC4] sends the user to log in when the session has ended", async () => {
       open({ [LIST]: reply(401, { error: "Not authenticated" }) });
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith(LOGIN));
@@ -203,7 +203,7 @@ describe("Attendees tab (SPM-65)", () => {
   });
 
   describe("what it lists", () => {
-    it("AC2: shows each attendee's name, email, phone and registration date", async () => {
+    it("[SPM-65][AC2] AC2: shows each attendee's name, email, phone and registration date", async () => {
       open();
 
       const row = await rowOf("Marcus Yeo");
@@ -212,7 +212,7 @@ describe("Attendees tab (SPM-65)", () => {
       expect(within(row).getByText(formatDateTime(REGISTERED_AT))).toBeInTheDocument();
     });
 
-    it("AC3: tells registered, waitlisted, withdrawn and checked-in attendees apart", async () => {
+    it("[SPM-65][AC3] AC3: tells registered, waitlisted, withdrawn and checked-in attendees apart", async () => {
       open({ [LIST]: payload([marcus, aisha, ben, chloe]) });
 
       expect(within(await rowOf("Marcus Yeo")).getByText("Registered")).toBeInTheDocument();
@@ -221,13 +221,13 @@ describe("Attendees tab (SPM-65)", () => {
       expect(within(await rowOf("Chloe Tan")).getByText("Attended")).toBeInTheDocument();
     });
 
-    it("shows when a withdrawn attendee withdrew", async () => {
+    it("[SPM-65][AC2][AC3] shows when a withdrawn attendee withdrew", async () => {
       open({ [LIST]: payload([ben]) });
 
       expect(within(await rowOf("Ben Lim")).getByText(`Withdrew ${formatDateTime(WITHDRAWN_AT)}`)).toBeInTheDocument();
     });
 
-    it("AC4: marks an attendee added on the organiser's behalf, and only them", async () => {
+    it("[SPM-65][AC4] AC4: marks an attendee added on the organiser's behalf, and only them", async () => {
       const added = registration("Daniel Koh", { addedBy: { name: "Evelyn Chen" } });
       open({ [LIST]: payload([marcus, added]) });
 
@@ -235,13 +235,13 @@ describe("Attendees tab (SPM-65)", () => {
       expect(within(await rowOf("Marcus Yeo")).queryByText(/Added by/)).not.toBeInTheDocument();
     });
 
-    it("AC5: shows the places taken against the capacity, and the waiting list", async () => {
+    it("[SPM-65][AC5] AC5: shows the places taken against the capacity, and the waiting list", async () => {
       open();
 
       expect(await screen.findByText("12 of 40 places taken · 3 on the waiting list")).toBeInTheDocument();
     });
 
-    it("AC5: says there is no limit when no capacity is set", async () => {
+    it("[SPM-65][AC5] AC5: says there is no limit when no capacity is set", async () => {
       open({ [LIST]: payload([marcus], { registrationCapacity: null }) });
 
       expect(
@@ -249,14 +249,14 @@ describe("Attendees tab (SPM-65)", () => {
       ).toBeInTheDocument();
     });
 
-    it("says so when nobody has registered yet", async () => {
+    it("[SPM-65] says so when nobody has registered yet", async () => {
       open({ [LIST]: payload([], { counts: { taken: 0, waitlisted: 0, withdrawn: 0 } }) });
 
       expect(await screen.findByText("No one has registered yet")).toBeInTheDocument();
       expect(screen.queryByRole("table")).not.toBeInTheDocument();
     });
 
-    it("AC7: says registration is not enabled rather than showing an empty list", async () => {
+    it("[SPM-65][AC7] AC7: says registration is not enabled rather than showing an empty list", async () => {
       open({ [LIST]: payload([], { registrationEnabled: false, counts: { taken: 0, waitlisted: 0, withdrawn: 0 } }) });
 
       expect(await screen.findByText("Registration is not enabled for this event")).toBeInTheDocument();
@@ -265,7 +265,7 @@ describe("Attendees tab (SPM-65)", () => {
       expect(screen.queryByText(/places taken/)).not.toBeInTheDocument();
     });
 
-    it("AC7: still lists anyone who registered before registration was turned off", async () => {
+    it("[SPM-65][AC7] AC7: still lists anyone who registered before registration was turned off", async () => {
       open({ [LIST]: payload([marcus], { registrationEnabled: false }) });
 
       expect(await screen.findByText("Registration is not enabled for this event")).toBeInTheDocument();
@@ -274,7 +274,7 @@ describe("Attendees tab (SPM-65)", () => {
   });
 
   describe("AC6: keeping up as registrations change", () => {
-    it("asks again every 15 seconds and shows a withdrawal without a reload", async () => {
+    it("[SPM-65][AC6] asks again every 15 seconds and shows a withdrawal without a reload", async () => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       const api = open();
       expect(within(await rowOf("Marcus Yeo")).getByText("Registered")).toBeInTheDocument();
@@ -289,7 +289,7 @@ describe("Attendees tab (SPM-65)", () => {
       expect(api.sent(LIST)).toHaveLength(2);
     });
 
-    it("does not ask while the tab is out of view, and asks as soon as it comes back", async () => {
+    it("[SPM-65][AC6] does not ask while the tab is out of view, and asks as soon as it comes back", async () => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       const api = open();
       await rowOf("Marcus Yeo");
@@ -304,7 +304,7 @@ describe("Attendees tab (SPM-65)", () => {
       hidden.mockRestore();
     });
 
-    it("does not ask when the tab's visibility changes while it stays out of view", async () => {
+    it("[SPM-65][AC6] does not ask when the tab's visibility changes while it stays out of view", async () => {
       const api = open();
       await rowOf("Marcus Yeo");
 
@@ -316,7 +316,7 @@ describe("Attendees tab (SPM-65)", () => {
       hidden.mockRestore();
     });
 
-    it("keeps the list on screen when a refresh fails", async () => {
+    it("[SPM-65][AC6] keeps the list on screen when a refresh fails", async () => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       const api = open();
       await rowOf("Marcus Yeo");
@@ -329,7 +329,7 @@ describe("Attendees tab (SPM-65)", () => {
       expect(within(screen.getByRole("table")).getByText("Marcus Yeo")).toBeInTheDocument();
     });
 
-    it("stops asking once the page is left", async () => {
+    it("[SPM-65][AC6] stops asking once the page is left", async () => {
       vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
       setRoute(`/events/${REF}/attendees`, { id: REF });
       const api = mockApi({ ...signedInAs("organiser"), [LIST]: payload() });

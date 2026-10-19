@@ -28,7 +28,7 @@ function todayInSingapore(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
 }
 
-test("a request goes from submission to Confirmed - venue, equipment, registration and safety check - and an attendee registers", async ({
+test("[SPM-25][AC1][AC2] [SPM-30][AC1] [SPM-28][AC4] [SPM-54][AC1] [SPM-42][AC7] [SPM-43][AC3] [SPM-47][AC1] [SPM-49][AC1] [SPM-64][AC1] [SPM-86][AC1] [SPM-87][AC3] [SPM-34][AC5] [SPM-51][AC2] a request goes from submission to Confirmed - venue, equipment, registration and safety check - and an attendee registers", async ({
   browser,
 }) => {
   // Seven roles and about forty steps: well past the 30s default, which is

@@ -19,7 +19,7 @@ import {
 } from "@/test/ui";
 
 describe("Home page", () => {
-  it("offers Log in and Register", () => {
+  it("[SPM-21] offers Log in and Register", () => {
     render(<HomePage />);
 
     expect(screen.getByRole("heading", { name: "ConnectSphere" })).toBeInTheDocument();
@@ -38,7 +38,7 @@ describe("Login page", () => {
     await userEvent.click(screen.getByRole("button", { name: "Log in" }));
   }
 
-  it("signs in: stores the session and goes to the dashboard", async () => {
+  it("[SPM-21][AC1] signs in: stores the session and goes to the dashboard", async () => {
     setRoute("/login");
     const api = mockApi({ [ROUTE]: success });
     render(<LoginPage />);
@@ -50,7 +50,7 @@ describe("Login page", () => {
     expect(localStorage.getItem("connectsphere_token")).toBe("session-token");
   });
 
-  it("after an expired session, says so and returns the user to where they were", async () => {
+  it("[SPM-21][AC1] after an expired session, says so and returns the user to where they were", async () => {
     setRoute("/login?next=%2Fevents%2FEVT-000007");
     mockApi({ [ROUTE]: success });
     render(<LoginPage />);
@@ -61,7 +61,7 @@ describe("Login page", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/events/EVT-000007"));
   });
 
-  it("shows no session-expired notice on a plain visit", () => {
+  it("[SPM-21] shows no session-expired notice on a plain visit", () => {
     setRoute("/login");
     mockApi();
     render(<LoginPage />);
@@ -70,7 +70,7 @@ describe("Login page", () => {
     expect(screen.getByRole("link", { name: "Register" })).toHaveAttribute("href", "/register");
   });
 
-  it("shows wrong credentials as one form error, not against either field", async () => {
+  it("[SPM-21][AC2] shows wrong credentials as one form error, not against either field", async () => {
     setRoute("/login");
     mockApi({ [ROUTE]: reply(400, { error: "Invalid email or password" }) });
     render(<LoginPage />);
@@ -83,7 +83,7 @@ describe("Login page", () => {
     expect(localStorage.getItem("connectsphere_token")).toBeNull();
   });
 
-  it("puts the server's field errors under the fields they belong to", async () => {
+  it("[SPM-21][AC2] puts the server's field errors under the fields they belong to", async () => {
     setRoute("/login");
     mockApi({
       [ROUTE]: reply(400, {
@@ -102,7 +102,7 @@ describe("Login page", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("tells a deactivated user to contact an administrator", async () => {
+  it("[SPM-21][AC2] tells a deactivated user to contact an administrator", async () => {
     setRoute("/login");
     mockApi({ [ROUTE]: reply(403, { error: "This account has been deactivated. Contact your ConnectSphere administrator." }) });
     render(<LoginPage />);
@@ -112,7 +112,7 @@ describe("Login page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("This account has been deactivated.");
   });
 
-  it("falls back to a general message when the server gives none", async () => {
+  it("[SPM-21][AC2] falls back to a general message when the server gives none", async () => {
     setRoute("/login");
     mockApi({ [ROUTE]: reply(500, {}) });
     render(<LoginPage />);
@@ -122,7 +122,7 @@ describe("Login page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not log in");
   });
 
-  it("shows a general error when the request fails without a reason", async () => {
+  it("[SPM-21][AC2] shows a general error when the request fails without a reason", async () => {
     setRoute("/login");
     mockApi({ [ROUTE]: () => Promise.reject("offline") });
     render(<LoginPage />);
@@ -132,7 +132,7 @@ describe("Login page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 
-  it("reports a network failure", async () => {
+  it("[SPM-21][AC2] reports a network failure", async () => {
     setRoute("/login");
     mockApi({ [ROUTE]: () => Promise.reject(new Error("Failed to fetch")) });
     render(<LoginPage />);
@@ -143,7 +143,7 @@ describe("Login page", () => {
     expect(screen.getByRole("button", { name: "Log in" })).toBeEnabled();
   });
 
-  it("clears the previous error when the form is submitted again", async () => {
+  it("[SPM-21][AC2] clears the previous error when the form is submitted again", async () => {
     setRoute("/login");
     const api = mockApi({ [ROUTE]: reply(400, { error: "Invalid email or password" }) });
     render(<LoginPage />);
@@ -157,7 +157,7 @@ describe("Login page", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("disables the button while the request is in flight, so it cannot be sent twice", async () => {
+  it("[SPM-21] disables the button while the request is in flight, so it cannot be sent twice", async () => {
     setRoute("/login");
     let finish: (value: unknown) => void = () => {};
     const api = mockApi({ [ROUTE]: () => new Promise((resolve) => (finish = resolve)) });
@@ -183,7 +183,7 @@ describe("Register page", () => {
   }
   const submit = () => userEvent.click(screen.getByRole("button", { name: "Create account" }));
 
-  it("offers only the two roles a member of the public may register as", () => {
+  it("[SPM-21] offers only the two roles a member of the public may register as", () => {
     mockApi();
     render(<RegisterPage />);
 
@@ -193,7 +193,7 @@ describe("Register page", () => {
     expect(screen.getByLabelText(/Role/)).toHaveValue("organiser");
   });
 
-  it("creates the account and sends the user to log in", async () => {
+  it("[SPM-21] creates the account and sends the user to log in", async () => {
     const api = mockApi({ [ROUTE]: reply(201, { id: "u1" }) });
     render(<RegisterPage />);
 
@@ -210,7 +210,7 @@ describe("Register page", () => {
     });
   });
 
-  it("says nothing about a field while it is being typed in", async () => {
+  it("[SPM-21] says nothing about a field while it is being typed in", async () => {
     mockApi();
     render(<RegisterPage />);
 
@@ -220,7 +220,7 @@ describe("Register page", () => {
     expect(screen.queryByText("Enter a valid email address")).not.toBeInTheDocument();
   });
 
-  it("checks a field when the user leaves it", async () => {
+  it("[SPM-21] checks a field when the user leaves it", async () => {
     mockApi();
     render(<RegisterPage />);
 
@@ -233,7 +233,7 @@ describe("Register page", () => {
     expect(screen.getByLabelText(/Full name/)).toBeValid();
   });
 
-  it("clears a field's error as soon as the user starts fixing it", async () => {
+  it("[SPM-21] clears a field's error as soon as the user starts fixing it", async () => {
     mockApi();
     render(<RegisterPage />);
     await userEvent.type(screen.getByLabelText(/Password/), "short");
@@ -245,7 +245,7 @@ describe("Register page", () => {
     expect(screen.queryByText("Password must be at least 8 characters")).not.toBeInTheDocument();
   });
 
-  it("leaves a valid field unmarked when the user leaves it", async () => {
+  it("[SPM-21] leaves a valid field unmarked when the user leaves it", async () => {
     mockApi();
     render(<RegisterPage />);
 
@@ -255,7 +255,7 @@ describe("Register page", () => {
     expect(screen.getByLabelText(/Full name/)).toBeValid();
   });
 
-  it("on submit, marks every invalid field, focuses the first, and sends nothing", async () => {
+  it("[SPM-21] on submit, marks every invalid field, focuses the first, and sends nothing", async () => {
     const api = mockApi();
     render(<RegisterPage />);
 
@@ -268,7 +268,7 @@ describe("Register page", () => {
     expect(api.calls).toHaveLength(0);
   });
 
-  it("shows an account that already exists as a form error", async () => {
+  it("[SPM-21] shows an account that already exists as a form error", async () => {
     mockApi({ [ROUTE]: reply(400, { error: "A user with this email already exists" }) });
     render(<RegisterPage />);
 
@@ -279,7 +279,7 @@ describe("Register page", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("maps the server's field errors back onto the fields", async () => {
+  it("[SPM-21] maps the server's field errors back onto the fields", async () => {
     mockApi({
       [ROUTE]: reply(400, {
         error: "Validation failed",
@@ -296,7 +296,7 @@ describe("Register page", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("falls back to a general message when the server gives none", async () => {
+  it("[SPM-21] falls back to a general message when the server gives none", async () => {
     mockApi({ [ROUTE]: reply(500, {}) });
     render(<RegisterPage />);
 
@@ -306,7 +306,7 @@ describe("Register page", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Registration failed");
   });
 
-  it("explains a network failure in plain words", async () => {
+  it("[SPM-21] explains a network failure in plain words", async () => {
     mockApi({ [ROUTE]: () => Promise.reject(new Error("Failed to fetch")) });
     render(<RegisterPage />);
 
@@ -319,7 +319,7 @@ describe("Register page", () => {
     expect(screen.getByRole("button", { name: "Create account" })).toBeEnabled();
   });
 
-  it("links back to Log in", () => {
+  it("[SPM-21] links back to Log in", () => {
     mockApi();
     render(<RegisterPage />);
 

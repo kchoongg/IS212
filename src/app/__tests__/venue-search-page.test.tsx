@@ -75,7 +75,7 @@ const field = (label: RegExp | string) => screen.getByLabelText(label);
 
 describe("Find a venue", () => {
   describe("who can open it", () => {
-    it("sends an anonymous visitor to log in", async () => {
+    it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
       setRoute("/venues/search");
       mockApi(signedOut());
 
@@ -84,7 +84,7 @@ describe("Find a venue", () => {
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues%2Fsearch"));
     });
 
-    it("remembers the event being searched for across the login", async () => {
+    it("[SPM-40] remembers the event being searched for across the login", async () => {
       setRoute(`/venues/search?event=${REF}`);
       mockApi(signedOut());
 
@@ -95,7 +95,7 @@ describe("Find a venue", () => {
       );
     });
 
-    it("renders nothing until it knows who is looking", () => {
+    it("[SPM-40] renders nothing until it knows who is looking", () => {
       setRoute("/venues/search");
       mockApi({ "GET /api/auth/me": () => new Promise(() => {}) });
 
@@ -104,7 +104,7 @@ describe("Find a venue", () => {
       expect(container).toBeEmptyDOMElement();
     });
 
-    it.each(["organiser", "attendee", "tech_support"])("turns %s away", async (role) => {
+    it.each(["organiser", "attendee", "tech_support"])("[SPM-22][AC4] turns %s away", async (role) => {
       open({ [SEARCH]: reply(403, {}) }, { role });
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Venue search is for ConnectSphere staff.");
@@ -115,7 +115,7 @@ describe("Find a venue", () => {
       ]);
     });
 
-    it("keeps an event's breadcrumb, starting 'My Events', for an organiser it turns away", async () => {
+    it("[SPM-98] keeps an event's breadcrumb, starting 'My Events', for an organiser it turns away", async () => {
       open({ [EVENT]: reply(403, {}), [SEARCH]: reply(403, {}) }, { role: "organiser", query: `?event=${REF}` });
       await screen.findByRole("alert");
 
@@ -128,7 +128,7 @@ describe("Find a venue", () => {
   });
 
   describe("opened on its own", () => {
-    it("opens on the whole catalogue, not an empty form", async () => {
+    it("[SPM-40][AC7] opens on the whole catalogue, not an empty form", async () => {
       const api = open();
 
       expect(await screen.findByText("2 of 5 venues match")).toBeInTheDocument();
@@ -140,7 +140,7 @@ describe("Find a venue", () => {
       ]);
     });
 
-    it("describes each venue: where it is, when it is open, its layouts and facilities", async () => {
+    it("[SPM-40] describes each venue: where it is, when it is open, its layouts and facilities", async () => {
       open();
       await ready();
 
@@ -156,7 +156,7 @@ describe("Find a venue", () => {
       expect(within(card("Room B")).queryByRole("list", { name: "Facilities" })).not.toBeInTheDocument();
     });
 
-    it("offers no suitability check when no event is being searched for", async () => {
+    it("[SPM-40] offers no suitability check when no event is being searched for", async () => {
       open();
       await ready();
 
@@ -164,7 +164,7 @@ describe("Find a venue", () => {
       expect(screen.queryByLabelText("Fill in from")).not.toBeInTheDocument();
     });
 
-    it("splits the facility filters into accessibility and everything else", async () => {
+    it("[SPM-40][AC4][AC6] splits the facility filters into accessibility and everything else", async () => {
       open();
       await ready();
 
@@ -178,7 +178,7 @@ describe("Find a venue", () => {
   });
 
   describe("searching", () => {
-    it("sends only the filters that were set", async () => {
+    it("[SPM-40][AC7] sends only the filters that were set", async () => {
       const api = open();
       await ready();
       set(field("From"), "2027-03-04T13:00");
@@ -200,7 +200,7 @@ describe("Find a venue", () => {
       });
     });
 
-    it("offers the buildings the catalogue has, and filters by the one chosen", async () => {
+    it("[SPM-40][AC3] offers the buildings the catalogue has, and filters by the one chosen", async () => {
       const api = open();
       await ready();
       const options = within(field("Location")).getAllByRole("option").map((o) => o.textContent);
@@ -212,7 +212,7 @@ describe("Find a venue", () => {
       await waitFor(() => expect(lastQuery(api)).toEqual({ building: "Annex" }));
     });
 
-    it("drops a facility that is unticked again", async () => {
+    it("[SPM-40][AC6] drops a facility that is unticked again", async () => {
       const api = open();
       await ready();
       await userEvent.click(screen.getByRole("checkbox", { name: "Stage" }));
@@ -228,7 +228,7 @@ describe("Find a venue", () => {
       ["a start with no end", "2027-03-04T13:00", "", "Give both a start and an end, or clear both."],
       ["an end with no start", "", "2027-03-04T18:00", "Give both a start and an end, or clear both."],
       ["an end before the start", "2027-03-04T18:00", "2027-03-04T13:00", "The end must be after the start."],
-    ])("refuses %s without searching", async (_case, from, to, message) => {
+    ])("[SPM-40][AC1] refuses %s without searching", async (_case, from, to, message) => {
       const api = open();
       await ready();
       set(field("From"), from);
@@ -244,7 +244,7 @@ describe("Find a venue", () => {
     // The attendance box is a native number input with min=1, and this form
     // does not switch off the browser's own validation - so the browser stops
     // the search before the page's own check ever runs.
-    it.each(["0", "-3", "12.5"])("does not search with an attendance of %s", async (attendance) => {
+    it.each(["0", "-3", "12.5"])("[SPM-40][AC2] does not search with an attendance of %s", async (attendance) => {
       const api = open();
       await ready();
       set(field("Expected attendance"), attendance);
@@ -255,7 +255,7 @@ describe("Find a venue", () => {
       expect(api.sent(SEARCH)).toHaveLength(1);
     });
 
-    it("clears the error once the form is valid again", async () => {
+    it("[SPM-40] clears the error once the form is valid again", async () => {
       const api = open();
       await ready();
       set(field("From"), "2027-03-04T13:00");
@@ -269,7 +269,7 @@ describe("Find a venue", () => {
       expect(screen.queryByText("Give both a start and an end, or clear both.")).not.toBeInTheDocument();
     });
 
-    it("Clear filters empties the form and searches the whole catalogue again", async () => {
+    it("[SPM-40] Clear filters empties the form and searches the whole catalogue again", async () => {
       const api = open();
       await ready();
       set(field("Expected attendance"), "100");
@@ -285,7 +285,7 @@ describe("Find a venue", () => {
       expect(field("Room layout")).toHaveValue("");
     });
 
-    it("shows 'Searching…' while a search is in flight", async () => {
+    it("[SPM-40] shows 'Searching…' while a search is in flight", async () => {
       const api = open();
       await ready();
       let finish: (value: unknown) => void = () => {};
@@ -298,7 +298,7 @@ describe("Find a venue", () => {
       expect(await screen.findByText("1 of 5 venues match")).toBeInTheDocument();
     });
 
-    it("lists the facilities that were asked for first on each card", async () => {
+    it("[SPM-40][AC6] lists the facilities that were asked for first on each card", async () => {
       open();
       await ready();
 
@@ -310,7 +310,7 @@ describe("Find a venue", () => {
       expect(listed[1].className).not.toContain("success");
     });
 
-    it("emphasises the layout that was asked for on each card", async () => {
+    it("[SPM-40][AC5] emphasises the layout that was asked for on each card", async () => {
       open();
       await ready();
 
@@ -322,14 +322,14 @@ describe("Find a venue", () => {
   });
 
   describe("when nothing matches", () => {
-    it("says no venue matches the filters, and suggests widening them", async () => {
+    it("[SPM-40][AC7] says no venue matches the filters, and suggests widening them", async () => {
       open({ [SEARCH]: results([], 5) });
 
       expect(await screen.findByText("No venues match these filters")).toBeInTheDocument();
       expect(screen.getByText("0 of 5 venues match")).toBeInTheDocument();
     });
 
-    it("says there are no venues at all when the catalogue is empty", async () => {
+    it("[SPM-40] says there are no venues at all when the catalogue is empty", async () => {
       open({ [SEARCH]: results([], 0) });
 
       expect(await screen.findByText("No venues yet")).toBeInTheDocument();
@@ -345,19 +345,19 @@ describe("Find a venue", () => {
       ["the server cannot be reached", { [FACILITIES]: () => Promise.reject(new Error("Failed to fetch")) }, "Failed to fetch"],
       ["the facility list fails without a reason", { [FACILITIES]: () => Promise.reject("offline") }, "Something went wrong"],
       ["the search fails without a reason", { [SEARCH]: () => Promise.reject("offline") }, "Something went wrong"],
-    ])("says so when %s", async (_case, routes, message) => {
+    ])("[SPM-40] says so when %s", async (_case, routes, message) => {
       open(routes);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(message);
     });
 
-    it.each([FACILITIES, SEARCH])("sends the user to log in when %s says the session has expired", async (route) => {
+    it.each([FACILITIES, SEARCH])("[SPM-22][AC4] sends the user to log in when %s says the session has expired", async (route) => {
       open({ [route]: reply(401, {}) });
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues%2Fsearch"));
     });
 
-    it("Retry starts over when the page never loaded", async () => {
+    it("[SPM-40] Retry starts over when the page never loaded", async () => {
       const api = open({ [FACILITIES]: reply(500, {}) });
       await screen.findByRole("alert");
 
@@ -368,7 +368,7 @@ describe("Find a venue", () => {
       expect(api.sent(FACILITIES)).toHaveLength(2);
     });
 
-    it("Retry repeats the same search after a refusal, keeping the filters", async () => {
+    it("[SPM-40] Retry repeats the same search after a refusal, keeping the filters", async () => {
       const api = open();
       await ready();
       api.on(SEARCH, reply(403, {}));
@@ -384,7 +384,7 @@ describe("Find a venue", () => {
       expect(api.sent(FACILITIES)).toHaveLength(1);
     });
 
-    it("Retry recovers after a search that failed outright", async () => {
+    it("[SPM-40] Retry recovers after a search that failed outright", async () => {
       const api = open();
       await ready();
       api.on(SEARCH, reply(500, {}));
@@ -426,7 +426,7 @@ describe("Find a venue", () => {
       return open({ [EVENT]: eventRow, ...routes }, { role, query: `?event=${REF}`, who: { id: me.id } });
     }
 
-    it("fills the form from the event's requirements and searches with them", async () => {
+    it("[SPM-40][AC1][AC2][AC4][AC5][AC6] fills the form from the event's requirements and searches with them", async () => {
       const api = openFor();
       await ready();
 
@@ -444,7 +444,7 @@ describe("Find a venue", () => {
       });
     });
 
-    it("copies only the mandatory facilities - a nice-to-have must not rule a venue out", async () => {
+    it("[SPM-40][AC6] copies only the mandatory facilities - a nice-to-have must not rule a venue out", async () => {
       openFor();
       await ready();
 
@@ -452,7 +452,7 @@ describe("Find a venue", () => {
       expect(screen.getByRole("checkbox", { name: "Wi-Fi" })).not.toBeChecked();
     });
 
-    it("says where the filters came from, and links back to the event", async () => {
+    it("[SPM-40] says where the filters came from, and links back to the event", async () => {
       openFor();
       await ready();
 
@@ -469,7 +469,7 @@ describe("Find a venue", () => {
       );
     });
 
-    it("calls the event 'Event' in the breadcrumb while it loads", async () => {
+    it("[SPM-98] calls the event 'Event' in the breadcrumb while it loads", async () => {
       openFor(() => new Promise(() => {}));
 
       await screen.findByRole("navigation", { name: "Breadcrumb" });
@@ -480,7 +480,7 @@ describe("Find a venue", () => {
       ]);
     });
 
-    it("copes with an event that has no title or requirements yet", async () => {
+    it("[SPM-40] copes with an event that has no title or requirements yet", async () => {
       const api = openFor(event({ title: null, startsAt: null, endsAt: null, expectedAttendance: null, preferredLayout: null, facilityRequirements: [] }));
       await ready();
 
@@ -488,7 +488,7 @@ describe("Find a venue", () => {
       expect(lastQuery(api)).toEqual({ event: REF });
     });
 
-    it("says so when the event cannot be found, and does not search", async () => {
+    it("[SPM-40] says so when the event cannot be found, and does not search", async () => {
       const api = openFor(reply(404, {}));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -497,7 +497,7 @@ describe("Find a venue", () => {
       expect(api.sent(SEARCH)).toHaveLength(0);
     });
 
-    it("says so when the search itself cannot find the event", async () => {
+    it("[SPM-40] says so when the search itself cannot find the event", async () => {
       openFor(event(), { [SEARCH]: reply(404, {}) });
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -535,7 +535,7 @@ describe("Find a venue", () => {
         );
       }
 
-      it("fills the form from a breakout room's date, times, attendance and layout and the event's requirements", async () => {
+      it("[SPM-68][AC11] fills the form from a breakout room's date, times, attendance and layout and the event's requirements", async () => {
         const api = openToReplace([flagged({ purpose: "Breakout room", expectedAttendance: 40 })]);
         await ready();
 
@@ -556,7 +556,7 @@ describe("Find a venue", () => {
       });
 
       // SPM-90: the main programme is the event's own room, so it follows the event.
-      it("fills the event's present attendance and layout for the main programme", async () => {
+      it("[SPM-68][AC11] fills the event's present attendance and layout for the main programme", async () => {
         openToReplace([flagged({ purpose: "Main programme", expectedAttendance: 60 })]);
         await ready();
 
@@ -565,7 +565,7 @@ describe("Find a venue", () => {
         expect(field("Room layout")).toHaveValue("theatre");
       });
 
-      it("picks the booking named in the address out of the event's bookings", async () => {
+      it("[SPM-68][AC11] picks the booking named in the address out of the event's bookings", async () => {
         const other = flagged({ id: "b-other", startsAt: "2027-03-09T01:00:00.000Z", endsAt: "2027-03-09T03:00:00.000Z" });
         openToReplace([other, flagged()]);
         await ready();
@@ -573,7 +573,7 @@ describe("Find a venue", () => {
         expect(field("From")).toHaveValue("2027-03-05T08:30");
       });
 
-      it("says the filters came from the flagged booking, and at which venue", async () => {
+      it("[SPM-68][AC11] says the filters came from the flagged booking, and at which venue", async () => {
         openToReplace();
         await ready();
 
@@ -583,7 +583,7 @@ describe("Find a venue", () => {
       });
 
       // SPM-90: for the same space - what it is for, and the attendance and layout searched for.
-      it("offers to request each matching venue for the same space as the booking being replaced", async () => {
+      it("[SPM-68][AC12] offers to request each matching venue for the same space as the booking being replaced", async () => {
         openToReplace([flagged({ purpose: "Breakout room", expectedAttendance: 40 })]);
         await ready();
 
@@ -593,7 +593,7 @@ describe("Find a venue", () => {
         );
       });
 
-      it("requests the main programme for a booking made before spaces were named", async () => {
+      it("[SPM-68][AC12] requests the main programme for a booking made before spaces were named", async () => {
         openToReplace();
         await ready();
 
@@ -603,7 +603,7 @@ describe("Find a venue", () => {
         );
       });
 
-      it("sends the attendance and layout as they are in the form, and leaves out an attendance that was cleared", async () => {
+      it("[SPM-68][AC12] sends the attendance and layout as they are in the form, and leaves out an attendance that was cleared", async () => {
         openToReplace();
         await ready();
 
@@ -616,7 +616,7 @@ describe("Find a venue", () => {
         );
       });
 
-      it("requests the replacement for the same session as a session's booking", async () => {
+      it("[SPM-68][AC12] requests the replacement for the same session as a session's booking", async () => {
         openToReplace([flagged({ session: { id: "s1", label: "Day 1" } })]);
         await ready();
 
@@ -626,7 +626,7 @@ describe("Find a venue", () => {
         );
       });
 
-      it("falls back to the event's own requirements when the booking is not among its bookings", async () => {
+      it("[SPM-68][AC11] falls back to the event's own requirements when the booking is not among its bookings", async () => {
         openToReplace([flagged({ id: "b-someone-elses" })]);
         await ready();
 
@@ -635,7 +635,7 @@ describe("Find a venue", () => {
         expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
       });
 
-      it("falls back to the event's own requirements when its bookings cannot be read", async () => {
+      it("[SPM-68][AC11] falls back to the event's own requirements when its bookings cannot be read", async () => {
         open(
           { [EVENT]: event(), [BOOKINGS]: reply(403, {}) },
           { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } }
@@ -645,14 +645,14 @@ describe("Find a venue", () => {
         expect(field("From")).toHaveValue("2027-03-04T13:30");
       });
 
-      it("copes with a bookings answer that lists none", async () => {
+      it("[SPM-68][AC11] copes with a bookings answer that lists none", async () => {
         open({ [EVENT]: event(), [BOOKINGS]: {} }, { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } });
         await ready();
 
         expect(field("From")).toHaveValue("2027-03-04T13:30");
       });
 
-      it("sends the user to log in when the session expired before the bookings were read", async () => {
+      it("[SPM-22][AC4] sends the user to log in when the session expired before the bookings were read", async () => {
         open(
           { [EVENT]: event(), [BOOKINGS]: reply(401, {}) },
           { query: `?event=${REF}&booking=b-flagged`, who: { id: me.id } }
@@ -665,7 +665,7 @@ describe("Find a venue", () => {
         );
       });
 
-      it("ignores a booking named without an event", async () => {
+      it("[SPM-68][AC11] ignores a booking named without an event", async () => {
         const api = open({}, { query: "?booking=b-flagged" });
         await ready();
 
@@ -673,7 +673,7 @@ describe("Find a venue", () => {
         expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
       });
 
-      it("remembers the booking being replaced across the login", async () => {
+      it("[SPM-68][AC11] remembers the booking being replaced across the login", async () => {
         setRoute(`/venues/search?event=${REF}&booking=b-flagged`);
         mockApi(signedOut());
 
@@ -686,7 +686,7 @@ describe("Find a venue", () => {
         );
       });
 
-      it("offers no Request booking when the search is not replacing a booking", async () => {
+      it("[SPM-68][AC11] offers no Request booking when the search is not replacing a booking", async () => {
         openFor();
         await ready();
 
@@ -699,7 +699,7 @@ describe("Find a venue", () => {
       const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
       const approved = () => event({ status: "approved" });
 
-      it("does not begin planning just because the page was opened", async () => {
+      it("[SPM-54][AC1] does not begin planning just because the page was opened", async () => {
         const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
 
         await ready();
@@ -709,7 +709,7 @@ describe("Find a venue", () => {
         expect(screen.queryByText("Planning has started")).not.toBeInTheDocument();
       });
 
-      it("asks the assigned coordinator before a Search that would begin planning", async () => {
+      it("[SPM-54][AC1] asks the assigned coordinator before a Search that would begin planning", async () => {
         const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
         await ready();
 
@@ -723,7 +723,7 @@ describe("Find a venue", () => {
         expect(api.sent(SEARCH)).toHaveLength(1);
       });
 
-      it("on Continue, begins planning, says so, and runs the search", async () => {
+      it("[SPM-54][AC1] on Continue, begins planning, says so, and runs the search", async () => {
         const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
         await ready();
         await search();
@@ -736,7 +736,7 @@ describe("Find a venue", () => {
         expect(dialog().open).toBe(false);
       });
 
-      it("on Cancel, leaves the event approved and does not search", async () => {
+      it("[SPM-54][AC1] on Cancel, leaves the event approved and does not search", async () => {
         const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
         await ready();
         await search();
@@ -748,7 +748,7 @@ describe("Find a venue", () => {
         expect(api.sent(SEARCH)).toHaveLength(1);
       });
 
-      it("does not ask again once planning has begun", async () => {
+      it("[SPM-54][AC1] does not ask again once planning has begun", async () => {
         const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
         await ready();
         await search();
@@ -762,7 +762,7 @@ describe("Find a venue", () => {
         expect(api.sent(BEGIN)).toHaveLength(1);
       });
 
-      it("says nothing when planning had already begun somewhere else", async () => {
+      it("[SPM-54][AC1] says nothing when planning had already begun somewhere else", async () => {
         const api = openFor(approved(), { [BEGIN]: { planningStarted: false } });
         await ready();
         await search();
@@ -777,7 +777,7 @@ describe("Find a venue", () => {
       it.each([
         ["the server refuses", reply(403, {})],
         ["the server cannot be reached", () => Promise.reject(new Error("offline"))],
-      ])("reports that the event is still approved when %s, and still searches", async (_case, answer) => {
+      ])("[SPM-54][AC1] reports that the event is still approved when %s, and still searches", async (_case, answer) => {
         const api = openFor(approved(), { [BEGIN]: answer });
         await ready();
         await search();
@@ -789,7 +789,7 @@ describe("Find a venue", () => {
         await waitFor(() => expect(api.sent(SEARCH)).toHaveLength(2));
       });
 
-      it("does not ask about a search the form refuses", async () => {
+      it("[SPM-54][AC1] does not ask about a search the form refuses", async () => {
         openFor(approved(), { [BEGIN]: { planningStarted: true } });
         await ready();
         set(field("To"), "");
@@ -800,7 +800,7 @@ describe("Find a venue", () => {
         expect(screen.getByText("Give both a start and an end, or clear both.")).toBeInTheDocument();
       });
 
-      it("Clear filters neither asks nor begins planning", async () => {
+      it("[SPM-54][AC1] Clear filters neither asks nor begins planning", async () => {
         const api = openFor(approved(), { [BEGIN]: { planningStarted: true } });
         await ready();
 
@@ -816,7 +816,7 @@ describe("Find a venue", () => {
         ["the event is confirmed", event({ status: "confirmed" }), "coordinator"],
         ["the coordinator is not the one assigned", event({ status: "approved", coordinatorId: "someone-else" }), "coordinator"],
         ["the searcher is the Ops Manager", event({ status: "approved" }), "ops_manager"],
-      ])("searches straight away, without asking, when %s", async (_case, eventRow, role) => {
+      ])("[SPM-54][AC1] searches straight away, without asking, when %s", async (_case, eventRow, role) => {
         const api = openFor(eventRow, {}, role);
         await ready();
 
@@ -834,7 +834,7 @@ describe("Find a venue", () => {
         { id: "s2", label: null, startsAt: "2027-03-05T05:00:00.000Z", endsAt: "2027-03-05T10:00:00.000Z", expectedAttendance: null, preferredLayout: null },
       ];
 
-      it("offers to fill in from the whole event or any one session", async () => {
+      it("[SPM-40] offers to fill in from the whole event or any one session", async () => {
         openFor(event({ sessions }));
         await ready();
 
@@ -843,7 +843,7 @@ describe("Find a venue", () => {
         expect(options).toEqual(["Whole event", "Day 1", "Session 2"]);
       });
 
-      it("refills the form from the chosen session's own time, attendance and layout", async () => {
+      it("[SPM-40][AC1][AC2][AC5] [SPM-42][AC4] refills the form from the chosen session's own time, attendance and layout", async () => {
         openFor(event({ sessions }));
         await ready();
 
@@ -855,7 +855,7 @@ describe("Find a venue", () => {
         expect(field("Room layout")).toHaveValue("boardroom");
       });
 
-      it("falls back to the event's attendance and layout for a session that gives none", async () => {
+      it("[SPM-40][AC1][AC2][AC5] [SPM-42][AC4] falls back to the event's attendance and layout for a session that gives none", async () => {
         openFor(event({ sessions }));
         await ready();
 
@@ -866,7 +866,7 @@ describe("Find a venue", () => {
         expect(field("Room layout")).toHaveValue("theatre");
       });
 
-      it("goes back to the whole event's values", async () => {
+      it("[SPM-40] goes back to the whole event's values", async () => {
         openFor(event({ sessions }));
         await ready();
         set(field("Fill in from"), "s1");
@@ -877,7 +877,7 @@ describe("Find a venue", () => {
         expect(field("Expected attendance")).toHaveValue(100);
       });
 
-      it("Clear filters also resets which session the form was filled from", async () => {
+      it("[SPM-40] Clear filters also resets which session the form was filled from", async () => {
         openFor(event({ sessions }));
         await ready();
         set(field("Fill in from"), "s1");

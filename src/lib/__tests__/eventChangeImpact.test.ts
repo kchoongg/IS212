@@ -45,20 +45,20 @@ function info(overrides: Partial<EventInfo> = {}): EventInfo {
 }
 
 describe("importantChanges", () => {
-  it("finds nothing when nothing important changed", () => {
+  it("[SPM-62][AC4] finds nothing when nothing important changed", () => {
     expect(importantChanges(info(), info())).toEqual([]);
   });
 
-  it("finds nothing when an event with no dates or layout still has none", () => {
+  it("[SPM-62][AC4] finds nothing when an event with no dates or layout still has none", () => {
     const before = info({ startsAt: null, endsAt: null, preferredLayout: null });
     expect(importantChanges(before, { ...before })).toEqual([]);
   });
 
-  it("finds a schedule change when an event's dates are cleared", () => {
+  it("[SPM-62][AC4] finds a schedule change when an event's dates are cleared", () => {
     expect(importantChanges(info(), info({ startsAt: null, endsAt: null }))).toContain("schedule");
   });
 
-  it("compares dates by the moment, not by object identity", () => {
+  it("[SPM-62][AC4] compares dates by the moment, not by object identity", () => {
     const before = info();
     const after = info({
       startsAt: new Date(before.startsAt!.getTime()),
@@ -72,14 +72,14 @@ describe("importantChanges", () => {
     ["the start", { startsAt: new Date("2027-03-24T01:00:00.000Z") }],
     ["the end", { endsAt: new Date("2027-03-17T10:00:00.000Z") }],
     ["the start by one minute", { startsAt: new Date("2027-03-17T01:01:00.000Z") }],
-  ])("counts a change to %s as a schedule change", (_what, change) => {
+  ])("[SPM-62][AC4] counts a change to %s as a schedule change", (_what, change) => {
     expect(importantChanges(info(), info(change))).toEqual(["schedule"]);
   });
 
   it.each([
     ["up", 81],
     ["down", 79],
-  ])("counts attendance going %s as an attendance change", (_direction, expectedAttendance) => {
+  ])("[SPM-62][AC4] counts attendance going %s as an attendance change", (_direction, expectedAttendance) => {
     expect(importantChanges(info(), info({ expectedAttendance }))).toEqual(["attendance"]);
   });
 
@@ -88,15 +88,15 @@ describe("importantChanges", () => {
     ["clearing the preferred layout", { preferredLayout: null }],
     ["adding a facility", { facilityIds: ["f-projector", "f-loop", "f-stage"] }],
     ["removing a facility", { facilityIds: ["f-projector"] }],
-  ])("counts %s as a venue requirements change", (_what, change) => {
+  ])("[SPM-62][AC4] counts %s as a venue requirements change", (_what, change) => {
     expect(importantChanges(info(), info(change))).toEqual(["venue_requirements"]);
   });
 
-  it("ignores the order the facilities are listed in", () => {
+  it("[SPM-62][AC4] ignores the order the facilities are listed in", () => {
     expect(importantChanges(info(), info({ facilityIds: ["f-loop", "f-projector"] }))).toEqual([]);
   });
 
-  it("lists several changes in a fixed order, whatever changed first", () => {
+  it("[SPM-62][AC4] lists several changes in a fixed order, whatever changed first", () => {
     const after = info({
       facilityIds: [],
       expectedAttendance: 95,
@@ -106,7 +106,7 @@ describe("importantChanges", () => {
     expect(importantChanges(info(), after)).toEqual(["schedule", "attendance", "venue_requirements"]);
   });
 
-  it("counts setting a value that was empty", () => {
+  it("[SPM-62][AC4] counts setting a value that was empty", () => {
     expect(importantChanges(info({ expectedAttendance: null }), info())).toEqual(["attendance"]);
   });
 });
@@ -131,7 +131,7 @@ describe("affectedArrangements", () => {
     ...overrides,
   });
 
-  it("flags nothing for an ordinary edit", () => {
+  it("[SPM-62][AC7] flags nothing for an ordinary edit", () => {
     expect(affectedArrangements([], all(), NOW)).toEqual({
       venueBookings: [],
       equipmentRequests: [],
@@ -139,7 +139,7 @@ describe("affectedArrangements", () => {
     });
   });
 
-  it("flags the venue booking, the equipment and the registrations when the date or time changes", () => {
+  it("[SPM-62][AC5] flags the venue booking, the equipment and the registrations when the date or time changes", () => {
     expect(affectedArrangements(["schedule"], all(), NOW)).toEqual({
       venueBookings: [{ id: "b1", reasons: ["event_schedule_changed"] }],
       equipmentRequests: [{ id: "r1", reasons: ["event_schedule_changed"] }],
@@ -148,7 +148,7 @@ describe("affectedArrangements", () => {
   });
 
   it.each([["attendance"], ["venue_requirements"]] as const)(
-    "flags only the venue booking when the %s changes",
+    "[SPM-62][AC5] flags only the venue booking when the %s changes",
     (change) => {
       const result = affectedArrangements([change], all(), NOW);
 
@@ -158,7 +158,7 @@ describe("affectedArrangements", () => {
     }
   );
 
-  it("gives a booking every reason that applies, in a fixed order", () => {
+  it("[SPM-62][AC5] gives a booking every reason that applies, in a fixed order", () => {
     const result = affectedArrangements(["venue_requirements", "attendance"], all(), NOW);
 
     expect(result.venueBookings).toEqual([
@@ -166,15 +166,15 @@ describe("affectedArrangements", () => {
     ]);
   });
 
-  it.each(["pending", "approved"])("flags a %s booking", (status) => {
+  it.each(["pending", "approved"])("[SPM-62][AC5] flags a %s booking", (status) => {
     expect(affectedArrangements(["schedule"], all({ venueBookings: [booking({ status })] }), NOW).venueBookings).toHaveLength(1);
   });
 
-  it.each(["rejected", "cancelled"])("leaves a %s booking alone", (status) => {
+  it.each(["rejected", "cancelled"])("[SPM-62][AC5] leaves a %s booking alone", (status) => {
     expect(affectedArrangements(["schedule"], all({ venueBookings: [booking({ status })] }), NOW).venueBookings).toEqual([]);
   });
 
-  it("leaves a booking that has already ended alone, but not one ending later", () => {
+  it("[SPM-62][AC5] leaves a booking that has already ended alone, but not one ending later", () => {
     const ended = booking({ id: "ended", endsAt: NOW });
     const later = booking({ id: "later", endsAt: new Date(NOW.getTime() + 1) });
 
@@ -183,19 +183,19 @@ describe("affectedArrangements", () => {
     expect(result.venueBookings.map((b) => b.id)).toEqual(["later"]);
   });
 
-  it.each(["requested", "under_review", "reserved", "partially_fulfilled"])("flags %s equipment", (status) => {
+  it.each(["requested", "under_review", "reserved", "partially_fulfilled"])("[SPM-62][AC5] flags %s equipment", (status) => {
     expect(
       affectedArrangements(["schedule"], all({ equipmentRequests: [equipment({ status })] }), NOW).equipmentRequests
     ).toHaveLength(1);
   });
 
-  it.each(["unavailable", "cancelled"])("leaves %s equipment alone", (status) => {
+  it.each(["unavailable", "cancelled"])("[SPM-62][AC5] leaves %s equipment alone", (status) => {
     expect(
       affectedArrangements(["schedule"], all({ equipmentRequests: [equipment({ status })] }), NOW).equipmentRequests
     ).toEqual([]);
   });
 
-  it("does not flag registrations when nobody has registered", () => {
+  it("[SPM-62][AC5] does not flag registrations when nobody has registered", () => {
     expect(affectedArrangements(["schedule"], all({ registrationCount: 0 }), NOW).registrations).toBeNull();
   });
 });
@@ -209,25 +209,25 @@ describe("revertsConfirmation", () => {
   it.each([
     ["a flagged venue booking", booking],
     ["flagged equipment", equipment],
-  ])("reverts a Confirmed event with %s", (_what, affected) => {
+  ])("[SPM-62][AC6] reverts a Confirmed event with %s", (_what, affected) => {
     expect(revertsConfirmation("confirmed", affected)).toBe(true);
   });
 
-  it("does not revert a Confirmed event when nothing is flagged", () => {
+  it("[SPM-62][AC6] does not revert a Confirmed event when nothing is flagged", () => {
     expect(revertsConfirmation("confirmed", none)).toBe(false);
   });
 
-  it("does not revert for registrations alone - confirmation does not depend on them", () => {
+  it("[SPM-62][AC6] does not revert for registrations alone - confirmation does not depend on them", () => {
     expect(revertsConfirmation("confirmed", registrationsOnly)).toBe(false);
   });
 
-  it.each(["approved", "planning"])("never reverts an event that is %s", (status) => {
+  it.each(["approved", "planning"])("[SPM-62][AC6] never reverts an event that is %s", (status) => {
     expect(revertsConfirmation(status, booking)).toBe(false);
   });
 });
 
 describe("wording", () => {
-  it("labels every important change for the form's warning", () => {
+  it("[SPM-62][AC4] labels every important change for the form's warning", () => {
     expect(IMPORTANT_CHANGES.map((c) => CHANGE_LABELS[c])).toEqual([
       "Date and time",
       "Expected attendance",
@@ -236,7 +236,7 @@ describe("wording", () => {
     ]);
   });
 
-  it("words each reason for the Arrangements to review list", () => {
+  it("[SPM-62][AC5] words each reason for the Arrangements to review list", () => {
     expect(CHANGE_REASON_PROSE).toEqual({
       event_schedule_changed: "the date or time changed",
       event_attendance_changed: "the expected attendance changed",
@@ -244,7 +244,7 @@ describe("wording", () => {
     });
   });
 
-  it("joins several reasons with semicolons, in a fixed order", () => {
+  it("[SPM-62][AC5] joins several reasons with semicolons, in a fixed order", () => {
     expect(reviewLine(["event_requirements_changed", "event_attendance_changed"])).toBe(
       "the expected attendance changed; the venue requirements changed"
     );

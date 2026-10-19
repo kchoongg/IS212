@@ -17,49 +17,49 @@ import { changeVenueBookingSchema } from "../validation";
 // rules about the booking and its event.
 
 describe("checkBookingChange", () => {
-  it("SPM-67-TC01: withdraws a pending request", () => {
+  it("[SPM-67][AC1] SPM-67-TC01: withdraws a pending request", () => {
     expect(checkBookingChange({ action: "withdraw", bookingStatus: "pending", eventStatus: "planning" })).toEqual({
       ok: true,
       status: "withdrawn",
     });
   });
 
-  it("SPM-67-TC03: releases an approved booking", () => {
+  it("[SPM-67][AC3] SPM-67-TC03: releases an approved booking", () => {
     expect(checkBookingChange({ action: "release", bookingStatus: "approved", eventStatus: "planning" })).toEqual({
       ok: true,
       status: "released",
     });
   });
 
-  it("refuses to withdraw a request Venue Staff have already approved, and says to release it", () => {
+  it("[SPM-67][AC1] refuses to withdraw a request Venue Staff have already approved, and says to release it", () => {
     expect(checkBookingChange({ action: "withdraw", bookingStatus: "approved", eventStatus: "planning" })).toEqual({
       ok: false,
       error: ALREADY_APPROVED_MESSAGE,
     });
   });
 
-  it("refuses to release a request that is still pending, and says to withdraw it", () => {
+  it("[SPM-67][AC3] refuses to release a request that is still pending, and says to withdraw it", () => {
     expect(checkBookingChange({ action: "release", bookingStatus: "pending", eventStatus: "planning" })).toEqual({
       ok: false,
       error: NOT_APPROVED_YET_MESSAGE,
     });
   });
 
-  it.each(["rejected", "withdrawn", "released"])("refuses to withdraw a %s booking", (bookingStatus) => {
+  it.each(["rejected", "withdrawn", "released"])("[SPM-67][AC1] refuses to withdraw a %s booking", (bookingStatus) => {
     expect(checkBookingChange({ action: "withdraw", bookingStatus, eventStatus: "planning" })).toEqual({
       ok: false,
       error: NOT_WITHDRAWABLE_MESSAGE,
     });
   });
 
-  it.each(["rejected", "withdrawn", "released"])("refuses to release a %s booking", (bookingStatus) => {
+  it.each(["rejected", "withdrawn", "released"])("[SPM-67][AC3] refuses to release a %s booking", (bookingStatus) => {
     expect(checkBookingChange({ action: "release", bookingStatus, eventStatus: "planning" })).toEqual({
       ok: false,
       error: NOT_RELEASABLE_MESSAGE,
     });
   });
 
-  it.each(["completed", "cancelled", "rejected", "withdrawn"])("changes nothing on a %s event", (eventStatus) => {
+  it.each(["completed", "cancelled", "rejected", "withdrawn"])("[SPM-67] changes nothing on a %s event", (eventStatus) => {
     expect(checkBookingChange({ action: "release", bookingStatus: "approved", eventStatus })).toEqual({
       ok: false,
       error: CLOSED_EVENT_CHANGE_MESSAGE,
@@ -67,7 +67,7 @@ describe("checkBookingChange", () => {
   });
 
   it.each(["submitted", "under_review", "approved", "planning", "safety_review", "confirmed", "postponed"])(
-    "allows a change on a %s event, which keeps its status",
+    "[SPM-67] allows a change on a %s event, which keeps its status",
     (eventStatus) => {
       expect(checkBookingChange({ action: "release", bookingStatus: "approved", eventStatus }).ok).toBe(true);
     }
@@ -75,11 +75,11 @@ describe("checkBookingChange", () => {
 });
 
 describe("canChangeBookingsOf", () => {
-  it("is true for an event still going ahead", () => {
+  it("[SPM-67] is true for an event still going ahead", () => {
     expect(canChangeBookingsOf("confirmed")).toBe(true);
   });
 
-  it("is false for a closed event", () => {
+  it("[SPM-67] is false for a closed event", () => {
     expect(canChangeBookingsOf("completed")).toBe(false);
   });
 });
@@ -99,7 +99,7 @@ describe("releaseNotification", () => {
     reason: null,
   };
 
-  it("SPM-67-TC03: tells Venue Staff who released which room, for which event and when", () => {
+  it("[SPM-67][AC7] SPM-67-TC03: tells Venue Staff who released which room, for which event and when", () => {
     expect(releaseNotification(base)).toEqual({
       type: "venue_booking_released",
       title: "Venue booking released",
@@ -108,14 +108,14 @@ describe("releaseNotification", () => {
     });
   });
 
-  it("adds the Coordinator's reason when one was given", () => {
+  it("[SPM-67][AC7] adds the Coordinator's reason when one was given", () => {
     expect(releaseNotification({ ...base, reason: "Plenary moved to the client's own auditorium." }).body).toBe(
       "Daniel Tan released SPM67 Hall (SPM67-HAL) for EVT-000123 SPM67 Release Pair on 4 Nov 2027, 09:00–12:00. " +
         "Reason: Plenary moved to the client's own auditorium."
     );
   });
 
-  it("names the session of a multi-session event", () => {
+  it("[SPM-67][AC7] names the session of a multi-session event", () => {
     expect(releaseNotification({ ...base, sessionLabel: "Day 1" }).body).toBe(
       "Daniel Tan released SPM67 Hall (SPM67-HAL) for EVT-000123 SPM67 Release Pair (Day 1) on 4 Nov 2027, 09:00–12:00."
     );
@@ -123,7 +123,7 @@ describe("releaseNotification", () => {
 });
 
 describe("changeVenueBookingSchema", () => {
-  it("accepts a withdrawal or release, with or without a reason", () => {
+  it("[SPM-67][AC5] accepts a withdrawal or release, with or without a reason", () => {
     expect(changeVenueBookingSchema.parse({ action: "withdraw" })).toEqual({ action: "withdraw" });
     expect(changeVenueBookingSchema.parse({ action: "release", reason: "  Not needed.  " })).toEqual({
       action: "release",
@@ -131,16 +131,16 @@ describe("changeVenueBookingSchema", () => {
     });
   });
 
-  it("SPM-67-TC06: treats a blank reason as none", () => {
+  it("[SPM-67][AC5] SPM-67-TC06: treats a blank reason as none", () => {
     expect(changeVenueBookingSchema.parse({ action: "withdraw", reason: "   " })).toEqual({ action: "withdraw" });
   });
 
-  it("accepts a reason of 2,000 characters and refuses 2,001", () => {
+  it("[SPM-67][AC5] accepts a reason of 2,000 characters and refuses 2,001", () => {
     expect(changeVenueBookingSchema.safeParse({ action: "withdraw", reason: "a".repeat(2000) }).success).toBe(true);
     expect(changeVenueBookingSchema.safeParse({ action: "withdraw", reason: "a".repeat(2001) }).success).toBe(false);
   });
 
-  it("refuses any other action", () => {
+  it("[SPM-67] refuses any other action", () => {
     expect(changeVenueBookingSchema.safeParse({ action: "approve" }).success).toBe(false);
   });
 });

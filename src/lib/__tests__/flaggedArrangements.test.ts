@@ -56,7 +56,7 @@ function input(overrides: Partial<FlaggedBookingInput> = {}): FlaggedBookingInpu
 const venue = (overrides: Partial<FlaggedBookingInput["venue"]> = {}) => ({ ...input().venue, ...overrides });
 
 describe("flagReasons - why an arrangement was flagged, in words (AC2, AC8)", () => {
-  it("words a change to the event and a change to the venue alike, in the stored order", () => {
+  it("[SPM-68][AC2] words a change to the event and a change to the venue alike, in the stored order", () => {
     expect(flagReasons("event_schedule_changed,venue_retired")).toEqual([
       "the date or time changed",
       "the venue has been retired",
@@ -73,22 +73,22 @@ describe("flagReasons - why an arrangement was flagged, in words (AC2, AC8)", ()
     ["registration_disabled", "registration was turned off"],
     // SPM-88 (AC3).
     ["safety_check_returned", "the Safety Officer returned the safety check"],
-  ])("words %s", (code, words) => {
+  ])("[SPM-68][AC2] words %s", (code, words) => {
     expect(flagReasons(code)).toEqual([words]);
   });
 
-  it("shows a code it has not been taught in plain words, rather than hiding the flag", () => {
+  it("[SPM-68][AC2] shows a code it has not been taught in plain words, rather than hiding the flag", () => {
     expect(flagReasons("venue_turnaround_changed")).toEqual(["venue turnaround changed"]);
   });
 
-  it("ignores stray spaces and empty entries", () => {
+  it("[SPM-68][AC2] ignores stray spaces and empty entries", () => {
     expect(flagReasons(" venue_retired , ,event_schedule_changed")).toEqual([
       "the venue has been retired",
       "the date or time changed",
     ]);
   });
 
-  it.each([null, undefined, ""])("says no reason was recorded for %j", (stored) => {
+  it.each([null, undefined, ""])("[SPM-68][AC2] says no reason was recorded for %j", (stored) => {
     expect(flagReasons(stored)).toEqual(["no reason was recorded"]);
   });
 });
@@ -103,12 +103,12 @@ describe("spaceNeeds - which attendance and layout a booking is held to now (SPM
     ["the main programme, however it is capitalised or spaced", "  main PROGRAMME "],
     ["a booking made before SPM-90, with no space", null],
     ["a booking with an empty purpose", ""],
-  ])("holds %s to the event's present attendance and layout", (_what, purpose) => {
+  ])("[SPM-68][AC4] [SPM-90][AC3] holds %s to the event's present attendance and layout", (_what, purpose) => {
     expect(spaceNeeds({ purpose, expectedAttendance: 80, layoutName: "classroom" }, event)).toEqual(event);
     expect(followsEvent(purpose)).toBe(true);
   });
 
-  it("holds any other space to its own attendance and layout, as booked", () => {
+  it("[SPM-68][AC4] [SPM-90][AC3] holds any other space to its own attendance and layout, as booked", () => {
     expect(spaceNeeds({ purpose: "Breakout room", expectedAttendance: 30, layoutName: "classroom" }, event)).toEqual({
       expectedAttendance: 30,
       preferredLayout: "classroom",
@@ -116,14 +116,14 @@ describe("spaceNeeds - which attendance and layout a booking is held to now (SPM
     expect(followsEvent("Breakout room")).toBe(false);
   });
 
-  it("falls back to the event's attendance for a space with none recorded, and checks no layout it did not set", () => {
+  it("[SPM-68][AC4] [SPM-90][AC3] falls back to the event's attendance for a space with none recorded, and checks no layout it did not set", () => {
     expect(spaceNeeds({ purpose: "Breakout room", expectedAttendance: null, layoutName: null }, event)).toEqual({
       expectedAttendance: 150,
       preferredLayout: null,
     });
   });
 
-  it("does not let an event that grew make a breakout room too small for its own attendance", () => {
+  it("[SPM-68][AC4] [SPM-90][AC3] does not let an event that grew make a breakout room too small for its own attendance", () => {
     const breakout = spaceNeeds({ purpose: "Breakout room", expectedAttendance: 30, layoutName: "theatre" }, event);
     const result = assessFlaggedBooking(input({ needs: { ...breakout, requirements: [] }, venue: venue({ layouts: [{ layoutName: "theatre", capacity: 40 }] }) }));
 
@@ -132,33 +132,33 @@ describe("spaceNeeds - which attendance and layout a booking is held to now (SPM
 });
 
 describe("assessFlaggedBooking - suitability for the event's present requirements (AC4)", () => {
-  it("passes a room that still seats the attendance in the layout and has what is required", () => {
+  it("[SPM-68][AC4] passes a room that still seats the attendance in the layout and has what is required", () => {
     expect(assessFlaggedBooking(input())).toEqual({
       suitability: { ok: true, unmet: [] },
       availability: { ok: true, unmet: [] },
     });
   });
 
-  it("passes a room that seats exactly the expected attendance", () => {
+  it("[SPM-68][AC4] passes a room that seats exactly the expected attendance", () => {
     const result = assessFlaggedBooking(input({ needs: { expectedAttendance: 100, preferredLayout: "theatre", requirements: [] } }));
 
     expect(result.suitability).toEqual({ ok: true, unmet: [] });
   });
 
-  it("names the capacity when the attendance has outgrown the layout", () => {
+  it("[SPM-68][AC4] names the capacity when the attendance has outgrown the layout", () => {
     const result = assessFlaggedBooking(input({ needs: { expectedAttendance: 150, preferredLayout: "theatre", requirements: [] } }));
 
     expect(result.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] });
     expect(result.availability.ok).toBe(true);
   });
 
-  it("names a layout the venue does not offer", () => {
+  it("[SPM-68][AC4] names a layout the venue does not offer", () => {
     const result = assessFlaggedBooking(input({ needs: { expectedAttendance: 20, preferredLayout: "boardroom", requirements: [] } }));
 
     expect(result.suitability).toEqual({ ok: false, unmet: ["Boardroom layout is not offered."] });
   });
 
-  it("names a required facility and a required accessibility feature the venue lacks", () => {
+  it("[SPM-68][AC4] names a required facility and a required accessibility feature the venue lacks", () => {
     const result = assessFlaggedBooking(
       input({
         needs: {
@@ -179,7 +179,7 @@ describe("assessFlaggedBooking - suitability for the event's present requirement
     });
   });
 
-  it("does not fail a room for a nice-to-have it lacks", () => {
+  it("[SPM-68][AC4] does not fail a room for a nice-to-have it lacks", () => {
     const result = assessFlaggedBooking(
       input({
         needs: {
@@ -195,13 +195,13 @@ describe("assessFlaggedBooking - suitability for the event's present requirement
 });
 
 describe("assessFlaggedBooking - availability for the event's present time (AC4)", () => {
-  it("says a retired venue has been retired", () => {
+  it("[SPM-68][AC4] says a retired venue has been retired", () => {
     const result = assessFlaggedBooking(input({ venue: venue({ isActive: false }) }));
 
     expect(result.availability).toEqual({ ok: false, unmet: ["Hall has been retired."] });
   });
 
-  it("names the unavailable period that covers the booking", () => {
+  it("[SPM-68][AC4] names the unavailable period that covers the booking", () => {
     const result = assessFlaggedBooking(
       input({ venue: venue({ unavailability: [{ startsAt: at(DAY, 8), endsAt: at(DAY, 18), reason: "maintenance" }] }) })
     );
@@ -212,7 +212,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     });
   });
 
-  it("ignores an unavailable period on another day", () => {
+  it("[SPM-68][AC4] ignores an unavailable period on another day", () => {
     const result = assessFlaggedBooking(
       input({ venue: venue({ unavailability: [{ startsAt: at("2027-10-09", 8), endsAt: at("2027-10-09", 18), reason: "maintenance" }] }) })
     );
@@ -220,7 +220,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     expect(result.availability).toEqual({ ok: true, unmet: [] });
   });
 
-  it("names another event's approved booking of the room at the same time", () => {
+  it("[SPM-68][AC4] names another event's approved booking of the room at the same time", () => {
     const result = assessFlaggedBooking(
       input({
         venue: venue({
@@ -245,7 +245,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     });
   });
 
-  it("counts the venue's setup and turnaround, so a booking that ends just before still clashes", () => {
+  it("[SPM-68][AC4] counts the venue's setup and turnaround, so a booking that ends just before still clashes", () => {
     const result = assessFlaggedBooking(
       input({
         venue: venue({
@@ -258,7 +258,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     expect(result.availability.ok).toBe(false);
   });
 
-  it("never counts the booking against itself, or against the same event's other booking", () => {
+  it("[SPM-68][AC4] never counts the booking against itself, or against the same event's other booking", () => {
     const result = assessFlaggedBooking(
       input({
         venue: venue({
@@ -273,7 +273,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     expect(result.availability).toEqual({ ok: true, unmet: [] });
   });
 
-  it("does not let another event's pending request stand in the way of an approved booking", () => {
+  it("[SPM-68][AC4] does not let another event's pending request stand in the way of an approved booking", () => {
     const result = assessFlaggedBooking(
       input({ venue: venue({ bookings: [{ id: "b2", eventId: "e2", status: "pending", startsAt: at(DAY, 9), endsAt: at(DAY, 17) }] }) })
     );
@@ -281,7 +281,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     expect(result.availability).toEqual({ ok: true, unmet: [] });
   });
 
-  it("says so when the booking no longer covers the event's time", () => {
+  it("[SPM-68][AC4] says so when the booking no longer covers the event's time", () => {
     const result = assessFlaggedBooking(
       input({ schedule: { startsAt: at("2027-10-09", 9), endsAt: at("2027-10-09", 17) } })
     );
@@ -292,7 +292,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     });
   });
 
-  it("speaks of the session's time for a session's booking", () => {
+  it("[SPM-68][AC4] speaks of the session's time for a session's booking", () => {
     const result = assessFlaggedBooking(
       input({ holder: "session", schedule: { startsAt: at(DAY, 9), endsAt: at(DAY, 18) } })
     );
@@ -302,13 +302,13 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
     ]);
   });
 
-  it("accepts a booking wider than the event's time", () => {
+  it("[SPM-68][AC4] accepts a booking wider than the event's time", () => {
     const result = assessFlaggedBooking(input({ schedule: { startsAt: at(DAY, 10), endsAt: at(DAY, 16) } }));
 
     expect(result.availability).toEqual({ ok: true, unmet: [] });
   });
 
-  it("reports suitability and availability separately when both fail", () => {
+  it("[SPM-68][AC4] reports suitability and availability separately when both fail", () => {
     const result = assessFlaggedBooking(
       input({
         needs: { expectedAttendance: 150, preferredLayout: "theatre", requirements: [] },
@@ -322,7 +322,7 @@ describe("assessFlaggedBooking - availability for the event's present time (AC4)
 });
 
 describe("assessFlaggedEquipment - availability for the event's present dates and quantities (AC5)", () => {
-  it("passes a reservation the available units still cover", () => {
+  it("[SPM-68][AC5] passes a reservation the available units still cover", () => {
     expect(assessFlaggedEquipment({ status: "reserved", quantityRequested: 2, quantityReserved: 2, available: 4 })).toEqual({
       ok: true,
       needed: 2,
@@ -331,11 +331,11 @@ describe("assessFlaggedEquipment - availability for the event's present dates an
     });
   });
 
-  it("passes when exactly the reserved quantity is available", () => {
+  it("[SPM-68][AC5] passes when exactly the reserved quantity is available", () => {
     expect(assessFlaggedEquipment({ status: "reserved", quantityRequested: 2, quantityReserved: 2, available: 2 }).ok).toBe(true);
   });
 
-  it("fails a reservation left one unit short", () => {
+  it("[SPM-68][AC5] fails a reservation left one unit short", () => {
     expect(assessFlaggedEquipment({ status: "reserved", quantityRequested: 2, quantityReserved: 2, available: 1 })).toEqual({
       ok: false,
       needed: 2,
@@ -344,19 +344,19 @@ describe("assessFlaggedEquipment - availability for the event's present dates an
     });
   });
 
-  it("judges a partially fulfilled line by what it has reserved, not what was asked for", () => {
+  it("[SPM-68][AC5] judges a partially fulfilled line by what it has reserved, not what was asked for", () => {
     const result = assessFlaggedEquipment({ status: "partially_fulfilled", quantityRequested: 4, quantityReserved: 2, available: 2 });
 
     expect(result).toMatchObject({ ok: true, needed: 2, summary: "2 reserved, 2 available for these dates." });
   });
 
-  it.each(["requested", "under_review"])("judges a %s line by the quantity requested", (status) => {
+  it.each(["requested", "under_review"])("[SPM-68][AC5] judges a %s line by the quantity requested", (status) => {
     const result = assessFlaggedEquipment({ status, quantityRequested: 4, quantityReserved: null, available: 3 });
 
     expect(result).toMatchObject({ ok: false, needed: 4, summary: "4 requested, 3 available for these dates." });
   });
 
-  it("cannot pass a line whose event has no dates to check", () => {
+  it("[SPM-68][AC5] cannot pass a line whose event has no dates to check", () => {
     expect(assessFlaggedEquipment({ status: "reserved", quantityRequested: 2, quantityReserved: 2, available: null })).toEqual({
       ok: false,
       needed: 2,
@@ -367,13 +367,13 @@ describe("assessFlaggedEquipment - availability for the event's present dates an
 });
 
 describe("the wording around a flagged arrangement", () => {
-  it("names the arrangement and every unmet requirement when Keep is refused (AC7)", () => {
+  it("[SPM-68][AC7] names the arrangement and every unmet requirement when Keep is refused (AC7)", () => {
     expect(keepRefusal("SPM68 Hall", ["Theatre capacity is 100 - this space expects 150.", "SPM68 Hall has been retired."])).toBe(
       "SPM68 Hall no longer meets this event's requirements: Theatre capacity is 100 - this space expects 150. SPM68 Hall has been retired."
     );
   });
 
-  it("counts the attendees registered and on the waiting list (AC8)", () => {
+  it("[SPM-68][AC8] counts the attendees registered and on the waiting list (AC8)", () => {
     expect(registrationCountLine(12, 3)).toBe("12 registered, 3 on the waiting list");
     expect(registrationCountLine(5, 0)).toBe("5 registered, 0 on the waiting list");
   });

@@ -46,7 +46,7 @@ const table = () => screen.getByRole("table");
 const rowOf = (title: string) => within(table()).getByText(title).closest("tr") as HTMLElement;
 
 describe("AC1 Browse Events lists the events an attendee can register for", () => {
-  it("shows each event's date, company and registration state (TC01)", async () => {
+  it("[SPM-51][AC1] shows each event's date, company and registration state (TC01)", async () => {
     open([
       row(),
       row({ id: "e2", sequenceNumber: 42, title: "SPM51 Early Bird Seminar", startsAt: "2028-01-20T01:00:00.000Z",
@@ -71,7 +71,7 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(within(rowOf("SPM51 Undated Talk")).getByText("Dates not set")).toBeInTheDocument();
   });
 
-  it("lists the soonest event first", async () => {
+  it("[SPM-51][AC1] lists the soonest event first", async () => {
     open([
       row({ id: "late", title: "Later", startsAt: "2028-02-01T01:00:00.000Z", endsAt: "2028-02-01T02:00:00.000Z" }),
       row({ id: "soon", title: "Sooner", startsAt: "2027-12-01T01:00:00.000Z", endsAt: "2027-12-01T02:00:00.000Z" }),
@@ -84,7 +84,7 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(titles[1]).toContain("Later");
   });
 
-  it("lists an event with no start date after the dated ones", async () => {
+  it("[SPM-51][AC1] lists an event with no start date after the dated ones", async () => {
     open([
       row({ id: "undated", title: "Undated", startsAt: null, endsAt: null }),
       row({ id: "dated", title: "Dated" }),
@@ -97,13 +97,13 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(titles[1]).toContain("Undated");
   });
 
-  it("shows an event with no title as 'Untitled event'", async () => {
+  it("[SPM-51] shows an event with no title as 'Untitled event'", async () => {
     open([row({ title: null })]);
 
     expect(await within(await screen.findByRole("table")).findByText("Untitled event")).toBeInTheDocument();
   });
 
-  it("leaves out an event whose registration is off, even one the attendee holds a place in", async () => {
+  it("[SPM-51][AC1][AC8] leaves out an event whose registration is off, even one the attendee holds a place in", async () => {
     open([row(), row({ id: "off", title: "SPM51 Private Board Dinner", registrationEnabled: false, registrationState: { kind: "disabled" } })]);
 
     await screen.findByRole("table");
@@ -111,7 +111,7 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(within(table()).queryByText("SPM51 Private Board Dinner")).not.toBeInTheDocument();
   });
 
-  it("opens the event when its row is clicked", async () => {
+  it("[SPM-51][AC1] opens the event when its row is clicked", async () => {
     open([row()]);
 
     await userEvent.click(await within(await screen.findByRole("table")).findByText("SPM51 Harbour Open House"));
@@ -119,13 +119,13 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(router.push).toHaveBeenCalledWith("/events/EVT-000041");
   });
 
-  it("says so when there is nothing to register for", async () => {
+  it("[SPM-51] says so when there is nothing to register for", async () => {
     open([]);
 
     expect(await screen.findByText("No events are open for registration right now.")).toBeInTheDocument();
   });
 
-  it("shows an error with Retry, and retries", async () => {
+  it("[SPM-51] shows an error with Retry, and retries", async () => {
     const api = open(reply(500, { error: "Internal server error" }));
 
     expect(await screen.findByText("Could not load events.")).toBeInTheDocument();
@@ -135,13 +135,13 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(await screen.findByRole("table")).toBeInTheDocument();
   });
 
-  it("shows a general error when the request fails without a reason", async () => {
+  it("[SPM-51] shows a general error when the request fails without a reason", async () => {
     open(() => Promise.reject("offline"));
 
     expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
   });
 
-  it("sends a visitor whose session ended back to log in", async () => {
+  it("[SPM-22][AC4] sends a visitor whose session ended back to log in", async () => {
     open(reply(401, { error: "Not authenticated" }));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fbrowse"));
@@ -149,7 +149,7 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
 });
 
 describe("only attendees browse (TC12)", () => {
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute("/browse");
     mockApi(signedOut());
 
@@ -158,7 +158,7 @@ describe("only attendees browse (TC12)", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fbrowse"));
   });
 
-  it.each(ROLES.filter((role) => !can(role, "registration:create")))("refuses %s without asking for events", async (role) => {
+  it.each(ROLES.filter((role) => !can(role, "registration:create")))("[SPM-22][AC4] refuses %s without asking for events", async (role) => {
     setRoute("/browse");
     const api = mockApi(signedInAs(role));
 

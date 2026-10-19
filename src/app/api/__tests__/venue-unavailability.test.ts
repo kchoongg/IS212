@@ -139,11 +139,11 @@ afterEach(() => {
 });
 
 describe("GET /api/venues/[id]/unavailability", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await list()).status).toBe(401);
   });
 
-  it.each(OTHERS)("is 403 for %s", async (role) => {
+  it.each(OTHERS)("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await list(signIn(user(role)));
 
     expect(res.status).toBe(403);
@@ -151,14 +151,14 @@ describe("GET /api/venues/[id]/unavailability", () => {
     expect(db.venueUnavailability.findMany).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a venue that does not exist", async () => {
+  it("[SPM-45] is 404 for a venue that does not exist", async () => {
     const res = await list(given({ stored: null }));
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Venue not found" });
   });
 
-  it("lists the periods that are not over yet, earliest first, as dates and times", async () => {
+  it("[SPM-45][AC1] lists the periods that are not over yet, earliest first, as dates and times", async () => {
     vi.useFakeTimers({ now: NOW });
     const token = given();
 
@@ -182,7 +182,7 @@ describe("GET /api/venues/[id]/unavailability", () => {
     });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-45] answers 500 when the database fails", async () => {
     const token = given();
     db.venue.findUnique.mockRejectedValue(new Error("connection lost"));
 
@@ -191,18 +191,18 @@ describe("GET /api/venues/[id]/unavailability", () => {
 });
 
 describe("POST /api/venues/[id]/unavailability", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await create(undefined)).status).toBe(401);
   });
 
-  it.each(OTHERS)("is 403 for %s", async (role) => {
+  it.each(OTHERS)("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await create(signIn(user(role)));
 
     expect(res.status).toBe(403);
     expect(db.venueUnavailability.create).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a venue that does not exist", async () => {
+  it("[SPM-45] is 404 for a venue that does not exist", async () => {
     const res = await create(given({ stored: null }));
 
     expect(res.status).toBe(404);
@@ -210,7 +210,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
     expect(db.venueUnavailability.create).not.toHaveBeenCalled();
   });
 
-  it("records the period from the time it becomes unavailable to the time it is available again", async () => {
+  it("[SPM-45][AC1] records the period from the time it becomes unavailable to the time it is available again", async () => {
     const token = given();
 
     const res = await create(token);
@@ -226,7 +226,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
     });
   });
 
-  it("answers with the period as dates and times, and nothing flagged when no booking is affected", async () => {
+  it("[SPM-45][AC1] answers with the period as dates and times, and nothing flagged when no booking is affected", async () => {
     const json = await (await create(given())).json();
 
     expect(json.period).toEqual({ id: PERIOD_ID, ...body, otherReason: null });
@@ -235,7 +235,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
     expect(db.notification.create).not.toHaveBeenCalled();
   });
 
-  it("saves the description of an Other reason, trimmed", async () => {
+  it("[SPM-45][AC6] saves the description of an Other reason, trimmed", async () => {
     const res = await create(given(), { ...other, otherReason: "  Film crew on site " });
 
     expect(res.status).toBe(201);
@@ -243,14 +243,14 @@ describe("POST /api/venues/[id]/unavailability", () => {
     expect((await res.json()).period).toMatchObject({ reason: "other", otherReason: "Film crew on site" });
   });
 
-  it("ignores a description sent with a reason that is on the list", async () => {
+  it("[SPM-45][AC6] ignores a description sent with a reason that is on the list", async () => {
     const res = await create(given(), { ...body, otherReason: "Film crew on site" });
 
     expect(res.status).toBe(201);
     expect(callArg(db.venueUnavailability.create).data.notes).toBeNull();
   });
 
-  it("accepts a period of a single 15-minute step", async () => {
+  it("[SPM-45][AC1] accepts a period of a single 15-minute step", async () => {
     const res = await create(given(), { ...body, untilDay: "2027-06-10", untilTime: "13:15" });
 
     expect(res.status).toBe(201);
@@ -260,14 +260,14 @@ describe("POST /api/venues/[id]/unavailability", () => {
     });
   });
 
-  it("accepts a period that starts at midnight, outside any opening hours", async () => {
+  it("[SPM-45][AC1] accepts a period that starts at midnight, outside any opening hours", async () => {
     const res = await create(given(), { ...body, fromTime: "00:00" });
 
     expect(res.status).toBe(201);
     expect(callArg(db.venueUnavailability.create).data.startsAt).toEqual(sgt("2027-06-10", "00:00"));
   });
 
-  it("leaves the venue itself active - the room is not retired", async () => {
+  it("[SPM-45][AC1] leaves the venue itself active - the room is not retired", async () => {
     const res = await create(given());
 
     expect(res.status).toBe(201);
@@ -279,7 +279,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       ["at the same time", { untilDay: "2027-06-10", untilTime: "13:00" }],
       ["earlier the same day", { untilDay: "2027-06-10", untilTime: "09:00" }],
       ["on an earlier day, later in the day", { untilDay: "2027-06-09", untilTime: "23:45" }],
-    ])("a return %s", async (_case, until) => {
+    ])("[SPM-45][AC2] a return %s", async (_case, until) => {
       const res = await create(given(), { ...body, ...until });
       const json = await res.json();
 
@@ -305,7 +305,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       ["Other with no description", { reason: "other" }, "otherReason"],
       ["Other with a description of spaces only", { reason: "other", otherReason: "   " }, "otherReason"],
       ["Other with a description longer than 500 characters", { reason: "other", otherReason: "x".repeat(501) }, "otherReason"],
-    ])("%s", async (_case, change, field) => {
+    ])("[SPM-45][AC1] %s", async (_case, change, field) => {
       const res = await create(given(), { ...body, ...change });
       const json = await res.json();
 
@@ -320,7 +320,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       it.each([
         ["ended last month", { untilDay: "2026-09-05", untilTime: "17:00" }],
         ["ends at this very moment", { untilDay: "2026-10-06", untilTime: "10:00" }],
-      ])("when it %s", async (_case, until) => {
+      ])("[SPM-45][AC1] when it %s", async (_case, until) => {
         vi.useFakeTimers({ now: NOW });
 
         const res = await create(given({ bookings: [first()] }), { ...past, ...until });
@@ -334,7 +334,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
         expect(db.venueBooking.update).not.toHaveBeenCalled();
       });
 
-      it("but not one that began in the past and ends 15 minutes from now", async () => {
+      it("[SPM-45][AC1] but not one that began in the past and ends 15 minutes from now", async () => {
         vi.useFakeTimers({ now: NOW });
 
         const res = await create(given(), { ...past, untilDay: "2026-10-06", untilTime: "10:15" });
@@ -343,13 +343,13 @@ describe("POST /api/venues/[id]/unavailability", () => {
       });
     });
 
-    it("names the 15-minute grid when a time is off it", async () => {
+    it("[SPM-45][AC1] names the 15-minute grid when a time is off it", async () => {
       const json = await (await create(given(), { ...body, fromTime: "13:10" })).json();
 
       expect(json.details.fieldErrors.fromTime).toEqual(["Choose a time on a 15-minute step (:00, :15, :30 or :45)."]);
     });
 
-    it("says what is missing when Other has no description", async () => {
+    it("[SPM-45][AC6] says what is missing when Other has no description", async () => {
       const json = await (await create(given(), { ...body, reason: "other" })).json();
 
       expect(json.details.fieldErrors.otherReason).toEqual(["Describe the reason."]);
@@ -357,7 +357,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
   });
 
   describe("bookings inside the period", () => {
-    it("only considers approved bookings that have not finished yet", async () => {
+    it("[SPM-45][AC3] only considers approved bookings that have not finished yet", async () => {
       vi.useFakeTimers({ now: NOW });
 
       await create(given());
@@ -369,7 +369,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       });
     });
 
-    it("flags the bookings that overlap it, and not one that ends as it starts or starts as it ends", async () => {
+    it("[SPM-45][AC3] flags the bookings that overlap it, and not one that ends as it starts or starts as it ends", async () => {
       const token = given({ bookings: [before(), first(), last(), after()] });
 
       const json = await (await create(token)).json();
@@ -381,7 +381,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       ]);
     });
 
-    it("flags a booking for review without changing anything else about it", async () => {
+    it("[SPM-45][AC3] flags a booking for review without changing anything else about it", async () => {
       vi.useFakeTimers({ now: NOW });
       const token = given({ bookings: [first()] });
 
@@ -393,7 +393,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       });
     });
 
-    it("reports what was flagged and who was told", async () => {
+    it("[SPM-45][AC3] reports what was flagged and who was told", async () => {
       const json = await (await create(given({ bookings: [first()] }))).json();
 
       expect(json.flaggedBookings).toEqual([
@@ -409,7 +409,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       ]);
     });
 
-    it("notifies the event's assigned coordinator, naming the venue, the event and the reason", async () => {
+    it("[SPM-45][AC3] notifies the event's assigned coordinator, naming the venue, the event and the reason", async () => {
       await create(given({ bookings: [first()] }));
       const notification = callArg(db.notification.create).data;
 
@@ -428,7 +428,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(notification.body).toContain("Equipment failure");
     });
 
-    it("calls an untitled event 'an event' in the notification", async () => {
+    it("[SPM-45][AC3] calls an untitled event 'an event' in the notification", async () => {
       const untitled = { ...first(), event: { ...first().event, title: null } };
 
       await create(given({ bookings: [untitled] }));
@@ -436,13 +436,13 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(callArg(db.notification.create).data.body).toContain("The approved booking for an event on ");
     });
 
-    it("gives the coordinator the description when the reason is Other", async () => {
+    it("[SPM-45][AC3] gives the coordinator the description when the reason is Other", async () => {
       await create(given({ bookings: [first()] }), other);
 
       expect(callArg(db.notification.create).data.body).toContain("Film crew on site");
     });
 
-    it("notifies the person who requested the booking when the event has no coordinator", async () => {
+    it("[SPM-45][AC3] notifies the person who requested the booking when the event has no coordinator", async () => {
       const unassigned = { ...first(), event: { ...first().event, coordinatorId: null } };
 
       await create(given({ bookings: [unassigned] }));
@@ -450,7 +450,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(callArg(db.notification.create).data.recipientId).toBe(REQUESTER_ID);
     });
 
-    it("names the session when the booking belongs to one", async () => {
+    it("[SPM-45][AC3] names the session when the booking belongs to one", async () => {
       const sessionBooking = { ...first(), sessionId: ID.session, session: { label: "Day 2" } };
 
       const json = await (await create(given({ bookings: [sessionBooking] }))).json();
@@ -459,7 +459,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(callArg(db.notification.create).data.body).toContain("(Day 2)");
     });
 
-    it("keeps the reasons an earlier venue change already flagged", async () => {
+    it("[SPM-45][AC3] keeps the reasons an earlier venue change already flagged", async () => {
       const alreadyFlagged = { ...first(), needsReview: true, reviewReason: "layout_removed" };
 
       await create(given({ bookings: [alreadyFlagged] }));
@@ -467,7 +467,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(callArg(db.venueBooking.update).data.reviewReason).toBe("layout_removed,venue_unavailable");
     });
 
-    it("counts a booking whose turnaround runs into the period", async () => {
+    it("[SPM-45][AC3] counts a booking whose turnaround runs into the period", async () => {
       // Morning Briefing ends at 13:00, as the period starts; its turnaround runs to 13:45.
       const token = given({ stored: venue({ teardownMinutes: 45 }), bookings: [before()] });
 
@@ -476,7 +476,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(flaggedIds()).toEqual(["b-before"]);
     });
 
-    it("counts a booking whose setup starts inside the period", async () => {
+    it("[SPM-45][AC3] counts a booking whose setup starts inside the period", async () => {
       // Return Forum starts at 13:00, as the venue returns; its setup starts at 12:30.
       const token = given({ stored: venue({ setupMinutes: 30 }), bookings: [after()] });
 
@@ -485,7 +485,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
       expect(flaggedIds()).toEqual(["b-after"]);
     });
 
-    it("does not count setup and turnaround that only meet the period", async () => {
+    it("[SPM-45][AC3] does not count setup and turnaround that only meet the period", async () => {
       // Room in use 10:30-13:00 and 13:00-15:45: each meets an edge, neither overlaps.
       const early = booking("b-early", "Early Talk", "2027-06-10", "11:00", "12:15");
       const later = booking("b-later", "Later Talk", "2027-06-15", "13:30", "15:00");
@@ -498,7 +498,7 @@ describe("POST /api/venues/[id]/unavailability", () => {
     });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-45] answers 500 when the database fails", async () => {
     const token = given();
     db.venueUnavailability.create.mockRejectedValue(new Error("connection lost"));
 
@@ -510,11 +510,11 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
   /// 12:45 to 13:15: one 15-minute step wider at each end than the stored period.
   const wider = { ...body, fromTime: "12:45", untilTime: "13:15" };
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await change(undefined)).status).toBe(401);
   });
 
-  it.each(OTHERS)("is 403 for %s", async (role) => {
+  it.each(OTHERS)("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await change(signIn(user(role)));
 
     expect(res.status).toBe(403);
@@ -524,7 +524,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
   it.each([
     ["does not exist", null],
     ["belongs to another venue", period({ venueId: ID.otherVenue })],
-  ])("is 404 for a period that %s", async (_case, existing) => {
+  ])("[SPM-45] is 404 for a period that %s", async (_case, existing) => {
     const res = await change(given({ existing }));
 
     expect(res.status).toBe(404);
@@ -532,7 +532,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a venue that does not exist", async () => {
+  it("[SPM-45] is 404 for a venue that does not exist", async () => {
     const res = await change(given({ stored: null }));
 
     expect(res.status).toBe(404);
@@ -540,7 +540,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("saves the new dates, times and reason", async () => {
+  it("[SPM-45][AC5] saves the new dates, times and reason", async () => {
     const token = given();
 
     const res = await change(token, { ...wider, reason: "other", otherReason: " Film crew on site " });
@@ -558,7 +558,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect((await res.json()).period).toEqual({ id: PERIOD_ID, ...wider, reason: "other", otherReason: "Film crew on site" });
   });
 
-  it("flags only the bookings the wider period newly covers", async () => {
+  it("[SPM-45][AC5][AC3] flags only the bookings the wider period newly covers", async () => {
     const token = given({ bookings: [before(), first(), last(), after()] });
 
     const json = await (await change(token, wider)).json();
@@ -568,7 +568,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.notification.create).toHaveBeenCalledTimes(2);
   });
 
-  it("flags nothing, and clears nothing, when the period is made shorter", async () => {
+  it("[SPM-45][AC5][AC3] flags nothing, and clears nothing, when the period is made shorter", async () => {
     const shorter = { ...body, fromDay: "2027-06-11", fromTime: "09:00" };
     const token = given({ bookings: [{ ...first(), needsReview: true, reviewReason: "venue_unavailable" }] });
 
@@ -578,7 +578,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueBooking.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a return that is not later than the start", async () => {
+  it("[SPM-45][AC2] refuses a return that is not later than the start", async () => {
     const res = await change(given(), { ...body, untilDay: "2027-06-10", untilTime: "13:00" });
 
     expect(res.status).toBe(400);
@@ -588,7 +588,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a change that would leave the period already over", async () => {
+  it("[SPM-45][AC5] refuses a change that would leave the period already over", async () => {
     vi.useFakeTimers({ now: sgt("2027-06-12", "10:00") });
 
     const res = await change(given(), { ...body, untilDay: "2027-06-12", untilTime: "09:00" });
@@ -598,7 +598,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a time that is off the 15-minute grid", async () => {
+  it("[SPM-45][AC5] refuses a time that is off the 15-minute grid", async () => {
     const res = await change(given(), { ...body, untilTime: "13:20" });
 
     expect(res.status).toBe(400);
@@ -606,14 +606,14 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a change with no reason", async () => {
+  it("[SPM-45][AC6] refuses a change with no reason", async () => {
     const res = await change(given(), { ...body, reason: undefined });
 
     expect(res.status).toBe(400);
     expect((await res.json()).details.fieldErrors).toHaveProperty("reason");
   });
 
-  it("clears the description when the reason is changed from Other to one on the list", async () => {
+  it("[SPM-45][AC6] clears the description when the reason is changed from Other to one on the list", async () => {
     const token = given({ existing: period({ reason: "other", notes: "Film crew on site" }) });
 
     await change(token, { ...body, reason: "safety" });
@@ -621,7 +621,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(callArg(db.venueUnavailability.update).data).toMatchObject({ reason: "safety", notes: null });
   });
 
-  it("refuses a change to Other with no description", async () => {
+  it("[SPM-45][AC6] refuses a change to Other with no description", async () => {
     const res = await change(given(), { ...body, reason: "other" });
 
     expect(res.status).toBe(400);
@@ -629,7 +629,7 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-45] answers 500 when the database fails", async () => {
     const token = given();
     db.venueUnavailability.update.mockRejectedValue(new Error("connection lost"));
 
@@ -638,11 +638,11 @@ describe("PATCH /api/venues/[id]/unavailability/[periodId]", () => {
 });
 
 describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period early", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await end()).status).toBe(401);
   });
 
-  it.each(OTHERS)("is 403 for %s", async (role) => {
+  it.each(OTHERS)("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await end(signIn(user(role)));
 
     expect(res.status).toBe(403);
@@ -653,14 +653,14 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
   it.each([
     ["does not exist", null],
     ["belongs to another venue", period({ venueId: ID.otherVenue })],
-  ])("is 404 for a period that %s", async (_case, existing) => {
+  ])("[SPM-45] is 404 for a period that %s", async (_case, existing) => {
     const res = await end(given({ existing }));
 
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: "Unavailable period not found" });
   });
 
-  it("is 404 for a venue that does not exist", async () => {
+  it("[SPM-45] is 404 for a venue that does not exist", async () => {
     const res = await end(given({ stored: null }));
 
     expect(res.status).toBe(404);
@@ -668,7 +668,7 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
     expect(db.venueUnavailability.delete).not.toHaveBeenCalled();
   });
 
-  it("ends a period that is under way from the 15-minute step that has begun, keeping the record of it", async () => {
+  it("[SPM-45][AC5][AC4] ends a period that is under way from the 15-minute step that has begun, keeping the record of it", async () => {
     vi.useFakeTimers({ now: sgt("2027-06-12", "10:07") });
     const token = given();
 
@@ -683,7 +683,7 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
     expect(db.venueUnavailability.delete).not.toHaveBeenCalled();
   });
 
-  it("removes a period ended within 15 minutes of starting, since nothing of it is left", async () => {
+  it("[SPM-45][AC5] removes a period ended within 15 minutes of starting, since nothing of it is left", async () => {
     vi.useFakeTimers({ now: sgt("2027-06-10", "13:10") });
     const token = given();
 
@@ -694,7 +694,7 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("removes a period that has not started yet", async () => {
+  it("[SPM-45][AC5] removes a period that has not started yet", async () => {
     vi.useFakeTimers({ now: NOW });
     const token = given();
 
@@ -705,7 +705,7 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
     expect(db.venueUnavailability.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a period that is already over", async () => {
+  it("[SPM-45][AC5] refuses a period that is already over", async () => {
     vi.useFakeTimers({ now: sgt("2027-06-15", "13:00") });
     const token = given();
 
@@ -717,7 +717,7 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
     expect(db.venueUnavailability.delete).not.toHaveBeenCalled();
   });
 
-  it("leaves bookings and their flags alone", async () => {
+  it("[SPM-45][AC5] leaves bookings and their flags alone", async () => {
     vi.useFakeTimers({ now: NOW });
 
     const res = await end(given({ bookings: [{ ...first(), needsReview: true, reviewReason: "venue_unavailable" }] }));
@@ -727,7 +727,7 @@ describe("DELETE /api/venues/[id]/unavailability/[periodId] - ending a period ea
     expect(db.notification.create).not.toHaveBeenCalled();
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-45] answers 500 when the database fails", async () => {
     const token = given();
     db.venueUnavailability.findUnique.mockRejectedValue(new Error("connection lost"));
 
