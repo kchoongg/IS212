@@ -482,6 +482,17 @@ describe("createEventSchema — sessions", () => {
   const day1 = { startsAt: "2026-12-05T01:00:00.000Z", endsAt: "2026-12-05T09:00:00.000Z" };
   const day2 = { startsAt: "2026-12-06T01:00:00.000Z", endsAt: "2026-12-06T09:00:00.000Z" };
 
+  it("accepts a session with no equipment list beside one that asks for equipment", () => {
+    // The once-per-event equipment rule reads every session's list; a session
+    // that sends none at all must count as an empty list, not break the check.
+    const result = createEventSchema.safeParse({
+      title: "Nusantara Summit",
+      sessions: [{ ...day1, equipment: [{ equipmentId: projector, quantityRequested: 1 }] }, day2],
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("accepts an event with two sessions and no event-level dates", () => {
     // The event's own start/end/headcount are derived from the sessions by the
     // route, so a sessions-only body is complete on its own.

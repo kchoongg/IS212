@@ -612,6 +612,22 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
+    // The lifecycle allows Postponed -> Approved (src/lib/statuses.ts), so this
+    // gets past the move check - and is then refused as a review outcome. The
+    // Postponed -> Approved move belongs to Process Event Change Request
+    // (SPM-32), which must not go through this route (Jira comment on SPM-32,
+    // 2026-10-15).
+    it("SPM-28: refuses 'approved' for a Postponed event, as approval is only a review outcome", async () => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ status: "postponed" }));
+
+      const res = await patch(token, { status: "approved" });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Only a request that is under review can be approved or rejected" });
+      expect(db.event.update).not.toHaveBeenCalled();
+    });
+
     it("lets the assigned coordinator record a withdrawal while the request is under review", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event());
@@ -810,7 +826,11 @@ describe("PATCH /api/events/[id] - status change", () => {
 
         expect(res.status).toBe(400);
         expect(body.error).toBe(message);
-        expect(body.outstanding.length).toBeGreaterThan(0);
+        // Exactly the arrangements the message names, in the same order, and
+        // each one is what stops Confirm.
+        const named = message.slice("This event cannot be confirmed yet: ".length, -1).split("; ");
+        expect(body.outstanding.map((a: { missing: string }) => a.missing)).toEqual(named);
+        expect(body.outstanding.every((a: { blocksConfirmation: boolean }) => a.blocksConfirmation)).toBe(true);
         expect(db.event.update).not.toHaveBeenCalled();
       });
 

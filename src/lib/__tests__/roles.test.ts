@@ -26,10 +26,17 @@ describe("roleLabel", () => {
 });
 
 describe("navFor", () => {
-  it("gives every role a navigation set", () => {
-    for (const role of ROLES) {
-      expect(navFor(role).length).toBeGreaterThan(0);
-    }
+  it("gives every role its own navigation, in order", () => {
+    const labels = Object.fromEntries(ROLES.map((role) => [role, navFor(role).map((item) => item.label)]));
+    expect(labels).toEqual({
+      organiser: ["Dashboard", "My Events", "Notifications"],
+      coordinator: ["Dashboard", "Review Queue", "Flagged Arrangements", "All Events", "Venues", "Equipment", "Notifications"],
+      venue_staff: ["Dashboard", "Venues", "Booking Requests", "Notifications"],
+      tech_support: ["Dashboard", "Equipment", "Equipment Requests", "Notifications"],
+      attendee: ["Dashboard", "Browse Events", "My Registrations", "Notifications"],
+      ops_manager: ["Dashboard", "Assignments", "All Events", "Venues", "Notifications"],
+      safety_officer: ["Dashboard", "Safety Checks", "All Events", "Notifications"],
+    });
   });
 
   it("starts every role at the dashboard, so the chrome is the same everywhere", () => {

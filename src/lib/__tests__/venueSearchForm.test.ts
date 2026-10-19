@@ -117,7 +117,9 @@ describe("searchFormErrors", () => {
   });
 
   it("needs both ends of the time, or neither", () => {
-    expect(searchFormErrors({ ...EMPTY_SEARCH, from: "2026-12-09T09:00" }).to).toBeTruthy();
+    expect(searchFormErrors({ ...EMPTY_SEARCH, from: "2026-12-09T09:00" })).toEqual({
+      to: "Give both a start and an end, or clear both.",
+    });
   });
 
   it("needs the end after the start", () => {
@@ -126,8 +128,9 @@ describe("searchFormErrors", () => {
   });
 
   it("needs a whole, positive attendance", () => {
-    expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "0" }).attendance).toBeTruthy();
-    expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "12.5" }).attendance).toBeTruthy();
+    const notWhole = { attendance: "Enter a whole number of people, 1 or more." };
+    expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "0" })).toEqual(notWhole);
+    expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "12.5" })).toEqual(notWhole);
     expect(searchFormErrors({ ...EMPTY_SEARCH, attendance: "12" })).toEqual({});
   });
 });

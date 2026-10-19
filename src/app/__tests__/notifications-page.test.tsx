@@ -172,7 +172,7 @@ describe("Notifications page (SPM-71)", () => {
 
       await waitFor(() => expect(within(screen.getByText("Booking needs review").closest("li")!).queryByText("Unread")).not.toBeInTheDocument());
       expect(api.sent(one("n2")).map((c) => c.body)).toEqual([{ isRead: true }]);
-      expect(changed).toHaveBeenCalled();
+      expect(changed).toHaveBeenCalledTimes(1);
       window.removeEventListener(NOTIFICATIONS_CHANGED, changed);
     });
 
@@ -187,7 +187,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(screen.queryByRole("button", { name: "Mark as read" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Mark all as read" })).not.toBeInTheDocument();
       expect(api.sent(ALL)).toHaveLength(1);
-      expect(changed).toHaveBeenCalled();
+      expect(changed).toHaveBeenCalledTimes(1);
       window.removeEventListener(NOTIFICATIONS_CHANGED, changed);
     });
 

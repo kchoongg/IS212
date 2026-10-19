@@ -283,11 +283,15 @@ describe("mergeReasons", () => {
 
 describe("impactSentence", () => {
   it("gives every reason human wording for the notification body", () => {
-    for (const reason of IMPACT_REASONS) {
-      const sentence = impactSentence([reason]);
-      expect(sentence).not.toContain("_");
-      expect(sentence.length).toBeGreaterThan(0);
-    }
+    const sentences = Object.fromEntries(IMPACT_REASONS.map((reason) => [reason, impactSentence([reason])]));
+    expect(sentences).toEqual({
+      venue_retired: "the venue has been retired",
+      layout_removed: "the booked layout is no longer offered at this venue",
+      layout_capacity_below_attendance: "the booked layout no longer seats the expected attendance",
+      max_capacity_below_attendance: "the venue's maximum capacity is now below the expected attendance",
+      mandatory_facility_removed: "a facility this event requires is no longer available at this venue",
+      venue_unavailable: "the venue is unavailable during this booking",
+    });
   });
 
   it("joins several reasons into one clause list", () => {
