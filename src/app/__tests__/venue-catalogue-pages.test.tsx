@@ -781,7 +781,7 @@ describe("Edit venue", () => {
         layouts: [{ layoutName: "theatre", capacity: 280 }],
       });
       expect(router.push).not.toHaveBeenCalled();
-      expect(window.scrollTo).toHaveBeenCalled();
+      expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: "smooth" });
     });
 
     it("lists each booking the change flagged, and why", async () => {

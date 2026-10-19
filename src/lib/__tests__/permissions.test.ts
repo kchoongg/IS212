@@ -77,10 +77,38 @@ const techSupport = actor("tech_support");
 const attendee = actor("attendee");
 
 describe("the role matrix", () => {
-  it("grants every role a defined, non-empty set of permissions", () => {
-    for (const role of ROLES) {
-      expect(ROLE_PERMISSIONS[role].length).toBeGreaterThan(0);
-    }
+  it("grants every role exactly the permissions in the docs/PERMISSIONS.md matrix", () => {
+    // The whole matrix, so granting or removing any permission is a
+    // deliberate change made here as well, not a silent one.
+    expect(Object.keys(ROLE_PERMISSIONS).sort()).toEqual([...ROLES].sort());
+    expect(ROLE_PERMISSIONS).toEqual({
+      organiser: ["event:create", "event:view", "event:edit_draft", "equipment:view", "registration:view_list", "facility:view"],
+      coordinator: [
+        "event:view",
+        "event:review",
+        "event:confirm",
+        "event:cancel",
+        "venue:view",
+        "venue_booking:request",
+        "equipment:view",
+        "equipment:view_status",
+        "equipment_request:manage",
+        "registration:view_list",
+        "facility:view",
+      ],
+      venue_staff: ["event:view", "venue:view", "venue:manage", "venue_booking:decide", "facility:view"],
+      tech_support: [
+        "event:view",
+        "equipment:view",
+        "equipment:view_status",
+        "equipment:manage",
+        "equipment_request:review",
+        "facility:view",
+      ],
+      attendee: ["event:view", "registration:create", "facility:view"],
+      ops_manager: ["event:view", "event:assign_coordinator", "venue:view", "equipment:view", "equipment:view_status", "facility:view"],
+      safety_officer: ["event:view", "event:safety_check", "facility:view"],
+    });
   });
 
   it("grants only actions that exist", () => {

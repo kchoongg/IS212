@@ -306,7 +306,10 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       await post(given(), valid);
 
       const sweep = holdExpirySweepOrder();
-      expect(sweep).not.toBeNull();
+      expect(sweep).toBeTypeOf("number");
+      // After the venue lock (the first raw query)...
+      expect(sweep!).toBeGreaterThan(db.$queryRaw.mock.invocationCallOrder[0]);
+      // ...and before the venue and its bookings are read.
       expect(sweep!).toBeLessThan(db.venue.findUnique.mock.invocationCallOrder[0]);
     });
   });

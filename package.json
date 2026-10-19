@@ -13,6 +13,7 @@
     "coverage:changed": "node scripts/check-changed-coverage.mts",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:integration": "vitest run --config vitest.integration.config.mts",
     "test-cases:check": "node scripts/check-test-cases.mts",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
     "verify:permissions": "tsx scripts/verify-permissions.ts",

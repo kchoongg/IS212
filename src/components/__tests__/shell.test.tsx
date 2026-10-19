@@ -329,7 +329,9 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     view.unmount();
     answer({ unread: 5 });
 
-    await waitFor(() => expect(api.fetch).toHaveBeenCalled());
+    // Lets the late answer settle: still the one count request, and no
+    // second one once the shell has gone.
+    await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   });
 
