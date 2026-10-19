@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { GET as getAvailability } from "@/app/api/venues/[id]/availability/route";
 import { POST as requestBooking } from "@/app/api/events/[id]/venue-bookings/route";
 import { PATCH as decideBooking } from "@/app/api/venue-bookings/[id]/route";
-import { createEvent, createWorld, destroyWorld, params, req, type TestEvent, type World } from "./world";
+import { createEvent, createWorld, destroyWorld, params, req, sgt, type TestEvent, type World } from "./world";
 
 // Far enough ahead that no hold expires and no event has started.
 const DAY = "2031-05-06";
@@ -51,7 +51,7 @@ async function entriesOn(day: string) {
 
 describe("venue booking on a real database", () => {
   it(
-    "SPM-44 AC4, AC5 and AC9: of two requests for the same venue at overlapping times sent at the same moment, " +
+    "SPM-44 AC4, AC5, AC9 (SPM-44-TC04, conflict): of two requests for the same venue at overlapping times sent at the same moment, " +
       "exactly one is accepted and the other is refused, naming the request in its way",
     async () => {
       const morning = await createEvent(world, { title: "Integration Morning Forum", day: DAY, start: "10:00", end: "12:00" });
@@ -78,7 +78,7 @@ describe("venue booking on a real database", () => {
   );
 
   it(
-    "SPM-43 AC3 and AC7: a booking request approved by Venue Staff becomes a confirmed booking - " +
+    "SPM-43 AC3, AC7 (SPM-43-TC03, normal): a booking request approved by Venue Staff becomes a confirmed booking - " +
       "the calendar shows the room booked for those times, and another event cannot then be booked into them",
     async () => {
       const forum = await createEvent(world, { title: "Integration Approved Forum", day: DAY, start: "10:00", end: "12:00" });
@@ -113,4 +113,58 @@ describe("venue booking on a real database", () => {
       );
     }
   );
+
+  describe("an expired tentative hold (SPM-82)", () => {
+    /// A pending request for 10:00-12:00 whose hold ran out a minute ago and
+    /// that nothing has marked expired yet - the state a hold is in between its
+    /// expiry and the next time the bookings are read.
+    async function lapsedHold() {
+      const lapsed = await createEvent(world, {
+        title: "Integration Lapsed Workshop",
+        day: DAY,
+        start: "10:00",
+        end: "12:00",
+        status: "planning",
+      });
+      const hold = await prisma.venueBooking.create({
+        data: {
+          eventId: lapsed.id,
+          venueId: world.venue.id,
+          startsAt: sgt(DAY, "10:00"),
+          endsAt: sgt(DAY, "12:00"),
+          status: "pending",
+          holdExpiresAt: new Date(Date.now() - 60_000),
+          requestedBy: world.coordinator.id,
+        },
+        select: { id: true },
+      });
+      return { lapsed, hold };
+    }
+
+    it("SPM-82 AC4, AC6 (SPM-82-TC10, boundary): frees its time, so another event's request for it is accepted", async () => {
+      const { hold } = await lapsedHold();
+      const next = await createEvent(world, { title: "Integration Next Forum", day: DAY, start: "10:00", end: "12:00" });
+
+      const res = await request(next, "10:00", "12:00");
+
+      expect(res.status).toBe(201);
+      expect(await prisma.venueBooking.findUniqueOrThrow({ where: { id: hold.id }, select: { status: true } })).toEqual({
+        status: "expired",
+      });
+    });
+
+    it("SPM-82 AC5 (failure): cannot be approved by Venue Staff", async () => {
+      const { hold } = await lapsedHold();
+
+      const res = await decideBooking(
+        req("PATCH", `/api/venue-bookings/${hold.id}`, world.venueStaff, { decision: "approve" }),
+        params({ id: hold.id })
+      );
+
+      expect(res.status).toBe(400);
+      expect(await prisma.venueBooking.findUniqueOrThrow({ where: { id: hold.id }, select: { status: true } })).toEqual({
+        status: "expired",
+      });
+    });
+  });
 });

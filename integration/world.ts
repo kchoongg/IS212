@@ -13,6 +13,7 @@
 
 import { randomUUID } from "node:crypto";
 import { NextRequest } from "next/server";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { signSession } from "@/lib/auth";
 import { eventReference } from "@/lib/format";
@@ -23,13 +24,20 @@ interface Person {
 }
 
 export interface World {
+  /// The random part of every name in this world, so names never collide.
+  tag: string;
   organisationId: string;
   organiser: Person;
   coordinator: Person;
   venueStaff: Person;
+  techSupport: Person;
   venue: { id: string; name: string };
   /// Every event made with createEvent(), so destroyWorld() can remove them.
   eventIds: string[];
+  /// Attendees made with createAttendee(), and equipment made with
+  /// createEquipment(), likewise.
+  attendeeIds: string[];
+  equipmentIds: string[];
 }
 
 export interface TestEvent {
@@ -60,10 +68,11 @@ export async function createWorld(): Promise<World> {
       select: { id: true, role: true },
     });
 
-  const [organiser, coordinator, venueStaff] = await Promise.all([
+  const [organiser, coordinator, venueStaff, techSupport] = await Promise.all([
     person("organiser", "Integration Organiser", organisation.id),
     person("coordinator", "Integration Coordinator"),
     person("venue_staff", "Integration Venue Staff"),
+    person("tech_support", "Integration Technical Support"),
   ]);
   const venue = await prisma.venue.create({
     data: {
@@ -79,14 +88,40 @@ export async function createWorld(): Promise<World> {
     select: { id: true, name: true },
   });
 
-  return { organisationId: organisation.id, organiser, coordinator, venueStaff, venue, eventIds: [] };
+  return {
+    tag,
+    organisationId: organisation.id,
+    organiser,
+    coordinator,
+    venueStaff,
+    techSupport,
+    venue,
+    eventIds: [],
+    attendeeIds: [],
+    equipmentIds: [],
+  };
 }
 
-/// An Approved event, assigned to the world's coordinator - the state in
-/// which a venue booking can first be requested (SPM-42).
+/// An event assigned to the world's coordinator. Approved by default - the
+/// state in which a venue booking can first be requested (SPM-42). `fields`
+/// sets anything else the test needs, e.g. a status or registration settings.
 export async function createEvent(
   world: World,
-  { title, day, start, end }: { title: string; day: string; start: string; end: string }
+  {
+    title,
+    day,
+    start,
+    end,
+    status = "approved",
+    fields = {},
+  }: {
+    title: string;
+    day: string;
+    start: string;
+    end: string;
+    status?: string;
+    fields?: Partial<Prisma.EventUncheckedCreateInput>;
+  }
 ): Promise<TestEvent> {
   const event = await prisma.event.create({
     data: {
@@ -95,10 +130,11 @@ export async function createEvent(
       organiserId: world.organiser.id,
       organisationId: world.organisationId,
       coordinatorId: world.coordinator.id,
-      status: "approved",
+      status,
       startsAt: sgt(day, start),
       endsAt: sgt(day, end),
       expectedAttendance: 50,
+      ...fields,
     },
     select: { id: true, sequenceNumber: true },
   });
@@ -106,15 +142,47 @@ export async function createEvent(
   return { id: event.id, reference: eventReference(event.sequenceNumber), title };
 }
 
-/// Removes everything createWorld() and createEvent() made. Deleting an event
-/// takes its bookings, status history and notifications with it (onDelete:
-/// Cascade); the venue and the people go after, once nothing points at them.
+/// A new Attendee account, removed by destroyWorld().
+export async function createAttendee(world: World): Promise<Person> {
+  const attendee = await prisma.user.create({
+    data: {
+      email: `integration-attendee-${world.attendeeIds.length + 1}-${world.tag}@example.test`,
+      passwordHash: "integration-test-no-login",
+      fullName: `Integration Attendee ${world.attendeeIds.length + 1} ${world.tag}`,
+      role: "attendee",
+    },
+    select: { id: true, role: true },
+  });
+  world.attendeeIds.push(attendee.id);
+  return attendee;
+}
+
+/// A new equipment item with `totalQuantity` units, none in maintenance, kept
+/// in ConnectSphere storage (no venue) - removed by destroyWorld().
+export async function createEquipment(world: World, totalQuantity: number): Promise<{ id: string; name: string }> {
+  const item = await prisma.equipment.create({
+    data: { name: `Integration Projector ${world.equipmentIds.length + 1} ${world.tag}`, category: "AV", totalQuantity },
+    select: { id: true, name: true },
+  });
+  world.equipmentIds.push(item.id);
+  return item;
+}
+
+/// Removes everything this module made. Deleting an event takes its bookings,
+/// equipment requests, registrations, status history and notifications with it
+/// (onDelete: Cascade); the venue, equipment and people go after, once
+/// nothing points at them.
 export async function destroyWorld(world: World | undefined) {
   if (!world) return;
   await prisma.event.deleteMany({ where: { id: { in: world.eventIds } } });
   await prisma.venue.deleteMany({ where: { id: world.venue.id } });
+  await prisma.equipment.deleteMany({ where: { id: { in: world.equipmentIds } } });
   await prisma.user.deleteMany({
-    where: { id: { in: [world.organiser.id, world.coordinator.id, world.venueStaff.id] } },
+    where: {
+      id: {
+        in: [world.organiser.id, world.coordinator.id, world.venueStaff.id, world.techSupport.id, ...world.attendeeIds],
+      },
+    },
   });
   await prisma.organisation.deleteMany({ where: { id: world.organisationId } });
 }
