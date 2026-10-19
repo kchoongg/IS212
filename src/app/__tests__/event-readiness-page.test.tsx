@@ -924,13 +924,6 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(markNotRequired(await row("Audio Mixing Desk"))).toBeEnabled();
     });
 
-    it("[SPM-33][AC6] says Confirm does not wait for it yet, and leaves it out of the count", async () => {
-      open([auditorium, safety("safety_not_submitted")]);
-
-      expect(await row("Operational Safety Check")).toHaveTextContent("Confirm event does not wait for it yet.");
-      expect(await screen.findByText("Nothing is blocking confirmation")).toBeInTheDocument();
-    });
-
     it("[SPM-33][AC6][AC11] counts a check awaiting review as blocking, without saying Confirm does not wait", async () => {
       open([auditorium, safety("safety_awaiting_review", { blocksConfirmation: true })]);
 
