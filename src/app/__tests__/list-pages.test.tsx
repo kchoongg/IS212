@@ -360,7 +360,9 @@ describe("Dashboard", () => {
   it("recovers every one of an organiser's lists from a load failure", async () => {
     const api = mockApi({ ...signedInAs("organiser"), "GET /api/events": reply(500, {}) });
     render(<DashboardPage />);
-    await waitFor(() => expect(screen.getAllByRole("alert").length).toBeGreaterThan(0));
+    // One error per list on the organiser's dashboard - all six of them.
+    await waitFor(() => expect(screen.getAllByRole("alert")).toHaveLength(6));
+    for (const alert of screen.getAllByRole("alert")) expect(alert).toHaveTextContent("Could not load your events.");
 
     api.on("GET /api/events", [event(1, { status: "planning", title: "Recovered" })]);
     await userEvent.click(screen.getAllByRole("button", { name: "Retry" })[0]);

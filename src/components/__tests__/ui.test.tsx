@@ -661,7 +661,7 @@ describe("ConfirmDialog", () => {
 
     await userEvent.click(within(dialog()).getByRole("button", { name: "Cancel", hidden: true }));
 
-    expect(onCancel).toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalledTimes(1);
     expect(dialog().open).toBe(false);
   });
 
@@ -672,7 +672,7 @@ describe("ConfirmDialog", () => {
 
     dialog().dispatchEvent(new Event("cancel", { cancelable: true }));
 
-    expect(onCancel).toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it("treats being closed by the browser as Cancel, so its owner's state stays in step", async () => {
@@ -682,7 +682,7 @@ describe("ConfirmDialog", () => {
 
     act(() => dialog().close());
 
-    expect(onCancel).toHaveBeenCalled();
+    expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
   it("closes when its owner sets open to false", async () => {

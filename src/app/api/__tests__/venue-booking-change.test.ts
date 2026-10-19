@@ -147,7 +147,8 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
 
     await patch(token, { action: "withdraw" });
 
-    expect(db.$queryRaw).toHaveBeenCalled();
+    // The first raw query is the lock on this booking's venue row.
+    expect(db.$queryRaw.mock.calls[0][0].join("?")).toBe("SELECT id FROM venues WHERE id = ? FOR UPDATE");
     expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(
       db.venueBooking.findUniqueOrThrow.mock.invocationCallOrder[0]
     );

@@ -6,8 +6,15 @@ import { afterEach, vi } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
 if (typeof document !== "undefined") {
-  const { cleanup } = await import("@testing-library/react");
+  const { cleanup, configure } = await import("@testing-library/react");
   const { resetNavigation } = await import("./navigation");
+
+  // How long findBy* and waitFor keep looking before they fail. The default,
+  // 1 second, is too short when the whole suite runs at once on a loaded
+  // machine: a page test would intermittently fail with "Unable to find
+  // role=..." for an element that renders a moment later (a different test
+  // each run). This changes only how long a test waits, never what it checks.
+  configure({ asyncUtilTimeout: 5000 });
 
   afterEach(() => {
     cleanup();
