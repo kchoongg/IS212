@@ -993,6 +993,28 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-19 — Kristen
+- **SPM-98 (bug): breadcrumbs follow one pattern everywhere.** Each page wrote
+  its own trail, so they drifted: the Venue tab and Request a venue booking
+  said "Event" instead of the event's title, the Equipment tab's title was
+  not a link, Find a venue showed the event's reference, Edit venue ended on
+  the venue, and several pages started "Events" for an organiser or changed
+  trail when they failed to load. Every trail is now
+  `<list> / <record> / <page>` (UI_DESIGN.md §4.1), built by `eventCrumbs` /
+  `venueCrumbs` in `src/lib/breadcrumbs.ts`.
+- On event pages the list is "My Events" for an organiser, "Events" for
+  everyone else; the event's title links to its Overview. Review request now
+  starts at Events, not Review Queue. The Equipment request page's list is
+  "Equipment Requests", as in the sidebar.
+- A page shows the same trail loading, loaded, in error and refused.
+  `RequirePermission`'s `breadcrumbs` can be a function of the viewer's role
+  for that; the Readiness, Attendees and Equipment tabs and Find a venue now
+  show their header and trail above a refusal, not a bare alert.
+- Tests: `breadcrumb()` in `src/test/ui.tsx` reads a page's trail; every page
+  above checks it.
+
+---
+
 ### 2026-10-18 — Jordan
 - **SPM-103 (bug, found in the Sprint 3 regression run, step 1).**
   `npm run verify:login` failed 2 of its 29 checks: the assigned coordinator's

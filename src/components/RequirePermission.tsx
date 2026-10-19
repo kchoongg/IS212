@@ -32,7 +32,10 @@ interface RequirePermissionProps {
   /// Shown as the page title beside the refusal, so the screen still looks like
   /// a screen rather than a bare error.
   title: string;
-  breadcrumbs?: Crumb[];
+  /// The page's own trail, so a refusal shows the same breadcrumb as the
+  /// screen (SPM-98). A function is given the viewer's role, for a trail that
+  /// starts 'My Events' for an organiser.
+  breadcrumbs?: Crumb[] | ((role: string) => Crumb[]);
   /// Why this role cannot be here, in the user's own terms. Say what the role
   /// CAN do where that helps - a refusal that offers a next step is kinder
   /// than one that only says no.
@@ -67,7 +70,10 @@ export function RequirePermission({
   if (action && !can(user.role, action)) {
     return (
       <div className="max-w-2xl">
-        <PageHeader title={title} breadcrumbs={breadcrumbs} />
+        <PageHeader
+          title={title}
+          breadcrumbs={typeof breadcrumbs === "function" ? breadcrumbs(user.role) : breadcrumbs}
+        />
         <Alert variant="error" title="You do not have access to this">
           {reason ?? "This screen is not part of your role in ConnectSphere."}
         </Alert>

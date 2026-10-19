@@ -21,6 +21,7 @@ import { RegistrationCard, type RegistrationEvent } from "./RegistrationCard";
 import { RegisterPanel, type MyRegistration, type RegistrationStateJson } from "./RegisterPanel";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { EMPTY, eventReference, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
@@ -610,10 +611,7 @@ export default function EventOverviewPage() {
             </>
           )
         }
-        breadcrumbs={[
-          { label: user?.role === "organiser" ? "My Events" : "Events", href: "/events" },
-          { label: event?.title || "Event" },
-        ]}
+        breadcrumbs={eventCrumbs(user?.role, eventId, event?.title)}
         actions={
           <>
             {showSafetyCheck && (

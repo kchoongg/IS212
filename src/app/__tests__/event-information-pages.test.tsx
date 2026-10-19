@@ -32,6 +32,7 @@ import UpdateEventPage from "@/app/events/[id]/update/page";
 import { ROLES } from "@/lib/roles";
 import { formatDateTimeRange } from "@/lib/format";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -185,6 +186,39 @@ describe("Edit event information - who may open it", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await formReady()).toBeInTheDocument();
+  });
+});
+
+// SPM-98: <list> / <event title> / Edit event information, in every state.
+describe("Edit event information - its breadcrumb", () => {
+  const trail = (list: string, title: string) => [
+    [list, "/events"],
+    [title, `/events/${REF}`],
+    ["Edit event information", null],
+  ];
+
+  it("names the event by its title and links it to the Overview", async () => {
+    open();
+    await formReady();
+
+    expect(breadcrumb()).toEqual(trail("Events", "Harbour Leadership Summit"));
+  });
+
+  it.each([
+    ["loading", () => new Promise(() => {})],
+    ["in error", reply(500, {})],
+  ])("reads 'Event' for the event while %s", async (_case, eventRow) => {
+    open(eventRow);
+    await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+    expect(breadcrumb()).toEqual(trail("Events", "Event"));
+  });
+
+  it("starts 'My Events' for an organiser who is refused", async () => {
+    open(event(), {}, "organiser", {});
+    await screen.findByText("You can't edit this event's information");
+
+    expect(breadcrumb()).toEqual(trail("My Events", "Harbour Leadership Summit"));
   });
 });
 

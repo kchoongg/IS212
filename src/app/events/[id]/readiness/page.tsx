@@ -7,6 +7,7 @@ import { Alert, Button, Card, PageHeader, SkeletonRows, StatusBadge, Tabs } from
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventTabsFor } from "@/lib/roles";
 import { eventReference, formatDateTime } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
@@ -274,11 +275,16 @@ export default function EventReadinessPage() {
     return null;
   }
 
+  const crumbs = eventCrumbs(user?.role, eventId, data?.event.title, { label: "Readiness" });
+
   if (!canView) {
     return (
-      <Alert variant="error" title="Not authorised">
-        You don&apos;t have access to this event.
-      </Alert>
+      <div className="max-w-3xl">
+        <PageHeader title="Event" breadcrumbs={crumbs} />
+        <Alert variant="error" title="Not authorised">
+          You don&apos;t have access to this event.
+        </Alert>
+      </div>
     );
   }
 
@@ -302,11 +308,7 @@ export default function EventReadinessPage() {
             </>
           )
         }
-        breadcrumbs={[
-          { label: "Events", href: "/events" },
-          { label: data?.event.title || "Event", href: `/events/${eventId}` },
-          { label: "Readiness" },
-        ]}
+        breadcrumbs={crumbs}
       />
 
       {tabs.length > 0 && <Tabs items={tabs} activeKey="readiness" className="mb-6" />}

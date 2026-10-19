@@ -7,6 +7,7 @@ import type { Column } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventTabsFor } from "@/lib/roles";
 import { eventReference, formatDateTime } from "@/lib/format";
 import type { RegistrationCounts } from "@/lib/registrationEligibility";
@@ -158,11 +159,16 @@ export default function EventAttendeesPage() {
     return null;
   }
 
+  const crumbs = eventCrumbs(user?.role, eventId, data?.event.title, { label: "Attendees" });
+
   if (!user || !canView || refused) {
     return (
-      <Alert variant="error" title="Not authorised">
-        You can only view the registrations for events you are responsible for.
-      </Alert>
+      <div className="max-w-5xl">
+        <PageHeader title="Event" breadcrumbs={crumbs} />
+        <Alert variant="error" title="Not authorised">
+          You can only view the registrations for events you are responsible for.
+        </Alert>
+      </div>
     );
   }
 
@@ -182,11 +188,7 @@ export default function EventAttendeesPage() {
             </>
           )
         }
-        breadcrumbs={[
-          { label: "Events", href: "/events" },
-          { label: data?.event.title || "Event", href: `/events/${eventId}` },
-          { label: "Attendees" },
-        ]}
+        breadcrumbs={crumbs}
       />
 
       {tabs.length > 0 && <Tabs items={tabs} activeKey="attendees" className="mb-6" />}

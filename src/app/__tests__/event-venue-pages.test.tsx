@@ -10,6 +10,7 @@ import BookingRequestPage from "@/app/events/[id]/booking/new/page";
 import { ROLES } from "@/lib/roles";
 import { can } from "@/lib/permissions";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -625,6 +626,57 @@ describe("Event Venue tab", () => {
     });
   });
 
+  // SPM-98: Events / <event title> / Venue, in every state.
+  describe("its breadcrumb", () => {
+    it("names the event by its title and links it to the Overview", async () => {
+      open();
+      await card("Hall A");
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Town Hall", `/events/${REF}`],
+        ["Venue", null],
+      ]);
+    });
+
+    it("reads 'Event' while the event is loading", async () => {
+      open({ [INFO]: () => new Promise(() => {}) });
+
+      expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Venue", null],
+      ]);
+    });
+
+    it("is the same trail when the event cannot be loaded", async () => {
+      open({ [INFO]: reply(500, {}) });
+      await screen.findByRole("alert");
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Venue", null],
+      ]);
+    });
+
+    it.each([
+      ["organiser", "My Events"],
+      ["safety_officer", "Events"],
+    ])("starts '%s' for a refused %s", async (role, list) => {
+      open({}, role);
+      await screen.findByRole("alert");
+
+      expect(breadcrumb()).toEqual([
+        [list, "/events"],
+        ["Event", `/events/${REF}`],
+        ["Venue", null],
+      ]);
+    });
+  });
+
+
   // SPM-85 (AC7): a role without venue:view - the Safety Officer among them -
   // who types this address is refused before anything is asked for, so no
   // venue, booking or suitability result ever reaches the page.
@@ -757,6 +809,36 @@ describe("Venue booking request form", () => {
     open({ [VENUE]: reply(401, {}) });
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fvenue"));
+  });
+
+  // SPM-98: Events / <event title> / Venue / Request booking.
+  describe("its breadcrumb", () => {
+    it("names the event by its title, and links back to it and to its Venue tab", async () => {
+      open();
+      await date();
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Town Hall", `/events/${REF}`],
+        ["Venue", `/events/${REF}/venue`],
+        ["Request booking", null],
+      ]);
+    });
+
+    it.each([
+      ["loading", { [VENUE]: () => new Promise(() => {}) }],
+      ["in error", { [VENUE]: reply(404, {}) }],
+    ])("reads 'Event' for the event while %s", async (_case, routes) => {
+      open(routes);
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Venue", `/events/${REF}/venue`],
+        ["Request booking", null],
+      ]);
+    });
   });
 
   describe("what it starts with", () => {

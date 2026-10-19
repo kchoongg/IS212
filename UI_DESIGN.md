@@ -173,6 +173,24 @@ attendee variant — see §4.3.)*
   scattered conditionals.
 - **Breadcrumbs** — shown on every screen more than one level deep. The
   breadcrumb trail is the reliable way back; browser-back is not assumed.
+  Every trail follows one pattern, `<list> / <record> / <page>`
+  (e.g. `Events / Annual Conference / Equipment`):
+  - The first crumb is the list the page belongs to, and links to it. On
+    event pages it is "My Events" for an Event Organiser and "Events" for
+    everyone else.
+  - The record crumb is the record's own name (the event's title, the venue's
+    name) and links to its main page. Until the record has loaded it reads
+    "Event" or "Venue".
+  - The last crumb is the current page, named as its tab or page title, and
+    is not a link. A record's own main page (an event's Overview) ends on the
+    record; a page with no record (New request, Add venue) is
+    `<list> / <page>`.
+  - A page shows the same trail in every state: loading, loaded, error and
+    access refused.
+  - A page opened straight from the sidebar has no breadcrumb.
+
+  Event and venue trails are built by `eventCrumbs` and `venueCrumbs` in
+  `src/lib/breadcrumbs.ts`, never written out page by page.
 
 ### 4.2 Navigation per role
 

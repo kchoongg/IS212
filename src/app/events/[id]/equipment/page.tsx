@@ -22,6 +22,7 @@ import { BEGIN_PLANNING_NOTICE, BeginPlanningDialog } from "@/components/BeginPl
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { SAFETY_HELD_STATUSES, backToPlanningWarning } from "@/lib/safetyResolution";
@@ -427,11 +428,16 @@ export default function EventEquipmentPage() {
 
   const tabs = user ? eventTabItemsFor(user.role, eventId, event?.canViewRegistrationList) : [];
 
+  const crumbs = eventCrumbs(user?.role, eventId, event?.title, { label: "Equipment" });
+
   if (!canView) {
     return (
-      <Alert variant="error" title="Not authorised">
-        You don&apos;t have access to this event.
-      </Alert>
+      <div className="max-w-5xl">
+        <PageHeader title="Equipment requirements" breadcrumbs={crumbs} />
+        <Alert variant="error" title="Not authorised">
+          You don&apos;t have access to this event.
+        </Alert>
+      </div>
     );
   }
 
@@ -452,11 +458,7 @@ export default function EventEquipmentPage() {
             </>
           )
         }
-        breadcrumbs={[
-          { label: "Events", href: "/events" },
-          { label: event?.title || "Event" },
-          { label: "Equipment" },
-        ]}
+        breadcrumbs={crumbs}
         // SPM-48: Technical Support goes from what was requested to whether it
         // can be supported. Only they can use the check, so nobody else sees it.
         actions={
