@@ -381,6 +381,9 @@ model ClarificationRequest {
   status          String    @default("open")
   responseMessage String?   @map("response_message")
   respondedAt     DateTime? @map("responded_at")
+  /// SPM-29: which information needs clarifying - comma-separated codes from
+  /// src/lib/clarification.ts. NULL on rows raised before SPM-29.
+  fields          String?
 
   event     Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   requester User  @relation("ClarificationRequester", fields: [requestedBy], references: [id])

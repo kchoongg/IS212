@@ -8,12 +8,14 @@ import {
   REVIEW_OUTCOMES,
   can,
   canEditEventContent,
+  canSeeClarification,
   canSetEventStatus,
   canViewEvent,
   canViewRegistrationList,
   visibleEventFor,
   type Actor,
 } from "@/lib/permissions";
+import { decodeFields } from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
@@ -133,6 +135,21 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
                 decisionNote: true,
               },
             },
+            // ADDED (SPM-29 AC3): the open clarification, if any - one is
+            // open at a time. Reshaped to `openClarification` below, for the
+            // organiser and the assigned coordinator only.
+            clarifications: {
+              where: { status: "open" },
+              orderBy: { requestedAt: "desc" },
+              take: 1,
+              select: {
+                id: true,
+                fields: true,
+                message: true,
+                requestedAt: true,
+                requester: { select: { fullName: true } },
+              },
+            },
           },
         });
   if (!event) {
@@ -164,7 +181,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // external user (the organiser, an attendee) sees the Safety review status
   // and nothing more.
   // SPM-88 (AC1): and every check, newest first, as `safetyHistory`.
-  const { safetyChecks, ...rest } = event;
+  // SPM-29 (AC3): the open clarification, shown to the organiser and the
+  // assigned coordinator - no one else gets the key.
+  const { safetyChecks, clarifications, ...withoutHistory } = event;
+  const open = clarifications?.[0];
+  const rest = canSeeClarification(actor, event)
+    ? { ...withoutHistory, openClarification: open ? { ...open, fields: decodeFields(open.fields) } : null }
+    : withoutHistory;
   const safetyHistory = (safetyChecks ?? []).map((check) => ({
     status: check.status,
     submittedAt: check.submittedAt,

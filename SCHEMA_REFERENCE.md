@@ -345,6 +345,7 @@ The coordinator ↔ organiser review loop. Repeats, so each round is a row.
 | `status` | String |  | open \| answered \| closed. An open one should block confirmation. Defaults to `"open"`. |
 | `responseMessage` | String |  |  |
 | `respondedAt` | DateTime |  |  |
+| `fields` | String |  | SPM-29: which information needs clarifying - comma-separated codes from `src/lib/clarification.ts` (`purpose`, `when`, …). NULL on rows raised before SPM-29. |
 
 **Relations:** `event` &rarr; Event, `requester` &rarr; User
 

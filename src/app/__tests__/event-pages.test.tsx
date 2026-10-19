@@ -1021,9 +1021,11 @@ describe("Review request", () => {
 
       await chooseClarify();
 
-      const boxes = within(whatNeedsClarifying()).getAllByRole("checkbox");
-      expect(boxes.map((box) => box.closest("label")?.textContent?.trim())).toEqual(Object.values(REVIEW_FIELD_LABELS));
-      expect(boxes.every((box) => !(box as HTMLInputElement).checked)).toBe(true);
+      const group = within(whatNeedsClarifying());
+      expect(group.getAllByRole("checkbox")).toHaveLength(Object.keys(REVIEW_FIELD_LABELS).length);
+      for (const label of Object.values(REVIEW_FIELD_LABELS)) {
+        expect(group.getByRole("checkbox", { name: label })).not.toBeChecked();
+      }
     });
 
     it("AC2: asks for a message to the organiser", async () => {
@@ -1043,6 +1045,33 @@ describe("Review request", () => {
 
       expect(screen.getByText(CLARIFICATION_FIELDS_REQUIRED)).toBeInTheDocument();
       expect(api.sent(CLARIFY)).toHaveLength(0);
+    });
+
+    it("treats an item ticked and then unticked as not chosen", async () => {
+      const api = open(underReview({ openClarification: null }));
+      await chooseClarify();
+      const purpose = within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" });
+      await userEvent.click(purpose);
+      await userEvent.click(purpose);
+      await userEvent.type(messageBox(), "Please clarify");
+
+      await send();
+
+      expect(purpose).not.toBeChecked();
+      expect(screen.getByText(CLARIFICATION_FIELDS_REQUIRED)).toBeInTheDocument();
+      expect(api.sent(CLARIFY)).toHaveLength(0);
+    });
+
+    it("clears the message error as soon as the coordinator starts typing", async () => {
+      open(underReview({ openClarification: null }));
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await send();
+      expect(messageBox()).toBeInvalid();
+
+      await userEvent.type(messageBox(), "W");
+
+      expect(messageBox()).not.toHaveAttribute("aria-invalid");
     });
 
     it.each(["", "   "])("refuses to send a message of %j", async (text) => {
@@ -1128,6 +1157,17 @@ describe("Review request", () => {
       await send();
 
       expect(await screen.findByText("Could not send your request. Please try again.")).toBeInTheDocument();
+    });
+
+    it("shows a general error when sending fails without a reason", async () => {
+      open(underReview({ openClarification: null }), { [CLARIFY]: () => Promise.reject("offline") });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.type(messageBox(), "Which day?");
+
+      await send();
+
+      expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
     });
   });
 
