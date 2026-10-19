@@ -1035,6 +1035,11 @@ what changed, why, and the migration name if there is one.
   after approval the coordinator requests Marina Auditorium from the Venue
   tab, and Venue Staff approve it on Booking Requests. The event's day is now
   random from 2030 on, so a local re-run does not find the room taken.
+- **The end-to-end browser now runs in Singapore time** (`timezoneId` in
+  `playwright.config.ts`). It used the machine's zone, so on CI (UTC) an
+  event entered as 09:00–17:00 became 17:00–01:00 Singapore time, and the
+  booking form had no times to fill in. It passed on our laptops only
+  because they are set to Singapore.
 - Both refuse any database not on your own machine; the shared Neon database
   is never touched.
 - **New section: "Keeping the integration and end-to-end tests current"**

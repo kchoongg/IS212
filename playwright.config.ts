@@ -41,6 +41,11 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : [["list"]],
   use: {
     baseURL: `http://localhost:${PORT}`,
+    // The browser's clock is Singapore's, as for every real user: all venues
+    // are in Singapore and the app works in Singapore time (discussion #36).
+    // Without it the browser takes the machine's zone - UTC on CI - so an
+    // event entered as 09:00-17:00 became 17:00-01:00 Singapore time.
+    timezoneId: "Asia/Singapore",
     // What to look at when a test fails: a replayable trace of every step,
     // and a screenshot of the page as it was.
     trace: "retain-on-failure",
