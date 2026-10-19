@@ -41,6 +41,7 @@ import EventReadinessPage from "@/app/events/[id]/readiness/page";
 import { formatDateTime } from "@/lib/format";
 import { ROLES, eventTabsFor } from "@/lib/roles";
 import {
+  breadcrumb,
   mockApi,
   render,
   reply,
@@ -220,6 +221,47 @@ describe("Event Readiness tab (SPM-33)", () => {
         expect(api.sent(LIST)).toHaveLength(0);
       }
     );
+  });
+
+  // SPM-98: <list> / <event title> / Readiness, in every state.
+  describe("its breadcrumb", () => {
+    it.each([
+      ["coordinator", "Events"],
+    ])("for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+      open([auditorium], {}, role);
+      await screen.findByRole("heading", { name: "Gala Dinner" });
+
+      expect(breadcrumb()).toEqual([
+        [list, "/events"],
+        ["Gala Dinner", `/events/${REF}`],
+        ["Readiness", null],
+      ]);
+    });
+
+    it.each([
+      ["loading", () => { open([auditorium], { [LIST]: () => new Promise(() => {}) }); }],
+      ["in error", () => { open([auditorium], { [LIST]: reply(500, {}) }); }],
+    ])("reads 'Event' for the event while %s", async (_case, openIt) => {
+      openIt();
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Readiness", null],
+      ]);
+    });
+
+    it("is the same trail when access is refused", async () => {
+      open([auditorium], {}, "organiser");
+      await screen.findByRole("alert");
+
+      expect(breadcrumb()).toEqual([
+        ["My Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Readiness", null],
+      ]);
+    });
   });
 
   describe("loading it", () => {

@@ -19,6 +19,7 @@ import { SkeletonRows } from "@/components/ui/DataState";
 import { SessionFields } from "@/components/SessionFields";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formErrors";
 import {
   CATEGORIES,
@@ -49,7 +50,7 @@ export default function EditDraftPage() {
   const params = useParams<{ id: string }>();
   const eventId = params.id;
   const formRef = useRef<HTMLFormElement>(null);
-  const { state: authState } = useCurrentUser();
+  const { user, state: authState } = useCurrentUser();
 
   const [values, setValues] = useState<FormValues>(INITIAL);
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -60,6 +61,8 @@ export default function EditDraftPage() {
   // found, not yours, or already submitted) and the form is not shown.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // SPM-98: the draft's saved name, for the breadcrumb - not what is being typed.
+  const [savedTitle, setSavedTitle] = useState<string | null>(null);
 
   const [reference, setReference] = useState<{
     facilities: Facility[];
@@ -105,6 +108,7 @@ export default function EditDraftPage() {
         return;
       }
       setValues(toFormValues(event));
+      setSavedTitle(event.title);
       setLoaded(true);
     } catch {
       setLoadError("Could not reach the server. Check your connection and try again.");
@@ -280,12 +284,14 @@ export default function EditDraftPage() {
     }
   }
 
+  const crumbs = eventCrumbs(user?.role, eventId, savedTitle, { label: "Edit draft" });
+
   if (loadError) {
     return (
       <div className="max-w-2xl">
         <PageHeader
           title="Edit draft"
-          breadcrumbs={[{ label: "My Events", href: "/events" }, { label: "Edit draft" }]}
+          breadcrumbs={crumbs}
         />
         <Alert variant="error" title="Could not open this draft">
           {loadError}
@@ -304,7 +310,7 @@ export default function EditDraftPage() {
       <div className="max-w-2xl">
         <PageHeader
           title="Edit draft"
-          breadcrumbs={[{ label: "My Events", href: "/events" }, { label: "Edit draft" }]}
+          breadcrumbs={crumbs}
         />
         <SkeletonRows rows={4} />
       </div>
@@ -316,7 +322,7 @@ export default function EditDraftPage() {
       <PageHeader
         title="Edit draft"
         subtitle="Pick up where you left off. Nothing here is sent until you submit it."
-        breadcrumbs={[{ label: "My Events", href: "/events" }, { label: "Edit draft" }]}
+        breadcrumbs={crumbs}
         meta={<StatusBadge status="draft" />}
       />
 

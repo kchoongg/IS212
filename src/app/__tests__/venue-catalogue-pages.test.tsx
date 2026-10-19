@@ -5,6 +5,7 @@ import NewVenuePage from "@/app/venues/new/page";
 import EditVenuePage from "@/app/venues/[id]/edit/page";
 import { ROLES } from "@/lib/roles";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -279,8 +280,21 @@ describe("Add venue", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Only Venue Staff can add a venue");
     expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument();
+    expect(breadcrumb()).toEqual([
+      ["Venues", "/venues"],
+      ["Add venue", null],
+    ]);
     await userEvent.click(button("Back to Venues"));
     expect(router.push).toHaveBeenCalledWith("/venues");
+  });
+
+  it("shows Venues / Add venue in the breadcrumb (SPM-98)", async () => {
+    await open();
+
+    expect(breadcrumb()).toEqual([
+      ["Venues", "/venues"],
+      ["Add venue", null],
+    ]);
   });
 
   it("starts from the normal working day rather than blank times", async () => {
@@ -751,6 +765,39 @@ describe("Edit venue", () => {
       expect(screen.getByRole("checkbox", { name: "Hearing loop" })).toBeChecked();
       expect(screen.getByRole("checkbox", { name: "Stage" })).not.toBeChecked();
       expect(screen.getByRole("link", { name: "View availability" })).toHaveAttribute("href", "/venues/v1/availability");
+    });
+  });
+
+  // SPM-98: Venues / <venue name> / Edit venue, in every state.
+  describe("its breadcrumb", () => {
+    const trail = (name: string) => [
+      ["Venues", "/venues"],
+      [name, "/venues/v1/availability"],
+      ["Edit venue", null],
+    ];
+
+    it("names the venue and ends on the page", async () => {
+      open();
+      await ready();
+
+      expect(breadcrumb()).toEqual(trail("Hall A"));
+    });
+
+    it.each([
+      ["loading", () => new Promise(() => {})],
+      ["in error", reply(500, {})],
+    ])("reads 'Venue' for the venue while %s", async (_case, venueRow) => {
+      open(venueRow);
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+      expect(breadcrumb()).toEqual(trail("Venue"));
+    });
+
+    it("is the same trail when a coordinator is refused", async () => {
+      open(venue(), saved(), "coordinator");
+      await screen.findByRole("alert");
+
+      await waitFor(() => expect(breadcrumb()).toEqual(trail("Hall A")));
     });
   });
 

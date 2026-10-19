@@ -6,6 +6,7 @@
 import { describe, it, expect } from "vitest";
 import VenueSearchPage from "@/app/venues/search/page";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -108,6 +109,21 @@ describe("Find a venue", () => {
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Venue search is for ConnectSphere staff.");
       expect(screen.queryByRole("button", { name: "Search" })).not.toBeInTheDocument();
+      expect(breadcrumb()).toEqual([
+        ["Venues", "/venues"],
+        ["Find a venue", null],
+      ]);
+    });
+
+    it("keeps an event's breadcrumb, starting 'My Events', for an organiser it turns away", async () => {
+      open({ [EVENT]: reply(403, {}), [SEARCH]: reply(403, {}) }, { role: "organiser", query: `?event=${REF}` });
+      await screen.findByRole("alert");
+
+      expect(breadcrumb()).toEqual([
+        ["My Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Find a venue", null],
+      ]);
     });
   });
 
@@ -118,7 +134,10 @@ describe("Find a venue", () => {
       expect(await screen.findByText("2 of 5 venues match")).toBeInTheDocument();
       expect(lastQuery(api)).toEqual({});
       expect(screen.getByText("Only venues matching every filter you set are shown.")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: "Venues" })).toHaveAttribute("href", "/venues");
+      expect(breadcrumb()).toEqual([
+        ["Venues", "/venues"],
+        ["Find a venue", null],
+      ]);
     });
 
     it("describes each venue: where it is, when it is open, its layouts and facilities", async () => {
@@ -438,11 +457,27 @@ describe("Find a venue", () => {
       await ready();
 
       expect(screen.getByText("Filled in from Town Hall's requirements. Change any filter and search again.")).toBeInTheDocument();
-      expect(screen.getByRole("link", { name: REF })).toHaveAttribute("href", `/events/${REF}`);
+      // SPM-98: the event by its title, not its reference.
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Town Hall", `/events/${REF}`],
+        ["Find a venue", null],
+      ]);
       expect(within(card("Hall A")).getByRole("link", { name: "Check suitability" })).toHaveAttribute(
         "href",
         `/events/${REF}/venue`
       );
+    });
+
+    it("calls the event 'Event' in the breadcrumb while it loads", async () => {
+      openFor(() => new Promise(() => {}));
+
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Find a venue", null],
+      ]);
     });
 
     it("copes with an event that has no title or requirements yet", async () => {

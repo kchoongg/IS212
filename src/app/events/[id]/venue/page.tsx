@@ -23,6 +23,7 @@ import { authedFetch } from "@/lib/session";
 import { SAFETY_CLOSED_NOTICE } from "@/lib/safetyResolution";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { RequirePermission } from "@/components/RequirePermission";
 import { cn } from "@/lib/cn";
 import { formatDateTime, formatDateTimeRange, formatVenue } from "@/lib/format";
@@ -82,6 +83,8 @@ interface Payload {
 }
 
 interface BookingInfo {
+  /// SPM-98: the event's title, for the breadcrumb.
+  event?: { title: string | null };
   sessions: { id: string; label: string | null; startsAt: string; endsAt: string }[];
   cannotRequest: string | null;
   /// SPM-67: whether this user may withdraw or release the event's bookings.
@@ -166,11 +169,8 @@ export default function EventVenuePage() {
     <RequirePermission
       action="venue:view"
       title="Find a venue"
-      breadcrumbs={[
-        { label: "Events", href: "/events" },
-        { label: "Event", href: `/events/${params.id}` },
-        { label: "Venue" },
-      ]}
+      // Refused before anything loads, so the record reads 'Event'.
+      breadcrumbs={(role) => eventCrumbs(role, params.id, null, { label: "Venue" })}
       reason="Finding and booking a venue is for the Event Coordinator. The rooms booked for this event are on its Overview."
     >
       <EventVenueScreen />
@@ -334,12 +334,7 @@ function EventVenueScreen() {
       <PageHeader
         title="Find a venue"
         subtitle="Each venue is checked against the attendance and layout of the space you need, and this event's facilities and accessibility needs."
-        breadcrumbs={[
-          // Never "My Events": an organiser cannot open this tab (no venue:view).
-          { label: "Events", href: "/events" },
-          { label: "Event", href: `/events/${eventId}` },
-          { label: "Venue" },
-        ]}
+        breadcrumbs={eventCrumbs(user?.role, eventId, booking?.event?.title, { label: "Venue" })}
         actions={
           // SPM-40: the same event's requirements as search FILTERS - only the
           // matching venues, narrowed further by date, location and so on.

@@ -14,6 +14,7 @@
 // import `router` and `setRoute` from here to drive and inspect it.
 
 import { vi, type Mock } from "vitest";
+import { screen, within } from "@testing-library/react";
 
 export { render, screen, waitFor, within, act, fireEvent } from "@testing-library/react";
 export { default as userEvent } from "@testing-library/user-event";
@@ -123,4 +124,16 @@ export function signedInAs(role: string, overrides: Partial<TestViewer> = {}): R
 /// Routes for a visitor with no session: /api/auth/me answers 401.
 export function signedOut(): Record<string, Handler> {
   return { "GET /api/auth/me": reply(401, { error: "Not authenticated" }) };
+}
+
+/// The page's breadcrumb as [label, href] pairs, href null for a crumb that is
+/// not a link: expect(breadcrumb()).toEqual([["Events", "/events"], ["Town Hall", null]]).
+export function breadcrumb(): [string, string | null][] {
+  const nav = screen.getByRole("navigation", { name: "Breadcrumb" });
+  return within(nav)
+    .getAllByRole("listitem")
+    .map((item) => {
+      const crumb = item.firstElementChild as HTMLElement;
+      return [crumb.textContent ?? "", crumb.tagName === "A" ? crumb.getAttribute("href") : null];
+    });
 }

@@ -28,6 +28,7 @@ import {
 } from "@/lib/venueForm";
 import { IMPACT_REASON_PROSE, type ImpactReason } from "@/lib/venueImpact";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { venueCrumbs } from "@/lib/breadcrumbs";
 
 // S-20 "Venue detail / edit", plus the retire action.
 //
@@ -208,7 +209,9 @@ export default function EditVenuePage() {
     setRetireReason("");
   }
 
-  const crumbs = [{ label: "Venues", href: "/venues" }, { label: venueName || "Venue" }];
+  // The venue's name links to its availability, which everyone who can see the
+  // venue can open.
+  const crumbs = venueCrumbs(venueName, "Edit venue", `/venues/${venueId}/availability`);
 
   if (loadError) {
     return (

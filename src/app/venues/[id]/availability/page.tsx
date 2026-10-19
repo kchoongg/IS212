@@ -23,6 +23,7 @@ import { authedFetch } from "@/lib/session";
 import { TIME_ZONE, formatDate, formatDateTimeRange } from "@/lib/format";
 import { addDays, timeRangeLabel } from "@/lib/venueTime";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { venueCrumbs } from "@/lib/breadcrumbs";
 import {
   reasonLabel,
   type AvailabilityBlock,
@@ -260,18 +261,13 @@ function VenueAvailability() {
     [data]
   );
 
-  const venueName = data?.venue.name ?? "Venue";
-  const crumbs = [
-    { label: "Venues", href: "/venues" },
-    // Only Venue Staff can open the editor, so only they get it as a link.
-    { label: venueName, href: canManage && data ? `/venues/${venueId}/edit` : undefined },
-    { label: "Availability" },
-  ];
+  // Only Venue Staff can open the editor, so only they get the name as a link.
+  const crumbs = venueCrumbs(data?.venue.name, "Availability", canManage && data ? `/venues/${venueId}/edit` : undefined);
 
   if (forbiddenMessage) {
     return (
       <div>
-        <PageHeader title="Venue availability" breadcrumbs={[{ label: "Venues" }, { label: "Availability" }]} />
+        <PageHeader title="Venue availability" breadcrumbs={crumbs} />
         <Alert variant="error" title="You do not have access to this">
           {forbiddenMessage}
         </Alert>
@@ -374,7 +370,7 @@ function VenueAvailability() {
               columns={columns}
               rows={data.days}
               rowKey={(day) => day.date}
-              caption={`Availability of ${venueName}, by day`}
+              caption={`Availability of ${data.venue.name}, by day`}
             />
             <Key />
           </div>

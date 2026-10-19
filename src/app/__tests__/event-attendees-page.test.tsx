@@ -15,6 +15,7 @@ import EventAttendeesPage from "@/app/events/[id]/attendees/page";
 import { formatDateTime } from "@/lib/format";
 import { ROLES, eventTabsFor } from "@/lib/roles";
 import {
+  breadcrumb,
   act,
   mockApi,
   render,
@@ -125,6 +126,48 @@ describe("Attendees tab (SPM-65)", () => {
       expect(tab).toHaveAttribute("href", "/events/EVT-000007/attendees");
       expect(tab).toHaveAttribute("aria-current", "page");
       expect(screen.getByText("EVT-000007")).toBeInTheDocument();
+    });
+  });
+
+  // SPM-98: <list> / <event title> / Attendees, in every state.
+  describe("its breadcrumb", () => {
+    it.each([
+      ["organiser", "My Events"],
+      ["coordinator", "Events"],
+    ])("for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+      open({}, role);
+      await screen.findByRole("heading", { name: "Harbourfront Seminar" });
+
+      expect(breadcrumb()).toEqual([
+        [list, "/events"],
+        ["Harbourfront Seminar", `/events/${REF}`],
+        ["Attendees", null],
+      ]);
+    });
+
+    it.each([
+      ["loading", () => { open({ [LIST]: () => new Promise(() => {}) }, "coordinator"); }],
+      ["in error", () => { open({ [LIST]: reply(500, {}) }, "coordinator"); }],
+    ])("reads 'Event' for the event while %s", async (_case, openIt) => {
+      openIt();
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Attendees", null],
+      ]);
+    });
+
+    it("is the same trail when access is refused", async () => {
+      open({ [LIST]: reply(403, { error: "Forbidden" }) });
+      await screen.findByRole("alert");
+
+      expect(breadcrumb()).toEqual([
+        ["My Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Attendees", null],
+      ]);
     });
   });
 

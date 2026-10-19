@@ -11,6 +11,7 @@ import { describe, it, expect } from "vitest";
 import VenueAvailabilityPage from "@/app/venues/[id]/availability/page";
 import { buildAvailability } from "@/lib/venueAvailability";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -118,6 +119,12 @@ describe("Venue availability", () => {
       expect(screen.queryByRole("table")).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Show availability" })).not.toBeInTheDocument();
       expect(screen.queryByLabelText("Venue")).not.toBeInTheDocument();
+      // SPM-98: the same trail as the calendar, 'Venues' still a link.
+      expect(breadcrumb()).toEqual([
+        ["Venues", "/venues"],
+        ["Venue", null],
+        ["Availability", null],
+      ]);
     });
 
     it("has its own words for the refusal when the server gives none", async () => {
@@ -143,17 +150,35 @@ describe("Venue availability", () => {
 
     it("links the venue in the breadcrumb to its editor for Venue Staff only", async () => {
       open({}, { role: "venue_staff" });
+      await grid();
 
-      expect(await screen.findByRole("link", { name: "Hall A" })).toHaveAttribute("href", "/venues/v1/edit");
+      expect(breadcrumb()).toEqual([
+        ["Venues", "/venues"],
+        ["Hall A", "/venues/v1/edit"],
+        ["Availability", null],
+      ]);
     });
 
     it("names the venue in the breadcrumb without a link for a coordinator", async () => {
       open();
-
       await grid();
 
-      expect(screen.queryByRole("link", { name: "Hall A" })).not.toBeInTheDocument();
-      expect(within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByText("Hall A")).toBeInTheDocument();
+      expect(breadcrumb()).toEqual([
+        ["Venues", "/venues"],
+        ["Hall A", null],
+        ["Availability", null],
+      ]);
+    });
+
+    it("calls the venue 'Venue' in the breadcrumb while it loads", async () => {
+      open(() => new Promise(() => {}));
+      await screen.findByRole("status", { name: "Loading" });
+
+      expect(breadcrumb()).toEqual([
+        ["Venues", "/venues"],
+        ["Venue", null],
+        ["Availability", null],
+      ]);
     });
 
     it("shows a placeholder and disables the week buttons until the calendar has loaded", async () => {

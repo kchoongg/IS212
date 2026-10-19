@@ -19,6 +19,7 @@ import {
 import { SkeletonRows } from "@/components/ui/DataState";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formErrors";
 import { CATEGORIES, LAYOUTS, toFormValues, toOptions, type EventRecord, type Facility } from "@/lib/eventForm";
 import { formatDateTimeRange } from "@/lib/format";
@@ -229,11 +230,7 @@ export default function UpdateEventInformationPage() {
       title={TITLE}
       subtitle={event?.title ?? undefined}
       meta={event && <StatusBadge status={event.status} />}
-      breadcrumbs={[
-        { label: "Events", href: "/events" },
-        { label: event?.title || "Event", href: `/events/${eventId}` },
-        { label: TITLE },
-      ]}
+      breadcrumbs={eventCrumbs(user?.role, eventId, event?.title, { label: TITLE })}
     />
   );
 

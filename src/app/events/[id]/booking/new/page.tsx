@@ -20,6 +20,7 @@ import { BeginPlanningDialog } from "@/components/BeginPlanningDialog";
 import { authedFetch } from "@/lib/session";
 import { SAFETY_CLOSED_NOTICE, SAFETY_CLOSED_TITLE } from "@/lib/safetyResolution";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { formatDateTimeRange, formatVenue } from "@/lib/format";
 import { LAYOUTS, toOptions } from "@/lib/eventForm";
 import {
@@ -105,7 +106,7 @@ function BookingRequestForm() {
   // SPM-68: what the space is for, when a flagged booking's replacement is
   // being requested - the same space the booking being replaced was for.
   const spacePurpose = search.get("purpose");
-  const { state } = useCurrentUser();
+  const { user, state } = useCurrentUser();
   const backHref = `/events/${eventId}/venue`;
 
   const [info, setInfo] = useState<Info | null>(null);
@@ -259,12 +260,13 @@ function BookingRequestForm() {
   const header = (
     <PageHeader
       title="Request a venue booking"
-      breadcrumbs={[
-        { label: "Events", href: "/events" },
-        { label: "Event", href: `/events/${eventId}` },
+      breadcrumbs={eventCrumbs(
+        user?.role,
+        eventId,
+        info?.event.title,
         { label: "Venue", href: backHref },
-        { label: "Request booking" },
-      ]}
+        { label: "Request booking" }
+      )}
     />
   );
 

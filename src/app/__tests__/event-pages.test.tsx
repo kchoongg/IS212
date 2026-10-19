@@ -5,6 +5,7 @@ import ReviewRequestPage from "@/app/events/[id]/review/page";
 import { EventGlance } from "@/app/events/[id]/EventGlance";
 import { ROLES } from "@/lib/roles";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -148,14 +149,28 @@ describe("Event overview", () => {
     expect(valueOf("Company")).toHaveTextContent("—");
   });
 
-  it("calls the breadcrumb 'My Events' for an organiser and 'Events' for staff", async () => {
-    open("organiser");
-    expect(await screen.findByRole("link", { name: "My Events" })).toHaveAttribute("href", "/events");
+  // SPM-98: <list> / <event title>, the title being the current page.
+  it.each([
+    ["organiser", "My Events"],
+    ["coordinator", "Events"],
+  ])("calls the breadcrumb's list '%s' for %s, and ends on the event's title", async (role, list) => {
+    open(role);
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(breadcrumb()).toEqual([
+      [list, "/events"],
+      ["Gala Dinner", null],
+    ]);
   });
 
-  it("calls the breadcrumb 'Events' for staff", async () => {
-    open("coordinator");
-    expect(await screen.findByRole("link", { name: "Events" })).toHaveAttribute("href", "/events");
+  it("calls the event 'Event' in the breadcrumb while it loads", async () => {
+    open("coordinator", () => new Promise(() => {}));
+
+    await screen.findByRole("heading", { level: 1, name: "Loading…" });
+    expect(breadcrumb()).toEqual([
+      ["Events", "/events"],
+      ["Event", null],
+    ]);
   });
 
   it.each([
@@ -595,6 +610,10 @@ describe("Event overview", () => {
         "This event doesn't exist, or you don't have access to it."
       );
       expect(screen.getByRole("heading", { level: 1, name: "Event" })).toBeInTheDocument();
+      expect(breadcrumb()).toEqual([
+        ["My Events", "/events"],
+        ["Event", null],
+      ]);
     });
 
     it("shows a general error when the request fails without a reason", async () => {
@@ -738,6 +757,50 @@ describe("Review request", () => {
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/events/EVT-000007"));
     expect(screen.queryByRole("heading", { name: "What was requested" })).not.toBeInTheDocument();
+  });
+
+  // SPM-98: Events / <event title> / Review request, in every state.
+  describe("its breadcrumb", () => {
+    it("names the event by its title and links it to the Overview", async () => {
+      open();
+      await decision();
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Gala Dinner", `/events/${REF}`],
+        ["Review request", null],
+      ]);
+    });
+
+    it.each([
+      ["loading", () => new Promise(() => {})],
+      ["in error", reply(500, {})],
+    ])("reads 'Event' for the event while %s", async (_case, eventRow) => {
+      open(eventRow);
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Review request", null],
+      ]);
+    });
+
+    it.each([
+      ["organiser", "My Events"],
+      ["venue_staff", "Events"],
+    ])("is the same trail when %s is refused", async (role, list) => {
+      setRoute(`/events/${REF}/review`, { id: REF });
+      mockApi(signedInAs(role));
+      render(<ReviewRequestPage />);
+      await screen.findByRole("alert");
+
+      expect(breadcrumb()).toEqual([
+        [list, "/events"],
+        ["Event", `/events/${REF}`],
+        ["Review request", null],
+      ]);
+    });
   });
 
   describe("what was requested", () => {
