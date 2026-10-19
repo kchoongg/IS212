@@ -91,6 +91,45 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: node scripts/check-test-cases.mts
 
+  # Traceability (docs/traceability/TRACEABILITY.md, docs/START_HERE.md).
+  # Fails if a test has no [SPM-xx] tag, or the PR's title and branch name no
+  # Jira key (titles starting "Docs:" or "Chore:" are exempt). When the Jira
+  # secrets are set, it also rebuilds the matrix from Jira and git and fails if
+  # the committed one is out of date; without them that step is skipped with a
+  # notice. Jira is only read - npm run trace sends GET requests only.
+  traceability:
+    name: Traceability
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # npm run trace reads the merge commits of every PR on main.
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Every test is tagged, and the PR names its story
+        # Passed through env, never pasted into the script: a PR title is
+        # text anyone opening a PR controls.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: npm run trace:tags
+      - name: The traceability matrix is up to date
+        env:
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+        run: |
+          if [ -z "$JIRA_API_TOKEN" ]; then
+            echo "::notice::JIRA_API_TOKEN is not set as a repository secret, so the traceability matrix was not checked against Jira. Run npm run trace locally before marking the PR ready."
+            exit 0
+          fi
+          npm run trace -- --check
+
   # Known vulnerabilities in the packages the app ships with (not dev tools).
   # A warning, not a failure: a new advisory would otherwise turn every open PR
   # red at once, for something none of them caused. Fix it in its own PR.
