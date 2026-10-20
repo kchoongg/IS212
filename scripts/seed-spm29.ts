@@ -8,7 +8,8 @@
  * relation of Event is onDelete: Cascade).
  *
  * Re-run before each pass through docs/test-cases/SPM-29_Test_Cases.xlsx, and
- * before and after SPM-29-TC02, which sends a clarification request.
+ * before and after SPM-29-TC02, and before TC06 and after TC07 - TC02 and
+ * TC06 send a clarification request.
  *
  * Event numbers are not pinned: the cases find each event by its title. The
  * open clarification's date is fixed, since SPM-29-TC03 and TC04 quote it.
@@ -38,9 +39,9 @@ type Fixture = {
 };
 
 const FIXTURES: Fixture[] = [
-  { key: "spm29_summit", title: "SPM29 Meridian Clarity Summit", date: "2028-04-06", testCases: "TC01 TC02 TC03" },
+  { key: "spm29_summit", title: "SPM29 Meridian Clarity Summit", date: "2028-04-06", testCases: "TC01 TC02 TC06 TC07" },
   {
-    key: "spm29_forum", title: "SPM29 Meridian Open Question Forum", date: "2028-04-13", testCases: "TC03 TC04 TC05",
+    key: "spm29_forum", title: "SPM29 Meridian Open Question Forum", date: "2028-04-13", testCases: "TC03 TC04 TC05 TC07",
     clarification: {
       fields: "purpose,when",
       message: "Is this a dinner or a conference? Which day do you need?",

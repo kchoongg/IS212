@@ -1019,7 +1019,7 @@ what changed, why, and the migration name if there is one.
   open). Approve and Reject stay available while one is open. Decided
   2026-10-19 (docs/test-cases/SPM-29_test_cases.json).
 - Removed SPM-28's "clarifications are out of scope" note from the review page.
-- **Test cases:** `docs/test-cases/SPM-29_Test_Cases.xlsx` (5 cases), written
+- **Test cases:** `docs/test-cases/SPM-29_Test_Cases.xlsx` (7 cases), written
   before the code. Test data: `npm run fixtures:spm29` (`scripts/seed-spm29.ts`),
   two "SPM29 …" events; the same events are at the end of `prisma/seed.ts`.
 - **Tests:** `clarification.test.ts`, `clarifications.test.ts` (route), and

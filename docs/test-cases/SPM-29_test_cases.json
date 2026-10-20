@@ -85,11 +85,10 @@
       "preconditions": "Test data loaded: `npm run fixtures:spm29` has been run from the project folder.\n'SPM29 Meridian Open Question Forum' is Under review, raised by Rachel Ng and assigned to Daniel Tan, with a clarification Daniel Tan opened on 12 Oct 2026, 10:00 about Purpose and When.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
       "steps": [
         "Click 'My Events' in the sidebar",
-        "Open 'SPM29 Meridian Open Question Forum'",
-        "Go back to My Events and open 'SPM29 Meridian Clarity Summit'"
+        "Open 'SPM29 Meridian Open Question Forum'"
       ],
-      "test_data": "Event with an open clarification: SPM29 Meridian Open Question Forum\nEvent without one: SPM29 Meridian Clarity Summit\nMessage: Is this a dinner or a conference? Which day do you need?",
-      "expected_result": "Step 1: 'SPM29 Meridian Open Question Forum' is listed with the 'Under review' badge; no 'Clarification required' status appears anywhere.\nStep 2: The event page shows the 'Under review' badge and an amber 'Clarification requested' banner listing 'Purpose, When', the message 'Is this a dinner or a conference? Which day do you need?' and 'Asked by Daniel Tan on 12 Oct 2026, 10:00'.\nStep 3: No 'Clarification requested' banner is shown on 'SPM29 Meridian Clarity Summit'."
+      "test_data": "Event: SPM29 Meridian Open Question Forum\nMessage: Is this a dinner or a conference? Which day do you need?",
+      "expected_result": "Step 1: 'SPM29 Meridian Open Question Forum' is listed with the 'Under review' badge; no 'Clarification required' status appears anywhere.\nStep 2: The event page shows the 'Under review' badge and an amber 'Clarification requested' banner listing 'Purpose, When', the message 'Is this a dinner or a conference? Which day do you need?' and 'Asked by Daniel Tan on 12 Oct 2026, 10:00'."
     },
     {
       "id": "SPM-29-TC04",
@@ -121,6 +120,43 @@
       ],
       "test_data": "Event: SPM29 Meridian Open Question Forum (coordinator Daniel Tan)\nUser: Priya Raj",
       "expected_result": "Step 1: The event page opens with the 'Under review' badge, but no 'Clarification requested' banner and none of its message is shown."
+    },
+    {
+      "id": "SPM-29-TC06",
+      "title": "The smallest request is accepted: exactly one item and a one-character message, saved without surrounding spaces",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm29` before this case: it sends a request on 'SPM29 Meridian Clarity Summit'. Go straight on to SPM-29-TC07 and reset after that one.\n'SPM29 Meridian Clarity Summit' is Under review, assigned to Daniel Tan, with no clarification open.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar and open 'SPM29 Meridian Clarity Summit'",
+        "Click 'Review request'",
+        "Choose 'Ask the organiser for clarification'",
+        "Tick only 'Equipment' under 'What needs clarification'",
+        "Type the message in 'Message to the organiser'",
+        "Click 'Send request'"
+      ],
+      "test_data": "Event: SPM29 Meridian Clarity Summit\nItem: Equipment only (the last item in the list)\nMessage: '  ?  ' (a question mark with two spaces before and after it)",
+      "expected_result": "Step 6: A green 'Clarification requested' message is shown and the status badge still reads 'Under review'. The 'Open clarification' box shows 'Needs clarification: Equipment', the message '?' with no spaces around it, and 'Asked by Daniel Tan' with today's date and time."
+    },
+    {
+      "id": "SPM-29-TC07",
+      "title": "A clarification request appears only on the event it was sent for, not on another event of the same organiser",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-29-TC06 has just been run ('SPM29 Meridian Clarity Summit' has an open clarification about Equipment, message '?'). Run `npm run fixtures:spm29` after this case.\n'SPM29 Meridian Open Question Forum' has its own open clarification about Purpose and When.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123), who raised both events.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM29 Meridian Open Question Forum'",
+        "Go back to My Events and open 'SPM29 Meridian Clarity Summit'"
+      ],
+      "test_data": "Event the request was sent on: SPM29 Meridian Clarity Summit (Equipment, '?')\nOther event: SPM29 Meridian Open Question Forum (Purpose, When, 'Is this a dinner or a conference? Which day do you need?')",
+      "expected_result": "Step 1: The 'Clarification requested' banner shows only this event's own clarification: 'Purpose, When' and 'Is this a dinner or a conference? Which day do you need?'. 'Equipment' and '?' do not appear.\nStep 2: The 'Clarification requested' banner shows 'Needs clarification: Equipment' and the message '?', and not the Open Question Forum's items or message."
     }
   ],
   "open_questions": [
@@ -132,7 +168,8 @@
     "RESOLVED 2026-10-19: Who may see the open clarification - the organisers of the event's client and the assigned coordinator only. Other staff roles (Ops Manager, Venue Staff, Technical Support, Safety Officer) are covered by unit tests, not manual cases, since the story does not name them.",
     "RESOLVED 2026-10-19: Only the assigned coordinator may request clarification, and only while the event is Under review - enforced by the server (unit tests). In the app, the 'Review request' page already refuses anyone else and redirects away from a decided event (SPM-28), so no extra manual case.",
     "RESOLVED 2026-10-19: Out of scope - the organiser responding (SPM-26) and any notification (SPM-53). No case for either.",
-    "RESOLVED 2026-10-19: Test data. scripts/seed-spm29.ts (`npm run fixtures:spm29`) is written with the code, since the clarification's items need the new `fields` column. It recreates only these events, organiser Rachel Ng (Meridian Financial Group), coordinator Daniel Tan, dated April 2028: 'SPM29 Meridian Clarity Summit' (Under review, no clarification) and 'SPM29 Meridian Open Question Forum' (Under review, an open clarification by Daniel Tan on 12 Oct 2026, 10:00 about Purpose and When: 'Is this a dinner or a conference? Which day do you need?'). The same events go at the end of prisma/seed.ts. TC02 changes data, so its precondition says to run the script before and after."
+    "RESOLVED 2026-10-19: Test data. scripts/seed-spm29.ts (`npm run fixtures:spm29`) is written with the code, since the clarification's items need the new `fields` column. It recreates only these events, organiser Rachel Ng (Meridian Financial Group), coordinator Daniel Tan, dated April 2028: 'SPM29 Meridian Clarity Summit' (Under review, no clarification) and 'SPM29 Meridian Open Question Forum' (Under review, an open clarification by Daniel Tan on 12 Oct 2026, 10:00 about Purpose and When: 'Is this a dinner or a conference? Which day do you need?'). The same events go at the end of prisma/seed.ts. TC02 and TC06 change data, so their preconditions say to run the script before (and after TC02, or after TC07, which reads what TC06 sent).",
+    "RESOLVED 2026-10-20: AC4 has no Boundary case - a clarification either belongs to the event or it does not, so there is no limit to test either side of. Its Negative case is TC07 (a request does not appear on another event); TC03's former 'no banner on the other event' step moved there."
   ],
   "code_references": []
 }
