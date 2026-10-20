@@ -34,6 +34,20 @@ comment of 2026-10-02 22:18 explains.
 | [#128](#forum-128--15-minute-booking-unit-week-7-clarification) | 15 minutes as the booking unit | Clarification that corrects earlier rulings (#108, #123) | SPM-93 | SPM-45, SPM-67, SPM-68, SPM-80, SPM-81, SPM-82 |
 | [#129](#forum-129--event-coordinator-lead-is-the-renamed-operations-manager) | Lead = renamed Operations Manager | Clarification, recorded as a change request (rename) | none (SPM-83 folded into SPM-84) | SPM-58, SPM-74, SPM-83, SPM-84 |
 
+## Superseded acceptance criteria
+
+Current Jira ACs that a change replaced but that were left as written,
+because their stories are Done. `npm run trace` reads this table and shows these
+ACs as **Superseded** rather than as gaps. Keep it in this format: one row per
+story, ACs comma-separated.
+
+| Story | AC | Replaced by | Change |
+|---|---|---|---|
+| SPM-42 | AC2, AC3 | SPM-93 AC1, AC5, AC6 (times on a 15-minute grid; setup and turnaround in minutes) | #128 |
+| SPM-44 | AC2, AC4 | SPM-93 AC6, AC7 (conflicts compared by occupied period, not slot) | #128 |
+| SPM-46 | AC2 | SPM-93 AC9 (calendar at actual times) | #128 |
+| SPM-83 | AC1, AC2 | SPM-84 AC2, AC3 (SPM-83 folded into SPM-84 on 2026-10-06) | #129 |
+
 Week 7 changes were applied to Jira on 2026-10-02 (Kristen Choong), and the new
 stories SPM-80 to SPM-88 were created that day. SPM-90 was split from SPM-81 on
 2026-10-04. SPM-93 and SPM-94 were created on 2026-10-06.
@@ -58,7 +72,7 @@ SPM-93 after forum #128 (see below).
 
 **Automated tests:** none for SPM-80 (not built). The tests for setup and turnaround in minutes came with SPM-93 (#128).
 
-**Design documents:** not recorded for this change on its own. See #128 for SPM-93's.
+**Design documents:** PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") changed `docs/ConnectSphere_BPMN.drawio`: "the venue search and Venue Staff's review say availability and conflicts include setup and turnaround time". See #128 for SPM-93's.
 
 ---
 
@@ -77,7 +91,7 @@ SPM-93 after forum #128 (see below).
 
 **Automated tests:** added in PR #44 (SPM-45, merged 2026-10-10): `src/app/api/__tests__/venue-unavailability.test.ts` and `src/lib/__tests__/venueUnavailability.test.ts`. Their header says they were "Rewritten on 2026-10-09 for times on the 15-minute grid (Week 7 Change #1, SPM-93), before the code was reworked."
 
-**Design documents:** PR #44 changed `SCHEMA_REFERENCE.md`, `UI_DESIGN.md`, `docs/ConnectSphere_Status_Lifecycle.drawio` and `docs/PERMISSIONS.md`.
+**Design documents:** PR #44 changed `SCHEMA_REFERENCE.md`, `UI_DESIGN.md`, `docs/ConnectSphere_Status_Lifecycle.drawio` and `docs/PERMISSIONS.md`. PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") changed the BPMN: the exception start reads "Venue retired, marked unavailable or attributes changed", and its "no longer suitable" end returns to venue search for a replacement.
 
 ---
 
@@ -100,7 +114,7 @@ SPM-93 after forum #128 (see below).
 
 **Automated tests:** added and changed in PR #46 (SPM-81, 2026-10-11): `event-pages`, `event-venue-pages`, `list-pages`, `event-venue`, `venueBookingRequest`, `venueConflict` tests. Also changed in PR #53 (SPM-90, 2026-10-14): 12 test files, including `venueSuitability` and `eventConfirmation`. None archived.
 
-**Design documents:** PR #46 changed `docs/CUSTOMER_CLARIFICATIONS.md`. PR #53 changed `SCHEMA_REFERENCE.md`, `UI_DESIGN.md` and `docs/CUSTOMER_CLARIFICATIONS.md`, and added migration `20261013120000_add_venue_booking_space`.
+**Design documents:** PR #46 changed `docs/CUSTOMER_CLARIFICATIONS.md`. PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") added an "Another venue needed?" gateway to the BPMN, looping back to venue search. PR #53 changed `SCHEMA_REFERENCE.md`, `UI_DESIGN.md` and `docs/CUSTOMER_CLARIFICATIONS.md`, and added migration `20261013120000_add_venue_booking_space`.
 
 ---
 
@@ -116,7 +130,7 @@ SPM-93 after forum #128 (see below).
 
 **Automated tests:** added in PR #62 (SPM-82, merged 2026-10-16): `venue-hold-expiry`, `holdExpiry` and `holdExpiryService` tests. It also changed 12 other test files. None archived.
 
-**Design documents:** PR #62 changed `SCHEMA_REFERENCE.md`, `UI_DESIGN.md` and `docs/PERMISSIONS.md`, and added migration `20261015130000_add_venue_hold_expiry`.
+**Design documents:** PR #62 changed `SCHEMA_REFERENCE.md`, `UI_DESIGN.md` and `docs/PERMISSIONS.md`, and added migration `20261015130000_add_venue_hold_expiry`. PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") added a hold-expiry flow to the BPMN's "Changes and exceptions" (Venue Staff lane).
 
 ---
 
@@ -135,7 +149,7 @@ SPM-93 after forum #128 (see below).
 
 **Automated tests:** none changed yet. Two tests assert the old role name; they are listed for SPM-84, not edited.
 
-**Design documents:** not recorded. `docs/architecture/connectsphere.dsl` still names the person "Ops Manager", and has no Event Coordinator Lead.
+**Design documents:** PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") renamed the BPMN's Event Operations Manager lane (#129) and shows the unassigned queue, with the Lead assigning and reassigning; the lifecycle's Submitted → Under review arrow reads "Lead assigns". Not recorded for the C4 model: `docs/architecture/connectsphere.dsl` still names the person "Ops Manager".
 
 ---
 
@@ -160,6 +174,7 @@ SPM-93 after forum #128 (see below).
 
 **Design documents:**
 - `docs/ConnectSphere_Status_Lifecycle.drawio`: changed in PR #42 and PR #54 (Safety review and Safety approved statuses).
+- `docs/ConnectSphere_BPMN.drawio`: PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") added a Safety Officer lane and a "Safety review" band; "Arrangements complete?" leads to "Submit event for Operational Safety Check".
 - `docs/PERMISSIONS.md` and `UI_DESIGN.md`: changed in PRs #42, #49, #54 and #63.
 - `SCHEMA_REFERENCE.md`: changed in PRs #42, #54 and #63.
 - Migration `20261009120000_add_safety_check` (PR #42).
@@ -236,4 +251,4 @@ SPM-93 after forum #128 (see below).
 
 **Automated tests:** none changed yet. Two assert the old name (listed in DECOMMISSIONED.md).
 
-**Design documents:** not recorded. The C4 model, `docs/PERMISSIONS.md` and `UI_DESIGN.md` still say Operations Manager.
+**Design documents:** PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") renamed the Event Operations Manager lane in `docs/ConnectSphere_BPMN.drawio` and labels the lifecycle arrow "Lead assigns". Not recorded for the C4 model, `docs/PERMISSIONS.md` (13 mentions) and `UI_DESIGN.md` (4), which still say Operations Manager.

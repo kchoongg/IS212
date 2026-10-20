@@ -176,6 +176,10 @@ interface PullRequest {
   title: string;
   branch: string;
   merged: string;
+  author: string;
+  /** Who merged it ("" without gh). */
+  mergedBy: string;
+  /** Who reviewed it, the author left out; bots are marked "(bot)". "" when nobody else did; "n/a (no gh)" without gh. */
   reviewers: string;
   ci: string;
 }
@@ -199,7 +203,7 @@ function prSource(): "gh" | "git" {
   if (forced === "gh" || forced === "git") return forced;
   if (CHECK && existsSync(MD)) {
     // Regenerate with the source the committed matrix was made with, so a
-    // teammate without gh and CI (which has it) produce the same file.
+    // teammate without gh and CI produce the same file.
     if (/PR data: git log/.test(readFileSync(MD, "utf8"))) return "git";
   }
   return run("gh", ["auth", "status"]) !== null ? "gh" : "git";
@@ -207,15 +211,23 @@ function prSource(): "gh" | "git" {
 
 function loadPullRequests(source: "gh" | "git"): PullRequest[] {
   if (source === "gh") {
-    const json = run("gh", ["pr", "list", "--state", "merged", "--limit", "500", "--json", "number,title,headRefName,mergedAt,reviews,url"]);
+    const json = run("gh", ["pr", "list", "--state", "merged", "--limit", "500", "--json", "number,title,headRefName,mergedAt,author,mergedBy,reviews"]);
     if (json) {
-      const prs = JSON.parse(json) as { number: number; title: string; headRefName: string; mergedAt: string; reviews: { author: { login: string } }[]; url: string }[];
-      return prs.map((p) => {
-        const runs = run("gh", ["run", "list", "--branch", p.headRefName, "--workflow", "CI", "--limit", "1", "--json", "url"]);
-        const ci = runs ? ((JSON.parse(runs) as { url: string }[])[0]?.url ?? "") : "";
-        const reviewers = [...new Set(p.reviews.map((r) => r.author.login))].sort().join(", ");
-        return { number: p.number, title: p.title, branch: p.headRefName, merged: p.mergedAt.slice(0, 10), reviewers: reviewers || "none recorded", ci };
-      });
+      type GhPr = { number: number; title: string; headRefName: string; mergedAt: string; author: { login: string }; mergedBy: { login: string } | null; reviews: { author: { login: string } }[] };
+      return (JSON.parse(json) as GhPr[])
+        .map((p) => {
+          // The CI run of the PR's last commit on its branch.
+          const runs = run("gh", ["run", "list", "--branch", p.headRefName, "--workflow", "CI", "--limit", "1", "--json", "url"]);
+          const ci = runs ? ((JSON.parse(runs) as { url: string }[])[0]?.url ?? "") : "";
+          const reviewers = [...new Set(p.reviews.map((r) => r.author.login))]
+            .filter((l) => l !== p.author.login)
+            .sort()
+            .map((l) => (/(^copilot|\[bot\]$|-bot$)/i.test(l) ? `${l} (bot)` : l))
+            .join(", ");
+          const mergedBy = p.mergedBy?.login ?? "";
+          return { number: p.number, title: p.title, branch: p.headRefName, merged: p.mergedAt.slice(0, 10), author: p.author.login, mergedBy, reviewers, ci };
+        })
+        .sort((a, b) => a.number - b.number);
     }
   }
   // Every PR merged on GitHub leaves a merge commit reachable from main: "Merge pull request #N
@@ -231,6 +243,8 @@ function loadPullRequests(source: "gh" | "git"): PullRequest[] {
       title: (body ?? "").trim().split("\n")[0] ?? "",
       branch: m[2],
       merged: date,
+      author: "",
+      mergedBy: "",
       reviewers: "n/a (no gh)",
       ci: repoUrl ? `${repoUrl}/pull/${m[1]}/checks` : "",
     });
@@ -247,6 +261,8 @@ interface TestCases {
   active: number;
   retired: number;
   latest: string;
+  /** ACs named in the Linked AC column of an Active or Updated case. */
+  acs: Set<number>;
 }
 
 function loadTestCases(key: string): TestCases | null {
@@ -258,10 +274,16 @@ function loadTestCases(key: string): TestCases | null {
   let header = 0;
   for (let r = 1; r <= 10; r++) if (String(summary.get(`B${r}`) ?? "").trim() === "Test Case ID") header = r;
   let statusCol = "";
-  for (const col of "ABCDEFGHIJKL") if (String(summary.get(`${col}${header}`) ?? "").trim() === "Status") statusCol = col;
+  let acCol = "D";
+  for (const col of "ABCDEFGHIJKL") {
+    const h = String(summary.get(`${col}${header}`) ?? "").trim();
+    if (h === "Status") statusCol = col;
+    if (h === "Linked AC") acCol = col;
+  }
 
   let active = 0;
   let retired = 0;
+  const acs = new Set<number>();
   const results = new Map<string, number>();
   let newest = "";
   for (let r = header + 1; r <= lastRow(summary); r++) {
@@ -276,6 +298,7 @@ function loadTestCases(key: string): TestCases | null {
       continue;
     }
     active++;
+    for (const m of String(summary.get(`${acCol}${r}`) ?? "").matchAll(/AC(\d+)/g)) acs.add(Number(m[1]));
     // The newest execution block on the case's own sheet (blocks are added below each other).
     const sheetName = String(summary.get(`A${r}`) ?? "").trim();
     const sheet = wb.cells.get(sheetName);
@@ -299,8 +322,64 @@ function loadTestCases(key: string): TestCases | null {
     .sort((a, b) => (order.indexOf(a[0]) + 10) % 14 - (order.indexOf(b[0]) + 10) % 14 || a[0].localeCompare(b[0]))
     .map(([k, n]) => `${n} ${k}`)
     .join(", ");
-  return { file: rel, active, retired, latest: summaryText ? `${summaryText}${newest ? ` (${newest})` : ""}` : "not run" };
+  return { file: rel, active, retired, acs, latest: summaryText ? `${summaryText}${newest ? ` (${newest})` : ""}` : "not run" };
 }
+
+// ---------------------------------------------------------------- superseded ACs
+
+/**
+ * ACs a requirement change replaced, from the "Superseded acceptance criteria"
+ * table in docs/CHANGES.md: | Story | AC | Replaced by | Change |. Such an AC is
+ * shown as Superseded, never as a gap.
+ */
+function loadSuperseded(): Map<string, string> {
+  const out = new Map<string, string>();
+  const file = path.join(ROOT, "docs/CHANGES.md");
+  if (!existsSync(file)) return out;
+  const text = readFileSync(file, "utf8").replace(/\r\n/g, "\n");
+  const start = text.indexOf("## Superseded acceptance criteria");
+  if (start < 0) return out;
+  for (const line of text.slice(start).split("\n").slice(1)) {
+    if (line.startsWith("## ")) break;
+    const cells = line.split("|").map((c) => c.trim());
+    const story = /^SPM-\d+$/.exec(cells[1] ?? "")?.[0];
+    if (!story) continue;
+    for (const m of (cells[2] ?? "").matchAll(/AC(\d+)/g)) out.set(`${story} AC${m[1]}`, `${cells[3]} (${cells[4]})`);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------- code with no story
+
+/**
+ * Features in the code that no Jira story asks for. Their tests are tagged
+ * [UNTRACED]. Each stays until the team decides to remove it or back it with
+ * a story; nothing here is deleted.
+ */
+const UNTRACED_FEATURES: { name: string; why: string; files: string[]; tests: RegExp }[] = [
+  {
+    name: "Self-registration (Create an account)",
+    why:
+      "No story covers it. SPM-21 User Login has no registration criterion. Built in the project setup (2026-09-06/09), " +
+      "before the backlog. Only the Organiser and Attendee roles can be chosen.",
+    files: [
+      "src/app/register/page.tsx",
+      "src/app/api/auth/register/route.ts",
+      "src/lib/validation/auth.ts (registerSchema)",
+      "src/lib/roles.ts (SELF_REGISTERABLE_ROLES, isSelfRegisterableRole)",
+      "src/app/page.tsx (the Home page's Register link)",
+    ],
+    tests: /public-pages|auth\.test|validation\.test|edgeCases/,
+  },
+  {
+    name: "Adding an item to the equipment catalogue (POST /api/equipment)",
+    why:
+      "No story covers creating equipment items, and no screen calls this endpoint. Built in the project setup (2026-09-06). " +
+      "Viewing the catalogue (GET) and recording units out of service are SPM-48 and SPM-55.",
+    files: ["src/app/api/equipment/route.ts (POST)", "src/lib/validation/equipment.ts (createEquipmentSchema)"],
+    tests: /api\/__tests__\/equipment\.test/,
+  },
+];
 
 // ---------------------------------------------------------------- design element
 
@@ -336,10 +415,14 @@ const designElement = (s: Story) => (s.key in DESIGN_BY_STORY ? DESIGN_BY_STORY[
 
 // ---------------------------------------------------------------- build
 
+type Coverage = "Automated" | "Manual only" | "Superseded" | "None";
+const SHORT: Record<Coverage, string> = { Automated: "A", "Manual only": "M", Superseded: "S", None: "N" };
+
 async function main() {
   const source = prSource();
   const [stories, prs] = [await loadStories(), loadPullRequests(source)];
   const { tests } = findTests(ROOT);
+  const superseded = loadSuperseded();
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
 
   const byStory = new Map<string, FoundTest[]>();
@@ -350,28 +433,45 @@ async function main() {
   }
 
   const relevant = (s: Story) => s.status === "Done" || s.sprintState === "active";
-  const gapsNoTest: string[] = [];
+  // Research and design stories (Sprint 1): their tests are setup, not feature coverage.
+  const isResearch = (s: Story) => /^\[(Research|FE)\]/.test(s.title);
+  const gapsNone: string[] = [];
   const gapsNoPr: string[] = [];
   const gapsNoTc: string[] = [];
   const storyOnly: string[] = [];
 
   const rows = stories.map((s) => {
     const ts = byStory.get(s.key) ?? [];
-    const covered = new Set<number>();
-    for (const t of ts) for (const tag of t.tags) if (tag.story === s.key) tag.acs.forEach((a) => covered.add(a));
+    const automated = new Set<number>();
+    for (const t of ts) for (const tag of t.tags) if (tag.story === s.key) tag.acs.forEach((a) => automated.add(a));
     const count = (level: FoundTest["level"]) => ts.filter((t) => t.level === level).length;
-    const unit = count("unit");
-    const route = count("route");
-    const uncovered = s.acs.map((_, i) => i + 1).filter((n) => !covered.has(n));
     const myPrs = prs.filter((p) => mentions(p.title, s.key) || mentions(p.branch, s.key));
     const tc = loadTestCases(s.key);
-    const isResearch = /^\[Research\]|^\[FE\]/.test(s.title);
+    const research = isResearch(s);
+
+    // Each AC's coverage: Superseded (docs/CHANGES.md) > Automated (a tagged test) > Manual only (an Active or Updated case) > None.
+    const coverage: Coverage[] = s.acs.map((_, i) => {
+      const n = i + 1;
+      if (superseded.has(`${s.key} AC${n}`)) return "Superseded";
+      if (automated.has(n)) return "Automated";
+      if (tc?.acs.has(n)) return "Manual only";
+      return "None";
+    });
+    const none = coverage.map((c, i) => (c === "None" ? i + 1 : 0)).filter(Boolean);
+    const coverageText = research
+      ? "Setup / research"
+      : coverage.map((c, i) => `AC${i + 1} ${SHORT[c]}`).join(", ");
+
+    // Tests of the bugs linked to this story, by the [BUG-n] in their tags.
+    const bugTests = new Map<string, number>();
+    for (const t of ts) for (const tag of t.tags) if (tag.story === s.key) for (const b of tag.bugs) bugTests.set(b, (bugTests.get(b) ?? 0) + 1);
+    const bugs = [...new Set([...s.bugs, ...bugTests.keys()])].sort((a, b) => Number(a.split("-")[1]) - Number(b.split("-")[1]));
 
     const gaps: string[] = [];
-    if (relevant(s) && !isResearch) {
-      if (uncovered.length && s.acs.length) {
-        gaps.push(`no test: ${uncovered.map((n) => `AC${n}`).join(", ")}`);
-        gapsNoTest.push(`${s.key} ${s.title}: ${uncovered.map((n) => `AC${n}`).join(", ")}`);
+    if (relevant(s) && !research) {
+      if (none.length) {
+        gaps.push(`no coverage: ${none.map((n) => `AC${n}`).join(", ")}`);
+        gapsNone.push(`${s.key} ${s.title} (${s.status}): ${none.map((n) => `AC${n}`).join(", ")}`);
       }
       if (!myPrs.length && s.status === "Done") {
         gaps.push("no PR");
@@ -385,22 +485,36 @@ async function main() {
     if (!s.estimate && s.points !== null) gaps.push("no estimate comment");
     for (const t of ts) {
       const own = t.tags.filter((tag) => tag.story === s.key);
-      if (own.length && own.every((tag) => !tag.acs.length)) storyOnly.push(`${s.key}\t${t.file}:${t.line}\t${t.name.replace(/\[SPM-\d+\](\[AC\d+\])*\s*/g, "")}`);
+      if (own.length && own.every((tag) => !tag.acs.length)) storyOnly.push(`${s.key}\t${t.file}:${t.line}\t${t.name.replace(/\[SPM-\d+\](\[(AC\d+|BUG-\d+)\])*\s*/g, "")}`);
     }
 
     return {
       story: s,
-      unit,
-      route,
+      research,
+      unit: count("unit"),
+      route: count("route"),
       integration: count("integration"),
       e2e: count("e2e"),
-      coveredText: s.acs.length ? `${s.acs.length - uncovered.length}/${s.acs.length}` : "",
+      coveredText: research || !s.acs.length ? "" : `${s.acs.length - coverage.filter((c) => c !== "Automated").length}/${s.acs.length}`,
+      coverageText,
+      coverage,
       tc,
       prs: myPrs,
       design: designElement(s),
+      bugs,
+      bugTests,
       gaps,
     };
   });
+
+  const unitText = (r: (typeof rows)[number]) =>
+    r.research ? (r.unit + r.route ? `${r.unit + r.route} setup / research` : "") : `${r.unit} unit, ${r.route} route`;
+  const bugText = (r: (typeof rows)[number], link: (k: string) => string) =>
+    r.bugs.map((b) => (r.bugTests.get(b) ? `${link(b)} (${r.bugTests.get(b)} tests)` : link(b))).join(", ");
+  // No GitHub review: say who merged it, which shows whether a second person was involved.
+  const reviewerText = (p: PullRequest) =>
+    p.reviewers !== "" ? p.reviewers : p.mergedBy === p.author ? `none recorded (merged by its author, ${p.author})` : `none recorded (merged by ${p.mergedBy})`;
+  const humanReview = (p: PullRequest) => p.reviewers.split(", ").some((r) => r && !r.endsWith("(bot)"));
 
   // ---- CSV
   const csvCell = (v: unknown) => {
@@ -408,7 +522,7 @@ async function main() {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = [
-    "Story", "Title", "Epic", "Source", "Sprint", "Points", "Estimate rationale", "# ACs", "ACs with automated coverage",
+    "Story", "Title", "Epic", "Source", "Sprint", "Points", "Estimate rationale", "# ACs", "ACs with automated coverage", "AC coverage type",
     "TC file", "Active TCs", "Retired TCs", "Latest manual result + date", "Unit", "Integration", "E2E", "Design element",
     "PR(s)", "Reviewer", "CI run", "Linked bugs", "Status", "Gaps",
   ];
@@ -418,10 +532,11 @@ async function main() {
     csv.push(
       [
         s.key, s.title, s.epic, s.source, s.sprints.join(" > ") || "Backlog", s.points ?? "", s.estimate, s.acs.length, r.coveredText,
+        r.research ? "Setup / research" : r.coverage.map((c, i) => `AC${i + 1} ${c}`).join("; "),
         r.tc?.file ?? "", r.tc?.active ?? "", r.tc?.retired ?? "", r.tc?.latest ?? "",
-        `${r.unit} unit, ${r.route} route`, r.integration, r.e2e, r.design,
-        r.prs.map((p) => `#${p.number} (${p.merged})`).join("; "), r.prs.map((p) => p.reviewers).join("; "), r.prs.map((p) => p.ci).join("; "),
-        s.bugs.join("; "), s.status, r.gaps.join("; "),
+        unitText(r), r.integration, r.e2e, r.design,
+        r.prs.map((p) => `#${p.number} (${p.merged})`).join("; "), r.prs.map(reviewerText).join("; "), r.prs.map((p) => p.ci).join("; "),
+        bugText(r, (k) => k), s.status, r.gaps.join("; "),
       ].map(csvCell).join(",")
     );
   }
@@ -440,9 +555,17 @@ async function main() {
     ""
   );
   md.push(
-    "Column notes: **Unit** counts unit tests and mocked-route tests (`src/app/api/__tests__`) separately. **Latest manual result** is the newest " +
-      "execution block of each Active test case, counted by result, with the newest date. Retired test cases are listed in " +
-      "[DECOMMISSIONED.md](../test-cases/DECOMMISSIONED.md). Gaps are only checked for stories that are Done or in the active sprint.",
+    "Column notes:",
+    "",
+    "- **AC coverage type**, per AC: **A** Automated (a test is tagged with it), **M** Manual only (an Active or Updated test case links it, no automated test), " +
+      "**S** Superseded (replaced by a change; see [CHANGES.md](../CHANGES.md#superseded-acceptance-criteria)), **N** None. Only None is a gap.",
+    "- **Unit** counts unit tests and mocked-route tests (`src/app/api/__tests__`) separately. For the Sprint 1 research and design stories it reads " +
+      "**setup / research**: those tests check shared setup (formatting, components, the database client), not a feature.",
+    "- **Latest manual result** is the newest execution block of each Active test case, counted by result, with the newest date. Retired test cases are listed in " +
+      "[DECOMMISSIONED.md](../test-cases/DECOMMISSIONED.md).",
+    "- **Reviewer** is who submitted a GitHub review of the PR, other than its author; \"none recorded\" means nobody did, and says who merged it. **Linked bugs** are the Jira bugs linked to the story, " +
+      "and the tests tagged `[BUG-n]` under it.",
+    "- Gaps are only checked for stories that are Done or in the active sprint.",
     ""
   );
   md.push("| " + header.join(" | ") + " |");
@@ -455,26 +578,60 @@ async function main() {
       "| " +
         [
           jiraLink(s.key), esc(s.title), esc(s.epic), esc(short(s.source, 140)), s.sprints.join(" → ") || "Backlog", String(s.points ?? ""),
-          esc(short(s.estimate, 160)), String(s.acs.length), r.coveredText, tcLink, r.tc ? String(r.tc.active) : "", retired, r.tc?.latest ?? "",
-          `${r.unit} unit, ${r.route} route`, String(r.integration), String(r.e2e), esc(r.design),
+          esc(short(s.estimate, 160)), String(s.acs.length), r.coveredText, r.coverageText,
+          tcLink, r.tc ? String(r.tc.active) : "", retired, r.tc?.latest ?? "",
+          unitText(r), String(r.integration), String(r.e2e), esc(r.design),
           r.prs.map((p) => (repoUrl ? `[#${p.number}](${repoUrl}/pull/${p.number})` : `#${p.number}`) + ` ${p.merged}`).join("<br>"),
-          r.prs.map((p) => esc(p.reviewers)).join("<br>"),
+          r.prs.map((p) => esc(reviewerText(p))).join("<br>"),
           r.prs.map((p) => (p.ci ? `[run](${p.ci})` : "")).join("<br>"),
-          s.bugs.map(jiraLink).join(", "), s.status, esc(r.gaps.join("; ")),
+          bugText(r, jiraLink), s.status, esc(r.gaps.join("; ")),
         ].join(" | ") +
         " |"
     );
   }
-  const list = (title: string, items: string[]) => {
+  const list = (title: string, items: string[], intro?: string) => {
     md.push("", `## ${title}`, "");
+    if (intro) md.push(intro, "");
     md.push(...(items.length ? items.map((i) => `- ${i}`) : ["- none"]));
   };
-  list("ACs with no test", gapsNoTest);
+  list("ACs with no coverage", gapsNone, "Current ACs with no automated test, no Active or Updated test case, and not superseded by a change.");
   list("Stories with no PR", gapsNoPr);
   list("Stories with no TC file", gapsNoTc);
-  md.push("", "## Tests tagged with a story but no single AC", "");
+
+  const noReview = source === "gh" ? prs.filter((p) => !humanReview(p)) : [];
+  list(
+    "PRs with no reviewer other than their author",
+    noReview.map(
+      (p) =>
+        `[#${p.number}](${repoUrl}/pull/${p.number}) ${esc(p.title)}: author ${p.author}, merged ${p.merged} by ` +
+        (p.mergedBy === p.author ? `**its author**` : p.mergedBy) +
+        (p.reviewers ? `; reviewed only by ${p.reviewers}` : "")
+    ),
+    source === "gh"
+      ? `No GitHub review by anyone but the author: ${noReview.length} of ${prs.length} merged PRs. ` +
+          `${noReview.filter((p) => p.mergedBy === p.author).length} of them were also merged by their author.`
+      : "Needs gh: without it, reviewers are not read."
+  );
+
+  md.push("", "## Code with no story", "");
   md.push(
-    "These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper). " +
+    "Features in the code that no Jira story asks for. Their tests are tagged `[UNTRACED]`. Nothing here is deleted: each needs a decision to remove it " +
+      "or to back it with a story.",
+    ""
+  );
+  const untraced = tests.filter((t) => t.untraced);
+  for (const f of UNTRACED_FEATURES) {
+    const mine = untraced.filter((t) => f.tests.test(t.file) && !(f.name.startsWith("Self") && /api\/__tests__\/equipment/.test(t.file)));
+    md.push(`### ${f.name}`, "", f.why, "", "Files:", "", ...f.files.map((x) => `- \`${x}\``), "", `Tests (${mine.length}):`, "");
+    md.push(...mine.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name.replace(/^\[UNTRACED\]\s*/, ""))}`), "");
+  }
+  const claimed = new Set(UNTRACED_FEATURES.flatMap((f) => untraced.filter((t) => f.tests.test(t.file))));
+  const loose = untraced.filter((t) => !claimed.has(t));
+  if (loose.length) md.push("### Other [UNTRACED] tests", "", ...loose.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name)}`), "");
+
+  md.push("## Tests tagged with a story but no single AC", "");
+  md.push(
+    "These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). " +
       `${storyOnly.length} tests:`,
     ""
   );

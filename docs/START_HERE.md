@@ -16,7 +16,7 @@ equipment with Technical Support, and an Operational Safety Check with the
 Safety Officer. The Coordinator then confirms the event, and Attendees
 register for it.
 
-**Product Goal:** _[placeholder – copy the Product Goal from the team playbook]_
+**Product Goal:** <<PASTE FROM PLAYBOOK>>
 
 It is one Next.js app (UI and API) on one PostgreSQL database (Neon), built by
 five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
@@ -25,7 +25,7 @@ five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
 
 | What | Where |
 |---|---|
-| Team playbook (ways of working, Definition of Done, roles) | _[placeholder – playbook link]_ |
+| Team playbook (ways of working, Definition of Done, roles) | <<PASTE PLAYBOOK LINK>> |
 | Jira board: every story, its ACs, estimate comments and sprint | https://kkchoong.atlassian.net/browse/SPM |
 | Code and pull requests | https://github.com/kchoongg/IS212 |
 | **Traceability matrix**: every story from estimate to Done, in one table | [traceability/TRACEABILITY.md](traceability/TRACEABILITY.md) (and [.csv](traceability/TRACEABILITY.csv)) |
@@ -40,7 +40,7 @@ five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
 | Customer clarifications (forum Q&A, by topic) | [CUSTOMER_CLARIFICATIONS.md](CUSTOMER_CLARIFICATIONS.md), raw threads in [discussions/](discussions/) |
 | Developer guide: setup, structure, conventions, changelog, known gaps | [../DOCUMENTATION.md](../DOCUMENTATION.md) |
 | Schema and screens | [../SCHEMA_REFERENCE.md](../SCHEMA_REFERENCE.md), [../UI_DESIGN.md](../UI_DESIGN.md) |
-| Sprint evidence (reviews, retros, velocity) | _[placeholder – sprint evidence link]_ |
+| Sprint evidence (reviews, retros, velocity) | <<PASTE SPRINT EVIDENCE LINK>> |
 | Old copies of test cases (read-only archive) | [Drive folder](https://drive.google.com/drive/folders/1QRM41o-J406Ln-RShGYn9_XaN-q9f7m2): do not edit; the repo is the source of truth since 2026-10-19 |
 
 ## Running it
@@ -72,10 +72,10 @@ Coordinator's venue booking request. Each step below says where to click.
 **1. Find it in the matrix.** Open
 [traceability/TRACEABILITY.md](traceability/TRACEABILITY.md) and find the
 SPM-43 row (Ctrl+F "SPM-43"). It reads: epic SPM-17 Venue Booking, Sprint 2,
-3 points, 7 ACs, all 7 with automated tests, 14 Active and 2 Retired test
+3 points, 7 ACs, all 7 with automated tests (its AC coverage type reads "AC1 A … AC7 A"; M, S and N would mean Manual only, Superseded and None), 14 Active and 2 Retired test
 cases, latest manual result "14 Pass (2026-10-03)", 52 unit + 18 route + 1
 integration + 1 E2E test, design element "Web Application › Venues API",
-PR #34 merged 2026-10-03, status Done. Its gap is "no estimate comment": SPM-43
+PR #34 merged 2026-10-03 (Reviewer: "none recorded (merged by kchoongg)": no GitHub review was submitted, and someone other than the author merged it), status Done. Its gap is "no estimate comment": SPM-43
 was estimated in Sprint 2 planning, and Jira has no "Estimate: …" comment for
 it. The steps below show where each of those comes from.
 
@@ -104,12 +104,15 @@ business rules for the review are in [PERMISSIONS.md](PERMISSIONS.md) and
 **5. The code and its review: GitHub.** Open
 https://github.com/kchoongg/IS212/pull/34 (the matrix's PR link).
 - **Files changed** shows the code: `src/app/bookings/page.tsx` (the Booking Requests screen), `src/app/api/venue-bookings/[id]/route.ts` (approve and reject) and `src/lib/venueBookingReview.ts` (the rules).
-- **Conversation** shows the reviewer and their comments. The matrix's Reviewer column reads "n/a (no gh)" when it was generated without the GitHub CLI; the PR page always shows it.
+- **Conversation** shows any review and its comments. The matrix's Reviewer column lists who submitted a GitHub review; where nobody did, it says who merged the PR. Reading it needs the GitHub CLI (`gh`); without it the column reads "n/a (no gh)".
 - **Checks**, the matrix's "run" link, shows the CI run: lint, type-check, unit tests with coverage, build, migrations, integration and end-to-end.
 - To find every commit for the story: on GitHub, search the repository's commits for "SPM-43", or run `git log --oneline --grep SPM-43`.
 
 **6. The automated tests, by level.** Every test name starts with its story
-and ACs, so a search for `[SPM-43]` finds them all (`git grep -n "\[SPM-43\]"`):
+and ACs, so a search for `[SPM-43]` finds them all (`git grep -n "\[SPM-43\]"`).
+A bug's tests also carry the bug, e.g. `[SPM-41][BUG-98]`, and are counted in
+the story's **Linked bugs** column. Tests of code that no story asks for are
+tagged `[UNTRACED]` and listed under "Code with no story" in the matrix.
 - Unit: `src/lib/__tests__/venueBookingReview.test.ts`, e.g. "[SPM-43][AC5] a reason is required: empty or spaces-only is refused…".
 - Mocked route: `src/app/api/__tests__/venue-booking-review.test.ts`, e.g. "[SPM-43][AC3][AC7] marks the request approved, recording who decided and when".
 - Screen: the Booking Requests tests in `src/app/__tests__/list-pages.test.tsx`.
@@ -146,9 +149,9 @@ GitHub's **Revert** button on a merged PR does the same. If the merge brought a
 migration, the revert does not undo it in any database already migrated. Tell
 the team before reverting it.
 
-**Look at the code as it was at the end of a sprint.** Once the sprint tags
-exist (`sprint-1`, `sprint-2`, `sprint-3`: the last merge to main before each
-sprint ended):
+**Look at the code as it was at the end of a sprint.** Each sprint's end is
+tagged: `sprint-1` (586bd68), `sprint-2` (a5730c5) and `sprint-3` (a635cd6),
+the last merge to main before each sprint ended:
 
 ```bash
 git fetch --tags

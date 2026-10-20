@@ -107,7 +107,10 @@ for every story, is in [traceability/TRACEABILITY.md](traceability/TRACEABILITY.
 - **Every automated test names its story and ACs** at the start of its name:
   `it("[SPM-44][AC4][AC5] ...")`. A test that belongs to a story but checks
   something no single AC states (a load error, a helper) carries the story
-  alone: `[SPM-44]`. CI's **Traceability** job fails on a test with no tag
+  alone: `[SPM-44]`. A bug's test adds the bug after the story whose page or
+  rule it tests: `[SPM-41][BUG-98]`. A test of code no story asks for is tagged
+  `[UNTRACED]`, and the matrix lists it under "Code with no story" until the
+  team removes the code or writes a story for it. CI's **Traceability** job fails on a test with no tag
   (`npm run trace:tags`). Integration and E2E tests also name the test case,
   e.g. `[SPM-44][AC4][AC5][AC9] (SPM-44-TC04, conflict): …`.
 - **To find the tests for an AC:** search for the tag, e.g. `git grep -n "\[SPM-44\]"`.
