@@ -40,6 +40,7 @@ Copy from here rather than typing from memory.
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
 | `ClarificationRequest.status` | `open` `answered` `closed` |
 | `EventChangeRequest.status` | `pending` `approved` `rejected` `withdrawn` |
+| `EventChangeRequest.kind` | `change` `postpone` `cancel` (SPM-35) |
 | `Facility.category` | `facility` `accessibility` |
 | `VenueUnavailability.reason` | `maintenance` `equipment_failure` `renovation` `safety` `internal_activity` `other` |
 | layout names | `theatre` `classroom` `boardroom` `banquet` `exhibition` `u_shape` `cabaret` |
@@ -352,7 +353,7 @@ The coordinator ↔ organiser review loop. Repeats, so each round is a row.
 
 Postgres table `event_change_requests` &middot; `prisma.eventChangeRequest`
 
-Proposed changes. NOT applied to the event until approved.
+Proposed changes. NOT applied to the event until approved. Raised by the organiser who owns the event (SPM-35); processed by Process Event Change Request (SPM-32).
 
 | Field | Type | | Notes |
 |---|---|---|---|
@@ -360,12 +361,15 @@ Proposed changes. NOT applied to the event until approved.
 | `eventId` | String | req |  |
 | `requestedBy` | String | req |  |
 | `requestedAt` | DateTime |  | Defaults to `now()`. |
-| `reason` | String | req |  |
-| `proposedStartsAt` | DateTime |  | NULL means 'not changing this field'. Also how the UI renders a diff. |
+| `reason` | String | req | Required for every kind (SPM-35 AC3). |
+| `kind` | String |  | SPM-35: `change` (new values for the event's details), `postpone` or `cancel` (a reason only). Defaults to `"change"`. |
+| `changes` | Json |  | SPM-35: one entry per field changed, `{ field, current, proposed }`, in the order of `REQUESTABLE_FIELDS` (`src/lib/eventChangeRequest.ts`). Values as Update Event Information's payload takes them (ISO dates, numbers, layout codes); facilities as `[{ id, name }]`. `current` is the value when the request was made. NULL for requests made before SPM-35. |
+| `equipmentChanges` | String |  | SPM-35: changes to equipment, in the organiser's words. |
+| `proposedStartsAt` | DateTime |  | Before SPM-35: NULL means 'not changing this field'. Requests since then leave these NULL and use `changes`; the base seed's three requests still use them. |
 | `proposedEndsAt` | DateTime |  |  |
 | `proposedAttendance` | Int |  |  |
 | `otherChanges` | String |  |  |
-| `isSignificant` | Boolean |  | true = date/time/attendance changed, so venue and equipment need re-checking. Defaults to `false`. |
+| `isSignificant` | Boolean |  | The request is Important (SPM-35 AC4): it changes the date and time, expected attendance, venue requirements or equipment, which existing arrangements depend on. Defaults to `false`. |
 | `status` | String |  | pending \| approved \| rejected \| withdrawn Defaults to `"pending"`. |
 | `reviewedBy` | String |  |  |
 | `reviewedAt` | DateTime |  |  |

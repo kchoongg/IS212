@@ -163,6 +163,7 @@ IS212/
 │   ├── seed-spm85.ts            # `npm run fixtures:spm85` — the Safety Officer account + SPM-85 test data, no reseed
 │   ├── seed-spm71.ts            # `npm run fixtures:spm71` — SPM-71 test accounts, notifications and events, no reseed
 │   ├── seed-spm82.ts            # `npm run fixtures:spm82` — SPM-82 hold room and events with expiring holds, no reseed
+│   ├── seed-spm35.ts            # `npm run fixtures:spm35` — SPM-35 events and pending change requests, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -684,6 +685,7 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 |---|---|---|
 | Draft privacy — only the owning organiser may view, edit, or change the status of their own draft; every other role gets a 404, never a glimpse that it exists | `api/events` GET, `api/events/[id]` GET + PATCH | ✅ done |
 | A draft's content is only editable while it's still a draft — once submitted, further edits go through `EventChangeRequest` | `api/events/[id]` PATCH | ✅ done |
+| **After submission the organiser who owns the event asks for a change; nothing changes until the coordinator processes it** — new details (SPM-62's fields, equipment in free text) or that the event be postponed or cancelled, with a required reason, while it is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed. Each field is recorded with its current and proposed value; a request touching the date and time, attendance, venue requirements or equipment is Important | `canRequestEventChange()`, `canRequestChangeIn()`, `fieldChanges()`, `importantFor()` (`src/lib/eventChangeRequest.ts`), `POST /api/events/[id]/change-requests` | ✅ done (SPM-35); processing is SPM-32 |
 | An organiser sees their own events plus their client organisation's, never another client's | `eventListWhere()`, `canViewEvent()` | ✅ done |
 | An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
 | Only the role the briefing gives a step may perform it: organiser submits, Ops Manager assigns, assigned coordinator approves/confirms, Venue Staff decide bookings, Technical Support decides equipment | `canSetEventStatus()`, `can()` | ✅ done |
@@ -817,6 +819,7 @@ traceability the module asks for.
 | `npm run fixtures:spm65` | Adds or resets SPM-65's 6 test events ("SPM65 …") without reseeding — deletes and recreates only events whose `seedKey` starts with `spm65_`, with their registration settings and registrations at fixed dates: registered, waitlisted, withdrawn, attended, and one added by the organiser (`added_by_id`). No pinned reference numbers: the cases find events by title. Run it before and after SPM-65-TC04, which registers and withdraws. The same events, without those, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm71` | Creates or refreshes SPM-71's four test accounts (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee; all `password123`), deletes and recreates every notification they hold, and resets SPM-71's 4 events ("SPM71 …", Nov 2027) without reseeding - only those accounts and events whose `seedKey` starts with `spm71_` are touched. The accounts are the story's own so the unread counts the cases quote never move with other testers' work. No pinned reference numbers. Run it before and after any case that marks or opens a notification. The accounts and events, without the notifications or arrangements, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm82` | Adds or resets SPM-82's test room, SPM82 Hold Room (SPM82-HOLD, 60 minutes of setup and turnaround), and its 8 events ("SPM82 …") with their venue bookings, without reseeding. Holds already past their expiry are created pending, as real ones would be, and the app expires them (and notifies Daniel Tan) the next time bookings are read. Three things are relative to when it runs, because they are about time passing: SPM82 Short Notice Meetup starts 3 days later and SPM82 Closing Soon Forum's hold expires 12 hours later (the script prints both). Run it before and after any case that changes data. The venue and events, without bookings, are in `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm35` | Adds or resets SPM-35's 7 test events ("SPM35 …", Apr–May 2027), all organised by Rachel Ng and assigned to Daniel Tan, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm35_`, with their change requests. One in each status a case needs (Approved, Planning with an approved booking and reserved projectors, Confirmed, Postponed, Under review, Cancelled), and SPM35 Requests Showcase with five pending change requests. Run it before and after any case that sends a change request. The events (without bookings, equipment or change requests) are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -976,7 +979,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Two attendees can take the last registration place at the same moment** | Found by an integration test on 2026-10-19: with one place left, two `POST /api/registrations` at the same moment were both accepted, 5 runs out of 5 (2 places held, capacity 1). The route counts places inside a transaction, but a count does not stop a concurrent insert under Postgres's default isolation. The booking and reserve routes avoid this by locking a row first (`SELECT … FOR UPDATE`); this route takes no lock. Not fixed here - raise a Bug, write the failing integration test first, then lock the event row before counting. | SPM-51's owner |
 | **The booking request form shows nothing when an error reply is not JSON** | `src/app/events/[id]/booking/new/page.tsx`: if the request fails with a body that is not JSON (e.g. a proxy's HTML error page), `res.json()` falls back to `{}` and `setSubmitError(undefined)` shows no message, so the coordinator sees the button stop and nothing else. Found while reviewing coverage (README "Coverage exclusions"). | SPM-42's owner |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
-| **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
+| **A change request can be made but not yet processed** | Since SPM-35 the organiser can ask for new details, a postponement or a cancellation, and the coordinator sees the request (Change Requests, and the event's Change requests card) - but nothing approves, rejects or applies it. That is **SPM-32** (Process Event Change Request), with Postpone Event and Cancel Event; the proposed values are stored in Update Event Information's payload shape for it. Until then a request stays Pending, and the coordinator acts on it by hand (Edit event information, or the status change). Nobody is told of a new request either: **SPM-53**. | SPM-32 |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
 | **Nobody is notified when an event's information changes** | SPM-62 moves a Confirmed event back to Planning but writes no `Notification` — the organiser ("no longer confirmed") and registered attendees ("new date and time") are told by **SPM-53**, per the BPMN and SPM-62's reworded AC6 (decided 2026-10-05). | SPM-53 |
@@ -1020,6 +1023,43 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-20 — Jordan
+- **SPM-35 (Request Event Change).** After submission an organiser changes
+  nothing directly (#102); now they ask. The organiser who owns the event gets
+  **Request a change** in its header while it is Approved, Planning, Safety
+  review, Safety approved, Confirmed or Postponed (AC1), and the "Request a
+  change" page (S-10, `/events/[id]/change-request`): **Change the event's
+  details**, **Postpone the event** or **Cancel the event**.
+  - Details are Edit event information's fields (SPM-62), filled in with the
+    event's present values; only those changed are sent, plus **Equipment
+    changes** in free text. A **Reason for the change** is required for every
+    kind ("Give a reason for the change.", AC3); a change of details with
+    nothing changed is refused.
+  - Each request stores, per field, the value it had and the value proposed
+    (AC2), in Update Event Information's payload shape so SPM-32 can apply it;
+    facilities are stored with their names. A request changing the date and
+    time, attendance, venue requirements or equipment is **Important**
+    (IMPORTANT_CHANGES, AC4). Postpone and cancel carry a reason only.
+  - Shown in a **Change requests** card on the event's Overview (its
+    organisers, its coordinator, the Ops Manager) and on the coordinator's new
+    **Change Requests** page (`/change-requests`, sidebar): the pending
+    requests on their events, Important marked.
+  - Nothing else changes (AC5, AC6): not the event, its status, its bookings
+    or its equipment. Processing is SPM-32, Postpone Event and Cancel Event;
+    telling the coordinator about a new request is SPM-53.
+  - New: `src/lib/eventChangeRequest.ts`, `POST`/`GET
+    /api/events/[id]/change-requests`, `GET /api/change-requests`, the
+    `event:request_change` permission (organiser). `GET /api/events/[id]`
+    adds `changeRequestCount` for the people who may see the requests.
+  - **Migration `20261020120000_add_event_change_request_fields`:** adds
+    `kind` (default `change`), `changes` (JSONB) and `equipment_changes` to
+    `event_change_requests`. Adds columns only; applied to the shared database
+    on 2026-10-20. The old `proposed_*` columns stay: the base seed's three
+    requests still use them and are shown from them. Run `git pull && npx
+    prisma generate`.
+  - **Test data:** `npm run fixtures:spm35`;
+    `docs/test-cases/SPM-35_Test_Cases.xlsx` (9 cases).
 
 ### 2026-10-20 — Kayalvizhi (traceability, test case import, change trail; no story)
 Docs, CI and test names only; no feature code changed. Why: so anyone can

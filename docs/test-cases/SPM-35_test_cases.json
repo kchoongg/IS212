@@ -1,0 +1,255 @@
+{
+  "story_key": "SPM-35",
+  "story_title": "Request Event Change",
+  "created_by": "TAN JORDAN",
+  "creation_date": "2026-10-20",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Event Organiser who owns the event can submit a change request while the event is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed; a change request cannot be submitted in any other status. A request can propose new values for any field the Coordinator can edit in Update Event Information (SPM-62): title, category, purpose, description, start and end date and time, expected attendance, preferred layout, required facilities, accessibility notes and special requirements. Changes to equipment are described in free text."
+    },
+    {
+      "id": "AC2",
+      "text": "The request lists each field being changed, with its current value and the proposed value."
+    },
+    {
+      "id": "AC3",
+      "text": "The Event Organiser must give a reason for the change; a request without a reason is refused."
+    },
+    {
+      "id": "AC4",
+      "text": "Given a request changes the date and time, expected attendance, venue requirements (preferred layout or required facilities) or equipment, when the assigned Event Coordinator views their pending change requests, then the request is marked Important; a request that changes only other fields is not marked."
+    },
+    {
+      "id": "AC5",
+      "text": "The Event Organiser can request that the event be postponed or cancelled; the request is processed by the assigned Coordinator (see: Postpone Event, Cancel Event) and does not change the event's status by itself."
+    },
+    {
+      "id": "AC6",
+      "text": "The original event arrangements remain unchanged until the request is processed."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-35-TC01",
+      "title": "The owning organiser requests new details for an Approved event, and the event lists the request with each field's current and proposed value while its own details stay the same",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm35 before and after this case (it saves a change request). 'SPM35 Harbour Townhall' is Approved, organised by Rachel Ng (Meridian Financial Group), coordinator Daniel Tan, 12 Apr 2027, 09:00–12:00, with no change requests. Logged in as rachel.ng@meridianfina.com / password123 (Event Organiser).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Harbour Townhall'",
+        "Click 'Request a change'",
+        "Change 'Event name' to 'SPM35 Harbour Townhall and Awards'",
+        "Change 'Description' to 'Leadership update, Q&A and the staff awards.'",
+        "Enter the reason in 'Reason for the change'",
+        "Click 'Send change request'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM35 Harbour Townhall (Approved)\nEvent name: SPM35 Harbour Townhall -> SPM35 Harbour Townhall and Awards\nDescription: Leadership update and Q&A. -> Leadership update, Q&A and the staff awards.\nReason for the change: We are presenting the staff awards at the townhall.",
+      "expected_result": "Step 1: The event page shows the 'Approved' status badge and a 'Request a change' button.\nStep 2: The 'Request a change' page opens with 'What do you need?' set to 'Change the event's details', the event's current details filled in, an 'Equipment changes' box and a required 'Reason for the change' box.\nStep 6: A green alert 'Change request sent to your coordinator.' reads 'Nothing about the event changes until your coordinator processes the request.'\nStep 7: The event page still shows the title 'SPM35 Harbour Townhall' and the 'Approved' status badge. A 'Change requests' card lists one 'Change of details' request with the badge 'Pending' and no 'Important' badge, 'Requested by Rachel Ng on' today's date, 'Reason: We are presenting the staff awards at the townhall.', and a table of Field, Current and Proposed with two rows: 'Event name' 'SPM35 Harbour Townhall' -> 'SPM35 Harbour Townhall and Awards', and 'Description' 'Leadership update and Q&A.' -> 'Leadership update, Q&A and the staff awards.'"
+    },
+    {
+      "id": "SPM-35-TC02",
+      "title": "A change request without a reason is refused and nothing is sent",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm35 has been run. 'SPM35 Harbour Townhall' is Approved and has no change requests. Logged in as rachel.ng@meridianfina.com / password123. Nothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Harbour Townhall'",
+        "Click 'Request a change'",
+        "Change 'Expected attendance' to 95",
+        "Click 'Send change request' with 'Reason for the change' left empty",
+        "Type three spaces into 'Reason for the change' and click 'Send change request'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM35 Harbour Townhall (Approved, expected attendance 80)\nExpected attendance: 80 -> 95\nReason for the change: empty, then three spaces",
+      "expected_result": "Step 4: 'Give a reason for the change.' appears under 'Reason for the change' and the page stays on the form.\nStep 5: The same message 'Give a reason for the change.' is shown; the request is still not sent.\nStep 6: The event page shows no 'Change requests' card, and Expected attendance is still 80."
+    },
+    {
+      "id": "SPM-35-TC03",
+      "title": "A change request that changes nothing is refused",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm35 has been run. 'SPM35 Harbour Townhall' is Approved and has no change requests. Logged in as rachel.ng@meridianfina.com / password123. Nothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Harbour Townhall'",
+        "Click 'Request a change'",
+        "Enter the reason in 'Reason for the change' without changing any detail or entering an equipment change",
+        "Click 'Send change request'"
+      ],
+      "test_data": "Event: SPM35 Harbour Townhall (Approved)\nReason for the change: Just checking the form.",
+      "expected_result": "Step 4: A red alert reads 'Change at least one detail, or describe the equipment change.' and the page stays on the form. No 'Change request sent to your coordinator.' message appears."
+    },
+    {
+      "id": "SPM-35-TC04",
+      "title": "The organiser cannot request a change while the event is Under review or once it is Cancelled",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm35 has been run. 'SPM35 Under Review Workshop' is Under review and 'SPM35 Cancelled Gala Dinner' is Cancelled, both organised by Rachel Ng. Logged in as rachel.ng@meridianfina.com / password123. Nothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Under Review Workshop'",
+        "Note the event's reference (EVT-…) shown beside its status badge",
+        "Type /events/<reference from step 2>/change-request after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference>/change-request) and press Enter",
+        "Click 'My Events' in the sidebar and open 'SPM35 Cancelled Gala Dinner'"
+      ],
+      "test_data": "Events: SPM35 Under Review Workshop (Under review), SPM35 Cancelled Gala Dinner (Cancelled)",
+      "expected_result": "Step 1: The event page shows the 'Under review' status badge and no 'Request a change' button.\nStep 3: The 'Request a change' page shows a red alert 'You can't request a change to this event' reading 'A change can only be requested while the event is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed.', with no form.\nStep 4: The event page shows the 'Cancelled' status badge and no 'Request a change' button."
+    },
+    {
+      "id": "SPM-35-TC05",
+      "title": "An organiser from the same company who does not own the event cannot request a change to it",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm35 has been run. 'SPM35 Harbour Townhall' is Approved and owned by Rachel Ng. James Koh is another Event Organiser at Meridian Financial Group, so he can see the event. Logged in as james.koh@meridianfina.com / password123. Nothing is saved in this case.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Harbour Townhall'",
+        "Note the event's reference (EVT-…) shown beside its status badge",
+        "Type /events/<reference from step 2>/change-request after the site address in the browser address bar and press Enter"
+      ],
+      "test_data": "Event: SPM35 Harbour Townhall (Approved, owner Rachel Ng)\nOrganiser: James Koh (same company, not the owner)",
+      "expected_result": "Step 1: The event page opens with the 'Approved' status badge and no 'Request a change' button.\nStep 3: The page shows a red alert 'You can't request a change to this event' reading 'Only the organiser who owns this event can request a change.', with no form."
+    },
+    {
+      "id": "SPM-35-TC06",
+      "title": "The assigned coordinator's pending change requests mark the ones changing the date and time, attendance, venue requirements or equipment as Important, and not one that only renames the event",
+      "linked_ac": [
+        "AC4",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm35 has been run. 'SPM35 Requests Showcase' (Confirmed, 10 May 2027, 09:00–17:00, 100 people, Theatre) has five pending change requests from Rachel Ng, one per row of the test data. Logged in as daniel.tan@connectsphere.com / password123, its assigned coordinator. Nothing is saved in this case.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar"
+      ],
+      "test_data": "Event: SPM35 Requests Showcase\n1. Event name SPM35 Requests Showcase -> SPM35 Requests Showcase 2027 (reason: Adding the year so clients can tell it apart from last year's.)\n2. Starts at 10 May 2027, 09:00 -> 17 May 2027, 09:00 and Ends at 10 May 2027, 17:00 -> 17 May 2027, 17:00 (reason: Our CEO is travelling that week.)\n3. Expected attendance 100 -> 150 (reason: Registrations are ahead of forecast.)\n4. Preferred room layout Theatre -> Banquet (reason: We are adding a seated lunch.)\n5. Equipment: Two more handheld wireless microphones for the panel. (reason: The panel has grown to four speakers.)",
+      "expected_result": "Step 1: The 'Change Requests' page lists the five requests for 'SPM35 Requests Showcase', each 'Pending' and each showing its reason. The request with reason 'Adding the year so clients can tell it apart from last year's.' has no 'Important' badge and shows 'Event name' 'SPM35 Requests Showcase' -> 'SPM35 Requests Showcase 2027'. The other four each have an 'Important' badge: 'Starts at' '10 May 2027, 09:00' -> '17 May 2027, 09:00' and 'Ends at' '10 May 2027, 17:00' -> '17 May 2027, 17:00' (Affects existing arrangements: Date and time); 'Expected attendance' '100' -> '150' (Expected attendance); 'Preferred room layout' 'Theatre' -> 'Banquet' (Venue requirements); and 'Equipment: Two more handheld wireless microphones for the panel.' (Equipment requirements)."
+    },
+    {
+      "id": "SPM-35-TC07",
+      "title": "A Postponed event, the last status a change can be requested in, takes a request for new dates, and the coordinator sees it marked Important",
+      "linked_ac": [
+        "AC1",
+        "AC4",
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm35 before and after this case (it saves a change request). 'SPM35 Postponed Product Showcase' is Postponed, organised by Rachel Ng, coordinator Daniel Tan, 3 May 2027, 09:00–13:00. Logged in as rachel.ng@meridianfina.com / password123.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Postponed Product Showcase'",
+        "Click 'Request a change'",
+        "Change 'Starts at' to 7 Jun 2027, 09:00 and 'Ends at' to 7 Jun 2027, 13:00",
+        "Enter the reason in 'Reason for the change' and click 'Send change request'",
+        "Click 'Back to event'",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Change Requests' in the sidebar"
+      ],
+      "test_data": "Event: SPM35 Postponed Product Showcase (Postponed)\nStarts at: 3 May 2027, 09:00 -> 7 Jun 2027, 09:00\nEnds at: 3 May 2027, 13:00 -> 7 Jun 2027, 13:00\nReason for the change: The new product samples arrive in June.",
+      "expected_result": "Step 1: The event page shows the 'Postponed' status badge and a 'Request a change' button.\nStep 4: 'Change request sent to your coordinator.' is shown.\nStep 5: The event page still shows 'Postponed' and When '3 May 2027, 09:00–13:00'. The 'Change requests' card lists the request as 'Pending' with an 'Important' badge, 'Starts at' '3 May 2027, 09:00' -> '7 Jun 2027, 09:00' and 'Ends at' '3 May 2027, 13:00' -> '7 Jun 2027, 13:00'.\nStep 7: The request for 'SPM35 Postponed Product Showcase' is listed with the 'Important' badge, 'Affects existing arrangements: Date and time.' and 'Reason: The new product samples arrive in June.'"
+    },
+    {
+      "id": "SPM-35-TC08",
+      "title": "The organiser asks for a Confirmed event to be postponed and then cancelled, and the event stays Confirmed with both requests waiting for the coordinator",
+      "linked_ac": [
+        "AC5",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm35 before and after this case (it saves two change requests). 'SPM35 Marina Client Forum' is Confirmed, organised by Rachel Ng, coordinator Daniel Tan, with no change requests. Logged in as rachel.ng@meridianfina.com / password123.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Marina Client Forum'",
+        "Click 'Request a change'",
+        "Choose 'Postpone the event' in 'What do you need?'",
+        "Enter the postponement reason in 'Reason for the change' and click 'Send change request'",
+        "Click 'Back to event'",
+        "Click 'Request a change'",
+        "Choose 'Cancel the event' in 'What do you need?'",
+        "Click 'Send change request' with 'Reason for the change' left empty",
+        "Enter the cancellation reason in 'Reason for the change' and click 'Send change request'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM35 Marina Client Forum (Confirmed)\nPostponement reason: Our keynote speaker is unwell; we will set a new date once they recover.\nCancellation reason: The client has withdrawn its sponsorship.",
+      "expected_result": "Step 3: The event's details, 'Equipment changes' and the fields under them are hidden. A note reads 'Your coordinator decides whether to postpone the event. It stays Confirmed until then.' 'Reason for the change' is still shown and required.\nStep 4: 'Change request sent to your coordinator.' is shown.\nStep 5: The status badge still reads 'Confirmed'. The 'Change requests' card lists a 'Postponement' request, 'Pending', with 'Reason: Our keynote speaker is unwell; we will set a new date once they recover.' and no table of fields.\nStep 7: A note reads 'Your coordinator decides whether to cancel the event. It stays Confirmed until then.'\nStep 8: 'Give a reason for the change.' appears under 'Reason for the change' and nothing is sent.\nStep 9: 'Change request sent to your coordinator.' is shown.\nStep 10: The status badge still reads 'Confirmed'. The 'Change requests' card lists a 'Cancellation' request, 'Pending', with 'Reason: The client has withdrawn its sponsorship.', above the 'Postponement' request."
+    },
+    {
+      "id": "SPM-35-TC09",
+      "title": "A requested date and equipment change leaves the event's date, its approved venue booking and its reserved equipment exactly as they were",
+      "linked_ac": [
+        "AC6",
+        "AC1",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm35 before and after this case (it saves a change request). 'SPM35 Riverside Roadshow' is in Planning, organised by Rachel Ng, coordinator Daniel Tan, 19 Apr 2027, 10:00–16:00, 100 people, with an approved booking at Orchard Seminar Room (ORC-SEM) and 4K Portable Projector × 2 reserved. Logged in as rachel.ng@meridianfina.com / password123.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM35 Riverside Roadshow'",
+        "Click 'Request a change'",
+        "Change 'Starts at' to 26 Apr 2027, 10:00 and 'Ends at' to 26 Apr 2027, 16:00",
+        "Enter 'One more projector for the breakout corner.' in 'Equipment changes'",
+        "Enter the reason in 'Reason for the change' and click 'Send change request'",
+        "Click 'Back to event'",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM35 Riverside Roadshow'",
+        "Click the 'Venue' tab",
+        "Click the event's 'Equipment' tab (not 'Equipment' in the sidebar)",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM35 Riverside Roadshow (Planning)\nStarts at: 19 Apr 2027, 10:00 -> 26 Apr 2027, 10:00\nEnds at: 19 Apr 2027, 16:00 -> 26 Apr 2027, 16:00\nEquipment changes: One more projector for the breakout corner.\nReason for the change: The venue's building has works on the 19th.",
+      "expected_result": "Step 5: 'Change request sent to your coordinator.' is shown.\nStep 6: The event page still shows 'Planning' and When '19 Apr 2027, 10:00–16:00'. The 'Change requests' card lists the request with an 'Important' badge, the 'Starts at' and 'Ends at' rows, and 'Equipment: One more projector for the breakout corner.'\nStep 8: The event page shows 'Planning', When '19 Apr 2027, 10:00–16:00' and the same 'Change requests' card.\nStep 9: Under 'Booking requests', 'Orchard Seminar Room (ORC-SEM)' still reads '19 Apr 2027, 10:00–16:00' with the badge 'Approved', and is not flagged for review.\nStep 10: '4K Portable Projector' is still listed as 'Reserved' with '2 reserved', and is not flagged for review.\nStep 11: Nothing is flagged for review: 'Orchard Seminar Room' and '4K Portable Projector' are both 'Complete'."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-20: the organiser's way in is a 'Request a change' button in the event page header, shown only to the organiser who owns the event while it is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed. The page is 'Request a change' at /events/<reference>/change-request (UI_DESIGN.md S-10). Anyone else who types the address sees 'You can't request a change to this event' with 'Only the organiser who owns this event can request a change.' or 'A change can only be requested while the event is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed.'",
+    "DECIDED 2026-10-20: the form asks 'What do you need?' - 'Change the event's details' (the default), 'Postpone the event' or 'Cancel the event'. The details use the same labels, sections and rules as Edit event information (SPM-62), filled in with the event's current values; only the fields changed are sent. Below them, 'Equipment changes' (free text, AC1). Every kind needs 'Reason for the change' (AC3). Buttons: 'Send change request' and 'Back to event' (not 'Cancel', which would read as cancelling the event).",
+    "DECIDED 2026-10-20: messages. Missing reason: 'Give a reason for the change.' A change of details with nothing changed and no equipment text: 'Change at least one detail, or describe the equipment change.' (UI_DESIGN.md S-10: 'At least one proposed change required'). Sent: 'Change request sent to your coordinator.' with 'Nothing about the event changes until your coordinator processes the request.' Postpone and cancel notes: 'Your coordinator decides whether to postpone the event. It stays <status> until then.' / '... whether to cancel the event. ...'",
+    "DECIDED 2026-10-20: the requests are shown on the event's Overview in a 'Change requests' card (newest first) to the event's organisers, its assigned coordinator and the Ops Manager, and to the coordinator on a new 'Change Requests' sidebar page (/change-requests) listing the pending requests on the events assigned to them, newest first. Each shows the kind ('Change of details', 'Postponement', 'Cancellation'), the status badge, 'Important' where it applies with 'Affects existing arrangements: <labels>.', 'Requested by <name> on <date, time>', 'Reason: …', a Field / Current / Proposed table and 'Equipment: …'. The organiser sees the 'Important' badge too.",
+    "DECIDED 2026-10-20: 'Important' (AC4) is IMPORTANT_CHANGES from SPM-62 (src/lib/eventChangeImpact.ts): the date and time, expected attendance, venue requirements (preferred layout or the facilities, including accessibility needs, the venue must have) and equipment (any text in 'Equipment changes'). A postponement or cancellation request changes no field, so it is not marked Important.",
+    "DECIDED 2026-10-20: a postponement request carries a reason only. A new date the organiser already knows is a change of details (new Starts at / Ends at), which customer clarification #69 treats as a rescheduling request.",
+    "DECIDED 2026-10-20: each request stores, per field, the value it had when the request was made and the value proposed, so the request still shows what it asked for if the event changes later. The facilities are stored with their names. Process Event Change Request (SPM-32) reads the proposed values in the same shape as Update Event Information's payload.",
+    "DECIDED 2026-10-20: a multi-session event's times, attendance and layout come from its sessions, which Edit event information cannot change yet (SPM-62), so the request form cannot propose them either; it says 'Session times and attendance can't be changed here yet - describe the change in Reason for the change.' Covered by unit tests only: no SPM-35 fixture event has sessions.",
+    "DECIDED 2026-10-20: an organiser may have more than one pending request on the same event. Nothing in the story limits it, and SPM-32 decides each one.",
+    "DECIDED 2026-10-20: requests made before SPM-35 (three in the base seed) have only a proposed start, end or attendance. They are shown from those values, with the event's present value as Current, and keep their stored significance as Important.",
+    "RESOLVED 2026-10-20: notifying the coordinator of a new request is not in this story - it was removed from the ACs and belongs to Receive Event Notifications (SPM-53). No case for it.",
+    "RESOLVED 2026-10-20: approving, rejecting or partly approving a request, and any change it makes to the event or its arrangements, is Process Event Change Request (SPM-32), Postpone Event and Cancel Event. This story only records the request. No case for it."
+  ],
+  "code_references": [
+    "src/lib/eventChangeRequest.ts",
+    "src/lib/eventChangeImpact.ts",
+    "src/lib/eventInformationForm.ts",
+    "src/lib/permissions.ts",
+    "src/lib/validation/events.ts",
+    "src/app/api/events/[id]/change-requests/route.ts",
+    "src/app/api/change-requests/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/events/[id]/change-request/page.tsx",
+    "src/app/events/[id]/ChangeRequestsCard.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/change-requests/page.tsx",
+    "src/components/ChangeRequestList.tsx",
+    "src/lib/roles.ts",
+    "prisma/schema.prisma",
+    "prisma/migrations/20261020120000_add_event_change_request_fields/migration.sql",
+    "scripts/seed-spm35.ts"
+  ]
+}
