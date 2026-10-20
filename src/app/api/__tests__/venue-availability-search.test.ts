@@ -63,30 +63,30 @@ describe("GET /api/venues/[id]/availability", () => {
     return availability(req("GET", `/api/venues/${ID.venue}/availability${query}`, { token }), params({ id: ID.venue }));
   }
 
-  it("SPM-82-TC11 (AC7): expires overdue holds before reading the bookings, so an expired one is not shown", async () => {
+  it("[SPM-82][AC7] SPM-82-TC11 (AC7): expires overdue holds before reading the bookings, so an expired one is not shown", async () => {
     await get(given());
 
     expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findMany.mock.invocationCallOrder[0]);
   });
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
 
-  it.each(["organiser", "attendee", "tech_support"])("is 403 for %s", async (role) => {
+  it.each(["organiser", "attendee", "tech_support"])("[SPM-46][AC6] is 403 for %s", async (role) => {
     const res = await get(signIn(user(role)));
 
     expect(res.status).toBe(403);
     expect(db.venue.findUnique).not.toHaveBeenCalled();
   });
 
-  it.each(["coordinator", "ops_manager", "venue_staff"])("is available to %s", async (role) => {
+  it.each(["coordinator", "ops_manager", "venue_staff"])("[SPM-46][AC6] is available to %s", async (role) => {
     given();
 
     expect((await get(signIn(user(role)))).status).toBe(200);
   });
 
-  it("is 404 for a venue that does not exist", async () => {
+  it("[SPM-46] is 404 for a venue that does not exist", async () => {
     const res = await get(given(null));
 
     expect(res.status).toBe(404);
@@ -94,7 +94,7 @@ describe("GET /api/venues/[id]/availability", () => {
   });
 
   describe("the date range", () => {
-    it("defaults to a week starting today, in Singapore time", async () => {
+    it("[SPM-46][AC1] defaults to a week starting today, in Singapore time", async () => {
       // 17:00 UTC on the 1st is already 01:00 on the 2nd in Singapore.
       vi.useFakeTimers({ now: new Date("2026-10-01T17:00:00Z") });
 
@@ -112,13 +112,13 @@ describe("GET /api/venues/[id]/availability", () => {
       ]);
     });
 
-    it("runs a week from `from` when only that is given", async () => {
+    it("[SPM-46][AC1] runs a week from `from` when only that is given", async () => {
       const body = await (await get(given(), `?from=${DAY}`)).json();
 
       expect(body.range).toMatchObject({ from: DAY, to: "2027-03-10" });
     });
 
-    it.each(["2027-02-30", "04/03/2027", "tomorrow"])("rejects %s as a date", async (from) => {
+    it.each(["2027-02-30", "04/03/2027", "tomorrow"])("[SPM-46][AC1] rejects %s as a date", async (from) => {
       const res = await get(given(), `?from=${from}`);
       const body = await res.json();
 
@@ -127,14 +127,14 @@ describe("GET /api/venues/[id]/availability", () => {
       expect(body.details.fieldErrors.from[0]).toMatch(/Use a real date written as YYYY-MM-DD/);
     });
 
-    it("refuses an end before the start", async () => {
+    it("[SPM-46][AC1] refuses an end before the start", async () => {
       const res = await get(given(), `?from=${DAY}&to=2027-03-03`);
 
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({ error: "The end date must be on or after the start date." });
     });
 
-    it("refuses a range longer than 62 days", async () => {
+    it("[SPM-46][AC1] refuses a range longer than 62 days", async () => {
       const res = await get(given(), "?from=2027-01-01&to=2027-03-04");
 
       expect(res.status).toBe(400);
@@ -142,13 +142,13 @@ describe("GET /api/venues/[id]/availability", () => {
       expect(db.venue.findUnique).not.toHaveBeenCalled();
     });
 
-    it("accepts a range of exactly 62 days", async () => {
+    it("[SPM-46][AC1] accepts a range of exactly 62 days", async () => {
       expect((await get(given(), "?from=2027-01-01&to=2027-03-03")).status).toBe(200);
     });
   });
 
   describe("what it loads", () => {
-    it("asks for approved and pending bookings overlapping the range, widened by the venue's turnaround", async () => {
+    it("[SPM-46][AC3] [SPM-93][AC6] asks for approved and pending bookings overlapping the range, widened by the venue's turnaround", async () => {
       await get(given(venue({ setupMinutes: 60, teardownMinutes: 30 })));
 
       expect(callArg(db.venueBooking.findMany).where).toEqual({
@@ -159,7 +159,7 @@ describe("GET /api/venues/[id]/availability", () => {
       });
     });
 
-    it("asks for unavailability overlapping the range itself", async () => {
+    it("[SPM-46][AC4] asks for unavailability overlapping the range itself", async () => {
       await get(given());
 
       expect(callArg(db.venueUnavailability.findMany).where).toEqual({
@@ -171,7 +171,7 @@ describe("GET /api/venues/[id]/availability", () => {
   });
 
   describe("what it shows (SPM-93: actual times, not slots)", () => {
-    it("shows an empty day with nothing on it", async () => {
+    it("[SPM-93][AC9] shows an empty day with nothing on it", async () => {
       const body = await (await get(given())).json();
 
       expect(body).not.toHaveProperty("slots");
@@ -179,7 +179,7 @@ describe("GET /api/venues/[id]/availability", () => {
       expect(body).toMatchObject({ bookings: [], unavailability: [], holds: [], hasOverlaps: false });
     });
 
-    it("shows an approved booking at its own times, and names the event", async () => {
+    it("[SPM-93][AC9] [SPM-46][AC3] shows an approved booking at its own times, and names the event", async () => {
       const token = given(venue(), [booking({ session: { label: "Day 1" } })]);
 
       const body = await (await get(token)).json();
@@ -200,7 +200,7 @@ describe("GET /api/venues/[id]/availability", () => {
       });
     });
 
-    it("SPM-93-TC15: shows the venue's setup and turnaround minutes either side, as their own entries", async () => {
+    it("[SPM-93][AC9] SPM-93-TC15: shows the venue's setup and turnaround minutes either side, as their own entries", async () => {
       const token = given(venue({ setupMinutes: 30, teardownMinutes: 45 }), [booking()]);
 
       const body = await (await get(token)).json();
@@ -216,7 +216,7 @@ describe("GET /api/venues/[id]/availability", () => {
       });
     });
 
-    it("shows a pending request as requested, apart from the approved bookings", async () => {
+    it("[SPM-93][AC9] shows a pending request as requested, apart from the approved bookings", async () => {
       const token = given(venue(), [booking({ status: "pending" })]);
 
       const body = await (await get(token)).json();
@@ -229,7 +229,7 @@ describe("GET /api/venues/[id]/availability", () => {
       ]);
     });
 
-    it("shows an unavailable period at its times, with its reason", async () => {
+    it("[SPM-46][AC4] [SPM-93][AC9] shows an unavailable period at its times, with its reason", async () => {
       const block = { id: "block-1", startsAt: PM_STARTS, endsAt: PM_ENDS, reason: "maintenance", notes: "Floor resurfacing" };
 
       const body = await (await get(given(venue(), [], [block]))).json();
@@ -240,7 +240,7 @@ describe("GET /api/venues/[id]/availability", () => {
       expect(body.unavailability[0]).toMatchObject({ id: "block-1", reason: "maintenance", notes: "Floor resurfacing" });
     });
 
-    it("flags a booking that overlaps an unavailable period", async () => {
+    it("[SPM-46][AC5] flags a booking that overlaps an unavailable period", async () => {
       const block = { id: "block-1", startsAt: PM_STARTS, endsAt: PM_ENDS, reason: "maintenance", notes: null };
 
       const body = await (await get(given(venue(), [booking()], [block]))).json();
@@ -250,7 +250,7 @@ describe("GET /api/venues/[id]/availability", () => {
       expect(body.unavailability[0].overlaps.bookingIds).toEqual([ID.booking]);
     });
 
-    it("flags two approved bookings that overlap each other", async () => {
+    it("[SPM-46][AC5] flags two approved bookings that overlap each other", async () => {
       const token = given(venue(), [booking(), booking({ id: "second-booking" })]);
 
       const body = await (await get(token)).json();
@@ -296,7 +296,7 @@ describe("GET /api/venues/search", () => {
     return search(req("GET", `/api/venues/search${query ? `?${query}` : ""}`, { token }));
   }
 
-  it("SPM-82 (AC6): expires overdue holds before judging which venues are free", async () => {
+  it("[SPM-82][AC6] SPM-82 (AC6): expires overdue holds before judging which venues are free", async () => {
     await get(given([]), "from=2027-03-04T09:00&to=2027-03-04T12:00");
 
     expect(holdExpirySweepOrder()).toBeLessThan(db.venue.findMany.mock.invocationCallOrder[0]);
@@ -308,18 +308,18 @@ describe("GET /api/venues/search", () => {
     return (await res.json()).results.map((v: { name: string }) => v.name);
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
 
-  it.each(["organiser", "attendee", "tech_support"])("is 403 for %s", async (role) => {
+  it.each(["organiser", "attendee", "tech_support"])("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await get(signIn(user(role)));
 
     expect(res.status).toBe(403);
     expect(db.venue.findMany).not.toHaveBeenCalled();
   });
 
-  it("returns the whole active catalogue, by name, when no filter is given", async () => {
+  it("[SPM-40][AC7] [SPM-39][AC6] returns the whole active catalogue, by name, when no filter is given", async () => {
     const token = given([
       venue("Orchid", { building: "Riverside" }),
       venue("Atrium", {
@@ -362,7 +362,7 @@ describe("GET /api/venues/search", () => {
     });
   });
 
-  it("searches only active venues, and loads no bookings when no date is given", async () => {
+  it("[SPM-39][AC6] searches only active venues, and loads no bookings when no date is given", async () => {
     await get(given([]));
     const query = callArg(db.venue.findMany);
 
@@ -371,7 +371,7 @@ describe("GET /api/venues/search", () => {
     expect(query.include.unavailability).toBe(false);
   });
 
-  it("treats blank parameters as filters that are not set", async () => {
+  it("[SPM-40] treats blank parameters as filters that are not set", async () => {
     const token = given([venue("Atrium")]);
 
     expect(await names(token, "from=&to=&attendance=&building=&layout=&event=")).toEqual(["Atrium"]);
@@ -379,7 +379,7 @@ describe("GET /api/venues/search", () => {
   });
 
   describe("filters", () => {
-    it("keeps only venues that seat the attendance, smallest fitting room first", async () => {
+    it("[SPM-40][AC2] keeps only venues that seat the attendance, smallest fitting room first", async () => {
       const token = given([
         venue("Expo", { layouts: [{ layoutName: "theatre", capacity: 800 }] }),
         venue("Studio", { layouts: [{ layoutName: "theatre", capacity: 30 }] }),
@@ -389,25 +389,25 @@ describe("GET /api/venues/search", () => {
       expect(await names(token, "attendance=40")).toEqual(["Atrium", "Expo"]);
     });
 
-    it("filters by building", async () => {
+    it("[SPM-40][AC3] filters by building", async () => {
       const token = given([venue("Atrium"), venue("Orchid", { building: "Riverside" })]);
 
       expect(await names(token, "building=Riverside")).toEqual(["Orchid"]);
     });
 
-    it("filters by layout", async () => {
+    it("[SPM-40][AC5] filters by layout", async () => {
       const token = given([venue("Atrium"), venue("Orchid", { layouts: [{ layoutName: "banquet", capacity: 100 }] })]);
 
       expect(await names(token, "layout=banquet")).toEqual(["Orchid"]);
     });
 
-    it("requires every facility asked for", async () => {
+    it("[SPM-40][AC6] requires every facility asked for", async () => {
       const token = given([venue("Atrium", { facilities: [loop] }), venue("Orchid", { facilities: [loop, stage] })]);
 
       expect(await names(token, `facilityIds=${ID.facility},${STAGE_ID}`)).toEqual(["Orchid"]);
     });
 
-    it("applies all filters together, but still lists every building as a filter option", async () => {
+    it("[SPM-40][AC7] applies all filters together, but still lists every building as a filter option", async () => {
       const token = given([
         venue("Atrium"),
         venue("Orchid", { building: "Riverside", layouts: [{ layoutName: "theatre", capacity: 20 }] }),
@@ -428,7 +428,7 @@ describe("GET /api/venues/search", () => {
     });
     const free = { bookings: [], unavailability: [] };
 
-    it("loads only approved and pending bookings within two days of the window", async () => {
+    it("[SPM-40][AC1] loads only approved and pending bookings within two days of the window", async () => {
       await get(given([]), WINDOW);
       const { bookings, unavailability } = callArg(db.venue.findMany).include;
       const near = {
@@ -440,13 +440,13 @@ describe("GET /api/venues/search", () => {
       expect(unavailability.where).toEqual(near);
     });
 
-    it.each(["approved", "pending"])("excludes a venue with another event's %s booking in the window", async (status) => {
+    it.each(["approved", "pending"])("[SPM-40][AC1] [SPM-44][AC3][AC4] excludes a venue with another event's %s booking in the window", async (status) => {
       const token = given([venue("Atrium", taken(status)), venue("Orchid", free)]);
 
       expect(await names(token, WINDOW)).toEqual(["Orchid"]);
     });
 
-    it("excludes a venue that is unavailable in the window", async () => {
+    it("[SPM-40][AC1] [SPM-44][AC8] excludes a venue that is unavailable in the window", async () => {
       const token = given([
         venue("Atrium", { bookings: [], unavailability: [{ startsAt: PM_STARTS, endsAt: PM_ENDS, reason: "maintenance" }] }),
         venue("Orchid", free),
@@ -455,13 +455,13 @@ describe("GET /api/venues/search", () => {
       expect(await names(token, WINDOW)).toEqual(["Orchid"]);
     });
 
-    it("excludes a venue that is closed during the window", async () => {
+    it("[SPM-40][AC1] excludes a venue that is closed during the window", async () => {
       const token = given([venue("Atrium", { ...free, closesAt: "15:00" }), venue("Orchid", free)]);
 
       expect(await names(token, WINDOW)).toEqual(["Orchid"]);
     });
 
-    it("still offers a venue to the event that already holds it", async () => {
+    it("[SPM-40][AC1] still offers a venue to the event that already holds it", async () => {
       const token = given([venue("Atrium", taken("approved", ID.event))]);
       db.event.findUnique.mockResolvedValue({
         id: ID.event,
@@ -478,7 +478,7 @@ describe("GET /api/venues/search", () => {
     it.each([
       ["a start with no end", "from=2027-03-04T13:00", "Give both a start and an end, or neither"],
       ["an end before the start", "from=2027-03-04T18:00&to=2027-03-04T13:00", "The end must be after the start"],
-    ])("rejects %s", async (_case, query, message) => {
+    ])("[SPM-40] rejects %s", async (_case, query, message) => {
       const res = await get(given([]), query);
       const body = await res.json();
 
@@ -487,7 +487,7 @@ describe("GET /api/venues/search", () => {
       expect(db.venue.findMany).not.toHaveBeenCalled();
     });
 
-    it("rejects a date that does not exist", async () => {
+    it("[SPM-40] rejects a date that does not exist", async () => {
       const res = await get(given([]), "from=2027-02-31T09:00&to=2027-02-31T18:00");
 
       expect(res.status).toBe(400);
@@ -499,7 +499,7 @@ describe("GET /api/venues/search", () => {
     ["attendance that is not a number", "attendance=lots", "attendance"],
     ["attendance of zero", "attendance=0", "attendance"],
     ["a facility id that is not a UUID", "facilityIds=stage", "facilityIds"],
-  ])("rejects %s", async (_case, query, field) => {
+  ])("[SPM-40] rejects %s", async (_case, query, field) => {
     const res = await get(given([]), query);
     const body = await res.json();
 
@@ -513,7 +513,7 @@ describe("GET /api/venues/search", () => {
       ["a malformed reference", "event=nope", undefined],
       ["a reference that matches no event", "event=EVT-000999", null],
       ["a draft the user cannot see", "event=EVT-000007", { id: ID.event, status: "draft", organiserId: "organiser-id", organisationId: ID.org, coordinatorId: null }],
-    ])("is 404 for %s", async (_case, query, eventRow) => {
+    ])("[SPM-40] is 404 for %s", async (_case, query, eventRow) => {
       const token = given([venue("Atrium")]);
       if (eventRow !== undefined) db.event.findUnique.mockResolvedValue(eventRow);
 

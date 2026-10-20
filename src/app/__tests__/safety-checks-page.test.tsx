@@ -41,7 +41,7 @@ function awaiting(overrides: Record<string, unknown> = {}) {
 }
 
 describe("Safety Checks (SPM-85)", () => {
-  it("sends an anonymous visitor to log in, remembering where they were going", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering where they were going", async () => {
     setRoute("/safety-checks");
     mockApi(signedOut());
 
@@ -52,7 +52,7 @@ describe("Safety Checks (SPM-85)", () => {
 
   // AC8: users in other roles cannot perform Safety Officer actions.
   it.each(ROLES.filter((role) => role !== "safety_officer"))(
-    "refuses %s, and never asks for the list",
+    "[SPM-85][AC8] refuses %s, and never asks for the list",
     async (role) => {
       const api = mockApi(signedInAs(role));
 
@@ -67,7 +67,7 @@ describe("Safety Checks (SPM-85)", () => {
     }
   );
 
-  it("lists each event with its client, time, attendance and who submitted it when", async () => {
+  it("[SPM-87][AC1] lists each event with its client, time, attendance and who submitted it when", async () => {
     mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": [awaiting()] });
 
     render(<SafetyChecksPage />);
@@ -83,7 +83,7 @@ describe("Safety Checks (SPM-85)", () => {
     ]);
   });
 
-  it("links each event to its Overview, where the review information is", async () => {
+  it("[SPM-87][AC2] links each event to its Overview, where the review information is", async () => {
     mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": [awaiting()] });
 
     render(<SafetyChecksPage />);
@@ -94,7 +94,7 @@ describe("Safety Checks (SPM-85)", () => {
     );
   });
 
-  it("copes with an event that has no title, client, attendance or recorded submission", async () => {
+  it("[SPM-87][AC1] copes with an event that has no title, client, attendance or recorded submission", async () => {
     mockApi({
       ...signedInAs("safety_officer"),
       "GET /api/safety-checks": [
@@ -111,7 +111,7 @@ describe("Safety Checks (SPM-85)", () => {
     expect(cells[4]).toHaveTextContent("—");
   });
 
-  it("names the submission date alone when who submitted it is not known", async () => {
+  it("[SPM-87][AC1] names the submission date alone when who submitted it is not known", async () => {
     mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": [awaiting({ submittedBy: null })] });
 
     render(<SafetyChecksPage />);
@@ -120,7 +120,7 @@ describe("Safety Checks (SPM-85)", () => {
     expect(cells[4]).toHaveTextContent(/^10 Oct 2026$/);
   });
 
-  it("says so when there is nothing to check", async () => {
+  it("[SPM-87][AC1] says so when there is nothing to check", async () => {
     mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": [] });
 
     render(<SafetyChecksPage />);
@@ -129,7 +129,7 @@ describe("Safety Checks (SPM-85)", () => {
     expect(screen.getByText("Events appear here once a coordinator submits them for a safety check.")).toBeInTheDocument();
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": reply(401, {}) });
 
     render(<SafetyChecksPage />);
@@ -137,14 +137,14 @@ describe("Safety Checks (SPM-85)", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fsafety-checks"));
   });
 
-  it("shows a general error when the request fails without a reason", async () => {
+  it("[SPM-87] shows a general error when the request fails without a reason", async () => {
     mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": () => Promise.reject("offline") });
     render(<SafetyChecksPage />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-87] shows a load failure with a Retry that loads again", async () => {
     const api = mockApi({ ...signedInAs("safety_officer"), "GET /api/safety-checks": reply(500, {}) });
     render(<SafetyChecksPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the safety checks.");

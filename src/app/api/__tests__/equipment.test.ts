@@ -7,11 +7,11 @@ import { PATCH as recordOutOfService } from "@/app/api/equipment/[id]/out-of-ser
 import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
 
 describe("GET /api/equipment", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await GET(req("GET", "/api/equipment"))).status).toBe(401);
   });
 
-  it.each(["attendee", "venue_staff"])("is 403 for %s", async (role) => {
+  it.each(["attendee", "venue_staff"])("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await GET(req("GET", "/api/equipment", { token: signIn(user(role)) }));
 
     expect(res.status).toBe(403);
@@ -19,7 +19,7 @@ describe("GET /api/equipment", () => {
   });
 
   it.each(["organiser", "coordinator", "ops_manager", "tech_support"])(
-    "lists only active equipment for %s",
+    "[SPM-48] lists only active equipment for %s",
     async (role) => {
       const token = signIn(user(role));
       const items = [{ id: ID.equipment, name: "Projector", isActive: true }];
@@ -33,7 +33,7 @@ describe("GET /api/equipment", () => {
     }
   );
 
-  it("includes retired equipment for Technical Support when asked", async () => {
+  it("[SPM-48] includes retired equipment for Technical Support when asked", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.findMany.mockResolvedValue([]);
 
@@ -42,7 +42,7 @@ describe("GET /api/equipment", () => {
     expect(callArg(db.equipment.findMany).where).toBeUndefined();
   });
 
-  it("ignores includeInactive from a role that cannot manage the catalogue", async () => {
+  it("[SPM-48] ignores includeInactive from a role that cannot manage the catalogue", async () => {
     const token = signIn(user("organiser"));
     db.equipment.findMany.mockResolvedValue([]);
 
@@ -55,12 +55,12 @@ describe("GET /api/equipment", () => {
 describe("POST /api/equipment", () => {
   const valid = { name: "Wireless microphone", category: "audio", totalQuantity: 10, quantityInMaintenance: 2 };
 
-  it("is 401 without a session", async () => {
+  it("[UNTRACED:equipment-create] is 401 without a session", async () => {
     expect((await POST(req("POST", "/api/equipment", { body: valid }))).status).toBe(401);
   });
 
   it.each(["organiser", "coordinator", "ops_manager", "venue_staff", "attendee"])(
-    "is 403 for %s",
+    "[UNTRACED:equipment-create] is 403 for %s",
     async (role) => {
       const res = await POST(req("POST", "/api/equipment", { token: signIn(user(role)), body: valid }));
 
@@ -69,7 +69,7 @@ describe("POST /api/equipment", () => {
     }
   );
 
-  it("lets Technical Support add an item", async () => {
+  it("[UNTRACED:equipment-create] lets Technical Support add an item", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.equipment, ...data }));
 
@@ -80,7 +80,7 @@ describe("POST /api/equipment", () => {
     expect(callArg(db.equipment.create).data).toEqual(valid);
   });
 
-  it("accepts an item with no maintenance figure", async () => {
+  it("[UNTRACED:equipment-create] accepts an item with no maintenance figure", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.create.mockResolvedValue({ id: ID.equipment });
 
@@ -90,7 +90,7 @@ describe("POST /api/equipment", () => {
     expect(callArg(db.equipment.create).data).toEqual({ name: "Lectern", totalQuantity: 0 });
   });
 
-  it("refuses more units in maintenance than the item has", async () => {
+  it("[UNTRACED:equipment-create] refuses more units in maintenance than the item has", async () => {
     const token = signIn(user("tech_support"));
 
     const res = await POST(
@@ -102,7 +102,7 @@ describe("POST /api/equipment", () => {
     expect(db.equipment.create).not.toHaveBeenCalled();
   });
 
-  it("rejects a body that fails validation", async () => {
+  it("[UNTRACED:equipment-create] rejects a body that fails validation", async () => {
     const token = signIn(user("tech_support"));
 
     const res = await POST(req("POST", "/api/equipment", { token, body: { name: "", totalQuantity: -1 } }));
@@ -113,7 +113,7 @@ describe("POST /api/equipment", () => {
     expect(Object.keys(body.details.fieldErrors).sort()).toEqual(["name", "totalQuantity"]);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[UNTRACED:equipment-create] answers 500 when the database fails", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.create.mockRejectedValue(new Error("connection lost"));
 
@@ -127,13 +127,13 @@ describe("PATCH /api/equipment/[id]/out-of-service", () => {
   const path = `/api/equipment/${ID.equipment}/out-of-service`;
   const context = () => params({ id: ID.equipment });
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     const res = await recordOutOfService(req("PATCH", path, { body: { quantityOutOfService: 1 } }), context());
     expect(res.status).toBe(401);
   });
 
   it.each(["organiser", "coordinator", "ops_manager", "venue_staff", "attendee"])(
-    "is 403 for %s",
+    "[SPM-21][AC4] is 403 for %s",
     async (role) => {
       const token = signIn(user(role));
 
@@ -145,7 +145,7 @@ describe("PATCH /api/equipment/[id]/out-of-service", () => {
   );
 
   // CHANGED (SPM-55): the type of unavailability is recorded with the count.
-  it("records the units out of service, their type and the reason", async () => {
+  it("[SPM-55][AC1][AC2] records the units out of service, their type and the reason", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.findUnique.mockResolvedValue({ totalQuantity: 10 });
     db.equipment.update.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.equipment, ...data }));
@@ -162,7 +162,7 @@ describe("PATCH /api/equipment/[id]/out-of-service", () => {
     });
   });
 
-  it("clears the reason when no units are out of service", async () => {
+  it("[SPM-55][AC2] clears the reason when no units are out of service", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.findUnique.mockResolvedValue({ totalQuantity: 10 });
     db.equipment.update.mockResolvedValue({});
@@ -179,7 +179,7 @@ describe("PATCH /api/equipment/[id]/out-of-service", () => {
     });
   });
 
-  it("is 404 for equipment that does not exist", async () => {
+  it("[SPM-55] is 404 for equipment that does not exist", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.findUnique.mockResolvedValue(null);
 
@@ -189,7 +189,7 @@ describe("PATCH /api/equipment/[id]/out-of-service", () => {
     expect(await res.json()).toEqual({ error: "Equipment not found" });
   });
 
-  it("refuses more units out of service than the item has", async () => {
+  it("[SPM-55][AC1] refuses more units out of service than the item has", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.findUnique.mockResolvedValue({ totalQuantity: 2 });
 
@@ -200,7 +200,7 @@ describe("PATCH /api/equipment/[id]/out-of-service", () => {
     expect(db.equipment.update).not.toHaveBeenCalled();
   });
 
-  it("rejects a negative quantity", async () => {
+  it("[SPM-55][AC1] rejects a negative quantity", async () => {
     const token = signIn(user("tech_support"));
 
     const res = await recordOutOfService(req("PATCH", path, { token, body: { quantityOutOfService: -1 } }), context());
@@ -209,7 +209,7 @@ describe("PATCH /api/equipment/[id]/out-of-service", () => {
     expect((await res.json()).error).toBe("Validation failed");
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-55] answers 500 when the database fails", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.findUnique.mockRejectedValue(new Error("connection lost"));
 
@@ -289,7 +289,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     vi.useRealTimers();
   });
 
-  it("asks for a type when units are marked out of service", async () => {
+  it("[SPM-55][AC1] asks for a type when units are marked out of service", async () => {
     const token = given();
 
     const res = await record(token, { quantityOutOfService: 2 });
@@ -299,21 +299,21 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(db.equipment.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a type that is not one of the three", async () => {
+  it("[SPM-55][AC1] refuses a type that is not one of the three", async () => {
     const token = given();
 
     expect((await record(token, { quantityOutOfService: 2, type: "lost" })).status).toBe(400);
     expect(db.equipment.update).not.toHaveBeenCalled();
   });
 
-  it.each(["unavailable", "damaged", "under_maintenance"])("SPM-55-TC01: accepts the type %s", async (type) => {
+  it.each(["unavailable", "damaged", "under_maintenance"])("[SPM-55][AC1] SPM-55-TC01: accepts the type %s", async (type) => {
     const token = given();
 
     expect((await record(token, { quantityOutOfService: 2, type })).status).toBe(200);
     expect(callArg(db.equipment.update).data.outOfServiceType).toBe(type);
   });
 
-  it("SPM-55-TC04: keeps no reason when none is given", async () => {
+  it("[SPM-55][AC2] SPM-55-TC04: keeps no reason when none is given", async () => {
     const token = given();
 
     await record(token, { quantityOutOfService: 6, type: "damaged" });
@@ -325,7 +325,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     });
   });
 
-  it("looks only at reservations of this item for events that have not ended", async () => {
+  it("[SPM-55][AC4] looks only at reservations of this item for events that have not ended", async () => {
     const token = given();
 
     await record(token, { quantityOutOfService: 1, type: "damaged" });
@@ -337,7 +337,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     });
   });
 
-  it("SPM-55-TC06: flags a reservation the units left no longer cover, without changing it, and notifies its coordinator", async () => {
+  it("[SPM-55][AC4] SPM-55-TC06: flags a reservation the units left no longer cover, without changing it, and notifies its coordinator", async () => {
     const token = given(presenter(), [
       heldFor("launch", "SPM55 Harbour Product Launch", "2027-08-10", 4),
       heldFor("board", "SPM55 Quiet Board Meeting", "2027-08-24", 2),
@@ -374,7 +374,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(notice.body).toContain("flagged for review");
   });
 
-  it("keeps the reasons an earlier change flagged the request for", async () => {
+  it("[SPM-55][AC4] keeps the reasons an earlier change flagged the request for", async () => {
     const token = given(presenter(), [
       heldFor("launch", "SPM55 Harbour Product Launch", "2027-08-10", 4, {
         needsReview: true,
@@ -387,7 +387,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(callArg(db.equipmentRequest.update).data.reviewReason).toBe("event_schedule_changed,equipment_unavailable");
   });
 
-  it("names the session, and an untitled event, in the notification and the result", async () => {
+  it("[SPM-55][AC4] names the session, and an untitled event, in the notification and the result", async () => {
     const launch = heldFor("launch", "x", "2027-08-10", 4);
     const token = given(presenter(), [
       {
@@ -404,7 +404,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(callArg(db.notification.create).data.body).toContain("for an event (Day 1) on");
   });
 
-  it("notifies whoever requested the equipment when the event has no coordinator", async () => {
+  it("[SPM-55][AC4] notifies whoever requested the equipment when the event has no coordinator", async () => {
     const launch = heldFor("launch", "SPM55 Harbour Product Launch", "2027-08-10", 4);
     const token = given(presenter(), [{ ...launch, event: { ...launch.event, coordinatorId: null } }]);
 
@@ -413,7 +413,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(callArg(db.notification.create).data.recipientId).toBe("requester-1");
   });
 
-  it("SPM-55-TC07: flags nothing when the units left still cover every reservation", async () => {
+  it("[SPM-55][AC4] SPM-55-TC07: flags nothing when the units left still cover every reservation", async () => {
     const token = given(presenter(), [heldFor("launch", "SPM55 Harbour Product Launch", "2027-08-10", 4)]);
 
     const res = await record(token, { quantityOutOfService: 2, type: "under_maintenance" });
@@ -423,7 +423,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(db.notification.create).not.toHaveBeenCalled();
   });
 
-  it("counts a reservation with no quantity recorded as holding none, so never flags it", async () => {
+  it("[SPM-55][AC4] counts a reservation with no quantity recorded as holding none, so never flags it", async () => {
     const token = given(presenter(), [heldFor("blank", "SPM55 Unsized Booking", "2027-08-10", null)]);
 
     const res = await record(token, { quantityOutOfService: 6, type: "damaged" });
@@ -432,7 +432,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it("SPM-55-TC08: flags both events sharing the days when the units left cannot cover them both", async () => {
+  it("[SPM-55][AC4] SPM-55-TC08: flags both events sharing the days when the units left cannot cover them both", async () => {
     const token = given(presenter(), [
       heldFor("morning", "SPM55 Morning Showcase", "2027-08-17", 3),
       heldFor("evening", "SPM55 Evening Showcase", "2027-08-17", 3),
@@ -447,7 +447,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(db.notification.create).toHaveBeenCalledTimes(2);
   });
 
-  it("does not flag again a reservation that was already short before this change", async () => {
+  it("[SPM-55][AC4] does not flag again a reservation that was already short before this change", async () => {
     const token = given(presenter({ quantityInMaintenance: 3 }), [
       heldFor("launch", "SPM55 Harbour Product Launch", "2027-08-10", 4),
     ]);
@@ -457,7 +457,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it("SPM-55-TC03: flags nothing when units are returned (AC5)", async () => {
+  it("[SPM-55][AC5] SPM-55-TC03: flags nothing when units are returned (AC5)", async () => {
     const token = given(presenter({ quantityInMaintenance: 3, outOfServiceType: "damaged" }), [
       heldFor("launch", "SPM55 Harbour Product Launch", "2027-08-10", 4),
     ]);
@@ -473,7 +473,7 @@ describe("SPM-55 - recording equipment unavailability", () => {
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it("writes in one transaction", async () => {
+  it("[SPM-55] writes in one transaction", async () => {
     const token = given();
 
     await record(token, { quantityOutOfService: 1, type: "damaged" });
@@ -494,7 +494,7 @@ describe("GET /api/equipment - operational status is internal (SPM-55 AC6)", () 
     isActive: true,
   };
 
-  it("SPM-55-TC11: leaves the status out for the Event Organiser", async () => {
+  it("[SPM-55][AC6] SPM-55-TC11: leaves the status out for the Event Organiser", async () => {
     const token = signIn(user("organiser"));
     db.equipment.findMany.mockResolvedValue([item]);
 
@@ -503,7 +503,7 @@ describe("GET /api/equipment - operational status is internal (SPM-55 AC6)", () 
     expect(listed).toEqual({ id: ID.equipment, name: "SPM55 Spare Microphone Kit", category: "AV", totalQuantity: 5, isActive: true });
   });
 
-  it.each(["coordinator", "ops_manager", "tech_support"])("SPM-55-TC10: gives %s the status", async (role) => {
+  it.each(["coordinator", "ops_manager", "tech_support"])("[SPM-55][AC6] SPM-55-TC10: gives %s the status", async (role) => {
     const token = signIn(user(role));
     db.equipment.findMany.mockResolvedValue([item]);
 

@@ -34,13 +34,13 @@ import {
 import { cn } from "@/lib/cn";
 
 describe("cn", () => {
-  it("joins class names and drops the falsy ones", () => {
+  it("[SPM-7][AC3] joins class names and drops the falsy ones", () => {
     expect(cn("a", false, null, undefined, "", "b")).toBe("a b");
   });
 });
 
 describe("Button", () => {
-  it("renders its label and calls onClick", async () => {
+  it("[SPM-7][AC3] renders its label and calls onClick", async () => {
     const onClick = vi.fn();
     render(<Button onClick={onClick}>Save draft</Button>);
 
@@ -49,7 +49,7 @@ describe("Button", () => {
     expect(onClick).toHaveBeenCalledOnce();
   });
 
-  it("while loading, shows the pending label and cannot be clicked", async () => {
+  it("[SPM-7][AC3] while loading, shows the pending label and cannot be clicked", async () => {
     const onClick = vi.fn();
     render(
       <Button loading loadingText="Saving…" onClick={onClick}>
@@ -65,19 +65,19 @@ describe("Button", () => {
     expect(onClick).not.toHaveBeenCalled();
   });
 
-  it("falls back to 'Working…' when no pending label is given", () => {
+  it("[SPM-7][AC3] falls back to 'Working…' when no pending label is given", () => {
     render(<Button loading>Save</Button>);
 
     expect(screen.getByRole("button", { name: "Working…" })).toBeInTheDocument();
   });
 
-  it("is not marked busy when idle", () => {
+  it("[SPM-7][AC3] is not marked busy when idle", () => {
     render(<Button>Save</Button>);
 
     expect(screen.getByRole("button")).not.toHaveAttribute("aria-busy");
   });
 
-  it("can be disabled without loading", () => {
+  it("[SPM-7][AC3] can be disabled without loading", () => {
     render(<Button disabled>Save</Button>);
 
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
@@ -85,7 +85,7 @@ describe("Button", () => {
 });
 
 describe("ButtonLink", () => {
-  it("is a real link, so it can be opened in a new tab", () => {
+  it("[SPM-7][AC3] is a real link, so it can be opened in a new tab", () => {
     render(<ButtonLink href="/events/new">New event request</ButtonLink>);
 
     expect(screen.getByRole("link", { name: "New event request" })).toHaveAttribute("href", "/events/new");
@@ -93,26 +93,26 @@ describe("ButtonLink", () => {
 });
 
 describe("Alert", () => {
-  it.each(["error", "warning"] as const)("announces a %s assertively", (variant) => {
+  it.each(["error", "warning"] as const)("[SPM-7][AC3] announces a %s assertively", (variant) => {
     render(<Alert variant={variant}>Something needs attention</Alert>);
 
     expect(screen.getByRole("alert")).toHaveTextContent("Something needs attention");
   });
 
-  it.each(["info", "success"] as const)("announces %s politely", (variant) => {
+  it.each(["info", "success"] as const)("[SPM-7][AC3] announces %s politely", (variant) => {
     render(<Alert variant={variant}>Saved</Alert>);
 
     expect(screen.getByRole("status")).toHaveTextContent("Saved");
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("is informational by default", () => {
+  it("[SPM-7][AC3] is informational by default", () => {
     render(<Alert title="Heads up" />);
 
     expect(screen.getByRole("status")).toHaveTextContent("Heads up");
   });
 
-  it("shows its title, body and action together", () => {
+  it("[SPM-7][AC3] shows its title, body and action together", () => {
     render(
       <Alert variant="error" title="Could not save" action={<button>Retry</button>}>
         The server did not respond.
@@ -131,13 +131,13 @@ describe("StatusBadge", () => {
     ["under_review", "Under review"],
     ["confirmed", "Confirmed"],
     ["partially_fulfilled", "Partially fulfilled"],
-  ])("shows %s as a readable label", (status, label) => {
+  ])("[SPM-7][AC3] shows %s as a readable label", (status, label) => {
     render(<StatusBadge status={status} />);
 
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
-  it("still labels a status it has never heard of", () => {
+  it("[SPM-7][AC3] still labels a status it has never heard of", () => {
     render(<StatusBadge status="awaiting_sign_off" />);
 
     expect(screen.getByText("Awaiting sign off")).toBeInTheDocument();
@@ -151,7 +151,7 @@ describe("Tabs", () => {
     { key: "equipment", label: "Equipment", href: "/events/EVT-000007/equipment", badge: 0 },
   ];
 
-  it("renders each tab as a link, marking only the active one as the current page", () => {
+  it("[SPM-7][AC2] renders each tab as a link, marking only the active one as the current page", () => {
     render(<Tabs items={items} activeKey="venue" />);
 
     expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("href", "/events/EVT-000007");
@@ -159,7 +159,7 @@ describe("Tabs", () => {
     expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
   });
 
-  it("shows a badge only when its count is above zero", () => {
+  it("[SPM-7][AC2] shows a badge only when its count is above zero", () => {
     render(<Tabs items={items} activeKey="overview" />);
 
     expect(screen.getByRole("link", { name: /Venue/ })).toHaveTextContent("Venue2");
@@ -168,7 +168,7 @@ describe("Tabs", () => {
 });
 
 describe("Card", () => {
-  it("lays out a header, body and footer", () => {
+  it("[SPM-7][AC3] lays out a header, body and footer", () => {
     render(
       <Card>
         <CardHeader title="Schedule" subtitle="Singapore time" aside={<span>3 sessions</span>} />
@@ -184,7 +184,7 @@ describe("Card", () => {
     expect(screen.getByText("Footer text")).toBeInTheDocument();
   });
 
-  it("leaves out the subtitle and aside when they are not given", () => {
+  it("[SPM-7][AC3] leaves out the subtitle and aside when they are not given", () => {
     const { container } = render(<CardHeader title="Schedule" />);
 
     expect(container.querySelector("p")).toBeNull();
@@ -192,7 +192,7 @@ describe("Card", () => {
 });
 
 describe("DetailList", () => {
-  it("pairs each label with its value", () => {
+  it("[SPM-7][AC3] pairs each label with its value", () => {
     render(
       <DetailList
         columns={1}
@@ -209,7 +209,7 @@ describe("DetailList", () => {
     expect(values).toEqual(["Conference", "200"]);
   });
 
-  it("shows rows that share a label without a duplicate-key warning", () => {
+  it("[SPM-7][AC3] shows rows that share a label without a duplicate-key warning", () => {
     // The Overview's Venue bookings card: two rooms booked for the whole event
     // (SPM-81) are both labelled "Whole event".
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -235,7 +235,7 @@ describe("DetailList", () => {
 describe("Breadcrumb and PageHeader", () => {
   const crumbs = [{ label: "Events", href: "/events" }, { label: "EVT-000007", href: "/events/EVT-000007" }, { label: "Edit" }];
 
-  it("links every crumb except the last, which is the current page", () => {
+  it("[SPM-7][AC2] links every crumb except the last, which is the current page", () => {
     render(<Breadcrumb items={crumbs} />);
 
     expect(screen.getByRole("link", { name: "Events" })).toHaveAttribute("href", "/events");
@@ -244,19 +244,19 @@ describe("Breadcrumb and PageHeader", () => {
     expect(screen.getByText("Edit")).toHaveAttribute("aria-current", "page");
   });
 
-  it("does not link the last crumb even if it has an href", () => {
+  it("[SPM-7][AC2] does not link the last crumb even if it has an href", () => {
     render(<Breadcrumb items={[{ label: "Events", href: "/events" }]} />);
 
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
   });
 
-  it("renders nothing for an empty trail", () => {
+  it("[SPM-7][AC2] renders nothing for an empty trail", () => {
     const { container } = render(<Breadcrumb items={[]} />);
 
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the title, subtitle, breadcrumbs, meta and actions of a page", () => {
+  it("[SPM-7][AC2] shows the title, subtitle, breadcrumbs, meta and actions of a page", () => {
     render(
       <PageHeader
         title="Gala Dinner"
@@ -274,7 +274,7 @@ describe("Breadcrumb and PageHeader", () => {
     expect(screen.getByRole("button", { name: "Edit" })).toBeInTheDocument();
   });
 
-  it("works with a title alone", () => {
+  it("[SPM-7][AC2] works with a title alone", () => {
     render(<PageHeader title="Dashboard" />);
 
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
@@ -283,7 +283,7 @@ describe("Breadcrumb and PageHeader", () => {
 });
 
 describe("Field and its controls", () => {
-  it("binds the label to the control", () => {
+  it("[SPM-7][AC4] binds the label to the control", () => {
     render(
       <Field label="Event title">
         <Input defaultValue="Gala" />
@@ -293,7 +293,7 @@ describe("Field and its controls", () => {
     expect(screen.getByLabelText("Event title")).toHaveValue("Gala");
   });
 
-  it("marks a required field for sighted users and screen readers", () => {
+  it("[SPM-7][AC4] marks a required field for sighted users and screen readers", () => {
     render(
       <Field label="Event title" required>
         <Input />
@@ -305,7 +305,7 @@ describe("Field and its controls", () => {
     expect(screen.getByText("*")).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("describes the control by its hint", () => {
+  it("[SPM-7][AC4] describes the control by its hint", () => {
     render(
       <Field label="Capacity" hint="The most the room can hold">
         <Input />
@@ -317,7 +317,7 @@ describe("Field and its controls", () => {
     expect(input).not.toHaveAttribute("aria-invalid");
   });
 
-  it("in error, marks the control invalid and shows the error instead of the hint", () => {
+  it("[SPM-7][AC4][AC5] in error, marks the control invalid and shows the error instead of the hint", () => {
     render(
       <Field label="Capacity" hint="The most the room can hold" error="Enter a number above zero">
         <Input />
@@ -330,7 +330,7 @@ describe("Field and its controls", () => {
     expect(screen.queryByText("The most the room can hold")).not.toBeInTheDocument();
   });
 
-  it("wires a textarea and a select the same way", () => {
+  it("[SPM-7][AC4] wires a textarea and a select the same way", () => {
     render(
       <>
         <Field label="Notes" error="Too long">
@@ -348,14 +348,14 @@ describe("Field and its controls", () => {
     expect(screen.getByLabelText("Layout")).toHaveValue("theatre");
   });
 
-  it("renders a control outside a Field without the wiring", () => {
+  it("[SPM-7][AC4] renders a control outside a Field without the wiring", () => {
     render(<Input aria-label="Search" />);
 
     expect(screen.getByLabelText("Search")).not.toHaveAttribute("id");
     expect(screen.getByLabelText("Search")).toBeValid();
   });
 
-  it("shows a select's placeholder as a disabled first option", () => {
+  it("[SPM-7][AC4] shows a select's placeholder as a disabled first option", () => {
     render(
       <Select
         aria-label="Layout"
@@ -373,7 +373,7 @@ describe("Field and its controls", () => {
     expect(options[0]).toBeDisabled();
   });
 
-  it("omits the placeholder option when none is given", () => {
+  it("[SPM-7][AC4] omits the placeholder option when none is given", () => {
     render(<Select aria-label="Layout" options={[{ value: "theatre", label: "Theatre" }]} />);
 
     expect(screen.getAllByRole("option")).toHaveLength(1);
@@ -381,7 +381,7 @@ describe("Field and its controls", () => {
 });
 
 describe("Checkbox", () => {
-  it("carries its own label and hint, and reports changes", async () => {
+  it("[SPM-7][AC4] carries its own label and hint, and reports changes", async () => {
     const onChange = vi.fn();
     render(<Checkbox label="Enable registration" hint="Attendees can sign up" onChange={onChange} />);
     const box = screen.getByRole("checkbox", { name: "Enable registration" });
@@ -392,7 +392,7 @@ describe("Checkbox", () => {
     expect(onChange).toHaveBeenCalledOnce();
   });
 
-  it("has no description without a hint", () => {
+  it("[SPM-7][AC4] has no description without a hint", () => {
     render(<Checkbox label="Enable registration" />);
 
     expect(screen.getByRole("checkbox")).not.toHaveAttribute("aria-describedby");
@@ -400,7 +400,7 @@ describe("Checkbox", () => {
 });
 
 describe("Fieldset", () => {
-  it("groups its fields under a legend and description", () => {
+  it("[SPM-7][AC4] groups its fields under a legend and description", () => {
     render(
       <Fieldset legend="Schedule" description="When the event runs">
         <span>fields</span>
@@ -410,7 +410,7 @@ describe("Fieldset", () => {
     expect(screen.getByRole("group", { name: "Schedule" })).toHaveTextContent("When the event runs");
   });
 
-  it("works without a description", () => {
+  it("[SPM-7][AC4] works without a description", () => {
     render(
       <Fieldset legend="Schedule">
         <span>fields</span>
@@ -427,7 +427,7 @@ describe("CheckboxGroup", () => {
     { id: "f2", name: "Step-free access" },
   ];
 
-  it("ticks the selected options and reports which one was toggled", async () => {
+  it("[SPM-7][AC4] ticks the selected options and reports which one was toggled", async () => {
     const onToggle = vi.fn();
     render(
       <CheckboxGroup legend="Accessibility" hint="Tick all that apply" options={options} selected={["f2"]} onToggle={onToggle} />
@@ -442,14 +442,14 @@ describe("CheckboxGroup", () => {
     expect(onToggle).toHaveBeenCalledWith("f1");
   });
 
-  it("shows placeholders, not an empty group, while its options load", () => {
+  it("[SPM-7][AC4] shows placeholders, not an empty group, while its options load", () => {
     render(<CheckboxGroup legend="Accessibility" options={[]} selected={[]} onToggle={vi.fn()} loading />);
 
     expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     expect(screen.queryByText("None available.")).not.toBeInTheDocument();
   });
 
-  it("says so when there are no options", () => {
+  it("[SPM-7][AC4] says so when there are no options", () => {
     render(<CheckboxGroup legend="Accessibility" options={[]} selected={[]} onToggle={vi.fn()} />);
 
     expect(screen.getByText("None available.")).toBeInTheDocument();
@@ -457,7 +457,7 @@ describe("CheckboxGroup", () => {
 });
 
 describe("loading and empty states", () => {
-  it("Spinner and SkeletonRows announce that something is loading", () => {
+  it("[SPM-7][AC3] Spinner and SkeletonRows announce that something is loading", () => {
     render(
       <>
         <Spinner />
@@ -468,19 +468,19 @@ describe("loading and empty states", () => {
     expect(screen.getAllByRole("status", { name: "Loading" })).toHaveLength(2);
   });
 
-  it("SkeletonRows defaults to three rows", () => {
+  it("[SPM-7][AC3] SkeletonRows defaults to three rows", () => {
     const { container } = render(<SkeletonRows />);
 
     expect(container.querySelectorAll("[role=status] > div")).toHaveLength(3);
   });
 
-  it("Skeleton is hidden from assistive technology", () => {
+  it("[SPM-7][AC3] Skeleton is hidden from assistive technology", () => {
     const { container } = render(<Skeleton className="h-4" />);
 
     expect(container.firstChild).toHaveAttribute("aria-hidden", "true");
   });
 
-  it("EmptyState shows its title, description and action", () => {
+  it("[SPM-7][AC3] EmptyState shows its title, description and action", () => {
     render(<EmptyState title="No events yet" description="Raise your first request." action={<button>New event</button>} />);
 
     expect(screen.getByText("No events yet")).toBeInTheDocument();
@@ -488,7 +488,7 @@ describe("loading and empty states", () => {
     expect(screen.getByRole("button", { name: "New event" })).toBeInTheDocument();
   });
 
-  it("EmptyState works with a title alone", () => {
+  it("[SPM-7][AC3] EmptyState works with a title alone", () => {
     const { container } = render(<EmptyState title="No events yet" />);
 
     expect(container.querySelectorAll("p")).toHaveLength(1);
@@ -499,25 +499,25 @@ describe("DataState", () => {
   const empty = { title: "Nothing here" };
   const children = (rows: string[]) => <ul>{rows.map((r) => <li key={r}>{r}</li>)}</ul>;
 
-  it("shows a skeleton while data is null", () => {
+  it("[SPM-7][AC3] shows a skeleton while data is null", () => {
     render(<DataState data={null} empty={empty}>{children}</DataState>);
 
     expect(screen.getByRole("status", { name: "Loading" })).toBeInTheDocument();
   });
 
-  it("shows the empty state for an empty list", () => {
+  it("[SPM-7][AC3] shows the empty state for an empty list", () => {
     render(<DataState data={[]} empty={empty}>{children}</DataState>);
 
     expect(screen.getByText("Nothing here")).toBeInTheDocument();
   });
 
-  it("renders the rows once loaded", () => {
+  it("[SPM-7][AC3] renders the rows once loaded", () => {
     render(<DataState data={["Gala", "Summit"]} empty={empty}>{children}</DataState>);
 
     expect(screen.getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Gala", "Summit"]);
   });
 
-  it("shows an error over everything else, with a Retry that calls back", async () => {
+  it("[SPM-7][AC5] shows an error over everything else, with a Retry that calls back", async () => {
     const onRetry = vi.fn();
     render(<DataState data={null} error="The server did not respond" onRetry={onRetry} empty={empty}>{children}</DataState>);
 
@@ -529,7 +529,7 @@ describe("DataState", () => {
     expect(onRetry).toHaveBeenCalledOnce();
   });
 
-  it("offers no Retry when there is nothing to retry", () => {
+  it("[SPM-7][AC5] offers no Retry when there is nothing to retry", () => {
     render(<DataState data={["Gala"]} error="Failed" empty={empty}>{children}</DataState>);
 
     expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
@@ -552,7 +552,7 @@ describe("Table", () => {
     { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
   ];
 
-  it("renders a header per column and a row per record, with a caption", () => {
+  it("[SPM-7][AC3] renders a header per column and a row per record, with a caption", () => {
     render(<Table columns={columns} rows={rows} rowKey={(r) => r.id} caption="Your events" />);
     const table = screen.getByRole("table", { name: "Your events" });
 
@@ -561,7 +561,7 @@ describe("Table", () => {
     expect(within(table).getByRole("cell", { name: "Gala Dinner" })).toBeInTheDocument();
   });
 
-  it("also renders each record as a stacked card for small screens", () => {
+  it("[SPM-7][AC3] also renders each record as a stacked card for small screens", () => {
     render(<Table columns={columns} rows={rows} rowKey={(r) => r.id} />);
     const cards = screen.getAllByRole("listitem");
 
@@ -572,7 +572,7 @@ describe("Table", () => {
     expect(within(cards[0]).getByText("Status")).toBeInTheDocument();
   });
 
-  it("calls onRowClick from a table row", async () => {
+  it("[SPM-7][AC3] calls onRowClick from a table row", async () => {
     const onRowClick = vi.fn();
     render(<Table columns={columns} rows={rows} rowKey={(r) => r.id} onRowClick={onRowClick} />);
 
@@ -581,7 +581,7 @@ describe("Table", () => {
     expect(onRowClick).toHaveBeenCalledWith(rows[1]);
   });
 
-  it("makes each card a button reachable by click, Enter and Space", async () => {
+  it("[SPM-7][AC3] makes each card a button reachable by click, Enter and Space", async () => {
     const onRowClick = vi.fn();
     render(<Table columns={columns} rows={rows} rowKey={(r) => r.id} onRowClick={onRowClick} />);
     const [first, second] = screen.getAllByRole("button");
@@ -595,7 +595,7 @@ describe("Table", () => {
     expect(onRowClick.mock.calls.map(([row]) => row.id)).toEqual(["1", "2", "2"]);
   });
 
-  it("has no clickable rows when no handler is given", () => {
+  it("[SPM-7][AC3] has no clickable rows when no handler is given", () => {
     render(<Table columns={columns} rows={rows} rowKey={(r) => r.id} />);
 
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
@@ -628,13 +628,13 @@ describe("ConfirmDialog", () => {
 
   const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
 
-  it("stays closed until asked to open", () => {
+  it("[SPM-7][AC3] stays closed until asked to open", () => {
     render(<Harness />);
 
     expect(dialog().open).toBe(false);
   });
 
-  it("opens with its title and the specific consequence", async () => {
+  it("[SPM-7][AC3] opens with its title and the specific consequence", async () => {
     render(<Harness />);
 
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -644,7 +644,7 @@ describe("ConfirmDialog", () => {
     expect(dialog()).toHaveTextContent("Three approved bookings will be flagged for review.");
   });
 
-  it("confirms through its confirm button", async () => {
+  it("[SPM-7][AC3] confirms through its confirm button", async () => {
     const onConfirm = vi.fn();
     render(<Harness onConfirm={onConfirm} />);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -654,7 +654,7 @@ describe("ConfirmDialog", () => {
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
-  it("cancels through its Cancel button, and closes", async () => {
+  it("[SPM-7][AC3] cancels through its Cancel button, and closes", async () => {
     const onCancel = vi.fn();
     render(<Harness onCancel={onCancel} />);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -665,7 +665,7 @@ describe("ConfirmDialog", () => {
     expect(dialog().open).toBe(false);
   });
 
-  it("treats Esc as Cancel", async () => {
+  it("[SPM-7][AC3] treats Esc as Cancel", async () => {
     const onCancel = vi.fn();
     render(<Harness onCancel={onCancel} />);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -675,7 +675,7 @@ describe("ConfirmDialog", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it("treats being closed by the browser as Cancel, so its owner's state stays in step", async () => {
+  it("[SPM-7][AC3] treats being closed by the browser as Cancel, so its owner's state stays in step", async () => {
     const onCancel = vi.fn();
     render(<Harness onCancel={onCancel} />);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -685,7 +685,7 @@ describe("ConfirmDialog", () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
-  it("closes when its owner sets open to false", async () => {
+  it("[SPM-7][AC3] closes when its owner sets open to false", async () => {
     render(<Harness />);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));
 
@@ -694,7 +694,7 @@ describe("ConfirmDialog", () => {
     expect(dialog().open).toBe(false);
   });
 
-  it("cannot be cancelled while its action is in flight", async () => {
+  it("[SPM-7][AC3] cannot be cancelled while its action is in flight", async () => {
     const onCancel = vi.fn();
     render(<Harness loading onCancel={onCancel} />);
     await userEvent.click(screen.getByRole("button", { name: "Open" }));

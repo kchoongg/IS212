@@ -25,11 +25,11 @@ import {
 } from "@/lib/safetyDecision";
 
 describe("the three decisions (AC3-AC5)", () => {
-  it("are approve, request changes and reject", () => {
+  it("[SPM-87][AC3][AC4][AC5] are approve, request changes and reject", () => {
     expect(SAFETY_DECISIONS).toEqual(["approved", "changes_requested", "rejected"]);
   });
 
-  it("SPM-87-TC09: refuses a second decision with one message", () => {
+  it("[SPM-87][AC11] SPM-87-TC09: refuses a second decision with one message", () => {
     expect(SAFETY_CHECK_DECIDED_MESSAGE).toBe("This safety check has already been decided.");
   });
 });
@@ -40,12 +40,12 @@ describe("safetyDecisionSchema (AC4-AC6)", () => {
     return result.success ? null : result.error.flatten().fieldErrors;
   };
 
-  it("SPM-87-TC03: approves without a reason, and drops one given", () => {
+  it("[SPM-87][AC3] SPM-87-TC03: approves without a reason, and drops one given", () => {
     expect(safetyDecisionSchema.parse({ decision: "approved" })).toEqual({ decision: "approved" });
     expect(safetyDecisionSchema.parse({ decision: "approved", note: "fine" })).toEqual({ decision: "approved" });
   });
 
-  it("SPM-87-TC06: keeps the changes required, trimmed", () => {
+  it("[SPM-87][AC5] SPM-87-TC06: keeps the changes required, trimmed", () => {
     expect(safetyDecisionSchema.parse({ decision: "changes_requested", note: "  Add a marshal.  " })).toEqual({
       decision: "changes_requested",
       note: "Add a marshal.",
@@ -56,16 +56,16 @@ describe("safetyDecisionSchema (AC4-AC6)", () => {
     ["rejected", undefined, "Give a reason for rejecting."],
     ["rejected", "", "Give a reason for rejecting."],
     ["changes_requested", "   ", "Describe the changes required."],
-  ])("SPM-87-TC08: asks for a reason when %s has %j", (decision, note, message) => {
+  ])("[SPM-87][AC6] SPM-87-TC08: asks for a reason when %s has %j", (decision, note, message) => {
     expect(errorsFor({ decision, note })).toEqual({ note: [message] });
   });
 
-  it("accepts a reason of exactly 1,000 characters and refuses 1,001", () => {
+  it("[SPM-87][AC6] accepts a reason of exactly 1,000 characters and refuses 1,001", () => {
     expect(errorsFor({ decision: "rejected", note: "x".repeat(1000) })).toBeNull();
     expect(errorsFor({ decision: "rejected", note: "x".repeat(1001) })?.note).toHaveLength(1);
   });
 
-  it("refuses a decision that is not one of the three", () => {
+  it("[SPM-87][AC6] refuses a decision that is not one of the three", () => {
     expect(errorsFor({ decision: "maybe" })?.decision).toHaveLength(1);
   });
 });
@@ -75,7 +75,7 @@ describe("statusAfterDecision (AC7, AC8)", () => {
     ["approved", "safety_cleared"],
     ["changes_requested", "planning"],
     ["rejected", "planning"],
-  ] as const)("%s moves the event to %s", (decision, status) => {
+  ] as const)("[SPM-87][AC7][AC8] %s moves the event to %s", (decision, status) => {
     expect(statusAfterDecision(decision)).toBe(status);
   });
 });
@@ -85,13 +85,13 @@ describe("decisionDoneMessage", () => {
     ["approved", "Safety check approved. The coordinator has been notified."],
     ["changes_requested", "Changes requested. The event is back in Planning and the coordinator has been notified."],
     ["rejected", "Safety arrangement rejected. The event is back in Planning and the coordinator has been notified."],
-  ] as const)("words %s", (decision, message) => {
+  ] as const)("[SPM-87] words %s", (decision, message) => {
     expect(decisionDoneMessage(decision)).toBe(message);
   });
 });
 
 describe("decisionNotification (AC9)", () => {
-  it("SPM-87-TC12: tells the coordinator the changes required", () => {
+  it("[SPM-87][AC9] SPM-87-TC12: tells the coordinator the changes required", () => {
     expect(decisionNotification("changes_requested", "SPM87 Lakeside Conference (EVT-000007)", "Add a marshal.")).toEqual({
       type: "safety_check_decided",
       title: "Safety check: changes requested",
@@ -99,14 +99,14 @@ describe("decisionNotification (AC9)", () => {
     });
   });
 
-  it("tells the coordinator the reason for a rejection", () => {
+  it("[SPM-87][AC9] tells the coordinator the reason for a rejection", () => {
     const n = decisionNotification("rejected", "Gala (EVT-000007)", "Too crowded.");
     expect(n.title).toBe("Safety check: rejected");
     expect(n.body).toContain("Reason: Too crowded.");
     expect(n.body).toContain("back in Planning");
   });
 
-  it("tells the coordinator an approved event can proceed", () => {
+  it("[SPM-87][AC9] tells the coordinator an approved event can proceed", () => {
     const n = decisionNotification("approved", "Gala (EVT-000007)", undefined);
     expect(n).toEqual({
       type: "safety_check_decided",
@@ -120,31 +120,31 @@ describe("safetyCheckSummary (AC10) - the event's 'Safety check' row, in Singapo
   const submitted = { submittedAt: "2026-10-09T06:30:00.000Z", submittedBy: "Daniel Tan" };
   const decided = { decidedAt: "2026-10-13T06:30:00.000Z", decidedBy: "Hana Yusof" };
 
-  it("SPM-86: a pending check says who submitted it and when", () => {
+  it("[SPM-87][AC10] SPM-86: a pending check says who submitted it and when", () => {
     expect(safetyCheckSummary({ status: "pending", ...submitted, decidedAt: null, decidedBy: null, decisionNote: null })).toBe(
       "Awaiting review · submitted by Daniel Tan, 9 Oct 2026, 14:30"
     );
   });
 
-  it("SPM-87-TC03: an approval says who decided and when", () => {
+  it("[SPM-87][AC10] SPM-87-TC03: an approval says who decided and when", () => {
     expect(safetyCheckSummary({ status: "approved", ...submitted, ...decided, decisionNote: null })).toBe(
       "Approved · decided by Hana Yusof, 13 Oct 2026, 14:30"
     );
   });
 
-  it("SPM-87-TC06: a change request adds the changes required", () => {
+  it("[SPM-87][AC10] SPM-87-TC06: a change request adds the changes required", () => {
     expect(
       safetyCheckSummary({ status: "changes_requested", ...submitted, ...decided, decisionNote: "Add a marshal." })
     ).toBe("Changes requested · decided by Hana Yusof, 13 Oct 2026, 14:30. Changes required: Add a marshal.");
   });
 
-  it("SPM-87-TC07: a rejection adds the reason", () => {
+  it("[SPM-87][AC10] SPM-87-TC07: a rejection adds the reason", () => {
     expect(safetyCheckSummary({ status: "rejected", ...submitted, ...decided, decisionNote: "Too crowded." })).toBe(
       "Rejected · decided by Hana Yusof, 13 Oct 2026, 14:30. Reason: Too crowded."
     );
   });
 
-  it("leaves out a name it does not know", () => {
+  it("[SPM-87][AC10] leaves out a name it does not know", () => {
     expect(safetyCheckSummary({ status: "pending", submittedAt: submitted.submittedAt, submittedBy: null, decidedAt: null, decidedBy: null, decisionNote: null })).toBe(
       "Awaiting review · submitted, 9 Oct 2026, 14:30"
     );

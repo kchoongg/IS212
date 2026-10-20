@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { getToken } from "../session";
 
 describe("getToken on the server", () => {
-  it("has no token, and does not touch localStorage", () => {
+  it("[SPM-21][AC1] has no token, and does not touch localStorage", () => {
     expect(typeof window).toBe("undefined");
     expect(getToken()).toBeNull();
   });

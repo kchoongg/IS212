@@ -39,12 +39,12 @@ describe("POST /api/registrations", () => {
     vi.useRealTimers();
   });
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await register(undefined)).status).toBe(401);
   });
 
   it.each(["organiser", "coordinator", "ops_manager", "venue_staff", "tech_support"])(
-    "is 403 for %s - only an Attendee registers",
+    "[SPM-21][AC4] is 403 for %s - only an Attendee registers",
     async (role) => {
       const res = await register(signIn(user(role)));
 
@@ -53,7 +53,7 @@ describe("POST /api/registrations", () => {
     }
   );
 
-  it("registers an attendee for a confirmed event that is open", async () => {
+  it("[SPM-51][AC2][AC5] registers an attendee for a confirmed event that is open", async () => {
     const attendee = user("attendee");
     const token = signIn(attendee);
     db.event.findUnique.mockResolvedValue(openEvent());
@@ -76,14 +76,14 @@ describe("POST /api/registrations", () => {
     });
   });
 
-  it("rejects an eventId that is not a UUID", async () => {
+  it("[SPM-51] rejects an eventId that is not a UUID", async () => {
     const res = await register(signIn(user("attendee")), { eventId: "EVT-000001" });
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("Validation failed");
   });
 
-  it("is 404 for an event that does not exist", async () => {
+  it("[SPM-51] is 404 for an event that does not exist", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(null);
 
@@ -93,7 +93,7 @@ describe("POST /api/registrations", () => {
   it.each([
     ["not confirmed yet", { status: "planning" }],
     ["confirmed but with registration switched off", { registrationEnabled: false }],
-  ])("is 404, not 400, for an event the attendee cannot see: %s", async (_case, overrides) => {
+  ])("[SPM-51][AC3] is 404, not 400, for an event the attendee cannot see: %s", async (_case, overrides) => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent(overrides));
 
@@ -104,7 +104,7 @@ describe("POST /api/registrations", () => {
     expect(db.registration.create).not.toHaveBeenCalled();
   });
 
-  it("refuses before the registration window opens", async () => {
+  it("[SPM-51][AC3][AC4] refuses before the registration window opens", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent({ registrationOpensAt: new Date("2026-10-03T00:00:00Z") }));
 
@@ -114,7 +114,7 @@ describe("POST /api/registrations", () => {
     expect(await res.json()).toEqual({ error: "Registration has not opened yet" });
   });
 
-  it("refuses after the registration window closes", async () => {
+  it("[SPM-51][AC3][AC4] refuses after the registration window closes", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent({ registrationClosesAt: new Date("2026-10-01T00:00:00Z") }));
 
@@ -128,7 +128,7 @@ describe("POST /api/registrations", () => {
   it.each([
     ["no opening date", { registrationOpensAt: null }],
     ["no closing date", { registrationClosesAt: null }],
-  ])("refuses an event with %s, and writes nothing", async (_what, overrides) => {
+  ])("[SPM-51][AC3][AC8] refuses an event with %s, and writes nothing", async (_what, overrides) => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent(overrides));
 
@@ -139,7 +139,7 @@ describe("POST /api/registrations", () => {
     expect(db.registration.create).not.toHaveBeenCalled();
   });
 
-  it.each(["registered", "attended"])("refuses a second registration while the first is %s", async (status) => {
+  it.each(["registered", "attended"])("[SPM-51][AC7] refuses a second registration while the first is %s", async (status) => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent());
     db.registration.findUnique.mockResolvedValue({ id: "r1", status });
@@ -152,7 +152,7 @@ describe("POST /api/registrations", () => {
     expect(db.registration.update).not.toHaveBeenCalled();
   });
 
-  it("reactivates a withdrawn registration instead of inserting a second row", async () => {
+  it("[SPM-51][AC7] [SPM-52][AC3] reactivates a withdrawn registration instead of inserting a second row", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent());
     db.registration.findUnique.mockResolvedValue({ id: "r1", status: "withdrawn" });
@@ -174,7 +174,7 @@ describe("POST /api/registrations", () => {
     });
   });
 
-  it("refuses when every seat is taken", async () => {
+  it("[SPM-51][AC9] refuses when every seat is taken", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: 50 }));
     db.registration.findUnique.mockResolvedValue(null);
@@ -191,7 +191,7 @@ describe("POST /api/registrations", () => {
     expect(db.registration.upsert).not.toHaveBeenCalled();
   });
 
-  it("takes the last seat, counting only registered and attended as taken", async () => {
+  it("[SPM-51][AC9] takes the last seat, counting only registered and attended as taken", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: 50 }));
     db.registration.findUnique.mockResolvedValue(null);
@@ -207,7 +207,7 @@ describe("POST /api/registrations", () => {
     });
   });
 
-  it("does not count seats for an event with no capacity limit", async () => {
+  it("[SPM-51][AC9] does not count seats for an event with no capacity limit", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: null }));
     db.registration.findUnique.mockResolvedValue(null);
@@ -218,7 +218,7 @@ describe("POST /api/registrations", () => {
     expect(db.registration.count).not.toHaveBeenCalled();
   });
 
-  it("reports a duplicate caught only by the database's unique constraint", async () => {
+  it("[SPM-51][AC7] reports a duplicate caught only by the database's unique constraint", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent());
     db.registration.findUnique.mockResolvedValue(null);
@@ -230,7 +230,7 @@ describe("POST /api/registrations", () => {
     expect(await res.json()).toEqual({ error: "Already registered for this event" });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-51] answers 500 when the database fails", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockRejectedValue(new Error("connection lost"));
 
@@ -242,12 +242,12 @@ describe("POST /api/registrations", () => {
 describe("GET /api/registrations", () => {
   const list = (token: string | undefined) => GET(req("GET", "/api/registrations", { token }));
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await list(undefined)).status).toBe(401);
   });
 
   it.each(["organiser", "coordinator", "ops_manager", "venue_staff", "tech_support"])(
-    "is 403 for %s, without reading any registrations",
+    "[SPM-21][AC4] is 403 for %s, without reading any registrations",
     async (role) => {
       const res = await list(signIn(user(role)));
 
@@ -257,7 +257,7 @@ describe("GET /api/registrations", () => {
     }
   );
 
-  it("gives an attendee their own registrations, newest first, with each event's title and time", async () => {
+  it("[SPM-51][AC6] gives an attendee their own registrations, newest first, with each event's title and time", async () => {
     const attendee = user("attendee");
     const token = signIn(attendee);
     db.registration.findMany.mockResolvedValue([
@@ -312,7 +312,7 @@ describe("GET /api/registrations", () => {
     ]);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-51] answers 500 when the database fails", async () => {
     const token = signIn(user("attendee"));
     db.registration.findMany.mockRejectedValue(new Error("connection lost"));
 

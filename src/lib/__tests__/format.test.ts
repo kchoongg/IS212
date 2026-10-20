@@ -23,15 +23,15 @@ const START = "2026-10-03T01:00:00.000Z"; // 09:00 SGT
 const END = "2026-10-03T09:00:00.000Z"; // 17:00 SGT
 
 describe("formatDate", () => {
-  it("renders the agreed format", () => {
+  it("[SPM-7] renders the agreed format", () => {
     expect(formatDate(START)).toBe("3 Oct 2026");
   });
 
-  it("accepts a Date as well as a string", () => {
+  it("[SPM-7] accepts a Date as well as a string", () => {
     expect(formatDate(new Date(START))).toBe("3 Oct 2026");
   });
 
-  it("renders missing and invalid values as an em dash, never blank", () => {
+  it("[SPM-7] renders missing and invalid values as an em dash, never blank", () => {
     expect(formatDate(null)).toBe(EMPTY);
     expect(formatDate(undefined)).toBe(EMPTY);
     expect(formatDate("not a date")).toBe(EMPTY);
@@ -39,24 +39,24 @@ describe("formatDate", () => {
 });
 
 describe("formatTime", () => {
-  it("renders 24-hour Singapore time", () => {
+  it("[SPM-7] renders 24-hour Singapore time", () => {
     expect(formatTime(START)).toBe("09:00");
     expect(formatTime(END)).toBe("17:00");
   });
 });
 
 describe("formatDateTime", () => {
-  it("joins the date and time", () => {
+  it("[SPM-7] joins the date and time", () => {
     expect(formatDateTime(START)).toBe("3 Oct 2026, 09:00");
   });
 });
 
 describe("formatDateTimeRange", () => {
-  it("collapses a same-day range to one date", () => {
+  it("[SPM-7] collapses a same-day range to one date", () => {
     expect(formatDateTimeRange(START, END)).toBe("3 Oct 2026, 09:00–17:00");
   });
 
-  it("keeps both timestamps for a multi-day event", () => {
+  it("[SPM-7] keeps both timestamps for a multi-day event", () => {
     // Multi-day events are common (briefing §4, Multi-Session Events) and
     // collapsing them would hide the end date.
     expect(formatDateTimeRange(START, "2026-10-05T09:00:00.000Z")).toBe(
@@ -64,24 +64,24 @@ describe("formatDateTimeRange", () => {
     );
   });
 
-  it("renders whichever end it has when one is missing", () => {
+  it("[SPM-7] renders whichever end it has when one is missing", () => {
     expect(formatDateTimeRange(START, null)).toBe("3 Oct 2026, 09:00");
     expect(formatDateTimeRange(null, END)).toBe("3 Oct 2026, 17:00");
   });
 
-  it("renders an em dash when it has neither", () => {
+  it("[SPM-7] renders an em dash when it has neither", () => {
     expect(formatDateTimeRange(null, null)).toBe(EMPTY);
   });
 });
 
 describe("formatDuration", () => {
-  it("renders hours and minutes", () => {
+  it("[SPM-7] renders hours and minutes", () => {
     expect(formatDuration(START, END)).toBe("8h");
     expect(formatDuration(START, "2026-10-03T04:30:00.000Z")).toBe("3h 30m");
     expect(formatDuration(START, "2026-10-03T01:45:00.000Z")).toBe("45m");
   });
 
-  it("refuses to render a negative duration", () => {
+  it("[SPM-7] refuses to render a negative duration", () => {
     // Validation catches an end before its start; a screen must not show
     // "-2h" while it does.
     expect(formatDuration(END, START)).toBe(EMPTY);
@@ -90,34 +90,34 @@ describe("formatDuration", () => {
 });
 
 describe("formatCapacity", () => {
-  it("renders used over total", () => {
+  it("[SPM-7] renders used over total", () => {
     expect(formatCapacity(120, 250)).toBe("120 / 250");
     expect(formatCapacity(0, 250)).toBe("0 / 250");
   });
 
-  it("needs both numbers", () => {
+  it("[SPM-7] needs both numbers", () => {
     expect(formatCapacity(null, 250)).toBe(EMPTY);
     expect(formatCapacity(120, null)).toBe(EMPTY);
   });
 });
 
 describe("formatVenue", () => {
-  it("appends the code staff say aloud", () => {
+  it("[SPM-7] appends the code staff say aloud", () => {
     expect(formatVenue("Marina Grand Hall", "MAR-GH")).toBe("Marina Grand Hall (MAR-GH)");
   });
 
-  it("omits an absent code", () => {
+  it("[SPM-7] omits an absent code", () => {
     expect(formatVenue("Marina Grand Hall")).toBe("Marina Grand Hall");
   });
 });
 
 describe("orEmpty", () => {
-  it("passes through real values, including zero", () => {
+  it("[SPM-7] passes through real values, including zero", () => {
     expect(orEmpty("Conference")).toBe("Conference");
     expect(orEmpty(0)).toBe("0");
   });
 
-  it("replaces null, undefined and empty strings", () => {
+  it("[SPM-7] replaces null, undefined and empty strings", () => {
     expect(orEmpty(null)).toBe(EMPTY);
     expect(orEmpty(undefined)).toBe(EMPTY);
     expect(orEmpty("")).toBe(EMPTY);
@@ -125,16 +125,16 @@ describe("orEmpty", () => {
 });
 
 describe("eventReference / parseEventReference", () => {
-  it("formats and parses back the same number", () => {
+  it("[SPM-31] formats and parses back the same number", () => {
     expect(eventReference(123)).toBe("EVT-000123");
     expect(parseEventReference("EVT-000123")).toBe(123);
   });
 
-  it("is case-insensitive and needs no padding to parse", () => {
+  it("[SPM-31] is case-insensitive and needs no padding to parse", () => {
     expect(parseEventReference("evt-42")).toBe(42);
   });
 
-  it("rejects anything that isn't the EVT-<digits> shape, including a raw UUID", () => {
+  it("[SPM-31] rejects anything that isn't the EVT-<digits> shape, including a raw UUID", () => {
     expect(parseEventReference("not-a-reference")).toBeNull();
     expect(parseEventReference("a1b2c3d4-0000-0000-0000-000000000000")).toBeNull();
     expect(parseEventReference("EVT-")).toBeNull();
@@ -144,7 +144,7 @@ describe("eventReference / parseEventReference", () => {
   // FIXED (found in review of PR #21): a reference above Postgres's int4
   // range crashed every route that resolved it, with a 500 instead of the 404
   // an unmatched reference should give.
-  it("rejects a number too large for the database's sequence column, rather than crashing later", () => {
+  it("[SPM-31] rejects a number too large for the database's sequence column, rather than crashing later", () => {
     expect(parseEventReference("EVT-2147483647")).toBe(2_147_483_647); // int4 max: still valid
     expect(parseEventReference("EVT-2147483648")).toBeNull(); // one past int4 max
     expect(parseEventReference("EVT-99999999999")).toBeNull();

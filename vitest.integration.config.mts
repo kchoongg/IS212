@@ -34,6 +34,8 @@ export default defineConfig({
   test: {
     environment: "node",
     include: ["integration/**/*.test.ts"],
+    // Never run archived tests (docs/test-cases/DECOMMISSIONED.md).
+    exclude: ["**/node_modules/**", "tests/archive/**"],
     // src/lib/auth.ts refuses to load without one. Test-only value: the tests
     // sign their own sessions, nobody logs in.
     env: { JWT_SECRET: "integration-test-secret" },

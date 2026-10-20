@@ -46,25 +46,25 @@ function givenUpdateSucceeds(result: Record<string, unknown>) {
 }
 
 describe("PUT /api/events/[id]/coordinator", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await assign(undefined, { coordinatorId: ID.otherUser })).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference, without querying", async () => {
+  it("[SPM-30] is 404 for a malformed reference, without querying", async () => {
     const res = await assign(signIn(opsManager()), { coordinatorId: ID.otherUser }, "nope");
 
     expect(res.status).toBe(404);
     expect(db.event.findUnique).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a reference that matches no event", async () => {
+  it("[SPM-30] is 404 for a reference that matches no event", async () => {
     const token = signIn(opsManager());
     db.event.findUnique.mockResolvedValue(null);
 
     expect((await assign(token, { coordinatorId: ID.otherUser })).status).toBe(404);
   });
 
-  it("is 404 for a draft, which even the Ops Manager cannot see", async () => {
+  it("[SPM-30] is 404 for a draft, which even the Ops Manager cannot see", async () => {
     const token = signIn(opsManager(), daniel());
     db.event.findUnique.mockResolvedValue(unassigned({ status: "draft" }));
 
@@ -74,7 +74,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     expect(db.event.update).not.toHaveBeenCalled();
   });
 
-  it.each(["coordinator", "venue_staff", "tech_support"])("is 403 for %s", async (role) => {
+  it.each(["coordinator", "venue_staff", "tech_support"])("[SPM-30][AC1] is 403 for %s", async (role) => {
     const token = signIn(user(role, { id: ID.user }), daniel());
     db.event.findUnique.mockResolvedValue(unassigned());
 
@@ -85,7 +85,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     expect(db.event.update).not.toHaveBeenCalled();
   });
 
-  it("is 403 for the organiser who raised the event", async () => {
+  it("[SPM-30][AC1] is 403 for the organiser who raised the event", async () => {
     const token = signIn(user("organiser", { id: "organiser-id" }), daniel());
     db.event.findUnique.mockResolvedValue(unassigned());
 
@@ -93,7 +93,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
   });
 
   describe("first assignment", () => {
-    it("assigns the coordinator and moves the event to under review", async () => {
+    it("[SPM-30][AC1][AC3] assigns the coordinator and moves the event to under review", async () => {
       const token = signIn(opsManager(), daniel());
       db.event.findUnique.mockResolvedValue(unassigned());
       givenUpdateSucceeds({ status: "under_review", coordinator: { id: ID.otherUser, fullName: "Daniel Tan" } });
@@ -110,7 +110,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       expect(callArg(db.event.update).data).toEqual({ coordinatorId: ID.otherUser, status: "under_review" });
     });
 
-    it("only writes if the event is still unassigned and submitted, so two Ops Managers cannot overwrite each other", async () => {
+    it("[SPM-30][AC1] only writes if the event is still unassigned and submitted, so two Ops Managers cannot overwrite each other", async () => {
       const token = signIn(opsManager(), daniel());
       db.event.findUnique.mockResolvedValue(unassigned());
       givenUpdateSucceeds({});
@@ -120,7 +120,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       expect(callArg(db.event.update).where).toEqual({ id: ID.event, coordinatorId: null, status: "submitted" });
     });
 
-    it("records the status move in the history, naming the coordinator", async () => {
+    it("[SPM-30][AC3] records the status move in the history, naming the coordinator", async () => {
       const token = signIn(opsManager(), daniel());
       db.event.findUnique.mockResolvedValue(unassigned());
       givenUpdateSucceeds({});
@@ -136,7 +136,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       });
     });
 
-    it("notifies the new coordinator, and nobody else", async () => {
+    it("[SPM-53][AC6] notifies the new coordinator, and nobody else", async () => {
       const token = signIn(opsManager(), daniel());
       db.event.findUnique.mockResolvedValue(unassigned());
       givenUpdateSucceeds({});
@@ -153,7 +153,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       });
     });
 
-    it("names an event with no title as 'Untitled event' in the notification", async () => {
+    it("[SPM-53][AC6] names an event with no title as 'Untitled event' in the notification", async () => {
       const token = signIn(opsManager(), daniel());
       db.event.findUnique.mockResolvedValue(unassigned({ title: null }));
       givenUpdateSucceeds({});
@@ -164,7 +164,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     });
 
     it.each(["under_review", "approved", "planning", "confirmed", "completed", "cancelled", "rejected"])(
-      "refuses an unassigned event that is %s rather than submitted",
+      "[SPM-30][AC1] refuses an unassigned event that is %s rather than submitted",
       async (status) => {
         const token = signIn(opsManager(), daniel());
         db.event.findUnique.mockResolvedValue(unassigned({ status }));
@@ -179,7 +179,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
   });
 
   describe("reassignment", () => {
-    it("hands a live event to another coordinator without changing its status", async () => {
+    it("[SPM-30][AC6] hands a live event to another coordinator without changing its status", async () => {
       const token = signIn(opsManager(), daniel(), priya());
       db.event.findUnique.mockResolvedValue(assignedToDaniel());
       givenUpdateSucceeds({ status: "planning", coordinator: { id: ID.thirdUser, fullName: "Priya Raj" } });
@@ -200,7 +200,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
     });
 
-    it("notifies the new coordinator and the one who was replaced", async () => {
+    it("[SPM-53][AC7] notifies the new coordinator and the one who was replaced", async () => {
       const token = signIn(opsManager(), daniel(), priya());
       db.event.findUnique.mockResolvedValue(assignedToDaniel());
       givenUpdateSucceeds({});
@@ -222,7 +222,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     });
 
     it.each(["under_review", "approved", "planning", "confirmed", "postponed"])(
-      "is allowed while the event is %s",
+      "[SPM-30][AC6] is allowed while the event is %s",
       async (status) => {
         const token = signIn(opsManager(), daniel(), priya());
         db.event.findUnique.mockResolvedValue(assignedToDaniel({ status }));
@@ -236,7 +236,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       ["completed", "Completed"],
       ["cancelled", "Cancelled"],
       ["rejected", "Rejected"],
-    ])("is refused once the event is %s", async (status, label) => {
+    ])("[SPM-30][AC6] is refused once the event is %s", async (status, label) => {
       const token = signIn(opsManager(), daniel(), priya());
       db.event.findUnique.mockResolvedValue(assignedToDaniel({ status }));
 
@@ -248,7 +248,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       });
     });
 
-    it("refuses reassigning to the coordinator who already has it", async () => {
+    it("[SPM-30][AC6] refuses reassigning to the coordinator who already has it", async () => {
       const token = signIn(opsManager(), daniel());
       db.event.findUnique.mockResolvedValue(assignedToDaniel());
 
@@ -260,7 +260,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     });
   });
 
-  it("still refuses a no-op reassignment when the current coordinator's name cannot be read", async () => {
+  it("[SPM-30][AC6] still refuses a no-op reassignment when the current coordinator's name cannot be read", async () => {
     const token = signIn(opsManager(), daniel());
     db.event.findUnique.mockResolvedValue(assignedToDaniel({ coordinator: null }));
 
@@ -276,7 +276,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       details: { fieldErrors: { coordinatorId: ["Choose an active Event Coordinator."] } },
     };
 
-    it("refuses an id that belongs to nobody", async () => {
+    it("[SPM-30][AC1] refuses an id that belongs to nobody", async () => {
       const token = signIn(opsManager());
       db.event.findUnique.mockResolvedValue(unassigned());
 
@@ -287,7 +287,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     });
 
     it.each(["organiser", "ops_manager", "venue_staff", "tech_support", "attendee"])(
-      "refuses a %s - only an Event Coordinator can be assigned",
+      "[SPM-30][AC1] refuses a %s - only an Event Coordinator can be assigned",
       async (role) => {
         const token = signIn(opsManager(), user(role, { id: ID.otherUser }));
         db.event.findUnique.mockResolvedValue(unassigned());
@@ -300,7 +300,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       }
     );
 
-    it("refuses a deactivated coordinator", async () => {
+    it("[SPM-30][AC1] refuses a deactivated coordinator", async () => {
       const token = signIn(opsManager(), { ...daniel(), isActive: false });
       db.event.findUnique.mockResolvedValue(unassigned());
 
@@ -310,7 +310,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
       expect(await res.json()).toEqual(refusal);
     });
 
-    it.each([{}, { coordinatorId: "" }, { coordinatorId: "daniel" }])("rejects the body %j", async (body) => {
+    it.each([{}, { coordinatorId: "" }, { coordinatorId: "daniel" }])("[SPM-30][AC1] rejects the body %j", async (body) => {
       const token = signIn(opsManager());
       db.event.findUnique.mockResolvedValue(unassigned());
 
@@ -323,7 +323,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     });
   });
 
-  it("is 409 when someone else changed the coordinator in the meantime", async () => {
+  it("[SPM-30][AC1] is 409 when someone else changed the coordinator in the meantime", async () => {
     const token = signIn(opsManager(), daniel());
     db.event.findUnique.mockResolvedValue(unassigned());
     db.event.update.mockRejectedValue(
@@ -336,7 +336,7 @@ describe("PUT /api/events/[id]/coordinator", () => {
     expect((await res.json()).error).toMatch(/Someone else changed this event's coordinator/);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-30] answers 500 when the database fails", async () => {
     const token = signIn(opsManager(), daniel());
     db.event.findUnique.mockRejectedValue(new Error("connection lost"));
 

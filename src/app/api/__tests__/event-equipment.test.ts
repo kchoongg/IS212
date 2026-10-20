@@ -39,15 +39,15 @@ describe("GET /api/events/[id]/equipment", () => {
     return GET(req("GET", `/api/events/${reference}/equipment`, { token }), params({ id: reference }));
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await list()).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference", async () => {
+  it("[SPM-47] is 404 for a malformed reference", async () => {
     expect((await list(signIn(user("tech_support")), "nope")).status).toBe(404);
   });
 
-  it("is 404 for an event the user cannot see", async () => {
+  it("[SPM-47] is 404 for an event the user cannot see", async () => {
     const token = signIn(user("tech_support"));
     db.event.findUnique.mockResolvedValue(event({ status: "draft" }));
 
@@ -58,7 +58,7 @@ describe("GET /api/events/[id]/equipment", () => {
     ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
     ["the assigned coordinator", assignedCoordinator],
     ["the organiser who owns the event", owner],
-  ])("lists the event's equipment requests for %s", async (_who, actor) => {
+  ])("[SPM-47][AC6] lists the event's equipment requests for %s", async (_who, actor) => {
     const token = signIn(actor());
     const rows = [{ id: ID.request, quantityRequested: 4, equipment: { id: ID.equipment, name: "Projector" } }];
     db.event.findUnique.mockResolvedValue(event());
@@ -76,7 +76,7 @@ describe("GET /api/events/[id]/equipment", () => {
     ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
     ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
     ["a colleague of the organiser", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
-  ])("is 403 for %s, who can see the event but not its equipment", async (_who, actor) => {
+  ])("[SPM-21][AC4] is 403 for %s, who can see the event but not its equipment", async (_who, actor) => {
     const token = signIn(actor());
     db.event.findUnique.mockResolvedValue(event());
 
@@ -86,7 +86,7 @@ describe("GET /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
   });
 
-  it("still shows Technical Support the equipment of a confirmed event, to prepare it", async () => {
+  it("[SPM-47][AC6] still shows Technical Support the equipment of a confirmed event, to prepare it", async () => {
     const token = signIn(user("tech_support", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
     db.equipmentRequest.findMany.mockResolvedValue([]);
@@ -95,7 +95,7 @@ describe("GET /api/events/[id]/equipment", () => {
   });
 
   it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "completed"])(
-    "is 403 for Technical Support while the event is %s - their part starts with planning",
+    "[SPM-47][AC6] is 403 for Technical Support while the event is %s - their part starts with planning",
     async (status) => {
       const token = signIn(user("tech_support", { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event({ status }));
@@ -123,11 +123,11 @@ describe("POST /api/events/[id]/equipment", () => {
     return token;
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await add(undefined, valid)).status).toBe(401);
   });
 
-  it("is 404 for an event the user cannot see", async () => {
+  it("[SPM-47] is 404 for an event the user cannot see", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(event({ status: "draft" }));
 
@@ -138,7 +138,7 @@ describe("POST /api/events/[id]/equipment", () => {
     ["a coordinator who is not assigned", otherCoordinator],
     ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
     ["the organiser who owns the event", owner],
-  ])("is 403 for %s", async (_who, actor) => {
+  ])("[SPM-21][AC4] is 403 for %s", async (_who, actor) => {
     const token = signIn(actor());
     db.event.findUnique.mockResolvedValue(event());
 
@@ -148,7 +148,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
-  it("records the requirement for two hours either side of the event", async () => {
+  it("[SPM-47][AC5] [SPM-48][AC6] records the requirement for two hours either side of the event", async () => {
     const token = givenAssignedCoordinator();
 
     const res = await add(token, valid);
@@ -171,7 +171,7 @@ describe("POST /api/events/[id]/equipment", () => {
     ["a quantity of zero", { ...valid, quantityRequested: 0 }, "quantityRequested"],
     ["a fractional quantity", { ...valid, quantityRequested: 1.5 }, "quantityRequested"],
     ["an equipment id that is not a UUID", { ...valid, equipmentId: "projector" }, "equipmentId"],
-  ])("rejects %s", async (_case, body, field) => {
+  ])("[SPM-47][AC2] rejects %s", async (_case, body, field) => {
     const token = givenAssignedCoordinator();
 
     const res = await add(token, body);
@@ -182,7 +182,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
-  it.each(["completed", "cancelled", "rejected", "withdrawn"])("refuses an event that is %s", async (status) => {
+  it.each(["completed", "cancelled", "rejected", "withdrawn"])("[SPM-47][AC7] refuses an event that is %s", async (status) => {
     const token = givenAssignedCoordinator({ status });
 
     const res = await add(token, valid);
@@ -192,7 +192,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
-  it.each(["submitted", "under_review"])("refuses an event that is still %s - arrangements wait for approval", async (status) => {
+  it.each(["submitted", "under_review"])("[SPM-47][AC7] refuses an event that is still %s - arrangements wait for approval", async (status) => {
     const token = givenAssignedCoordinator({ status });
 
     const res = await add(token, valid);
@@ -202,7 +202,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
-  it("begins planning when it is the first arrangement on an approved event", async () => {
+  it("[SPM-54][AC1] begins planning when it is the first arrangement on an approved event", async () => {
     const token = givenAssignedCoordinator({ status: "approved" });
     db.event.updateMany.mockResolvedValue({ count: 1 });
 
@@ -222,7 +222,7 @@ describe("POST /api/events/[id]/equipment", () => {
     });
   });
 
-  it("leaves the status alone on an event already in planning", async () => {
+  it("[SPM-54][AC1] leaves the status alone on an event already in planning", async () => {
     const token = givenAssignedCoordinator();
 
     const res = await add(token, valid);
@@ -236,7 +236,7 @@ describe("POST /api/events/[id]/equipment", () => {
   // changing them on a Confirmed event moves it back to Planning to be
   // confirmed again, in the same transaction as the change. Telling the
   // organiser is Receive Event Notifications (SPM-53), not this route.
-  it("moves a Confirmed event back to Planning", async () => {
+  it("[SPM-62][AC6] moves a Confirmed event back to Planning", async () => {
     const token = givenAssignedCoordinator({ status: "confirmed", title: "Sundara Hospitality Showcase" });
     db.event.updateMany.mockResolvedValue({ count: 1 });
 
@@ -259,7 +259,7 @@ describe("POST /api/events/[id]/equipment", () => {
     });
   });
 
-  it("does not move it twice when another change got there first", async () => {
+  it("[SPM-62][AC6] does not move it twice when another change got there first", async () => {
     const token = givenAssignedCoordinator({ status: "confirmed" });
     db.event.updateMany.mockResolvedValue({ count: 0 });
 
@@ -269,7 +269,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
   });
 
-  it("says nothing was unconfirmed for an event in Planning", async () => {
+  it("[SPM-62][AC6] says nothing was unconfirmed for an event in Planning", async () => {
     const token = givenAssignedCoordinator();
 
     const body = await (await add(token, valid)).json();
@@ -280,7 +280,7 @@ describe("POST /api/events/[id]/equipment", () => {
   // SPM-88 (AC5, AC6): equipment is a significant change - it closes the
   // safety check the event rests on and returns it to Planning.
   it.each(["safety_review", "safety_cleared"])(
-    "SPM-88-TC10: moves a %s event back to Planning and closes its safety check",
+    "[SPM-88][AC5][AC6] SPM-88-TC10: moves a %s event back to Planning and closes its safety check",
     async (status) => {
       const token = givenAssignedCoordinator({ status });
       db.event.updateMany.mockResolvedValue({ count: 1 });
@@ -299,7 +299,7 @@ describe("POST /api/events/[id]/equipment", () => {
     }
   );
 
-  it("SPM-88: closes the approval of a Confirmed event it moves back to Planning", async () => {
+  it("[SPM-88][AC5] SPM-88: closes the approval of a Confirmed event it moves back to Planning", async () => {
     const token = givenAssignedCoordinator({ status: "confirmed" });
     db.event.updateMany.mockResolvedValue({ count: 1 });
     db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
@@ -310,7 +310,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(callArg(db.safetyCheck.updateMany).where).toEqual({ eventId: ID.event, status: { in: ["pending", "approved"] } });
   });
 
-  it("leaves the safety check of a Planning event alone", async () => {
+  it("[SPM-88][AC7] leaves the safety check of a Planning event alone", async () => {
     const token = givenAssignedCoordinator();
 
     const body = await (await add(token, valid)).json();
@@ -319,7 +319,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
   });
 
-  it("scopes the requirement to one of the event's own sessions", async () => {
+  it("[SPM-47][AC4] scopes the requirement to one of the event's own sessions", async () => {
     const token = givenAssignedCoordinator();
     db.eventSession.findUnique.mockResolvedValue({ id: ID.session, eventId: ID.event });
 
@@ -332,7 +332,7 @@ describe("POST /api/events/[id]/equipment", () => {
   it.each([
     ["does not exist", null],
     ["belongs to a different event", { id: ID.session, eventId: "another-event" }],
-  ])("refuses a session that %s", async (_case, session) => {
+  ])("[SPM-47][AC4] refuses a session that %s", async (_case, session) => {
     const token = givenAssignedCoordinator();
     db.eventSession.findUnique.mockResolvedValue(session);
 
@@ -343,7 +343,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
-  it("refuses equipment that has been retired", async () => {
+  it("[SPM-47][AC1] refuses equipment that has been retired", async () => {
     const token = givenAssignedCoordinator();
     db.equipment.findUnique.mockResolvedValue({ isActive: false });
 
@@ -353,7 +353,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(await res.json()).toEqual({ error: "This equipment has been retired and can no longer be requested" });
   });
 
-  it("refuses an event that has no dates yet", async () => {
+  it("[SPM-47][AC7] refuses an event that has no dates yet", async () => {
     const token = givenAssignedCoordinator({ startsAt: null, endsAt: null });
 
     const res = await add(token, valid);
@@ -362,7 +362,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(await res.json()).toEqual({ error: "Set the event date and time before requesting equipment" });
   });
 
-  it("reports an item that is already requested for the event", async () => {
+  it("[SPM-47][AC1] reports an item that is already requested for the event", async () => {
     const token = givenAssignedCoordinator();
     db.equipmentRequest.create.mockRejectedValue(new Error("Unique constraint failed on the fields"));
 
@@ -372,7 +372,7 @@ describe("POST /api/events/[id]/equipment", () => {
     expect((await res.json()).error).toMatch(/already requested for this event/);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-47] answers 500 when the database fails", async () => {
     const token = givenAssignedCoordinator();
     db.equipmentRequest.create.mockRejectedValue(new Error("connection lost"));
 
@@ -408,15 +408,15 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     ["PATCH", (token: string | undefined, reference?: string) => update(token, { quantityRequested: 6 }, reference)],
     ["DELETE", (token: string | undefined, reference?: string) => remove(token, reference)],
   ])("%s refusals", (_method, call) => {
-    it("is 401 without a session", async () => {
+    it("[SPM-21][AC4] is 401 without a session", async () => {
       expect((await call(undefined)).status).toBe(401);
     });
 
-    it("is 404 for a malformed event reference", async () => {
+    it("[SPM-47] is 404 for a malformed event reference", async () => {
       expect((await call(signIn(assignedCoordinator()), "nope")).status).toBe(404);
     });
 
-    it("is 404 when the event does not exist", async () => {
+    it("[SPM-47] is 404 when the event does not exist", async () => {
       const token = signIn(assignedCoordinator());
       db.event.findUnique.mockResolvedValue(null);
 
@@ -424,17 +424,17 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       expect(db.equipmentRequest.findUnique).not.toHaveBeenCalled();
     });
 
-    it("is 404 when the request does not exist", async () => {
+    it("[SPM-47] is 404 when the request does not exist", async () => {
       expect((await call(givenRequest(assignedCoordinator(), null))).status).toBe(404);
     });
 
-    it("is 404 when the request belongs to a different event than the URL names", async () => {
+    it("[SPM-47] is 404 when the request belongs to a different event than the URL names", async () => {
       const token = givenRequest(assignedCoordinator(), requestRow({}, { eventId: "another-event" }));
 
       expect((await call(token)).status).toBe(404);
     });
 
-    it("is 404 for an event the user cannot see", async () => {
+    it("[SPM-47] is 404 for an event the user cannot see", async () => {
       const token = givenRequest(user("organiser", { id: ID.thirdUser, organisationId: ID.otherOrg }));
 
       expect((await call(token)).status).toBe(404);
@@ -444,7 +444,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       ["a coordinator who is not assigned", otherCoordinator],
       ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
       ["the organiser who owns the event", owner],
-    ])("is 403 for %s", async (_who, actor) => {
+    ])("[SPM-21][AC4] is 403 for %s", async (_who, actor) => {
       const res = await call(givenRequest(actor()));
 
       expect(res.status).toBe(403);
@@ -452,7 +452,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
     });
 
-    it.each(["completed", "cancelled", "rejected", "withdrawn"])("is refused once the event is %s", async (status) => {
+    it.each(["completed", "cancelled", "rejected", "withdrawn"])("[SPM-47][AC7] is refused once the event is %s", async (status) => {
       const res = await call(givenRequest(assignedCoordinator(), requestRow({ status })));
 
       expect(res.status).toBe(400);
@@ -463,7 +463,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
     });
 
-    it.each(["submitted", "under_review"])("is refused while the event is still %s", async (status) => {
+    it.each(["submitted", "under_review"])("[SPM-47][AC7] is refused while the event is still %s", async (status) => {
       const res = await call(givenRequest(assignedCoordinator(), requestRow({ status })));
 
       expect(res.status).toBe(400);
@@ -477,7 +477,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     ["PATCH", "Equipment requirement updated", (token: string) => update(token, { quantityRequested: 6 })],
     ["DELETE", "Equipment requirement removed", (token: string) => remove(token)],
   ])("%s and planning", (_method, reason, call) => {
-    it("begins planning on an approved event, in the same transaction as the change", async () => {
+    it("[SPM-54][AC1] begins planning on an approved event, in the same transaction as the change", async () => {
       const token = givenRequest(assignedCoordinator(), requestRow({ status: "approved" }));
       db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
       db.event.updateMany.mockResolvedValue({ count: 1 });
@@ -490,7 +490,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       expect(callArg(db.eventStatusHistory.create).data).toMatchObject({ toStatus: "planning", reason });
     });
 
-    it("leaves the status alone on an event already in planning", async () => {
+    it("[SPM-54][AC1] leaves the status alone on an event already in planning", async () => {
       const token = givenRequest();
       db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
 
@@ -500,7 +500,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       expect(db.event.updateMany).not.toHaveBeenCalled();
     });
 
-    it("moves a Confirmed event back to Planning (SPM-62)", async () => {
+    it("[SPM-62][AC6] moves a Confirmed event back to Planning (SPM-62)", async () => {
       const token = givenRequest(assignedCoordinator(), requestRow({ status: "confirmed", title: "Sundara Hospitality Showcase" }));
       db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
       db.event.updateMany.mockResolvedValue({ count: 1 });
@@ -527,7 +527,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     ["DELETE", (token: string) => remove(token)],
   ])("%s and the safety check (SPM-88)", (_method, call) => {
     it.each(["safety_review", "safety_cleared"])(
-      "SPM-88-TC10: moves a %s event back to Planning and closes its check",
+      "[SPM-88][AC5][AC6] SPM-88-TC10: moves a %s event back to Planning and closes its check",
       async (status) => {
         const token = givenRequest(assignedCoordinator(), requestRow({ status }));
         db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
@@ -543,7 +543,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
       }
     );
 
-    it("closes the approval of a Confirmed event it moves back to Planning", async () => {
+    it("[SPM-88][AC5] closes the approval of a Confirmed event it moves back to Planning", async () => {
       const token = givenRequest(assignedCoordinator(), requestRow({ status: "confirmed" }));
       db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
       db.event.updateMany.mockResolvedValue({ count: 1 });
@@ -553,7 +553,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     });
   });
 
-  it("PATCH changes the quantity and technical requirements, and nothing else", async () => {
+  it("[SPM-47][AC7] PATCH changes the quantity and technical requirements, and nothing else", async () => {
     const token = givenRequest();
     db.equipmentRequest.update.mockResolvedValue({ id: ID.request, quantityRequested: 6 });
 
@@ -571,7 +571,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     });
   });
 
-  it("PATCH rejects a body with nothing to update", async () => {
+  it("[SPM-47][AC7] PATCH rejects a body with nothing to update", async () => {
     const token = givenRequest();
 
     const res = await update(token, {});
@@ -580,20 +580,20 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     expect((await res.json()).details.formErrors).toEqual(["Nothing to update"]);
   });
 
-  it("PATCH rejects a quantity of zero", async () => {
+  it("[SPM-47][AC7] PATCH rejects a quantity of zero", async () => {
     const res = await update(givenRequest(), { quantityRequested: 0 });
 
     expect(res.status).toBe(400);
   });
 
-  it("PATCH answers 500 when the database fails", async () => {
+  it("[SPM-47] PATCH answers 500 when the database fails", async () => {
     const token = givenRequest();
     db.equipmentRequest.update.mockRejectedValue(new Error("connection lost"));
 
     expect((await update(token, { quantityRequested: 6 })).status).toBe(500);
   });
 
-  it("DELETE removes the request and says whether planning began", async () => {
+  it("[SPM-47][AC7] DELETE removes the request and says whether planning began", async () => {
     const token = givenRequest();
 
     const res = await remove(token);

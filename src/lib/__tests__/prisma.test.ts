@@ -17,7 +17,7 @@ async function load() {
 }
 
 describe("the shared Prisma client", () => {
-  it("is created once and kept on global outside production", async () => {
+  it("[SPM-8] is created once and kept on global outside production", async () => {
     const prisma = await load();
 
     // A real client, not undefined or a stand-in: it has the query API.
@@ -26,14 +26,14 @@ describe("the shared Prisma client", () => {
     expect(await load()).toBe(prisma);
   });
 
-  it("reuses a client already kept on global", async () => {
+  it("[SPM-8] reuses a client already kept on global", async () => {
     const existing = { kept: true };
     stash.prisma = existing;
 
     expect(await load()).toBe(existing);
   });
 
-  it("is not kept on global in production", async () => {
+  it("[SPM-8] is not kept on global in production", async () => {
     vi.stubEnv("NODE_ENV", "production");
 
     const prisma = await load();

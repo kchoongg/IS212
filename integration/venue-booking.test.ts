@@ -51,7 +51,7 @@ async function entriesOn(day: string) {
 
 describe("venue booking on a real database", () => {
   it(
-    "SPM-44 AC4, AC5, AC9 (SPM-44-TC04, conflict): of two requests for the same venue at overlapping times sent at the same moment, " +
+    "[SPM-44][AC4][AC5][AC9] (SPM-44-TC04, conflict): of two requests for the same venue at overlapping times sent at the same moment, " +
       "exactly one is accepted and the other is refused, naming the request in its way",
     async () => {
       const morning = await createEvent(world, { title: "Integration Morning Forum", day: DAY, start: "10:00", end: "12:00" });
@@ -78,7 +78,7 @@ describe("venue booking on a real database", () => {
   );
 
   it(
-    "SPM-43 AC3, AC7 (SPM-43-TC03, normal): a booking request approved by Venue Staff becomes a confirmed booking - " +
+    "[SPM-43][AC3][AC7] (SPM-43-TC03, normal): a booking request approved by Venue Staff becomes a confirmed booking - " +
       "the calendar shows the room booked for those times, and another event cannot then be booked into them",
     async () => {
       const forum = await createEvent(world, { title: "Integration Approved Forum", day: DAY, start: "10:00", end: "12:00" });
@@ -141,7 +141,7 @@ describe("venue booking on a real database", () => {
       return { lapsed, hold };
     }
 
-    it("SPM-82 AC4, AC6 (SPM-82-TC10, boundary): frees its time, so another event's request for it is accepted", async () => {
+    it("[SPM-82][AC4][AC6] (SPM-82-TC10, boundary): frees its time, so another event's request for it is accepted", async () => {
       const { hold } = await lapsedHold();
       const next = await createEvent(world, { title: "Integration Next Forum", day: DAY, start: "10:00", end: "12:00" });
 
@@ -153,7 +153,7 @@ describe("venue booking on a real database", () => {
       });
     });
 
-    it("SPM-82 AC5 (failure): cannot be approved by Venue Staff", async () => {
+    it("[SPM-82][AC5] (failure): cannot be approved by Venue Staff", async () => {
       const { hold } = await lapsedHold();
 
       const res = await decideBooking(

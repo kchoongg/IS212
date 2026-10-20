@@ -13,18 +13,18 @@ afterEach(() => {
 });
 
 describe("GET /api/venues", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await list(req("GET", "/api/venues"))).status).toBe(401);
   });
 
-  it.each(["organiser", "attendee", "tech_support"])("is 403 for %s", async (role) => {
+  it.each(["organiser", "attendee", "tech_support"])("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await list(req("GET", "/api/venues", { token: signIn(user(role)) }));
 
     expect(res.status).toBe(403);
     expect(db.venue.findMany).not.toHaveBeenCalled();
   });
 
-  it.each(["coordinator", "ops_manager", "venue_staff"])("lists only active venues for %s", async (role) => {
+  it.each(["coordinator", "ops_manager", "venue_staff"])("[SPM-39][AC6] lists only active venues for %s", async (role) => {
     const token = signIn(user(role));
     const venues = [{ id: ID.venue, name: "Hall A", layouts: [], facilities: [] }];
     db.venue.findMany.mockResolvedValue(venues);
@@ -36,7 +36,7 @@ describe("GET /api/venues", () => {
     expect(callArg(db.venue.findMany).where).toEqual({ isActive: true });
   });
 
-  it("includes retired venues when asked", async () => {
+  it("[SPM-39][AC6] includes retired venues when asked", async () => {
     const token = signIn(user("venue_staff"));
     db.venue.findMany.mockResolvedValue([]);
 
@@ -49,18 +49,18 @@ describe("GET /api/venues", () => {
 describe("POST /api/venues", () => {
   const valid = { code: "HALL-A", name: "Hall A", building: "Tower 1", maxCapacity: 300 };
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await create(req("POST", "/api/venues", { body: valid }))).status).toBe(401);
   });
 
-  it.each(["organiser", "coordinator", "ops_manager", "tech_support", "attendee"])("is 403 for %s", async (role) => {
+  it.each(["organiser", "coordinator", "ops_manager", "tech_support", "attendee"])("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await create(req("POST", "/api/venues", { token: signIn(user(role)), body: valid }));
 
     expect(res.status).toBe(403);
     expect(db.venue.create).not.toHaveBeenCalled();
   });
 
-  it("lets Venue Staff add a venue with its layouts and facilities", async () => {
+  it("[SPM-39][AC1] lets Venue Staff add a venue with its layouts and facilities", async () => {
     const token = signIn(user("venue_staff"));
     db.venue.findUnique.mockResolvedValue(null);
     db.venue.create.mockResolvedValue({ id: ID.venue, ...valid });
@@ -79,7 +79,7 @@ describe("POST /api/venues", () => {
     });
   });
 
-  it("creates no relation rows when none are given", async () => {
+  it("[SPM-39][AC1] creates no relation rows when none are given", async () => {
     const token = signIn(user("venue_staff"));
     db.venue.findUnique.mockResolvedValue(null);
     db.venue.create.mockResolvedValue({ id: ID.venue });
@@ -89,7 +89,7 @@ describe("POST /api/venues", () => {
     expect(callArg(db.venue.create).data).toEqual({ ...valid, layouts: undefined, facilities: undefined });
   });
 
-  it("refuses a code that is already in use", async () => {
+  it("[SPM-39][AC1] refuses a code that is already in use", async () => {
     const token = signIn(user("venue_staff"));
     db.venue.findUnique.mockResolvedValue({ id: "existing" });
 
@@ -106,7 +106,7 @@ describe("POST /api/venues", () => {
     ["a capacity of zero", { ...valid, maxCapacity: 0 }, "maxCapacity"],
     ["an opening time that is not HH:MM", { ...valid, opensAt: "9am" }, "opensAt"],
     ["a code longer than 20 characters", { ...valid, code: "X".repeat(21) }, "code"],
-  ])("rejects %s", async (_case, body, field) => {
+  ])("[SPM-39][AC1] rejects %s", async (_case, body, field) => {
     const token = signIn(user("venue_staff"));
 
     const res = await create(req("POST", "/api/venues", { token, body }));
@@ -116,7 +116,7 @@ describe("POST /api/venues", () => {
     expect(json.details.fieldErrors).toHaveProperty(field);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-39] answers 500 when the database fails", async () => {
     const token = signIn(user("venue_staff"));
     db.venue.findUnique.mockRejectedValue(new Error("connection lost"));
 
@@ -127,15 +127,15 @@ describe("POST /api/venues", () => {
 describe("GET /api/venues/[id]", () => {
   const get = (token?: string) => getOne(req("GET", `/api/venues/${ID.venue}`, { token }), params({ id: ID.venue }));
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
 
-  it.each(["organiser", "attendee", "tech_support"])("is 403 for %s", async (role) => {
+  it.each(["organiser", "attendee", "tech_support"])("[SPM-21][AC4] is 403 for %s", async (role) => {
     expect((await get(signIn(user(role)))).status).toBe(403);
   });
 
-  it("returns the venue with its layouts and facilities", async () => {
+  it("[SPM-39][AC2][AC3] returns the venue with its layouts and facilities", async () => {
     const token = signIn(user("coordinator"));
     const venue = { id: ID.venue, name: "Hall A", layouts: [{ layoutName: "theatre", capacity: 300 }], facilities: [] };
     db.venue.findUnique.mockResolvedValue(venue);
@@ -147,7 +147,7 @@ describe("GET /api/venues/[id]", () => {
     expect(callArg(db.venue.findUnique).where).toEqual({ id: ID.venue });
   });
 
-  it("is 404 for a venue that does not exist", async () => {
+  it("[SPM-39] is 404 for a venue that does not exist", async () => {
     const token = signIn(user("coordinator"));
     db.venue.findUnique.mockResolvedValue(null);
 
@@ -215,18 +215,18 @@ describe("PATCH /api/venues/[id]", () => {
     return PATCH(req("PATCH", `/api/venues/${ID.venue}`, { token, body }), params({ id: ID.venue }));
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await patch(undefined, { name: "Hall B" })).status).toBe(401);
   });
 
-  it.each(["organiser", "coordinator", "ops_manager", "tech_support", "attendee"])("is 403 for %s", async (role) => {
+  it.each(["organiser", "coordinator", "ops_manager", "tech_support", "attendee"])("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await patch(signIn(user(role)), { name: "Hall B" });
 
     expect(res.status).toBe(403);
     expect(db.venue.update).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a venue that does not exist", async () => {
+  it("[SPM-39] is 404 for a venue that does not exist", async () => {
     const res = await patch(given(null), { name: "Hall B" });
 
     expect(res.status).toBe(404);
@@ -234,14 +234,14 @@ describe("PATCH /api/venues/[id]", () => {
     expect(db.venue.update).not.toHaveBeenCalled();
   });
 
-  it("rejects an empty body", async () => {
+  it("[SPM-39][AC5] rejects an empty body", async () => {
     const res = await patch(given(venue()), {});
 
     expect(res.status).toBe(400);
     expect((await res.json()).details.formErrors).toEqual(["Provide at least one field to change"]);
   });
 
-  it("rejects the same layout listed twice", async () => {
+  it("[SPM-39][AC5] rejects the same layout listed twice", async () => {
     const layout = { layoutName: "theatre", capacity: 100 };
 
     const res = await patch(given(venue()), { layouts: [layout, layout] });
@@ -250,7 +250,7 @@ describe("PATCH /api/venues/[id]", () => {
     expect((await res.json()).details.fieldErrors.layouts).toEqual(["Each layout may appear only once"]);
   });
 
-  it("changes only the fields that were sent and reports nothing flagged", async () => {
+  it("[SPM-39][AC5] changes only the fields that were sent and reports nothing flagged", async () => {
     const token = given(venue());
 
     const res = await patch(token, { name: "Grand Hall" });
@@ -267,7 +267,7 @@ describe("PATCH /api/venues/[id]", () => {
     expect(db.venueFacility.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("refuses a new code that another venue already uses", async () => {
+  it("[SPM-39][AC5] refuses a new code that another venue already uses", async () => {
     const token = given(venue());
     db.venue.findUnique.mockImplementation(async ({ where }: { where: { id?: string; code?: string } }) =>
       where.code === "HALL-B" ? { id: "another-venue" } : venue()
@@ -280,7 +280,7 @@ describe("PATCH /api/venues/[id]", () => {
     expect(db.venue.update).not.toHaveBeenCalled();
   });
 
-  it("accepts a new code that no other venue uses", async () => {
+  it("[SPM-39][AC5] accepts a new code that no other venue uses", async () => {
     const token = given(venue());
 
     const res = await patch(token, { code: "HALL-Z" });
@@ -290,7 +290,7 @@ describe("PATCH /api/venues/[id]", () => {
     expect(callArg(db.venue.update).data.code).toBe("HALL-Z");
   });
 
-  it("does not look for a clash when the code is unchanged", async () => {
+  it("[SPM-39][AC5] does not look for a clash when the code is unchanged", async () => {
     const token = given(venue());
 
     const res = await patch(token, { code: "HALL-A", name: "Grand Hall" });
@@ -300,7 +300,7 @@ describe("PATCH /api/venues/[id]", () => {
     expect(db.venue.findUnique).toHaveBeenCalledOnce();
   });
 
-  it("only considers approved bookings that have not finished yet", async () => {
+  it("[SPM-39][AC7] only considers approved bookings that have not finished yet", async () => {
     vi.useFakeTimers({ now: NOW });
     const token = given(venue());
 
@@ -314,7 +314,7 @@ describe("PATCH /api/venues/[id]", () => {
   });
 
   describe("retiring a venue", () => {
-    it("flags each affected booking for review without changing it", async () => {
+    it("[SPM-39][AC7] flags each affected booking for review without changing it", async () => {
       vi.useFakeTimers({ now: NOW });
       const token = given(venue(), [booking()]);
 
@@ -328,7 +328,7 @@ describe("PATCH /api/venues/[id]", () => {
       });
     });
 
-    it("notifies the event's assigned coordinator, naming the venue and the event", async () => {
+    it("[SPM-39][AC7] notifies the event's assigned coordinator, naming the venue and the event", async () => {
       const token = given(venue(), [booking()]);
 
       await patch(token, { isActive: false });
@@ -347,7 +347,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(notification.body).not.toContain("Reason given");
     });
 
-    it("passes the reason on in the notification, but does not store it on the venue", async () => {
+    it("[SPM-39][AC7] passes the reason on in the notification, but does not store it on the venue", async () => {
       const token = given(venue(), [booking()]);
 
       await patch(token, { isActive: false, reason: "Closed for refurbishment" });
@@ -356,7 +356,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(callArg(db.venue.update).data).not.toHaveProperty("reason");
     });
 
-    it("reports what was flagged and who was told", async () => {
+    it("[SPM-39][AC7] reports what was flagged and who was told", async () => {
       const token = given(venue(), [booking()]);
 
       const body = await (await patch(token, { isActive: false })).json();
@@ -374,7 +374,7 @@ describe("PATCH /api/venues/[id]", () => {
       ]);
     });
 
-    it("notifies the person who requested the booking when the event has no coordinator", async () => {
+    it("[SPM-39][AC7] notifies the person who requested the booking when the event has no coordinator", async () => {
       const token = given(venue(), [booking({}, { coordinatorId: null })]);
 
       await patch(token, { isActive: false });
@@ -382,7 +382,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(callArg(db.notification.create).data.recipientId).toBe(REQUESTER_ID);
     });
 
-    it("names the session when the booking belongs to one", async () => {
+    it("[SPM-39][AC7] names the session when the booking belongs to one", async () => {
       const token = given(venue(), [
         booking({ sessionId: ID.session, session: { label: "Day 1", expectedAttendance: 50 } }),
       ]);
@@ -393,7 +393,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(body.flaggedBookings[0]).toMatchObject({ sessionId: ID.session, sessionLabel: "Day 1" });
     });
 
-    it("falls back to 'an event' for a booking whose event has no title", async () => {
+    it("[SPM-39][AC7] falls back to 'an event' for a booking whose event has no title", async () => {
       const token = given(venue(), [booking({}, { title: null })]);
 
       await patch(token, { isActive: false });
@@ -401,7 +401,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(callArg(db.notification.create).data.body).toContain("The approved booking for an event on ");
     });
 
-    it("adds to the reasons an earlier edit already flagged, rather than replacing them", async () => {
+    it("[SPM-39][AC7] adds to the reasons an earlier edit already flagged, rather than replacing them", async () => {
       const token = given(venue(), [booking({ needsReview: true, reviewReason: "layout_removed" })]);
 
       await patch(token, { isActive: false });
@@ -411,7 +411,7 @@ describe("PATCH /api/venues/[id]", () => {
 
     // The column is shared: Update Event Information (SPM-62) writes its own
     // reasons here too. A venue edit must not drop a code it does not know.
-    it("keeps a reason another story flagged, such as the event's date changing", async () => {
+    it("[SPM-39][AC7] keeps a reason another story flagged, such as the event's date changing", async () => {
       const token = given(venue(), [
         booking({ needsReview: true, reviewReason: "event_schedule_changed,layout_removed" }),
       ]);
@@ -423,7 +423,7 @@ describe("PATCH /api/venues/[id]", () => {
       );
     });
 
-    it("flags and notifies once per affected booking", async () => {
+    it("[SPM-39][AC7] flags and notifies once per affected booking", async () => {
       const token = given(venue(), [booking(), booking({ id: "second-booking" })]);
 
       const body = await (await patch(token, { isActive: false })).json();
@@ -435,7 +435,7 @@ describe("PATCH /api/venues/[id]", () => {
   });
 
   describe("changing attributes", () => {
-    it("flags a booking when the maximum capacity drops below its attendance", async () => {
+    it("[SPM-39][AC7] flags a booking when the maximum capacity drops below its attendance", async () => {
       const token = given(venue(), [booking()]);
 
       const body = await (await patch(token, { maxCapacity: 150 })).json();
@@ -447,7 +447,7 @@ describe("PATCH /api/venues/[id]", () => {
       });
     });
 
-    it("leaves a booking alone when the venue still fits it", async () => {
+    it("[SPM-39][AC7] leaves a booking alone when the venue still fits it", async () => {
       const token = given(venue(), [booking()]);
 
       const body = await (await patch(token, { maxCapacity: 250 })).json();
@@ -457,7 +457,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(db.notification.create).not.toHaveBeenCalled();
     });
 
-    it("judges a session's booking by the session's attendance, not the whole event's", async () => {
+    it("[SPM-39][AC7] judges a session's booking by the session's attendance, not the whole event's", async () => {
       // The event's 250 fits the venue today and would not after this edit, so
       // judging by the event would flag it. The 20-person session still fits.
       const token = given(venue(), [
@@ -473,7 +473,7 @@ describe("PATCH /api/venues/[id]", () => {
     });
 
     // SPM-90: an event may book several rooms, each for its own space.
-    it("SPM-90: judges a booking by its own space's attendance, ahead of the session's and the event's", async () => {
+    it("[SPM-39][AC7] [SPM-90][AC3] SPM-90: judges a booking by its own space's attendance, ahead of the session's and the event's", async () => {
       // 250 for the event and 180 for the session would both be flagged by a
       // room cut to 100; the 20-person breakout space still fits.
       const token = given(venue(), [
@@ -488,7 +488,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(body.flaggedBookings).toEqual([]);
     });
 
-    it("SPM-90: flags a booking whose own space no longer fits, though the event's attendance would", async () => {
+    it("[SPM-39][AC7] [SPM-90][AC3] SPM-90: flags a booking whose own space no longer fits, though the event's attendance would", async () => {
       const token = given(venue(), [booking({ expectedAttendance: 150 }, { expectedAttendance: 50 })]);
 
       const body = await (await patch(token, { maxCapacity: 100 })).json();
@@ -496,7 +496,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(body.flaggedBookings).toHaveLength(1);
     });
 
-    it("flags a booking whose layout is removed, and replaces the layouts wholesale", async () => {
+    it("[SPM-39][AC7] flags a booking whose layout is removed, and replaces the layouts wholesale", async () => {
       const token = given(venue(), [booking()]);
       const layouts = [{ layoutName: "banquet", capacity: 200 }];
 
@@ -507,7 +507,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(callArg(db.venue.update).data.layouts).toEqual({ create: layouts });
     });
 
-    it("flags a booking when its layout now seats fewer than its attendance", async () => {
+    it("[SPM-39][AC7] flags a booking when its layout now seats fewer than its attendance", async () => {
       const token = given(venue(), [booking()]);
 
       const body = await (await patch(token, { layouts: [{ layoutName: "theatre", capacity: 120 }] })).json();
@@ -515,7 +515,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(body.flaggedBookings[0].reasons).toEqual(["layout_capacity_below_attendance"]);
     });
 
-    it("removes every layout when sent an empty list", async () => {
+    it("[SPM-39][AC7] removes every layout when sent an empty list", async () => {
       const token = given(venue());
 
       await patch(token, { layouts: [] });
@@ -524,7 +524,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(callArg(db.venue.update).data.layouts).toBeUndefined();
     });
 
-    it("flags a booking when a facility its event requires is removed", async () => {
+    it("[SPM-39][AC7] flags a booking when a facility its event requires is removed", async () => {
       const token = given(venue(), [booking({}, { facilityRequirements: [{ facilityId: ID.facility }] })]);
       const replacement = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
@@ -535,7 +535,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(callArg(db.venue.update).data.facilities).toEqual({ create: [{ facilityId: replacement }] });
     });
 
-    it("does not flag a booking for a problem it already had before this edit", async () => {
+    it("[SPM-39][AC7] does not flag a booking for a problem it already had before this edit", async () => {
       // Already retired; renaming it introduces nothing new.
       const token = given(venue({ isActive: false }), [booking()]);
 
@@ -545,7 +545,7 @@ describe("PATCH /api/venues/[id]", () => {
       expect(db.venueBooking.update).not.toHaveBeenCalled();
     });
 
-    it("never writes to a booking's venue, layout, times or status", async () => {
+    it("[SPM-39][AC7] never writes to a booking's venue, layout, times or status", async () => {
       const token = given(venue(), [booking()]);
 
       await patch(token, { isActive: false, maxCapacity: 10, layouts: [] });
@@ -559,7 +559,7 @@ describe("PATCH /api/venues/[id]", () => {
     });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-39] answers 500 when the database fails", async () => {
     const token = given(venue());
     db.venueBooking.findMany.mockRejectedValue(new Error("connection lost"));
 

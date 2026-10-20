@@ -41,12 +41,12 @@ function reservation(requestId: string, quantityReserved: number, day: string, e
 const item = (totalQuantity: number) => ({ totalQuantity, isActive: true });
 
 describe("the three kinds of unavailability (AC1)", () => {
-  it("are unavailable, damaged and under maintenance", () => {
+  it("[SPM-55][AC1] are unavailable, damaged and under maintenance", () => {
     expect(OUT_OF_SERVICE_TYPES).toEqual(["unavailable", "damaged", "under_maintenance"]);
     expect(OUT_OF_SERVICE_TYPES.map(outOfServiceTypeLabel)).toEqual(["Unavailable", "Damaged", "Under maintenance"]);
   });
 
-  it("shows a type it does not know as stored", () => {
+  it("[SPM-55][AC1] shows a type it does not know as stored", () => {
     expect(outOfServiceTypeLabel("lost")).toBe("lost");
   });
 });
@@ -57,15 +57,15 @@ describe("operationalStatus (AC6)", () => {
     [4, 2, "partly_out_of_service"],
     [4, 3, "partly_out_of_service"],
     [4, 4, "out_of_service"],
-  ])("%i units with %i out of service is %s", (totalQuantity, quantityInMaintenance, expected) => {
+  ])("[SPM-55][AC6] %i units with %i out of service is %s", (totalQuantity, quantityInMaintenance, expected) => {
     expect(operationalStatus({ totalQuantity, quantityInMaintenance })).toBe(expected);
   });
 
-  it("calls an item with no units at all available rather than out of service", () => {
+  it("[SPM-55][AC6] calls an item with no units at all available rather than out of service", () => {
     expect(operationalStatus({ totalQuantity: 0, quantityInMaintenance: 0 })).toBe("available");
   });
 
-  it("reads each status in words, with its own tone", () => {
+  it("[SPM-55][AC6] reads each status in words, with its own tone", () => {
     expect(statusLabel("partly_out_of_service")).toBe("Partly out of service");
     expect(statusTone("partly_out_of_service")).toBe("warning");
     expect(statusLabel("out_of_service")).toBe("Out of service");
@@ -75,21 +75,21 @@ describe("operationalStatus (AC6)", () => {
 });
 
 describe("outOfServiceSummary (AC1, AC2)", () => {
-  it("gives the type and the reason", () => {
+  it("[SPM-55][AC1][AC2] gives the type and the reason", () => {
     expect(outOfServiceSummary("under_maintenance", "Lamp replacement")).toBe("Under maintenance - Lamp replacement");
   });
 
-  it("gives the type alone when no reason was recorded", () => {
+  it("[SPM-55][AC1][AC2] gives the type alone when no reason was recorded", () => {
     expect(outOfServiceSummary("damaged", null)).toBe("Damaged");
   });
 
-  it("is empty when nothing is out of service", () => {
+  it("[SPM-55][AC1][AC2] is empty when nothing is out of service", () => {
     expect(outOfServiceSummary(null, null)).toBeNull();
   });
 });
 
 describe("newlyShortReservations (AC4)", () => {
-  it("SPM-55-TC06: finds the reservation the units left no longer cover, and not one they still do", () => {
+  it("[SPM-55][AC4] SPM-55-TC06: finds the reservation the units left no longer cover, and not one they still do", () => {
     const launch = reservation("launch", 4, "2027-08-10", "SPM55 Harbour Product Launch");
     const board = reservation("board", 2, "2027-08-24", "SPM55 Quiet Board Meeting");
 
@@ -98,13 +98,13 @@ describe("newlyShortReservations (AC4)", () => {
     ]);
   });
 
-  it("SPM-55-TC07: leaves a reservation the units left cover exactly", () => {
+  it("[SPM-55][AC4] SPM-55-TC07: leaves a reservation the units left cover exactly", () => {
     const launch = reservation("launch", 4, "2027-08-10");
 
     expect(newlyShortReservations(item(6), 0, 2, [launch])).toEqual([]);
   });
 
-  it("SPM-55-TC08: finds both reservations sharing the days when the units left cannot cover them both", () => {
+  it("[SPM-55][AC4] SPM-55-TC08: finds both reservations sharing the days when the units left cannot cover them both", () => {
     const morning = reservation("morning", 3, "2027-08-17");
     const evening = reservation("evening", 3, "2027-08-17");
 
@@ -114,33 +114,33 @@ describe("newlyShortReservations (AC4)", () => {
     ]);
   });
 
-  it("counts an untitled event's reservation like any other", () => {
+  it("[SPM-55][AC4] counts an untitled event's reservation like any other", () => {
     const morning = reservation("morning", 3, "2027-08-17");
     const untitled = { ...reservation("untitled", 3, "2027-08-17"), eventTitle: null };
 
     expect(newlyShortReservations(item(6), 0, 1, [morning, untitled]).map((r) => r.requestId)).toEqual(["morning", "untitled"]);
   });
 
-  it("counts another event on different days as no competition", () => {
+  it("[SPM-55][AC4] counts another event on different days as no competition", () => {
     const a = reservation("a", 3, "2027-08-03");
     const b = reservation("b", 3, "2027-08-17");
 
     expect(newlyShortReservations(item(6), 0, 3, [a, b])).toEqual([]);
   });
 
-  it("does not report a reservation that was already short before this change", () => {
+  it("[SPM-55][AC4] does not report a reservation that was already short before this change", () => {
     const launch = reservation("launch", 4, "2027-08-10");
 
     expect(newlyShortReservations(item(6), 3, 4, [launch])).toEqual([]);
   });
 
-  it("finds nothing when units are returned (AC5)", () => {
+  it("[SPM-55][AC5] finds nothing when units are returned (AC5)", () => {
     const launch = reservation("launch", 4, "2027-08-10");
 
     expect(newlyShortReservations(item(6), 4, 1, [launch])).toEqual([]);
   });
 
-  it("finds nothing when there are no reservations", () => {
+  it("[SPM-55][AC4] finds nothing when there are no reservations", () => {
     expect(newlyShortReservations(item(6), 0, 6, [])).toEqual([]);
   });
 });

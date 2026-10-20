@@ -62,7 +62,7 @@ async function availableFor(event: TestEvent, lineId: string): Promise<number> {
 
 describe("equipment reservation on a real database", () => {
   it(
-    "SPM-49 AC4, AC5 and SPM-48 AC4 (SPM-49-TC09, TC15, normal and boundary): a reservation reduces what an " +
+    "[SPM-49][AC4][AC5] [SPM-48][AC4] (SPM-49-TC09, TC15, normal and boundary): a reservation reduces what an " +
       "overlapping event can have, and that event can then reserve only what is left",
     async () => {
       const projector = await createEquipment(world, 3);
@@ -87,7 +87,7 @@ describe("equipment reservation on a real database", () => {
   );
 
   it(
-    "SPM-49 AC5 (SPM-49-TC16, conflict): two Technical Support reservations of the last unit at the same moment - " +
+    "[SPM-49][AC5] (SPM-49-TC16, conflict): two Technical Support reservations of the last unit at the same moment - " +
       "exactly one gets it",
     async () => {
       const projector = await createEquipment(world, 1);

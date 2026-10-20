@@ -14,18 +14,18 @@ import { callArg, db, req, signIn, user } from "@/test/kit";
 const rolesExcept = (...allowed: string[]) => ROLES.filter((role) => !allowed.includes(role));
 
 describe("GET /api/assignments", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await assignments(req("GET", "/api/assignments"))).status).toBe(401);
   });
 
-  it.each(rolesExcept("ops_manager"))("is 403 for %s", async (role) => {
+  it.each(rolesExcept("ops_manager"))("[SPM-30][AC1] is 403 for %s", async (role) => {
     const res = await assignments(req("GET", "/api/assignments", { token: signIn(user(role)) }));
 
     expect(res.status).toBe(403);
     expect(db.event.findMany).not.toHaveBeenCalled();
   });
 
-  it("gives the Ops Manager the unassigned events, the assigned ones and the coordinators", async () => {
+  it("[SPM-30][AC2] gives the Ops Manager the unassigned events, the assigned ones and the coordinators", async () => {
     const token = signIn(user("ops_manager"));
     const awaiting = [{ id: "e1", title: "Awaiting" }];
     const assigned = [{ id: "e2", title: "Assigned" }];
@@ -39,7 +39,7 @@ describe("GET /api/assignments", () => {
     expect(await res.json()).toEqual({ awaiting, assigned, coordinators });
   });
 
-  it("asks for submitted events with no coordinator, and live events with one", async () => {
+  it("[SPM-30][AC2] asks for submitted events with no coordinator, and live events with one", async () => {
     const token = signIn(user("ops_manager"));
     db.event.findMany.mockResolvedValue([]);
     db.user.findMany.mockResolvedValue([]);
@@ -56,18 +56,18 @@ describe("GET /api/assignments", () => {
 });
 
 describe("GET /api/queue", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await queue(req("GET", "/api/queue"))).status).toBe(401);
   });
 
-  it.each(rolesExcept("coordinator"))("is 403 for %s", async (role) => {
+  it.each(rolesExcept("coordinator"))("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await queue(req("GET", "/api/queue", { token: signIn(user(role)) }));
 
     expect(res.status).toBe(403);
     expect(db.event.findMany).not.toHaveBeenCalled();
   });
 
-  it("lists only the signed-in coordinator's own requests still under review", async () => {
+  it("[SPM-28][AC1] lists only the signed-in coordinator's own requests still under review", async () => {
     const coordinator = user("coordinator");
     const token = signIn(coordinator);
     const events = [{ id: "e1", sequenceNumber: 7, title: "Seminar", status: "under_review" }];
@@ -85,11 +85,11 @@ describe("GET /api/queue", () => {
 });
 
 describe("GET /api/facilities", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await facilities(req("GET", "/api/facilities"))).status).toBe(401);
   });
 
-  it.each(ROLES)("is readable by %s", async (role) => {
+  it.each(ROLES)("[SPM-23][AC5] is readable by %s", async (role) => {
     const token = signIn(user(role));
     const rows = [{ id: "f1", name: "Hearing loop", category: "accessibility" }];
     db.facility.findMany.mockResolvedValue(rows);
@@ -100,25 +100,25 @@ describe("GET /api/facilities", () => {
     expect(await res.json()).toEqual(rows);
   });
 
-  it("is 403 for a role the app does not know", async () => {
+  it("[SPM-23][AC5] is 403 for a role the app does not know", async () => {
     const res = await facilities(req("GET", "/api/facilities", { token: signIn(user("intern")) }));
     expect(res.status).toBe(403);
   });
 });
 
 describe("GET /api/equipment/requests", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await equipmentRequests(req("GET", "/api/equipment/requests"))).status).toBe(401);
   });
 
-  it.each(rolesExcept("tech_support"))("is 403 for %s", async (role) => {
+  it.each(rolesExcept("tech_support"))("[SPM-21][AC4] is 403 for %s", async (role) => {
     const res = await equipmentRequests(req("GET", "/api/equipment/requests", { token: signIn(user(role)) }));
 
     expect(res.status).toBe(403);
     expect(db.event.findMany).not.toHaveBeenCalled();
   });
 
-  it("gives Technical Support each event with its count of live requests", async () => {
+  it("[SPM-50][AC1] gives Technical Support each event with its count of live requests", async () => {
     const token = signIn(user("tech_support"));
     db.event.findMany.mockResolvedValue([
       { sequenceNumber: 12, title: "Gala", status: "planning", _count: { equipmentRequests: 3 } },
@@ -130,7 +130,7 @@ describe("GET /api/equipment/requests", () => {
     expect(await res.json()).toEqual([{ sequenceNumber: 12, title: "Gala", status: "planning", requestCount: 3 }]);
   });
 
-  it("lists only events in planning, safety review or confirmed that have a request which is not cancelled", async () => {
+  it("[SPM-50][AC1] lists only events in planning, safety review or confirmed that have a request which is not cancelled", async () => {
     const token = signIn(user("tech_support"));
     db.event.findMany.mockResolvedValue([]);
 

@@ -59,11 +59,11 @@ describe("GET /api/events/[id]", () => {
     db.registration.groupBy.mockResolvedValue([]);
   });
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
 
-  it("looks the event up by the number in its reference", async () => {
+  it("[SPM-31] looks the event up by the number in its reference", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event());
 
@@ -74,7 +74,7 @@ describe("GET /api/events/[id]", () => {
   });
 
   it.each(["not-a-reference", ID.event, "EVT-99999999999"])(
-    "is 404 for the malformed reference %s, without querying",
+    "[SPM-31] is 404 for the malformed reference %s, without querying",
     async (reference) => {
       const token = signIn(coordinator());
 
@@ -85,14 +85,14 @@ describe("GET /api/events/[id]", () => {
     }
   );
 
-  it("is 404 for a reference that matches no event", async () => {
+  it("[SPM-31] is 404 for a reference that matches no event", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(null);
 
     expect((await get(token)).status).toBe(404);
   });
 
-  it("shows a draft to the organiser who owns it", async () => {
+  it("[SPM-24][AC3] shows a draft to the organiser who owns it", async () => {
     const token = signIn(organiser());
     db.event.findUnique.mockResolvedValue(event({ status: "draft", coordinatorId: null }));
 
@@ -100,7 +100,7 @@ describe("GET /api/events/[id]", () => {
   });
 
   it.each(["coordinator", "ops_manager", "venue_staff", "tech_support", "attendee"])(
-    "hides another user's draft from %s as a 404",
+    "[SPM-24][AC5] hides another user's draft from %s as a 404",
     async (role) => {
       const token = signIn(user(role, { id: ID.otherUser }));
       db.event.findUnique.mockResolvedValue(event({ status: "draft" }));
@@ -112,21 +112,21 @@ describe("GET /api/events/[id]", () => {
     }
   );
 
-  it("hides a colleague's draft from an organiser in the same organisation", async () => {
+  it("[SPM-24][AC5] hides a colleague's draft from an organiser in the same organisation", async () => {
     const token = signIn(user("organiser", { id: ID.thirdUser, organisationId: ID.org }));
     db.event.findUnique.mockResolvedValue(event({ status: "draft" }));
 
     expect((await get(token)).status).toBe(404);
   });
 
-  it("shows a colleague's submitted event to an organiser in the same organisation", async () => {
+  it("[SPM-31][AC1] shows a colleague's submitted event to an organiser in the same organisation", async () => {
     const token = signIn(user("organiser", { id: ID.thirdUser, organisationId: ID.org }));
     db.event.findUnique.mockResolvedValue(event({ status: "submitted" }));
 
     expect((await get(token)).status).toBe(200);
   });
 
-  it("hides another client's event from an organiser", async () => {
+  it("[SPM-31][AC1] hides another client's event from an organiser", async () => {
     const token = signIn(user("organiser", { id: ID.thirdUser, organisationId: ID.otherOrg }));
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
 
@@ -136,7 +136,7 @@ describe("GET /api/events/[id]", () => {
   it.each([
     ["not confirmed yet", { status: "planning", registrationEnabled: true }],
     ["confirmed without registration", { status: "confirmed", registrationEnabled: false }],
-  ])("hides an event from an attendee when it is %s", async (_case, overrides) => {
+  ])("[SPM-51][AC3] hides an event from an attendee when it is %s", async (_case, overrides) => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(event(overrides));
 
@@ -145,7 +145,7 @@ describe("GET /api/events/[id]", () => {
 
   // SPM-64 (AC4, TC23): the booking the capacity is measured against comes
   // with the event, so the Registration card can say "Measured against".
-  it("includes the booking the registration capacity is measured against, with its room's layouts", async () => {
+  it("[SPM-64][AC4] includes the booking the registration capacity is measured against, with its room's layouts", async () => {
     const token = signIn(user("coordinator"));
     db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
 
@@ -163,7 +163,7 @@ describe("GET /api/events/[id]", () => {
 
   // SPM-64 (#10), manual case TC22: registration turned off doesn't hide the
   // event from an attendee who already holds a place.
-  it("shows a confirmed event with registration off to an attendee who holds a place in it", async () => {
+  it("[SPM-51][AC6] shows a confirmed event with registration off to an attendee who holds a place in it", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: false }));
     db.registration.count.mockResolvedValue(1);
@@ -178,7 +178,7 @@ describe("GET /api/events/[id]", () => {
     });
   });
 
-  it("gives an attendee only the public fields of a confirmed, open event", async () => {
+  it("[SPM-22][AC5] gives an attendee only the public fields of a confirmed, open event", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(
       event({
@@ -220,7 +220,7 @@ describe("GET /api/events/[id]", () => {
   });
 
   // SPM-51 AC4, AC9 (TC05-TC07): the attendee's page says whether they can register.
-  it("tells an attendee the event's registration state, counting the seats taken", async () => {
+  it("[SPM-51][AC3][AC9] tells an attendee the event's registration state, counting the seats taken", async () => {
     vi.useFakeTimers({ now: new Date("2026-10-10T04:00:00Z"), toFake: ["Date"] });
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(
@@ -245,7 +245,7 @@ describe("GET /api/events/[id]", () => {
 
   // SPM-51 AC6, AC7 (TC02, TC03, TC11): the page shows their own registration
   // instead of a Register button.
-  it("gives an attendee their own registration for the event", async () => {
+  it("[SPM-51][AC6] gives an attendee their own registration for the event", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
     db.registration.findUnique.mockResolvedValue({
@@ -268,7 +268,7 @@ describe("GET /api/events/[id]", () => {
     });
   });
 
-  it("gives an attendee with no registration null", async () => {
+  it("[SPM-51][AC6] gives an attendee with no registration null", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
     db.registration.findUnique.mockResolvedValue(null);
@@ -276,7 +276,7 @@ describe("GET /api/events/[id]", () => {
     expect((await (await get(token)).json()).myRegistration).toBeNull();
   });
 
-  it("doesn't work out a registration state for staff", async () => {
+  it("[SPM-51] doesn't work out a registration state for staff", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
 
@@ -290,7 +290,7 @@ describe("GET /api/events/[id]", () => {
   it.each([
     ["the organiser", organiser],
     ["the coordinator", coordinator],
-  ])("gives %s the places taken and the withdrawals", async (_who, actor) => {
+  ])("[SPM-52][AC5] gives %s the places taken and the withdrawals", async (_who, actor) => {
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
     db.registration.groupBy.mockResolvedValue([
       { status: "registered", _count: { _all: 11 } },
@@ -315,7 +315,7 @@ describe("GET /api/events/[id]", () => {
   it.each([
     ["an organiser at the same client who did not raise it", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
     ["a coordinator who is not assigned to it", () => user("coordinator", { id: ID.thirdUser })],
-  ])("tells %s they cannot open its Attendees tab", async (_who, actor) => {
+  ])("[SPM-65][AC9] tells %s they cannot open its Attendees tab", async (_who, actor) => {
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
 
     const res = await get(signIn(actor()));
@@ -325,7 +325,7 @@ describe("GET /api/events/[id]", () => {
   });
 
   it.each(ROLES.filter((role) => role !== "attendee" && !can(role, "registration:view_list")))(
-    "doesn't count the registrations for %s",
+    "[SPM-65] doesn't count the registrations for %s",
     async (role) => {
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
 
@@ -337,7 +337,7 @@ describe("GET /api/events/[id]", () => {
     }
   );
 
-  it("doesn't count every registration for an attendee", async () => {
+  it("[SPM-65] doesn't count every registration for an attendee", async () => {
     db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
     db.registration.findUnique.mockResolvedValue(null);
 
@@ -347,7 +347,7 @@ describe("GET /api/events/[id]", () => {
     expect(db.registration.groupBy).not.toHaveBeenCalled();
   });
 
-  it("loads only the approved venue bookings, so a pending request is never shown as settled", async () => {
+  it("[SPM-31][AC1] loads only the approved venue bookings, so a pending request is never shown as settled", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event());
 
@@ -358,7 +358,7 @@ describe("GET /api/events/[id]", () => {
 
   // SPM-85 (AC3): a safety review needs each booked room's layout and the
   // seats that layout holds, not only the room's name.
-  it("loads each approved booking's layout and the capacity of every layout the room has", async () => {
+  it("[SPM-31][AC1] loads each approved booking's layout and the capacity of every layout the room has", async () => {
     const token = signIn(user("safety_officer"));
     db.event.findUnique.mockResolvedValue(event());
 
@@ -386,7 +386,7 @@ describe("GET /api/events/[id]", () => {
     });
   });
 
-  it("gives the Safety Officer the whole record and the latest safety check, like other staff", async () => {
+  it("[SPM-85][AC3] gives the Safety Officer the whole record and the latest safety check, like other staff", async () => {
     const token = signIn(user("safety_officer"));
     db.event.findUnique.mockResolvedValue(event({ expectedAttendance: 200, accessibilityNotes: "Step-free" }));
 
@@ -396,7 +396,7 @@ describe("GET /api/events/[id]", () => {
     expect(body).toHaveProperty("safetyCheck");
   });
 
-  it("gives staff the whole record, including the internal fields", async () => {
+  it("[SPM-31][AC1] gives staff the whole record, including the internal fields", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event({ coordinator: { fullName: "Daniel Tan" } }));
 
@@ -409,25 +409,25 @@ describe("GET /api/events/[id]", () => {
 });
 
 describe("PATCH /api/events/[id] - who can reach it", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await patch(undefined, { status: "submitted" })).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference", async () => {
+  it("[SPM-27] is 404 for a malformed reference", async () => {
     const res = await patch(signIn(organiser()), { status: "submitted" }, "nope");
 
     expect(res.status).toBe(404);
     expect(db.event.findUnique).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a reference that matches no event", async () => {
+  it("[SPM-27] is 404 for a reference that matches no event", async () => {
     const token = signIn(organiser());
     db.event.findUnique.mockResolvedValue(null);
 
     expect((await patch(token, { status: "submitted" })).status).toBe(404);
   });
 
-  it("is 404, not 403, for an event the user cannot see - and nothing is written", async () => {
+  it("[SPM-27] is 404, not 403, for an event the user cannot see - and nothing is written", async () => {
     const token = signIn(user("organiser", { id: ID.thirdUser, organisationId: ID.otherOrg }));
     db.event.findUnique.mockResolvedValue(event({ status: "draft" }));
 
@@ -437,7 +437,7 @@ describe("PATCH /api/events/[id] - who can reach it", () => {
     expect(db.event.update).not.toHaveBeenCalled();
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-27] answers 500 when the database fails", async () => {
     const token = signIn(organiser());
     db.event.findUnique.mockRejectedValue(new Error("connection lost"));
 
@@ -456,7 +456,7 @@ describe("PATCH /api/events/[id] - status change", () => {
   describe("submitting a draft", () => {
     const draft = (overrides = {}) => event({ status: "draft", coordinatorId: null, ...overrides });
 
-    it("moves the organiser's own complete draft to submitted and stamps the time", async () => {
+    it("[SPM-25][AC1][AC2] moves the organiser's own complete draft to submitted and stamps the time", async () => {
       vi.useFakeTimers({ now: NOW });
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(draft());
@@ -472,7 +472,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       });
     });
 
-    it("records the move in the status history", async () => {
+    it("[SPM-27][AC2] records the move in the status history", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(draft());
       givenUpdateSucceeds();
@@ -488,7 +488,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       });
     });
 
-    it("notifies every active Ops Manager", async () => {
+    it("[SPM-53][AC1] notifies every active Ops Manager", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(draft());
       givenUpdateSucceeds();
@@ -508,7 +508,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       );
     });
 
-    it("writes no notification when there is no Ops Manager to tell", async () => {
+    it("[SPM-53][AC1] writes no notification when there is no Ops Manager to tell", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(draft());
       givenUpdateSucceeds();
@@ -519,7 +519,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.notification.createMany).not.toHaveBeenCalled();
     });
 
-    it("refuses an incomplete draft and names every missing field", async () => {
+    it("[SPM-23][AC7] [SPM-25][AC1] refuses an incomplete draft and names every missing field", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(
         draft({ title: "", category: null, startsAt: null, endsAt: null, expectedAttendance: null })
@@ -535,7 +535,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("refuses a multi-session draft where one session has no attendance", async () => {
+    it("[SPM-23][AC7] [SPM-25][AC1] refuses a multi-session draft where one session has no attendance", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(draft());
       db.eventSession.findMany.mockResolvedValue([{ expectedAttendance: 80 }, { expectedAttendance: null }]);
@@ -551,7 +551,7 @@ describe("PATCH /api/events/[id] - status change", () => {
     it.each([
       ["a draft", () => draft()],
       ["a submitted request", () => event({ status: "submitted" })],
-    ])("refuses moving %s to draft - nothing goes back to draft", async (_case, row) => {
+    ])("[SPM-25][AC3] refuses moving %s to draft - nothing goes back to draft", async (_case, row) => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(row());
 
@@ -563,7 +563,7 @@ describe("PATCH /api/events/[id] - status change", () => {
   });
 
   describe("reviewing", () => {
-    it("lets the assigned coordinator approve a request under review", async () => {
+    it("[SPM-28][AC4][AC6] lets the assigned coordinator approve a request under review", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event());
       givenUpdateSucceeds();
@@ -580,7 +580,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.notification.createMany).not.toHaveBeenCalled();
     });
 
-    it("refuses a coordinator who is not the one assigned", async () => {
+    it("[SPM-28][AC1] refuses a coordinator who is not the one assigned", async () => {
       const token = signIn(user("coordinator", { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event());
 
@@ -591,7 +591,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("refuses an organiser approving their own request", async () => {
+    it("[SPM-27][AC4] refuses an organiser approving their own request", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(event());
 
@@ -601,7 +601,7 @@ describe("PATCH /api/events/[id] - status change", () => {
     it.each([
       ["approved", "This event is Planning and can't be moved to Approved."],
       ["rejected", "This event is Planning and can't be moved to Rejected."],
-    ])("refuses %s for a request no longer under review", async (status, message) => {
+    ])("[SPM-28][AC6] refuses %s for a request no longer under review", async (status, message) => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
 
@@ -617,7 +617,7 @@ describe("PATCH /api/events/[id] - status change", () => {
     // Postponed -> Approved move belongs to Process Event Change Request
     // (SPM-32), which must not go through this route (Jira comment on SPM-32,
     // 2026-10-15).
-    it("SPM-28: refuses 'approved' for a Postponed event, as approval is only a review outcome", async () => {
+    it("[SPM-28][AC6] SPM-28: refuses 'approved' for a Postponed event, as approval is only a review outcome", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: "postponed" }));
 
@@ -628,7 +628,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("lets the assigned coordinator record a withdrawal while the request is under review", async () => {
+    it("[SPM-59][AC1][AC2] lets the assigned coordinator record a withdrawal while the request is under review", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event());
       givenUpdateSucceeds();
@@ -644,14 +644,14 @@ describe("PATCH /api/events/[id] - status change", () => {
       });
     });
 
-    it("refuses an organiser withdrawing their own request - they ask the coordinator", async () => {
+    it("[SPM-59][AC1] refuses an organiser withdrawing their own request - they ask the coordinator", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(event());
 
       expect((await patch(token, { status: "withdrawn" })).status).toBe(403);
     });
 
-    it.each([undefined, "", "   "])("refuses a rejection with reason %j", async (reason) => {
+    it.each([undefined, "", "   "])("[SPM-28][AC5] refuses a rejection with reason %j", async (reason) => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event());
 
@@ -662,7 +662,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("keeps the trimmed rejection reason on the event and in the history", async () => {
+    it("[SPM-28][AC5] keeps the trimmed rejection reason on the event and in the history", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event());
       givenUpdateSucceeds();
@@ -683,7 +683,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       ["a submitted request straight to confirmed", "submitted", "confirmed", "This event is Submitted and can't be moved to Confirmed."],
       ["a completed event to cancelled", "completed", "cancelled", "This event is Completed and can't be moved to Cancelled."],
       ["a confirmed event back to planning", "confirmed", "planning", "This event is Confirmed and can't be moved to Planning."],
-    ])("refuses a move the lifecycle does not allow: %s", async (_case, from, to, message) => {
+    ])("[SPM-5][AC4] refuses a move the lifecycle does not allow: %s", async (_case, from, to, message) => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: from }));
 
@@ -694,7 +694,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("refuses moving an approved event to planning by hand - a venue or equipment action does that", async () => {
+    it("[SPM-54][AC2] refuses moving an approved event to planning by hand - a venue or equipment action does that", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: "approved" }));
 
@@ -765,7 +765,7 @@ describe("PATCH /api/events/[id] - status change", () => {
         return patch(token, { status: "confirmed" });
       }
 
-      it("confirms, and stamps the time, once the venue is approved and no equipment is outstanding", async () => {
+      it("[SPM-34][AC1][AC5] confirms, and stamps the time, once the venue is approved and no equipment is outstanding", async () => {
         vi.useFakeTimers({ now: NOW });
         const res = await confirm({ bookings: [venueApproved], equipment: [projector("reserved")] });
 
@@ -774,13 +774,13 @@ describe("PATCH /api/events/[id] - status change", () => {
         expect(callArg(db.venueBooking.findMany).where).toEqual({ eventId: ID.event });
       });
 
-      it("counts partially fulfilled equipment as arranged - the shortfall is the coordinator's call", async () => {
+      it("[SPM-34][AC2] counts partially fulfilled equipment as arranged - the shortfall is the coordinator's call", async () => {
         const res = await confirm({ bookings: [venueApproved], equipment: [projector("partially_fulfilled")] });
 
         expect(res.status).toBe(200);
       });
 
-      it("confirms an event that needs no equipment", async () => {
+      it("[SPM-34][AC2] confirms an event that needs no equipment", async () => {
         expect((await confirm({ bookings: [venueApproved] })).status).toBe(200);
       });
 
@@ -820,7 +820,7 @@ describe("PATCH /api/events/[id] - status change", () => {
           },
           "This event cannot be confirmed yet: Projector for this event is flagged for review: the date or time changed.",
         ],
-      ])("refuses while %s, naming what is outstanding", async (_case, arrangements, message) => {
+      ])("[SPM-34][AC3] refuses while %s, naming what is outstanding", async (_case, arrangements, message) => {
         const res = await confirm(arrangements);
         const body = await res.json();
 
@@ -834,7 +834,7 @@ describe("PATCH /api/events/[id] - status change", () => {
         expect(db.event.update).not.toHaveBeenCalled();
       });
 
-      it("refuses while registration is on but its setup is incomplete (SPM-64 AC8, TC16)", async () => {
+      it("[SPM-64][AC8] refuses while registration is on but its setup is incomplete (SPM-64 AC8, TC16)", async () => {
         const token = signIn(coordinator());
         db.event.findUnique.mockResolvedValue(
           event({ status: "planning", registrationEnabled: true, registrationCapacity: 60, registrationVenueBookingId: ID.booking })
@@ -861,7 +861,7 @@ describe("PATCH /api/events/[id] - status change", () => {
         ["SPM-88-TC08: was closed by a change", "closed", "the Operational Safety Check has to be submitted again"],
         ["was returned with changes requested", "changes_requested", "the Safety Officer asked for changes in the Operational Safety Check"],
         ["was rejected", "rejected", "the Safety Officer rejected the safety arrangement"],
-      ])("refuses an event whose safety check %s", async (_case, status, missing) => {
+      ])("[SPM-88][AC8] refuses an event whose safety check %s", async (_case, status, missing) => {
         const token = signIn(coordinator());
         db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
         givenUpdateSucceeds();
@@ -875,14 +875,14 @@ describe("PATCH /api/events/[id] - status change", () => {
         expect(db.event.update).not.toHaveBeenCalled();
       });
 
-      it("SPM-88-TC09: confirms a Safety approved event", async () => {
+      it("[SPM-88][AC9] SPM-88-TC09: confirms a Safety approved event", async () => {
         const res = await confirm({ bookings: [venueApproved] }, { status: "safety_cleared" });
 
         expect(res.status).toBe(200);
         expect(callArg(db.event.update).data).toMatchObject({ status: "confirmed" });
       });
 
-      it("needs a venue for every session of a multi-session event", async () => {
+      it("[SPM-34][AC2] [SPM-42][AC4] needs a venue for every session of a multi-session event", async () => {
         const res = await confirm({
           sessions: [
             { id: "s1", label: "Day 1" },
@@ -908,14 +908,14 @@ describe("PATCH /api/events/[id] - status change", () => {
             "a second venue booking that is still pending",
             { bookings: [venueApproved, venue("pending", { id: ID.otherVenue, notRequired: true })] },
           ],
-        ])("confirms when the only thing outstanding is %s, marked as not required", async (_case, arrangements) => {
+        ])("[SPM-33][AC11] confirms when the only thing outstanding is %s, marked as not required", async (_case, arrangements) => {
           const res = await confirm(arrangements);
 
           expect(res.status).toBe(200);
           expect(callArg(db.event.update).data).toMatchObject({ status: "confirmed" });
         });
 
-        it("still refuses an event whose only venue booking is marked as not required", async () => {
+        it("[SPM-33][AC11] still refuses an event whose only venue booking is marked as not required", async () => {
           const res = await confirm({ bookings: [venue("pending", { notRequired: true })] });
 
           expect(res.status).toBe(400);
@@ -935,11 +935,11 @@ describe("PATCH /api/events/[id] - status change", () => {
           registrationClosesAt: new Date("2027-02-28T10:00:00.000Z"),
         };
 
-        it("confirms once registration has a capacity and a registration period", async () => {
+        it("[SPM-64][AC8] confirms once registration has a capacity and a registration period", async () => {
           expect((await confirm({ bookings: [venueApproved] }, complete)).status).toBe(200);
         });
 
-        it("refuses while registration is enabled but has no capacity", async () => {
+        it("[SPM-64][AC8] refuses while registration is enabled but has no capacity", async () => {
           const res = await confirm({ bookings: [venueApproved] }, { ...complete, registrationCapacity: null });
 
           expect(res.status).toBe(400);
@@ -949,7 +949,7 @@ describe("PATCH /api/events/[id] - status change", () => {
           expect(db.event.update).not.toHaveBeenCalled();
         });
 
-        it("confirms when incomplete registration setup is marked as not required", async () => {
+        it("[SPM-33][AC11] confirms when incomplete registration setup is marked as not required", async () => {
           const res = await confirm(
             { bookings: [venueApproved] },
             { ...complete, registrationCapacity: null, registrationNotRequired: true }
@@ -960,7 +960,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       });
     });
 
-    it("keeps the cancellation reason when the assigned coordinator cancels", async () => {
+    it("[SPM-37][AC2][AC8] keeps the cancellation reason when the assigned coordinator cancels", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
       givenUpdateSucceeds();
@@ -970,14 +970,14 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(callArg(db.event.update).data).toEqual({ status: "cancelled", cancellationReason: "Client withdrew" });
     });
 
-    it("refuses an organiser cancelling their own event - that is the coordinator's call", async () => {
+    it("[SPM-37][AC2] refuses an organiser cancelling their own event - that is the coordinator's call", async () => {
       const token = signIn(organiser());
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
 
       expect((await patch(token, { status: "cancelled", reason: "We changed plans" })).status).toBe(403);
     });
 
-    it("lets the assigned coordinator postpone a confirmed event", async () => {
+    it("[SPM-38][AC1] lets the assigned coordinator postpone a confirmed event", async () => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
       givenUpdateSucceeds();
@@ -988,7 +988,7 @@ describe("PATCH /api/events/[id] - status change", () => {
     it.each([
       ["their own event", () => organiser()],
       ["a colleague's event", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
-    ])("refuses an organiser postponing %s - that goes through the coordinator", async (_case, actor) => {
+    ])("[SPM-38][AC2] refuses an organiser postponing %s - that goes through the coordinator", async (_case, actor) => {
       const token = signIn(actor());
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
 
@@ -996,7 +996,7 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("lets the Ops Manager move any event to under review", async () => {
+    it("[SPM-30][AC1] lets the Ops Manager move any event to under review", async () => {
       const token = signIn(user("ops_manager", { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event({ status: "submitted", coordinatorId: null }));
       givenUpdateSucceeds();
@@ -1004,14 +1004,14 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect((await patch(token, { status: "under_review" })).status).toBe(200);
     });
 
-    it.each(["venue_staff", "tech_support"])("refuses every status change from %s", async (role) => {
+    it.each(["venue_staff", "tech_support"])("[SPM-27][AC4] refuses every status change from %s", async (role) => {
       const token = signIn(user(role, { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
 
       expect((await patch(token, { status: "confirmed" })).status).toBe(403);
     });
 
-    it("refuses an attendee changing the status of an event they can see", async () => {
+    it("[SPM-27][AC4] refuses an attendee changing the status of an event they can see", async () => {
       const token = signIn(user("attendee", { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
 
@@ -1019,7 +1019,7 @@ describe("PATCH /api/events/[id] - status change", () => {
     });
   });
 
-  it("rejects a status that does not exist", async () => {
+  it("[SPM-27] rejects a status that does not exist", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event());
 
@@ -1040,7 +1040,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     return token;
   }
 
-  it("changes only the fields that were sent", async () => {
+  it("[SPM-24][AC4] changes only the fields that were sent", async () => {
     const token = givenOwnDraft();
 
     const res = await patch(token, { title: "  Gala Dinner 2027 ", purpose: "Fundraising" });
@@ -1059,7 +1059,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     expect(db.eventSession.deleteMany).not.toHaveBeenCalled();
   });
 
-  it("edits a draft that has no dates yet", async () => {
+  it("[SPM-24][AC4] edits a draft that has no dates yet", async () => {
     const token = givenOwnDraft({ startsAt: null, endsAt: null });
 
     const res = await patch(token, { description: "Dates to be confirmed" });
@@ -1068,7 +1068,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     expect(callArg(db.event.update).data).toMatchObject({ description: "Dates to be confirmed" });
   });
 
-  it("saves every plain field it is given", async () => {
+  it("[SPM-24][AC4] saves every plain field it is given", async () => {
     const token = givenOwnDraft();
     const body = {
       category: "seminar",
@@ -1099,7 +1099,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     });
   });
 
-  it("refuses to edit a request that has already been submitted", async () => {
+  it("[SPM-25][AC3] refuses to edit a request that has already been submitted", async () => {
     const token = signIn(organiser());
     db.event.findUnique.mockResolvedValue(event({ status: "submitted" }));
 
@@ -1110,7 +1110,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     expect(db.event.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a draft's owner whose role cannot edit drafts", async () => {
+  it("[SPM-24][AC4] refuses a draft's owner whose role cannot edit drafts", async () => {
     // Only reachable if a non-organiser account owns a draft; the role check
     // must still hold rather than trusting ownership alone.
     const token = signIn(user("coordinator", { id: ID.user }));
@@ -1122,7 +1122,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     expect(await res.json()).toEqual({ error: "Only the organiser who owns this draft can edit it" });
   });
 
-  it("rejects a blank title", async () => {
+  it("[SPM-23][AC7] rejects a blank title", async () => {
     const token = givenOwnDraft();
 
     const res = await patch(token, { title: "   " });
@@ -1133,7 +1133,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
   });
 
   describe("rules checked against what is already saved", () => {
-    it("refuses a new end that is before the saved start", async () => {
+    it("[SPM-23][AC7] refuses a new end that is before the saved start", async () => {
       const token = givenOwnDraft();
 
       const res = await patch(token, { endsAt: "2027-03-04T00:30:00.000Z" });
@@ -1146,7 +1146,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("refuses switching registration on while no capacity is saved", async () => {
+    it("[SPM-23][AC7] refuses switching registration on while no capacity is saved", async () => {
       const token = givenOwnDraft();
 
       const body = await (await patch(token, { registrationEnabled: true })).json();
@@ -1156,13 +1156,13 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       });
     });
 
-    it("accepts switching registration on when a capacity is already saved", async () => {
+    it("[SPM-23][AC7] accepts switching registration on when a capacity is already saved", async () => {
       const token = givenOwnDraft({ registrationCapacity: 100 });
 
       expect((await patch(token, { registrationEnabled: true })).status).toBe(200);
     });
 
-    it("refuses registration opening after the event starts", async () => {
+    it("[SPM-23][AC7] refuses registration opening after the event starts", async () => {
       const token = givenOwnDraft();
 
       const body = await (await patch(token, { registrationOpensAt: "2027-03-04T02:00:00.000Z" })).json();
@@ -1172,7 +1172,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       });
     });
 
-    it("refuses registration closing after the event starts", async () => {
+    it("[SPM-23][AC7] refuses registration closing after the event starts", async () => {
       const token = givenOwnDraft();
 
       const body = await (await patch(token, { registrationClosesAt: "2027-03-04T02:00:00.000Z" })).json();
@@ -1182,7 +1182,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       });
     });
 
-    it("keeps the 'after it opens' message when closing is wrong on both counts", async () => {
+    it("[SPM-23][AC7] keeps the 'after it opens' message when closing is wrong on both counts", async () => {
       const token = givenOwnDraft({ registrationOpensAt: new Date("2027-03-05T00:00:00.000Z") });
 
       const body = await (await patch(token, { registrationClosesAt: "2027-03-04T12:00:00.000Z" })).json();
@@ -1190,7 +1190,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       expect(body.details.fieldErrors.registrationClosesAt).toEqual(["Registration closes at must be after it opens."]);
     });
 
-    it("reports every failing field, with the first as the headline error", async () => {
+    it("[SPM-23][AC7] reports every failing field, with the first as the headline error", async () => {
       const token = givenOwnDraft();
 
       const body = await (
@@ -1201,7 +1201,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       expect(Object.keys(body.details.fieldErrors)).toEqual(["endsAt", "registrationCapacity"]);
     });
 
-    it("refuses equipment on a draft with no dates", async () => {
+    it("[SPM-23][AC7] refuses equipment on a draft with no dates", async () => {
       const token = givenOwnDraft({ startsAt: null, endsAt: null });
 
       const body = await (
@@ -1215,7 +1215,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
   });
 
   describe("replacing requirements", () => {
-    it("replaces the facility requirements wholesale", async () => {
+    it("[SPM-24][AC4] replaces the facility requirements wholesale", async () => {
       const token = givenOwnDraft();
 
       await patch(token, { facilityIds: [ID.facility] });
@@ -1226,7 +1226,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       });
     });
 
-    it("clears the facility requirements when sent an empty list", async () => {
+    it("[SPM-24][AC4] clears the facility requirements when sent an empty list", async () => {
       const token = givenOwnDraft();
 
       await patch(token, { facilityIds: [] });
@@ -1235,7 +1235,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       expect(callArg(db.event.update).data.facilityRequirements).toBeUndefined();
     });
 
-    it("replaces event-wide equipment only, leaving each session's own in place", async () => {
+    it("[SPM-24][AC4] replaces event-wide equipment only, leaving each session's own in place", async () => {
       const token = givenOwnDraft();
 
       await patch(token, { equipment: [{ equipmentId: ID.equipment, quantityRequested: 3 }] });
@@ -1256,7 +1256,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       });
     });
 
-    it("rejects the same equipment item twice", async () => {
+    it("[SPM-23][AC5] rejects the same equipment item twice", async () => {
       const token = givenOwnDraft();
       const item = { equipmentId: ID.equipment, quantityRequested: 1 };
 
@@ -1273,7 +1273,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       { startsAt: "2027-05-02T01:00:00.000Z", endsAt: "2027-05-02T08:00:00.000Z", expectedAttendance: 90 },
     ];
 
-    it("replaces the sessions and re-derives the event's dates and attendance", async () => {
+    it("[SPM-23][AC6] replaces the sessions and re-derives the event's dates and attendance", async () => {
       const token = givenOwnDraft();
 
       const res = await patch(token, { sessions, expectedAttendance: 5 });
@@ -1288,7 +1288,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       });
     });
 
-    it("leaves the saved attendance alone when no session gives a figure", async () => {
+    it("[SPM-23][AC6] leaves the saved attendance alone when no session gives a figure", async () => {
       const token = givenOwnDraft();
 
       await patch(token, { sessions: sessions.map((s) => ({ ...s, expectedAttendance: undefined })) });
@@ -1296,7 +1296,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
       expect(callArg(db.event.update).data).not.toHaveProperty("expectedAttendance");
     });
 
-    it("turns multi-session off when sent an empty list, without touching the dates", async () => {
+    it("[SPM-23][AC6] turns multi-session off when sent an empty list, without touching the dates", async () => {
       const token = givenOwnDraft();
 
       const res = await patch(token, { sessions: [] });
@@ -1310,7 +1310,7 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     });
   });
 
-  it("reports a duplicate item caught only by the database's unique index", async () => {
+  it("[SPM-23][AC5] reports a duplicate item caught only by the database's unique index", async () => {
     const token = givenOwnDraft();
     db.event.update.mockRejectedValue(
       new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" })

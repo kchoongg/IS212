@@ -216,7 +216,7 @@ describe("GET /api/events/[id]/arrangements", () => {
     return GET(req("GET", `/api/events/${reference}/arrangements`, { token }), params({ id: reference }));
   }
 
-  it("SPM-82-TC08 (AC10): names when an expired hold ran out - the expiry reaches the rule, not just the query", async () => {
+  it("[SPM-82][AC10] SPM-82-TC08 (AC10): names when an expired hold ran out - the expiry reaches the rule, not just the query", async () => {
     given({ bookings: [booking({ status: "expired", holdExpiresAt: new Date("2026-10-01T01:00:00.000Z") })] });
 
     const body = await (await get(signIn(assignedCoordinator()))).json();
@@ -224,7 +224,7 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(listed(body).find((a) => a.status === "expired")?.missing).toContain("expired on 1 Oct 2026, 09:00");
   });
 
-  it("SPM-82-TC08 (AC10): expires overdue holds before reading the arrangements, with each booking's expiry", async () => {
+  it("[SPM-82][AC10] SPM-82-TC08 (AC10): expires overdue holds before reading the arrangements, with each booking's expiry", async () => {
     given();
 
     await get(signIn(assignedCoordinator()));
@@ -233,14 +233,14 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(callArg(db.venueBooking.findMany).select.holdExpiresAt).toBe(true);
   });
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
 
   // Readiness is the coordinator's planning checklist (UI_DESIGN.md 4.3). The
   // roles come from the permission table, so a change there moves this with it.
   it.each(ROLES.filter((role) => !can(role, "event:confirm")))(
-    "is 403 for %s, before the event is looked up",
+    "[SPM-21][AC4] is 403 for %s, before the event is looked up",
     async (role) => {
       const res = await get(signIn(user(role)));
 
@@ -249,32 +249,32 @@ describe("GET /api/events/[id]/arrangements", () => {
     }
   );
 
-  it("is 404 for a malformed reference", async () => {
+  it("[SPM-33] is 404 for a malformed reference", async () => {
     expect((await get(signIn(assignedCoordinator()), "nope")).status).toBe(404);
   });
 
-  it("is 404 for a reference that matches no event", async () => {
+  it("[SPM-33] is 404 for a reference that matches no event", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(null);
 
     expect((await get(token)).status).toBe(404);
   });
 
-  it("is 404 for a draft", async () => {
+  it("[SPM-33] is 404 for a draft", async () => {
     const token = signIn(assignedCoordinator());
     given({ event: { status: "draft" } });
 
     expect((await get(token)).status).toBe(404);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-33] answers 500 when the database fails", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockRejectedValue(new Error("connection lost"));
 
     expect((await get(token)).status).toBe(500);
   });
 
-  it("gives the assigned coordinator the event, what is arranged for it and what still blocks confirmation", async () => {
+  it("[SPM-33][AC1][AC3][AC11] gives the assigned coordinator the event, what is arranged for it and what still blocks confirmation", async () => {
     const token = signIn(assignedCoordinator());
     given({
       bookings: [booking()],
@@ -298,7 +298,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   });
 
   // AC2: an event with more than one venue booking (SPM-81).
-  it("lists each venue booking of the event separately, with its own status", async () => {
+  it("[SPM-33][AC2] lists each venue booking of the event separately, with its own status", async () => {
     const token = signIn(assignedCoordinator());
     given({
       bookings: [booking(), booking({ id: ID.otherVenue, status: "pending", venue: { name: "Room B", code: "ROOM-B" } })],
@@ -311,7 +311,7 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(body.blocking).toBe(1);
   });
 
-  it("shows 'No venue booked' for an event with no venue booking at all", async () => {
+  it("[SPM-33][AC1] shows 'No venue booked' for an event with no venue booking at all", async () => {
     const token = signIn(assignedCoordinator());
     given();
 
@@ -329,7 +329,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   });
 
   // AC4: flagged by a change to the event (SPM-62) or to the venue (SPM-39).
-  it("shows a flagged booking and a flagged equipment line as outstanding, with why they were flagged", async () => {
+  it("[SPM-33][AC4] shows a flagged booking and a flagged equipment line as outstanding, with why they were flagged", async () => {
     const token = signIn(assignedCoordinator());
     given({
       bookings: [booking({ needsReview: true, reviewReason: "venue_retired" })],
@@ -344,7 +344,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   });
 
   // AC5: read from the event's own registration settings (SPM-64).
-  it("shows registration that is enabled but incomplete as outstanding", async () => {
+  it("[SPM-33][AC5] shows registration that is enabled but incomplete as outstanding", async () => {
     const token = signIn(assignedCoordinator());
     given({ event: registrationIncomplete, bookings: [booking()] });
 
@@ -359,7 +359,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   });
 
   // SPM-64's rule: registration that is off is not required, and nobody waived it.
-  it("shows registration that is not enabled as not required, without counting it", async () => {
+  it("[SPM-33][AC5][AC10] shows registration that is not enabled as not required, without counting it", async () => {
     const token = signIn(assignedCoordinator());
     given({ bookings: [booking()] });
 
@@ -369,7 +369,7 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(body.blocking).toBe(0);
   });
 
-  it("reads the booking the registration capacity is measured against (SPM-64)", async () => {
+  it("[SPM-64][AC4] reads the booking the registration capacity is measured against (SPM-64)", async () => {
     const token = signIn(assignedCoordinator());
     given({
       event: { ...registrationIncomplete, registrationCapacity: 80, registrationVenueBookingId: ID.otherVenue },
@@ -385,7 +385,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   });
 
   // AC10, AC11.
-  it("shows what is marked as not required as such, and does not count it as blocking", async () => {
+  it("[SPM-33][AC10][AC11] shows what is marked as not required as such, and does not count it as blocking", async () => {
     const token = signIn(assignedCoordinator());
     given({
       event: { ...registrationIncomplete, registrationNotRequired: true },
@@ -405,7 +405,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   });
 
   // Briefing 8f and customer answer #14: who did it, and when.
-  it("says who marked each arrangement as not required, and when", async () => {
+  it("[SPM-33][AC10] says who marked each arrangement as not required, and when", async () => {
     const token = signIn(assignedCoordinator());
     const by = { fullName: "Daniel Tan" };
     given({
@@ -438,7 +438,7 @@ describe("GET /api/events/[id]/arrangements", () => {
     expect(named(body, "Hall A")).toMatchObject({ notRequiredBy: null, notRequiredAt: null });
   });
 
-  it("lets another coordinator read the list, but not manage it", async () => {
+  it("[SPM-33][AC8] lets another coordinator read the list, but not manage it", async () => {
     const token = signIn(anotherCoordinator());
     given({ bookings: [booking({ status: "pending" })] });
 
@@ -455,7 +455,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   // SPM-68: the Readiness tab links a flagged arrangement to the Flagged
   // Arrangements page, which lists it for the assigned coordinator only.
   it.each(["planning", "confirmed", "safety_review"])(
-    "tells the assigned coordinator of a %s event that its flags are theirs to review",
+    "[SPM-68][AC1] tells the assigned coordinator of a %s event that its flags are theirs to review",
     async (status) => {
       const token = signIn(assignedCoordinator());
       given({ event: { status }, bookings: [booking()] });
@@ -464,14 +464,14 @@ describe("GET /api/events/[id]/arrangements", () => {
     }
   );
 
-  it.each(["completed", "cancelled"])("has no flags left to review on a %s event", async (status) => {
+  it.each(["completed", "cancelled"])("[SPM-68][AC1] has no flags left to review on a %s event", async (status) => {
     const token = signIn(assignedCoordinator());
     given({ event: { status }, bookings: [booking()] });
 
     expect((await (await get(token)).json()).canReviewFlags).toBe(false);
   });
 
-  it("tells another coordinator that its flags are not theirs to review", async () => {
+  it("[SPM-68][AC16] tells another coordinator that its flags are not theirs to review", async () => {
     const token = signIn(anotherCoordinator());
     given({ bookings: [booking()] });
 
@@ -479,7 +479,7 @@ describe("GET /api/events/[id]/arrangements", () => {
   });
 
   it.each(["approved", "confirmed", "completed", "cancelled"])(
-    "does not let the assigned coordinator manage the list of a %s event",
+    "[SPM-33][AC8] does not let the assigned coordinator manage the list of a %s event",
     async (status) => {
       const token = signIn(assignedCoordinator());
       given({ event: { status }, bookings: [booking({ status: "pending" })] });
@@ -503,7 +503,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
   });
   const safety = (body: { arrangements: ListedArrangement[] }) => named(body, "Operational Safety Check");
 
-  it("reads the event's latest safety check", async () => {
+  it("[SPM-33][AC6] reads the event's latest safety check", async () => {
     const token = signIn(assignedCoordinator());
     given({ bookings: [booking()] });
 
@@ -515,7 +515,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
     });
   });
 
-  it("lists a check that was never submitted, last, as a required item that is not submitted", async () => {
+  it("[SPM-33][AC6] lists a check that was never submitted, last, as a required item that is not submitted", async () => {
     const token = signIn(assignedCoordinator());
     given({ bookings: [booking()], equipment: [line()], safetyCheck: null });
 
@@ -544,7 +544,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
     ["approved", "safety_approved", "complete"],
     ["changes_requested", "safety_changes_requested", "outstanding"],
     ["rejected", "safety_rejected", "outstanding"],
-  ])("shows a %s check as %s, with who submitted it and when", async (status, shown, state) => {
+  ])("[SPM-33][AC6] shows a %s check as %s, with who submitted it and when", async (status, shown, state) => {
     const token = signIn(assignedCoordinator());
     given({ event: { status: status === "pending" ? "safety_review" : "planning" }, bookings: [booking()], safetyCheck: check(status) });
 
@@ -558,7 +558,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
     });
   });
 
-  it("leaves out who submitted a check whose submitter's account is gone", async () => {
+  it("[SPM-33][AC6] leaves out who submitted a check whose submitter's account is gone", async () => {
     const token = signIn(assignedCoordinator());
     given({ event: { status: "safety_review" }, bookings: [booking()], safetyCheck: { ...check("pending"), submitter: null } });
 
@@ -569,7 +569,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
 
   // CHANGED (SPM-88, AC8/AC9): Confirm waits for an approved safety check.
   it.each([null, "changes_requested", "rejected", "closed"])(
-    "counts an outstanding safety check as blocking confirmation (latest check: %s)",
+    "[SPM-33][AC6] [SPM-88][AC8] counts an outstanding safety check as blocking confirmation (latest check: %s)",
     async (status) => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking()], safetyCheck: status === null ? null : { ...APPROVED_CHECK, status } });
@@ -578,7 +578,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
     }
   );
 
-  it("does not count an approved safety check as blocking", async () => {
+  it("[SPM-33][AC6] [SPM-88][AC8] does not count an approved safety check as blocking", async () => {
     const token = signIn(assignedCoordinator());
     given({ bookings: [booking()] });
 
@@ -586,7 +586,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
   });
 
   // Safety review cannot move to Confirmed until the Safety Officer decides.
-  it("counts a check awaiting the Safety Officer's review as blocking confirmation", async () => {
+  it("[SPM-33][AC6] [SPM-88][AC8] counts a check awaiting the Safety Officer's review as blocking confirmation", async () => {
     const token = signIn(assignedCoordinator());
     given({ event: { status: "safety_review" }, bookings: [booking()], safetyCheck: check("pending") });
 
@@ -596,7 +596,7 @@ describe("GET /api/events/[id]/arrangements - the Operational Safety Check (AC6,
     expect(safety(body).blocksConfirmation).toBe(true);
   });
 
-  it("does not offer marking while the event is with the Safety Officer", async () => {
+  it("[SPM-33][AC8] does not offer marking while the event is with the Safety Officer", async () => {
     const token = signIn(assignedCoordinator());
     given({ event: { status: "safety_review" }, bookings: [booking({ status: "pending" })], safetyCheck: check("pending") });
 
@@ -608,7 +608,7 @@ describe("PATCH /api/events/[id]/arrangements - the Operational Safety Check (AC
   it.each([
     ["with no id", { kind: "safety_check", notRequired: true }],
     ["by the check's id", { kind: "safety_check", id: ID.request, notRequired: true }],
-  ])("refuses to mark the safety check as not required, %s, and writes nothing", async (_case, body) => {
+  ])("[SPM-33][AC9] refuses to mark the safety check as not required, %s, and writes nothing", async (_case, body) => {
     const token = signIn(assignedCoordinator());
     given({ bookings: [booking()] });
 
@@ -637,22 +637,22 @@ describe("PATCH /api/events/[id]/arrangements", () => {
   });
 
   describe("who can reach it", () => {
-    it("is 401 without a session", async () => {
+    it("[SPM-21][AC4] is 401 without a session", async () => {
       expect((await patch(undefined, waiveLine)).status).toBe(401);
     });
 
-    it("is 404 for a malformed reference", async () => {
+    it("[SPM-33] is 404 for a malformed reference", async () => {
       expect((await patch(signIn(assignedCoordinator()), waiveLine, "nope")).status).toBe(404);
     });
 
-    it("is 404 for a reference that matches no event", async () => {
+    it("[SPM-33] is 404 for a reference that matches no event", async () => {
       const token = signIn(assignedCoordinator());
       db.event.findUnique.mockResolvedValue(null);
 
       expect((await patch(token, waiveLine)).status).toBe(404);
     });
 
-    it("is 404, not 403, for an event the user cannot see - and nothing is written", async () => {
+    it("[SPM-33] is 404, not 403, for an event the user cannot see - and nothing is written", async () => {
       // An attendee sees only confirmed events that are open for registration.
       const token = signIn(user("attendee"));
       given({ equipment: [line({ status: "requested" })] });
@@ -663,7 +663,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expectNothingWritten();
     });
 
-    it("is 403 for a coordinator who is not the one assigned, and nothing is written", async () => {
+    it("[SPM-33][AC8] is 403 for a coordinator who is not the one assigned, and nothing is written", async () => {
       const token = signIn(anotherCoordinator());
       given({ equipment: [line({ status: "requested" })] });
 
@@ -678,7 +678,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       ["the Ops Manager", () => user("ops_manager")],
       ["Venue Staff", () => user("venue_staff")],
       ["Technical Support", () => user("tech_support")],
-    ])("is 403 for %s, and nothing is written", async (_who, actor) => {
+    ])("[SPM-33][AC8] is 403 for %s, and nothing is written", async (_who, actor) => {
       const token = signIn(actor());
       given({ equipment: [line({ status: "requested" })] });
 
@@ -688,7 +688,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expectNothingWritten();
     });
 
-    it("answers 500 when the database fails", async () => {
+    it("[SPM-33] answers 500 when the database fails", async () => {
       const token = signIn(assignedCoordinator());
       db.event.findUnique.mockRejectedValue(new Error("connection lost"));
 
@@ -706,7 +706,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       ["an id that is not one", { kind: "equipment", id: "r1", notRequired: true }],
       ["no decision", { kind: "equipment", id: ID.request }],
       ["a decision that is not yes or no", { kind: "equipment", id: ID.request, notRequired: "yes" }],
-    ])("refuses %s", async (_case, body) => {
+    ])("[SPM-33][AC8] refuses %s", async (_case, body) => {
       const token = signIn(assignedCoordinator());
       given({ equipment: [line({ status: "requested" })] });
 
@@ -718,7 +718,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
     });
 
     it.each(["approved", "confirmed", "completed", "cancelled"])(
-      "refuses on a %s event: arrangements are marked while the event is in Planning",
+      "[SPM-33][AC8] refuses on a %s event: arrangements are marked while the event is in Planning",
       async (status) => {
         const token = signIn(assignedCoordinator());
         given({ event: { status }, equipment: [line({ status: "requested" })] });
@@ -736,7 +736,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
     it.each([
       ["a venue booking", { kind: "venue", id: ID.otherVenue, notRequired: true }],
       ["an equipment line", { kind: "equipment", id: ID.equipment, notRequired: true }],
-    ])("is 404 for %s that is not part of this event", async (_case, body) => {
+    ])("[SPM-33][AC8] is 404 for %s that is not part of this event", async (_case, body) => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking({ status: "pending" })], equipment: [line({ status: "requested" })] });
 
@@ -762,7 +762,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
         { kind: "registration", notRequired: true },
       ],
       ["registration that is not enabled", { bookings: [booking()] }, { kind: "registration", notRequired: true }],
-    ])("refuses %s: only an outstanding arrangement can be marked", async (_case, state, body) => {
+    ])("[SPM-33][AC8] refuses %s: only an outstanding arrangement can be marked", async (_case, state, body) => {
       const token = signIn(assignedCoordinator());
       given(state);
 
@@ -778,7 +778,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
     it.each([
       ["a booking still awaiting Venue Staff", booking({ status: "pending" })],
       ["an approved booking that is flagged for review", booking({ needsReview: true, reviewReason: "venue_retired" })],
-    ])("marks %s as not required, and changes nothing else about it", async (_case, row) => {
+    ])("[SPM-33][AC8] marks %s as not required, and changes nothing else about it", async (_case, row) => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking({ id: ID.otherVenue, venue: { name: "Room B", code: "ROOM-B" } }), row] });
 
@@ -796,7 +796,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
     // "an unfulfilled equipment item agreed with Technical Support Staff to be
     // non-essential" - the story's own example.
     it.each(["requested", "under_review", "unavailable"])(
-      "marks a %s equipment line as not required, and leaves its status as it was",
+      "[SPM-33][AC8] marks a %s equipment line as not required, and leaves its status as it was",
       async (status) => {
         const token = signIn(assignedCoordinator());
         given({ bookings: [booking()], equipment: [line({ status })] });
@@ -813,7 +813,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       }
     );
 
-    it("marks incomplete registration setup as not required, without changing the event's status or settings", async () => {
+    it("[SPM-33][AC8] marks incomplete registration setup as not required, without changing the event's status or settings", async () => {
       const token = signIn(assignedCoordinator());
       given({ event: registrationIncomplete, bookings: [booking()] });
 
@@ -827,7 +827,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expect(body.blocking).toBe(0);
     });
 
-    it("asks for a venue again when the event's only booking is marked as not required", async () => {
+    it("[SPM-33][AC8][AC11] asks for a venue again when the event's only booking is marked as not required", async () => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking({ status: "pending" })] });
 
@@ -842,7 +842,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
   });
 
   describe("reversing the decision (AC8)", () => {
-    it("marks a venue booking as required again, so it is outstanding once more", async () => {
+    it("[SPM-33][AC8] marks a venue booking as required again, so it is outstanding once more", async () => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking(), booking({ id: ID.otherVenue, status: "pending", notRequired: true, venue: { name: "Room B", code: "ROOM-B" } })] });
 
@@ -855,7 +855,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expect(body.blocking).toBe(1);
     });
 
-    it("marks an equipment line as required again", async () => {
+    it("[SPM-33][AC8] marks an equipment line as required again", async () => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking()], equipment: [line({ status: "unavailable", notRequired: true })] });
 
@@ -868,7 +868,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expect(body.blocking).toBe(1);
     });
 
-    it("writes nothing when asked to mark registration that is switched off as required", async () => {
+    it("[SPM-33][AC8] writes nothing when asked to mark registration that is switched off as required", async () => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking()] });
 
@@ -878,7 +878,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expectNothingWritten();
     });
 
-    it("marks registration setup as required again", async () => {
+    it("[SPM-33][AC8] marks registration setup as required again", async () => {
       const token = signIn(assignedCoordinator());
       given({ event: { ...registrationIncomplete, registrationNotRequired: true }, bookings: [booking()] });
 
@@ -890,7 +890,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expect(named(body, "Registration setup").state).toBe("outstanding");
     });
 
-    it("writes nothing when asked to reverse a decision that was never made", async () => {
+    it("[SPM-33][AC8] writes nothing when asked to reverse a decision that was never made", async () => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking()], equipment: [line({ status: "requested" })] });
 
@@ -901,7 +901,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
       expectNothingWritten();
     });
 
-    it("is 404 if the event is gone by the time the change has been saved", async () => {
+    it("[SPM-33][AC8] is 404 if the event is gone by the time the change has been saved", async () => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking()], equipment: [line({ status: "requested" })] });
       const found = await db.event.findUnique();
@@ -912,7 +912,7 @@ describe("PATCH /api/events/[id]/arrangements", () => {
 
     // The line was reserved after it was waived: it is complete either way,
     // and the decision can still be taken back.
-    it("lets a decision be reversed even when the arrangement has since been completed", async () => {
+    it("[SPM-33][AC8] lets a decision be reversed even when the arrangement has since been completed", async () => {
       const token = signIn(assignedCoordinator());
       given({ bookings: [booking()], equipment: [line({ status: "reserved", notRequired: true })] });
 

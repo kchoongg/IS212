@@ -23,7 +23,7 @@ describe("Root layout", () => {
     return new DOMParser().parseFromString(html, "text/html");
   }
 
-  it("declares the page language and loads both typefaces", () => {
+  it("[SPM-7] declares the page language and loads both typefaces", () => {
     const doc = page();
 
     expect(doc.documentElement.getAttribute("lang")).toBe("en");
@@ -31,7 +31,7 @@ describe("Root layout", () => {
     expect(doc.documentElement.className).toContain("font-display");
   });
 
-  it("puts a 'Skip to content' link first, pointing at the page content", () => {
+  it("[SPM-7] puts a 'Skip to content' link first, pointing at the page content", () => {
     const doc = page();
 
     const first = doc.body.firstElementChild as HTMLAnchorElement;
@@ -41,14 +41,14 @@ describe("Root layout", () => {
     expect(doc.getElementById("main")!.textContent).toBe("page content");
   });
 
-  it("wraps every page in the app shell", () => {
+  it("[SPM-7][AC3] wraps every page in the app shell", () => {
     const doc = page();
 
     expect(doc.querySelector("header")!.textContent).toContain("ConnectSphere");
     expect(doc.querySelector("main")!.contains(doc.getElementById("main"))).toBe(true);
   });
 
-  it("titles the site", () => {
+  it("[SPM-7] titles the site", () => {
     expect(metadata.title).toBe("ConnectSphere");
   });
 });

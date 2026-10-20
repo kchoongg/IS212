@@ -15,7 +15,7 @@ describe("POST /api/auth/login", () => {
     return { ...user("organiser"), passwordHash: await hashPassword(PASSWORD), ...overrides };
   }
 
-  it("returns a session token and the user for the right password", async () => {
+  it("[SPM-21][AC1] returns a session token and the user for the right password", async () => {
     const row = await account();
     givenUsers(row);
 
@@ -27,7 +27,7 @@ describe("POST /api/auth/login", () => {
     expect(verifySession(body.token)).toMatchObject({ id: row.id, role: "organiser" });
   });
 
-  it("matches the email regardless of capitalisation and surrounding spaces", async () => {
+  it("[SPM-21][AC1] matches the email regardless of capitalisation and surrounding spaces", async () => {
     const row = await account();
     givenUsers(row);
 
@@ -38,7 +38,7 @@ describe("POST /api/auth/login", () => {
     expect(res.status).toBe(200);
   });
 
-  it("refuses an unknown email with the same message as a wrong password", async () => {
+  it("[SPM-21][AC2] refuses an unknown email with the same message as a wrong password", async () => {
     givenUsers();
 
     const res = await login(req("POST", "/api/auth/login", { body: { email: "nobody@example.com", password: "x" } }));
@@ -47,7 +47,7 @@ describe("POST /api/auth/login", () => {
     expect(await res.json()).toEqual({ error: "Invalid email or password" });
   });
 
-  it("refuses a wrong password", async () => {
+  it("[SPM-21][AC2] refuses a wrong password", async () => {
     const row = await account();
     givenUsers(row);
 
@@ -57,7 +57,7 @@ describe("POST /api/auth/login", () => {
     expect(await res.json()).toEqual({ error: "Invalid email or password" });
   });
 
-  it("refuses a deactivated account with 403, even with the right password", async () => {
+  it("[SPM-21][AC2] refuses a deactivated account with 403, even with the right password", async () => {
     const row = await account({ isActive: false });
     givenUsers(row);
 
@@ -69,7 +69,7 @@ describe("POST /api/auth/login", () => {
     expect(body.token).toBeUndefined();
   });
 
-  it("rejects a body that fails validation", async () => {
+  it("[SPM-21][AC2] rejects a body that fails validation", async () => {
     const res = await login(req("POST", "/api/auth/login", { body: { email: "not-an-email", password: "" } }));
     const body = await res.json();
 
@@ -79,7 +79,7 @@ describe("POST /api/auth/login", () => {
     expect(body.details.fieldErrors).toHaveProperty("password");
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-21] answers 500 when the database fails", async () => {
     db.user.findUnique.mockRejectedValue(new Error("connection lost"));
 
     const res = await login(req("POST", "/api/auth/login", { body: { email: "a@example.com", password: "x" } }));
@@ -90,7 +90,7 @@ describe("POST /api/auth/login", () => {
 });
 
 describe("GET /api/auth/me", () => {
-  it("returns the signed-in user's id, name, email and role", async () => {
+  it("[SPM-21][AC3] returns the signed-in user's id, name, email and role", async () => {
     const coordinator = user("coordinator");
     const token = signIn(coordinator);
 
@@ -105,18 +105,18 @@ describe("GET /api/auth/me", () => {
     });
   });
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     const res = await me(req("GET", "/api/auth/me"));
     expect(res.status).toBe(401);
   });
 
-  it("is 401 for a deactivated account", async () => {
+  it("[SPM-21][AC4] is 401 for a deactivated account", async () => {
     const token = signIn(user("coordinator", { isActive: false }));
     const res = await me(req("GET", "/api/auth/me", { token }));
     expect(res.status).toBe(401);
   });
 
-  it("is 404 if the user disappears between the session check and the lookup", async () => {
+  it("[SPM-21] is 404 if the user disappears between the session check and the lookup", async () => {
     const coordinator = user("coordinator");
     const token = signIn(coordinator);
     db.user.findUnique.mockResolvedValueOnce(coordinator).mockResolvedValueOnce(null);
@@ -131,7 +131,7 @@ describe("GET /api/auth/me", () => {
 describe("POST /api/auth/register", () => {
   const valid = { name: "Rachel Ng", email: "rachel@example.com", password: "long-enough-pw", role: "organiser" };
 
-  it("creates the account with a hashed password and returns it without the hash", async () => {
+  it("[UNTRACED:self-registration] creates the account with a hashed password and returns it without the hash", async () => {
     givenUsers();
     db.user.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "new-user", ...data }));
 
@@ -146,7 +146,7 @@ describe("POST /api/auth/register", () => {
     expect(await verifyPassword(valid.password, written.passwordHash)).toBe(true);
   });
 
-  it("stores the email trimmed and lower-cased", async () => {
+  it("[UNTRACED:self-registration] stores the email trimmed and lower-cased", async () => {
     givenUsers();
     db.user.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "new-user", ...data }));
 
@@ -155,7 +155,7 @@ describe("POST /api/auth/register", () => {
     expect(callArg(db.user.create).data.email).toBe("rachel@example.com");
   });
 
-  it("refuses an email that is already registered", async () => {
+  it("[UNTRACED:self-registration] refuses an email that is already registered", async () => {
     givenUsers({ id: "existing", email: valid.email });
 
     const res = await register(req("POST", "/api/auth/register", { body: valid }));
@@ -166,7 +166,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it.each(["coordinator", "ops_manager", "venue_staff", "tech_support"])(
-    "refuses self-registration as internal role %s",
+    "[UNTRACED:self-registration] refuses self-registration as internal role %s",
     async (role) => {
       givenUsers();
 
@@ -179,7 +179,7 @@ describe("POST /api/auth/register", () => {
     }
   );
 
-  it("allows self-registration as an attendee", async () => {
+  it("[UNTRACED:self-registration] allows self-registration as an attendee", async () => {
     givenUsers();
     db.user.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "new-user", ...data }));
 
@@ -188,7 +188,7 @@ describe("POST /api/auth/register", () => {
     expect(res.status).toBe(201);
   });
 
-  it("rejects a password shorter than 8 characters", async () => {
+  it("[UNTRACED:self-registration] rejects a password shorter than 8 characters", async () => {
     const res = await register(req("POST", "/api/auth/register", { body: { ...valid, password: "short" } }));
     const body = await res.json();
 
@@ -196,7 +196,7 @@ describe("POST /api/auth/register", () => {
     expect(body.details.fieldErrors.password).toEqual(["Password must be at least 8 characters"]);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[UNTRACED:self-registration] answers 500 when the database fails", async () => {
     givenUsers();
     db.user.create.mockRejectedValue(new Error("connection lost"));
 

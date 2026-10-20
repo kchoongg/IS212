@@ -64,11 +64,11 @@ const MAR_AUD: VenueCapabilities & { name: string } = {
 };
 
 describe("capacity is checked against the selected layout (AC1)", () => {
-  it("passes when attendance fits the layout", () => {
+  it("[SPM-41][AC1] passes when attendance fits the layout", () => {
     expect(checkVenueSuitability(event({ expectedAttendance: 60 }), ORC_SEM).suitable).toBe(true);
   });
 
-  it("fails when attendance is under the venue maximum but over the layout capacity", () => {
+  it("[SPM-41][AC1] fails when attendance is under the venue maximum but over the layout capacity", () => {
     // 55 people, classroom of 40 in a room whose overall maximum is 60.
     const result = checkVenueSuitability(event({ expectedAttendance: 55 }), JUR_TRN);
     expect(result.suitable).toBe(false);
@@ -77,18 +77,18 @@ describe("capacity is checked against the selected layout (AC1)", () => {
     ]);
   });
 
-  it("accepts attendance equal to the layout capacity", () => {
+  it("[SPM-41][AC1] accepts attendance equal to the layout capacity", () => {
     expect(checkVenueSuitability(event({ expectedAttendance: 70 }), ORC_SEM).suitable).toBe(true);
   });
 
-  it("rejects attendance one above the layout capacity", () => {
+  it("[SPM-41][AC1] rejects attendance one above the layout capacity", () => {
     const result = checkVenueSuitability(event({ expectedAttendance: 71 }), ORC_SEM);
     expect(result.unmet).toEqual([
       { kind: "capacity", layoutName: "classroom", layoutCapacity: 70, expectedAttendance: 71 },
     ]);
   });
 
-  it("gives a different answer for the same attendance under a different layout (TC05)", () => {
+  it("[SPM-41][AC1] gives a different answer for the same attendance under a different layout (TC05)", () => {
     expect(
       checkVenueSuitability(event({ expectedAttendance: 100, preferredLayout: "theatre" }), ORC_SEM)
         .suitable
@@ -103,7 +103,7 @@ describe("capacity is checked against the selected layout (AC1)", () => {
 describe("facilities and accessibility are matched (AC2, AC3)", () => {
   const video = req(VIDEO, "Video conferencing suite");
 
-  it("passes when the venue has every required facility", () => {
+  it("[SPM-41][AC2] passes when the venue has every required facility", () => {
     const result = checkVenueSuitability(
       event({ preferredLayout: "theatre", requirements: [video, HEARING_LOOP] }),
       MAR_AUD
@@ -111,7 +111,7 @@ describe("facilities and accessibility are matched (AC2, AC3)", () => {
     expect(result.suitable).toBe(true);
   });
 
-  it("names a missing facility", () => {
+  it("[SPM-41][AC2][AC6] names a missing facility", () => {
     const result = checkVenueSuitability(
       event({ preferredLayout: "theatre", expectedAttendance: 100, requirements: [video] }),
       ORC_SEM
@@ -121,7 +121,7 @@ describe("facilities and accessibility are matched (AC2, AC3)", () => {
     ]);
   });
 
-  it("names a missing accessibility feature", () => {
+  it("[SPM-41][AC3][AC6] names a missing accessibility feature", () => {
     const result = checkVenueSuitability(
       event({ preferredLayout: "theatre", expectedAttendance: 100, requirements: [HEARING_LOOP] }),
       ORC_SEM
@@ -131,7 +131,7 @@ describe("facilities and accessibility are matched (AC2, AC3)", () => {
     ]);
   });
 
-  it("lists every missing requirement, not just the first", () => {
+  it("[SPM-41][AC6] lists every missing requirement, not just the first", () => {
     const result = checkVenueSuitability(
       event({
         preferredLayout: "theatre",
@@ -147,11 +147,11 @@ describe("facilities and accessibility are matched (AC2, AC3)", () => {
     ]);
   });
 
-  it("does not fail an event that requires nothing", () => {
+  it("[SPM-41][AC5] does not fail an event that requires nothing", () => {
     expect(checkVenueSuitability(event(), ORC_SEM).unmet).toEqual([]);
   });
 
-  it("reports a missing nice-to-have without disqualifying the venue", () => {
+  it("[SPM-41][AC5] reports a missing nice-to-have without disqualifying the venue", () => {
     const result = checkVenueSuitability(
       event({ requirements: [req(VIDEO, "Video conferencing suite", "facility", false)] }),
       ORC_SEM
@@ -163,7 +163,7 @@ describe("facilities and accessibility are matched (AC2, AC3)", () => {
 });
 
 describe("the required layout is checked (AC4)", () => {
-  it("fails a venue that does not offer the layout, with no capacity fallback", () => {
+  it("[SPM-41][AC4] fails a venue that does not offer the layout, with no capacity fallback", () => {
     const result = checkVenueSuitability(
       event({ preferredLayout: "cabaret", expectedAttendance: 20 }),
       MAR_AUD
@@ -172,7 +172,7 @@ describe("the required layout is checked (AC4)", () => {
     expect(result.unmet).toEqual([{ kind: "layout", layoutName: "cabaret" }]);
   });
 
-  it("passes a venue that offers the layout", () => {
+  it("[SPM-41][AC4] passes a venue that offers the layout", () => {
     expect(
       checkVenueSuitability(event({ preferredLayout: "cabaret", expectedAttendance: 80 }), ORC_SEM).suitable
     ).toBe(true);
@@ -180,7 +180,7 @@ describe("the required layout is checked (AC4)", () => {
 });
 
 describe("unsuitable venues say why (AC5, AC6)", () => {
-  it("reports capacity and accessibility failures together (TC13)", () => {
+  it("[SPM-41][AC5][AC6] reports capacity and accessibility failures together (TC13)", () => {
     const result = checkVenueSuitability(
       event({ expectedAttendance: 55, requirements: [HEARING_LOOP] }),
       JUR_TRN
@@ -189,7 +189,7 @@ describe("unsuitable venues say why (AC5, AC6)", () => {
     expect(result.unmet.map((u) => u.kind)).toEqual(["capacity", "facility"]);
   });
 
-  it("words each requirement so the reason names the requirement and its figures", () => {
+  it("[SPM-41][AC5][AC6] words each requirement so the reason names the requirement and its figures", () => {
     expect(
       describeUnmet({ kind: "capacity", layoutName: "classroom", layoutCapacity: 40, expectedAttendance: 55 })
     ).toBe("Classroom capacity is 40 - this space expects 55.");
@@ -202,7 +202,7 @@ describe("unsuitable venues say why (AC5, AC6)", () => {
     ).toBe("Missing facility: Video conferencing suite.");
   });
 
-  it("puts suitable venues first, then the closest to suitable", () => {
+  it("[SPM-41][AC5] puts suitable venues first, then the closest to suitable", () => {
     const ranked = assessVenues(
       event({ expectedAttendance: 55, requirements: [HEARING_LOOP] }),
       [JUR_TRN, ORC_SEM, MAR_AUD]
@@ -216,20 +216,20 @@ describe("unsuitable venues say why (AC5, AC6)", () => {
     ]);
   });
 
-  it("keeps unsuitable venues in the list", () => {
+  it("[SPM-41][AC5] keeps unsuitable venues in the list", () => {
     expect(assessVenues(event({ expectedAttendance: 55 }), [JUR_TRN])).toHaveLength(1);
   });
 });
 
 describe("incomplete events", () => {
-  it("skips the checks it has no input for instead of guessing", () => {
+  it("[SPM-41] skips the checks it has no input for instead of guessing", () => {
     const noLayout = event({ preferredLayout: null, expectedAttendance: 500 });
     expect(checkVenueSuitability(noLayout, ORC_SEM).unmet).toEqual([]);
     const noAttendance = event({ expectedAttendance: null });
     expect(checkVenueSuitability(noAttendance, JUR_TRN).unmet).toEqual([]);
   });
 
-  it("says what is missing", () => {
+  it("[SPM-41] says what is missing", () => {
     expect(missingEventInputs({ expectedAttendance: null, preferredLayout: null })).toEqual([
       "expectedAttendance",
       "preferredLayout",
@@ -239,7 +239,7 @@ describe("incomplete events", () => {
 });
 
 describe("layoutLabel", () => {
-  it("reads like the form does", () => {
+  it("[SPM-41] reads like the form does", () => {
     expect(layoutLabel("theatre")).toBe("Theatre");
     expect(layoutLabel("u_shape")).toBe("U shape");
   });
@@ -251,11 +251,11 @@ describe("parseSpaceAttendance", () => {
     ["1", 1],
     ["20", 20],
     [" 150 ", 150],
-  ])("reads %j as %i", (typed, expected) => {
+  ])("[SPM-90][AC1] reads %j as %i", (typed, expected) => {
     expect(parseSpaceAttendance(typed)).toBe(expected);
   });
 
-  it.each(["", " ", "0", "-3", "2.5", "abc", "1e3", "99999999999999999999"])("refuses %j", (typed) => {
+  it.each(["", " ", "0", "-3", "2.5", "abc", "1e3", "99999999999999999999"])("[SPM-90][AC1] refuses %j", (typed) => {
     expect(parseSpaceAttendance(typed)).toBeNull();
   });
 });

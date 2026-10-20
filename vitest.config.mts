@@ -10,6 +10,10 @@ export default defineConfig({
     // browser-like DOM with `// @vitest-environment jsdom` on its first line.
     environment: "node",
     include: ["src/**/*.test.{ts,tsx}"],
+    // Archived tests are a record of behaviour that changed on purpose, never
+    // run (docs/test-cases/DECOMMISSIONED.md). Outside src/ already; listed so
+    // a wider include can never pick them up.
+    exclude: ["**/node_modules/**", "tests/archive/**"],
     setupFiles: ["./src/test/setup.ts"],
     // src/lib/auth.ts refuses to load without one. Test-only value.
     env: { JWT_SECRET: "test-secret" },

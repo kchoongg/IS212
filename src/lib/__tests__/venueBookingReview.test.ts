@@ -60,7 +60,7 @@ const reject = (
 describe("approving a booking request (AC3, AC7)", () => {
   // SPM-82 (AC5): an expired hold was never a booking, and cannot be decided
   // now - not even rejected. The Coordinator submits a new request instead.
-  it("SPM-82: refuses to approve or reject a hold that has expired, saying what to do instead", () => {
+  it("[SPM-82][AC5] SPM-82: refuses to approve or reject a hold that has expired, saying what to do instead", () => {
     const expired = { ...base, booking: { ...base.booking, status: "expired" } };
     const message = "This hold has expired. The Coordinator must submit a new request.";
 
@@ -71,11 +71,11 @@ describe("approving a booking request (AC3, AC7)", () => {
     });
   });
 
-  it("a pending request for a free room can be approved", () => {
+  it("[SPM-43][AC3] a pending request for a free room can be approved", () => {
     expect(checkBookingDecision(base)).toEqual({ ok: true });
   });
 
-  it("a request is decided once: approved, rejected and cancelled ones are refused", () => {
+  it("[SPM-43][AC3][AC4] a request is decided once: approved, rejected and cancelled ones are refused", () => {
     for (const status of ["approved", "rejected", "cancelled"]) {
       const input = { ...base, booking: { ...base.booking, status } };
       expect(checkBookingDecision(input)).toEqual({ ok: false, error: ALREADY_DECIDED_MESSAGE });
@@ -86,7 +86,7 @@ describe("approving a booking request (AC3, AC7)", () => {
     }
   });
 
-  it("a completed, cancelled or rejected event's request cannot be approved", () => {
+  it("[SPM-43][AC3] a completed, cancelled or rejected event's request cannot be approved", () => {
     for (const eventStatus of ["completed", "cancelled", "rejected"]) {
       expect(checkBookingDecision({ ...base, eventStatus })).toEqual({
         ok: false,
@@ -98,7 +98,7 @@ describe("approving a booking request (AC3, AC7)", () => {
     }
   });
 
-  it("a request for an event not yet approved cannot be approved, but can be rejected (SPM-54)", () => {
+  it("[SPM-43][AC3] a request for an event not yet approved cannot be approved, but can be rejected (SPM-54)", () => {
     for (const eventStatus of ["submitted", "under_review"]) {
       expect(checkBookingDecision({ ...base, eventStatus })).toEqual({
         ok: false,
@@ -112,7 +112,7 @@ describe("approving a booking request (AC3, AC7)", () => {
     }
   });
 
-  it("a request for a retired venue cannot be approved", () => {
+  it("[SPM-43][AC3] a request for a retired venue cannot be approved", () => {
     expect(checkBookingDecision({ ...base, venue: { ...base.venue, isActive: false } })).toEqual({
       ok: false,
       error: "Orchard Seminar Room has been retired. Reject this request and suggest another venue.",
@@ -121,7 +121,7 @@ describe("approving a booking request (AC3, AC7)", () => {
 });
 
 describe("conflicts at approval", () => {
-  it("another approved booking at the same times blocks, and is named with its room-in-use period", () => {
+  it("[SPM-44][AC6][AC9] another approved booking at the same times blocks, and is named with its room-in-use period", () => {
     expect(checkBookingDecision(withConfirmed(confirmed("2027-03-06T11:00:00", "2027-03-06T15:00:00")))).toEqual({
       ok: false,
       error:
@@ -129,7 +129,7 @@ describe("conflicts at approval", () => {
     });
   });
 
-  it("SPM-93-TC14: a clash only through setup or turnaround blocks too, and says so", () => {
+  it("[SPM-93][AC7] [SPM-44][AC6] SPM-93-TC14: a clash only through setup or turnaround blocks too, and says so", () => {
     // The other booking's setup starts at 17:00; this request's turnaround runs to 17:30.
     expect(approvalConflict(base.venue, base.booking)).toBeNull();
     expect(
@@ -142,21 +142,21 @@ describe("conflicts at approval", () => {
     );
   });
 
-  it("SPM-93-TC14: a booking whose setup starts as this request's turnaround ends does not block", () => {
+  it("[SPM-93][AC7] [SPM-44][AC6] SPM-93-TC14: a booking whose setup starts as this request's turnaround ends does not block", () => {
     expect(approvalConflict({ ...base.venue, bookings: [confirmed("2027-03-06T18:30:00", "2027-03-06T19:00:00")] }, base.booking)).toBeNull();
   });
 
-  it("an approved booking far enough away does not block", () => {
+  it("[SPM-44][AC10] an approved booking far enough away does not block", () => {
     expect(checkBookingDecision(withConfirmed(confirmed("2027-03-08T09:00:00", "2027-03-08T17:00:00"))).ok).toBe(true);
   });
 
-  it("the request never clashes with itself", () => {
+  it("[SPM-44][AC10] the request never clashes with itself", () => {
     expect(
       checkBookingDecision(withConfirmed(confirmed("2027-03-06T09:00:00", "2027-03-06T17:00:00", "request"))).ok
     ).toBe(true);
   });
 
-  it("a venue unavailability period blocks, with its reason", () => {
+  it("[SPM-44][AC8] a venue unavailability period blocks, with its reason", () => {
     const input = {
       ...base,
       venue: {
@@ -174,7 +174,7 @@ describe("conflicts at approval", () => {
 });
 
 describe("rejecting a booking request (AC4, AC5)", () => {
-  it("a reason is required: empty or spaces-only is refused on the reason field", () => {
+  it("[SPM-43][AC5] a reason is required: empty or spaces-only is refused on the reason field", () => {
     for (const reason of ["", "   ", "\n\t "]) {
       expect(checkBookingDecision(reject(reason))).toEqual({
         ok: false,
@@ -184,11 +184,11 @@ describe("rejecting a booking request (AC4, AC5)", () => {
     }
   });
 
-  it("a request can be rejected with a reason alone", () => {
+  it("[SPM-43][AC5] a request can be rejected with a reason alone", () => {
     expect(checkBookingDecision(reject("Hall closed for rigging work."))).toEqual({ ok: true });
   });
 
-  it("rejecting is allowed where approving is not: a conflict, a closed event, a retired venue", () => {
+  it("[SPM-43][AC4] rejecting is allowed where approving is not: a conflict, a closed event, a retired venue", () => {
     const blocked: BookingDecisionInput = {
       ...reject("Room is already taken."),
       eventStatus: "cancelled",
@@ -205,18 +205,18 @@ describe("rejecting a booking request (AC4, AC5)", () => {
 describe("suggesting an alternative when rejecting (AC6)", () => {
   const REASON = "Hall closed for rigging work.";
 
-  it("an alternative arrangement in words needs no venue", () => {
+  it("[SPM-43][AC6] an alternative arrangement in words needs no venue", () => {
     expect(checkBookingDecision(reject(REASON, { suggestedAlternative: "The PM slot on 7 Mar is free." }))).toEqual({
       ok: true,
     });
   });
 
-  it("another active venue can be suggested", () => {
+  it("[SPM-43][AC6] another active venue can be suggested", () => {
     const input = { ...reject(REASON, { suggestedVenueId: "mar-aud" }), suggestedVenue: { id: "mar-aud", isActive: true } };
     expect(checkBookingDecision(input)).toEqual({ ok: true });
   });
 
-  it("a suggested venue that does not exist or is retired is refused", () => {
+  it("[SPM-43][AC6] a suggested venue that does not exist or is retired is refused", () => {
     const expected = { ok: false, error: "Choose a venue from the catalogue to suggest.", field: "suggestedVenueId" };
     expect(checkBookingDecision({ ...reject(REASON, { suggestedVenueId: "gone" }), suggestedVenue: null })).toEqual(expected);
     expect(
@@ -227,7 +227,7 @@ describe("suggesting an alternative when rejecting (AC6)", () => {
     ).toEqual(expected);
   });
 
-  it("the venue that was just refused cannot be the suggestion", () => {
+  it("[SPM-43][AC6] the venue that was just refused cannot be the suggestion", () => {
     const input = { ...reject(REASON, { suggestedVenueId: "orc-sem" }), suggestedVenue: { id: "orc-sem", isActive: true } };
     expect(checkBookingDecision(input)).toEqual({
       ok: false,
@@ -240,7 +240,7 @@ describe("suggesting an alternative when rejecting (AC6)", () => {
 describe("decideVenueBookingSchema", () => {
   const VENUE = "7b7c0f0e-6f0a-4a57-9a44-6f1f1d3a2c11";
 
-  it("accepts an approval, and a rejection with or without a suggestion", () => {
+  it("[SPM-43][AC3][AC4] accepts an approval, and a rejection with or without a suggestion", () => {
     expect(decideVenueBookingSchema.parse({ decision: "approve" })).toEqual({ decision: "approve" });
     expect(decideVenueBookingSchema.parse({ decision: "reject", reason: "No." })).toEqual({
       decision: "reject",
@@ -256,18 +256,18 @@ describe("decideVenueBookingSchema", () => {
     ).toEqual({ decision: "reject", reason: "No.", suggestedVenueId: VENUE, suggestedAlternative: "Try the PM slot." });
   });
 
-  it("treats blank suggestion fields as not given", () => {
+  it("[SPM-43][AC6] treats blank suggestion fields as not given", () => {
     expect(
       decideVenueBookingSchema.parse({ decision: "reject", reason: "No.", suggestedVenueId: "", suggestedAlternative: "  " })
     ).toEqual({ decision: "reject", reason: "No." });
   });
 
-  it("lets a blank reason through for checkBookingDecision to refuse with the screen's message", () => {
+  it("[SPM-43][AC5] lets a blank reason through for checkBookingDecision to refuse with the screen's message", () => {
     expect(decideVenueBookingSchema.safeParse({ decision: "reject", reason: "" }).success).toBe(true);
     expect(decideVenueBookingSchema.safeParse({ decision: "reject" }).success).toBe(false);
   });
 
-  it("refuses an unknown decision, a malformed venue id, and a suggestion on an approval (#110)", () => {
+  it("[SPM-43][AC6] refuses an unknown decision, a malformed venue id, and a suggestion on an approval (#110)", () => {
     expect(decideVenueBookingSchema.safeParse({ decision: "hold" }).success).toBe(false);
     expect(decideVenueBookingSchema.safeParse({ decision: "reject", reason: "No.", suggestedVenueId: "MAR-AUD" }).success).toBe(false);
     expect(decideVenueBookingSchema.safeParse({ decision: "approve", suggestedVenueId: VENUE }).success).toBe(false);

@@ -27,7 +27,7 @@ const navLabels = () => within(mainNav()).getAllByRole("link").map((a) => a.text
 
 describe("AppShell", () => {
   describe("before sign-in", () => {
-    it("treats a page with no path as the landing page", async () => {
+    it("[SPM-22][AC1] treats a page with no path as the landing page", async () => {
       setRoute("");
       mockApi(signedOut());
 
@@ -37,7 +37,7 @@ describe("AppShell", () => {
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     });
 
-    it.each(["/", "/login", "/register"])("renders %s with no navigation at all", async (path) => {
+    it.each(["/", "/login", "/register"])("[SPM-22][AC1] renders %s with no navigation at all", async (path) => {
       setRoute(path);
       mockApi(signedOut());
 
@@ -49,7 +49,7 @@ describe("AppShell", () => {
       expect(screen.queryByRole("button", { name: "Log out" })).not.toBeInTheDocument();
     });
 
-    it("offers Log in, and no navigation links, to an anonymous visitor on an app page", async () => {
+    it("[SPM-22][AC1] offers Log in, and no navigation links, to an anonymous visitor on an app page", async () => {
       setRoute("/dashboard");
       mockApi(signedOut());
 
@@ -59,7 +59,7 @@ describe("AppShell", () => {
       expect(within(mainNav()).queryByRole("link")).not.toBeInTheDocument();
     });
 
-    it("treats a failed session check as anonymous", async () => {
+    it("[SPM-22][AC1] treats a failed session check as anonymous", async () => {
       setRoute("/dashboard");
       mockApi({ "GET /api/auth/me": () => Promise.reject(new Error("network down")) });
 
@@ -69,7 +69,7 @@ describe("AppShell", () => {
     });
   });
 
-  it("shows placeholders, not Log in, while the session is still being checked", () => {
+  it("[SPM-22][AC1] shows placeholders, not Log in, while the session is still being checked", () => {
     setRoute("/dashboard");
     mockApi({ "GET /api/auth/me": () => new Promise(() => {}) });
 
@@ -81,7 +81,7 @@ describe("AppShell", () => {
   });
 
   describe("signed in", () => {
-    it.each(ROLES)("gives %s exactly the navigation for that role", async (role) => {
+    it.each(ROLES)("[SPM-22][AC1][AC6] gives %s exactly the navigation for that role", async (role) => {
       setRoute("/dashboard");
       mockApi(signedInAs(role));
 
@@ -91,7 +91,7 @@ describe("AppShell", () => {
       expect(navLabels()).toEqual(NAV_BY_ROLE[role].map((item) => item.label));
     });
 
-    it("gives a role it does not recognise the Dashboard only", async () => {
+    it("[SPM-22][AC1] gives a role it does not recognise the Dashboard only", async () => {
       setRoute("/dashboard");
       mockApi(signedInAs("intern"));
 
@@ -101,7 +101,7 @@ describe("AppShell", () => {
       expect(navLabels()).toEqual(["Dashboard"]);
     });
 
-    it("shows who is signed in, their role and their initials", async () => {
+    it("[SPM-21][AC3] shows who is signed in, their role and their initials", async () => {
       setRoute("/dashboard");
       mockApi(signedInAs("coordinator", { name: "Daniel Wei Tan" }));
 
@@ -115,7 +115,7 @@ describe("AppShell", () => {
     it.each([
       ["Cher", "C"],
       ["   ", "?"],
-    ])("shows the initials of %j as %s", async (name, initials) => {
+    ])("[SPM-21][AC3] shows the initials of %j as %s", async (name, initials) => {
       setRoute("/dashboard");
       mockApi(signedInAs("organiser", { name }));
 
@@ -124,7 +124,7 @@ describe("AppShell", () => {
       expect(await screen.findByText(initials)).toBeInTheDocument();
     });
 
-    it("links the wordmark to the dashboard and the bell to notifications", async () => {
+    it("[SPM-7][AC2] links the wordmark to the dashboard and the bell to notifications", async () => {
       setRoute("/events");
       mockApi(signedInAs("organiser"));
 
@@ -137,7 +137,7 @@ describe("AppShell", () => {
       expect(within(banner).getByRole("link", { name: "Notifications" })).toHaveAttribute("href", "/notifications");
     });
 
-    it("highlights the section a nested page belongs to", async () => {
+    it("[SPM-7][AC2] highlights the section a nested page belongs to", async () => {
       setRoute("/events/EVT-000007/equipment");
       mockApi(signedInAs("organiser"));
 
@@ -148,7 +148,7 @@ describe("AppShell", () => {
       expect(within(mainNav()).getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
     });
 
-    it("highlights only the most specific section when two contain the page", async () => {
+    it("[SPM-7][AC2] highlights only the most specific section when two contain the page", async () => {
       setRoute("/equipment/requests/EVT-000007");
       mockApi(signedInAs("tech_support"));
 
@@ -164,7 +164,7 @@ describe("AppShell", () => {
       expect(current).toEqual(["Equipment Requests"]);
     });
 
-    it("logs out: forgets the session and goes to the login page", async () => {
+    it("[SPM-21] logs out: forgets the session and goes to the login page", async () => {
       setRoute("/dashboard");
       mockApi(signedInAs("organiser"));
       render(<AppShell>page content</AppShell>);
@@ -175,7 +175,7 @@ describe("AppShell", () => {
       expect(router.push).toHaveBeenCalledWith("/login");
     });
 
-    it("picks up a sign-in that happens elsewhere on the page without a reload", async () => {
+    it("[SPM-21] picks up a sign-in that happens elsewhere on the page without a reload", async () => {
       setRoute("/dashboard");
       const api = mockApi(signedOut());
       render(<AppShell>page content</AppShell>);
@@ -200,14 +200,14 @@ describe("AppShell", () => {
       return { toggle, ...view };
     }
 
-    it("the menu button opens a second copy of the navigation", async () => {
+    it("[SPM-7][AC2] the menu button opens a second copy of the navigation", async () => {
       const { toggle } = await open();
 
       expect(toggle).toHaveAttribute("aria-expanded", "true");
       expect(screen.getAllByRole("navigation", { name: "Main" })).toHaveLength(2);
     });
 
-    it("starts closed", async () => {
+    it("[SPM-7][AC2] starts closed", async () => {
       setRoute("/dashboard");
       mockApi(signedInAs("organiser"));
       render(<AppShell>page content</AppShell>);
@@ -217,7 +217,7 @@ describe("AppShell", () => {
       expect(screen.getAllByRole("navigation", { name: "Main" })).toHaveLength(1);
     });
 
-    it("the menu button closes it again", async () => {
+    it("[SPM-7][AC2] the menu button closes it again", async () => {
       const { toggle } = await open();
 
       await userEvent.click(toggle);
@@ -225,7 +225,7 @@ describe("AppShell", () => {
       expect(screen.getAllByRole("navigation", { name: "Main" })).toHaveLength(1);
     });
 
-    it("following a link closes it", async () => {
+    it("[SPM-7][AC2] following a link closes it", async () => {
       await open();
       const slideOver = screen.getAllByRole("navigation", { name: "Main" })[1];
 
@@ -234,7 +234,7 @@ describe("AppShell", () => {
       expect(screen.getAllByRole("navigation", { name: "Main" })).toHaveLength(1);
     });
 
-    it("clicking outside it closes it", async () => {
+    it("[SPM-7][AC2] clicking outside it closes it", async () => {
       const { container } = await open();
 
       await userEvent.click(container.querySelector(".fixed > [aria-hidden=true]")!);
@@ -258,7 +258,7 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     return { api, view };
   }
 
-  it("shows the count on the bell and on the sidebar link", async () => {
+  it("[SPM-71][AC3] shows the count on the bell and on the sidebar link", async () => {
     open({ unread: 3 });
 
     await waitFor(() => expect(bell()).toHaveAccessibleName("Notifications, 3 unread"));
@@ -267,7 +267,7 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     expect(sidebarLink()).toHaveTextContent("3");
   });
 
-  it("shows no number at all when nothing is unread", async () => {
+  it("[SPM-71][AC3] shows no number at all when nothing is unread", async () => {
     const { api } = open({ unread: 0 });
 
     await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
@@ -275,14 +275,14 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     expect(sidebarLink()).toHaveTextContent(/^Notifications$/);
   });
 
-  it("caps a large count at 99+", async () => {
+  it("[SPM-71][AC3] caps a large count at 99+", async () => {
     open({ unread: 140 });
 
     await waitFor(() => expect(bell()).toHaveTextContent("99+"));
     expect(bell()).toHaveAccessibleName("Notifications, 99+ unread");
   });
 
-  it("asks nobody for a count before anyone has signed in", async () => {
+  it("[SPM-71][AC3] asks nobody for a count before anyone has signed in", async () => {
     setRoute("/dashboard");
     const api = mockApi(signedOut());
 
@@ -292,7 +292,7 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     expect(api.sent(COUNT)).toHaveLength(0);
   });
 
-  it("counts again when the Notifications page marks something read", async () => {
+  it("[SPM-71][AC3] counts again when the Notifications page marks something read", async () => {
     const { api } = open({ unread: 3 });
     await waitFor(() => expect(bell()).toHaveTextContent("3"));
 
@@ -304,7 +304,7 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     await waitFor(() => expect(bell()).toHaveAccessibleName("Notifications, 2 unread"));
   });
 
-  it("counts again on moving to another page", async () => {
+  it("[SPM-71][AC3] counts again on moving to another page", async () => {
     const { api, view } = open({ unread: 3 });
     await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
 
@@ -314,14 +314,14 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     await waitFor(() => expect(api.sent(COUNT)).toHaveLength(2));
   });
 
-  it("shows no number when the count comes back as something other than a number", async () => {
+  it("[SPM-71][AC3] shows no number when the count comes back as something other than a number", async () => {
     const { api } = open({ unread: "three" });
 
     await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
     expect(bell()).toHaveAccessibleName("Notifications");
   });
 
-  it("drops a count that arrives after the shell has gone", async () => {
+  it("[SPM-71][AC3] drops a count that arrives after the shell has gone", async () => {
     let answer: (value: unknown) => void = () => {};
     const { api, view } = open(() => new Promise((resolve) => (answer = resolve)));
     await waitFor(() => expect(api.sent(COUNT)).toHaveLength(1));
@@ -335,7 +335,7 @@ describe("AppShell - unread notifications (SPM-71)", () => {
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
   });
 
-  it("keeps working, with no number, when the count cannot be loaded", async () => {
+  it("[SPM-71][AC3] keeps working, with no number, when the count cannot be loaded", async () => {
     open(reply(500, {}));
 
     await screen.findByRole("button", { name: "Log out" });
@@ -355,7 +355,7 @@ describe("RequirePermission", () => {
     );
   }
 
-  it("renders nothing while it does not yet know who is asking", () => {
+  it("[SPM-22][AC4] renders nothing while it does not yet know who is asking", () => {
     mockApi({ "GET /api/auth/me": () => new Promise(() => {}) });
 
     const { container } = renderGate();
@@ -363,7 +363,7 @@ describe("RequirePermission", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("sends an anonymous visitor to log in, remembering where they were", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering where they were", async () => {
     setRoute("/venues/new");
     mockApi(signedOut());
 
@@ -373,7 +373,7 @@ describe("RequirePermission", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("refuses the wrong role without ever mounting the screen", async () => {
+  it("[SPM-22][AC4] refuses the wrong role without ever mounting the screen", async () => {
     setRoute("/venues/new");
     mockApi(signedInAs("coordinator"));
 
@@ -386,7 +386,7 @@ describe("RequirePermission", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("gives a general reason when the screen does not supply one", async () => {
+  it("[SPM-22][AC4] gives a general reason when the screen does not supply one", async () => {
     mockApi(signedInAs("attendee"));
 
     renderGate({ breadcrumbs: [{ label: "Venues" }] });
@@ -396,7 +396,7 @@ describe("RequirePermission", () => {
     );
   });
 
-  it("offers a way back to the dashboard from the refusal", async () => {
+  it("[SPM-22][AC4] offers a way back to the dashboard from the refusal", async () => {
     mockApi(signedInAs("attendee"));
     renderGate();
 
@@ -405,7 +405,7 @@ describe("RequirePermission", () => {
     expect(router.push).toHaveBeenCalledWith("/dashboard");
   });
 
-  it("renders the screen for a role that holds the permission", async () => {
+  it("[SPM-22][AC4] renders the screen for a role that holds the permission", async () => {
     mockApi(signedInAs("venue_staff"));
 
     renderGate();
@@ -414,7 +414,7 @@ describe("RequirePermission", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("with no permission named, lets any signed-in user through", async () => {
+  it("[SPM-22][AC4] with no permission named, lets any signed-in user through", async () => {
     mockApi(signedInAs("attendee"));
 
     renderGate({ action: undefined });
@@ -422,7 +422,7 @@ describe("RequirePermission", () => {
     expect(await screen.findByText("the restricted screen")).toBeInTheDocument();
   });
 
-  it("with no permission named, still turns away an anonymous visitor", async () => {
+  it("[SPM-22][AC4] with no permission named, still turns away an anonymous visitor", async () => {
     setRoute("/dashboard");
     mockApi(signedOut());
 
@@ -434,7 +434,7 @@ describe("RequirePermission", () => {
 });
 
 describe("NotBuiltYet", () => {
-  it("says the screen is unfinished, and which story it belongs to", () => {
+  it("[SPM-7] says the screen is unfinished, and which story it belongs to", () => {
     render(
       <NotBuiltYet
         title="Notifications"
@@ -473,7 +473,7 @@ describe("AssignCoordinator", () => {
   }
 
   describe("first assignment", () => {
-    it("is disabled until a coordinator is chosen", () => {
+    it("[SPM-30][AC1] is disabled until a coordinator is chosen", () => {
       mockApi();
 
       renderPicker(null);
@@ -481,7 +481,7 @@ describe("AssignCoordinator", () => {
       expect(screen.getByRole("button", { name: "Assign" })).toBeDisabled();
     });
 
-    it("assigns on click, with no confirmation, and reports the result", async () => {
+    it("[SPM-30][AC1] assigns on click, with no confirmation, and reports the result", async () => {
       const result = { status: "under_review", coordinator: daniel, previousCoordinator: null };
       const api = mockApi({ [ROUTE]: result });
       const { onAssigned, select } = renderPicker(null);
@@ -494,7 +494,7 @@ describe("AssignCoordinator", () => {
       expect(select).toHaveValue("");
     });
 
-    it("shows the server's refusal and does not report success", async () => {
+    it("[SPM-30][AC1] shows the server's refusal and does not report success", async () => {
       mockApi({ [ROUTE]: reply(400, { error: "Choose an active Event Coordinator." }) });
       const { onAssigned, select } = renderPicker(null);
 
@@ -505,7 +505,7 @@ describe("AssignCoordinator", () => {
       expect(onAssigned).not.toHaveBeenCalled();
     });
 
-    it("falls back to a general message when the server gives no reason", async () => {
+    it("[SPM-30][AC1] falls back to a general message when the server gives no reason", async () => {
       mockApi({ [ROUTE]: reply(500) });
       const { select } = renderPicker(null);
 
@@ -515,7 +515,7 @@ describe("AssignCoordinator", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not save the coordinator.");
     });
 
-    it("shows a general error when the request fails without a reason", async () => {
+    it("[SPM-30][AC1] shows a general error when the request fails without a reason", async () => {
       mockApi({ [ROUTE]: () => Promise.reject("offline") });
       const { select } = renderPicker(null);
 
@@ -525,7 +525,7 @@ describe("AssignCoordinator", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
-    it("clears the error once a different coordinator is picked", async () => {
+    it("[SPM-30][AC1] clears the error once a different coordinator is picked", async () => {
       mockApi({ [ROUTE]: reply(400, { error: "Choose an active Event Coordinator." }) });
       const { select } = renderPicker(null);
       await userEvent.selectOptions(select, "Daniel Tan");
@@ -541,7 +541,7 @@ describe("AssignCoordinator", () => {
   describe("reassignment", () => {
     const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
 
-    it("asks first, naming who loses the event and who gets it", async () => {
+    it("[SPM-30][AC6] asks first, naming who loses the event and who gets it", async () => {
       const api = mockApi({ [ROUTE]: {} });
       const { select } = renderPicker(daniel);
 
@@ -553,7 +553,7 @@ describe("AssignCoordinator", () => {
       expect(api.sent(ROUTE)).toHaveLength(0);
     });
 
-    it("sends the change only once confirmed", async () => {
+    it("[SPM-30][AC6] sends the change only once confirmed", async () => {
       const result = { status: "planning", coordinator: priya, previousCoordinator: daniel };
       const api = mockApi({ [ROUTE]: result });
       const { onAssigned, select } = renderPicker(daniel);
@@ -566,7 +566,7 @@ describe("AssignCoordinator", () => {
       expect(api.sent(ROUTE)[0].body).toEqual({ coordinatorId: "c2" });
     });
 
-    it("sends nothing when the confirmation is cancelled", async () => {
+    it("[SPM-30][AC6] sends nothing when the confirmation is cancelled", async () => {
       const api = mockApi({ [ROUTE]: {} });
       const { onAssigned, select } = renderPicker(daniel);
       await userEvent.selectOptions(select, "Priya Raj");
@@ -579,7 +579,7 @@ describe("AssignCoordinator", () => {
       expect(onAssigned).not.toHaveBeenCalled();
     });
 
-    it("refuses to reassign to the coordinator who already has it", async () => {
+    it("[SPM-30][AC6] refuses to reassign to the coordinator who already has it", async () => {
       mockApi();
       const { select } = renderPicker(daniel);
 
@@ -589,7 +589,7 @@ describe("AssignCoordinator", () => {
       expect(screen.getByText("Daniel Tan is already the assigned coordinator.")).toBeInTheDocument();
     });
 
-    it("closes the confirmation and shows the error when the server refuses", async () => {
+    it("[SPM-30][AC6] closes the confirmation and shows the error when the server refuses", async () => {
       mockApi({ [ROUTE]: reply(409, { error: "Someone else changed this event's coordinator just now." }) });
       const { select } = renderPicker(daniel);
       await userEvent.selectOptions(select, "Priya Raj");
@@ -602,7 +602,7 @@ describe("AssignCoordinator", () => {
     });
   });
 
-  it("uses the label it is given for the select's accessible name", () => {
+  it("[SPM-30] uses the label it is given for the select's accessible name", () => {
     mockApi();
     render(
       <AssignCoordinator

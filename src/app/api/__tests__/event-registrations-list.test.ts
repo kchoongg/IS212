@@ -75,7 +75,7 @@ const list = (token: string | undefined, reference = REF) =>
 const nothingRead = () => expect(db.registration.findMany).not.toHaveBeenCalled();
 
 describe("who may view the registration list", () => {
-  it("refuses a visitor with no session", async () => {
+  it("[SPM-21][AC4] refuses a visitor with no session", async () => {
     const res = await list(undefined);
 
     expect(res.status).toBe(401);
@@ -85,13 +85,13 @@ describe("who may view the registration list", () => {
   it.each([
     ["the organiser responsible for the event", organiser],
     ["the coordinator assigned to it", assignedCoordinator],
-  ])("AC1: lets %s view it", async (_who, actor) => {
+  ])("[SPM-65][AC1] AC1: lets %s view it", async (_who, actor) => {
     const res = await list(given({ actor: actor() }));
 
     expect(res.status).toBe(200);
   });
 
-  it("AC8: refuses an organiser at the same client who is not responsible for the event", async () => {
+  it("[SPM-65][AC8] AC8: refuses an organiser at the same client who is not responsible for the event", async () => {
     const res = await list(given({ actor: user("organiser", { id: "colleague-id" }) }));
 
     expect(res.status).toBe(403);
@@ -101,14 +101,14 @@ describe("who may view the registration list", () => {
     nothingRead();
   });
 
-  it("AC8: answers 404 to an organiser of another client, who may not know the event exists", async () => {
+  it("[SPM-65][AC8] AC8: answers 404 to an organiser of another client, who may not know the event exists", async () => {
     const res = await list(given({ actor: user("organiser", { id: "stranger-id", organisationId: ID.otherOrg }) }));
 
     expect(res.status).toBe(404);
     nothingRead();
   });
 
-  it("refuses a coordinator who is not assigned to the event", async () => {
+  it("[SPM-65][AC1] refuses a coordinator who is not assigned to the event", async () => {
     const res = await list(given({ actor: user("coordinator", { id: ID.otherUser }) }));
 
     expect(res.status).toBe(403);
@@ -116,7 +116,7 @@ describe("who may view the registration list", () => {
   });
 
   it.each(ROLES.filter((role) => role !== "organiser" && role !== "coordinator" && role !== "attendee"))(
-    "AC9: refuses the %s role",
+    "[SPM-65][AC9] AC9: refuses the %s role",
     async (role) => {
       const res = await list(given({ actor: user(role) }));
 
@@ -125,7 +125,7 @@ describe("who may view the registration list", () => {
     }
   );
 
-  it("AC9: refuses an attendee, even one who can see the event", async () => {
+  it("[SPM-65][AC9] AC9: refuses an attendee, even one who can see the event", async () => {
     const res = await list(given({ actor: user("attendee") }));
 
     expect(res.status).toBe(403);
@@ -136,7 +136,7 @@ describe("who may view the registration list", () => {
     ["a malformed reference", "not-a-ref", event()],
     ["an event that does not exist", REF, null],
     ["a draft, private to its organiser", REF, event({ status: "draft" })],
-  ])("answers 404 for %s", async (_what, reference, eventRow) => {
+  ])("[SPM-65] answers 404 for %s", async (_what, reference, eventRow) => {
     const res = await list(given({ eventRow }), reference);
 
     expect(res.status).toBe(404);
@@ -145,7 +145,7 @@ describe("who may view the registration list", () => {
 });
 
 describe("what the list shows", () => {
-  it("AC2: gives each attendee's name, contact details, status and registration date", async () => {
+  it("[SPM-65][AC2] AC2: gives each attendee's name, contact details, status and registration date", async () => {
     const body = await (await list(given())).json();
 
     expect(body.registrations).toEqual([
@@ -160,7 +160,7 @@ describe("what the list shows", () => {
     ]);
   });
 
-  it("AC2: reads this event's registrations only, oldest first", async () => {
+  it("[SPM-65][AC2] AC2: reads this event's registrations only, oldest first", async () => {
     await list(given());
 
     expect(callArg(db.registration.findMany)).toMatchObject({
@@ -169,7 +169,7 @@ describe("what the list shows", () => {
     });
   });
 
-  it("AC3: gives each registration its own status - registered, waitlisted, withdrawn and attended", async () => {
+  it("[SPM-65][AC3] AC3: gives each registration its own status - registered, waitlisted, withdrawn and attended", async () => {
     const rows = ["registered", "waitlisted", "withdrawn", "attended"].map((status, i) =>
       row({ id: `r${i}`, status, withdrawnAt: status === "withdrawn" ? WITHDRAWN_AT : null })
     );
@@ -185,7 +185,7 @@ describe("what the list shows", () => {
     expect(body.registrations[2].withdrawnAt).toBe(WITHDRAWN_AT.toISOString());
   });
 
-  it("AC4: names who added a registration on the organiser's behalf", async () => {
+  it("[SPM-65][AC4] AC4: names who added a registration on the organiser's behalf", async () => {
     const rows = [row({ addedBy: { fullName: "Evelyn Chen" } })];
 
     const body = await (await list(given({ rows }))).json();
@@ -193,7 +193,7 @@ describe("what the list shows", () => {
     expect(body.registrations[0].addedBy).toEqual({ name: "Evelyn Chen" });
   });
 
-  it("AC5: counts the places taken against the capacity, and the waiting list", async () => {
+  it("[SPM-65][AC5] AC5: counts the places taken against the capacity, and the waiting list", async () => {
     const body = await (
       await list(
         given({
@@ -216,20 +216,20 @@ describe("what the list shows", () => {
     });
   });
 
-  it("gives the event's reference, title and status for the page header", async () => {
+  it("[SPM-65] gives the event's reference, title and status for the page header", async () => {
     const body = await (await list(given())).json();
 
     expect(body.event).toEqual({ sequenceNumber: 7, title: "SPM65 Harbourfront Seminar", status: "confirmed" });
   });
 
-  it("AC7: says when registration is not enabled, still listing anyone who registered before it was turned off", async () => {
+  it("[SPM-65][AC7] AC7: says when registration is not enabled, still listing anyone who registered before it was turned off", async () => {
     const body = await (await list(given({ eventRow: event({ registrationEnabled: false }) }))).json();
 
     expect(body.registrationEnabled).toBe(false);
     expect(body.registrations).toHaveLength(1);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-65] answers 500 when the database fails", async () => {
     const token = given();
     db.registration.findMany.mockRejectedValue(new Error("connection lost"));
     vi.spyOn(console, "error").mockImplementation(() => {});

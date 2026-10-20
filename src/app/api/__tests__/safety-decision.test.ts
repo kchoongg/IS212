@@ -73,17 +73,17 @@ describe("POST /api/events/[id]/safety-decision", () => {
     expect(db.notification.create).not.toHaveBeenCalled();
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await post(undefined)).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference or an event that does not exist", async () => {
+  it("[SPM-87] is 404 for a malformed reference or an event that does not exist", async () => {
     expect((await post(given(), { decision: "approved" }, "nope")).status).toBe(404);
     expect((await post(given(null))).status).toBe(404);
   });
 
   it.each(ROLES.filter((r) => r !== "safety_officer" && r !== "attendee" && r !== "organiser"))(
-    "SPM-87-TC11: is 403 for %s (AC12)",
+    "[SPM-87][AC12] SPM-87-TC11: is 403 for %s (AC12)",
     async (role) => {
       const res = await post(given(event(), user(role, { id: "coordinator-id" })));
 
@@ -93,7 +93,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
     }
   );
 
-  it("SPM-87-TC03: approves, moving the event to Safety approved and recording who and when", async () => {
+  it("[SPM-87][AC3][AC7][AC10] SPM-87-TC03: approves, moving the event to Safety approved and recording who and when", async () => {
     const token = given();
 
     const res = await post(token, { decision: "approved" });
@@ -131,7 +131,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
   it.each([
     ["changes_requested", "Add a second fire marshal at the east exit.", "Safety check: changes requested"],
     ["rejected", "A single stairway cannot evacuate 300 people.", "Safety check rejected"],
-  ])("SPM-87-TC06/TC07: %s returns the event to Planning with the note", async (decision, note, reason) => {
+  ])("[SPM-87][AC4][AC5][AC8] SPM-87-TC06/TC07: %s returns the event to Planning with the note", async (decision, note, reason) => {
     const token = given();
 
     const res = await post(token, { decision, note: `  ${note} ` });
@@ -148,7 +148,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
     expect(callArg(db.eventStatusHistory.create).data).toMatchObject({ toStatus: "planning", reason });
   });
 
-  it("SPM-87-TC12: notifies the assigned coordinator with the changes required (AC9)", async () => {
+  it("[SPM-87][AC9] SPM-87-TC12: notifies the assigned coordinator with the changes required (AC9)", async () => {
     const token = given();
 
     await post(token, { decision: "changes_requested", note: "Add a marshal." });
@@ -162,7 +162,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
     });
   });
 
-  it("names an untitled event 'an event', and answers without a name it cannot find", async () => {
+  it("[SPM-87][AC9] names an untitled event 'an event', and answers without a name it cannot find", async () => {
     const token = given(event({ title: null }));
     db.user.findUnique.mockImplementation(async ({ where }: { where: { id: string } }) =>
       where.id === ID.user ? { ...officer() } : null
@@ -178,7 +178,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
     );
   });
 
-  it("notifies whoever submitted it when the event has no coordinator", async () => {
+  it("[SPM-87][AC9] notifies whoever submitted it when the event has no coordinator", async () => {
     const token = given(event({ coordinatorId: null }), officer(), pendingCheck({ submittedBy: "submitter-id" }));
 
     await post(token, { decision: "approved" });
@@ -190,7 +190,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
     it.each([
       ["rejected", {}, "Give a reason for rejecting."],
       ["changes_requested", { note: "   " }, "Describe the changes required."],
-    ])("SPM-87-TC08: %s without a reason (AC6)", async (decision, extra, message) => {
+    ])("[SPM-87][AC6] SPM-87-TC08: %s without a reason (AC6)", async (decision, extra, message) => {
       const res = await post(given(), { decision, ...extra });
 
       expect(res.status).toBe(400);
@@ -199,7 +199,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
     });
 
     it.each(["planning", "safety_cleared", "confirmed"])(
-      "SPM-87-TC10: an event that is %s, not in Safety review (AC11)",
+      "[SPM-87][AC11] SPM-87-TC10: an event that is %s, not in Safety review (AC11)",
       async (status) => {
         const res = await post(given(event({ status })));
 
@@ -209,14 +209,14 @@ describe("POST /api/events/[id]/safety-decision", () => {
       }
     );
 
-    it("an event in Safety review with no pending check", async () => {
+    it("[SPM-87][AC11] an event in Safety review with no pending check", async () => {
       const res = await post(given(event(), officer(), pendingCheck({ status: "approved" })));
 
       expect(res.status).toBe(400);
       expectNothingWritten();
     });
 
-    it("SPM-87-TC09: a second decision that arrives after the first was saved (AC11)", async () => {
+    it("[SPM-87][AC11] SPM-87-TC09: a second decision that arrives after the first was saved (AC11)", async () => {
       const token = given();
       db.safetyCheck.updateMany.mockResolvedValue({ count: 0 });
 
@@ -229,7 +229,7 @@ describe("POST /api/events/[id]/safety-decision", () => {
     });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-87] answers 500 when the database fails", async () => {
     const token = given();
     db.safetyCheck.updateMany.mockRejectedValue(new Error("connection lost"));
 
@@ -245,7 +245,7 @@ describe("GET /api/events/[id] - the decision and the venue restrictions", () =>
 
   const get = (token: string) => GET(req("GET", `/api/events/${REF}`, { token }), params({ id: REF }));
 
-  it("SPM-87-TC06: gives staff the decision, who made it, when, and the note (AC10)", async () => {
+  it("[SPM-87][AC10] SPM-87-TC06: gives staff the decision, who made it, when, and the note (AC10)", async () => {
     const token = signIn(user("coordinator", { id: "coordinator-id" }));
     db.event.findUnique.mockResolvedValue(
       event({
@@ -283,7 +283,7 @@ describe("GET /api/events/[id] - the decision and the venue restrictions", () =>
     });
   });
 
-  it("SPM-87-TC02: gives each booked venue its opening hours and unavailable periods on the event's dates (AC2)", async () => {
+  it("[SPM-87][AC2] SPM-87-TC02: gives each booked venue its opening hours and unavailable periods on the event's dates (AC2)", async () => {
     const token = signIn(officer());
     db.event.findUnique.mockResolvedValue(
       event({
@@ -319,7 +319,7 @@ describe("GET /api/events/[id] - the decision and the venue restrictions", () =>
     });
   });
 
-  it("reads no unavailable periods when nothing is booked", async () => {
+  it("[SPM-87][AC2] reads no unavailable periods when nothing is booked", async () => {
     const token = signIn(officer());
     db.event.findUnique.mockResolvedValue(event({ venueBookings: [] }));
 

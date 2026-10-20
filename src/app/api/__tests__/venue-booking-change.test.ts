@@ -69,15 +69,15 @@ function patch(token: string | undefined, body: unknown, reference = REF, bookin
 }
 
 describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await patch(undefined, { action: "withdraw" })).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference", async () => {
+  it("[SPM-67] is 404 for a malformed reference", async () => {
     expect((await patch(signIn(coordinator()), { action: "withdraw" }, "nope")).status).toBe(404);
   });
 
-  it("is 404 for an event the user cannot see", async () => {
+  it("[SPM-67] is 404 for an event the user cannot see", async () => {
     const token = signIn(coordinator());
     given({ ev: event({ status: "draft" }) });
 
@@ -89,7 +89,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     ["SPM-67-TC08: a coordinator who is not assigned", () => user("coordinator", { id: ID.otherUser })],
     ["SPM-67-TC09: the Ops Manager", () => user("ops_manager", { id: ID.otherUser })],
     ["SPM-67-TC10: Venue Staff", () => user("venue_staff", { id: ID.otherUser })],
-  ])("refuses %s, and changes nothing", async (_who, actor) => {
+  ])("[SPM-67][AC9] refuses %s, and changes nothing", async (_who, actor) => {
     const token = signIn(actor());
     given({ row: booking({ status: "approved" }) });
 
@@ -101,7 +101,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(db.notification.createMany).not.toHaveBeenCalled();
   });
 
-  it("is 400 for an unknown action", async () => {
+  it("[SPM-67] is 400 for an unknown action", async () => {
     const token = signIn(coordinator());
     given();
 
@@ -111,7 +111,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(db.venueBooking.update).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a booking that is not this event's", async () => {
+  it("[SPM-67] is 404 for a booking that is not this event's", async () => {
     const token = signIn(coordinator());
     given({ row: null });
 
@@ -122,7 +122,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(callArg(db.venueBooking.findFirst).where).toEqual({ id: ID.booking, eventId: ID.event });
   });
 
-  it("SPM-67-TC01: withdraws a pending request with the Coordinator's reason, and notifies no one", async () => {
+  it("[SPM-67][AC1][AC5] SPM-67-TC01: withdraws a pending request with the Coordinator's reason, and notifies no one", async () => {
     const token = signIn(coordinator());
     given();
 
@@ -141,7 +141,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(db.notification.createMany).not.toHaveBeenCalled();
   });
 
-  it("locks the venue before reading the booking, as Venue Staff's decision does", async () => {
+  it("[SPM-67] locks the venue before reading the booking, as Venue Staff's decision does", async () => {
     const token = signIn(coordinator());
     given();
 
@@ -154,7 +154,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     );
   });
 
-  it("SPM-67-TC06: stores no reason when none was given", async () => {
+  it("[SPM-67][AC5] SPM-67-TC06: stores no reason when none was given", async () => {
     const token = signIn(coordinator());
     given();
 
@@ -163,7 +163,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(callArg(db.venueBooking.update).data.cancellationReason).toBeNull();
   });
 
-  it("SPM-67-TC03: releases an approved booking and notifies every active member of Venue Staff", async () => {
+  it("[SPM-67][AC3][AC7] SPM-67-TC03: releases an approved booking and notifies every active member of Venue Staff", async () => {
     const token = signIn(coordinator());
     given({ row: booking({ status: "approved" }) });
 
@@ -188,7 +188,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     );
   });
 
-  it("names 'The assigned Coordinator' when the coordinator's name cannot be found", async () => {
+  it("[SPM-67][AC7] names 'The assigned Coordinator' when the coordinator's name cannot be found", async () => {
     const token = signIn(coordinator());
     given({ row: booking({ status: "approved" }) });
     const lookUp = db.user.findUnique.getMockImplementation()!;
@@ -202,7 +202,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(callArg(db.notification.createMany).data[0].body).toMatch(/^The assigned Coordinator released Hall A/);
   });
 
-  it("refuses to withdraw a request Venue Staff approved in the meantime, and changes nothing", async () => {
+  it("[SPM-67][AC1] refuses to withdraw a request Venue Staff approved in the meantime, and changes nothing", async () => {
     const token = signIn(coordinator());
     given({ row: booking({ status: "approved" }) });
 
@@ -213,7 +213,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(db.venueBooking.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a change on a closed event", async () => {
+  it("[SPM-67] refuses a change on a closed event", async () => {
     const token = signIn(coordinator());
     given({ ev: event({ status: "completed" }), row: booking({ status: "approved" }) });
 
@@ -224,7 +224,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(db.venueBooking.update).not.toHaveBeenCalled();
   });
 
-  it("leaves the event's status alone", async () => {
+  it("[SPM-67] leaves the event's status alone", async () => {
     const token = signIn(coordinator());
     given({ ev: event({ status: "confirmed" }), row: booking({ status: "approved" }) });
 
@@ -237,7 +237,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
   it.each([
     ["withdraw", "pending", "safety_review", "a venue booking was withdrawn"],
     ["release", "approved", "safety_cleared", "a venue booking was released"],
-  ])("SPM-88: a %s on a %s booking moves a %s event back to Planning and closes its check", async (action, bookingStatus, status, why) => {
+  ])("[SPM-88][AC6] SPM-88: a %s on a %s booking moves a %s event back to Planning and closes its check", async (action, bookingStatus, status, why) => {
     const token = signIn(coordinator());
     given({ ev: event({ status }), row: booking({ status: bookingStatus }) });
     db.event.updateMany.mockResolvedValue({ count: 1 });
@@ -252,7 +252,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(callArg(db.safetyCheck.updateMany).data).toMatchObject({ status: "closed", decisionNote: why });
   });
 
-  it("SPM-88: leaves the safety check of a Planning event alone", async () => {
+  it("[SPM-88][AC7] SPM-88: leaves the safety check of a Planning event alone", async () => {
     const token = signIn(coordinator());
     given();
 
@@ -260,7 +260,7 @@ describe("PATCH /api/events/[id]/venue-bookings/[bookingId]", () => {
     expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-67] answers 500 when the database fails", async () => {
     const token = signIn(coordinator());
     given();
     db.venueBooking.update.mockRejectedValue(new Error("down"));
