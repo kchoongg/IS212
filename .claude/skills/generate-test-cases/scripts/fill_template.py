@@ -92,6 +92,8 @@ def validate(data):
             problems.append(f"{label}: status must be one of {sorted(VALID_STATUSES)}")
         if tc.get("status") == "Retired" and not (tc.get("superseded_by") and tc.get("change")):
             problems.append(f"{label}: a Retired case needs 'superseded_by' (a case, a test or 'gap') and 'change' (its docs/CHANGES.md entry)")
+        if tc.get("status") == "Updated" and not tc.get("change"):
+            problems.append(f"{label}: an Updated case needs 'change' (its docs/CHANGES.md entry)")
         for ac in tc.get("linked_ac", []):
             if ac not in ac_ids:
                 problems.append(f"{label}: linked_ac '{ac}' is not in acceptance_criteria")

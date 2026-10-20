@@ -49,6 +49,8 @@ export interface FoundTest {
   untracedFeature: string;
   /** What is wrong with the test's [UNTRACED] tag, for the CI message; "" when it is fine or absent. */
   untracedProblem: string;
+  /** The line of the name that carries that tag: the test's own, or a describe's around it. */
+  untracedProblemLine: number;
   /** Offset of the first character inside the name's quotes. */
   nameStart: number;
 }
@@ -158,7 +160,7 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
   const unnamed: { line: number }[] = [];
   const level = levelOf(file);
 
-  type Suite = { name: string; tags: StoryTag[]; untraced: boolean; feature: string; problem: string };
+  type Suite = { name: string; tags: StoryTag[]; untraced: boolean; feature: string; problem: string; line: number };
   const visit = (node: ts.Node, suites: Suite[]) => {
     if (ts.isCallExpression(node)) {
       const kind = callKind(node.expression);
@@ -167,7 +169,7 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
         const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
         if (kind === "suite") {
           const u = untracedOf(named?.name ?? "");
-          const inner = [...suites, { name: named?.name ?? "", tags: named ? parseTags(named.name) : [], untraced: u.untraced, feature: u.feature, problem: u.problem }];
+          const inner = [...suites, { name: named?.name ?? "", tags: named ? parseTags(named.name) : [], untraced: u.untraced, feature: u.feature, problem: u.problem, line }];
           node.arguments.forEach((a) => visit(a, inner));
           return;
         }
@@ -186,6 +188,7 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
             untraced: untracedOf(named.name).untraced || suites.some((s) => s.untraced),
             untracedFeature: untracedOf(named.name).feature || ([...suites].reverse().find((s) => s.feature)?.feature ?? ""),
             untracedProblem: untracedOf(named.name).problem || (suites.find((s) => s.problem)?.problem ?? ""),
+            untracedProblemLine: untracedOf(named.name).problem ? line : (suites.find((s) => s.problem)?.line ?? 0),
             nameStart: named.start,
           });
         }

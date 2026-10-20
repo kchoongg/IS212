@@ -30,9 +30,14 @@ for (const t of untagged) {
   failures.push(`${where} "${t.name}" has no [SPM-xx] tag`);
   if (inCi) console.log(`::error file=${t.file},line=${t.line}::Test has no [SPM-xx][ACn] tag: "${t.name}"`);
 }
+// Once per tag: a bad tag on a describe is reported at the describe, not for every test inside it.
+const reported = new Set<string>();
 for (const t of tests.filter((x) => x.untracedProblem)) {
-  failures.push(`${t.file}:${t.line} "${t.name}": ${t.untracedProblem}`);
-  if (inCi) console.log(`::error file=${t.file},line=${t.line}::[UNTRACED] tag: ${t.untracedProblem}`);
+  const where = `${t.file}:${t.untracedProblemLine}`;
+  if (reported.has(where)) continue;
+  reported.add(where);
+  failures.push(`${where}: ${t.untracedProblem}`);
+  if (inCi) console.log(`::error file=${t.file},line=${t.untracedProblemLine}::[UNTRACED] tag: ${t.untracedProblem}`);
 }
 for (const u of unnamed) {
   failures.push(`${u.file}:${u.line} has a name that is not a string, so its tag cannot be read`);
