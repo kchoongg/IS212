@@ -36,7 +36,7 @@ function other(overrides: Partial<OtherRequest> = {}): OtherRequest {
 }
 
 describe("assembleLines", () => {
-  it("returns one line per requested item, with the rules' result", () => {
+  it("[SPM-48][AC8] returns one line per requested item, with the rules' result", () => {
     const { lines, allAvailable } = assembleLines([line()], [other()]);
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ requestId: "req-1", equipmentName: "Lighting Rig" });
@@ -45,7 +45,7 @@ describe("assembleLines", () => {
     expect(allAvailable).toBe(false);
   });
 
-  it("carries the request status and quantities through to the line", () => {
+  it("[SPM-48][AC8] carries the request status and quantities through to the line", () => {
     const { lines } = assembleLines(
       [line({ quantityRequested: 4, quantityReserved: 2, requestStatus: "partially_fulfilled" })],
       []
@@ -53,18 +53,18 @@ describe("assembleLines", () => {
     expect(lines[0]).toMatchObject({ quantityRequested: 4, quantityReserved: 2, requestStatus: "partially_fulfilled" });
   });
 
-  it("is all available when nothing else holds the equipment", () => {
+  it("[SPM-48][AC8] is all available when nothing else holds the equipment", () => {
     const { lines, allAvailable } = assembleLines([line()], []);
     expect(lines[0].result?.status).toBe("available");
     expect(allAvailable).toBe(true);
   });
 
-  it("only counts other events' requests for the same equipment item", () => {
+  it("[SPM-48][AC4] only counts other events' requests for the same equipment item", () => {
     const { lines } = assembleLines([line()], [other({ equipmentId: "mic" })]);
     expect(lines[0].result?.status).toBe("available");
   });
 
-  it("ignores requests that do not hold stock or whose event is released", () => {
+  it("[SPM-48][AC4] ignores requests that do not hold stock or whose event is released", () => {
     const { lines } = assembleLines(
       [line()],
       [
@@ -76,7 +76,7 @@ describe("assembleLines", () => {
     expect(lines[0].result?.status).toBe("available");
   });
 
-  it("uses quantity reserved for a partially fulfilled request", () => {
+  it("[SPM-48][AC4] uses quantity reserved for a partially fulfilled request", () => {
     const item = { ...rig, totalQuantity: 5 };
     const { lines } = assembleLines(
       [line({ equipment: item, quantityRequested: 3 })],
@@ -85,28 +85,28 @@ describe("assembleLines", () => {
     expect(lines[0].result).toMatchObject({ reservedElsewhere: 2, available: 3, status: "available" });
   });
 
-  it("says no venue is chosen, and adds no transfer time, when the event has no venue", () => {
+  it("[SPM-48][AC6] says no venue is chosen, and adds no transfer time, when the event has no venue", () => {
     const { lines } = assembleLines([line({ venueId: null })], []);
     expect(lines[0].venueChosen).toBe(false);
     expect(lines[0].transferMinutes).toBe(0);
     expect(lines[0].result?.leavesAt).toEqual(sgt("2026-10-13T18:00"));
   });
 
-  it("adds the transfer time for equipment kept in storage", () => {
+  it("[SPM-48][AC6] adds the transfer time for equipment kept in storage", () => {
     const { lines } = assembleLines([line()], []);
     expect(lines[0].venueChosen).toBe(true);
     expect(lines[0].transferMinutes).toBe(120);
     expect(lines[0].result?.leavesAt).toEqual(sgt("2026-10-13T16:00"));
   });
 
-  it("adds no transfer time when the equipment is already at the event's venue", () => {
+  it("[SPM-48][AC6] adds no transfer time when the equipment is already at the event's venue", () => {
     const atHall = { ...rig, locationVenueId: "hall-a" };
     const { lines } = assembleLines([line({ equipment: atHall })], []);
     expect(lines[0].transferMinutes).toBe(0);
     expect(lines[0].result?.leavesAt).toEqual(sgt("2026-10-13T18:00"));
   });
 
-  it("checks a session line against its own dates", () => {
+  it("[SPM-48][AC3] [SPM-47][AC4] checks a session line against its own dates", () => {
     const day1 = line({ requestId: "s1", sessionId: "day-1", sessionLabel: "Day 1", startsAt: sgt("2026-10-05T09:00"), endsAt: sgt("2026-10-05T17:00") });
     const day2 = line({ requestId: "s2", sessionId: "day-2", sessionLabel: "Day 2", startsAt: sgt("2026-10-20T09:00"), endsAt: sgt("2026-10-20T17:00") });
     const openHouse = other({ eventTitle: "Open House", startsAt: sgt("2026-10-05T09:00"), endsAt: sgt("2026-10-05T17:00") });
@@ -118,7 +118,7 @@ describe("assembleLines", () => {
     expect(allAvailable).toBe(false);
   });
 
-  it("blocks a session with its own event's other session on the same day", () => {
+  it("[SPM-48][AC3] [SPM-47][AC4] blocks a session with its own event's other session on the same day", () => {
     // 2 speakers. The Morning session holds both; the Afternoon session of the
     // same event, same day, asks for 2 - none are free.
     const speaker = { ...rig, id: "spk", name: "PA Speaker", totalQuantity: 2 };
@@ -139,7 +139,7 @@ describe("assembleLines", () => {
     expect(lines[1].result?.heldBy[0].eventTitle).toBe("Summit · Morning");
   });
 
-  it("never counts a line's own reservation against itself", () => {
+  it("[SPM-49][AC4] never counts a line's own reservation against itself", () => {
     const { lines } = assembleLines(
       [line({ requestId: "mine", quantityReserved: 1, requestStatus: "reserved" })],
       [other({ requestId: "mine", startsAt: sgt("2026-10-13T18:00"), endsAt: sgt("2026-10-13T21:00") })]
@@ -147,23 +147,23 @@ describe("assembleLines", () => {
     expect(lines[0].result).toMatchObject({ status: "available", available: 1, reservedElsewhere: 0 });
   });
 
-  it("cannot check a line while the event has no dates, and does not claim all is well", () => {
+  it("[SPM-48][AC3] cannot check a line while the event has no dates, and does not claim all is well", () => {
     const { lines, allAvailable } = assembleLines([line({ startsAt: null, endsAt: null })], []);
     expect(lines[0].result).toBeNull();
     expect(allAvailable).toBe(false);
   });
 
-  it("skips another event that has no dates rather than guessing", () => {
+  it("[SPM-48][AC3] skips another event that has no dates rather than guessing", () => {
     const { lines } = assembleLines([line()], [other({ startsAt: null, endsAt: null })]);
     expect(lines[0].result?.status).toBe("available");
   });
 
-  it("names an untitled event holding the equipment", () => {
+  it("[SPM-48] names an untitled event holding the equipment", () => {
     const { lines } = assembleLines([line()], [other({ eventTitle: null })]);
     expect(lines[0].result?.heldBy[0].eventTitle).toBe("Untitled event");
   });
 
-  it("treats a request with no lines as nothing missing", () => {
+  it("[SPM-48][AC8] treats a request with no lines as nothing missing", () => {
     expect(assembleLines([], [])).toEqual({ lines: [], allAvailable: true });
   });
 });

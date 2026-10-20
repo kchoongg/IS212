@@ -16,11 +16,11 @@ function uniqueConstraintError() {
 }
 
 describe("GET /api/events", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await GET(req("GET", "/api/events"))).status).toBe(401);
   });
 
-  it("scopes an organiser to their own events and their organisation's submitted ones", async () => {
+  it("[SPM-27][AC1] [SPM-31][AC1] scopes an organiser to their own events and their organisation's submitted ones", async () => {
     const organiser = user("organiser");
     const token = signIn(organiser);
     db.event.findMany.mockResolvedValue([]);
@@ -33,7 +33,7 @@ describe("GET /api/events", () => {
   });
 
   it.each(["coordinator", "ops_manager", "venue_staff", "tech_support"])(
-    "shows %s every event except drafts",
+    "[SPM-24][AC5] shows %s every event except drafts",
     async (role) => {
       const token = signIn(user(role));
       db.event.findMany.mockResolvedValue([]);
@@ -44,7 +44,7 @@ describe("GET /api/events", () => {
     }
   );
 
-  it("returns the whole record to staff", async () => {
+  it("[SPM-31][AC1] returns the whole record to staff", async () => {
     const token = signIn(user("coordinator"));
     const events = [{ id: ID.event, title: "Gala", specialRequirements: "VIP entrance", coordinatorId: ID.user }];
     db.event.findMany.mockResolvedValue(events);
@@ -57,7 +57,7 @@ describe("GET /api/events", () => {
 
   // CHANGED (SPM-64, #10): plus the confirmed events they hold a place in.
   // CHANGED (SPM-51 AC1): each with its registration state and company.
-  it("shows an attendee confirmed events open for registration or that they hold a place in, and only their public fields", async () => {
+  it("[SPM-51][AC1] [SPM-22][AC5] shows an attendee confirmed events open for registration or that they hold a place in, and only their public fields", async () => {
     const token = signIn(user("attendee"));
     db.registration.groupBy.mockResolvedValue([]);
     db.event.findMany.mockResolvedValue([
@@ -101,7 +101,7 @@ describe("GET /api/events", () => {
   });
 
   // SPM-51 AC1, AC9 (TC01): one grouped count gives every event's seats taken.
-  it("gives an attendee each event's registration state, counting seats once for all of them", async () => {
+  it("[SPM-51][AC3] gives an attendee each event's registration state, counting seats once for all of them", async () => {
     vi.useFakeTimers({ now: new Date("2026-10-10T04:00:00Z"), toFake: ["Date"] });
     const token = signIn(user("attendee"));
     const period = {
@@ -128,7 +128,7 @@ describe("GET /api/events", () => {
     ]);
   });
 
-  it("doesn't count registrations for staff", async () => {
+  it("[SPM-51] doesn't count registrations for staff", async () => {
     const token = signIn(user("coordinator"));
     db.event.findMany.mockResolvedValue([]);
 
@@ -149,12 +149,12 @@ describe("POST /api/events", () => {
     db.event.findUniqueOrThrow.mockResolvedValue({ id: ID.event, status: "draft" });
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await create(undefined, { title: "Gala" })).status).toBe(401);
   });
 
   it.each(["coordinator", "ops_manager", "venue_staff", "tech_support", "attendee"])(
-    "is 403 for %s - only an organiser raises a request",
+    "[SPM-23] is 403 for %s - only an organiser raises a request",
     async (role) => {
       const res = await create(signIn(user(role)), { title: "Gala" });
 
@@ -163,7 +163,7 @@ describe("POST /api/events", () => {
     }
   );
 
-  it("saves a title-only request as a draft owned by the organiser", async () => {
+  it("[SPM-24][AC1][AC2] saves a title-only request as a draft owned by the organiser", async () => {
     const organiser = user("organiser");
     const token = signIn(organiser);
     givenCreateSucceeds();
@@ -185,7 +185,7 @@ describe("POST /api/events", () => {
     expect(written.equipmentRequests).toBeUndefined();
   });
 
-  it("takes the organisation from the signed-in user, never from the body", async () => {
+  it("[SPM-23] takes the organisation from the signed-in user, never from the body", async () => {
     const organiser = user("organiser");
     const token = signIn(organiser);
     givenCreateSucceeds();
@@ -198,7 +198,7 @@ describe("POST /api/events", () => {
     expect(written.status).toBe("draft");
   });
 
-  it("stores ticked facilities as mandatory requirement rows", async () => {
+  it("[SPM-23][AC5] stores ticked facilities as mandatory requirement rows", async () => {
     const token = signIn(user("organiser"));
     givenCreateSucceeds();
 
@@ -209,7 +209,7 @@ describe("POST /api/events", () => {
     });
   });
 
-  it("stores the registration settings and window", async () => {
+  it("[SPM-23][AC5] stores the registration settings and window", async () => {
     const token = signIn(user("organiser"));
     givenCreateSucceeds();
 
@@ -232,7 +232,7 @@ describe("POST /api/events", () => {
     });
   });
 
-  it("requests equipment for two hours either side of the event", async () => {
+  it("[SPM-23][AC5] [SPM-48][AC6] requests equipment for two hours either side of the event", async () => {
     const organiser = user("organiser");
     const token = signIn(organiser);
     givenCreateSucceeds();
@@ -263,7 +263,7 @@ describe("POST /api/events", () => {
     });
   });
 
-  it("refuses equipment that has been retired", async () => {
+  it("[SPM-23][AC5] refuses equipment that has been retired", async () => {
     const token = signIn(user("organiser"));
     db.equipment.findFirst.mockResolvedValue({ name: "Overhead projector" });
 
@@ -298,7 +298,7 @@ describe("POST /api/events", () => {
       },
     ];
 
-    it("derives the event's start, end and attendance from its sessions", async () => {
+    it("[SPM-23][AC6] derives the event's start, end and attendance from its sessions", async () => {
       const token = signIn(user("organiser"));
       givenCreateSucceeds();
 
@@ -319,7 +319,7 @@ describe("POST /api/events", () => {
       });
     });
 
-    it("writes each session, and its equipment against that session's own window", async () => {
+    it("[SPM-23][AC6] writes each session, and its equipment against that session's own window", async () => {
       const organiser = user("organiser");
       const token = signIn(organiser);
       givenCreateSucceeds();
@@ -353,7 +353,7 @@ describe("POST /api/events", () => {
       ]);
     });
 
-    it("writes no equipment rows when no session asks for any", async () => {
+    it("[SPM-23][AC6] writes no equipment rows when no session asks for any", async () => {
       const token = signIn(user("organiser"));
       givenCreateSucceeds();
 
@@ -363,7 +363,7 @@ describe("POST /api/events", () => {
       expect(db.equipmentRequest.createMany).not.toHaveBeenCalled();
     });
 
-    it("rejects a single session - one session is just an event", async () => {
+    it("[SPM-23][AC6] rejects a single session - one session is just an event", async () => {
       const token = signIn(user("organiser"));
 
       const res = await create(token, { title: "Summit", sessions: [sessions[0]] });
@@ -373,7 +373,7 @@ describe("POST /api/events", () => {
       expect(body.details.fieldErrors.sessions).toContain("A multi-session event needs at least two sessions");
     });
 
-    it("rejects the same item requested by two sessions", async () => {
+    it("[SPM-23][AC6] rejects the same item requested by two sessions", async () => {
       const token = signIn(user("organiser"));
       const equipment = [{ equipmentId: ID.equipment, quantityRequested: 1 }];
 
@@ -420,7 +420,7 @@ describe("POST /api/events", () => {
       },
       "equipment",
     ],
-  ])("rejects %s", async (_case, body, field) => {
+  ])("[SPM-23][AC7] rejects %s", async (_case, body, field) => {
     const token = signIn(user("organiser"));
 
     const res = await create(token, body);
@@ -432,7 +432,7 @@ describe("POST /api/events", () => {
     expect(db.event.create).not.toHaveBeenCalled();
   });
 
-  it("gives the transaction longer than Prisma's 5 second default", async () => {
+  it("[SPM-23] gives the transaction longer than Prisma's 5 second default", async () => {
     const token = signIn(user("organiser"));
     givenCreateSucceeds();
 
@@ -441,7 +441,7 @@ describe("POST /api/events", () => {
     expect(db.$transaction.mock.calls[0][1]).toEqual({ timeout: 15000 });
   });
 
-  it("reports a duplicate item caught only by the database's unique index", async () => {
+  it("[SPM-23] reports a duplicate item caught only by the database's unique index", async () => {
     const token = signIn(user("organiser"));
     db.event.create.mockRejectedValue(uniqueConstraintError());
 
@@ -451,7 +451,7 @@ describe("POST /api/events", () => {
     expect(await res.json()).toEqual({ error: "Each item can only be requested once per event, across all sessions." });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-23] answers 500 when the database fails", async () => {
     const token = signIn(user("organiser"));
     db.event.create.mockRejectedValue(new Error("connection lost"));
 

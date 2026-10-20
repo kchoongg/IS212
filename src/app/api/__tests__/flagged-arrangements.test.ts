@@ -167,11 +167,11 @@ function given({
 }
 
 describe("GET /api/flagged-arrangements", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await list()).status).toBe(401);
   });
 
-  it.each(OTHER_ROLES)("is 403 for %s, before anything is read", async (role) => {
+  it.each(OTHER_ROLES)("[SPM-21][AC4] is 403 for %s, before anything is read", async (role) => {
     const res = await list(signIn(user(role)));
 
     expect(res.status).toBe(403);
@@ -182,7 +182,7 @@ describe("GET /api/flagged-arrangements", () => {
   });
 
   // AC1, AC3, AC16: only what is flagged, and only on this coordinator's events.
-  it("asks only for flagged arrangements of the events assigned to this coordinator", async () => {
+  it("[SPM-68][AC1][AC16] asks only for flagged arrangements of the events assigned to this coordinator", async () => {
     given();
 
     await list(coordinator());
@@ -200,7 +200,7 @@ describe("GET /api/flagged-arrangements", () => {
   });
 
   // AC12: so a booking the coordinator withdrew or released (SPM-67) is gone from the list.
-  it("leaves out a booking or equipment line that no longer holds anything", async () => {
+  it("[SPM-68][AC1] leaves out a booking or equipment line that no longer holds anything", async () => {
     given();
 
     await list(coordinator());
@@ -212,7 +212,7 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
-  it("leaves out events that are over or called off", async () => {
+  it("[SPM-68][AC1] leaves out events that are over or called off", async () => {
     given();
 
     await list(coordinator());
@@ -225,7 +225,7 @@ describe("GET /api/flagged-arrangements", () => {
   });
 
   // Marking as not required (SPM-33) waives it for confirmation; it does not clear the flag.
-  it("still lists a flagged arrangement that was marked as not required, and says so", async () => {
+  it("[SPM-68][AC1] [SPM-33][AC10] still lists a flagged arrangement that was marked as not required, and says so", async () => {
     given({ bookings: [bookingRow({ notRequired: true })], equipment: [equipmentRow({ notRequired: true })] });
 
     const body = await (await list(coordinator())).json();
@@ -234,7 +234,7 @@ describe("GET /api/flagged-arrangements", () => {
     expect(body.equipmentRequests[0].notRequired).toBe(true);
   });
 
-  it("reads the most recently flagged first", async () => {
+  it("[SPM-68][AC1] reads the most recently flagged first", async () => {
     given();
 
     await list(coordinator());
@@ -244,7 +244,7 @@ describe("GET /api/flagged-arrangements", () => {
     expect(flaggedEquipment.orderBy).toEqual({ flaggedAt: "desc" });
   });
 
-  it("answers three empty lists when nothing is flagged", async () => {
+  it("[SPM-68][AC1] answers three empty lists when nothing is flagged", async () => {
     given();
 
     const res = await list(coordinator());
@@ -254,7 +254,7 @@ describe("GET /api/flagged-arrangements", () => {
   });
 
   // AC2, AC4.
-  it("lists a flagged booking with its event, venue, why it was flagged and its current result", async () => {
+  it("[SPM-68][AC2][AC4] lists a flagged booking with its event, venue, why it was flagged and its current result", async () => {
     given({ bookings: [bookingRow({ reviewReason: "event_schedule_changed,event_attendance_changed" })] });
 
     const body = await (await list(coordinator())).json();
@@ -279,7 +279,7 @@ describe("GET /api/flagged-arrangements", () => {
     ]);
   });
 
-  it("says which requirement a booking no longer meets, judged on the event as it is now", async () => {
+  it("[SPM-68][AC4] says which requirement a booking no longer meets, judged on the event as it is now", async () => {
     given({ bookings: [bookingRow({ event: eventOf({ expectedAttendance: 150 }) })] });
 
     const [booking] = (await (await list(coordinator())).json()).venueBookings;
@@ -288,7 +288,7 @@ describe("GET /api/flagged-arrangements", () => {
     expect(booking.availability).toEqual({ ok: true, unmet: [] });
   });
 
-  it("checks the event's mandatory facilities against what the venue has now", async () => {
+  it("[SPM-68][AC4] checks the event's mandatory facilities against what the venue has now", async () => {
     const requires = (isMandatory: boolean) => [
       { facilityId: ID.facility, isMandatory, facility: { name: "Raised stage", category: "facility" } },
     ];
@@ -313,7 +313,7 @@ describe("GET /api/flagged-arrangements", () => {
     ]);
   });
 
-  it("shows a booking at a venue that is blocked or retired as not available, with why", async () => {
+  it("[SPM-68][AC4] shows a booking at a venue that is blocked or retired as not available, with why", async () => {
     given({
       bookings: [
         bookingRow({
@@ -337,7 +337,7 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
-  it("shows a booking that no longer covers the event's new date as not available", async () => {
+  it("[SPM-68][AC4] shows a booking that no longer covers the event's new date as not available", async () => {
     given({ bookings: [bookingRow({ event: eventOf({ startsAt: at(9, 9), endsAt: at(17, 9) }) })] });
 
     const [booking] = (await (await list(coordinator())).json()).venueBookings;
@@ -348,7 +348,7 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
-  it("names the other event when its approved booking now holds the room at the same time", async () => {
+  it("[SPM-68][AC4] names the other event when its approved booking now holds the room at the same time", async () => {
     const other = {
       id: "other-booking",
       eventId: ID.otherUser,
@@ -370,7 +370,7 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
-  it("has no time to hold a booking to while the event has no dates", async () => {
+  it("[SPM-68][AC4] has no time to hold a booking to while the event has no dates", async () => {
     given({ bookings: [bookingRow({ event: eventOf({ startsAt: null, endsAt: null }) })] });
 
     const [booking] = (await (await list(coordinator())).json()).venueBookings;
@@ -380,7 +380,7 @@ describe("GET /api/flagged-arrangements", () => {
 
   // SPM-90: which space a booking is for decides what it is held to.
   describe("each booking's own space (SPM-90)", () => {
-    it("holds the main programme to the event as it is now, whatever was copied when it was booked", async () => {
+    it("[SPM-68][AC4] [SPM-90][AC3] holds the main programme to the event as it is now, whatever was copied when it was booked", async () => {
       given({
         bookings: [
           bookingRow({ purpose: "Main programme", expectedAttendance: 80, event: eventOf({ expectedAttendance: 150 }) }),
@@ -393,7 +393,7 @@ describe("GET /api/flagged-arrangements", () => {
       expect(booking.suitability).toEqual({ ok: false, unmet: ["Theatre capacity is 100 - this space expects 150."] });
     });
 
-    it("holds a breakout room to its own attendance, so an event that grew does not make it unsuitable", async () => {
+    it("[SPM-68][AC4] [SPM-90][AC3] holds a breakout room to its own attendance, so an event that grew does not make it unsuitable", async () => {
       given({
         bookings: [
           bookingRow({ purpose: "Breakout room", expectedAttendance: 40, event: eventOf({ expectedAttendance: 150 }) }),
@@ -406,7 +406,7 @@ describe("GET /api/flagged-arrangements", () => {
       expect(booking.suitability).toEqual({ ok: true, unmet: [] });
     });
 
-    it("holds a breakout room to its own layout, not the event's", async () => {
+    it("[SPM-68][AC4] [SPM-90][AC3] holds a breakout room to its own layout, not the event's", async () => {
       given({
         bookings: [
           bookingRow({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "boardroom", event: eventOf({ expectedAttendance: 150 }) }),
@@ -418,7 +418,7 @@ describe("GET /api/flagged-arrangements", () => {
       expect(booking.suitability).toEqual({ ok: false, unmet: ["Boardroom layout is not offered."] });
     });
 
-    it("keeps a breakout room the event outgrew, and refuses the main room it outgrew", async () => {
+    it("[SPM-68][AC4] [SPM-90][AC3] keeps a breakout room the event outgrew, and refuses the main room it outgrew", async () => {
       const event = eventOf({ expectedAttendance: 150 });
       foundBooking(bookingRow({ purpose: "Breakout room", expectedAttendance: 40, event }));
       expect((await keep(BOOKING_KIND, coordinator())).status).toBe(200);
@@ -428,7 +428,7 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
-  it("judges a session's booking by that session's own time, attendance and layout", async () => {
+  it("[SPM-68][AC4] judges a session's booking by that session's own time, attendance and layout", async () => {
     const session = {
       id: ID.session,
       label: "Day 1",
@@ -447,7 +447,7 @@ describe("GET /api/flagged-arrangements", () => {
   });
 
   // AC2, AC5.
-  it("lists a flagged equipment reservation with its current availability", async () => {
+  it("[SPM-68][AC5] lists a flagged equipment reservation with its current availability", async () => {
     given({ equipment: [equipmentRow()] });
 
     const body = await (await list(coordinator())).json();
@@ -469,7 +469,7 @@ describe("GET /api/flagged-arrangements", () => {
     ]);
   });
 
-  it("says which session a session's equipment line is for", async () => {
+  it("[SPM-68][AC2] says which session a session's equipment line is for", async () => {
     given({ equipment: [equipmentRow({ sessionId: ID.session, session: { id: ID.session, label: "Day 1" } })] });
 
     const [request] = (await (await list(coordinator())).json()).equipmentRequests;
@@ -477,7 +477,7 @@ describe("GET /api/flagged-arrangements", () => {
     expect(request.session).toEqual({ id: ID.session, label: "Day 1" });
   });
 
-  it("cannot check a line whose event has no dates, and says so", async () => {
+  it("[SPM-68][AC5] cannot check a line whose event has no dates, and says so", async () => {
     given({ equipment: [equipmentRow({ event: { ...eventOf({ startsAt: null, endsAt: null }), venueBookings: [] } })] });
 
     const [request] = (await (await list(coordinator())).json()).equipmentRequests;
@@ -490,7 +490,7 @@ describe("GET /api/flagged-arrangements", () => {
     });
   });
 
-  it("shows a reservation the units left can no longer cover", async () => {
+  it("[SPM-68][AC5] shows a reservation the units left can no longer cover", async () => {
     const equipment = { ...equipmentRow().equipment, totalQuantity: 2, quantityInMaintenance: 1 };
     given({ equipment: [equipmentRow({ reviewReason: "equipment_unavailable", equipment })] });
 
@@ -506,7 +506,7 @@ describe("GET /api/flagged-arrangements", () => {
   });
 
   // AC8.
-  it("lists flagged registrations with how many are registered and waitlisted, and why", async () => {
+  it("[SPM-68][AC8] lists flagged registrations with how many are registered and waitlisted, and why", async () => {
     given({
       events: [eventRow({ registrationReviewReason: "event_schedule_changed,registration_capacity_lowered" })],
     });
@@ -526,7 +526,7 @@ describe("GET /api/flagged-arrangements", () => {
     ]);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-68] answers 500 when the database fails", async () => {
     given();
     db.venueBooking.findMany.mockRejectedValue(new Error("connection lost"));
 
@@ -558,11 +558,11 @@ describe("POST /api/flagged-arrangements", () => {
     expect(db.event.update).not.toHaveBeenCalled();
   };
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await keep(BOOKING)).status).toBe(401);
   });
 
-  it.each(OTHER_ROLES)("is 403 for %s, and nothing is read or written", async (role) => {
+  it.each(OTHER_ROLES)("[SPM-21][AC4] is 403 for %s, and nothing is read or written", async (role) => {
     found({ booking: bookingRow() });
 
     const res = await keep(BOOKING, signIn(user(role)));
@@ -576,7 +576,7 @@ describe("POST /api/flagged-arrangements", () => {
     ["an unknown kind", { kind: "safety_check", id: ID.booking }],
     ["no id", { kind: "venue_booking" }],
     ["no kind", { id: ID.booking }],
-  ])("refuses a request with %s", async (_what, body) => {
+  ])("[SPM-68] refuses a request with %s", async (_what, body) => {
     found({ booking: bookingRow() });
 
     const res = await keep(body, coordinator());
@@ -589,7 +589,7 @@ describe("POST /api/flagged-arrangements", () => {
   // The same limits GET lists by: nothing the page would never show can be
   // kept or reviewed, even by a request made without the page.
   describe("what the list would never show", () => {
-    it.each(CLOSED_STATUSES)("refuses a booking on a %s event, and clears nothing", async (status) => {
+    it.each(CLOSED_STATUSES)("[SPM-68][AC6] refuses a booking on a %s event, and clears nothing", async (status) => {
       found({ booking: bookingRow({ event: eventOf({ status }) }) });
 
       const res = await keep(BOOKING, coordinator());
@@ -599,7 +599,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it.each(CLOSED_STATUSES)("refuses equipment on a %s event, and clears nothing", async (status) => {
+    it.each(CLOSED_STATUSES)("[SPM-68][AC6] refuses equipment on a %s event, and clears nothing", async (status) => {
       found({ equipment: equipmentRow({ event: { ...eventOf({ status }), venueBookings: [] } }) });
 
       const res = await keep(EQUIPMENT, coordinator());
@@ -609,7 +609,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it.each(CLOSED_STATUSES)("refuses registrations on a %s event, and clears nothing", async (status) => {
+    it.each(CLOSED_STATUSES)("[SPM-68][AC6] refuses registrations on a %s event, and clears nothing", async (status) => {
       found({ event: eventRow({ status }) });
 
       const res = await keep(REGISTRATIONS, coordinator());
@@ -619,7 +619,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it.each(["rejected", "withdrawn", "released"])("refuses a %s booking, and clears nothing", async (status) => {
+    it.each(["rejected", "withdrawn", "released"])("[SPM-68][AC6] refuses a %s booking, and clears nothing", async (status) => {
       found({ booking: bookingRow({ status }) });
 
       const res = await keep(BOOKING, coordinator());
@@ -629,7 +629,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it.each(["unavailable", "cancelled"])("refuses an equipment request that is %s, and clears nothing", async (status) => {
+    it.each(["unavailable", "cancelled"])("[SPM-68][AC6] refuses an equipment request that is %s, and clears nothing", async (status) => {
       found({ equipment: equipmentRow({ status }) });
 
       const res = await keep(EQUIPMENT, coordinator());
@@ -640,7 +640,7 @@ describe("POST /api/flagged-arrangements", () => {
     });
 
     it.each(["approved", "planning", "safety_review", "confirmed", "postponed"])(
-      "still keeps a booking on an event that is %s",
+      "[SPM-68][AC6] still keeps a booking on an event that is %s",
       async (status) => {
         found({ booking: bookingRow({ event: eventOf({ status }) }) });
 
@@ -648,7 +648,7 @@ describe("POST /api/flagged-arrangements", () => {
       }
     );
 
-    it.each(["requested", "under_review", "partially_fulfilled"])("still keeps an equipment request that is %s", async (status) => {
+    it.each(["requested", "under_review", "partially_fulfilled"])("[SPM-68][AC6] still keeps an equipment request that is %s", async (status) => {
       found({ equipment: equipmentRow({ status, quantityReserved: status === "partially_fulfilled" ? 2 : null }) });
 
       expect((await keep(EQUIPMENT, coordinator())).status).toBe(200);
@@ -657,7 +657,7 @@ describe("POST /api/flagged-arrangements", () => {
 
   describe("keeping a venue booking", () => {
     // AC6.
-    it("clears the flag of a booking that still meets the event's requirements, and changes nothing else", async () => {
+    it("[SPM-68][AC6][AC14] clears the flag of a booking that still meets the event's requirements, and changes nothing else", async () => {
       found({ booking: bookingRow() });
 
       const res = await keep(BOOKING, coordinator());
@@ -671,14 +671,14 @@ describe("POST /api/flagged-arrangements", () => {
       expect(db.event.update).not.toHaveBeenCalled();
     });
 
-    it("keeps a pending request too", async () => {
+    it("[SPM-68][AC6][AC14] keeps a pending request too", async () => {
       found({ booking: bookingRow({ status: "pending", reviewReason: "event_schedule_changed" }) });
 
       expect((await keep(BOOKING, coordinator())).status).toBe(200);
     });
 
     // AC7.
-    it("refuses a booking whose room is now too small, names the requirement and leaves the flag", async () => {
+    it("[SPM-68][AC7] refuses a booking whose room is now too small, names the requirement and leaves the flag", async () => {
       found({ booking: bookingRow({ event: eventOf({ expectedAttendance: 150 }) }) });
 
       const res = await keep(BOOKING, coordinator());
@@ -691,7 +691,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it("refuses a booking at a venue that is blocked for its time", async () => {
+    it("[SPM-68][AC7] refuses a booking at a venue that is blocked for its time", async () => {
       found({
         booking: bookingRow({
           venue: venueOf({ unavailability: [{ startsAt: at(8), endsAt: at(18), reason: "maintenance" }] }),
@@ -707,7 +707,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it("refuses a booking at a retired venue", async () => {
+    it("[SPM-68][AC7] refuses a booking at a retired venue", async () => {
       found({ booking: bookingRow({ venue: venueOf({ isActive: false }) }) });
 
       const res = await keep(BOOKING, coordinator());
@@ -717,7 +717,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it("names every unmet requirement, suitability first", async () => {
+    it("[SPM-68][AC7] names every unmet requirement, suitability first", async () => {
       found({
         booking: bookingRow({ event: eventOf({ expectedAttendance: 150 }), venue: venueOf({ isActive: false }) }),
       });
@@ -730,7 +730,7 @@ describe("POST /api/flagged-arrangements", () => {
       );
     });
 
-    it("is 404 for a booking that does not exist", async () => {
+    it("[SPM-68] is 404 for a booking that does not exist", async () => {
       found({});
 
       const res = await keep(BOOKING, coordinator());
@@ -741,7 +741,7 @@ describe("POST /api/flagged-arrangements", () => {
     });
 
     // AC16.
-    it("refuses a booking of an event assigned to another coordinator", async () => {
+    it("[SPM-68][AC16] refuses a booking of an event assigned to another coordinator", async () => {
       found({ booking: bookingRow({ event: eventOf({ coordinatorId: ID.otherUser }) }) });
 
       const res = await keep(BOOKING, coordinator());
@@ -751,7 +751,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it("refuses a booking that is not flagged", async () => {
+    it("[SPM-68] refuses a booking that is not flagged", async () => {
       found({ booking: bookingRow({ needsReview: false, reviewReason: null }) });
 
       const res = await keep(BOOKING, coordinator());
@@ -764,7 +764,7 @@ describe("POST /api/flagged-arrangements", () => {
 
   describe("keeping an equipment reservation", () => {
     // AC6.
-    it("clears the flag of a reservation that is still available, and changes nothing else", async () => {
+    it("[SPM-68][AC6] clears the flag of a reservation that is still available, and changes nothing else", async () => {
       found({ equipment: equipmentRow() });
 
       const res = await keep(EQUIPMENT, coordinator());
@@ -777,7 +777,7 @@ describe("POST /api/flagged-arrangements", () => {
     });
 
     // AC7.
-    it("refuses a reservation the units left can no longer cover, names the shortfall and leaves the flag", async () => {
+    it("[SPM-68][AC7] refuses a reservation the units left can no longer cover, names the shortfall and leaves the flag", async () => {
       const equipment = { ...equipmentRow().equipment, totalQuantity: 2, quantityInMaintenance: 1 };
       found({ equipment: equipmentRow({ equipment }) });
 
@@ -791,7 +791,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it("is 404 for a request that does not exist", async () => {
+    it("[SPM-68] is 404 for a request that does not exist", async () => {
       found({});
 
       const res = await keep(EQUIPMENT, coordinator());
@@ -800,7 +800,7 @@ describe("POST /api/flagged-arrangements", () => {
       expect((await res.json()).error).toBe(NOT_FOUND);
     });
 
-    it("refuses a request of an event assigned to another coordinator", async () => {
+    it("[SPM-68][AC16] refuses a request of an event assigned to another coordinator", async () => {
       found({ equipment: equipmentRow({ event: { ...eventOf({ coordinatorId: ID.otherUser }), venueBookings: [] } }) });
 
       const res = await keep(EQUIPMENT, coordinator());
@@ -810,7 +810,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it("refuses a request that is not flagged", async () => {
+    it("[SPM-68] refuses a request that is not flagged", async () => {
       found({ equipment: equipmentRow({ needsReview: false, reviewReason: null }) });
 
       const res = await keep(EQUIPMENT, coordinator());
@@ -823,7 +823,7 @@ describe("POST /api/flagged-arrangements", () => {
 
   describe("marking registrations as reviewed", () => {
     // AC9.
-    it("clears the event's registration flag and changes no registration", async () => {
+    it("[SPM-68][AC9] clears the event's registration flag and changes no registration", async () => {
       found({ event: eventRow() });
 
       const res = await keep(REGISTRATIONS, coordinator());
@@ -838,13 +838,13 @@ describe("POST /api/flagged-arrangements", () => {
       }
     });
 
-    it("needs nothing of the registrations to be true first - there is nothing to keep or refuse", async () => {
+    it("[SPM-68][AC9] needs nothing of the registrations to be true first - there is nothing to keep or refuse", async () => {
       found({ event: eventRow({ registrationReviewReason: "registration_disabled", registrations: [] }) });
 
       expect((await keep(REGISTRATIONS, coordinator())).status).toBe(200);
     });
 
-    it("is 404 for an event that does not exist", async () => {
+    it("[SPM-68] is 404 for an event that does not exist", async () => {
       found({});
 
       const res = await keep(REGISTRATIONS, coordinator());
@@ -853,7 +853,7 @@ describe("POST /api/flagged-arrangements", () => {
       expect((await res.json()).error).toBe(NOT_FOUND);
     });
 
-    it("refuses an event assigned to another coordinator", async () => {
+    it("[SPM-68][AC16] refuses an event assigned to another coordinator", async () => {
       found({ event: eventRow({ coordinatorId: ID.otherUser }) });
 
       const res = await keep(REGISTRATIONS, coordinator());
@@ -863,7 +863,7 @@ describe("POST /api/flagged-arrangements", () => {
       nothingWritten();
     });
 
-    it("refuses an event whose registrations are not flagged", async () => {
+    it("[SPM-68] refuses an event whose registrations are not flagged", async () => {
       found({ event: eventRow({ registrationReviewReason: null }) });
 
       const res = await keep(REGISTRATIONS, coordinator());
@@ -874,7 +874,7 @@ describe("POST /api/flagged-arrangements", () => {
     });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-68] answers 500 when the database fails", async () => {
     found({});
     db.venueBooking.findUnique.mockRejectedValue(new Error("connection lost"));
 

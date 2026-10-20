@@ -50,7 +50,7 @@ const table = () => screen.getByRole("table");
 const rowOf = (title: string) => within(table()).getByText(title).closest("tr") as HTMLElement;
 
 describe("AC6 an attendee sees their registrations and each one's status", () => {
-  it("lists each event with its time and status, in the order given (TC11)", async () => {
+  it("[SPM-51][AC6] lists each event with its time and status, in the order given (TC11)", async () => {
     open([
       registration("r2", "waitlisted", "SPM51 Sold Out Summit", 44, "2028-01-29"),
       registration("r1", "registered", "SPM51 Last Seat Masterclass", 42, "2028-01-22"),
@@ -67,7 +67,7 @@ describe("AC6 an attendee sees their registrations and each one's status", () =>
     expect(order[0]).toContain("SPM51 Sold Out Summit");
   });
 
-  it("opens the event when its row is clicked (TC11)", async () => {
+  it("[SPM-51][AC6] opens the event when its row is clicked (TC11)", async () => {
     open([registration("r2", "waitlisted", "SPM51 Sold Out Summit", 44, "2028-01-29")]);
 
     await userEvent.click(await within(await screen.findByRole("table")).findByText("SPM51 Sold Out Summit"));
@@ -75,13 +75,13 @@ describe("AC6 an attendee sees their registrations and each one's status", () =>
     expect(router.push).toHaveBeenCalledWith("/events/EVT-000044");
   });
 
-  it("says so when there are none", async () => {
+  it("[SPM-51][AC6] says so when there are none", async () => {
     open([]);
 
     expect(await screen.findByText("You haven't registered for any events yet.")).toBeInTheDocument();
   });
 
-  it("shows an error with Retry, and retries", async () => {
+  it("[SPM-51] shows an error with Retry, and retries", async () => {
     const api = open(reply(500, { error: "Internal server error" }));
 
     expect(await screen.findByText("Could not load your registrations.")).toBeInTheDocument();
@@ -91,19 +91,19 @@ describe("AC6 an attendee sees their registrations and each one's status", () =>
     expect(await screen.findByRole("table")).toBeInTheDocument();
   });
 
-  it("shows a general error when the request fails without a reason", async () => {
+  it("[SPM-51] shows a general error when the request fails without a reason", async () => {
     open(() => Promise.reject("offline"));
 
     expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
   });
 
-  it("shows an event with no title as 'Untitled event'", async () => {
+  it("[SPM-51] shows an event with no title as 'Untitled event'", async () => {
     open([registration("r1", "registered", null, 42, "2028-01-22")]);
 
     expect(await within(await screen.findByRole("table")).findByText("Untitled event")).toBeInTheDocument();
   });
 
-  it("sends a visitor whose session ended back to log in", async () => {
+  it("[SPM-22][AC4] sends a visitor whose session ended back to log in", async () => {
     open(reply(401, { error: "Not authenticated" }));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fregistrations"));
@@ -111,7 +111,7 @@ describe("AC6 an attendee sees their registrations and each one's status", () =>
 });
 
 describe("only attendees have registrations (TC12)", () => {
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute("/registrations");
     mockApi(signedOut());
 
@@ -121,7 +121,7 @@ describe("only attendees have registrations (TC12)", () => {
   });
 
   it.each(ROLES.filter((role) => !can(role, "registration:create")))(
-    "refuses %s without asking for registrations",
+    "[SPM-22][AC4] refuses %s without asking for registrations",
     async (role) => {
       setRoute("/registrations");
       const api = mockApi(signedInAs(role));
@@ -147,7 +147,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
   const withdrawButton = (title: string) => within(rowOf(title)).queryByRole("button", { name: "Withdraw" });
   const dialog = () => screen.getByRole("dialog", { hidden: true });
 
-  it("offers Withdraw only on a registration that holds a seat (AC1)", async () => {
+  it("[SPM-52][AC1] offers Withdraw only on a registration that holds a seat (AC1)", async () => {
     open(rows());
     await screen.findByRole("table");
 
@@ -157,7 +157,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(withdrawButton("Dropped Event")).not.toBeInTheDocument();
   });
 
-  it("offers no Withdraw for an event that is over or cancelled", async () => {
+  it("[SPM-52][AC1] offers no Withdraw for an event that is over or cancelled", async () => {
     open([
       registration("r5", "registered", "Cancelled Gala", 5, "2028-02-17", "cancelled"),
       registration("r6", "registered", "Past Clinic", 6, "2026-09-15", "completed"),
@@ -170,7 +170,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(withdrawButton("Ended Talk")).not.toBeInTheDocument();
   });
 
-  it("asks first, naming the event and what happens to the place, without opening the event", async () => {
+  it("[SPM-52][AC1] asks first, naming the event and what happens to the place, without opening the event", async () => {
     const api = open(rows());
     await screen.findByRole("table");
 
@@ -182,7 +182,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(api.sent(WITHDRAW)).toEqual([]);
   });
 
-  it("sends nothing when the attendee keeps their place", async () => {
+  it("[SPM-52][AC1] sends nothing when the attendee keeps their place", async () => {
     const api = open(rows());
     await screen.findByRole("table");
 
@@ -192,7 +192,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(api.sent(WITHDRAW)).toEqual([]);
   });
 
-  it("withdraws once confirmed, says so, and shows it as Withdrawn (AC1, AC2)", async () => {
+  it("[SPM-52][AC1][AC2] withdraws once confirmed, says so, and shows it as Withdrawn (AC1, AC2)", async () => {
     const api = open(rows());
     await screen.findByRole("table");
     api.on(WITHDRAW, { id: "r1", status: "withdrawn" });
@@ -207,7 +207,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(withdrawButton("SPM52 Riverside Forum")).not.toBeInTheDocument();
   });
 
-  it("shows the server's refusal in the dialog", async () => {
+  it("[SPM-52] shows the server's refusal in the dialog", async () => {
     const api = open(rows());
     await screen.findByRole("table");
     api.on(WITHDRAW, reply(400, { error: "Only an active registration can be withdrawn" }));
@@ -219,7 +219,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(screen.queryByText(/You have withdrawn from/)).not.toBeInTheDocument();
   });
 
-  it("says so in general words when the server gives no reason", async () => {
+  it("[SPM-52] says so in general words when the server gives no reason", async () => {
     const api = open(rows());
     await screen.findByRole("table");
     api.on(WITHDRAW, reply(400, {}));
@@ -230,7 +230,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(await within(dialog()).findByText("Could not withdraw your registration.")).toBeInTheDocument();
   });
 
-  it("opens the question, not the event, when Withdraw is pressed with the keyboard on a phone", async () => {
+  it("[SPM-52][AC1] opens the question, not the event, when Withdraw is pressed with the keyboard on a phone", async () => {
     open(rows());
     await screen.findByRole("table");
     // The phone layout's card opens the event on Enter; its Withdraw button must not.
@@ -243,7 +243,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("warns before withdrawing from an event whose registration is turned off", async () => {
+  it("[SPM-52][AC1] warns before withdrawing from an event whose registration is turned off", async () => {
     open([
       registration("r1", "registered", "SPM52 Members Gala", 52, "2028-04-01", "confirmed", {
         registrationEnabled: false,
@@ -259,7 +259,7 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     );
   });
 
-  it("asks with no warning while the attendee could register again", async () => {
+  it("[SPM-52][AC1] asks with no warning while the attendee could register again", async () => {
     open(rows());
     await screen.findByRole("table");
 
@@ -268,28 +268,28 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(dialog()).not.toHaveTextContent("you can't register again");
   });
 
-  it("says so when sent here after withdrawing from an event page it can no longer show", async () => {
+  it("[SPM-52][AC1] says so when sent here after withdrawing from an event page it can no longer show", async () => {
     open([registration("r1", "withdrawn", "SPM52 Members Gala", 52, "2028-04-01")], "/registrations?withdrawn=r1");
 
     expect(await screen.findByText("You have withdrawn from SPM52 Members Gala.")).toBeInTheDocument();
     expect(within(rowOf("SPM52 Members Gala")).getByText("Withdrawn")).toBeInTheDocument();
   });
 
-  it("names an untitled event in general words when sent here after withdrawing", async () => {
+  it("[SPM-52][AC1] names an untitled event in general words when sent here after withdrawing", async () => {
     const untitled = registration("r1", "withdrawn", "", 52, "2028-04-01");
     open([{ ...untitled, event: { ...untitled.event, title: null } }], "/registrations?withdrawn=r1");
 
     expect(await screen.findByText("You have withdrawn from the event.")).toBeInTheDocument();
   });
 
-  it("says nothing when the registration in the address was not withdrawn", async () => {
+  it("[SPM-52][AC1] says nothing when the registration in the address was not withdrawn", async () => {
     open(rows(), "/registrations?withdrawn=r1");
     await screen.findByRole("table");
 
     expect(screen.queryByText(/You have withdrawn from/)).not.toBeInTheDocument();
   });
 
-  it("names an untitled event in general words", async () => {
+  it("[SPM-52][AC1] names an untitled event in general words", async () => {
     const untitled = registration("r1", "registered", "", 52, "2028-02-10");
     const api = open([{ ...untitled, event: { ...untitled.event, title: null } }]);
     await screen.findByRole("table");

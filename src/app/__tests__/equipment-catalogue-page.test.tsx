@@ -75,7 +75,7 @@ async function fill(units: string, type?: string, reason?: string) {
 const save = () => userEvent.click(within(dialog()).getByRole("button", { name: "Save", hidden: true }));
 
 describe("Equipment page (SPM-55)", () => {
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute("/equipment");
     mockApi(signedOut());
 
@@ -85,7 +85,7 @@ describe("Equipment page (SPM-55)", () => {
   });
 
   it.each(["organiser", "venue_staff", "attendee"])(
-    "SPM-55-TC11: refuses %s, and never asks for the list",
+    "[SPM-55][AC6] SPM-55-TC11: refuses %s, and never asks for the list",
     async (role) => {
       const api = open(role);
 
@@ -94,7 +94,7 @@ describe("Equipment page (SPM-55)", () => {
     }
   );
 
-  it("SPM-55-TC10: lists every item with its operational status and reason", async () => {
+  it("[SPM-55][AC6] SPM-55-TC10: lists every item with its operational status and reason", async () => {
     open("coordinator");
 
     const projector = await rowFor("SPM55 Laser Projector");
@@ -108,7 +108,7 @@ describe("Equipment page (SPM-55)", () => {
     expect(headers).toEqual(["Equipment", "Category", "Total units", "Out of service", "Status", "Reason", ""]);
   });
 
-  it("shows an item with every unit out as 'Out of service'", async () => {
+  it("[SPM-55][AC6] shows an item with every unit out as 'Out of service'", async () => {
     open("coordinator", [item({ quantityInMaintenance: 4, outOfServiceType: "damaged" })]);
 
     const row = await rowFor("SPM55 Laser Projector");
@@ -116,7 +116,7 @@ describe("Equipment page (SPM-55)", () => {
     expect(row).toHaveTextContent("Damaged");
   });
 
-  it.each(["coordinator", "ops_manager"])("SPM-55-TC10: gives %s no way to change the status", async (role) => {
+  it.each(["coordinator", "ops_manager"])("[SPM-55][AC1] [SPM-22][AC3] SPM-55-TC10: gives %s no way to change the status", async (role) => {
     open(role);
 
     await table();
@@ -124,20 +124,20 @@ describe("Equipment page (SPM-55)", () => {
     expect(screen.queryByRole("button", { name: "Return all to available" })).not.toBeInTheDocument();
   });
 
-  it("offers Technical Support 'Return all to available' only on an item with units out", async () => {
+  it("[SPM-55][AC5] offers Technical Support 'Return all to available' only on an item with units out", async () => {
     open();
 
     expect(within(await rowFor("SPM55 Spare Microphone Kit")).getByRole("button", { name: "Return all to available" })).toBeInTheDocument();
     expect(within(await rowFor("SPM55 Laser Projector")).queryByRole("button", { name: "Return all to available" })).not.toBeInTheDocument();
   });
 
-  it("says so when the catalogue is empty", async () => {
+  it("[SPM-55] says so when the catalogue is empty", async () => {
     open("coordinator", []);
 
     expect(await screen.findByText("No equipment yet")).toBeInTheDocument();
   });
 
-  it("explains a failed load and retries", async () => {
+  it("[SPM-55] explains a failed load and retries", async () => {
     const api = open("coordinator", reply(500, {}));
 
     expect(await screen.findByText("Could not load the equipment catalogue.")).toBeInTheDocument();
@@ -147,14 +147,14 @@ describe("Equipment page (SPM-55)", () => {
     expect(await rowFor("SPM55 Laser Projector")).toBeInTheDocument();
   });
 
-  it("sends a visitor whose session has ended to log in", async () => {
+  it("[SPM-22][AC4] sends a visitor whose session has ended to log in", async () => {
     open("coordinator", reply(401, {}));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment"));
   });
 
   describe("recording unavailability (AC1, AC2)", () => {
-    it("SPM-55-TC01: opens a dialog for the item, with nothing out of service yet", async () => {
+    it("[SPM-55][AC1] SPM-55-TC01: opens a dialog for the item, with nothing out of service yet", async () => {
       open();
 
       await openRecord();
@@ -170,7 +170,7 @@ describe("Equipment page (SPM-55)", () => {
       ]);
     });
 
-    it("SPM-55-TC09: fills the dialog in with what is recorded now", async () => {
+    it("[SPM-55][AC1] SPM-55-TC09: fills the dialog in with what is recorded now", async () => {
       open();
 
       await openRecord("SPM55 Spare Microphone Kit");
@@ -180,7 +180,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(screen.getByLabelText("Reason (optional)")).toHaveValue("Cable fault");
     });
 
-    it("SPM-55-TC01: sends the units, type and reason, says what was saved, and reloads the list", async () => {
+    it("[SPM-55][AC1][AC2] SPM-55-TC01: sends the units, type and reason, says what was saved, and reloads the list", async () => {
       const api = open("tech_support", [item()], {
         [PATCH]: { ...item({ quantityInMaintenance: 2 }), flaggedReservations: [] },
       });
@@ -199,7 +199,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(dialog().open).toBe(false);
     });
 
-    it("SPM-55-TC04: sends no reason when it is left empty", async () => {
+    it("[SPM-55][AC2] SPM-55-TC04: sends no reason when it is left empty", async () => {
       const api = open("tech_support", [item()], {
         [PATCH]: { ...item({ quantityInMaintenance: 4 }), flaggedReservations: [] },
       });
@@ -215,7 +215,7 @@ describe("Equipment page (SPM-55)", () => {
       ["", "Enter a whole number of units, 0 or more."],
       ["-1", "Enter a whole number of units, 0 or more."],
       ["1.5", "Enter a whole number of units, 0 or more."],
-    ])("refuses %j units, sending nothing", async (units, message) => {
+    ])("[SPM-55][AC1] refuses %j units, sending nothing", async (units, message) => {
       const api = open("tech_support", [item()], { [PATCH]: {} });
       await openRecord();
 
@@ -226,7 +226,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("asks for a type when units are out of service, sending nothing", async () => {
+    it("[SPM-55][AC1] asks for a type when units are out of service, sending nothing", async () => {
       const api = open("tech_support", [item()], { [PATCH]: {} });
       await openRecord();
 
@@ -237,7 +237,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("SPM-55-TC05: shows the server's refusal under the units and keeps the dialog open", async () => {
+    it("[SPM-55][AC1] SPM-55-TC05: shows the server's refusal under the units and keeps the dialog open", async () => {
       open("tech_support", [item()], {
         [PATCH]: reply(400, { error: "Only 4 units in total - cannot mark 5 as out of service" }),
       });
@@ -250,7 +250,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(dialog().open).toBe(true);
     });
 
-    it("says when the server cannot be reached", async () => {
+    it("[SPM-55] says when the server cannot be reached", async () => {
       open("tech_support", [item()], { [PATCH]: () => Promise.reject(new Error("offline")) });
       await openRecord();
 
@@ -260,7 +260,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(await within(dialog()).findByText("Could not reach the server. Check your connection and try again.")).toBeInTheDocument();
     });
 
-    it("sends no type or reason when 0 units are recorded", async () => {
+    it("[SPM-55][AC1] sends no type or reason when 0 units are recorded", async () => {
       const api = open("tech_support", [kit()], {
         "PATCH /api/equipment/mic-id/out-of-service": { ...kit(), quantityInMaintenance: 0, flaggedReservations: [] },
       });
@@ -272,7 +272,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(api.sent("PATCH /api/equipment/mic-id/out-of-service")[0].body).toEqual({ quantityOutOfService: 0 });
     });
 
-    it("closes on Escape", async () => {
+    it("[SPM-55] closes on Escape", async () => {
       open();
       await openRecord();
 
@@ -281,7 +281,7 @@ describe("Equipment page (SPM-55)", () => {
       await waitFor(() => expect(dialog().open).toBe(false));
     });
 
-    it("closes without sending anything on Cancel", async () => {
+    it("[SPM-55] closes without sending anything on Cancel", async () => {
       const api = open("tech_support", [item()], { [PATCH]: {} });
       await openRecord();
 
@@ -293,7 +293,7 @@ describe("Equipment page (SPM-55)", () => {
   });
 
   describe("reservations it leaves short (AC4)", () => {
-    it("SPM-55-TC06: lists each flagged reservation and says the coordinators were notified", async () => {
+    it("[SPM-55][AC4] SPM-55-TC06: lists each flagged reservation and says the coordinators were notified", async () => {
       open("tech_support", [item()], {
         [PATCH]: {
           ...item({ quantityInMaintenance: 3 }),
@@ -313,7 +313,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(box.parentElement).toHaveTextContent("not been changed or cancelled");
     });
 
-    it("SPM-55-TC08: counts more than one in the plural", async () => {
+    it("[SPM-55][AC4] SPM-55-TC08: counts more than one in the plural", async () => {
       open("tech_support", [item()], {
         [PATCH]: {
           ...item({ quantityInMaintenance: 1 }),
@@ -338,7 +338,7 @@ describe("Equipment page (SPM-55)", () => {
     const askReturn = async () =>
       userEvent.click(within(await rowFor("SPM55 Spare Microphone Kit")).getByRole("button", { name: "Return all to available" }));
 
-    it("SPM-55-TC03: asks first, then returns every unit and says so", async () => {
+    it("[SPM-55][AC5] SPM-55-TC03: asks first, then returns every unit and says so", async () => {
       const api = open("tech_support", [kit()], { [MIC_PATCH]: { ...kit(), quantityInMaintenance: 0, flaggedReservations: [] } });
 
       await askReturn();
@@ -353,7 +353,7 @@ describe("Equipment page (SPM-55)", () => {
       await waitFor(() => expect(api.sent(LIST)).toHaveLength(2));
     });
 
-    it("SPM-55-TC09: returns some units by lowering the number", async () => {
+    it("[SPM-55][AC5] SPM-55-TC09: returns some units by lowering the number", async () => {
       const api = open("tech_support", [kit()], {
         [MIC_PATCH]: { ...kit(), quantityInMaintenance: 1, flaggedReservations: [] },
       });
@@ -368,7 +368,7 @@ describe("Equipment page (SPM-55)", () => {
       ).toBeInTheDocument();
     });
 
-    it("says 'unit' for a single unit", async () => {
+    it("[SPM-55][AC5] says 'unit' for a single unit", async () => {
       open("tech_support", [kit()].map((k) => ({ ...k, quantityInMaintenance: 1 })));
 
       await askReturn();
@@ -376,7 +376,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(dialog()).toHaveTextContent("The 1 unit out of service will be counted as available again");
     });
 
-    it("says when the server cannot be reached", async () => {
+    it("[SPM-55] says when the server cannot be reached", async () => {
       open("tech_support", [kit()], { [MIC_PATCH]: () => Promise.reject(new Error("offline")) });
 
       await askReturn();
@@ -386,7 +386,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(dialog().open).toBe(false);
     });
 
-    it("shows a refusal from the server", async () => {
+    it("[SPM-55] shows a refusal from the server", async () => {
       open("tech_support", [kit()], { [MIC_PATCH]: reply(500, {}) });
 
       await askReturn();
@@ -395,7 +395,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not update this equipment.");
     });
 
-    it("shows the server's own reason for a refusal", async () => {
+    it("[SPM-55] shows the server's own reason for a refusal", async () => {
       open("tech_support", [kit()], { [MIC_PATCH]: reply(409, { error: "This item was changed by someone else." }) });
 
       await askReturn();
@@ -405,7 +405,7 @@ describe("Equipment page (SPM-55)", () => {
       expect(dialog().open).toBe(false);
     });
 
-    it("shows a general refusal when the server's answer has no body", async () => {
+    it("[SPM-55] shows a general refusal when the server's answer has no body", async () => {
       open("tech_support", [kit()], { [MIC_PATCH]: reply(502) });
 
       await askReturn();
@@ -416,7 +416,7 @@ describe("Equipment page (SPM-55)", () => {
   });
 
   describe("an answer missing some details", () => {
-    it("treats a save with no flagged reservations listed as none", async () => {
+    it("[SPM-55][AC4] treats a save with no flagged reservations listed as none", async () => {
       open("tech_support", [item()], { [PATCH]: item({ quantityInMaintenance: 1 }) });
       await openRecord();
 
@@ -428,7 +428,7 @@ describe("Equipment page (SPM-55)", () => {
       ).toBeInTheDocument();
     });
 
-    it("names a flagged reservation's untitled event as such", async () => {
+    it("[SPM-55][AC4] names a flagged reservation's untitled event as such", async () => {
       open("tech_support", [item()], {
         [PATCH]: {
           ...item({ quantityInMaintenance: 1 }),
@@ -444,7 +444,7 @@ describe("Equipment page (SPM-55)", () => {
     });
   });
 
-  it("stays open on Escape while a save is in progress", async () => {
+  it("[SPM-55] stays open on Escape while a save is in progress", async () => {
     let finish: (value: unknown) => void = () => {};
     open("tech_support", [item()], { [PATCH]: () => new Promise((resolve) => (finish = resolve)) });
     await openRecord();

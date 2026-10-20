@@ -52,7 +52,7 @@ function holdingAPlace(event: TestEvent) {
 }
 
 describe("registration capacity on a real database", () => {
-  it("SPM-51 AC9 (SPM-51-TC05, failure): once the capacity is reached, the next registration is refused", async () => {
+  it("[SPM-51][AC9] (SPM-51-TC05, failure): once the capacity is reached, the next registration is refused", async () => {
     const event = await openEvent(1);
 
     expect((await registerFor(event)).status).toBe(201);
@@ -64,7 +64,7 @@ describe("registration capacity on a real database", () => {
   });
 
   it(
-    "SPM-51 AC9 (SPM-51-TC04, boundary): a withdrawn attendee does not hold a place, so the last place can " +
+    "[SPM-51][AC9] (SPM-51-TC04, boundary): a withdrawn attendee does not hold a place, so the last place can " +
       "still be taken - and then no more",
     async () => {
       const event = await openEvent(2);

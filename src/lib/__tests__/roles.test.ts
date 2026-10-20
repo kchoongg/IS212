@@ -13,20 +13,20 @@ import {
 // "the design supports the different workflows for the five user roles".
 
 describe("roleLabel", () => {
-  it("gives every role a human label", () => {
+  it("[SPM-4][AC1] gives every role a human label", () => {
     for (const role of ROLES) {
       expect(roleLabel(role)).not.toContain("_");
       expect(roleLabel(role)).toMatch(/^[A-Z]/);
     }
   });
 
-  it("falls back to the raw value for an unknown role rather than throwing", () => {
+  it("[SPM-4][AC1] falls back to the raw value for an unknown role rather than throwing", () => {
     expect(roleLabel("future_role")).toBe("future_role");
   });
 });
 
 describe("navFor", () => {
-  it("gives every role its own navigation, in order", () => {
+  it("[SPM-22][AC1] gives every role its own navigation, in order", () => {
     const labels = Object.fromEntries(ROLES.map((role) => [role, navFor(role).map((item) => item.label)]));
     expect(labels).toEqual({
       organiser: ["Dashboard", "My Events", "Notifications"],
@@ -39,27 +39,27 @@ describe("navFor", () => {
     });
   });
 
-  it("starts every role at the dashboard, so the chrome is the same everywhere", () => {
+  it("[SPM-22][AC1] starts every role at the dashboard, so the chrome is the same everywhere", () => {
     for (const role of ROLES) {
       expect(navFor(role)[0].href).toBe("/dashboard");
     }
   });
 
-  it("does not offer organisers internal screens", () => {
+  it("[SPM-22][AC1] does not offer organisers internal screens", () => {
     const hrefs = navFor("organiser").map((item) => item.href);
     expect(hrefs).not.toContain("/venues");
     expect(hrefs).not.toContain("/bookings");
     expect(hrefs).not.toContain("/queue");
   });
 
-  it("does not offer attendees any planning screens", () => {
+  it("[SPM-22][AC1] does not offer attendees any planning screens", () => {
     const hrefs = navFor("attendee").map((item) => item.href);
     expect(hrefs).toEqual(["/dashboard", "/browse", "/registrations", "/notifications"]);
   });
 
   // SPM-68 (written before the code): the coordinator's list of flagged
   // arrangements is theirs alone, straight after the Review Queue.
-  it("gives the coordinator Flagged Arrangements after the Review Queue, and nobody else", () => {
+  it("[SPM-22][AC1] gives the coordinator Flagged Arrangements after the Review Queue, and nobody else", () => {
     const coordinator = navFor("coordinator");
     const queue = coordinator.findIndex((item) => item.href === "/queue");
 
@@ -69,43 +69,43 @@ describe("navFor", () => {
     }
   });
 
-  it("degrades to the dashboard for an unknown role instead of an empty sidebar", () => {
+  it("[SPM-22][AC1] degrades to the dashboard for an unknown role instead of an empty sidebar", () => {
     expect(navFor("future_role")).toEqual([{ href: "/dashboard", label: "Dashboard" }]);
   });
 });
 
 describe("eventTabsFor", () => {
-  it("shows every role the overview", () => {
+  it("[SPM-22][AC2] shows every role the overview", () => {
     for (const role of ROLES) {
       expect(eventTabsFor(role)).toContain("overview");
     }
   });
 
-  it("keeps internal planning tabs away from external roles", () => {
+  it("[SPM-22][AC2] keeps internal planning tabs away from external roles", () => {
     // Briefing §8b: an Attendee must not see internal planning information.
     expect(eventTabsFor("attendee")).toEqual(["overview"]);
     expect(eventTabsFor("organiser")).not.toContain("readiness");
     expect(eventTabsFor("organiser")).not.toContain("history");
   });
 
-  it("gives the coordinator every tab", () => {
+  it("[SPM-22][AC2] gives the coordinator every tab", () => {
     expect(eventTabsFor("coordinator")).toContain("readiness");
     expect(eventTabsFor("coordinator")).toContain("history");
   });
 
-  it("limits venue staff to the venue side and tech support to equipment", () => {
+  it("[SPM-22][AC2] limits venue staff to the venue side and tech support to equipment", () => {
     expect(eventTabsFor("venue_staff")).toEqual(["overview", "venue"]);
     expect(eventTabsFor("tech_support")).toEqual(["overview", "equipment"]);
   });
 });
 
 describe("isExternalRole", () => {
-  it("classifies organisers and attendees as external", () => {
+  it("[SPM-4][AC1] classifies organisers and attendees as external", () => {
     expect(isExternalRole("organiser")).toBe(true);
     expect(isExternalRole("attendee")).toBe(true);
   });
 
-  it("classifies ConnectSphere staff as internal", () => {
+  it("[SPM-4][AC1] classifies ConnectSphere staff as internal", () => {
     expect(isExternalRole("coordinator")).toBe(false);
     expect(isExternalRole("venue_staff")).toBe(false);
     expect(isExternalRole("tech_support")).toBe(false);
@@ -116,27 +116,27 @@ describe("isExternalRole", () => {
 describe("activeNavHref", () => {
   const techSupport = navFor("tech_support");
 
-  it("highlights only Equipment Requests on the requests queue, not Equipment as well", () => {
+  it("[SPM-7][AC2] highlights only Equipment Requests on the requests queue, not Equipment as well", () => {
     expect(activeNavHref(techSupport, "/equipment/requests")).toBe("/equipment/requests");
   });
 
-  it("keeps Equipment Requests highlighted on one event's request page", () => {
+  it("[SPM-7][AC2] keeps Equipment Requests highlighted on one event's request page", () => {
     expect(activeNavHref(techSupport, "/equipment/requests/EVT-000123")).toBe("/equipment/requests");
   });
 
-  it("highlights Equipment on the catalogue itself", () => {
+  it("[SPM-7][AC2] highlights Equipment on the catalogue itself", () => {
     expect(activeNavHref(techSupport, "/equipment")).toBe("/equipment");
   });
 
-  it("keeps a section highlighted on the pages under it", () => {
+  it("[SPM-7][AC2] keeps a section highlighted on the pages under it", () => {
     expect(activeNavHref(navFor("organiser"), "/events/EVT-000123/equipment")).toBe("/events");
   });
 
-  it("does not treat a shared prefix as a match", () => {
+  it("[SPM-7][AC2] does not treat a shared prefix as a match", () => {
     expect(activeNavHref([{ href: "/events", label: "Events" }], "/eventsx")).toBeNull();
   });
 
-  it("highlights nothing when no link matches", () => {
+  it("[SPM-7][AC2] highlights nothing when no link matches", () => {
     expect(activeNavHref(techSupport, "/profile")).toBeNull();
   });
 });
@@ -144,17 +144,17 @@ describe("activeNavHref", () => {
 // SPM-85 (Week 7 change #6): the Safety Officer reviews the operational
 // safety of planned events, and sees only what that review needs.
 describe("the Safety Officer (SPM-85)", () => {
-  it("AC1: is a role of its own, shown as 'Safety Officer'", () => {
+  it("[SPM-85][AC1] AC1: is a role of its own, shown as 'Safety Officer'", () => {
     expect(ROLES).toContain("safety_officer");
     expect(roleLabel("safety_officer")).toBe("Safety Officer");
   });
 
-  it("AC1: is internal, and cannot be claimed at the public Create an account form", () => {
+  it("[SPM-85][AC1] AC1: is internal, and cannot be claimed at the public Create an account form", () => {
     expect(isExternalRole("safety_officer")).toBe(false);
     expect(isSelfRegisterableRole("safety_officer")).toBe(false);
   });
 
-  it("AC2: has Dashboard, Safety Checks, All Events and Notifications, and nothing else", () => {
+  it("[SPM-85][AC2] AC2: has Dashboard, Safety Checks, All Events and Notifications, and nothing else", () => {
     expect(navFor("safety_officer")).toEqual([
       { href: "/dashboard", label: "Dashboard" },
       { href: "/safety-checks", label: "Safety Checks" },
@@ -163,13 +163,13 @@ describe("the Safety Officer (SPM-85)", () => {
     ]);
   });
 
-  it("AC2: is the only role with a Safety Checks link", () => {
+  it("[SPM-85][AC2] AC2: is the only role with a Safety Checks link", () => {
     for (const role of ROLES.filter((r) => r !== "safety_officer")) {
       expect(navFor(role).map((item) => item.href), role).not.toContain("/safety-checks");
     }
   });
 
-  it("AC3, AC6: sees an event's Overview and Equipment, but not its Attendees or the venue search", () => {
+  it("[SPM-85][AC3][AC6] AC3, AC6: sees an event's Overview and Equipment, but not its Attendees or the venue search", () => {
     expect(eventTabsFor("safety_officer")).toEqual(["overview", "equipment"]);
   });
 });

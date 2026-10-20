@@ -1022,6 +1022,34 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-20 — Kayalvizhi (traceability, test case import, change trail; no story)
+Docs, CI and test names only; no feature code changed. Why: so anyone can
+trace any story from its estimate to Done, and the trace stays current.
+- **Test cases moved from Drive into the repo.** `docs/test-cases/` is the
+  source of truth (README there); the Drive folder is a read-only archive.
+  Sprint 3's completed regression replaced the stale copy in `docs/regression/`.
+- **Every test names its story:** `[SPM-xx][ACn]` at the start of its name,
+  `[SPM-xx][BUG-n]` for a bug's test, `[UNTRACED:<feature>]` (lowercase)
+  for code no story asks for. CI's new **Traceability** job fails on an untagged test, a PR that
+  names no story (`Docs:` / `Chore:` titles exempt), or a PR that changed
+  tests or test case workbooks without running `npm run trace` (or, with no
+  Jira token, `npm run trace -- --repo-only`). That check
+  (`--check`) is offline and compares only repo-controlled columns, so Jira or
+  another PR merging never fails it.
+- **`npm run trace`** (`scripts/trace.ts`) rebuilds
+  `docs/traceability/TRACEABILITY.md` and `.csv` from Jira (GET only), gh, the
+  tags and the workbooks. It shows each AC as Automated / Manual only /
+  Superseded / None, and lists code with no story (self-registration, adding
+  equipment to the catalogue). Needs `JIRA_*` in `.env` (`.env.example`).
+- **Requirement changes recorded** in `docs/CHANGES.md`. The test cases and
+  tests they made out of date are in `docs/test-cases/DECOMMISSIONED.md`:
+  17 Retired, 67 Updated, and 2 test files moved to `tests/archive/`, which
+  nothing runs.
+- `docs/START_HERE.md` for new joiners. Sprint tags `sprint-1` to `sprint-3`.
+- Migration: none.
+
+---
+
 ### 2026-10-19 — Sammi Chua (SPM-29, Request Event Clarification)
 - **The assigned coordinator can ask the organiser for clarification.** The
   review page (S-13) has a third option, "Ask the organiser for

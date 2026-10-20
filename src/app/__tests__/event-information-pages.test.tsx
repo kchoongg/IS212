@@ -117,7 +117,7 @@ const dialogTitled = (title: string) =>
   screen.getByText(title, { selector: "dialog h2" }).closest("dialog") as HTMLDialogElement;
 
 describe("Edit event information - who may open it", () => {
-  it("sends an anonymous visitor to log in, remembering the page", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering the page", async () => {
     setRoute(`/events/${REF}/update`, { id: REF });
     mockApi(signedOut());
 
@@ -131,7 +131,7 @@ describe("Edit event information - who may open it", () => {
   it.each([
     ...refusedRoles.map((role) => [role, role, {}] as const),
     ["a coordinator who is not assigned", "coordinator", { id: "c2" }] as const,
-  ])("refuses %s, with no form", async (_who, role, who) => {
+  ])("[SPM-62][AC3] refuses %s, with no form", async (_who, role, who) => {
     const api = open(event(), {}, role, who);
 
     expect(await screen.findByText("You can't edit this event's information")).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe("Edit event information - who may open it", () => {
   });
 
   it.each(["submitted", "under_review", "postponed", "completed", "cancelled", "rejected", "withdrawn"])(
-    "refuses an event that is %s, even for the assigned coordinator",
+    "[SPM-62][AC1] refuses an event that is %s, even for the assigned coordinator",
     async (status) => {
       open(event({ status }));
 
@@ -155,7 +155,7 @@ describe("Edit event information - who may open it", () => {
     }
   );
 
-  it("refuses a coordinator when the event comes without its coordinator", async () => {
+  it("[SPM-62][AC3] refuses a coordinator when the event comes without its coordinator", async () => {
     const { coordinatorId: _omitted, ...unassigned } = event();
     open(unassigned);
 
@@ -163,7 +163,7 @@ describe("Edit event information - who may open it", () => {
     expect(screen.queryByLabelText(/^Event name/)).not.toBeInTheDocument();
   });
 
-  it("offers a way back to the event from a refusal", async () => {
+  it("[SPM-62] offers a way back to the event from a refusal", async () => {
     open(event({ status: "completed" }));
 
     await userEvent.click(await screen.findByRole("button", { name: "Back to event" }));
@@ -171,14 +171,14 @@ describe("Edit event information - who may open it", () => {
     expect(router.push).toHaveBeenCalledWith(`/events/${REF}`);
   });
 
-  it("explains a 404 without confirming the event exists", async () => {
+  it("[SPM-62] explains a 404 without confirming the event exists", async () => {
     open(reply(404, { error: "Event not found" }));
 
     expect(await screen.findByText("This event doesn't exist, or you don't have access to it.")).toBeInTheDocument();
     expect(screen.queryByLabelText(/^Event name/)).not.toBeInTheDocument();
   });
 
-  it("says when it could not load, and Retry loads again", async () => {
+  it("[SPM-62] says when it could not load, and Retry loads again", async () => {
     const api = open(reply(500, {}));
 
     expect(await screen.findByText("Could not load this event.")).toBeInTheDocument();
@@ -197,7 +197,7 @@ describe("Edit event information - its breadcrumb", () => {
     ["Edit event information", null],
   ];
 
-  it("names the event by its title and links it to the Overview", async () => {
+  it("[SPM-62][BUG-98] names the event by its title and links it to the Overview", async () => {
     open();
     await formReady();
 
@@ -207,14 +207,14 @@ describe("Edit event information - its breadcrumb", () => {
   it.each([
     ["loading", () => new Promise(() => {})],
     ["in error", reply(500, {})],
-  ])("reads 'Event' for the event while %s", async (_case, eventRow) => {
+  ])("[SPM-62][BUG-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
     open(eventRow);
     await screen.findByRole("navigation", { name: "Breadcrumb" });
 
     expect(breadcrumb()).toEqual(trail("Events", "Event"));
   });
 
-  it("starts 'My Events' for an organiser who is refused", async () => {
+  it("[SPM-62][BUG-98] starts 'My Events' for an organiser who is refused", async () => {
     open(event(), {}, "organiser", {});
     await screen.findByText("You can't edit this event's information");
 
@@ -223,14 +223,14 @@ describe("Edit event information - its breadcrumb", () => {
 });
 
 describe("Edit event information - the form", () => {
-  it.each(["approved", "planning", "confirmed"])("opens for the assigned coordinator on a %s event", async (status) => {
+  it.each(["approved", "planning", "confirmed"])("[SPM-62][AC1] opens for the assigned coordinator on a %s event", async (status) => {
     open(event({ status }));
 
     expect(await formReady()).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 1, name: "Edit event information" })).toBeInTheDocument();
   });
 
-  it("is filled in with the event's current information", async () => {
+  it("[SPM-62][AC1] is filled in with the event's current information", async () => {
     open();
     await formReady();
 
@@ -244,7 +244,7 @@ describe("Edit event information - the form", () => {
     expect(screen.getByRole("checkbox", { name: "Hearing induction loop" })).not.toBeChecked();
   });
 
-  it("offers no way to change the organiser, coordinator, status, equipment or registration", async () => {
+  it("[SPM-62][AC3] offers no way to change the organiser, coordinator, status, equipment or registration", async () => {
     open();
     await formReady();
 
@@ -257,7 +257,7 @@ describe("Edit event information - the form", () => {
     expect(screen.queryByLabelText(/^Registration capacity/)).not.toBeInTheDocument();
   });
 
-  it("shows a multi-session event's schedule without letting it change here", async () => {
+  it("[SPM-62][AC3] shows a multi-session event's schedule without letting it change here", async () => {
     open(
       event({
         sessions: [
@@ -273,7 +273,7 @@ describe("Edit event information - the form", () => {
     expect(screen.getByText("Session times and attendance can't be changed here yet.")).toBeInTheDocument();
   });
 
-  it("goes back to the event on Cancel, sending nothing", async () => {
+  it("[SPM-62] goes back to the event on Cancel, sending nothing", async () => {
     const api = open();
     await formReady();
 
@@ -285,7 +285,7 @@ describe("Edit event information - the form", () => {
 });
 
 describe("Edit event information - saying what a change affects", () => {
-  it("says nothing for an ordinary change", async () => {
+  it("[SPM-62][AC7] says nothing for an ordinary change", async () => {
     open();
     await formReady();
 
@@ -295,7 +295,7 @@ describe("Edit event information - saying what a change affects", () => {
     expect(screen.queryByText(WARNING)).not.toBeInTheDocument();
   });
 
-  it("names each kind of important change as it is made", async () => {
+  it("[SPM-62][AC4] names each kind of important change as it is made", async () => {
     open();
     await formReady();
 
@@ -310,7 +310,7 @@ describe("Edit event information - saying what a change affects", () => {
     expect(screen.getByText(warningText("Date and time, Expected attendance, Venue requirements"))).toBeInTheDocument();
   });
 
-  it("counts the preferred layout as a venue requirement", async () => {
+  it("[SPM-62][AC4] counts the preferred layout as a venue requirement", async () => {
     open();
     await formReady();
 
@@ -319,7 +319,7 @@ describe("Edit event information - saying what a change affects", () => {
     expect(screen.getByText(warningText("Venue requirements"))).toBeInTheDocument();
   });
 
-  it("drops the warning when a value is changed back", async () => {
+  it("[SPM-62][AC4] drops the warning when a value is changed back", async () => {
     open();
     await formReady();
 
@@ -332,7 +332,7 @@ describe("Edit event information - saying what a change affects", () => {
 });
 
 describe("Edit event information - saving", () => {
-  it("sends only what changed, then says it is saved, with a way back to the event", async () => {
+  it("[SPM-62][AC1][AC2] sends only what changed, then says it is saved, with a way back to the event", async () => {
     const api = open();
     await formReady();
 
@@ -349,7 +349,7 @@ describe("Edit event information - saving", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("lists what the save flagged for review", async () => {
+  it("[SPM-62][AC5] lists what the save flagged for review", async () => {
     const flagged = [
       "Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed",
       "Equipment: 4K Portable Projector × 2 – the date or time changed",
@@ -369,7 +369,7 @@ describe("Edit event information - saving", () => {
     for (const line of flagged) expect(screen.getByText(line)).toBeInTheDocument();
   });
 
-  it("shows no flagged list when the save flagged nothing", async () => {
+  it("[SPM-62][AC7] shows no flagged list when the save flagged nothing", async () => {
     open();
     await formReady();
 
@@ -380,7 +380,7 @@ describe("Edit event information - saving", () => {
     expect(screen.queryByText("Flagged for review")).not.toBeInTheDocument();
   });
 
-  it("says it is saved when the answer lists no flagged items", async () => {
+  it("[SPM-62][AC2] says it is saved when the answer lists no flagged items", async () => {
     open(event(), { [SAVE]: { statusReverted: false } });
     await formReady();
 
@@ -391,7 +391,7 @@ describe("Edit event information - saving", () => {
     expect(screen.queryByText("Flagged for review")).not.toBeInTheDocument();
   });
 
-  it("sends a new schedule as instants", async () => {
+  it("[SPM-62][AC1] sends a new schedule as instants", async () => {
     const api = open();
     await formReady();
 
@@ -406,7 +406,7 @@ describe("Edit event information - saving", () => {
     });
   });
 
-  it("sends the whole list of facilities when one is ticked", async () => {
+  it("[SPM-62][AC1] sends the whole list of facilities when one is ticked", async () => {
     const api = open();
     await formReady();
 
@@ -417,7 +417,7 @@ describe("Edit event information - saving", () => {
     expect(api.sent(SAVE)[0].body).toEqual({ facilityIds: ["f-projector", "f-loop"] });
   });
 
-  it("does not ask before an important change to a Planning event", async () => {
+  it("[SPM-62][AC6] does not ask before an important change to a Planning event", async () => {
     const api = open();
     await formReady();
 
@@ -429,7 +429,7 @@ describe("Edit event information - saving", () => {
     expect(screen.queryByText("Move this event back to Planning?", { selector: "dialog[open] h2" })).not.toBeInTheDocument();
   });
 
-  it("does not ask before an ordinary change to a Confirmed event", async () => {
+  it("[SPM-62][AC7] does not ask before an ordinary change to a Confirmed event", async () => {
     const api = open(event({ status: "confirmed" }));
     await formReady();
 
@@ -452,7 +452,7 @@ describe("Edit event information - saving", () => {
       return api;
     }
 
-    it("asks first, saying what will happen, and sends nothing yet", async () => {
+    it("[SPM-62][AC6] asks first, saying what will happen, and sends nothing yet", async () => {
       const api = await changeSchedule();
 
       expect(dialogTitled(TITLE).open).toBe(true);
@@ -463,7 +463,7 @@ describe("Edit event information - saving", () => {
       expect(api.sent(SAVE)).toHaveLength(0);
     });
 
-    it("calls an untitled event 'This event' in the question", async () => {
+    it("[SPM-62][AC6] calls an untitled event 'This event' in the question", async () => {
       open(event({ status: "confirmed", title: null }));
       await formReady();
       set(/^Starts at/, "2027-03-24T09:00");
@@ -473,7 +473,7 @@ describe("Edit event information - saving", () => {
       expect(dialogTitled(TITLE)).toHaveTextContent("This event is Confirmed.");
     });
 
-    it("saves nothing when the coordinator keeps editing", async () => {
+    it("[SPM-62][AC6] saves nothing when the coordinator keeps editing", async () => {
       const api = await changeSchedule();
 
       await userEvent.click(within(dialogTitled(TITLE)).getByRole("button", { name: "Keep editing", hidden: true }));
@@ -483,7 +483,7 @@ describe("Edit event information - saving", () => {
       expect(screen.getByLabelText(/^Starts at/)).toHaveValue("2027-03-24T09:00");
     });
 
-    it("saves, then says the event is back in Planning", async () => {
+    it("[SPM-62][AC6] saves, then says the event is back in Planning", async () => {
       const api = await changeSchedule();
 
       await userEvent.click(
@@ -520,7 +520,7 @@ describe("Edit event information - saving", () => {
         "safety_review",
         "Harbour Leadership Summit is in Safety review. Saving these changes closes the pending safety check and moves it back to Planning. It will need to be submitted for a safety check again.",
       ],
-    ])("SPM-88-TC07: asks first on a %s event, saying what will happen", async (status, warning) => {
+    ])("[SPM-88][AC5][AC6] SPM-88-TC07: asks first on a %s event, saying what will happen", async (status, warning) => {
       const api = await changeAttendance(status);
 
       expect(dialogTitled(TITLE).open).toBe(true);
@@ -528,7 +528,7 @@ describe("Edit event information - saving", () => {
       expect(api.sent(SAVE)).toHaveLength(0);
     });
 
-    it("SPM-88-TC07: saves, then says the event needs a new safety check", async () => {
+    it("[SPM-88][AC5][AC6] SPM-88-TC07: saves, then says the event needs a new safety check", async () => {
       const api = await changeAttendance("safety_cleared");
 
       await userEvent.click(
@@ -544,7 +544,7 @@ describe("Edit event information - saving", () => {
     });
 
     it.each(["safety_review", "safety_cleared"])(
-      "SPM-88-TC09/TC11: saves an ordinary change to a %s event without asking",
+      "[SPM-88][AC7] SPM-88-TC09/TC11: saves an ordinary change to a %s event without asking",
       async (status) => {
         const api = open(event({ status }));
         await formReady();
@@ -570,7 +570,7 @@ describe("Edit event information - saving", () => {
         "2027-03-10T09:00",
         "Registration closes after this start time. Change the registration period first.",
       ],
-    ])("%s", async (_case, label, value, message) => {
+    ])("[SPM-62][AC1] %s", async (_case, label, value, message) => {
       const api = open(event({ registrationClosesAt: iso("2027-03-10T18:00") }));
       await formReady();
 
@@ -583,7 +583,7 @@ describe("Edit event information - saving", () => {
     });
   });
 
-  it("shows the server's field errors under their fields", async () => {
+  it("[SPM-62] shows the server's field errors under their fields", async () => {
     const message = "Registration closes after this start time. Change the registration period first.";
     open(event(), {
       [SAVE]: reply(400, { error: message, details: { fieldErrors: { startsAt: [message] } } }),
@@ -599,7 +599,7 @@ describe("Edit event information - saving", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("shows a refusal it cannot pin on a field above the form", async () => {
+  it("[SPM-62] shows a refusal it cannot pin on a field above the form", async () => {
     open(event(), {
       [SAVE]: reply(403, { error: "Only the coordinator assigned to this event can change its information" }),
     });
@@ -614,7 +614,7 @@ describe("Edit event information - saving", () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it("says when the server cannot be reached", async () => {
+  it("[SPM-62] says when the server cannot be reached", async () => {
     open(event(), { [SAVE]: () => Promise.reject(new Error("offline")) });
     await formReady();
 
@@ -628,13 +628,13 @@ describe("Edit event information - saving", () => {
 });
 
 describe("Edit event information - more of what it loads, sends and checks", () => {
-  it("sends a visitor whose session expired while loading to log in", async () => {
+  it("[SPM-22][AC4] sends a visitor whose session expired while loading to log in", async () => {
     open(reply(401, { error: "Not authenticated" }));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fupdate"));
   });
 
-  it("says when the server cannot be reached while loading", async () => {
+  it("[SPM-62] says when the server cannot be reached while loading", async () => {
     open(() => Promise.reject(new Error("offline")));
 
     expect(
@@ -642,7 +642,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     ).toBeInTheDocument();
   });
 
-  it("sends every other field that changed, a cleared layout as no preference", async () => {
+  it("[SPM-62][AC1] sends every other field that changed, a cleared layout as no preference", async () => {
     const api = open();
     await formReady();
 
@@ -665,7 +665,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     });
   });
 
-  it("sends the list without a facility that is unticked", async () => {
+  it("[SPM-62][AC1] sends the list without a facility that is unticked", async () => {
     const api = open();
     await formReady();
 
@@ -679,7 +679,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
   it.each([
     [/^Starts at/, "Enter when the event starts."],
     [/^Ends at/, "Enter when the event ends."],
-  ])("refuses a cleared %s", async (label, message) => {
+  ])("[SPM-62][AC1] refuses a cleared %s", async (label, message) => {
     const api = open();
     await formReady();
 
@@ -690,7 +690,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     expect(api.sent(SAVE)).toHaveLength(0);
   });
 
-  it("refuses a start on or before registration opens", async () => {
+  it("[SPM-62][AC1] refuses a start on or before registration opens", async () => {
     const api = open(event({ registrationOpensAt: iso("2027-03-12T09:00") }));
     await formReady();
 
@@ -703,7 +703,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     expect(api.sent(SAVE)).toHaveLength(0);
   });
 
-  it("clears a field's message once it is edited", async () => {
+  it("[SPM-62] clears a field's message once it is edited", async () => {
     open();
     await formReady();
     set(/^Event name/, "");
@@ -715,7 +715,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     expect(screen.queryByText("Give the event a name so you can find it again.")).not.toBeInTheDocument();
   });
 
-  it("saves a multi-session event's description without sending its schedule", async () => {
+  it("[SPM-62][AC1] saves a multi-session event's description without sending its schedule", async () => {
     const api = open(
       event({
         sessions: [
@@ -733,7 +733,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     expect(api.sent(SAVE)[0].body).toEqual({ description: "Two-day programme" });
   });
 
-  it("refuses an empty type of event", async () => {
+  it("[SPM-62][AC1] refuses an empty type of event", async () => {
     const api = open();
     await formReady();
 
@@ -744,7 +744,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     expect(api.sent(SAVE)).toHaveLength(0);
   });
 
-  it("still works when the facility list cannot be loaded, offering no facilities to tick", async () => {
+  it("[SPM-62] still works when the facility list cannot be loaded, offering no facilities to tick", async () => {
     const api = open(event(), { "GET /api/facilities": reply(500, {}) });
     await formReady();
 
@@ -756,7 +756,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     expect(api.sent(SAVE)[0].body).toEqual({ description: "Keynote and Q&A" });
   });
 
-  it("treats an event that comes without a sessions list as single-session", async () => {
+  it("[SPM-62] treats an event that comes without a sessions list as single-session", async () => {
     const { sessions: _omitted, ...single } = event();
     open(single);
 
@@ -765,7 +765,7 @@ describe("Edit event information - more of what it loads, sends and checks", () 
     expect(screen.getByLabelText(/^Starts at/)).toBeEnabled();
   });
 
-  it("lists a multi-session event's sessions", async () => {
+  it("[SPM-62][AC1] lists a multi-session event's sessions", async () => {
     open(
       event({
         sessions: [

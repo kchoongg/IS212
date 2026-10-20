@@ -174,7 +174,7 @@ function fillSession(index: number, values: { start?: string; end?: string; atte
 
 describe.each([NEW, EDIT])("$name: the form", (form) => {
   describe("saving a draft", () => {
-    it("needs only a name", async () => {
+    it("[SPM-24][AC1] needs only a name", async () => {
       const api = await form.open();
       set(field(/^Event name/), "  Gala Dinner  ");
 
@@ -185,7 +185,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.statusChanges(api)).toHaveLength(0);
     });
 
-    it.each(["", "   "])("refuses a name of %j, focuses the field, and sends nothing", async (title) => {
+    it.each(["", "   "])("[SPM-24][AC1] refuses a name of %j, focuses the field, and sends nothing", async (title) => {
       const api = await form.open();
       set(field(/^Event name/), title);
 
@@ -196,7 +196,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.saves(api)).toHaveLength(0);
     });
 
-    it("does not ask for the fields only a submission needs", async () => {
+    it("[SPM-24][AC1] does not ask for the fields only a submission needs", async () => {
       await form.open();
       set(field(/^Event name/), "Gala Dinner");
 
@@ -206,7 +206,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(screen.queryByText("Choose the type of event.")).not.toBeInTheDocument();
     });
 
-    it("shows 'Saving…' and cannot be pressed twice while the save is in flight", async () => {
+    it("[SPM-24] shows 'Saving…' and cannot be pressed twice while the save is in flight", async () => {
       let finish: (value: unknown) => void = () => {};
       const api = await form.open({ save: () => new Promise((resolve) => (finish = resolve)) });
       set(field(/^Event name/), "Gala Dinner");
@@ -221,7 +221,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
   });
 
   describe("submitting", () => {
-    it("names every missing field and sends nothing", async () => {
+    it("[SPM-23][AC7] names every missing field and sends nothing", async () => {
       const api = await form.open();
       set(field(/^Event name/), "Gala Dinner");
 
@@ -235,7 +235,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.saves(api)).toHaveLength(0);
     });
 
-    it("saves the request, then submits it, then opens it", async () => {
+    it("[SPM-25][AC1] saves the request, then submits it, then opens it", async () => {
       const api = await form.open();
       fillRequired();
       set(field("Purpose"), "Annual client event");
@@ -258,7 +258,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.statusChanges(api).map((c) => c.body)).toEqual([{ status: "submitted" }]);
     });
 
-    it("submits when Enter is pressed in a field", async () => {
+    it("[SPM-25][AC1] submits when Enter is pressed in a field", async () => {
       const api = await form.open();
       fillRequired();
 
@@ -267,7 +267,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       await waitFor(() => expect(form.statusChanges(api)).toHaveLength(1));
     });
 
-    it("if saved but not submitted, says the work is safe as a draft", async () => {
+    it("[SPM-25] if saved but not submitted, says the work is safe as a draft", async () => {
       await form.open({ submit: reply(400, { error: "Cannot submit an incomplete event. Missing: category" }) });
       fillRequired();
 
@@ -279,7 +279,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(router.push).not.toHaveBeenCalled();
     });
 
-    it("says so even when the server gives no reason for refusing the submission", async () => {
+    it("[SPM-25] says so even when the server gives no reason for refusing the submission", async () => {
       await form.open({ submit: reply(500, {}) });
       fillRequired();
 
@@ -292,7 +292,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
   });
 
   describe("when the save is refused", () => {
-    it("puts the server's field errors under their fields", async () => {
+    it("[SPM-23][AC7] puts the server's field errors under their fields", async () => {
       await form.open({
         save: reply(400, { error: "Validation failed", details: { fieldErrors: { title: ["Title cannot be blank"] } } }),
       });
@@ -307,7 +307,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(router.push).not.toHaveBeenCalled();
     });
 
-    it("shows an error that belongs to no field at the top of the form", async () => {
+    it("[SPM-23] shows an error that belongs to no field at the top of the form", async () => {
       await form.open({ save: reply(400, { error: "Projector has been retired and can no longer be requested" }) });
       set(field(/^Event name/), "Gala Dinner");
 
@@ -316,7 +316,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Projector has been retired");
     });
 
-    it("falls back to a general message", async () => {
+    it("[SPM-23] falls back to a general message", async () => {
       await form.open({ save: reply(500, {}) });
       set(field(/^Event name/), "Gala Dinner");
 
@@ -325,7 +325,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(await screen.findByRole("alert")).toHaveTextContent(form.saveFallback);
     });
 
-    it("explains a network failure, and leaves the form usable", async () => {
+    it("[SPM-23] explains a network failure, and leaves the form usable", async () => {
       await form.open({ save: () => Promise.reject(new Error("Failed to fetch")) });
       set(field(/^Event name/), "Gala Dinner");
 
@@ -340,7 +340,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
   });
 
   describe("schedule and attendance rules", () => {
-    it("refuses an end that is not after the start", async () => {
+    it("[SPM-23][AC3][AC7] refuses an end that is not after the start", async () => {
       const api = await form.open();
       fillRequired();
       set(field(/^Ends at/), START);
@@ -351,7 +351,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.saves(api)).toHaveLength(0);
     });
 
-    it("refuses a start in the past", async () => {
+    it("[SPM-23][AC3][AC7] refuses a start in the past", async () => {
       await form.open();
       fillRequired();
       set(field(/^Starts at/), "2020-01-01T09:00");
@@ -361,7 +361,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(screen.getByText("The start date is in the past.")).toBeInTheDocument();
     });
 
-    it.each(["0", "1.5"])("refuses an attendance of %s", async (attendance) => {
+    it.each(["0", "1.5"])("[SPM-23][AC4][AC7] refuses an attendance of %s", async (attendance) => {
       await form.open();
       fillRequired();
       set(field(/^Expected attendance/), attendance);
@@ -371,7 +371,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(screen.getByText("Enter a whole number of people, at least 1.")).toBeInTheDocument();
     });
 
-    it("clears a field's error as soon as it is changed", async () => {
+    it("[SPM-23][AC7] clears a field's error as soon as it is changed", async () => {
       await form.open();
       set(field(/^Event name/), "Gala Dinner");
       await submit();
@@ -386,7 +386,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
   });
 
   describe("venue requirements", () => {
-    it("offers facilities and accessibility needs as two separate groups", async () => {
+    it("[SPM-23][AC5] offers facilities and accessibility needs as two separate groups", async () => {
       await form.open();
 
       expect(within(group("The venue must have")).getByRole("checkbox", { name: "Stage" })).toBeInTheDocument();
@@ -394,7 +394,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(within(group("The venue must have")).queryByRole("checkbox", { name: "Hearing loop" })).not.toBeInTheDocument();
     });
 
-    it("sends what is ticked, and not what is unticked again", async () => {
+    it("[SPM-23][AC5] sends what is ticked, and not what is unticked again", async () => {
       const api = await form.open();
       set(field(/^Event name/), "Gala Dinner");
       set(field("Other accessibility notes"), "Quiet room");
@@ -424,21 +424,21 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       set(field(/^Ends at/), END);
     }
 
-    it("cannot be requested until the event has dates", async () => {
+    it("[SPM-23][AC5] cannot be requested until the event has dates", async () => {
       await form.open();
 
       expect(equipment()).toHaveTextContent("Add the event date and time above, then you can request equipment here.");
       expect(within(equipment()).queryByRole("button", { name: "Add equipment" })).not.toBeInTheDocument();
     });
 
-    it("starts empty once the event has dates", async () => {
+    it("[SPM-23][AC5] starts empty once the event has dates", async () => {
       await form.open();
       withDates();
 
       expect(equipment()).toHaveTextContent("Nothing requested yet.");
     });
 
-    it("sends each row's item, quantity and technical requirements", async () => {
+    it("[SPM-23][AC5] sends each row's item, quantity and technical requirements", async () => {
       const api = await form.open();
       withDates();
 
@@ -454,7 +454,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       ]);
     });
 
-    it("labels an item with its category when it has one", async () => {
+    it("[SPM-23][AC5] labels an item with its category when it has one", async () => {
       await form.open();
       withDates();
 
@@ -464,7 +464,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(options).toEqual(["Choose an item", "Projector — av", "Lectern"]);
     });
 
-    it("does not offer an item that another row has already chosen", async () => {
+    it("[SPM-23][AC5] does not offer an item that another row has already chosen", async () => {
       await form.open();
       withDates();
       await addRow();
@@ -476,7 +476,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(within(second).getAllByRole("option").map((o) => o.textContent)).toEqual(["Choose an item", "Lectern"]);
     });
 
-    it("stops offering Add equipment once every catalogue item is requested", async () => {
+    it("[SPM-23][AC5] stops offering Add equipment once every catalogue item is requested", async () => {
       await form.open();
       withDates();
       await addRow();
@@ -488,7 +488,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(equipment()).toHaveTextContent("Every catalogue item is already in your request.");
     });
 
-    it("removes a row", async () => {
+    it("[SPM-23][AC5] removes a row", async () => {
       const api = await form.open();
       withDates();
       await addRow();
@@ -503,7 +503,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.saved(api).equipment).toEqual([{ equipmentId: LECTERN, quantityRequested: 1 }]);
     });
 
-    it("refuses a row with no item chosen, even on a draft", async () => {
+    it("[SPM-23][AC5] refuses a row with no item chosen, even on a draft", async () => {
       const api = await form.open();
       withDates();
       await addRow();
@@ -516,7 +516,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.saves(api)).toHaveLength(0);
     });
 
-    it.each(["0", "", "2.5"])("refuses a quantity of %j", async (quantity) => {
+    it.each(["0", "", "2.5"])("[SPM-23][AC5] refuses a quantity of %j", async (quantity) => {
       await form.open();
       withDates();
       await addRow();
@@ -530,7 +530,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       );
     });
 
-    it("clears the equipment error when a row is changed or removed", async () => {
+    it("[SPM-23][AC5] clears the equipment error when a row is changed or removed", async () => {
       await form.open();
       withDates();
       await addRow();
@@ -547,7 +547,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(within(equipment()).queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("on submit, refuses equipment left over on an event whose dates were cleared", async () => {
+    it("[SPM-23][AC5][AC7] on submit, refuses equipment left over on an event whose dates were cleared", async () => {
       await form.open();
       fillRequired();
       await addRow();
@@ -563,7 +563,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
   describe("registration", () => {
     const enable = () => userEvent.click(screen.getByRole("checkbox", { name: "Attendees need to register for this event" }));
 
-    it("hides its fields until it is switched on", async () => {
+    it("[SPM-23][AC5] hides its fields until it is switched on", async () => {
       await form.open();
 
       expect(screen.queryByLabelText(/^Registration capacity/)).not.toBeInTheDocument();
@@ -574,7 +574,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(field("Registration closes")).toBeInTheDocument();
     });
 
-    it("sends the capacity and window when switched on", async () => {
+    it("[SPM-23][AC5] sends the capacity and window when switched on", async () => {
       const api = await form.open();
       fillRequired();
       await enable();
@@ -593,7 +593,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       });
     });
 
-    it("sends no capacity or window when switched off again", async () => {
+    it("[SPM-23][AC5] sends no capacity or window when switched off again", async () => {
       const api = await form.open();
       set(field(/^Event name/), "Gala Dinner");
       await enable();
@@ -611,7 +611,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       ["", "Enter how many attendees can register."],
       ["0", "Enter a whole number, at least 1."],
       ["2.5", "Enter a whole number, at least 1."],
-    ])("on submit, refuses a capacity of %j", async (capacity, message) => {
+    ])("[SPM-23][AC5][AC7] on submit, refuses a capacity of %j", async (capacity, message) => {
       const api = await form.open();
       fillRequired();
       await enable();
@@ -627,7 +627,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       ["closing before it opens", "2030-02-10T09:00", "2030-02-01T09:00", "Registration closes at must be after it opens."],
       ["opening after the event starts", "2030-03-05T09:00", "", "Registration must open before the event starts."],
       ["closing after the event starts", "", "2030-03-05T09:00", "Registration must close before the event starts."],
-    ])("on submit, refuses a window %s", async (_case, opens, closes, message) => {
+    ])("[SPM-23][AC5][AC7] on submit, refuses a window %s", async (_case, opens, closes, message) => {
       await form.open();
       fillRequired();
       await enable();
@@ -642,7 +642,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
   });
 
   describe("multi-session events", () => {
-    it("moves what was typed for the event into Session 1, and hides the event-level sections", async () => {
+    it("[SPM-23][AC6] moves what was typed for the event into Session 1, and hides the event-level sections", async () => {
       await form.open();
       fillRequired();
       set(field("Preferred room layout"), "theatre");
@@ -661,7 +661,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(field(/^Starts at/, group("Session 2"))).toHaveValue("");
     });
 
-    it("moves the event's equipment onto Session 1 too", async () => {
+    it("[SPM-23][AC6] moves the event's equipment onto Session 1 too", async () => {
       await form.open();
       fillRequired();
       await userEvent.click(button("Add equipment", group("Equipment")));
@@ -672,7 +672,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(field("Equipment", group("Session 1"))).toHaveValue(PROJECTOR);
     });
 
-    it("starts with two sessions, the fewest a multi-session event can have", async () => {
+    it("[SPM-23][AC6] starts with two sessions, the fewest a multi-session event can have", async () => {
       await form.open();
 
       await turnOnSessions();
@@ -681,7 +681,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       screen.getAllByRole("button", { name: "Remove session" }).forEach((b) => expect(b).toBeDisabled());
     });
 
-    it("adds sessions, and removes them down to two", async () => {
+    it("[SPM-23][AC6] adds sessions, and removes them down to two", async () => {
       await form.open();
       await turnOnSessions();
       fillSession(1, { start: START });
@@ -694,7 +694,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(field(/^Starts at/, group("Session 1"))).toHaveValue(START);
     });
 
-    it("needs each session's times even to save a draft", async () => {
+    it("[SPM-23][AC6][AC7] needs each session's times even to save a draft", async () => {
       const api = await form.open();
       set(field(/^Event name/), "Summit");
       await turnOnSessions();
@@ -707,7 +707,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(form.saves(api)).toHaveLength(0);
     });
 
-    it("drops every session's messages when a session is removed, as they would land on the wrong card", async () => {
+    it("[SPM-23][AC6] drops every session's messages when a session is removed, as they would land on the wrong card", async () => {
       await form.open();
       set(field(/^Event name/), "Summit");
       await turnOnSessions();
@@ -720,7 +720,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(screen.queryByText("Enter when this session starts.")).not.toBeInTheDocument();
     });
 
-    it("shows the server's message about the sessions as a whole above them", async () => {
+    it("[SPM-23][AC6] shows the server's message about the sessions as a whole above them", async () => {
       const message = "Each item can only be requested once per event, across all sessions - change the quantity instead";
       await form.open({ save: reply(400, { error: "Validation failed", details: { fieldErrors: { sessions: [message] } } }) });
       set(field(/^Event name/), "Summit");
@@ -733,7 +733,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(await screen.findByText(message)).toBeInTheDocument();
     });
 
-    it("needs each session's attendance to submit, but not to save a draft", async () => {
+    it("[SPM-23][AC6][AC7] needs each session's attendance to submit, but not to save a draft", async () => {
       const api = await form.open();
       set(field(/^Event name/), "Summit");
       set(field(/^Type of event/), "conference");
@@ -749,7 +749,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       await waitFor(() => expect(form.saves(api)).toHaveLength(1));
     });
 
-    it.each(["0", "1.5"])("on submit, refuses a session attendance of %s", async (attendance) => {
+    it.each(["0", "1.5"])("[SPM-23][AC6][AC7] on submit, refuses a session attendance of %s", async (attendance) => {
       await form.open();
       set(field(/^Event name/), "Summit");
       set(field(/^Type of event/), "conference");
@@ -762,7 +762,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(within(group("Session 1")).getByText("Enter a whole number of people, at least 1.")).toBeInTheDocument();
     });
 
-    it("refuses a session that ends before it starts, and one that starts in the past", async () => {
+    it("[SPM-23][AC6][AC7] refuses a session that ends before it starts, and one that starts in the past", async () => {
       await form.open();
       set(field(/^Event name/), "Summit");
       set(field(/^Type of event/), "conference");
@@ -776,7 +776,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(within(group("Session 2")).getByText("The start date is in the past.")).toBeInTheDocument();
     });
 
-    it("clears a session's error when that field is changed", async () => {
+    it("[SPM-23][AC6] clears a session's error when that field is changed", async () => {
       await form.open();
       set(field(/^Event name/), "Summit");
       await turnOnSessions();
@@ -789,7 +789,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(within(group("Session 2")).getByText("Enter when this session starts.")).toBeInTheDocument();
     });
 
-    it("sends the sessions instead of the event's own schedule", async () => {
+    it("[SPM-23][AC6] sends the sessions instead of the event's own schedule", async () => {
       const api = await form.open();
       set(field(/^Event name/), "Summit");
       set(field(/^Type of event/), "conference");
@@ -811,7 +811,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(body).not.toHaveProperty("expectedAttendance");
     });
 
-    it("measures the registration window against the first session's start", async () => {
+    it("[SPM-23][AC6] measures the registration window against the first session's start", async () => {
       await form.open();
       set(field(/^Event name/), "Summit");
       set(field(/^Type of event/), "conference");
@@ -828,7 +828,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(screen.getByText("Registration must close before the event starts.")).toBeInTheDocument();
     });
 
-    it("brings the event-level sections back when switched off, and remembers the sessions", async () => {
+    it("[SPM-23][AC6] brings the event-level sections back when switched off, and remembers the sessions", async () => {
       await form.open();
       await turnOnSessions();
       fillSession(1, { start: START });
@@ -841,7 +841,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       expect(field(/^Starts at/, group("Session 1"))).toHaveValue(START);
     });
 
-    it("takes the schedule errors away with the section they belonged to", async () => {
+    it("[SPM-23][AC6] takes the schedule errors away with the section they belonged to", async () => {
       await form.open();
       set(field(/^Event name/), "Summit");
       await submit();
@@ -866,7 +866,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
       }
       const addTo = (index: number) => userEvent.click(button("Add equipment", group(`Session ${index}`)));
 
-      it("cannot be requested until the session has its times", async () => {
+      it("[SPM-23][AC6] cannot be requested until the session has its times", async () => {
         await form.open();
         await turnOnSessions();
 
@@ -875,7 +875,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
         );
       });
 
-      it("is sent with its session", async () => {
+      it("[SPM-23][AC6] is sent with its session", async () => {
         const api = await twoDatedSessions();
         expect(group("Session 2")).toHaveTextContent("Nothing requested for this session yet.");
 
@@ -893,7 +893,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
         ]);
       });
 
-      it("keeps each of a session's rows as entered", async () => {
+      it("[SPM-23][AC6] keeps each of a session's rows as entered", async () => {
         const api = await twoDatedSessions();
         await addTo(1);
         await addTo(1);
@@ -911,7 +911,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
         ]);
       });
 
-      it("does not offer an item another session has already requested", async () => {
+      it("[SPM-23][AC6] does not offer an item another session has already requested", async () => {
         await twoDatedSessions();
         await addTo(1);
         set(field("Equipment", group("Session 1")), PROJECTOR);
@@ -922,7 +922,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
         expect(options).toEqual(["Choose an item", "Lectern"]);
       });
 
-      it("stops offering Add equipment once every item is requested somewhere on the event", async () => {
+      it("[SPM-23][AC6] stops offering Add equipment once every item is requested somewhere on the event", async () => {
         await twoDatedSessions();
         await addTo(1);
         set(field("Equipment", group("Session 1")), PROJECTOR);
@@ -934,7 +934,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
         expect(group("Session 1")).toHaveTextContent("Every catalogue item is already in your request.");
       });
 
-      it("refuses a row with no item, and clears the error when the row is removed", async () => {
+      it("[SPM-23][AC6] refuses a row with no item, and clears the error when the row is removed", async () => {
         const api = await twoDatedSessions();
         await addTo(1);
 
@@ -949,7 +949,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
         expect(group("Session 1")).toHaveTextContent("Nothing requested for this session yet.");
       });
 
-      it("clears the error when the row is filled in", async () => {
+      it("[SPM-23][AC6] clears the error when the row is filled in", async () => {
         await twoDatedSessions();
         await addTo(1);
         await saveDraft();
@@ -961,7 +961,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
     });
   });
 
-  it("Cancel goes back to the events list without saving", async () => {
+  it("[SPM-23] Cancel goes back to the events list without saving", async () => {
     const api = await form.open();
     set(field(/^Event name/), "Gala Dinner");
 
@@ -973,7 +973,7 @@ describe.each([NEW, EDIT])("$name: the form", (form) => {
 });
 
 describe("New event request: this screen only", () => {
-  it.each(ROLES.filter((r) => r !== "organiser"))("refuses %s at the door, before any form is shown", async (role) => {
+  it.each(ROLES.filter((r) => r !== "organiser"))("[SPM-22][AC4] refuses %s at the door, before any form is shown", async (role) => {
     setRoute("/events/new");
     const api = mockApi(signedInAs(role));
 
@@ -985,7 +985,7 @@ describe("New event request: this screen only", () => {
   });
 
   // SPM-98: <list> / New request - no record yet.
-  it("names the organiser's list 'My Events' in the breadcrumb", async () => {
+  it("[SPM-23][BUG-98] names the organiser's list 'My Events' in the breadcrumb", async () => {
     await NEW.open();
 
     expect(breadcrumb()).toEqual([
@@ -994,7 +994,7 @@ describe("New event request: this screen only", () => {
     ]);
   });
 
-  it("keeps the same breadcrumb, starting 'Events', for a role it refuses", async () => {
+  it("[SPM-23][BUG-98] keeps the same breadcrumb, starting 'Events', for a role it refuses", async () => {
     setRoute("/events/new");
     mockApi(signedInAs("coordinator"));
     render(<NewEventPage />);
@@ -1006,7 +1006,7 @@ describe("New event request: this screen only", () => {
     ]);
   });
 
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute("/events/new");
     mockApi(signedOut());
 
@@ -1015,7 +1015,7 @@ describe("New event request: this screen only", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2Fnew"));
   });
 
-  it("a title-only draft sends the title and nothing it was not given", async () => {
+  it("[SPM-24][AC1] a title-only draft sends the title and nothing it was not given", async () => {
     const api = await NEW.open();
     set(field(/^Event name/), "Gala Dinner");
 
@@ -1025,7 +1025,7 @@ describe("New event request: this screen only", () => {
     expect(NEW.saved(api)).toEqual({ title: "Gala Dinner", registrationEnabled: false });
   });
 
-  it("shows placeholders for the pickers while the reference data loads", async () => {
+  it("[SPM-23] shows placeholders for the pickers while the reference data loads", async () => {
     setRoute("/events/new");
     mockApi({
       ...signedInAs("organiser"),
@@ -1043,7 +1043,7 @@ describe("New event request: this screen only", () => {
   it.each([
     ["answers with an error", { "GET /api/facilities": reply(500, {}), "GET /api/equipment": [] }],
     ["cannot be reached", { "GET /api/facilities": () => Promise.reject(new Error("offline")), "GET /api/equipment": [] }],
-  ])("still lets a draft be saved when the reference data %s", async (_case, routes) => {
+  ])("[SPM-24][AC1] still lets a draft be saved when the reference data %s", async (_case, routes) => {
     setRoute("/events/new");
     const api = mockApi({ ...signedInAs("organiser"), ...routes, "POST /api/events": reply(201, { sequenceNumber: 42 }) });
     render(<NewEventPage />);
@@ -1068,7 +1068,7 @@ describe("Edit draft: this screen only", () => {
     return api;
   }
 
-  it("sends an anonymous visitor to log in, remembering the draft", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering the draft", async () => {
     setRoute(`/events/${REF}/edit`, { id: REF });
     mockApi(signedOut());
 
@@ -1085,14 +1085,14 @@ describe("Edit draft: this screen only", () => {
       ["Edit draft", null],
     ];
 
-    it("names the draft by its saved title, not what is being typed", async () => {
+    it("[SPM-24][BUG-98] names the draft by its saved title, not what is being typed", async () => {
       openWith(blankDraft({ title: "Gala Dinner" }));
       set(await screen.findByLabelText(/^Event name/), "Gala Dinner 2030");
 
       expect(breadcrumb()).toEqual(trail("Gala Dinner"));
     });
 
-    it("reads 'Event' for a draft with no title yet", async () => {
+    it("[SPM-24][BUG-98] reads 'Event' for a draft with no title yet", async () => {
       openWith(blankDraft({ title: null }));
       await screen.findByLabelText(/^Event name/);
 
@@ -1102,7 +1102,7 @@ describe("Edit draft: this screen only", () => {
     it.each([
       ["loading", () => new Promise(() => {})],
       ["in error", reply(404, {})],
-    ])("reads 'Event' while %s", async (_case, draft) => {
+    ])("[SPM-24][BUG-98] reads 'Event' while %s", async (_case, draft) => {
       openWith(draft);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -1110,7 +1110,7 @@ describe("Edit draft: this screen only", () => {
     });
   });
 
-  it("shows a placeholder while the draft loads", async () => {
+  it("[SPM-24] shows a placeholder while the draft loads", async () => {
     openWith(() => new Promise(() => {}));
 
     expect(await screen.findByRole("status", { name: "Loading" })).toBeInTheDocument();
@@ -1130,7 +1130,7 @@ describe("Edit draft: this screen only", () => {
       () => Promise.reject(new Error("offline")),
       "Could not reach the server. Check your connection and try again.",
     ],
-  ])("refuses to open a draft that %s, and offers the way back", async (_case, draft, message) => {
+  ])("[SPM-24] refuses to open a draft that %s, and offers the way back", async (_case, draft, message) => {
     openWith(draft);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(message);
@@ -1139,13 +1139,13 @@ describe("Edit draft: this screen only", () => {
     expect(router.push).toHaveBeenCalledWith("/events");
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     openWith(reply(401, {}));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fedit"));
   });
 
-  it("fills the form from the saved draft", async () => {
+  it("[SPM-24][AC3][AC4] fills the form from the saved draft", async () => {
     openWith(
       blankDraft({
         title: "Gala Dinner",
@@ -1184,7 +1184,7 @@ describe("Edit draft: this screen only", () => {
     expect(field("Technical requirements", group("Equipment"))).toHaveValue("HDMI");
   });
 
-  it("opens a multi-session draft with its sessions, each with its own equipment", async () => {
+  it("[SPM-24][AC3] [SPM-23][AC6] opens a multi-session draft with its sessions, each with its own equipment", async () => {
     openWith(
       blankDraft({
         title: "Summit",
@@ -1207,7 +1207,7 @@ describe("Edit draft: this screen only", () => {
     expect(within(group("Session 1")).queryByLabelText("Equipment")).not.toBeInTheDocument();
   });
 
-  it("still lets the draft be saved when the reference data fails to load", async () => {
+  it("[SPM-24][AC3][AC4] still lets the draft be saved when the reference data fails to load", async () => {
     const api = openWith(blankDraft({ title: "Gala Dinner" }), {
       "GET /api/facilities": reply(500, {}),
       [`PATCH /api/events/${REF}`]: { id: "event-id" },
@@ -1220,7 +1220,7 @@ describe("Edit draft: this screen only", () => {
     expect(screen.queryByRole("checkbox", { name: "Stage" })).not.toBeInTheDocument();
   });
 
-  it("always sends every field, so a value cleared on the form is cleared on the draft", async () => {
+  it("[SPM-24][AC3][AC4] always sends every field, so a value cleared on the form is cleared on the draft", async () => {
     const api = openWith(
       blankDraft({
         title: "Gala Dinner",
@@ -1250,7 +1250,7 @@ describe("Edit draft: this screen only", () => {
     });
   });
 
-  it("turning multi-session off sends an empty session list, which drops the saved sessions", async () => {
+  it("[SPM-24][AC3][AC4] turning multi-session off sends an empty session list, which drops the saved sessions", async () => {
     const api = openWith(
       blankDraft({
         title: "Summit",
@@ -1270,7 +1270,7 @@ describe("Edit draft: this screen only", () => {
     expect(api.sent(`PATCH /api/events/${REF}`)[0].body).toMatchObject({ sessions: [] });
   });
 
-  it("saving a multi-session draft sends an empty event-wide equipment list", async () => {
+  it("[SPM-24][AC3][AC4] saving a multi-session draft sends an empty event-wide equipment list", async () => {
     const api = await EDIT.open();
     set(field(/^Event name/), "Summit");
     await turnOnSessions();

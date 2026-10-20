@@ -47,12 +47,12 @@ describe("PATCH /api/registrations/[id]", () => {
     vi.useRealTimers();
   });
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await withdraw(undefined)).status).toBe(401);
   });
 
   it.each(ROLES.filter((role) => !can(role, "registration:create")))(
-    "is 403 for %s - only an Attendee withdraws",
+    "[SPM-21][AC4] is 403 for %s - only an Attendee withdraws",
     async (role) => {
       const res = await withdraw(signIn(user(role)));
 
@@ -62,7 +62,7 @@ describe("PATCH /api/registrations/[id]", () => {
     }
   );
 
-  it("is 404 for a registration that doesn't exist", async () => {
+  it("[SPM-52] is 404 for a registration that doesn't exist", async () => {
     db.registration.findUnique.mockResolvedValue(null);
 
     const res = await withdraw(signIn(attendee()));
@@ -71,7 +71,7 @@ describe("PATCH /api/registrations/[id]", () => {
     expect(await res.json()).toEqual({ error: "Registration not found" });
   });
 
-  it("is 404, not 403, for another attendee's registration, and changes nothing", async () => {
+  it("[SPM-52] is 404, not 403, for another attendee's registration, and changes nothing", async () => {
     db.registration.findUnique.mockResolvedValue(registration({ attendeeId: ID.otherUser }));
 
     const res = await withdraw(signIn(attendee()));
@@ -80,7 +80,7 @@ describe("PATCH /api/registrations/[id]", () => {
     expect(db.registration.updateMany).not.toHaveBeenCalled();
   });
 
-  it("withdraws a registered attendee: status withdrawn, with the time (AC1, AC2)", async () => {
+  it("[SPM-52][AC1][AC2] withdraws a registered attendee: status withdrawn, with the time (AC1, AC2)", async () => {
     const withdrawn = registration({ status: "withdrawn", withdrawnAt: NOW });
     db.registration.findUnique.mockResolvedValueOnce(registration()).mockResolvedValueOnce(withdrawn);
     db.registration.updateMany.mockResolvedValue({ count: 1 });
@@ -100,7 +100,7 @@ describe("PATCH /api/registrations/[id]", () => {
     expect(await res.json()).toMatchObject({ status: "withdrawn", withdrawnAt: NOW.toISOString() });
   });
 
-  it("keeps the row, so the attendee can register again later", async () => {
+  it("[SPM-52][AC2] keeps the row, so the attendee can register again later", async () => {
     db.registration.findUnique.mockResolvedValue(registration());
     db.registration.updateMany.mockResolvedValue({ count: 1 });
 
@@ -111,7 +111,7 @@ describe("PATCH /api/registrations/[id]", () => {
   });
 
   it.each(["waitlisted", "withdrawn", "attended"])(
-    "refuses to withdraw a %s registration, changing nothing",
+    "[SPM-52][AC1] refuses to withdraw a %s registration, changing nothing",
     async (status) => {
       db.registration.findUnique.mockResolvedValue(registration({ status }));
 
@@ -127,7 +127,7 @@ describe("PATCH /api/registrations/[id]", () => {
     ["cancelled", { status: "cancelled", endsAt: new Date("2028-03-04T09:00:00Z") }, "This event has been cancelled, so there is nothing to withdraw from"],
     ["completed", { status: "completed", endsAt: new Date("2026-09-15T09:00:00Z") }, "This event is over, so the registration can no longer be withdrawn"],
     ["ended but not yet completed", { status: "confirmed", endsAt: new Date("2026-10-12T09:00:00Z") }, "This event is over, so the registration can no longer be withdrawn"],
-  ])("refuses to withdraw from a %s event, changing nothing", async (_case, event, error) => {
+  ])("[SPM-52][AC1] refuses to withdraw from a %s event, changing nothing", async (_case, event, error) => {
     db.registration.findUnique.mockResolvedValue(registration({ event }));
 
     const res = await withdraw(signIn(attendee()));
@@ -137,7 +137,7 @@ describe("PATCH /api/registrations/[id]", () => {
     expect(db.registration.updateMany).not.toHaveBeenCalled();
   });
 
-  it("refuses when it was withdrawn from another tab in the meantime", async () => {
+  it("[SPM-52][AC1] refuses when it was withdrawn from another tab in the meantime", async () => {
     db.registration.findUnique.mockResolvedValue(registration());
     db.registration.updateMany.mockResolvedValue({ count: 0 });
 
@@ -151,7 +151,7 @@ describe("PATCH /api/registrations/[id]", () => {
     ["another status", { status: "registered" }],
     ["no status", {}],
     ["another field as well", { status: "withdrawn", attendeeId: ID.otherUser }],
-  ])("refuses a body with %s, changing nothing", async (_case, body) => {
+  ])("[SPM-52][AC1] refuses a body with %s, changing nothing", async (_case, body) => {
     db.registration.findUnique.mockResolvedValue(registration());
 
     const res = await withdraw(signIn(attendee()), body);
@@ -161,7 +161,7 @@ describe("PATCH /api/registrations/[id]", () => {
     expect(db.registration.updateMany).not.toHaveBeenCalled();
   });
 
-  it("is 500 when the database fails", async () => {
+  it("[SPM-52] is 500 when the database fails", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     db.registration.findUnique.mockRejectedValue(new Error("connection lost"));
 

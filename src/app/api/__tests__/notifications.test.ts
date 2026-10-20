@@ -32,12 +32,12 @@ function row(overrides: Record<string, unknown> = {}) {
 describe("GET /api/notifications", () => {
   const get = (token?: string) => list(req("GET", "/api/notifications", { token }));
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
     expect(db.notification.findMany).not.toHaveBeenCalled();
   });
 
-  it.each(ROLES)("lets %s read their own notifications", async (role) => {
+  it.each(ROLES)("[SPM-71][AC1][AC7] lets %s read their own notifications", async (role) => {
     db.notification.findMany.mockResolvedValue([]);
 
     const res = await get(signIn(user(role)));
@@ -46,7 +46,7 @@ describe("GET /api/notifications", () => {
     expect(callArg(db.notification.findMany).where).toEqual({ recipientId: ID.user });
   });
 
-  it("AC1: asks for them newest first", async () => {
+  it("[SPM-71][AC1] AC1: asks for them newest first", async () => {
     db.notification.findMany.mockResolvedValue([]);
 
     await get(signIn(user("coordinator")));
@@ -54,7 +54,7 @@ describe("GET /api/notifications", () => {
     expect(callArg(db.notification.findMany).orderBy).toEqual([{ createdAt: "desc" }, { id: "desc" }]);
   });
 
-  it("AC2, AC5: says what happened, which event and when, and where selecting it goes", async () => {
+  it("[SPM-71][AC2][AC5] AC2, AC5: says what happened, which event and when, and where selecting it goes", async () => {
     db.notification.findMany.mockResolvedValue([row()]);
 
     const body = await (await get(signIn(user("coordinator")))).json();
@@ -73,7 +73,7 @@ describe("GET /api/notifications", () => {
     ]);
   });
 
-  it("reads only the event's reference and title - nothing else about it", async () => {
+  it("[SPM-71][AC2] reads only the event's reference and title - nothing else about it", async () => {
     db.notification.findMany.mockResolvedValue([]);
 
     await get(signIn(user("coordinator")));
@@ -89,7 +89,7 @@ describe("GET /api/notifications", () => {
     });
   });
 
-  it("gives a notification about no event no event and no link", async () => {
+  it("[SPM-71][AC2] gives a notification about no event no event and no link", async () => {
     db.notification.findMany.mockResolvedValue([row({ event: null })]);
 
     const [only] = await (await get(signIn(user("coordinator")))).json();
@@ -97,7 +97,7 @@ describe("GET /api/notifications", () => {
     expect(only).toMatchObject({ event: null, href: null });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-71] answers 500 when the database fails", async () => {
     const token = signIn(user("coordinator"));
     db.notification.findMany.mockRejectedValue(new Error("connection lost"));
 
@@ -108,13 +108,13 @@ describe("GET /api/notifications", () => {
 describe("GET /api/notifications/unread-count", () => {
   const get = (token?: string) => unreadCount(req("GET", "/api/notifications/unread-count", { token }));
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
 
   // SPM-82 (AC9): the count is asked for on every page change, so it is where
   // holds are warned about and expired while anyone is using the app.
-  it("SPM-82: expires and warns about holds before counting, so a new notice is counted", async () => {
+  it("[SPM-82][AC9] SPM-82: expires and warns about holds before counting, so a new notice is counted", async () => {
     db.notification.count.mockResolvedValue(0);
 
     await get(signIn(user("coordinator")));
@@ -122,7 +122,7 @@ describe("GET /api/notifications/unread-count", () => {
     expect(holdExpirySweepOrder()).toBeLessThan(db.notification.count.mock.invocationCallOrder[0]);
   });
 
-  it("AC3: counts the caller's own unread notifications", async () => {
+  it("[SPM-71][AC3] AC3: counts the caller's own unread notifications", async () => {
     db.notification.count.mockResolvedValue(3);
 
     const res = await get(signIn(user("coordinator")));
@@ -131,7 +131,7 @@ describe("GET /api/notifications/unread-count", () => {
     expect(callArg(db.notification.count)).toEqual({ where: { recipientId: ID.user, isRead: false } });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-71] answers 500 when the database fails", async () => {
     const token = signIn(user("coordinator"));
     db.notification.count.mockRejectedValue(new Error("connection lost"));
 
@@ -143,11 +143,11 @@ describe("PATCH /api/notifications/[id]", () => {
   const patch = (token: string | undefined, body: unknown, id = NOTE) =>
     markOne(req("PATCH", `/api/notifications/${id}`, { token, body }), params({ id }));
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await patch(undefined, { isRead: true })).status).toBe(401);
   });
 
-  it("AC4: marks the caller's own notification as read", async () => {
+  it("[SPM-71][AC4] AC4: marks the caller's own notification as read", async () => {
     db.notification.updateMany.mockResolvedValue({ count: 1 });
 
     const res = await patch(signIn(user("coordinator")), { isRead: true });
@@ -160,7 +160,7 @@ describe("PATCH /api/notifications/[id]", () => {
     });
   });
 
-  it("AC7: is 404 for someone else's notification, and changes nothing of theirs", async () => {
+  it("[SPM-71][AC7] AC7: is 404 for someone else's notification, and changes nothing of theirs", async () => {
     // The ownership check is the update's own where clause, so another
     // user's row is never touched - it simply does not match.
     db.notification.updateMany.mockResolvedValue({ count: 0 });
@@ -175,14 +175,14 @@ describe("PATCH /api/notifications/[id]", () => {
     ["nothing", {}],
     ["isRead false - marking unread is not offered", { isRead: false }],
     ["a string", { isRead: "true" }],
-  ])("refuses a body with %s", async (_case, body) => {
+  ])("[SPM-71] refuses a body with %s", async (_case, body) => {
     const res = await patch(signIn(user("coordinator")), body);
 
     expect(res.status).toBe(400);
     expect(db.notification.updateMany).not.toHaveBeenCalled();
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-71] answers 500 when the database fails", async () => {
     const token = signIn(user("coordinator"));
     db.notification.updateMany.mockRejectedValue(new Error("connection lost"));
 
@@ -193,11 +193,11 @@ describe("PATCH /api/notifications/[id]", () => {
 describe("POST /api/notifications/read-all", () => {
   const post = (token?: string) => markAll(req("POST", "/api/notifications/read-all", { token }));
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await post()).status).toBe(401);
   });
 
-  it("AC4: marks every unread notification of the caller's as read, and says how many", async () => {
+  it("[SPM-71][AC4] AC4: marks every unread notification of the caller's as read, and says how many", async () => {
     db.notification.updateMany.mockResolvedValue({ count: 2 });
 
     const res = await post(signIn(user("coordinator")));
@@ -210,7 +210,7 @@ describe("POST /api/notifications/read-all", () => {
     });
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-71] answers 500 when the database fails", async () => {
     const token = signIn(user("coordinator"));
     db.notification.updateMany.mockRejectedValue(new Error("connection lost"));
 

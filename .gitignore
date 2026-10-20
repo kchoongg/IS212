@@ -20,6 +20,8 @@ tsconfig.tsbuildinfo
 # Next.js version) — regenerates itself, so it isn't project source.
 AGENTS.md
 CLAUDE.md
+# The team's own Claude Code rules are versioned (the root CLAUDE.md is not ours).
+!.claude/CLAUDE.md
 "*.tsbuildinfo" 
 
 # Excel lock files (created while a workbook is open)

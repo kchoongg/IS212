@@ -42,19 +42,19 @@ describe("POST /api/events/[id]/begin-planning", () => {
     return token;
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await begin()).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference", async () => {
+  it("[SPM-54] is 404 for a malformed reference", async () => {
     expect((await begin(given(), "nope")).status).toBe(404);
   });
 
-  it("is 404 for an event that does not exist", async () => {
+  it("[SPM-54] is 404 for an event that does not exist", async () => {
     expect((await begin(given(null))).status).toBe(404);
   });
 
-  it("is 404 for a draft, which a coordinator cannot see", async () => {
+  it("[SPM-54] is 404 for a draft, which a coordinator cannot see", async () => {
     expect((await begin(given(event({ status: "draft" })))).status).toBe(404);
   });
 
@@ -63,7 +63,7 @@ describe("POST /api/events/[id]/begin-planning", () => {
     ["the Ops Manager", () => user("ops_manager", { id: ID.otherUser })],
     ["Venue Staff", () => user("venue_staff", { id: ID.otherUser })],
     ["the organiser who owns the event", () => user("organiser", { id: "organiser-id" })],
-  ])("is 403 for %s", async (_who, actor) => {
+  ])("[SPM-21][AC4] is 403 for %s", async (_who, actor) => {
     const res = await begin(given(event(), actor()));
 
     expect(res.status).toBe(403);
@@ -71,7 +71,7 @@ describe("POST /api/events/[id]/begin-planning", () => {
     expect(db.event.updateMany).not.toHaveBeenCalled();
   });
 
-  it("moves an approved event to planning, and records why in its history", async () => {
+  it("[SPM-54][AC1] moves an approved event to planning, and records why in its history", async () => {
     const token = given();
 
     const res = await begin(token);
@@ -92,7 +92,7 @@ describe("POST /api/events/[id]/begin-planning", () => {
   });
 
   it.each(["planning", "confirmed", "postponed"])(
-    "leaves an event that is already %s exactly as it is, and says so without an error",
+    "[SPM-54][AC2] leaves an event that is already %s exactly as it is, and says so without an error",
     async (status) => {
       const res = await begin(given(event({ status })));
 
@@ -103,7 +103,7 @@ describe("POST /api/events/[id]/begin-planning", () => {
     }
   );
 
-  it("writes no history row when another action began planning a moment earlier", async () => {
+  it("[SPM-54][AC1] writes no history row when another action began planning a moment earlier", async () => {
     const token = given();
     db.event.updateMany.mockResolvedValue({ count: 0 });
 
@@ -113,7 +113,7 @@ describe("POST /api/events/[id]/begin-planning", () => {
     expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-54] answers 500 when the database fails", async () => {
     const token = given();
     db.event.findUnique.mockRejectedValue(new Error("connection lost"));
 
@@ -150,19 +150,19 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
 
   const underReview = { status: "under_review", staffNotes: "" };
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await update(undefined, underReview)).status).toBe(401);
   });
 
-  it("is 404 for a malformed event reference", async () => {
+  it("[SPM-50] is 404 for a malformed event reference", async () => {
     expect((await update(given(), underReview, "nope")).status).toBe(404);
   });
 
-  it("is 404 when the request does not exist", async () => {
+  it("[SPM-50] is 404 when the request does not exist", async () => {
     expect((await update(given(null), underReview)).status).toBe(404);
   });
 
-  it("is 404 when the request belongs to a different event than the URL names", async () => {
+  it("[SPM-50] is 404 when the request belongs to a different event than the URL names", async () => {
     const res = await update(given({ ...line(), eventId: "another-event" }), underReview);
 
     expect(res.status).toBe(404);
@@ -173,7 +173,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
     ["the assigned coordinator", () => user("coordinator", { id: ID.user })],
     ["the organiser who owns the event", () => user("organiser", { id: "organiser-id" })],
     ["the Ops Manager", () => user("ops_manager")],
-  ])("is 403 for %s", async (_who, actor) => {
+  ])("[SPM-21][AC4] is 403 for %s", async (_who, actor) => {
     const res = await update(given(line(), actor()), underReview);
 
     expect(res.status).toBe(403);
@@ -182,7 +182,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
   });
 
   it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "completed"])(
-    "is 404 for an event that is %s - Technical Support does not see its equipment",
+    "[SPM-50] is 404 for an event that is %s - Technical Support does not see its equipment",
     async (eventStatus) => {
       const res = await update(given(line("requested", eventStatus)), underReview);
 
@@ -191,7 +191,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
     }
   );
 
-  it("refuses a confirmed event, whose equipment is final", async () => {
+  it("[SPM-50] refuses a confirmed event, whose equipment is final", async () => {
     const res = await update(given(line("reserved", "confirmed")), { status: "unavailable", staffNotes: "Broken" });
 
     expect(res.status).toBe(400);
@@ -202,7 +202,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
   });
 
   it.each([{}, { status: "under_review" }, { status: "", staffNotes: "" }, { staffNotes: "note" }])(
-    "rejects the body %j",
+    "[SPM-50][AC2] rejects the body %j",
     async (body) => {
       const res = await update(given(), body);
 
@@ -212,7 +212,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
   );
 
   describe("what it saves", () => {
-    it("the new status and trimmed notes, with who reviewed it and when", async () => {
+    it("[SPM-50][AC2][AC4][AC5] the new status and trimmed notes, with who reviewed it and when", async () => {
       vi.useFakeTimers({ now: NOW });
       const token = given();
 
@@ -228,13 +228,13 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
       });
     });
 
-    it("blank notes as none", async () => {
+    it("[SPM-50][AC4] blank notes as none", async () => {
       await update(given(), { status: "under_review", staffNotes: "   " });
 
       expect(callArg(db.equipmentRequest.updateMany).data.staffNotes).toBeNull();
     });
 
-    it("'cannot be provided' with its reason, releasing anything that was reserved", async () => {
+    it("[SPM-50][AC3] 'cannot be provided' with its reason, releasing anything that was reserved", async () => {
       await update(given(line("reserved")), { status: "unavailable", staffNotes: "Both units are out for repair." });
 
       expect(callArg(db.equipmentRequest.updateMany).data).toMatchObject({
@@ -244,7 +244,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
       });
     });
 
-    it("notes alone, leaving the status as it was", async () => {
+    it("[SPM-50][AC4] notes alone, leaving the status as it was", async () => {
       await update(given(line("reserved")), { status: "reserved", staffNotes: "Deliver to the loading bay." });
 
       expect(callArg(db.equipmentRequest.updateMany).data).toMatchObject({
@@ -254,7 +254,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
       expect(callArg(db.equipmentRequest.updateMany).data).not.toHaveProperty("quantityReserved");
     });
 
-    it("only if the line is still in the status the rules were checked against", async () => {
+    it("[SPM-50][AC2] only if the line is still in the status the rules were checked against", async () => {
       await update(given(line("requested")), underReview);
 
       expect(callArg(db.equipmentRequest.updateMany).where).toEqual({ id: ID.request, status: "requested" });
@@ -269,42 +269,42 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
       return res.json();
     }
 
-    it.each(["reserved", "partially_fulfilled"])("hand-picking %s - only Reserve sets it", async (status) => {
+    it.each(["reserved", "partially_fulfilled"])("[SPM-50][AC2] hand-picking %s - only Reserve sets it", async (status) => {
       expect(await refusal("requested", { status, staffNotes: "" })).toEqual({
         error: "Use Reserve to commit equipment to this event.",
         field: null,
       });
     });
 
-    it.each(["requested", "under_review"])("quietly moving a reserved line back to %s", async (status) => {
+    it.each(["requested", "under_review"])("[SPM-50][AC2] quietly moving a reserved line back to %s", async (status) => {
       expect(await refusal("reserved", { status, staffNotes: "" })).toEqual({
         error: 'A reserved item can only be changed to "Cannot be provided".',
         field: null,
       });
     });
 
-    it("a status that does not exist", async () => {
+    it("[SPM-50][AC2] a status that does not exist", async () => {
       expect(await refusal("requested", { status: "lost", staffNotes: "" })).toEqual({
         error: "That status cannot be chosen here.",
         field: null,
       });
     });
 
-    it.each(["", "   "])("'cannot be provided' with a reason of %j", async (staffNotes) => {
+    it.each(["", "   "])("[SPM-50][AC3] 'cannot be provided' with a reason of %j", async (staffNotes) => {
       expect(await refusal("requested", { status: "unavailable", staffNotes })).toEqual({
         error: "Give a reason when equipment cannot be provided.",
         field: "staffNotes",
       });
     });
 
-    it("notes longer than 500 characters", async () => {
+    it("[SPM-50][AC4] notes longer than 500 characters", async () => {
       expect(await refusal("requested", { status: "under_review", staffNotes: "x".repeat(501) })).toEqual({
         error: "Technical notes must be 500 characters or fewer.",
         field: "staffNotes",
       });
     });
 
-    it("a line the coordinator has withdrawn", async () => {
+    it("[SPM-50][AC2] a line the coordinator has withdrawn", async () => {
       expect(await refusal("cancelled", underReview)).toEqual({
         error: "This request has been withdrawn and can no longer be updated.",
         field: null,
@@ -312,13 +312,13 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
     });
   });
 
-  it("accepts notes of exactly 500 characters", async () => {
+  it("[SPM-50][AC4] accepts notes of exactly 500 characters", async () => {
     const res = await update(given(), { status: "under_review", staffNotes: "x".repeat(500) });
 
     expect(res.status).toBe(200);
   });
 
-  it("is 409 when someone else changed the line in the meantime", async () => {
+  it("[SPM-50] is 409 when someone else changed the line in the meantime", async () => {
     const token = given();
     db.equipmentRequest.updateMany.mockResolvedValue({ count: 0 });
 
@@ -328,7 +328,7 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
     expect((await res.json()).error).toMatch(/changed by someone else/);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-50] answers 500 when the database fails", async () => {
     const token = given();
     db.equipmentRequest.updateMany.mockRejectedValue(new Error("connection lost"));
 

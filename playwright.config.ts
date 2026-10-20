@@ -30,6 +30,8 @@ if (!["localhost", "127.0.0.1"].includes(host)) {
 
 export default defineConfig({
   testDir: "e2e",
+  // Never run archived tests (docs/test-cases/DECOMMISSIONED.md).
+  testIgnore: ["**/tests/archive/**"],
   // One database, shared by every test: run them one at a time so no test
   // sees another's half-finished changes.
   workers: 1,
