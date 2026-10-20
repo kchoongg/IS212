@@ -76,38 +76,38 @@ function build(opts: {
 describe("resolveAvailabilityRange - AC1, choosing a period", () => {
   const today = "2026-09-22";
 
-  it("defaults to a week from today", () => {
+  it("[SPM-46][AC1] defaults to a week from today", () => {
     expect(resolveAvailabilityRange({}, today)).toEqual({ from: "2026-09-22", to: "2026-09-28" });
     expect(DEFAULT_AVAILABILITY_DAYS).toBe(7);
   });
 
-  it("runs a week from a given start when no end is given", () => {
+  it("[SPM-46][AC1] runs a week from a given start when no end is given", () => {
     expect(resolveAvailabilityRange({ from: "2026-12-29" }, today)).toEqual({
       from: "2026-12-29",
       to: "2027-01-04",
     });
   });
 
-  it("uses a range exactly as given", () => {
+  it("[SPM-46][AC1] uses a range exactly as given", () => {
     expect(resolveAvailabilityRange({ from: "2026-10-01", to: "2026-10-31" }, today)).toEqual({
       from: "2026-10-01",
       to: "2026-10-31",
     });
   });
 
-  it("accepts a single day", () => {
+  it("[SPM-46][AC1] accepts a single day", () => {
     expect(resolveAvailabilityRange({ from: "2026-10-01", to: "2026-10-01" }, today)).toEqual({
       from: "2026-10-01",
       to: "2026-10-01",
     });
   });
 
-  it("rejects an end before the start", () => {
+  it("[SPM-46][AC1] rejects an end before the start", () => {
     const result = resolveAvailabilityRange({ from: "2026-10-05", to: "2026-10-01" }, today);
     expect(result).toEqual({ error: expect.stringMatching(/on or after the start/i) });
   });
 
-  it("accepts the longest allowed range and rejects one day more", () => {
+  it("[SPM-46][AC1] accepts the longest allowed range and rejects one day more", () => {
     const from = "2026-10-01";
     const lastAllowed = "2026-12-01"; // 62 days including both ends
     expect(resolveAvailabilityRange({ from, to: lastAllowed }, today)).toEqual({ from, to: lastAllowed });
@@ -121,13 +121,13 @@ describe("resolveAvailabilityRange - AC1, choosing a period", () => {
 const lines = (entries: ScheduleEntry[]) => entries.map((e) => `${e.kind} ${e.from}–${e.to} · ${e.label}`);
 
 describe("buildAvailability - one row per day", () => {
-  it("has one row per day in the range, each with its entries", () => {
+  it("[SPM-46][AC1] has one row per day in the range, each with its entries", () => {
     const result = build({ from: "2026-09-28", to: "2026-09-30" });
     expect(result.days.map((d) => d.date)).toEqual(["2026-09-28", "2026-09-29", "2026-09-30"]);
     expect(result.days.every((d) => d.entries.length === 0)).toBe(true);
   });
 
-  it("echoes the venue and range it was asked about", () => {
+  it("[SPM-46][AC1] echoes the venue and range it was asked about", () => {
     const result = build({ from: "2026-09-28", to: "2026-09-29" });
     expect(result.venue).toEqual(VENUE);
     expect(result.range).toEqual({ from: "2026-09-28", to: "2026-09-29", timeZone: "Asia/Singapore" });
@@ -137,7 +137,7 @@ describe("buildAvailability - one row per day", () => {
 describe("SPM-93 AC9 - bookings at their actual times, setup and turnaround separate", () => {
   const STUDIO = { setupMinutes: 30, teardownMinutes: 45 };
 
-  it("SPM-93-TC15: an approved booking shows as setup, booked and turnaround entries, in time order", () => {
+  it("[SPM-93][AC9] SPM-93-TC15: an approved booking shows as setup, booked and turnaround entries, in time order", () => {
     const masterclass = booking("2027-06-08T10:00:00", "2027-06-08T12:00:00", { eventTitle: "SPM93 Morning Masterclass" });
     const result = build({ venue: STUDIO, from: "2027-06-08", to: "2027-06-08", bookings: [masterclass] });
     expect(lines(result.days[0].entries)).toEqual([
@@ -152,41 +152,41 @@ describe("SPM-93 AC9 - bookings at their actual times, setup and turnaround sepa
     });
   });
 
-  it("SPM-93-TC16: a venue with no setup or turnaround shows only the booked time", () => {
+  it("[SPM-93][AC9] SPM-93-TC16: a venue with no setup or turnaround shows only the booked time", () => {
     const demo = booking("2027-06-08T10:00:00", "2027-06-08T12:00:00", { eventTitle: "SPM93 Quick Demo" });
     const result = build({ from: "2027-06-08", to: "2027-06-08", bookings: [demo] });
     expect(lines(result.days[0].entries)).toEqual(["booked 10:00–12:00 · SPM93 Quick Demo"]);
     expect(result.bookings[0]).toMatchObject({ occupiedFrom: sgt("2027-06-08T10:00:00"), occupiedTo: sgt("2027-06-08T12:00:00") });
   });
 
-  it("shows a booking whatever its EVENT status is", () => {
+  it("[SPM-46][AC7] [SPM-93][AC9] shows a booking whatever its EVENT status is", () => {
     const planning = booking("2026-12-01T09:00:00", "2026-12-01T17:00:00", { eventStatus: "planning" });
     const result = build({ from: "2026-12-01", to: "2026-12-01", bookings: [planning] });
     expect(result.days[0].entries).toHaveLength(1);
     expect(result.bookings[0].eventStatus).toBe("planning");
   });
 
-  it("shows the old lunch and dinner gaps as booked time, not hidden (#126)", () => {
+  it("[SPM-93][AC9] shows the old lunch and dinner gaps as booked time, not hidden (#126)", () => {
     const lunch = booking("2027-06-14T12:00:00", "2027-06-14T13:00:00", { eventTitle: "Lunch" });
     const result = build({ from: "2027-06-14", to: "2027-06-14", bookings: [lunch] });
     expect(lines(result.days[0].entries)).toEqual(["booked 12:00–13:00 · Lunch"]);
   });
 
-  it("splits a booking crossing midnight across both days, the first ending at 24:00", () => {
+  it("[SPM-93][AC9] splits a booking crossing midnight across both days, the first ending at 24:00", () => {
     const late = booking("2027-06-08T22:00:00", "2027-06-09T01:00:00", { eventTitle: "Late" });
     const result = build({ from: "2027-06-08", to: "2027-06-09", bookings: [late] });
     expect(lines(result.days[0].entries)).toEqual(["booked 22:00–24:00 · Late"]);
     expect(lines(result.days[1].entries)).toEqual(["booked 00:00–01:00 · Late"]);
   });
 
-  it("names an untitled event", () => {
+  it("[SPM-93][AC9] names an untitled event", () => {
     const result = build({ bookings: [booking("2026-09-28T10:00:00", "2026-09-28T11:00:00", { eventTitle: null })] });
     expect(result.days[0].entries[0].label).toBe("Untitled event");
   });
 });
 
 describe("SPM-93 AC9 - tentative holds (#41) at their actual times", () => {
-  it("SPM-93-TC15: a hold shows as setup, requested and turnaround entries", () => {
+  it("[SPM-93][AC9] SPM-93-TC15: a hold shows as setup, requested and turnaround entries", () => {
     const lunch: AvailabilityHoldInput = {
       id: "hold-1",
       eventId: "lunch",
@@ -204,7 +204,7 @@ describe("SPM-93 AC9 - tentative holds (#41) at their actual times", () => {
     expect(result.holds[0]).toMatchObject({ occupiedFrom: sgt("2027-06-10T11:30:00"), occupiedTo: sgt("2027-06-10T13:45:00") });
   });
 
-  it("never counts a hold as a clash", () => {
+  it("[SPM-93][AC9] never counts a hold as a clash", () => {
     const b = booking("2026-09-28T10:00:00", "2026-09-28T12:00:00");
     const hold: AvailabilityHoldInput = { id: "h", eventId: "x", eventTitle: "X", startsAt: sgt("2026-09-28T10:00:00"), endsAt: sgt("2026-09-28T12:00:00") };
     const result = build({ bookings: [b], holds: [hold] });
@@ -214,14 +214,14 @@ describe("SPM-93 AC9 - tentative holds (#41) at their actual times", () => {
 });
 
 describe("SPM-93 AC9 - unavailable periods at their actual times", () => {
-  it("SPM-93-TC16: a part-day period shows its own times, and nothing else of the day", () => {
+  it("[SPM-93][AC9] SPM-93-TC16: a part-day period shows its own times, and nothing else of the day", () => {
     const maintenance = block("2027-06-16T14:00:00", "2027-06-16T18:00:00");
     const result = build({ venue: { setupMinutes: 30, teardownMinutes: 45 }, from: "2027-06-16", to: "2027-06-16", unavailability: [maintenance] });
     expect(lines(result.days[0].entries)).toEqual(["unavailable 14:00–18:00 · Maintenance"]);
     expect(result.days[0].entries[0].unavailabilityId).toBe(maintenance.id);
   });
 
-  it("a multi-day period covers each whole day between its first and last", () => {
+  it("[SPM-93][AC9] a multi-day period covers each whole day between its first and last", () => {
     const renovation = block("2026-09-28T12:00:00", "2026-09-30T09:00:00", { reason: "renovation" });
     const result = build({ from: "2026-09-28", to: "2026-09-30", unavailability: [renovation] });
     expect(result.days.map((d) => lines(d.entries))).toEqual([
@@ -231,14 +231,14 @@ describe("SPM-93 AC9 - unavailable periods at their actual times", () => {
     ]);
   });
 
-  it("labels an underscored reason in words", () => {
+  it("[SPM-93][AC9] labels an underscored reason in words", () => {
     const result = build({ unavailability: [block("2026-09-28T09:00:00", "2026-09-28T10:00:00", { reason: "internal_activity" })] });
     expect(result.days[0].entries[0].label).toBe("Internal activity");
   });
 });
 
 describe("entry order", () => {
-  it("lists a day's entries by start time, an earlier booking's turnaround before a later one's setup at the same minute", () => {
+  it("[SPM-93][AC9] lists a day's entries by start time, an earlier booking's turnaround before a later one's setup at the same minute", () => {
     const a = booking("2026-09-28T10:00:00", "2026-09-28T11:00:00", { eventTitle: "A" });
     const b = booking("2026-09-28T11:30:00", "2026-09-28T12:00:00", { eventTitle: "B" });
     const result = build({ venue: { setupMinutes: 30, teardownMinutes: 30 }, bookings: [b, a] });
@@ -254,7 +254,7 @@ describe("entry order", () => {
 });
 
 describe("AC5 - overlapping unavailable periods are identifiable", () => {
-  it("links two unavailable periods that overlap each other", () => {
+  it("[SPM-46][AC5] links two unavailable periods that overlap each other", () => {
     const a = block("2026-09-28T08:00:00", "2026-09-28T14:00:00");
     const b = block("2026-09-28T12:00:00", "2026-09-28T18:00:00");
     const result = build({ unavailability: [a, b] });
@@ -263,7 +263,7 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
     expect(result.hasOverlaps).toBe(true);
   });
 
-  it("does not count back-to-back periods as overlapping", () => {
+  it("[SPM-46][AC5] does not count back-to-back periods as overlapping", () => {
     const a = block("2026-09-28T08:00:00", "2026-09-28T12:00:00");
     const b = block("2026-09-28T12:00:00", "2026-09-28T16:00:00");
     const result = build({ unavailability: [a, b] });
@@ -271,7 +271,7 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
     expect(result.hasOverlaps).toBe(false);
   });
 
-  it("links an unavailable period to an approved booking it clashes with", () => {
+  it("[SPM-46][AC5] [SPM-93][AC6] links an unavailable period to an approved booking it clashes with", () => {
     const b = booking("2026-09-28T14:00:00", "2026-09-28T16:00:00");
     const u = block("2026-09-28T15:00:00", "2026-09-28T17:00:00");
     const result = build({ bookings: [b], unavailability: [u] });
@@ -280,7 +280,7 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
     expect(result.hasOverlaps).toBe(true);
   });
 
-  it("counts maintenance during a booking's SETUP as a clash", () => {
+  it("[SPM-46][AC5] [SPM-93][AC6] counts maintenance during a booking's SETUP as a clash", () => {
     // The event is 13:00-16:00, but with a 3-hour setup the room is needed
     // from 10:00. Maintenance at 11:00 means it cannot be set up.
     const b = booking("2026-09-28T13:00:00", "2026-09-28T16:00:00");
@@ -289,7 +289,7 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
     expect(result.bookings[0].overlaps.unavailabilityIds).toEqual([u.id]);
   });
 
-  it("reports two approved bookings that double-book the room", () => {
+  it("[SPM-46][AC5] [SPM-93][AC6] reports two approved bookings that double-book the room", () => {
     // Nothing in the database prevents this, so it is surfaced, not assumed away.
     const a = booking("2026-09-28T09:00:00", "2026-09-28T12:00:00");
     const b = booking("2026-09-28T11:00:00", "2026-09-28T13:00:00");
@@ -299,7 +299,7 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
     expect(result.hasOverlaps).toBe(true);
   });
 
-  it("does not link two approved bookings at different times of the day", () => {
+  it("[SPM-46][AC5] [SPM-93][AC6] does not link two approved bookings at different times of the day", () => {
     const a = booking("2026-09-28T09:00:00", "2026-09-28T11:00:00");
     const b = booking("2026-09-28T14:00:00", "2026-09-28T16:00:00");
     const result = build({ bookings: [a, b] });
@@ -309,7 +309,7 @@ describe("AC5 - overlapping unavailable periods are identifiable", () => {
 });
 
 describe("a venue with no holds given", () => {
-  it("treats a missing list of holds as none", () => {
+  it("[SPM-93][AC9] treats a missing list of holds as none", () => {
     const result = buildAvailability({
       venue: VENUE,
       from: "2026-09-28",
@@ -323,14 +323,14 @@ describe("a venue with no holds given", () => {
 });
 
 describe("the requested range", () => {
-  it("keeps only the days inside the range, even for a longer booking", () => {
+  it("[SPM-46][AC1] keeps only the days inside the range, even for a longer booking", () => {
     const long = booking("2026-09-27T09:00:00", "2026-09-29T17:00:00", { eventTitle: "Long" });
     const result = build({ from: "2026-09-28", to: "2026-09-28", bookings: [long] });
     expect(result.days).toHaveLength(1);
     expect(lines(result.days[0].entries)).toEqual(["booked 00:00–24:00 · Long"]);
   });
 
-  it("still shows a booking that reaches the range only through its setup", () => {
+  it("[SPM-46][AC1] still shows a booking that reaches the range only through its setup", () => {
     // A 00:30 booking on the 29th with 60 min setup needs the room from 23:30 on the 28th.
     const early = booking("2026-09-29T00:30:00", "2026-09-29T02:00:00", { eventTitle: "Early" });
     const result = build({ venue: { setupMinutes: 60 }, from: "2026-09-28", to: "2026-09-28", bookings: [early] });

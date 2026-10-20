@@ -28,19 +28,19 @@ function row(id: string, submittedAt: string | null, submitter = "Daniel Tan") {
 }
 
 describe("GET /api/safety-checks", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
   });
 
   // AC8: users in other roles cannot perform Safety Officer actions.
-  it.each(ROLES.filter((role) => role !== "safety_officer"))("is 403 for %s, before anything is read", async (role) => {
+  it.each(ROLES.filter((role) => role !== "safety_officer"))("[SPM-85][AC8] is 403 for %s, before anything is read", async (role) => {
     const res = await get(signIn(user(role)));
 
     expect(res.status).toBe(403);
     expect(db.event.findMany).not.toHaveBeenCalled();
   });
 
-  it("lists only the events in Safety review", async () => {
+  it("[SPM-87][AC1] lists only the events in Safety review", async () => {
     db.event.findMany.mockResolvedValue([]);
 
     await get(signIn(user("safety_officer")));
@@ -51,7 +51,7 @@ describe("GET /api/safety-checks", () => {
   // CHANGED (SPM-87 AC1): "earliest event date first" - the database orders
   // by the event's start, and the list keeps that order whatever the
   // submission dates. Was oldest submission first (SPM-85).
-  it("SPM-87-TC01: lists the events earliest event date first", async () => {
+  it("[SPM-87][AC1] SPM-87-TC01: lists the events earliest event date first", async () => {
     db.event.findMany.mockResolvedValue([]);
 
     await get(signIn(user("safety_officer")));
@@ -59,7 +59,7 @@ describe("GET /api/safety-checks", () => {
     expect(callArg(db.event.findMany).orderBy).toEqual({ startsAt: "asc" });
   });
 
-  it("says who submitted each event for its check and when, keeping the event-date order", async () => {
+  it("[SPM-87][AC1] says who submitted each event for its check and when, keeping the event-date order", async () => {
     db.event.findMany.mockResolvedValue([
       row("older", "2026-10-10T02:00:00.000Z"),
       row("newer", "2026-10-11T02:00:00.000Z", "Priya Raj"),
@@ -85,7 +85,7 @@ describe("GET /api/safety-checks", () => {
     ]);
   });
 
-  it("reads only the latest submission of each event", async () => {
+  it("[SPM-87][AC1] reads only the latest submission of each event", async () => {
     db.event.findMany.mockResolvedValue([]);
 
     await get(signIn(user("safety_officer")));
@@ -97,7 +97,7 @@ describe("GET /api/safety-checks", () => {
     });
   });
 
-  it("lists an event with no recorded submission in its date order, rather than dropping it", async () => {
+  it("[SPM-87][AC1] lists an event with no recorded submission in its date order, rather than dropping it", async () => {
     db.event.findMany.mockResolvedValue([row("unrecorded", null), row("recorded", "2026-10-10T02:00:00.000Z")]);
 
     const body = await (await get(signIn(user("safety_officer")))).json();
@@ -106,7 +106,7 @@ describe("GET /api/safety-checks", () => {
     expect(body[0]).toMatchObject({ submittedAt: null, submittedBy: null });
   });
 
-  it("keeps two events with no recorded submission in the order they were read", async () => {
+  it("[SPM-87][AC1] keeps two events with no recorded submission in the order they were read", async () => {
     db.event.findMany.mockResolvedValue([row("first", null), row("second", null)]);
 
     const body = await (await get(signIn(user("safety_officer")))).json();
@@ -114,7 +114,7 @@ describe("GET /api/safety-checks", () => {
     expect(body.map((e: { id: string }) => e.id)).toEqual(["first", "second"]);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-87] answers 500 when the database fails", async () => {
     db.event.findMany.mockRejectedValue(new Error("connection lost"));
 
     expect((await get(signIn(user("safety_officer")))).status).toBe(500);

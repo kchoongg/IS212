@@ -71,7 +71,7 @@ describe("Dashboard", () => {
       event(i + 1, { updatedAt: `2027-01-01T00:0${i}:00.000Z`, ...overrides })
     );
 
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     mockApi(signedOut());
 
     render(<DashboardPage />);
@@ -79,7 +79,7 @@ describe("Dashboard", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fdashboard"));
   });
 
-  it("greets an organiser and sorts their requests into one list per stage", async () => {
+  it("[SPM-27][AC1] greets an organiser and sorts their requests into one list per stage", async () => {
     mockApi({
       ...signedInAs("organiser", { name: "Rachel Ng" }),
       "GET /api/events": [
@@ -104,7 +104,7 @@ describe("Dashboard", () => {
     expect(screen.queryByText("Internal view")).not.toBeInTheDocument();
   });
 
-  it("says what each of an organiser's lists is waiting for when it is empty", async () => {
+  it("[SPM-27] says what each of an organiser's lists is waiting for when it is empty", async () => {
     mockApi({ ...signedInAs("organiser"), "GET /api/events": [] });
 
     render(<DashboardPage />);
@@ -116,7 +116,7 @@ describe("Dashboard", () => {
     expect(section("Planning")).toHaveTextContent("Events appear here once your coordinator begins planning.");
   });
 
-  it("opens a draft in the editor and anything else on its detail page", async () => {
+  it("[SPM-24][AC4] [SPM-31][AC1] opens a draft in the editor and anything else on its detail page", async () => {
     mockApi({
       ...signedInAs("organiser"),
       "GET /api/events": [event(1, { status: "draft" }), event(2, { status: "under_review" })],
@@ -129,7 +129,7 @@ describe("Dashboard", () => {
     expect(hrefs).toEqual(["/events/EVT-000001/edit", "/events/EVT-000002"]);
   });
 
-  it("labels an event with no title as untitled", async () => {
+  it("[SPM-27] labels an event with no title as untitled", async () => {
     mockApi({ ...signedInAs("organiser"), "GET /api/events": [event(1, { status: "draft", title: null })] });
 
     render(<DashboardPage />);
@@ -138,7 +138,7 @@ describe("Dashboard", () => {
   });
 
   describe("as an overview", () => {
-    it("shows only the five most recently changed events of a long list, newest first", async () => {
+    it("[SPM-27] shows only the five most recently changed events of a long list, newest first", async () => {
       mockApi({ ...signedInAs("organiser"), "GET /api/events": many(7, { status: "draft" }) });
 
       render(<DashboardPage />);
@@ -152,7 +152,7 @@ describe("Dashboard", () => {
       );
     });
 
-    it("says nothing about a list that is shown in full", async () => {
+    it("[SPM-27] says nothing about a list that is shown in full", async () => {
       mockApi({ ...signedInAs("organiser"), "GET /api/events": many(5, { status: "draft" }) });
 
       render(<DashboardPage />);
@@ -162,7 +162,7 @@ describe("Dashboard", () => {
       expect(screen.queryByRole("link", { name: /View all/ })).not.toBeInTheDocument();
     });
 
-    it("counts each list on its own", async () => {
+    it("[SPM-27] counts each list on its own", async () => {
       mockApi({
         ...signedInAs("organiser"),
         "GET /api/events": [...many(6, { status: "planning" }), event(9, { title: "Lone draft", status: "draft" })],
@@ -175,7 +175,7 @@ describe("Dashboard", () => {
       expect(section("Drafts")).not.toHaveTextContent("Showing the");
     });
 
-    it("sends a coordinator to the Review Queue for the rest of their reviews, and to All Events otherwise", async () => {
+    it("[SPM-28][AC1] sends a coordinator to the Review Queue for the rest of their reviews, and to All Events otherwise", async () => {
       const me = viewer("coordinator");
       mockApi({
         ...signedInAs("coordinator"),
@@ -197,7 +197,7 @@ describe("Dashboard", () => {
       );
     });
 
-    it("does not cut short the single list of a role that has no overview", async () => {
+    it("[SPM-27] does not cut short the single list of a role that has no overview", async () => {
       mockApi({ ...signedInAs("ops_manager"), "GET /api/events": many(7, { status: "submitted" }) });
 
       render(<DashboardPage />);
@@ -207,7 +207,7 @@ describe("Dashboard", () => {
       expect(screen.queryByText(/Showing the/)).not.toBeInTheDocument();
     });
 
-    it("offers no 'View all' to a role with no events list to go to", async () => {
+    it("[SPM-27] offers no 'View all' to a role with no events list to go to", async () => {
       mockApi({ ...signedInAs("intern"), "GET /api/events": many(6, { status: "draft" }) });
 
       render(<DashboardPage />);
@@ -217,7 +217,7 @@ describe("Dashboard", () => {
     });
   });
 
-  it("shows a coordinator only their own events, by the stage each has reached", async () => {
+  it("[SPM-30][AC4] shows a coordinator only their own events, by the stage each has reached", async () => {
     const me = viewer("coordinator");
     mockApi({
       ...signedInAs("coordinator"),
@@ -242,7 +242,7 @@ describe("Dashboard", () => {
     expect(screen.queryByRole("link", { name: "New event request" })).not.toBeInTheDocument();
   });
 
-  it("tells a coordinator with nothing on their plate what each list is for", async () => {
+  it("[SPM-30] tells a coordinator with nothing on their plate what each list is for", async () => {
     mockApi({ ...signedInAs("coordinator"), "GET /api/events": [] });
 
     render(<DashboardPage />);
@@ -252,7 +252,7 @@ describe("Dashboard", () => {
     expect(section("Planning")).toHaveTextContent("Events appear here once you begin planning them.");
   });
 
-  it("shows the Ops Manager submitted events that have no coordinator", async () => {
+  it("[SPM-30][AC2] shows the Ops Manager submitted events that have no coordinator", async () => {
     mockApi({
       ...signedInAs("ops_manager"),
       "GET /api/events": [
@@ -269,7 +269,7 @@ describe("Dashboard", () => {
   });
 
   // SPM-85: the Safety Officer's work is the events in Safety review.
-  it("shows the Safety Officer the events awaiting their safety check, with a way to the full list", async () => {
+  it("[SPM-87][AC1] shows the Safety Officer the events awaiting their safety check, with a way to the full list", async () => {
     mockApi({
       ...signedInAs("safety_officer"),
       "GET /api/events": [
@@ -286,7 +286,7 @@ describe("Dashboard", () => {
     expect(screen.getByText("Events submitted for an Operational Safety Check.")).toBeInTheDocument();
   });
 
-  it("tells the Safety Officer when nothing is waiting for a safety check", async () => {
+  it("[SPM-87][AC1] tells the Safety Officer when nothing is waiting for a safety check", async () => {
     mockApi({ ...signedInAs("safety_officer"), "GET /api/events": [event(1, { status: "planning" })] });
 
     render(<DashboardPage />);
@@ -299,7 +299,7 @@ describe("Dashboard", () => {
     ["venue_staff", "Upcoming events"],
     ["tech_support", "Upcoming events"],
     ["attendee", "Open for registration"],
-  ])("gives %s the heading %j", async (role, heading) => {
+  ])("[SPM-22][AC1] gives %s the heading %j", async (role, heading) => {
     mockApi({ ...signedInAs(role), "GET /api/events": [event(1, { status: "confirmed" })] });
 
     render(<DashboardPage />);
@@ -308,7 +308,7 @@ describe("Dashboard", () => {
     await waitFor(() => expect(listedTitles()).toEqual(["Event 1"]));
   });
 
-  it("does not tell an attendee they are seeing an internal view", async () => {
+  it("[SPM-22][AC5] does not tell an attendee they are seeing an internal view", async () => {
     mockApi({ ...signedInAs("attendee"), "GET /api/events": [] });
 
     render(<DashboardPage />);
@@ -317,7 +317,7 @@ describe("Dashboard", () => {
     expect(screen.queryByText("Internal view")).not.toBeInTheDocument();
   });
 
-  it.each(ROLES)("links %s to the rest of their navigation, without Dashboard itself", async (role) => {
+  it.each(ROLES)("[SPM-22][AC1] links %s to the rest of their navigation, without Dashboard itself", async (role) => {
     mockApi({ ...signedInAs(role), "GET /api/events": [] });
 
     render(<DashboardPage />);
@@ -328,7 +328,7 @@ describe("Dashboard", () => {
     expect(links()).not.toContain("Dashboard");
   });
 
-  it("falls back to the organiser's view for a role it does not recognise", async () => {
+  it("[SPM-22] falls back to the organiser's view for a role it does not recognise", async () => {
     mockApi({ ...signedInAs("intern"), "GET /api/events": [event(1, { status: "draft" })] });
 
     render(<DashboardPage />);
@@ -337,7 +337,7 @@ describe("Dashboard", () => {
     expect(headings().slice(0, 4)).toEqual(["Drafts", "Under review", "Approved", "Planning"]);
   });
 
-  it("sends the user to log in when their session has expired mid-visit", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired mid-visit", async () => {
     mockApi({ ...signedInAs("organiser"), "GET /api/events": reply(401, { error: "Not authenticated" }) });
 
     render(<DashboardPage />);
@@ -345,7 +345,7 @@ describe("Dashboard", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fdashboard"));
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-27] shows a load failure with a Retry that loads again", async () => {
     const api = mockApi({ ...signedInAs("ops_manager"), "GET /api/events": reply(500, {}) });
     render(<DashboardPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load your events.");
@@ -357,7 +357,7 @@ describe("Dashboard", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("recovers every one of an organiser's lists from a load failure", async () => {
+  it("[SPM-27] recovers every one of an organiser's lists from a load failure", async () => {
     const api = mockApi({ ...signedInAs("organiser"), "GET /api/events": reply(500, {}) });
     render(<DashboardPage />);
     // One error per list on the organiser's dashboard - all six of them.
@@ -377,7 +377,7 @@ describe("Events page", () => {
   const statusFilter = () => screen.getByLabelText("Filter by status");
   const optionLabels = (select: HTMLElement) => within(select).getAllByRole("option").map((o) => o.textContent);
 
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     mockApi(signedOut());
 
     render(<EventsPage />);
@@ -398,7 +398,7 @@ describe("Events page", () => {
       render(<EventsPage />);
     }
 
-    it("keeps drafts in their own section, with a count, apart from submitted requests", async () => {
+    it("[SPM-24][AC2][AC5] keeps drafts in their own section, with a count, apart from submitted requests", async () => {
       renderPage();
 
       expect(await screen.findByRole("heading", { name: "Drafts — not yet submitted (2)" })).toBeInTheDocument();
@@ -411,7 +411,7 @@ describe("Events page", () => {
       expect(within(submitted).queryByText("Unsent idea")).not.toBeInTheDocument();
     });
 
-    it("shows each event's reference, attendance and status", async () => {
+    it("[SPM-27][AC1] shows each event's reference, attendance and status", async () => {
       renderPage([event(3, { title: "Gala Dinner", status: "under_review", expectedAttendance: 250 })]);
 
       const row = within(await screen.findByRole("table", { name: "Events" })).getAllByRole("row")[1];
@@ -422,7 +422,7 @@ describe("Events page", () => {
       expect(row).toHaveTextContent("Under review");
     });
 
-    it("opens a draft in the editor", async () => {
+    it("[SPM-24][AC4] opens a draft in the editor", async () => {
       renderPage();
       const drafts = await screen.findByRole("table", { name: "Draft event requests" });
 
@@ -431,7 +431,7 @@ describe("Events page", () => {
       expect(router.push).toHaveBeenCalledWith("/events/EVT-000001/edit");
     });
 
-    it("opens a submitted request on its detail page", async () => {
+    it("[SPM-31][AC1] opens a submitted request on its detail page", async () => {
       renderPage();
       const submitted = await screen.findByRole("table", { name: "Events" });
 
@@ -440,7 +440,7 @@ describe("Events page", () => {
       expect(router.push).toHaveBeenCalledWith("/events/EVT-000004");
     });
 
-    it("can filter by status, including Draft", async () => {
+    it("[SPM-27][AC1] can filter by status, including Draft", async () => {
       renderPage();
       await screen.findByRole("table", { name: "Events" });
 
@@ -451,14 +451,14 @@ describe("Events page", () => {
       expect(screen.queryByRole("table", { name: "Draft event requests" })).not.toBeInTheDocument();
     });
 
-    it("with nothing submitted yet, invites them to create their first request", async () => {
+    it("[SPM-27] with nothing submitted yet, invites them to create their first request", async () => {
       renderPage([event(1, { status: "draft" })]);
 
       expect(await screen.findByText("No submitted requests yet")).toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Create your first request" })).toHaveAttribute("href", "/events/new");
     });
 
-    it("has no coordinator filter", async () => {
+    it("[SPM-22][AC3] has no coordinator filter", async () => {
       renderPage();
       await screen.findByRole("table", { name: "Events" });
 
@@ -467,7 +467,7 @@ describe("Events page", () => {
   });
 
   describe("for staff", () => {
-    it("lists every event under 'All events', with no way to create one", async () => {
+    it("[SPM-22][AC6][AC3] lists every event under 'All events', with no way to create one", async () => {
       mockApi({ ...signedInAs("coordinator"), "GET /api/events": [event(1), event(2)] });
 
       render(<EventsPage />);
@@ -478,7 +478,7 @@ describe("Events page", () => {
       expect(screen.queryByRole("heading", { name: "Submitted" })).not.toBeInTheDocument();
     });
 
-    it("does not offer Draft as a filter - staff never receive drafts", async () => {
+    it("[SPM-24][AC5] does not offer Draft as a filter - staff never receive drafts", async () => {
       mockApi({ ...signedInAs("coordinator"), "GET /api/events": [] });
 
       render(<EventsPage />);
@@ -488,7 +488,7 @@ describe("Events page", () => {
       expect(screen.queryByRole("link", { name: "Create your first request" })).not.toBeInTheDocument();
     });
 
-    it("lets the Ops Manager filter to events with no coordinator, or with one", async () => {
+    it("[SPM-30][AC2] lets the Ops Manager filter to events with no coordinator, or with one", async () => {
       mockApi({
         ...signedInAs("ops_manager"),
         "GET /api/events": [
@@ -510,7 +510,7 @@ describe("Events page", () => {
       expect(assigned[0]).toContain("Assigned");
     });
 
-    it("does not give a coordinator the coordinator filter", async () => {
+    it("[SPM-22][AC3] does not give a coordinator the coordinator filter", async () => {
       mockApi({ ...signedInAs("coordinator"), "GET /api/events": [event(1)] });
 
       render(<EventsPage />);
@@ -522,7 +522,7 @@ describe("Events page", () => {
 
   describe("for an attendee", () => {
     // Their list is Browse Events; the event page /events/<ref> stays theirs.
-    it("is taken to Browse Events, without the events list being shown or loaded", async () => {
+    it("[SPM-22][AC4] is taken to Browse Events, without the events list being shown or loaded", async () => {
       const api = mockApi({ ...signedInAs("attendee"), "GET /api/events": [event(1, { status: "confirmed" })] });
 
       render(<EventsPage />);
@@ -535,7 +535,7 @@ describe("Events page", () => {
     });
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     mockApi({ ...signedInAs("organiser"), "GET /api/events": reply(401, {}) });
 
     render(<EventsPage />);
@@ -543,7 +543,7 @@ describe("Events page", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents"));
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-27] shows a load failure with a Retry that loads again", async () => {
     const api = mockApi({ ...signedInAs("coordinator"), "GET /api/events": reply(500, {}) });
     render(<EventsPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load events.");
@@ -568,7 +568,7 @@ describe("Review Queue", () => {
     ...overrides,
   });
 
-  it.each(ROLES.filter((r) => r !== "coordinator"))("refuses %s without requesting the queue", async (role) => {
+  it.each(ROLES.filter((r) => r !== "coordinator"))("[SPM-28][AC1] refuses %s without requesting the queue", async (role) => {
     const api = mockApi(signedInAs(role));
 
     render(<QueuePage />);
@@ -577,7 +577,7 @@ describe("Review Queue", () => {
     expect(api.sent("GET /api/queue")).toHaveLength(0);
   });
 
-  it("lists each request with a link to its review page", async () => {
+  it("[SPM-28][AC1] lists each request with a link to its review page", async () => {
     mockApi({ ...signedInAs("coordinator"), "GET /api/queue": [queued()] });
 
     render(<QueuePage />);
@@ -592,7 +592,7 @@ describe("Review Queue", () => {
     ["submitted just now", 0, "Today"],
     ["submitted yesterday", 1, "1 day"],
     ["submitted four days ago", 4, "4 days"],
-  ])("shows how long a request %s has waited", async (_case, daysAgo, label) => {
+  ])("[SPM-28][AC1] shows how long a request %s has waited", async (_case, daysAgo, label) => {
     const submittedAt = new Date(Date.now() - daysAgo * DAY - 60_000 * Math.sign(daysAgo)).toISOString();
     mockApi({ ...signedInAs("coordinator"), "GET /api/queue": [queued({ submittedAt })] });
 
@@ -602,7 +602,7 @@ describe("Review Queue", () => {
     expect(cells[cells.length - 1]).toHaveTextContent(label);
   });
 
-  it("copes with a request that has no title, client or submission time", async () => {
+  it("[SPM-28][AC1] copes with a request that has no title, client or submission time", async () => {
     mockApi({
       ...signedInAs("coordinator"),
       "GET /api/queue": [queued({ title: null, organisation: null, submittedAt: null })],
@@ -616,7 +616,7 @@ describe("Review Queue", () => {
     expect(cells[4]).toHaveTextContent("—");
   });
 
-  it("says so when there is nothing to review", async () => {
+  it("[SPM-28][AC1] says so when there is nothing to review", async () => {
     mockApi({ ...signedInAs("coordinator"), "GET /api/queue": [] });
 
     render(<QueuePage />);
@@ -624,7 +624,7 @@ describe("Review Queue", () => {
     expect(await screen.findByText("Nothing to review")).toBeInTheDocument();
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     mockApi({ ...signedInAs("coordinator"), "GET /api/queue": reply(401, {}) });
 
     render(<QueuePage />);
@@ -632,7 +632,7 @@ describe("Review Queue", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fqueue"));
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-43] shows a load failure with a Retry that loads again", async () => {
     const api = mockApi({ ...signedInAs("coordinator"), "GET /api/queue": reply(500, {}) });
     render(<QueuePage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the review queue.");
@@ -710,13 +710,13 @@ describe("Booking Requests", () => {
     // sent and shown from it, so the test reads the same in UTC and in SGT.
     const LOCAL = "2027-01-20T09:00";
 
-    it("SPM-82-TC03: shows when the hold expires", async () => {
+    it("[SPM-82][AC1] SPM-82-TC03: shows when the hold expires", async () => {
       open({ [LIST]: [holding()] });
 
       expect(valueOf(await card(), "Hold expires")).toHaveTextContent("15 Jan 2027, 09:00");
     });
 
-    it("says a hold made before expiries were recorded has none, and still offers to set one", async () => {
+    it("[SPM-82][AC3] says a hold made before expiries were recorded has none, and still offers to set one", async () => {
       open({ [LIST]: [request({ holdExpiresAt: null })] });
 
       expect(valueOf(await card(), "Hold expires")).toHaveTextContent("No expiry set");
@@ -726,7 +726,7 @@ describe("Booking Requests", () => {
       expect(newExpiry()).toHaveValue("");
     });
 
-    it("SPM-82-TC05: saves a new expiry, says so, and shows it on the card", async () => {
+    it("[SPM-82][AC3] SPM-82-TC05: saves a new expiry, says so, and shows it on the card", async () => {
       const api = open({ [LIST]: [holding()], [EXPIRY]: { id: "b1", holdExpiresAt: new Date(LOCAL).toISOString() } });
 
       await openExpiry();
@@ -739,7 +739,7 @@ describe("Booking Requests", () => {
       expect(screen.queryByLabelText("New expiry")).not.toBeInTheDocument();
     });
 
-    it("changes only that request's card", async () => {
+    it("[SPM-82][AC3] changes only that request's card", async () => {
       const other = request({
         id: "b2",
         holdExpiresAt: "2027-01-18T01:00:00.000Z",
@@ -755,7 +755,7 @@ describe("Booking Requests", () => {
       expect(valueOf(await card("Hall B (HALL-B)"), "Hold expires")).toHaveTextContent("18 Jan 2027, 09:00");
     });
 
-    it("shows the time chosen when the server's answer does not repeat it", async () => {
+    it("[SPM-82][AC3] shows the time chosen when the server's answer does not repeat it", async () => {
       open({ [LIST]: [holding()], [EXPIRY]: {} });
 
       await openExpiry();
@@ -768,7 +768,7 @@ describe("Booking Requests", () => {
     it.each([
       ["answers with no readable reason", reply(500)],
       ["cannot be reached", () => { throw new TypeError("Failed to fetch"); }],
-    ])("keeps the form open with a general message when the server %s", async (_, answer) => {
+    ])("[SPM-82][AC3] keeps the form open with a general message when the server %s", async (_, answer) => {
       open({ [LIST]: [holding()], [EXPIRY]: answer });
 
       await openExpiry();
@@ -780,7 +780,7 @@ describe("Booking Requests", () => {
       expect(valueOf(await card(), "Hold expires")).toHaveTextContent("15 Jan 2027, 09:00");
     });
 
-    it("starts the form on the current expiry", async () => {
+    it("[SPM-82][AC3] starts the form on the current expiry", async () => {
       open({ [LIST]: [holding()] });
 
       await openExpiry();
@@ -788,7 +788,7 @@ describe("Booking Requests", () => {
       expect(newExpiry()).toHaveValue(toLocalInput(new Date("2027-01-15T01:00:00.000Z")));
     });
 
-    it("SPM-82-TC04: keeps the form open with the server's reason when the expiry is refused", async () => {
+    it("[SPM-82][AC2][AC3] SPM-82-TC04: keeps the form open with the server's reason when the expiry is refused", async () => {
       const message = "The expiry cannot be later than the start of the event (8 Feb 2027, 09:00).";
       open({ [LIST]: [holding()], [EXPIRY]: reply(400, { error: message }) });
 
@@ -801,7 +801,7 @@ describe("Booking Requests", () => {
       expect(valueOf(await card(), "Hold expires")).toHaveTextContent("15 Jan 2027, 09:00");
     });
 
-    it("asks for a date and time before sending anything", async () => {
+    it("[SPM-82][AC3] asks for a date and time before sending anything", async () => {
       const api = open({ [LIST]: [holding()] });
 
       await openExpiry();
@@ -812,7 +812,7 @@ describe("Booking Requests", () => {
       expect(api.sent(EXPIRY)).toHaveLength(0);
     });
 
-    it("SPM-82-TC04: Cancel closes the form and changes nothing", async () => {
+    it("[SPM-82][AC3] SPM-82-TC04: Cancel closes the form and changes nothing", async () => {
       const api = open({ [LIST]: [holding()] });
 
       await openExpiry();
@@ -822,7 +822,7 @@ describe("Booking Requests", () => {
       expect(api.sent(EXPIRY)).toHaveLength(0);
     });
 
-    it("sends the user to log in when their session has expired while saving", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired while saving", async () => {
       open({ [LIST]: [holding()], [EXPIRY]: reply(401, {}) });
 
       await openExpiry();
@@ -833,7 +833,7 @@ describe("Booking Requests", () => {
     });
   });
 
-  it.each(ROLES.filter((r) => r !== "venue_staff"))("refuses %s without requesting the list", async (role) => {
+  it.each(ROLES.filter((r) => r !== "venue_staff"))("[SPM-22][AC4] refuses %s without requesting the list", async (role) => {
     const api = mockApi(signedInAs(role));
 
     render(<BookingsPage />);
@@ -843,7 +843,7 @@ describe("Booking Requests", () => {
   });
 
   describe("each request", () => {
-    it("shows its venue, event, times, schedule, requirements, requester and status", async () => {
+    it("[SPM-43][AC2] shows its venue, event, times, schedule, requirements, requester and status", async () => {
       open();
 
       const it_ = await card();
@@ -862,7 +862,7 @@ describe("Booking Requests", () => {
       expect(within(it_).queryByText("Session time")).not.toBeInTheDocument();
     });
 
-    it("SPM-93-TC13: shows the times setup and turnaround take either side, and the whole room-in-use period", async () => {
+    it("[SPM-93][AC8] SPM-93-TC13: shows the times setup and turnaround take either side, and the whole room-in-use period", async () => {
       open({
         [LIST]: [request({ venue: { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 30, teardownMinutes: 45 } })],
       });
@@ -876,13 +876,13 @@ describe("Booking Requests", () => {
       expect(requested).not.toHaveTextContent(/\b(AM|PM|Night)\b/);
     });
 
-    it("shows no setup or turnaround line for a venue that needs neither", async () => {
+    it("[SPM-93][AC8] shows no setup or turnaround line for a venue that needs neither", async () => {
       open();
 
       expect(within(await card()).queryByText(/Setup:|Turnaround:/)).not.toBeInTheDocument();
     });
 
-    it("shows a session's own name, time and attendance in place of the event's", async () => {
+    it("[SPM-43][AC2] [SPM-42][AC4] shows a session's own name, time and attendance in place of the event's", async () => {
       open({
         [LIST]: [
           request({
@@ -906,7 +906,7 @@ describe("Booking Requests", () => {
 
     // SPM-90 (AC5): Venue Staff see what the room is wanted for, and that
     // space's own attendance rather than the event's total.
-    it("SPM-90-TC06: shows what the space is for, with its own attendance", async () => {
+    it("[SPM-90][AC5] SPM-90-TC06: shows what the space is for, with its own attendance", async () => {
       open({ [LIST]: [request({ purpose: "Breakout room", expectedAttendance: 20, layoutName: "classroom" })] });
 
       const it_ = await card();
@@ -916,7 +916,7 @@ describe("Booking Requests", () => {
       expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^20$/);
     });
 
-    it("SPM-90-TC10: says the space was not recorded on a request made before it was asked for", async () => {
+    it("[SPM-90][AC7] SPM-90-TC10: says the space was not recorded on a request made before it was asked for", async () => {
       open({ [LIST]: [request({ purpose: null, expectedAttendance: null })] });
 
       const it_ = await card();
@@ -925,7 +925,7 @@ describe("Booking Requests", () => {
       expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^120$/);
     });
 
-    it("falls back to the event's attendance for a session that gives none, and names an unnamed session", async () => {
+    it("[SPM-43][AC2] falls back to the event's attendance for a session that gives none, and names an unnamed session", async () => {
       open({
         [LIST]: [
           request({
@@ -945,7 +945,7 @@ describe("Booking Requests", () => {
       expect(valueOf(it_, "Expected attendance")).toHaveTextContent(/^120$/);
     });
 
-    it("fills the gaps of a sparse request", async () => {
+    it("[SPM-43][AC2] fills the gaps of a sparse request", async () => {
       open({
         [LIST]: [
           request({
@@ -978,13 +978,13 @@ describe("Booking Requests", () => {
   it.each([
     [1, "1 pending decision."],
     [2, "2 pending decisions."],
-  ])("counts %i waiting under the title", async (count, subtitle) => {
+  ])("[SPM-43][AC1] counts %i waiting under the title", async (count, subtitle) => {
     open({ [LIST]: [request(), request({ id: "b2" })].slice(0, count) });
 
     expect(await screen.findByText(subtitle)).toBeInTheDocument();
   });
 
-  it("says so when no requests are pending", async () => {
+  it("[SPM-43][AC1] says so when no requests are pending", async () => {
     open({ [LIST]: [] });
 
     expect(await screen.findByText("No pending booking requests")).toBeInTheDocument();
@@ -994,7 +994,7 @@ describe("Booking Requests", () => {
   describe("a request that would clash", () => {
     const clash = "Hall A is already booked for EVT-000003 at this time.";
 
-    it("is flagged, says why, and cannot be approved", async () => {
+    it("[SPM-44][AC6][AC9] is flagged, says why, and cannot be approved", async () => {
       open({ [LIST]: [request({ conflict: clash })] });
 
       const it_ = await card();
@@ -1007,7 +1007,7 @@ describe("Booking Requests", () => {
       expect(within(it_).getByRole("button", { name: "Reject with a reason" })).toBeEnabled();
     });
 
-    it("links to the venue's calendar on the day requested", async () => {
+    it("[SPM-44][AC9] links to the venue's calendar on the day requested", async () => {
       open({ [LIST]: [request({ conflict: clash })] });
 
       expect(within(await card()).getByRole("link", { name: "Open the calendar" })).toHaveAttribute(
@@ -1016,7 +1016,7 @@ describe("Booking Requests", () => {
       );
     });
 
-    it("leaves a request with no clash approvable, with no warning", async () => {
+    it("[SPM-44][AC10] leaves a request with no clash approvable, with no warning", async () => {
       open();
 
       const it_ = await card();
@@ -1028,7 +1028,7 @@ describe("Booking Requests", () => {
   });
 
   describe("approving", () => {
-    it("asks first, naming the room, event and times it books", async () => {
+    it("[SPM-43][AC3] asks first, naming the room, event and times it books", async () => {
       const api = open({ [DECIDE]: {} });
 
       await approve();
@@ -1041,7 +1041,7 @@ describe("Booking Requests", () => {
       expect(api.sent(DECIDE)).toHaveLength(0);
     });
 
-    it("SPM-93-TC13: names the room-in-use period, setup and turnaround included, in the question", async () => {
+    it("[SPM-93][AC8] SPM-93-TC13: names the room-in-use period, setup and turnaround included, in the question", async () => {
       open({
         [DECIDE]: {},
         [LIST]: [request({ venue: { id: "v1", code: "HALL-A", name: "Hall A", setupMinutes: 30, teardownMinutes: 45 } })],
@@ -1054,7 +1054,7 @@ describe("Booking Requests", () => {
       );
     });
 
-    it("on confirming, approves it, says the room is booked, and reloads the list", async () => {
+    it("[SPM-43][AC3][AC7] on confirming, approves it, says the room is booked, and reloads the list", async () => {
       const api = open({ [DECIDE]: {} });
       await approve();
       api.on(LIST, []);
@@ -1073,7 +1073,7 @@ describe("Booking Requests", () => {
     // SPM-81 (AC5, AC7): one event's requests are separate cards, and a
     // decision is sent for the one request only - a PATCH for b2 has no route
     // here and would fail the test.
-    it("SPM-81-TC05: approving one of an event's two requests decides that one alone, and the other stays Pending", async () => {
+    it("[SPM-81][AC5] SPM-81-TC05: approving one of an event's two requests decides that one alone, and the other stays Pending", async () => {
       const other = request({ id: "b2", venue: { id: "v2", code: "HALL-B", name: "Hall B", setupMinutes: 0, teardownMinutes: 0 } });
       const api = open({ [DECIDE]: {}, [LIST]: [request(), other] });
       expect(await card("Hall B (HALL-B)")).toHaveTextContent("for EVT-000007 Town Hall");
@@ -1088,7 +1088,7 @@ describe("Booking Requests", () => {
       expect(within(await card("Hall B (HALL-B)")).getByText("Pending")).toBeInTheDocument();
     });
 
-    it("names an untitled event as such", async () => {
+    it("[SPM-43][AC3] names an untitled event as such", async () => {
       open({
         [LIST]: [request({ event: { ...request().event, title: null } })],
       });
@@ -1098,7 +1098,7 @@ describe("Booking Requests", () => {
       expect(dialog()).toHaveTextContent("for EVT-000007 Untitled event on");
     });
 
-    it("does nothing when the question is cancelled", async () => {
+    it("[SPM-43][AC3] does nothing when the question is cancelled", async () => {
       const api = open({ [DECIDE]: {} });
       await approve();
 
@@ -1109,7 +1109,7 @@ describe("Booking Requests", () => {
       expect(api.sent(LIST)).toHaveLength(1);
     });
 
-    it("closes a rejection that was being written for another request", async () => {
+    it("[SPM-43][AC3] closes a rejection that was being written for another request", async () => {
       open({ [LIST]: [request(), request({ id: "b2", venue: { ...request().venue, id: "v2", code: "HALL-B", name: "Hall B" } })] });
       await startRejecting("Hall B (HALL-B)");
       giveReason("Half-written");
@@ -1122,7 +1122,7 @@ describe("Booking Requests", () => {
   });
 
   describe("rejecting", () => {
-    it("opens a form on that request only, in place of its buttons", async () => {
+    it("[SPM-43][AC4] opens a form on that request only, in place of its buttons", async () => {
       open({ [LIST]: [request(), request({ id: "b2", venue: { ...request().venue, id: "v2", code: "HALL-B", name: "Hall B" } })] });
 
       await startRejecting();
@@ -1134,7 +1134,7 @@ describe("Booking Requests", () => {
       expect(screen.getAllByLabelText(/Reason for rejection/)).toHaveLength(1);
     });
 
-    it("moves the form when another request is rejected instead, starting it empty", async () => {
+    it("[SPM-43][AC4] moves the form when another request is rejected instead, starting it empty", async () => {
       open({ [LIST]: [request(), request({ id: "b2", venue: { ...request().venue, id: "v2", code: "HALL-B", name: "Hall B" } })] });
       await startRejecting();
       giveReason("Meant for Hall A");
@@ -1145,7 +1145,7 @@ describe("Booking Requests", () => {
       expect(within(await card("Hall B (HALL-B)")).getByLabelText(/Reason for rejection/)).toHaveValue("");
     });
 
-    it.each(["", "   "])("insists on a reason, refusing %j without asking the server", async (text) => {
+    it.each(["", "   "])("[SPM-43][AC5] insists on a reason, refusing %j without asking the server", async (text) => {
       const api = open({ [DECIDE]: {} });
       await startRejecting();
       giveReason(text);
@@ -1157,7 +1157,7 @@ describe("Booking Requests", () => {
       expect(api.sent(DECIDE)).toHaveLength(0);
     });
 
-    it("clears that complaint as soon as the form is edited", async () => {
+    it("[SPM-43][AC5] clears that complaint as soon as the form is edited", async () => {
       open();
       await startRejecting();
       await submitRejection();
@@ -1168,7 +1168,7 @@ describe("Booking Requests", () => {
       expect(screen.getByText("The Coordinator sees this message.")).toBeInTheDocument();
     });
 
-    it("sends the trimmed reason alone, and tells Venue Staff where the Coordinator will see it", async () => {
+    it("[SPM-43][AC4][AC5] sends the trimmed reason alone, and tells Venue Staff where the Coordinator will see it", async () => {
       const api = open({ [DECIDE]: {} });
       await startRejecting();
       giveReason("  The hall is being refitted.  ");
@@ -1186,7 +1186,7 @@ describe("Booking Requests", () => {
       expect(await screen.findByText("No pending booking requests")).toBeInTheDocument();
     });
 
-    it("sends a suggested venue and arrangement with it, and mentions the suggestion", async () => {
+    it("[SPM-43][AC6] sends a suggested venue and arrangement with it, and mentions the suggestion", async () => {
       const api = open({ [DECIDE]: {} });
       await startRejecting();
       giveReason("Refit");
@@ -1207,7 +1207,7 @@ describe("Booking Requests", () => {
     it.each([
       ["only a venue", "v2", "", { suggestedVenueId: "v2" }],
       ["only an arrangement", "", "Friday instead", { suggestedAlternative: "Friday instead" }],
-    ])("counts %s as a suggestion", async (_case, venue, arrangement, sent) => {
+    ])("[SPM-43][AC6] counts %s as a suggestion", async (_case, venue, arrangement, sent) => {
       const api = open({ [DECIDE]: {} });
       await startRejecting();
       giveReason("Refit");
@@ -1220,7 +1220,7 @@ describe("Booking Requests", () => {
       expect(api.sent(DECIDE)[0].body).toEqual({ decision: "reject", reason: "Refit", ...sent });
     });
 
-    it("does not count an arrangement of only spaces as a suggestion", async () => {
+    it("[SPM-43][AC6] does not count an arrangement of only spaces as a suggestion", async () => {
       const api = open({ [DECIDE]: {} });
       await startRejecting();
       giveReason("Refit");
@@ -1232,7 +1232,7 @@ describe("Booking Requests", () => {
       expect(api.sent(DECIDE)[0].body).toEqual({ decision: "reject", reason: "Refit" });
     });
 
-    it("offers every other venue to suggest, by name, and never the one being rejected", async () => {
+    it("[SPM-43][AC6] offers every other venue to suggest, by name, and never the one being rejected", async () => {
       open();
       await startRejecting();
 
@@ -1245,7 +1245,7 @@ describe("Booking Requests", () => {
     it.each([
       ["the venues cannot be loaded", reply(500, {})],
       ["the server cannot be reached for them", () => Promise.reject(new Error("offline"))],
-    ])("still lets a request be rejected when %s", async (_case, answer) => {
+    ])("[SPM-43][AC4] still lets a request be rejected when %s", async (_case, answer) => {
       const api = open({ [VENUES]: answer, [DECIDE]: {} });
       await startRejecting();
 
@@ -1257,7 +1257,7 @@ describe("Booking Requests", () => {
       expect(api.sent(DECIDE)).toHaveLength(1);
     });
 
-    it("Cancel closes the form and forgets what was typed", async () => {
+    it("[SPM-43][AC4] Cancel closes the form and forgets what was typed", async () => {
       const api = open({ [DECIDE]: {} });
       await startRejecting();
       giveReason("Half-written");
@@ -1275,7 +1275,7 @@ describe("Booking Requests", () => {
     it.each([
       ["reason", /Reason for rejection/, "Give a reason of 2000 characters or fewer."],
       ["suggestedVenueId", "Suggest another venue", "That venue is no longer available to suggest."],
-    ])("shows a complaint about %s under that field, keeping the form", async (field, label, message) => {
+    ])("[SPM-43] shows a complaint about %s under that field, keeping the form", async (field, label, message) => {
       const api = open({ [DECIDE]: reply(400, { error: message, field }) });
       await startRejecting();
       giveReason("Refit");
@@ -1289,7 +1289,7 @@ describe("Booking Requests", () => {
       expect(api.sent(LIST)).toHaveLength(1);
     });
 
-    it("shows any other refusal on the request and reloads the list, which may be stale", async () => {
+    it("[SPM-43] shows any other refusal on the request and reloads the list, which may be stale", async () => {
       const api = open({ [DECIDE]: reply(400, { error: "Hall A is no longer free at that time." }) });
       await approve();
 
@@ -1301,7 +1301,7 @@ describe("Booking Requests", () => {
       expect(screen.queryByText("Booking approved")).not.toBeInTheDocument();
     });
 
-    it("shows the refusal above the list when the request has since left it", async () => {
+    it("[SPM-43] shows the refusal above the list when the request has since left it", async () => {
       const api = open({ [DECIDE]: reply(409, { error: "This booking request has already been decided." }) });
       await approve();
       api.on(LIST, []);
@@ -1316,7 +1316,7 @@ describe("Booking Requests", () => {
       ["the server gives no reason", reply(500, {})],
       ["the server answers with nothing readable", reply(500)],
       ["the server cannot be reached", () => Promise.reject(new Error("offline"))],
-    ])("says the decision could not be saved when %s", async (_case, answer) => {
+    ])("[SPM-43] says the decision could not be saved when %s", async (_case, answer) => {
       open({ [DECIDE]: answer });
       await approve();
 
@@ -1328,7 +1328,7 @@ describe("Booking Requests", () => {
       expect(dialog().open).toBe(false);
     });
 
-    it("clears an earlier refusal when a rejection is started", async () => {
+    it("[SPM-43] clears an earlier refusal when a rejection is started", async () => {
       open({ [DECIDE]: reply(400, { error: "Hall A is no longer free at that time." }) });
       await approve();
       await confirmApproval();
@@ -1339,7 +1339,7 @@ describe("Booking Requests", () => {
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("sends the user to log in when their session expired before deciding", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session expired before deciding", async () => {
       open({ [DECIDE]: reply(401, {}) });
       await approve();
 
@@ -1350,13 +1350,13 @@ describe("Booking Requests", () => {
     });
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     open({ [LIST]: reply(401, {}) });
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fbookings"));
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-43] shows a load failure with a Retry that loads again", async () => {
     const api = open({ [LIST]: reply(500, {}) });
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load booking requests.");
 
@@ -1380,7 +1380,7 @@ describe("Equipment requests queue", () => {
     ...overrides,
   });
 
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     mockApi(signedOut());
 
     render(<EquipmentRequestsPage />);
@@ -1388,7 +1388,7 @@ describe("Equipment requests queue", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests"));
   });
 
-  it("lists each event with its number of equipment lines", async () => {
+  it("[SPM-50][AC1] lists each event with its number of equipment lines", async () => {
     mockApi({ ...signedInAs("tech_support"), [ROUTE]: [row()] });
 
     render(<EquipmentRequestsPage />);
@@ -1400,7 +1400,7 @@ describe("Equipment requests queue", () => {
     expect(screen.queryByText("This queue is for Technical Support Staff.")).not.toBeInTheDocument();
   });
 
-  it("opens an event's equipment request when its row is clicked", async () => {
+  it("[SPM-50][AC1] opens an event's equipment request when its row is clicked", async () => {
     mockApi({ ...signedInAs("tech_support"), [ROUTE]: [row()] });
     render(<EquipmentRequestsPage />);
 
@@ -1409,7 +1409,7 @@ describe("Equipment requests queue", () => {
     expect(router.push).toHaveBeenCalledWith("/equipment/requests/EVT-000012");
   });
 
-  it("shows a dash for an event with no title", async () => {
+  it("[SPM-50] shows a dash for an event with no title", async () => {
     mockApi({ ...signedInAs("tech_support"), [ROUTE]: [row({ title: null })] });
 
     render(<EquipmentRequestsPage />);
@@ -1417,7 +1417,7 @@ describe("Equipment requests queue", () => {
     expect(within(await table()).getAllByRole("cell")[0]).toHaveTextContent("— EVT-000012");
   });
 
-  it("tells any other role the queue is not theirs, and explains the refusal", async () => {
+  it("[SPM-22][AC4] tells any other role the queue is not theirs, and explains the refusal", async () => {
     mockApi({ ...signedInAs("coordinator"), [ROUTE]: reply(403, { error: "forbidden" }) });
 
     render(<EquipmentRequestsPage />);
@@ -1428,7 +1428,7 @@ describe("Equipment requests queue", () => {
     expect(screen.getByText("This queue is for Technical Support Staff.")).toBeInTheDocument();
   });
 
-  it("says so when no equipment has been requested", async () => {
+  it("[SPM-50] says so when no equipment has been requested", async () => {
     mockApi({ ...signedInAs("tech_support"), [ROUTE]: [] });
 
     render(<EquipmentRequestsPage />);
@@ -1436,7 +1436,7 @@ describe("Equipment requests queue", () => {
     expect(await screen.findByText("No equipment requests yet")).toBeInTheDocument();
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     mockApi({ ...signedInAs("tech_support"), [ROUTE]: reply(401, {}) });
 
     render(<EquipmentRequestsPage />);
@@ -1444,7 +1444,7 @@ describe("Equipment requests queue", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests"));
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-50] shows a load failure with a Retry that loads again", async () => {
     const api = mockApi({ ...signedInAs("tech_support"), [ROUTE]: reply(500, {}) });
     render(<EquipmentRequestsPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load equipment requests.");
@@ -1481,7 +1481,7 @@ describe("Assignments", () => {
     ...overrides,
   });
 
-  it.each(ROLES.filter((r) => r !== "ops_manager"))("refuses %s without requesting the list", async (role) => {
+  it.each(ROLES.filter((r) => r !== "ops_manager"))("[SPM-22][AC4] refuses %s without requesting the list", async (role) => {
     const api = mockApi(signedInAs(role));
 
     render(<AssignmentsPage />);
@@ -1493,7 +1493,7 @@ describe("Assignments", () => {
   });
 
   describe("awaiting assignment", () => {
-    it("lists the unassigned events with how long each has waited, and counts them on the tab", async () => {
+    it("[SPM-30][AC2] lists the unassigned events with how long each has waited, and counts them on the tab", async () => {
       setRoute("/assignments");
       mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data() });
 
@@ -1509,7 +1509,7 @@ describe("Assignments", () => {
       expect(screen.getByRole("link", { name: /Awaiting assignment/ })).toHaveAttribute("aria-current", "page");
     });
 
-    it("links each event to its detail page", async () => {
+    it("[SPM-30][AC2] links each event to its detail page", async () => {
       setRoute("/assignments");
       mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data() });
 
@@ -1521,7 +1521,7 @@ describe("Assignments", () => {
       );
     });
 
-    it("assigning a coordinator confirms it and reloads the list", async () => {
+    it("[SPM-30][AC1][AC3] assigning a coordinator confirms it and reloads the list", async () => {
       setRoute("/assignments");
       const api = mockApi({
         ...signedInAs("ops_manager"),
@@ -1540,7 +1540,7 @@ describe("Assignments", () => {
       await waitFor(() => expect(api.sent(ROUTE)).toHaveLength(2));
     });
 
-    it("says so when every submitted event has a coordinator", async () => {
+    it("[SPM-30][AC2] says so when every submitted event has a coordinator", async () => {
       setRoute("/assignments");
       mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data({ awaiting: [] }) });
 
@@ -1549,7 +1549,7 @@ describe("Assignments", () => {
       expect(await screen.findByText("No events are awaiting assignment")).toBeInTheDocument();
     });
 
-    it("copes with an event that has no title, client or submission time", async () => {
+    it("[SPM-30] copes with an event that has no title, client or submission time", async () => {
       setRoute("/assignments");
       mockApi({
         ...signedInAs("ops_manager"),
@@ -1565,7 +1565,7 @@ describe("Assignments", () => {
       expect(within(cells[4]).getByRole("combobox", { name: "Assign to — Untitled event" })).toBeInTheDocument();
     });
 
-    it("names an untitled event as such when confirming its assignment", async () => {
+    it("[SPM-30] names an untitled event as such when confirming its assignment", async () => {
       setRoute("/assignments");
       mockApi({
         ...signedInAs("ops_manager"),
@@ -1584,7 +1584,7 @@ describe("Assignments", () => {
     it.each([
       [0, "Today"],
       [1, "1 day"],
-    ])("shows a request submitted %i day(s) ago as waiting %j", async (daysAgo, label) => {
+    ])("[SPM-30][AC2] shows a request submitted %i day(s) ago as waiting %j", async (daysAgo, label) => {
       setRoute("/assignments");
       const submittedAt = new Date(Date.now() - daysAgo * DAY - 60_000 * Math.sign(daysAgo)).toISOString();
       mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data({ awaiting: [item(1, { submittedAt })] }) });
@@ -1596,7 +1596,7 @@ describe("Assignments", () => {
   });
 
   describe("assigned", () => {
-    it("lists events that have a coordinator, with their status and who it is", async () => {
+    it("[SPM-30][AC3] lists events that have a coordinator, with their status and who it is", async () => {
       setRoute("/assignments?view=assigned");
       mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data() });
 
@@ -1610,7 +1610,7 @@ describe("Assignments", () => {
       expect(screen.getByRole("link", { name: "Assigned" })).toHaveAttribute("aria-current", "page");
     });
 
-    it("reassigning confirms who it moved from and to", async () => {
+    it("[SPM-30][AC6] reassigning confirms who it moved from and to", async () => {
       setRoute("/assignments?view=assigned");
       mockApi({
         ...signedInAs("ops_manager"),
@@ -1628,7 +1628,7 @@ describe("Assignments", () => {
       expect(await screen.findByText('"Summit" has been reassigned from Daniel Tan to Priya Raj.')).toBeInTheDocument();
     });
 
-    it("names an untitled assigned event as such", async () => {
+    it("[SPM-30] names an untitled assigned event as such", async () => {
       setRoute("/assignments?view=assigned");
       mockApi({
         ...signedInAs("ops_manager"),
@@ -1640,7 +1640,7 @@ describe("Assignments", () => {
       expect(within(await table()).getByRole("combobox", { name: "Reassign to — Untitled event" })).toBeInTheDocument();
     });
 
-    it("says so when no event has a coordinator yet", async () => {
+    it("[SPM-30] says so when no event has a coordinator yet", async () => {
       setRoute("/assignments?view=assigned");
       mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data({ assigned: [] }) });
 
@@ -1650,7 +1650,7 @@ describe("Assignments", () => {
     });
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     setRoute("/assignments");
     mockApi({ ...signedInAs("ops_manager"), [ROUTE]: reply(401, {}) });
 
@@ -1659,7 +1659,7 @@ describe("Assignments", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fassignments"));
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-30] shows a load failure with a Retry that loads again", async () => {
     setRoute("/assignments");
     const api = mockApi({ ...signedInAs("ops_manager"), [ROUTE]: reply(500, {}) });
     render(<AssignmentsPage />);
@@ -1671,7 +1671,7 @@ describe("Assignments", () => {
     expect(await rowTexts()).toHaveLength(2);
   });
 
-  it("shows a general error when the request fails without a reason", async () => {
+  it("[SPM-30] shows a general error when the request fails without a reason", async () => {
     setRoute("/assignments");
     mockApi({ ...signedInAs("ops_manager"), [ROUTE]: () => Promise.reject("offline") });
 
@@ -1693,7 +1693,7 @@ describe("Safety review across the lists (SPM-86)", () => {
       .map((li) => li.querySelector("span")!.textContent);
   const headings = () => screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
 
-  it("SPM-86-TC03: lists an organiser's event in Safety review under its own heading, after Planning", async () => {
+  it("[SPM-86][AC4] SPM-86-TC03: lists an organiser's event in Safety review under its own heading, after Planning", async () => {
     mockApi({
       ...signedInAs("organiser"),
       "GET /api/events": [
@@ -1709,7 +1709,7 @@ describe("Safety review across the lists (SPM-86)", () => {
     expect(titlesIn("Planning")).toEqual(["Being planned"]);
   });
 
-  it("tells an organiser what the Safety review list is for when it is empty", async () => {
+  it("[SPM-86][AC4] tells an organiser what the Safety review list is for when it is empty", async () => {
     mockApi({ ...signedInAs("organiser"), "GET /api/events": [] });
 
     render(<DashboardPage />);
@@ -1719,7 +1719,7 @@ describe("Safety review across the lists (SPM-86)", () => {
     expect(section("Safety review")).toHaveTextContent("Events appear here once your coordinator submits them for a safety check.");
   });
 
-  it("lists a coordinator's own events in Safety review, after Planning", async () => {
+  it("[SPM-86][AC4] lists a coordinator's own events in Safety review, after Planning", async () => {
     const me = { id: "u1" };
     mockApi({
       ...signedInAs("coordinator", me),
@@ -1735,7 +1735,7 @@ describe("Safety review across the lists (SPM-86)", () => {
     expect(headings().slice(0, 4)).toEqual(["Awaiting your review", "Approved", "Planning", "Safety review"]);
   });
 
-  it("tells a coordinator what the Safety review list is for when it is empty", async () => {
+  it("[SPM-86] tells a coordinator what the Safety review list is for when it is empty", async () => {
     mockApi({ ...signedInAs("coordinator"), "GET /api/events": [] });
 
     render(<DashboardPage />);
@@ -1745,7 +1745,7 @@ describe("Safety review across the lists (SPM-86)", () => {
   });
 
   it.each(["venue_staff", "tech_support"])(
-    "SPM-86-TC04: keeps an event in Safety review among %s's upcoming events",
+    "[SPM-86][AC4] SPM-86-TC04: keeps an event in Safety review among %s's upcoming events",
     async (role) => {
       mockApi({ ...signedInAs(role), "GET /api/events": [event(1, { title: "Being checked", status: "safety_review" })] });
 
@@ -1755,7 +1755,7 @@ describe("Safety review across the lists (SPM-86)", () => {
     }
   );
 
-  it("SPM-86-TC04: offers staff a Safety review status filter", async () => {
+  it("[SPM-86][AC4] SPM-86-TC04: offers staff a Safety review status filter", async () => {
     mockApi({ ...signedInAs("ops_manager"), "GET /api/events": [] });
 
     render(<EventsPage />);
@@ -1776,7 +1776,7 @@ describe("Safety approved across the lists (SPM-87)", () => {
       .queryAllByRole("listitem")
       .map((li) => li.querySelector("span")!.textContent);
 
-  it("SPM-87-TC05: lists an organiser's Safety approved event under its own heading, after Safety review", async () => {
+  it("[SPM-87][AC7] SPM-87-TC05: lists an organiser's Safety approved event under its own heading, after Safety review", async () => {
     mockApi({
       ...signedInAs("organiser"),
       "GET /api/events": [event(1, { title: "Being checked", status: "safety_review" }), event(2, { title: "Passed", status: "safety_cleared" })],
@@ -1790,7 +1790,7 @@ describe("Safety approved across the lists (SPM-87)", () => {
     expect(section("Safety approved")).toHaveTextContent("Events the Safety Officer has approved, waiting to be confirmed.");
   });
 
-  it("SPM-87-TC04: lists a coordinator's own Safety approved events", async () => {
+  it("[SPM-87][AC7] SPM-87-TC04: lists a coordinator's own Safety approved events", async () => {
     const me = { id: "u1" };
     mockApi({
       ...signedInAs("coordinator", me),
@@ -1802,7 +1802,7 @@ describe("Safety approved across the lists (SPM-87)", () => {
     await waitFor(() => expect(titlesIn("Safety approved")).toEqual(["Mine, passed"]));
   });
 
-  it("offers staff a Safety approved status filter, after Safety review", async () => {
+  it("[SPM-87][AC7] offers staff a Safety approved status filter, after Safety review", async () => {
     mockApi({ ...signedInAs("ops_manager"), "GET /api/events": [] });
 
     render(<EventsPage />);
@@ -1825,7 +1825,7 @@ describe("a request that fails without a reason", () => {
       { "GET /api/venue-bookings": () => Promise.reject("offline"), "GET /api/venues": [] },
     ],
     ["Equipment requests queue", EquipmentRequestsPage, "tech_support", { "GET /api/equipment/requests": () => Promise.reject("offline") }],
-  ])("shows a general error on the %s", async (_page, Page, role, routes) => {
+  ])("[SPM-27] shows a general error on the %s", async (_page, Page, role, routes) => {
     mockApi({ ...signedInAs(role), ...routes });
 
     render(<Page />);
@@ -1835,7 +1835,7 @@ describe("a request that fails without a reason", () => {
 });
 
 describe("Events page lists an event with no title", () => {
-  it("as 'Untitled event'", async () => {
+  it("[SPM-27] as 'Untitled event'", async () => {
     mockApi({ ...signedInAs("coordinator"), "GET /api/events": [event(1, { title: null })] });
 
     render(<EventsPage />);

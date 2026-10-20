@@ -33,14 +33,14 @@ afterEach(() => {
 });
 
 describe("expireDueHolds", () => {
-  it("does nothing else when no hold is due", async () => {
+  it("[SPM-82][AC4] does nothing else when no hold is due", async () => {
     const result = await expireDueHolds(db as never, NOW);
 
     expect(result).toEqual({ warned: 0, expired: 0 });
     expect(db.notification.createMany).not.toHaveBeenCalled();
   });
 
-  it("AC4: marks every pending hold past its expiry as expired, and only those", async () => {
+  it("[SPM-82][AC4] AC4: marks every pending hold past its expiry as expired, and only those", async () => {
     await expireDueHolds(db as never, NOW);
 
     const { text, values } = sqlOf(1);
@@ -51,13 +51,13 @@ describe("expireDueHolds", () => {
     expect(values).toContain(NOW);
   });
 
-  it("AC11: never touches an approved booking - only pending holds are swept", async () => {
+  it("[SPM-82][AC11] AC11: never touches an approved booking - only pending holds are swept", async () => {
     await expireDueHolds(db as never, NOW);
 
     for (const n of [0, 1]) expect(sqlOf(n).text).not.toContain("'approved'");
   });
 
-  it("AC9: tells each expired hold's coordinator once, saying the venue was released", async () => {
+  it("[SPM-82][AC9] AC9: tells each expired hold's coordinator once, saying the venue was released", async () => {
     db.$queryRaw.mockResolvedValueOnce([]).mockResolvedValueOnce([row(), row({ id: "b2", recipientId: "c2", eventId: "e2" })]);
 
     const result = await expireDueHolds(db as never, NOW);
@@ -70,7 +70,7 @@ describe("expireDueHolds", () => {
     expect(data[1]).toMatchObject({ recipientId: "c2", eventId: "e2" });
   });
 
-  it("AC9: warns once, within 24 hours of expiry by default, about holds not yet warned", async () => {
+  it("[SPM-82][AC9] AC9: warns once, within 24 hours of expiry by default, about holds not yet warned", async () => {
     db.$queryRaw.mockResolvedValueOnce([row({ holdExpiresAt: sgt("2026-10-15T21:00:00") })]).mockResolvedValueOnce([]);
 
     const result = await expireDueHolds(db as never, NOW);
@@ -89,7 +89,7 @@ describe("expireDueHolds", () => {
     });
   });
 
-  it("AC9: uses the configured warning period", async () => {
+  it("[SPM-82][AC9] AC9: uses the configured warning period", async () => {
     process.env.VENUE_HOLD_WARNING_HOURS = "48";
 
     await expireDueHolds(db as never, NOW);
@@ -97,7 +97,7 @@ describe("expireDueHolds", () => {
     expect(sqlOf(0).values).toContainEqual(sgt("2026-10-17T09:00:00"));
   });
 
-  it("warns before it expires, so a hold past due in the same sweep is expired, not warned", async () => {
+  it("[SPM-82][AC4][AC9] warns before it expires, so a hold past due in the same sweep is expired, not warned", async () => {
     await expireDueHolds(db as never, NOW);
 
     // The warning only covers holds still in the future (> now); the expiry
@@ -106,7 +106,7 @@ describe("expireDueHolds", () => {
     expect(sqlOf(1).text).toContain("SET status = 'expired'");
   });
 
-  it("notifies the event's coordinator, or whoever made the request when it has none", async () => {
+  it("[SPM-82][AC9] notifies the event's coordinator, or whoever made the request when it has none", async () => {
     await expireDueHolds(db as never, NOW);
 
     for (const n of [0, 1]) expect(sqlOf(n).text).toContain('COALESCE(e.coordinator_id, b.requested_by) AS "recipientId"');

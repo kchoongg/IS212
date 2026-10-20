@@ -53,7 +53,7 @@ describe("Venues catalogue", () => {
   const options = (label: string) => within(screen.getByLabelText(label)).getAllByRole("option").map((o) => o.textContent);
 
   it.each(ROLES.filter((r) => !["coordinator", "ops_manager", "venue_staff"].includes(r)))(
-    "refuses %s without requesting the catalogue",
+    "[SPM-22][AC4] refuses %s without requesting the catalogue",
     async (role) => {
       const api = open(role);
 
@@ -62,7 +62,7 @@ describe("Venues catalogue", () => {
     }
   );
 
-  it("sends an anonymous visitor to log in, without asking for the catalogue", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in, without asking for the catalogue", async () => {
     setRoute("/venues");
     const api = mockApi(signedOut());
 
@@ -72,13 +72,13 @@ describe("Venues catalogue", () => {
     expect(api.sent("GET /api/venues")).toHaveLength(0);
   });
 
-  it("shows a general error when the request fails without a reason", async () => {
+  it("[SPM-39] shows a general error when the request fails without a reason", async () => {
     open("coordinator", () => Promise.reject("offline"));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 
-  it("shows each venue's location, capacity, layouts and hours", async () => {
+  it("[SPM-39][AC2][AC3][AC4] shows each venue's location, capacity, layouts and hours", async () => {
     open("coordinator", [hallA, roomB]);
 
     const hall = await rowFor("Hall A");
@@ -94,7 +94,7 @@ describe("Venues catalogue", () => {
     expect(room).toHaveTextContent("None set");
   });
 
-  it("links every row to that room's availability calendar", async () => {
+  it("[SPM-46][AC1] links every row to that room's availability calendar", async () => {
     open("coordinator", [hallA]);
 
     expect(within(await rowFor("Hall A")).getByRole("link", { name: "View availability" })).toHaveAttribute(
@@ -104,7 +104,7 @@ describe("Venues catalogue", () => {
   });
 
   describe("read-only, for a coordinator or the Ops Manager", () => {
-    it.each(["coordinator", "ops_manager"])("asks for active venues only, as %s", async (role) => {
+    it.each(["coordinator", "ops_manager"])("[SPM-39][AC6] asks for active venues only, as %s", async (role) => {
       const api = open(role, [hallA]);
 
       await table();
@@ -112,7 +112,7 @@ describe("Venues catalogue", () => {
       expect(api.sent("GET /api/venues")[0].url).toBe("/api/venues");
     });
 
-    it("offers no way to add or edit a venue, and no Status column", async () => {
+    it("[SPM-22][AC3] offers no way to add or edit a venue, and no Status column", async () => {
       open("coordinator", [hallA]);
       const hall = await rowFor("Hall A");
 
@@ -124,14 +124,14 @@ describe("Venues catalogue", () => {
       expect(screen.getByRole("link", { name: "Find a venue" })).toHaveAttribute("href", "/venues/search");
     });
 
-    it("does not offer a Retired filter, since retired venues are never sent", async () => {
+    it("[SPM-39][AC6] does not offer a Retired filter, since retired venues are never sent", async () => {
       open("coordinator", [hallA]);
       await table();
 
       expect(options("Show")).toEqual(["All venues", "Active only"]);
     });
 
-    it("says Venue Staff have not added any rooms when the catalogue is empty", async () => {
+    it("[SPM-39] says Venue Staff have not added any rooms when the catalogue is empty", async () => {
       open("coordinator", []);
 
       expect(await screen.findByText("No venues yet")).toBeInTheDocument();
@@ -141,7 +141,7 @@ describe("Venues catalogue", () => {
   });
 
   describe("for Venue Staff", () => {
-    it("asks for retired venues too, and shows which are retired", async () => {
+    it("[SPM-39][AC6] asks for retired venues too, and shows which are retired", async () => {
       const api = open("venue_staff");
 
       const old = await rowFor("Old Hall");
@@ -152,7 +152,7 @@ describe("Venues catalogue", () => {
       expect(screen.getByRole("link", { name: "Add venue" })).toHaveAttribute("href", "/venues/new");
     });
 
-    it("opens a venue's editor when its row is clicked", async () => {
+    it("[SPM-39][AC5] opens a venue's editor when its row is clicked", async () => {
       open("venue_staff");
 
       await userEvent.click(within(await rowFor("Hall A")).getByText("Hall A"));
@@ -160,7 +160,7 @@ describe("Venues catalogue", () => {
       expect(router.push).toHaveBeenCalledWith("/venues/v1/edit");
     });
 
-    it("following the availability link does not also open the editor", async () => {
+    it("[SPM-39] following the availability link does not also open the editor", async () => {
       open("venue_staff");
 
       await userEvent.click(within(await rowFor("Hall A")).getByRole("link", { name: "View availability" }));
@@ -168,7 +168,7 @@ describe("Venues catalogue", () => {
       expect(router.push).not.toHaveBeenCalled();
     });
 
-    it("pressing Enter on the availability link in a mobile card does not also open the editor", async () => {
+    it("[SPM-39] pressing Enter on the availability link in a mobile card does not also open the editor", async () => {
       open("venue_staff", [hallA]);
       await table();
       const cardLink = within(screen.getByRole("button")).getByRole("link", { name: "View availability" });
@@ -179,7 +179,7 @@ describe("Venues catalogue", () => {
       expect(router.push).not.toHaveBeenCalled();
     });
 
-    it("can filter to active or retired venues", async () => {
+    it("[SPM-39][AC6] can filter to active or retired venues", async () => {
       open("venue_staff");
       await table();
       expect(options("Show")).toEqual(["Active and retired", "Active only", "Retired only"]);
@@ -191,7 +191,7 @@ describe("Venues catalogue", () => {
       expect(await names()).toEqual(["Hall A", "Room B"]);
     });
 
-    it("invites them to add the first venue when the catalogue is empty", async () => {
+    it("[SPM-39][AC1] invites them to add the first venue when the catalogue is empty", async () => {
       open("venue_staff", []);
 
       expect(await screen.findByText("Add the rooms ConnectSphere can offer so coordinators can book them.")).toBeInTheDocument();
@@ -199,7 +199,7 @@ describe("Venues catalogue", () => {
     });
   });
 
-  it("filters by building, offering each building once in alphabetical order", async () => {
+  it("[SPM-39] filters by building, offering each building once in alphabetical order", async () => {
     open("venue_staff");
     await table();
     expect(options("Filter by building")).toEqual(["All buildings", "Annex", "Tower 1"]);
@@ -209,7 +209,7 @@ describe("Venues catalogue", () => {
     expect(await names()).toEqual(["Room B"]);
   });
 
-  it("says when no venue matches the filters, rather than that there are none", async () => {
+  it("[SPM-39] says when no venue matches the filters, rather than that there are none", async () => {
     open("venue_staff", [hallA]);
     await table();
 
@@ -218,19 +218,19 @@ describe("Venues catalogue", () => {
     expect(screen.getByText("No venues match these filters")).toBeInTheDocument();
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     open("coordinator", reply(401, {}));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues"));
   });
 
-  it("explains a refusal from the server", async () => {
+  it("[SPM-39] explains a refusal from the server", async () => {
     open("coordinator", reply(403, {}));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("The venue catalogue is for ConnectSphere staff.");
   });
 
-  it("shows a load failure with a Retry that loads again", async () => {
+  it("[SPM-39] shows a load failure with a Retry that loads again", async () => {
     const api = open("coordinator", reply(500, {}));
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load the venue catalogue.");
 
@@ -263,7 +263,7 @@ describe("Add venue", () => {
   const submit = () => userEvent.click(button("Add venue"));
   const body = (api: MockApi) => api.sent(ROUTE)[0].body as Record<string, unknown>;
 
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute("/venues/new");
     mockApi(signedOut());
 
@@ -272,7 +272,7 @@ describe("Add venue", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues%2Fnew"));
   });
 
-  it.each(ROLES.filter((r) => r !== "venue_staff"))("refuses %s, and offers the way back to the catalogue", async (role) => {
+  it.each(ROLES.filter((r) => r !== "venue_staff"))("[SPM-22][AC4] refuses %s, and offers the way back to the catalogue", async (role) => {
     setRoute("/venues/new");
     mockApi({ ...signedInAs(role), "GET /api/facilities": facilities });
 
@@ -288,7 +288,7 @@ describe("Add venue", () => {
     expect(router.push).toHaveBeenCalledWith("/venues");
   });
 
-  it("shows Venues / Add venue in the breadcrumb (SPM-98)", async () => {
+  it("[SPM-39][BUG-98] shows Venues / Add venue in the breadcrumb (SPM-98)", async () => {
     await open();
 
     expect(breadcrumb()).toEqual([
@@ -297,7 +297,7 @@ describe("Add venue", () => {
     ]);
   });
 
-  it("starts from the normal working day rather than blank times", async () => {
+  it("[SPM-39][AC4] starts from the normal working day rather than blank times", async () => {
     await open();
 
     expect(field(/^Opens at/)).toHaveValue("08:00");
@@ -305,7 +305,7 @@ describe("Add venue", () => {
     expect(field("Setup time (minutes)")).toHaveValue(0);
   });
 
-  it("adds a venue from the required fields alone, then returns to the catalogue", async () => {
+  it("[SPM-39][AC1] adds a venue from the required fields alone, then returns to the catalogue", async () => {
     const api = await open();
     fillRequiredVenue();
 
@@ -326,7 +326,7 @@ describe("Add venue", () => {
     });
   });
 
-  it("sends everything that was filled in, trimmed", async () => {
+  it("[SPM-39][AC1] sends everything that was filled in, trimmed", async () => {
     const api = await open();
     set(field(/^Code/), "  HALL-A ");
     set(field(/^Name/), " Hall A ");
@@ -366,7 +366,7 @@ describe("Add venue", () => {
     });
   });
 
-  it("leaves setup and teardown out when they are blanked", async () => {
+  it("[SPM-93][AC5] leaves setup and teardown out when they are blanked", async () => {
     const api = await open();
     fillRequiredVenue();
     set(field("Setup time (minutes)"), "");
@@ -380,7 +380,7 @@ describe("Add venue", () => {
   });
 
   describe("what it refuses before sending", () => {
-    it("an empty form: names each required field and focuses the first", async () => {
+    it("[SPM-39][AC1] an empty form: names each required field and focuses the first", async () => {
       const api = await open();
 
       await submit();
@@ -405,7 +405,7 @@ describe("Add venue", () => {
       // SPM-93-TC07 (AC5): setup and turnaround go in 15-minute steps.
       ["setup minutes off the 15-minute grid", () => set(field("Setup time (minutes)"), "20"), "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on."],
       ["turnaround minutes off the 15-minute grid", () => set(field("Turnaround time (minutes)"), "50"), "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on."],
-    ])("%s", async (_case, breakIt, message) => {
+    ])("[SPM-39][AC1] %s", async (_case, breakIt, message) => {
       const api = await open();
       fillRequiredVenue();
 
@@ -416,7 +416,7 @@ describe("Add venue", () => {
       expect(api.sent(ROUTE)).toHaveLength(0);
     });
 
-    it("clears a field's error as soon as the field is changed", async () => {
+    it("[SPM-39][AC1] clears a field's error as soon as the field is changed", async () => {
       await open();
       await submit();
 
@@ -432,7 +432,7 @@ describe("Add venue", () => {
     const addLayout = () => userEvent.click(button("Add a layout"));
     const layoutPickers = () => within(capacity()).getAllByLabelText("Layout");
 
-    it("does not offer a layout that another row already uses", async () => {
+    it("[SPM-39][AC3] does not offer a layout that another row already uses", async () => {
       await open();
       await addLayout();
       set(field("Layout"), "theatre");
@@ -444,7 +444,7 @@ describe("Add venue", () => {
       expect(second).toContain("U-shape");
     });
 
-    it("names the Remove button after the row's layout, and removes that row", async () => {
+    it("[SPM-39][AC3] names the Remove button after the row's layout, and removes that row", async () => {
       const api = await open();
       fillRequiredVenue();
       await addLayout();
@@ -461,7 +461,7 @@ describe("Add venue", () => {
       expect(button("Remove theatre layout")).toBeInTheDocument();
     });
 
-    it("sends every row, each with what was entered on it", async () => {
+    it("[SPM-39][AC3] sends every row, each with what was entered on it", async () => {
       const api = await open();
       fillRequiredVenue();
       await addLayout();
@@ -480,7 +480,7 @@ describe("Add venue", () => {
       ]);
     });
 
-    it("refuses a row with no layout chosen", async () => {
+    it("[SPM-39][AC3] refuses a row with no layout chosen", async () => {
       const api = await open();
       fillRequiredVenue();
       await addLayout();
@@ -491,7 +491,7 @@ describe("Add venue", () => {
       expect(api.sent(ROUTE)).toHaveLength(0);
     });
 
-    it.each(["", "0", "2.5"])("refuses a layout with %j seats", async (seats) => {
+    it.each(["", "0", "2.5"])("[SPM-39][AC3] refuses a layout with %j seats", async (seats) => {
       await open();
       fillRequiredVenue();
       await addLayout();
@@ -503,7 +503,7 @@ describe("Add venue", () => {
       expect(within(capacity()).getByRole("alert")).toHaveTextContent("Every layout needs a capacity of at least 1.");
     });
 
-    it("clears the layout error when a row is changed, added or removed", async () => {
+    it("[SPM-39][AC3] clears the layout error when a row is changed, added or removed", async () => {
       await open();
       fillRequiredVenue();
       await addLayout();
@@ -523,7 +523,7 @@ describe("Add venue", () => {
       expect(within(capacity()).queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("stops offering Add a layout once every layout is listed", async () => {
+    it("[SPM-39][AC3] stops offering Add a layout once every layout is listed", async () => {
       await open();
 
       for (let i = 0; i < 7; i++) await addLayout();
@@ -534,7 +534,7 @@ describe("Add venue", () => {
   });
 
   describe("facilities", () => {
-    it("splits what the room has from its accessibility features", async () => {
+    it("[SPM-39][AC2] splits what the room has from its accessibility features", async () => {
       await open();
 
       expect(within(group("This venue has")).getByRole("checkbox", { name: "Stage" })).toBeInTheDocument();
@@ -545,7 +545,7 @@ describe("Add venue", () => {
       ["are still loading", () => new Promise(() => {})],
       ["fail to load", reply(500, {})],
       ["cannot be reached", () => Promise.reject(new Error("offline"))],
-    ])("shows placeholders, and still lets the venue be added, when they %s", async (_case, answer) => {
+    ])("[SPM-39][AC1] shows placeholders, and still lets the venue be added, when they %s", async (_case, answer) => {
       setRoute("/venues/new");
       const api = mockApi({ ...signedInAs("venue_staff"), "GET /api/facilities": answer, [ROUTE]: reply(201, {}) });
       render(<NewVenuePage />);
@@ -560,7 +560,7 @@ describe("Add venue", () => {
   });
 
   describe("when the server refuses", () => {
-    it("shows a duplicate code as a form error", async () => {
+    it("[SPM-39][AC1] shows a duplicate code as a form error", async () => {
       await open(reply(400, { error: "A venue with this code already exists" }));
       fillRequiredVenue();
 
@@ -570,7 +570,7 @@ describe("Add venue", () => {
       expect(router.push).not.toHaveBeenCalled();
     });
 
-    it("puts field errors under their fields", async () => {
+    it("[SPM-39][AC1] puts field errors under their fields", async () => {
       await open(reply(400, { error: "Validation failed", details: { fieldErrors: { opensAt: ["Invalid"] } } }));
       fillRequiredVenue();
 
@@ -580,7 +580,7 @@ describe("Add venue", () => {
       expect(field(/^Opens at/)).toHaveFocus();
     });
 
-    it("falls back to a general message", async () => {
+    it("[SPM-39][AC1] falls back to a general message", async () => {
       await open(reply(500, {}));
       fillRequiredVenue();
 
@@ -589,7 +589,7 @@ describe("Add venue", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not add this venue");
     });
 
-    it("explains a network failure", async () => {
+    it("[SPM-39][AC1] explains a network failure", async () => {
       await open(() => Promise.reject(new Error("offline")));
       fillRequiredVenue();
 
@@ -600,7 +600,7 @@ describe("Add venue", () => {
     });
   });
 
-  it("shows 'Adding…' and cannot be pressed twice while in flight", async () => {
+  it("[SPM-39][AC1] shows 'Adding…' and cannot be pressed twice while in flight", async () => {
     let finish: (value: unknown) => void = () => {};
     const api = await open(() => new Promise((resolve) => (finish = resolve)));
     fillRequiredVenue();
@@ -613,7 +613,7 @@ describe("Add venue", () => {
     expect(api.sent(ROUTE)).toHaveLength(1);
   });
 
-  it("Cancel returns to the catalogue without saving", async () => {
+  it("[SPM-39][AC1] Cancel returns to the catalogue without saving", async () => {
     const api = await open();
     fillRequiredVenue();
 
@@ -683,7 +683,7 @@ describe("Edit venue", () => {
   const save = () => userEvent.click(button("Save changes"));
 
   describe("opening it", () => {
-    it("sends an anonymous visitor to log in", async () => {
+    it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
       setRoute("/venues/v1/edit", { id: "v1" });
       mockApi(signedOut());
 
@@ -692,14 +692,14 @@ describe("Edit venue", () => {
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues%2Fv1%2Fedit"));
     });
 
-    it("titles the page 'Edit venue' for a venue saved with no name", async () => {
+    it("[SPM-39] titles the page 'Edit venue' for a venue saved with no name", async () => {
       open(venue({ name: "" }));
       await ready();
 
       expect(screen.getByRole("heading", { level: 1, name: "Edit venue" })).toBeInTheDocument();
     });
 
-    it("shows a placeholder while the venue loads", async () => {
+    it("[SPM-39] shows a placeholder while the venue loads", async () => {
       open(() => new Promise(() => {}));
 
       expect(await screen.findByRole("status", { name: "Loading" })).toBeInTheDocument();
@@ -710,7 +710,7 @@ describe("Edit venue", () => {
       ["is refused", reply(403, {}), "The venue catalogue is for ConnectSphere staff."],
       ["cannot be loaded", reply(500, {}), "Could not load this venue."],
       ["cannot be reached", () => Promise.reject(new Error("offline")), "Could not reach the server."],
-    ])("says so when the venue %s, and offers the way back", async (_case, answer, message) => {
+    ])("[SPM-39] says so when the venue %s, and offers the way back", async (_case, answer, message) => {
       open(answer);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(message);
@@ -718,20 +718,20 @@ describe("Edit venue", () => {
       expect(router.push).toHaveBeenCalledWith("/venues");
     });
 
-    it("sends the user to log in when their session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
       open(reply(401, {}));
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fvenues%2Fv1%2Fedit"));
     });
 
-    it.each(["coordinator", "ops_manager"])("refuses %s, who may view venues but not change them", async (role) => {
+    it.each(["coordinator", "ops_manager"])("[SPM-39][AC5] refuses %s, who may view venues but not change them", async (role) => {
       open(venue(), saved(), role);
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Only Venue Staff can change a venue");
       expect(screen.queryByLabelText(/^Code/)).not.toBeInTheDocument();
     });
 
-    it("offers the way back to the catalogue from the refusal", async () => {
+    it("[SPM-39][AC5] offers the way back to the catalogue from the refusal", async () => {
       open(venue(), saved(), "coordinator");
 
       await userEvent.click(await screen.findByRole("button", { name: "Back to Venues" }));
@@ -739,7 +739,7 @@ describe("Edit venue", () => {
       expect(router.push).toHaveBeenCalledWith("/venues");
     });
 
-    it("still opens the venue when the facility list fails to load", async () => {
+    it("[SPM-39][AC5] still opens the venue when the facility list fails to load", async () => {
       setRoute("/venues/v1/edit", { id: "v1" });
       mockApi({ ...signedInAs("venue_staff"), "GET /api/facilities": reply(500, {}), [VENUE]: venue() });
 
@@ -749,7 +749,7 @@ describe("Edit venue", () => {
       expect(screen.queryByRole("checkbox", { name: "Stage" })).not.toBeInTheDocument();
     });
 
-    it("fills the form from the saved venue", async () => {
+    it("[SPM-39][AC5] fills the form from the saved venue", async () => {
       open();
       await ready();
 
@@ -776,7 +776,7 @@ describe("Edit venue", () => {
       ["Edit venue", null],
     ];
 
-    it("names the venue and ends on the page", async () => {
+    it("[SPM-39][BUG-98] names the venue and ends on the page", async () => {
       open();
       await ready();
 
@@ -786,14 +786,14 @@ describe("Edit venue", () => {
     it.each([
       ["loading", () => new Promise(() => {})],
       ["in error", reply(500, {})],
-    ])("reads 'Venue' for the venue while %s", async (_case, venueRow) => {
+    ])("[SPM-39][BUG-98] reads 'Venue' for the venue while %s", async (_case, venueRow) => {
       open(venueRow);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
       expect(breadcrumb()).toEqual(trail("Venue"));
     });
 
-    it("is the same trail when a coordinator is refused", async () => {
+    it("[SPM-39][BUG-98] is the same trail when a coordinator is refused", async () => {
       open(venue(), saved(), "coordinator");
       await screen.findByRole("alert");
 
@@ -802,7 +802,7 @@ describe("Edit venue", () => {
   });
 
   describe("saving changes", () => {
-    it("sends the whole venue and stays on the page to say what happened", async () => {
+    it("[SPM-39][AC5] sends the whole venue and stays on the page to say what happened", async () => {
       const api = open(venue(), saved({ maxCapacity: 250 }));
       await ready();
       set(field(/^Maximum capacity/), "250");
@@ -831,7 +831,7 @@ describe("Edit venue", () => {
       expect(window.scrollTo).toHaveBeenLastCalledWith({ top: 0, behavior: "smooth" });
     });
 
-    it("lists each booking the change flagged, and why", async () => {
+    it("[SPM-39][AC7] lists each booking the change flagged, and why", async () => {
       open(
         venue(),
         saved({}, [
@@ -854,7 +854,7 @@ describe("Edit venue", () => {
       expect(items[1]).toBe("Untitled event: a facility this event requires is no longer available at this venue");
     });
 
-    it("counts a single flagged booking in the singular", async () => {
+    it("[SPM-39][AC7] counts a single flagged booking in the singular", async () => {
       open(venue(), saved({}, [{ bookingId: "b1", eventId: "e1", eventTitle: "Gala", sessionLabel: null, reasons: ["venue_retired"] }]));
       await ready();
 
@@ -863,7 +863,7 @@ describe("Edit venue", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent("Changes saved — 1 booking flagged for review");
     });
 
-    it("re-fills the form from what the server saved", async () => {
+    it("[SPM-39][AC5] re-fills the form from what the server saved", async () => {
       open(venue(), saved({ name: "Grand Hall", code: "GRAND" }));
       await ready();
       set(field(/^Name/), "grand hall");
@@ -875,7 +875,7 @@ describe("Edit venue", () => {
       expect(field(/^Code/)).toHaveValue("GRAND");
     });
 
-    it("sends an emptied layout list, so removed layouts are actually removed", async () => {
+    it("[SPM-39][AC5] sends an emptied layout list, so removed layouts are actually removed", async () => {
       const api = open();
       await ready();
 
@@ -886,7 +886,7 @@ describe("Edit venue", () => {
       expect((api.sent(PATCH)[0].body as Record<string, unknown>).layouts).toEqual([]);
     });
 
-    it("checks the form before sending anything", async () => {
+    it("[SPM-39][AC5] checks the form before sending anything", async () => {
       const api = open();
       await ready();
       set(field(/^Name/), "");
@@ -897,7 +897,7 @@ describe("Edit venue", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("clears a field's error as soon as the field is changed", async () => {
+    it("[SPM-39][AC5] clears a field's error as soon as the field is changed", async () => {
       open();
       await ready();
       set(field(/^Name/), "");
@@ -908,7 +908,7 @@ describe("Edit venue", () => {
       expect(screen.queryByText("Enter the venue's name.")).not.toBeInTheDocument();
     });
 
-    it("clears the previous result when another save starts", async () => {
+    it("[SPM-39][AC5] clears the previous result when another save starts", async () => {
       const api = open();
       await ready();
       await save();
@@ -925,7 +925,7 @@ describe("Edit venue", () => {
       ["field errors under their fields", reply(400, { error: "Validation failed", details: { fieldErrors: { code: ["Too long"] } } }), "Too long"],
       ["a general message when there is none", reply(500, {}), "Could not save this venue"],
       ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server."],
-    ])("shows %s when the save is refused", async (_case, answer, message) => {
+    ])("[SPM-39][AC5] shows %s when the save is refused", async (_case, answer, message) => {
       open(venue(), answer);
       await ready();
 
@@ -946,7 +946,7 @@ describe("Edit venue", () => {
       return api;
     }
 
-    it("asks first, naming the venue and exactly what will and will not happen", async () => {
+    it("[SPM-39][AC7] asks first, naming the venue and exactly what will and will not happen", async () => {
       const api = await openDialog();
 
       expect(dialog().open).toBe(true);
@@ -956,7 +956,7 @@ describe("Edit venue", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("retires with the reason given, and reports who was flagged", async () => {
+    it("[SPM-39][AC7] retires with the reason given, and reports who was flagged", async () => {
       const api = await openDialog();
       set(within(dialog()).getByLabelText("Reason"), "  Closed for renovation until March ");
 
@@ -970,7 +970,7 @@ describe("Edit venue", () => {
       expect(screen.queryByRole("button", { name: "Retire venue" })).not.toBeInTheDocument();
     });
 
-    it("sends no reason when none is given", async () => {
+    it("[SPM-39][AC7] sends no reason when none is given", async () => {
       const api = await openDialog();
 
       await userEvent.click(within(dialog()).getByRole("button", { name: "Retire venue", hidden: true }));
@@ -979,7 +979,7 @@ describe("Edit venue", () => {
       expect(api.sent(PATCH)[0].body).toEqual({ isActive: false });
     });
 
-    it("does nothing when the confirmation is cancelled", async () => {
+    it("[SPM-39][AC7] does nothing when the confirmation is cancelled", async () => {
       const api = await openDialog();
 
       await userEvent.click(within(dialog()).getByRole("button", { name: "Cancel", hidden: true }));
@@ -988,7 +988,7 @@ describe("Edit venue", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("shows the error and keeps the venue active when retiring is refused", async () => {
+    it("[SPM-39][AC7] shows the error and keeps the venue active when retiring is refused", async () => {
       await openDialog(reply(403, { error: "Only Venue Staff can change a venue" }));
 
       await userEvent.click(within(dialog()).getByRole("button", { name: "Retire venue", hidden: true }));
@@ -999,7 +999,7 @@ describe("Edit venue", () => {
   });
 
   describe("a retired venue", () => {
-    it("says it is retired and offers Restore instead of Retire", async () => {
+    it("[SPM-39][AC6] says it is retired and offers Restore instead of Retire", async () => {
       open(venue({ isActive: false }));
       await ready();
 
@@ -1008,7 +1008,7 @@ describe("Edit venue", () => {
       expect(screen.queryByRole("button", { name: "Retire venue" })).not.toBeInTheDocument();
     });
 
-    it("restores without a confirmation, since nothing is lost", async () => {
+    it("[SPM-39][AC6] restores without a confirmation, since nothing is lost", async () => {
       const api = open(venue({ isActive: false }), saved({ isActive: true }));
       await ready();
 
@@ -1088,7 +1088,7 @@ describe("Edit venue", () => {
     }
 
     describe("the list", () => {
-      it("shows each period with its reason, dates and times, and what an Other reason is", async () => {
+      it("[SPM-45][AC6] shows each period with its reason, dates and times, and what an Other reason is", async () => {
         await openWith({ [PERIODS]: [period(), period({ id: "p2", fromDay: "2027-07-01", fromTime: "09:00", untilDay: "2027-07-01", untilTime: "17:30", reason: "other", otherReason: "Film crew on site" })] });
 
         expect(screen.getByRole("heading", { name: "Unavailable periods" })).toBeInTheDocument();
@@ -1101,7 +1101,7 @@ describe("Edit venue", () => {
         expect(screen.getAllByRole("button", { name: "End period" })).toHaveLength(2);
       });
 
-      it("says so when the venue has none, and still offers to mark it unavailable", async () => {
+      it("[SPM-45] says so when the venue has none, and still offers to mark it unavailable", async () => {
         await openWith();
 
         expect(await screen.findByText("No unavailable periods under way or coming up.")).toBeInTheDocument();
@@ -1109,13 +1109,13 @@ describe("Edit venue", () => {
         expect(screen.queryByRole("button", { name: "End period" })).not.toBeInTheDocument();
       });
 
-      it("says so when the list cannot be loaded", async () => {
+      it("[SPM-45] says so when the list cannot be loaded", async () => {
         await openWith({ [PERIODS]: reply(500, {}) });
 
         expect(await screen.findByText("Could not load this venue's unavailable periods.")).toBeInTheDocument();
       });
 
-      it("does not mark the venue as retired", async () => {
+      it("[SPM-45] does not mark the venue as retired", async () => {
         await openWith({ [PERIODS]: [period()] });
 
         await screen.findByText("Equipment failure");
@@ -1123,7 +1123,7 @@ describe("Edit venue", () => {
         expect(button("Retire venue")).toBeInTheDocument();
       });
 
-      it.each(["coordinator", "ops_manager"])("is never requested for %s, who cannot open the editor", async (role) => {
+      it.each(["coordinator", "ops_manager"])("[SPM-22][AC4] is never requested for %s, who cannot open the editor", async (role) => {
         const api = open(venue(), saved(), role);
 
         expect(await screen.findByText("Only Venue Staff can change a venue")).toBeInTheDocument();
@@ -1132,7 +1132,7 @@ describe("Edit venue", () => {
     });
 
     describe("marking the venue unavailable", () => {
-      it("asks for both dates, both times and a reason, and offers no slots", async () => {
+      it("[SPM-45][AC1][AC6] asks for both dates, both times and a reason, and offers no slots", async () => {
         const api = await openMarkDialog();
         const d = markDialog();
 
@@ -1159,7 +1159,7 @@ describe("Edit venue", () => {
         expect(api.sent(CREATE)).toHaveLength(0);
       });
 
-      it("refuses an empty form, naming each missing answer", async () => {
+      it("[SPM-45][AC1] refuses an empty form, naming each missing answer", async () => {
         const api = await openMarkDialog();
 
         await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
@@ -1172,7 +1172,7 @@ describe("Edit venue", () => {
         expect(api.sent(CREATE)).toHaveLength(0);
       });
 
-      it("clears a field's error once it is answered, leaving the others", async () => {
+      it("[SPM-45][AC1] clears a field's error once it is answered, leaving the others", async () => {
         await openMarkDialog();
         await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
 
@@ -1186,7 +1186,7 @@ describe("Edit venue", () => {
       it.each([
         ["the start time", { fromTime: "13:10" }],
         ["the return time", { untilTime: "13:40" }],
-      ])("refuses a time off the 15-minute grid, naming it: %s", async (_case, offGrid) => {
+      ])("[SPM-45][AC1] refuses a time off the 15-minute grid, naming it: %s", async (_case, offGrid) => {
         const api = await openMarkDialog();
         fill(markDialog(), { ...complete, ...offGrid });
 
@@ -1201,7 +1201,7 @@ describe("Edit venue", () => {
         ["earlier the same day", "2027-06-10", "09:00"],
         ["at the same time", "2027-06-10", "13:00"],
         ["on an earlier day, later in the day", "2027-06-09", "23:45"],
-      ])("refuses a return %s", async (_case, until, untilTime) => {
+      ])("[SPM-45][AC2] refuses a return %s", async (_case, until, untilTime) => {
         const api = await openMarkDialog();
         fill(markDialog(), { ...complete, until, untilTime });
 
@@ -1211,7 +1211,7 @@ describe("Edit venue", () => {
         expect(api.sent(CREATE)).toHaveLength(0);
       });
 
-      it("refuses a period that is already over", async () => {
+      it("[SPM-45][AC1] refuses a period that is already over", async () => {
         const api = await openMarkDialog();
         fill(markDialog(), { ...complete, from: "2020-09-01", until: "2020-09-05" });
 
@@ -1221,7 +1221,7 @@ describe("Edit venue", () => {
         expect(api.sent(CREATE)).toHaveLength(0);
       });
 
-      it("shows the server's refusal of a period that is already over under the return time", async () => {
+      it("[SPM-45][AC1] shows the server's refusal of a period that is already over under the return time", async () => {
         const api = await openMarkDialog({
           [CREATE]: reply(400, {
             error: "Validation failed",
@@ -1237,7 +1237,7 @@ describe("Edit venue", () => {
         expect(markDialog().open).toBe(true);
       });
 
-      it("accepts a return 15 minutes after the start", async () => {
+      it("[SPM-45][AC2] accepts a return 15 minutes after the start", async () => {
         const api = await openMarkDialog();
         fill(markDialog(), { ...complete, until: "2027-06-10", untilTime: "13:15" });
 
@@ -1247,7 +1247,7 @@ describe("Edit venue", () => {
         expect(api.sent(CREATE)[0].body).toMatchObject({ untilDay: "2027-06-10", untilTime: "13:15" });
       });
 
-      it("sends the period, then lists it and says who was flagged", async () => {
+      it("[SPM-45][AC1][AC3] sends the period, then lists it and says who was flagged", async () => {
         const api = await openMarkDialog({
           [CREATE]: reply(201, outcome([flagged("Afternoon Workshop"), flagged("Closing Seminar")])),
         });
@@ -1274,7 +1274,7 @@ describe("Edit venue", () => {
         expect(api.sent(PERIODS)).toHaveLength(2);
       });
 
-      it("treats an answer that lists no flagged bookings as none", async () => {
+      it("[SPM-45][AC3] treats an answer that lists no flagged bookings as none", async () => {
         await openMarkDialog({ [CREATE]: reply(201, { period: period() }) });
         fill(markDialog(), complete);
 
@@ -1283,7 +1283,7 @@ describe("Edit venue", () => {
         expect(await screen.findByText("No approved bookings were affected, so nobody needed to be notified.")).toBeInTheDocument();
       });
 
-      it("says so when no booking was affected", async () => {
+      it("[SPM-45][AC3] says so when no booking was affected", async () => {
         await openMarkDialog();
         fill(markDialog(), complete);
 
@@ -1294,7 +1294,7 @@ describe("Edit venue", () => {
       });
 
       describe("when the reason is Other", () => {
-        it("asks what the reason is, only once Other is chosen", async () => {
+        it("[SPM-45][AC6] asks what the reason is, only once Other is chosen", async () => {
           await openMarkDialog();
 
           fill(markDialog(), { reason: "other" });
@@ -1304,7 +1304,7 @@ describe("Edit venue", () => {
           expect(within(markDialog()).queryByLabelText(/^Other reason/)).not.toBeInTheDocument();
         });
 
-        it.each(["", "   "])("refuses a description of %j", async (text) => {
+        it.each(["", "   "])("[SPM-45][AC6] refuses a description of %j", async (text) => {
           const api = await openMarkDialog();
           fill(markDialog(), { ...complete, reason: "other" });
           fill(markDialog(), { otherReason: text });
@@ -1315,7 +1315,7 @@ describe("Edit venue", () => {
           expect(api.sent(CREATE)).toHaveLength(0);
         });
 
-        it("sends the description, trimmed", async () => {
+        it("[SPM-45][AC6] sends the description, trimmed", async () => {
           const api = await openMarkDialog();
           fill(markDialog(), { ...complete, reason: "other" });
           fill(markDialog(), { otherReason: "  Film crew on site " });
@@ -1333,7 +1333,7 @@ describe("Edit venue", () => {
           });
         });
 
-        it("does not send a description typed before the reason was changed to one on the list", async () => {
+        it("[SPM-45][AC6] does not send a description typed before the reason was changed to one on the list", async () => {
           const api = await openMarkDialog();
           fill(markDialog(), { ...complete, reason: "other" });
           fill(markDialog(), { otherReason: "Film crew on site" });
@@ -1346,7 +1346,7 @@ describe("Edit venue", () => {
         });
       });
 
-      it("does nothing when the dialog is cancelled", async () => {
+      it("[SPM-45] does nothing when the dialog is cancelled", async () => {
         const api = await openMarkDialog();
         fill(markDialog(), complete);
 
@@ -1356,7 +1356,7 @@ describe("Edit venue", () => {
         expect(api.sent(CREATE)).toHaveLength(0);
       });
 
-      it("shows the server's refusal and records nothing", async () => {
+      it("[SPM-45] shows the server's refusal and records nothing", async () => {
         const api = await openMarkDialog({ [CREATE]: reply(403, { error: "Only Venue Staff can mark a venue unavailable" }) });
         fill(markDialog(), complete);
 
@@ -1367,7 +1367,7 @@ describe("Edit venue", () => {
         expect(api.sent(PERIODS)).toHaveLength(1);
       });
 
-      it("explains a network failure", async () => {
+      it("[SPM-45] explains a network failure", async () => {
         await openMarkDialog({ [CREATE]: () => Promise.reject(new Error("offline")) });
         fill(markDialog(), complete);
 
@@ -1384,7 +1384,7 @@ describe("Edit venue", () => {
         return api;
       }
 
-      it("opens filled in with the period as it stands", async () => {
+      it("[SPM-45][AC5] opens filled in with the period as it stands", async () => {
         const api = await openChangeDialog();
         const d = changeDialog();
 
@@ -1397,7 +1397,7 @@ describe("Edit venue", () => {
         expect(api.sent(CHANGE)).toHaveLength(0);
       });
 
-      it("shows the description of an Other reason, ready to edit", async () => {
+      it("[SPM-45][AC5] shows the description of an Other reason, ready to edit", async () => {
         await openWith({ [PERIODS]: [period({ reason: "other", otherReason: "Film crew on site" })], [CHANGE]: outcome() });
         await userEvent.click(await screen.findByRole("button", { name: "Change period" }));
 
@@ -1405,7 +1405,7 @@ describe("Edit venue", () => {
         expect(field(/^Other reason/, changeDialog())).toHaveValue("Film crew on site");
       });
 
-      it("sends the new dates and times, then says which bookings are newly flagged", async () => {
+      it("[SPM-45][AC5][AC3] sends the new dates and times, then says which bookings are newly flagged", async () => {
         const api = await openChangeDialog(outcome([flagged("Morning Briefing")]));
         fill(changeDialog(), { fromTime: "12:45", until: "2027-06-16", untilTime: "13:15" });
         api.on(PERIODS, [period({ fromTime: "12:45", untilDay: "2027-06-16", untilTime: "13:15" })]);
@@ -1425,7 +1425,7 @@ describe("Edit venue", () => {
         expect(await screen.findByText("Unavailable from 10 Jun 2027, 12:45. Available again from 16 Jun 2027, 13:15.")).toBeInTheDocument();
       });
 
-      it("refuses a return that is not later than the start", async () => {
+      it("[SPM-45][AC2] refuses a return that is not later than the start", async () => {
         const api = await openChangeDialog();
         fill(changeDialog(), { until: "2027-06-10", untilTime: "13:00" });
 
@@ -1437,7 +1437,7 @@ describe("Edit venue", () => {
     });
 
     describe("ending a period early", () => {
-      it("ends it without a confirmation, says so, and drops it from the list", async () => {
+      it("[SPM-45][AC5] ends it without a confirmation, says so, and drops it from the list", async () => {
         const api = await openWith({ [PERIODS]: [period()], [END]: { ended: true } });
         await screen.findByText("Equipment failure");
         api.on(PERIODS, []);
@@ -1450,7 +1450,7 @@ describe("Edit venue", () => {
         expect(await screen.findByText("No unavailable periods under way or coming up.")).toBeInTheDocument();
       });
 
-      it("says so when the server cannot be reached", async () => {
+      it("[SPM-45] says so when the server cannot be reached", async () => {
         await openWith({ [PERIODS]: [period()], [END]: () => Promise.reject(new TypeError("Failed to fetch")) });
 
         await userEvent.click(await screen.findByRole("button", { name: "End period" }));
@@ -1459,7 +1459,7 @@ describe("Edit venue", () => {
         expect(screen.getByText("Equipment failure")).toBeInTheDocument();
       });
 
-      it("shows the error and keeps the period when ending is refused", async () => {
+      it("[SPM-45] shows the error and keeps the period when ending is refused", async () => {
         await openWith({ [PERIODS]: [period()], [END]: reply(400, { error: "This unavailable period is already over." }) });
 
         await userEvent.click(await screen.findByRole("button", { name: "End period" }));
@@ -1470,7 +1470,7 @@ describe("Edit venue", () => {
     });
   });
 
-  it("Back to Venues returns to the catalogue", async () => {
+  it("[SPM-39] Back to Venues returns to the catalogue", async () => {
     open();
     await ready();
 

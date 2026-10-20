@@ -91,6 +91,34 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: node scripts/check-test-cases.mts
 
+  # Traceability (docs/traceability/TRACEABILITY.md, docs/START_HERE.md).
+  # Fails if a test has no [SPM-xx] tag, if the PR's title and branch name no
+  # Jira key (titles starting "Docs:" or "Chore:" are exempt), or if the PR
+  # changed tests or test case workbooks without running npm run trace. The
+  # matrix check compares only what the repo controls (tests per story, test
+  # cases and their latest results), so it needs no Jira or GitHub access and a
+  # story moved in Jira or another PR merging never turns it red.
+  traceability:
+    name: Traceability
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Every test is tagged, and the PR names its story
+        # Passed through env, never pasted into the script: a PR title is
+        # text anyone opening a PR controls.
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: npm run trace:tags
+      - name: The traceability matrix is up to date for this PR's tests and test cases
+        run: npm run trace -- --check
+
   # Known vulnerabilities in the packages the app ships with (not dev tools).
   # A warning, not a failure: a new advisory would otherwise turn every open PR
   # red at once, for something none of them caused. Fix it in its own PR.

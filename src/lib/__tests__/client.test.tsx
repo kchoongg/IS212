@@ -11,7 +11,7 @@ import { eventTabItemsFor } from "@/lib/eventTabs";
 import { act, mockApi, render, reply, screen, signedInAs, userEvent, waitFor } from "@/test/ui";
 
 describe("session token", () => {
-  it("is saved, read back and cleared", () => {
+  it("[SPM-21][AC1] is saved, read back and cleared", () => {
     expect(getToken()).toBeNull();
 
     saveToken("abc");
@@ -21,7 +21,7 @@ describe("session token", () => {
     expect(getToken()).toBeNull();
   });
 
-  it("tells subscribers when it changes, until they unsubscribe", () => {
+  it("[SPM-21][AC1] tells subscribers when it changes, until they unsubscribe", () => {
     const listener = vi.fn();
     const unsubscribe = onTokenChange(listener);
 
@@ -35,7 +35,7 @@ describe("session token", () => {
 });
 
 describe("authedFetch", () => {
-  it("sends the stored token as a Bearer header, with JSON as the content type", async () => {
+  it("[SPM-21][AC1] sends the stored token as a Bearer header, with JSON as the content type", async () => {
     const api = mockApi({ "GET /api/events": [] });
     saveToken("abc");
 
@@ -44,7 +44,7 @@ describe("authedFetch", () => {
     expect(api.calls[0].headers).toEqual({ "Content-Type": "application/json", Authorization: "Bearer abc" });
   });
 
-  it("sends no Authorization header when nobody is signed in", async () => {
+  it("[SPM-21][AC1] sends no Authorization header when nobody is signed in", async () => {
     const api = mockApi({ "GET /api/events": [] });
 
     await authedFetch("/api/events");
@@ -52,7 +52,7 @@ describe("authedFetch", () => {
     expect(api.calls[0].headers).toEqual({ "Content-Type": "application/json" });
   });
 
-  it("passes the method and body through, and lets a caller's headers win", async () => {
+  it("[SPM-21][AC1] passes the method and body through, and lets a caller's headers win", async () => {
     const api = mockApi({ "POST /api/events": reply(201, {}) });
 
     await authedFetch("/api/events", {
@@ -72,7 +72,7 @@ describe("loginUrlFor", () => {
     ["/venues/search?event=EVT-000007", "/login?next=%2Fvenues%2Fsearch%3Fevent%3DEVT-000007"],
     ["/login", "/login"],
     ["", "/login"],
-  ])("turns %j into %j", (path, url) => {
+  ])("[SPM-22][AC4] turns %j into %j", (path, url) => {
     expect(loginUrlFor(path)).toBe(url);
   });
 });
@@ -90,7 +90,7 @@ describe("useCurrentUser", () => {
     );
   }
 
-  it("starts as loading, then reports the signed-in user", async () => {
+  it("[SPM-21][AC3] starts as loading, then reports the signed-in user", async () => {
     mockApi(signedInAs("coordinator", { name: "Daniel Tan" }));
 
     render(<Probe />);
@@ -103,7 +103,7 @@ describe("useCurrentUser", () => {
   it.each([
     ["the session is rejected", reply(401, {})],
     ["the server cannot be reached", () => Promise.reject(new Error("offline"))],
-  ])("reports anonymous when %s", async (_case, answer) => {
+  ])("[SPM-21][AC3] reports anonymous when %s", async (_case, answer) => {
     mockApi({ "GET /api/auth/me": answer });
 
     render(<Probe />);
@@ -112,7 +112,7 @@ describe("useCurrentUser", () => {
     expect(screen.getByText("user: none")).toBeInTheDocument();
   });
 
-  it("logout forgets the user and the token at once", async () => {
+  it("[SPM-21] logout forgets the user and the token at once", async () => {
     const api = mockApi(signedInAs("coordinator"));
     render(<Probe />);
     await screen.findByText("state: authenticated");
@@ -126,7 +126,7 @@ describe("useCurrentUser", () => {
     expect(getToken()).toBeNull();
   });
 
-  it("refresh asks the server again", async () => {
+  it("[SPM-21][AC3] refresh asks the server again", async () => {
     const api = mockApi(signedInAs("coordinator", { name: "Daniel Tan" }));
     render(<Probe />);
     await screen.findByText("state: authenticated");
@@ -137,7 +137,7 @@ describe("useCurrentUser", () => {
     expect(await screen.findByText("user: Daniel T. (coordinator)")).toBeInTheDocument();
   });
 
-  it("re-checks when the token changes anywhere on the page, and stops once unmounted", async () => {
+  it("[SPM-21][AC3] re-checks when the token changes anywhere on the page, and stops once unmounted", async () => {
     const api = mockApi({ "GET /api/auth/me": reply(401, {}) });
     const { unmount } = render(<Probe />);
     await screen.findByText("state: anonymous");
@@ -164,7 +164,7 @@ describe("focusFirstError", () => {
     return document.querySelector("form")!;
   }
 
-  it("focuses the field named by the first error", () => {
+  it("[SPM-7][AC5] focuses the field named by the first error", () => {
     const el = form();
 
     focusFirstError(el, { category: "Choose one", title: "Required" });
@@ -174,7 +174,7 @@ describe("focusFirstError", () => {
     expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts.at(-1)).toBe(el.querySelector("[name=category]"));
   });
 
-  it("falls back to the first field marked invalid when no field has that name", () => {
+  it("[SPM-7][AC5] falls back to the first field marked invalid when no field has that name", () => {
     const el = form();
 
     focusFirstError(el, { "sessions.0.equipment": "Choose an item" });
@@ -182,7 +182,7 @@ describe("focusFirstError", () => {
     expect(el.querySelector("[data-testid=flagged]")).toHaveFocus();
   });
 
-  it("scrolls the form itself into view when the error belongs to no field", () => {
+  it("[SPM-7][AC5] scrolls the form itself into view when the error belongs to no field", () => {
     const el = form();
     const scroll = vi.spyOn(el, "scrollIntoView");
 
@@ -192,7 +192,7 @@ describe("focusFirstError", () => {
     expect(document.body).toHaveFocus();
   });
 
-  it("does nothing without a form", () => {
+  it("[SPM-7][AC5] does nothing without a form", () => {
     expect(() => focusFirstError(null, { title: "Required" })).not.toThrow();
   });
 });
@@ -211,7 +211,7 @@ describe("eventTabItemsFor", () => {
     ["ops_manager", ["Overview"]],
     ["attendee", ["Overview"]],
     ["intern", ["Overview"]],
-  ])("gives %s the tabs %j", (role, expected) => {
+  ])("[SPM-22][AC2] gives %s the tabs %j", (role, expected) => {
     expect(labels(role)).toEqual(expected);
   });
 
@@ -220,12 +220,12 @@ describe("eventTabItemsFor", () => {
   it.each([
     ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
     ["organiser", ["Overview", "Equipment"]],
-  ])("leaves Attendees out for %s when the registration list is not theirs", (role, expected) => {
+  ])("[SPM-22][AC2] leaves Attendees out for %s when the registration list is not theirs", (role, expected) => {
     expect(eventTabItemsFor(role, "EVT-000007", false).map((t) => t.label)).toEqual(expected);
     expect(eventTabItemsFor(role, "EVT-000007").map((t) => t.label)).toEqual(expected);
   });
 
-  it("links Overview to the event itself and every other tab beneath it", () => {
+  it("[SPM-22][AC2] links Overview to the event itself and every other tab beneath it", () => {
     expect(eventTabItemsFor("coordinator", "EVT-000007", true)).toEqual([
       { key: "overview", label: "Overview", href: "/events/EVT-000007" },
       { key: "venue", label: "Venue", href: "/events/EVT-000007/venue" },

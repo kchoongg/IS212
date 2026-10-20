@@ -85,15 +85,15 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     );
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await check()).status).toBe(401);
   });
 
-  it("is 404 for a malformed reference", async () => {
+  it("[SPM-48] is 404 for a malformed reference", async () => {
     expect((await check(signIn(techSupport()), "nope")).status).toBe(404);
   });
 
-  it("is 404 for a draft, which Technical Support cannot see", async () => {
+  it("[SPM-48] is 404 for a draft, which Technical Support cannot see", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow({ status: "draft" }));
 
@@ -105,7 +105,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     ["the organiser who owns the event", () => user("organiser", { id: "organiser-id" })],
     ["the Ops Manager", () => user("ops_manager")],
     ["Venue Staff", () => user("venue_staff")],
-  ])("is 403 for %s - a result names other clients' events", async (_who, actor) => {
+  ])("[SPM-21][AC4] is 403 for %s - a result names other clients' events", async (_who, actor) => {
     const token = signIn(actor());
     db.event.findUnique.mockResolvedValue(eventRow());
 
@@ -116,7 +116,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
   });
 
   it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "completed"])(
-    "is 404 for an event that is %s - Technical Support's part starts with planning",
+    "[SPM-48] is 404 for an event that is %s - Technical Support's part starts with planning",
     async (status) => {
       const token = signIn(techSupport());
       db.event.findUnique.mockResolvedValue(eventRow({ status }));
@@ -128,7 +128,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     }
   );
 
-  it("is still shown for a confirmed event", async () => {
+  it("[SPM-48] is still shown for a confirmed event", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow({ status: "confirmed" }));
     db.equipmentRequest.findMany.mockResolvedValue([]);
@@ -136,7 +136,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect((await check(token)).status).toBe(200);
   });
 
-  it("gives each line the coordinator's requirements and Technical Support's own review", async () => {
+  it("[SPM-50][AC1][AC4] gives each line the coordinator's requirements and Technical Support's own review", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(
       eventRow({
@@ -162,7 +162,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     });
   });
 
-  it("gives no reviewer for a line nobody has reviewed yet", async () => {
+  it("[SPM-50][AC1][AC4] gives no reviewer for a line nobody has reviewed yet", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([]);
@@ -172,7 +172,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.lines[0].reviewedByName).toBeNull();
   });
 
-  it("reports a line as available when nothing else holds the item", async () => {
+  it("[SPM-48][AC8] reports a line as available when nothing else holds the item", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([]);
@@ -192,7 +192,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     });
   });
 
-  it("counts another event's reservation on the same day, and names who holds it", async () => {
+  it("[SPM-48][AC4] counts another event's reservation on the same day, and names who holds it", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([otherHold()]);
@@ -209,7 +209,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     });
   });
 
-  it("only asks for requests that actually hold stock", async () => {
+  it("[SPM-48][AC4] only asks for requests that actually hold stock", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([]);
@@ -222,7 +222,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     });
   });
 
-  it("ignores a hold belonging to a cancelled event", async () => {
+  it("[SPM-48][AC4] ignores a hold belonging to a cancelled event", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([
@@ -234,7 +234,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.lines[0].result).toMatchObject({ status: "available", reservedElsewhere: 0 });
   });
 
-  it("does not count the line's own reservation against itself", async () => {
+  it("[SPM-49][AC4] does not count the line's own reservation against itself", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(
       eventRow({ equipmentRequests: [line({ status: "reserved", quantityReserved: 4 })] })
@@ -246,7 +246,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.lines[0].result).toMatchObject({ status: "available", reservedElsewhere: 0, available: 10 });
   });
 
-  it("labels a hold by another session of a multi-session event with that session", async () => {
+  it("[SPM-48][AC4] labels a hold by another session of a multi-session event with that session", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([
@@ -258,7 +258,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.lines[0].result.heldBy[0].eventTitle).toBe("Gala Dinner · Day 1");
   });
 
-  it("labels a session's hold by an untitled event as 'Untitled event'", async () => {
+  it("[SPM-48][AC4] labels a session's hold by an untitled event as 'Untitled event'", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([
@@ -274,7 +274,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.lines[0].result.heldBy[0].eventTitle).toBe("Untitled event · Day 1");
   });
 
-  it("checks a session's line against the session's own times and venue", async () => {
+  it("[SPM-48][AC3] [SPM-47][AC4] checks a session's line against the session's own times and venue", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(
       eventRow({
@@ -301,7 +301,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     });
   });
 
-  it("counts a venue that is only requested, not yet approved, as the session's venue", async () => {
+  it("[SPM-48][AC6] counts a venue that is only requested, not yet approved, as the session's venue", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(
       eventRow({
@@ -318,7 +318,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.lines[0]).toMatchObject({ venueChosen: true, transferMinutes: 120 });
   });
 
-  it("cannot check a line while the event has no dates", async () => {
+  it("[SPM-48][AC3] cannot check a line while the event has no dates", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow({ startsAt: null, endsAt: null }));
     db.equipmentRequest.findMany.mockResolvedValue([]);
@@ -329,7 +329,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(body.allAvailable).toBe(false);
   });
 
-  it("returns no lines, and makes no further query, for an event with no equipment requested", async () => {
+  it("[SPM-48] returns no lines, and makes no further query, for an event with no equipment requested", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow({ equipmentRequests: [] }));
 
@@ -339,7 +339,7 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
   });
 
-  it("is 404 if the event is deleted between the access check and the availability read", async () => {
+  it("[SPM-48] is 404 if the event is deleted between the access check and the availability read", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValueOnce(eventRow()).mockResolvedValueOnce(null);
 
@@ -392,26 +392,26 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     );
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await post()).status).toBe(401);
   });
 
-  it("is 404 for a malformed event reference", async () => {
+  it("[SPM-49] is 404 for a malformed event reference", async () => {
     expect((await post(signIn(techSupport()), "nope")).status).toBe(404);
   });
 
-  it("is 404 when the request does not exist", async () => {
+  it("[SPM-49] is 404 when the request does not exist", async () => {
     expect((await post(given(null))).status).toBe(404);
   });
 
-  it("is 404 when the request belongs to a different event than the URL names", async () => {
+  it("[SPM-49] is 404 when the request belongs to a different event than the URL names", async () => {
     const res = await post(given(requestRow({ eventId: "another-event" })));
 
     expect(res.status).toBe(404);
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a draft, which Technical Support cannot see", async () => {
+  it("[SPM-49] is 404 for a draft, which Technical Support cannot see", async () => {
     expect((await post(given(requestRow({}, { status: "draft" })))).status).toBe(404);
   });
 
@@ -419,7 +419,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     ["the assigned coordinator", () => user("coordinator", { id: ID.otherUser })],
     ["the organiser who owns the event", () => user("organiser", { id: "organiser-id" })],
     ["the Ops Manager", () => user("ops_manager")],
-  ])("is 403 for %s", async (_who, actor) => {
+  ])("[SPM-21][AC4] is 403 for %s", async (_who, actor) => {
     const res = await post(given(requestRow(), [], actor()));
 
     expect(res.status).toBe(403);
@@ -428,7 +428,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
   });
 
   it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "rejected", "completed"])(
-    "is 404 for an event that is %s - Technical Support does not see its equipment",
+    "[SPM-49] is 404 for an event that is %s - Technical Support does not see its equipment",
     async (status) => {
       const res = await post(given(requestRow({}, { status })));
 
@@ -437,7 +437,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     }
   );
 
-  it("refuses to reserve into a confirmed event, whose equipment is final", async () => {
+  it("[SPM-49] refuses to reserve into a confirmed event, whose equipment is final", async () => {
     const res = await post(given(requestRow({}, { status: "confirmed" })));
 
     expect(res.status).toBe(400);
@@ -447,7 +447,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(db.$transaction).not.toHaveBeenCalled();
   });
 
-  it("reserves everything requested when it is all available", async () => {
+  it("[SPM-49][AC1][AC2] reserves everything requested when it is all available", async () => {
     vi.useFakeTimers({ now: NOW });
     const token = given(requestRow());
 
@@ -460,7 +460,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     });
   });
 
-  it("reserves only what is left when another event holds some, and marks it partially fulfilled", async () => {
+  it("[SPM-49][AC4][AC5] reserves only what is left when another event holds some, and marks it partially fulfilled", async () => {
     const token = given(requestRow(), [otherHold({ quantityReserved: 7 })]);
 
     const res = await post(token);
@@ -472,7 +472,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     });
   });
 
-  it("does not count units that are out of service", async () => {
+  it("[SPM-55][AC3] does not count units that are out of service", async () => {
     const token = given(requestRow({ equipment: projector({ quantityInMaintenance: 9 }) }));
 
     await post(token);
@@ -483,7 +483,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     });
   });
 
-  it("refuses when nothing is left for the dates", async () => {
+  it("[SPM-49][AC5] refuses when nothing is left for the dates", async () => {
     const token = given(requestRow(), [otherHold({ quantityReserved: 10 })]);
 
     const res = await post(token);
@@ -493,21 +493,21 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it("refuses a retired item, whatever quantity is still on record", async () => {
+  it("[SPM-48][AC7] refuses a retired item, whatever quantity is still on record", async () => {
     const res = await post(given(requestRow({ equipment: projector({ isActive: false }) })));
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Nothing is available for these dates any more." });
   });
 
-  it("refuses while the event has no dates", async () => {
+  it("[SPM-48][AC3] refuses while the event has no dates", async () => {
     const res = await post(given(requestRow({}, { startsAt: null, endsAt: null })));
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Set the event date and time before reserving equipment" });
   });
 
-  it("refuses when the request disappears between the access check and the lock", async () => {
+  it("[SPM-49] refuses when the request disappears between the access check and the lock", async () => {
     const token = given(requestRow());
     db.equipmentRequest.findUnique.mockResolvedValueOnce(requestRow()).mockResolvedValueOnce(null);
 
@@ -517,7 +517,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(db.equipmentRequest.update).not.toHaveBeenCalled();
   });
 
-  it("clears the 'cannot be provided' reason when such a line is reserved after all", async () => {
+  it("[SPM-50][AC4] clears the 'cannot be provided' reason when such a line is reserved after all", async () => {
     const token = given(requestRow({ status: "unavailable", staffNotes: "Both units out for repair" }));
 
     await post(token);
@@ -525,7 +525,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "reserved", staffNotes: null });
   });
 
-  it("keeps Technical Support's notes on any other line it reserves", async () => {
+  it("[SPM-50][AC4] keeps Technical Support's notes on any other line it reserves", async () => {
     const token = given(requestRow({ status: "under_review", staffNotes: "Deliver to the loading bay" }));
 
     await post(token);
@@ -533,14 +533,14 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("staffNotes");
   });
 
-  it("refuses a request that has been withdrawn", async () => {
+  it("[SPM-49] refuses a request that has been withdrawn", async () => {
     const res = await post(given(requestRow({ status: "cancelled" })));
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "This request has been withdrawn and can no longer be reserved." });
   });
 
-  it("re-reserving a line does not count its own reservation against it", async () => {
+  it("[SPM-49][AC4] re-reserving a line does not count its own reservation against it", async () => {
     const token = given(requestRow({ status: "reserved", quantityReserved: 4 }));
 
     await post(token);
@@ -553,7 +553,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(callArg(db.equipmentRequest.update).data).toMatchObject({ quantityReserved: 4, status: "reserved" });
   });
 
-  it("locks the equipment row before reading availability, so two reservations cannot both take the last unit", async () => {
+  it("[SPM-49][AC5] locks the equipment row before reading availability, so two reservations cannot both take the last unit", async () => {
     const token = given(requestRow());
 
     await post(token);
@@ -566,7 +566,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     );
   });
 
-  it("answers 500 when the database fails inside the transaction", async () => {
+  it("[SPM-49] answers 500 when the database fails inside the transaction", async () => {
     const token = given(requestRow());
     db.$queryRaw.mockRejectedValue(new Error("lock timeout"));
 

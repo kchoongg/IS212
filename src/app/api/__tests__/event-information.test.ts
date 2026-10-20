@@ -144,25 +144,25 @@ function nothingWritten() {
 const reasonsOf = (value: string) => value.split(",").sort();
 
 describe("PATCH /api/events/[id]/information - who may change it", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await save(undefined, { description: "x" })).status).toBe(401);
   });
 
-  it.each(["nope", ID.event])("is 404 for the malformed reference %s, without querying", async (reference) => {
+  it.each(["nope", ID.event])("[SPM-62] is 404 for the malformed reference %s, without querying", async (reference) => {
     const token = signIn(assignedCoordinator());
 
     expect((await save(token, { description: "x" }, reference)).status).toBe(404);
     expect(db.event.findUnique).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a reference that matches no event", async () => {
+  it("[SPM-62] is 404 for a reference that matches no event", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(null);
 
     expect((await save(token, { description: "x" })).status).toBe(404);
   });
 
-  it("is 404, not 403, for an event the user may not see - an attendee and a planning event", async () => {
+  it("[SPM-62][AC3] is 404, not 403, for an event the user may not see - an attendee and a planning event", async () => {
     const token = given({}, {}, user("attendee", { id: ID.thirdUser }));
 
     expect((await save(token, { description: "x" })).status).toBe(404);
@@ -175,7 +175,7 @@ describe("PATCH /api/events/[id]/information - who may change it", () => {
     ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
     ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
     ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
-  ])("is 403 for %s, and writes nothing", async (_who, actor) => {
+  ])("[SPM-62][AC3] is 403 for %s, and writes nothing", async (_who, actor) => {
     const token = given({}, {}, actor());
 
     const res = await save(token, { description: "x" });
@@ -187,21 +187,21 @@ describe("PATCH /api/events/[id]/information - who may change it", () => {
     nothingWritten();
   });
 
-  it("is 403 for an attendee who can see a confirmed event open for registration", async () => {
+  it("[SPM-62][AC3] is 403 for an attendee who can see a confirmed event open for registration", async () => {
     const token = given({ status: "confirmed", registrationEnabled: true }, {}, user("attendee", { id: ID.thirdUser }));
 
     expect((await save(token, { description: "x" })).status).toBe(403);
     nothingWritten();
   });
 
-  it("is 404 for a coordinator's own event while it is still a draft", async () => {
+  it("[SPM-62] is 404 for a coordinator's own event while it is still a draft", async () => {
     const token = given({ status: "draft" });
 
     expect((await save(token, { description: "x" })).status).toBe(404);
   });
 
   it.each(["submitted", "under_review", "postponed", "completed", "cancelled", "rejected", "withdrawn"])(
-    "refuses an event that is %s",
+    "[SPM-62][AC1] refuses an event that is %s",
     async (status) => {
       const token = given({ status });
 
@@ -215,7 +215,7 @@ describe("PATCH /api/events/[id]/information - who may change it", () => {
     }
   );
 
-  it.each(["approved", "planning", "safety_review", "safety_cleared", "confirmed"])("accepts an ordinary edit while the event is %s", async (status) => {
+  it.each(["approved", "planning", "safety_review", "safety_cleared", "confirmed"])("[SPM-62][AC1][AC7] accepts an ordinary edit while the event is %s", async (status) => {
     const token = given({ status });
 
     expect((await save(token, { description: "New programme" })).status).toBe(200);
@@ -233,7 +233,7 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     ["the registration capacity", { registrationCapacity: 50 }],
     ["when registration opens", { registrationOpensAt: "2027-02-01T01:00:00.000Z" }],
     ["when registration closes", { registrationClosesAt: "2027-03-01T01:00:00.000Z" }],
-  ])("refuses a body that tries to change %s", async (_what, body) => {
+  ])("[SPM-62][AC3] refuses a body that tries to change %s", async (_what, body) => {
     const token = given();
 
     const res = await save(token, { description: "x", ...body });
@@ -251,7 +251,7 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     ["an attendance of zero", { expectedAttendance: 0 }, "expectedAttendance"],
     ["a cleared attendance", { expectedAttendance: null }, "expectedAttendance"],
     ["a fractional attendance", { expectedAttendance: 1.5 }, "expectedAttendance"],
-  ])("refuses %s", async (_what, body, field) => {
+  ])("[SPM-62][AC1] refuses %s", async (_what, body, field) => {
     const token = given();
 
     const res = await save(token, body);
@@ -261,13 +261,13 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     nothingWritten();
   });
 
-  it("accepts an attendance of 1", async () => {
+  it("[SPM-62][AC1] accepts an attendance of 1", async () => {
     const token = given({}, { bookings: [], equipment: [], registrations: 0 });
 
     expect((await save(token, { expectedAttendance: 1 })).status).toBe(200);
   });
 
-  it("checks a new end against the start already saved", async () => {
+  it("[SPM-62][AC1] checks a new end against the start already saved", async () => {
     const token = given();
 
     const res = await save(token, { endsAt: "2027-03-17T00:00:00.000Z" });
@@ -277,7 +277,7 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     nothingWritten();
   });
 
-  it("refuses an end equal to the start", async () => {
+  it("[SPM-62][AC1] refuses an end equal to the start", async () => {
     const token = given();
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_START });
@@ -285,7 +285,7 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     expect((await res.json()).details.fieldErrors.endsAt).toEqual(["Ends at must be after starts at."]);
   });
 
-  it("refuses a start before registration closes", async () => {
+  it("[SPM-62][AC1] refuses a start before registration closes", async () => {
     const token = given({ registrationClosesAt: new Date("2027-03-10T10:00:00.000Z") });
 
     const res = await save(token, { startsAt: "2027-03-10T01:00:00.000Z", endsAt: "2027-03-10T09:00:00.000Z" });
@@ -297,7 +297,7 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     nothingWritten();
   });
 
-  it("refuses a start at or before registration opens, when no closing date is set", async () => {
+  it("[SPM-62][AC1] refuses a start at or before registration opens, when no closing date is set", async () => {
     const token = given({ registrationOpensAt: new Date("2027-03-10T01:00:00.000Z"), registrationClosesAt: null });
 
     const res = await save(token, { startsAt: "2027-03-10T01:00:00.000Z", endsAt: "2027-03-10T09:00:00.000Z" });
@@ -309,13 +309,13 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     nothingWritten();
   });
 
-  it("accepts a start after registration opens, when no closing date is set", async () => {
+  it("[SPM-62][AC1] accepts a start after registration opens, when no closing date is set", async () => {
     const token = given({ registrationOpensAt: new Date("2027-03-01T01:00:00.000Z"), registrationClosesAt: null });
 
     expect((await save(token, { startsAt: NEW_START, endsAt: NEW_END })).status).toBe(200);
   });
 
-  it("accepts a start after registration closes", async () => {
+  it("[SPM-62][AC1] accepts a start after registration closes", async () => {
     const token = given({ registrationClosesAt: new Date("2027-03-10T10:00:00.000Z") });
 
     expect((await save(token, { startsAt: NEW_START, endsAt: NEW_END })).status).toBe(200);
@@ -325,7 +325,7 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     ["the start", { startsAt: NEW_START }],
     ["the attendance", { expectedAttendance: 90 }],
     ["the layout", { preferredLayout: "classroom" }],
-  ])("refuses to change %s of a multi-session event here", async (_what, body) => {
+  ])("[SPM-62][AC1] refuses to change %s of a multi-session event here", async (_what, body) => {
     const token = given({ sessions: [{ id: ID.session }, { id: ID.otherSession }] });
 
     const res = await save(token, body);
@@ -335,7 +335,7 @@ describe("PATCH /api/events/[id]/information - validation", () => {
     nothingWritten();
   });
 
-  it("still lets the description of a multi-session event change", async () => {
+  it("[SPM-62][AC1] still lets the description of a multi-session event change", async () => {
     const token = given({ sessions: [{ id: ID.session }, { id: ID.otherSession }] });
 
     expect((await save(token, { description: "Two-day programme" })).status).toBe(200);
@@ -350,7 +350,7 @@ describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
     accessibilityNotes: "Two wheelchair users",
   };
 
-  it("saves exactly the fields sent", async () => {
+  it("[SPM-62][AC1][AC2] saves exactly the fields sent", async () => {
     const token = given();
 
     const res = await save(token, ordinary);
@@ -360,7 +360,7 @@ describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
     expect(eventData()).toEqual(ordinary);
   });
 
-  it("saves a new name and type of event", async () => {
+  it("[SPM-62][AC1][AC2] saves a new name and type of event", async () => {
     const token = given();
 
     await save(token, { title: "  Harbour Leaders Forum ", category: "seminar" });
@@ -369,7 +369,7 @@ describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
   });
 
   it.each(["approved", "planning", "confirmed"])(
-    "on a %s event, flags nothing and leaves the status alone",
+    "[SPM-62][AC7] on a %s event, flags nothing and leaves the status alone",
     async (status) => {
       const token = given({ status });
 
@@ -387,7 +387,7 @@ describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
     }
   );
 
-  it("treats important fields sent back unchanged as no change at all", async () => {
+  it("[SPM-62][AC4][AC7] treats important fields sent back unchanged as no change at all", async () => {
     const token = given({ status: "confirmed" });
 
     const res = await save(token, {
@@ -405,7 +405,7 @@ describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
     expect(db.venueBooking.update).not.toHaveBeenCalled();
   });
 
-  it("does not begin planning on an Approved event", async () => {
+  it("[SPM-62][AC7] does not begin planning on an Approved event", async () => {
     const token = given({ status: "approved" }, { bookings: [], equipment: [], registrations: 0 });
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -416,7 +416,7 @@ describe("PATCH /api/events/[id]/information - an ordinary edit", () => {
 });
 
 describe("PATCH /api/events/[id]/information - an important change", () => {
-  it("saves the new schedule and reports it as a date and time change", async () => {
+  it("[SPM-62][AC4] saves the new schedule and reports it as a date and time change", async () => {
     const token = given();
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -426,7 +426,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect(eventData()).toMatchObject({ startsAt: new Date(NEW_START), endsAt: new Date(NEW_END) });
   });
 
-  it("flags the venue booking for review without moving or cancelling it", async () => {
+  it("[SPM-62][AC5] flags the venue booking for review without moving or cancelling it", async () => {
     const token = given();
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -440,7 +440,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     });
   });
 
-  it("flags the equipment for review without changing it", async () => {
+  it("[SPM-62][AC5] flags the equipment for review without changing it", async () => {
     const token = given();
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -454,7 +454,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     });
   });
 
-  it("flags the registrations on the event itself", async () => {
+  it("[SPM-62][AC5] flags the registrations on the event itself", async () => {
     const token = given();
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -462,7 +462,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect(eventData().registrationReviewReason).toBe("event_schedule_changed");
   });
 
-  it("does not flag registrations when nobody has registered", async () => {
+  it("[SPM-62][AC5] does not flag registrations when nobody has registered", async () => {
     const token = given({}, { registrations: 0 });
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -470,7 +470,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect(eventData()).not.toHaveProperty("registrationReviewReason");
   });
 
-  it("flags only the venue booking when the attendance changes", async () => {
+  it("[SPM-62][AC5] flags only the venue booking when the attendance changes", async () => {
     const token = given();
 
     const res = await save(token, { expectedAttendance: 90 });
@@ -481,7 +481,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect(eventData()).not.toHaveProperty("registrationReviewReason");
   });
 
-  it("flags the venue booking when the venue requirements change, and replaces them", async () => {
+  it("[SPM-62][AC5] flags the venue booking when the venue requirements change, and replaces them", async () => {
     const token = given();
 
     const res = await save(token, { facilityIds: [ID.facility, ID.venue] });
@@ -491,7 +491,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect(callArg(db.eventFacilityRequirement.deleteMany)).toEqual({ where: { eventId: ID.event } });
   });
 
-  it("keeps the reasons a booking was already flagged for, SPM-39's included", async () => {
+  it("[SPM-62][AC5] keeps the reasons a booking was already flagged for, SPM-39's included", async () => {
     const token = given({}, { bookings: [approvedBooking({ needsReview: true, reviewReason: "venue_retired" })] });
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -502,7 +502,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     ]);
   });
 
-  it("flags every booking the event has", async () => {
+  it("[SPM-62][AC5] flags every booking the event has", async () => {
     const token = given({}, { bookings: [approvedBooking(), approvedBooking({ id: ID.otherVenue, status: "pending" })] });
 
     await save(token, { expectedAttendance: 90 });
@@ -510,7 +510,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect(db.venueBooking.update).toHaveBeenCalledTimes(2);
   });
 
-  it("words what this save flagged, one line per arrangement", async () => {
+  it("[SPM-62][AC5] words what this save flagged, one line per arrangement", async () => {
     const token = given();
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -522,7 +522,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     ]);
   });
 
-  it("names a session's booking by its session, and joins several reasons", async () => {
+  it("[SPM-62][AC5] names a session's booking by its session, and joins several reasons", async () => {
     const token = given({}, { bookings: [approvedBooking({ session: { label: "Day 2" } })], equipment: [] });
 
     const res = await save(token, { expectedAttendance: 90, preferredLayout: "classroom" });
@@ -532,7 +532,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     ]);
   });
 
-  it("says '1 attendee' for a single registration", async () => {
+  it("[SPM-62][AC5] says '1 attendee' for a single registration", async () => {
     const token = given({}, { bookings: [], equipment: [], registrations: 1 });
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -540,7 +540,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect((await res.json()).flagged).toEqual(["Registrations: 1 attendee – the date or time changed"]);
   });
 
-  it("words only this save's reasons, not what a booking was already flagged for", async () => {
+  it("[SPM-62][AC5] words only this save's reasons, not what a booking was already flagged for", async () => {
     const token = given({}, { bookings: [approvedBooking({ needsReview: true, reviewReason: "venue_retired" })], equipment: [], registrations: 0 });
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -550,7 +550,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     ]);
   });
 
-  it("does all of it in one transaction", async () => {
+  it("[SPM-62] does all of it in one transaction", async () => {
     const token = given();
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -558,7 +558,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
     expect(db.$transaction).toHaveBeenCalledOnce();
   });
 
-  it("leaves a Planning event in Planning", async () => {
+  it("[SPM-62][AC6] leaves a Planning event in Planning", async () => {
     const token = given({ status: "planning" });
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -569,7 +569,7 @@ describe("PATCH /api/events/[id]/information - an important change", () => {
 });
 
 describe("PATCH /api/events/[id]/information - a Confirmed event", () => {
-  it("moves back to Planning, clearing when it was confirmed", async () => {
+  it("[SPM-62][AC6] moves back to Planning, clearing when it was confirmed", async () => {
     const token = given({ status: "confirmed" });
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -578,7 +578,7 @@ describe("PATCH /api/events/[id]/information - a Confirmed event", () => {
     expect(eventData()).toMatchObject({ status: "planning", confirmedAt: null });
   });
 
-  it("records the move in the status history, naming what changed", async () => {
+  it("[SPM-62][AC6] records the move in the status history, naming what changed", async () => {
     const token = given({ status: "confirmed" });
 
     await save(token, { startsAt: NEW_START, endsAt: NEW_END, expectedAttendance: 90 });
@@ -592,7 +592,7 @@ describe("PATCH /api/events/[id]/information - a Confirmed event", () => {
     });
   });
 
-  it("stays Confirmed when the change flags only registrations", async () => {
+  it("[SPM-62][AC6] stays Confirmed when the change flags only registrations", async () => {
     const token = given({ status: "confirmed" }, { bookings: [], equipment: [], registrations: 12 });
 
     const res = await save(token, { startsAt: NEW_START, endsAt: NEW_END });
@@ -605,7 +605,7 @@ describe("PATCH /api/events/[id]/information - a Confirmed event", () => {
 
 describe("PATCH /api/events/[id]/information - while a safety check is open (SPM-88)", () => {
   it.each(["safety_review", "safety_cleared"])(
-    "SPM-88-TC09/TC11: an ordinary edit leaves a %s event and its check alone",
+    "[SPM-88][AC7] SPM-88-TC09/TC11: an ordinary edit leaves a %s event and its check alone",
     async (status) => {
       const token = given({ status });
 
@@ -619,7 +619,7 @@ describe("PATCH /api/events/[id]/information - while a safety check is open (SPM
   );
 
   it.each(["safety_review", "safety_cleared"])(
-    "SPM-88-TC07: an important change moves a %s event back to Planning and closes its check",
+    "[SPM-88][AC6] SPM-88-TC07: an important change moves a %s event back to Planning and closes its check",
     async (status) => {
       const token = given({ status });
 
@@ -641,7 +641,7 @@ describe("PATCH /api/events/[id]/information - while a safety check is open (SPM
     }
   );
 
-  it("still flags what the change affects", async () => {
+  it("[SPM-88][AC6] [SPM-62][AC5] still flags what the change affects", async () => {
     const token = given({ status: "safety_cleared" });
 
     await save(token, { expectedAttendance: 90 });
@@ -649,7 +649,7 @@ describe("PATCH /api/events/[id]/information - while a safety check is open (SPM
     expect(callArg(db.venueBooking.update).data.needsReview).toBe(true);
   });
 
-  it("SPM-88-TC12: closes the approval of a Confirmed event the change moves back to Planning", async () => {
+  it("[SPM-88][AC5] SPM-88-TC12: closes the approval of a Confirmed event the change moves back to Planning", async () => {
     const token = given({ status: "confirmed" });
 
     const body = await (await save(token, { startsAt: NEW_START, endsAt: NEW_END })).json();
@@ -660,7 +660,7 @@ describe("PATCH /api/events/[id]/information - while a safety check is open (SPM
     expect(db.eventStatusHistory.create).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves the check of a Confirmed event that stays Confirmed", async () => {
+  it("[SPM-88][AC7] leaves the check of a Confirmed event that stays Confirmed", async () => {
     const token = given({ status: "confirmed" }, { bookings: [], equipment: [], registrations: 12 });
 
     const body = await (await save(token, { startsAt: NEW_START, endsAt: NEW_END })).json();
@@ -669,7 +669,7 @@ describe("PATCH /api/events/[id]/information - while a safety check is open (SPM
     expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
   });
 
-  it("does not touch a check on a Planning event", async () => {
+  it("[SPM-88][AC7] does not touch a check on a Planning event", async () => {
     const token = given({ status: "planning" });
 
     const body = await (await save(token, { startsAt: NEW_START, endsAt: NEW_END })).json();
@@ -680,7 +680,7 @@ describe("PATCH /api/events/[id]/information - while a safety check is open (SPM
 });
 
 describe("PATCH /api/events/[id]/information - failures", () => {
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-62] answers 500 when the database fails", async () => {
     const token = given();
     db.event.update.mockRejectedValue(new Error("connection lost"));
 

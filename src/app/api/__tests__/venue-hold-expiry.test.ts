@@ -48,12 +48,12 @@ describe("PATCH /api/venue-bookings/[id]/expiry", () => {
     vi.setSystemTime(NOW);
   }
 
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await change(undefined, { holdExpiresAt: "2027-01-20T01:00:00.000Z" })).status).toBe(401);
   });
 
   it.each(ROLES.filter((role) => !can(role, "venue_booking:decide")))(
-    "is 403 for %s, before anything is read",
+    "[SPM-21][AC4] is 403 for %s, before anything is read",
     async (role) => {
       const res = await change(signIn(user(role)), { holdExpiresAt: "2027-01-20T01:00:00.000Z" });
 
@@ -62,7 +62,7 @@ describe("PATCH /api/venue-bookings/[id]/expiry", () => {
     }
   );
 
-  it("is 404 for a booking that does not exist", async () => {
+  it("[SPM-82] is 404 for a booking that does not exist", async () => {
     const res = await change(given(null), { holdExpiresAt: "2027-01-20T01:00:00.000Z" });
 
     expect(res.status).toBe(404);
@@ -71,14 +71,14 @@ describe("PATCH /api/venue-bookings/[id]/expiry", () => {
   it.each([
     ["no expiry", {}],
     ["something that is not a date", { holdExpiresAt: "next Tuesday" }],
-  ])("refuses %s", async (_case, body) => {
+  ])("[SPM-82][AC3] refuses %s", async (_case, body) => {
     const res = await change(given(), body);
 
     expect(res.status).toBe(400);
     expect(db.venueBooking.update).not.toHaveBeenCalled();
   });
 
-  it("AC3: moves an active hold's expiry, and lets it be warned about again for the new time", async () => {
+  it("[SPM-82][AC3] AC3: moves an active hold's expiry, and lets it be warned about again for the new time", async () => {
     atNow();
     const res = await change(given(), { holdExpiresAt: "2027-01-20T01:00:00.000Z" });
 
@@ -91,7 +91,7 @@ describe("PATCH /api/venue-bookings/[id]/expiry", () => {
     });
   });
 
-  it("SPM-82-TC04: refuses an expiry after the event starts, naming the start", async () => {
+  it("[SPM-82][AC2][AC3] SPM-82-TC04: refuses an expiry after the event starts, naming the start", async () => {
     atNow();
 
     expect(await refusal(given(), { holdExpiresAt: "2027-02-09T01:00:00.000Z" })).toBe(
@@ -99,13 +99,13 @@ describe("PATCH /api/venue-bookings/[id]/expiry", () => {
     );
   });
 
-  it("SPM-82-TC04: refuses an expiry in the past", async () => {
+  it("[SPM-82][AC2][AC3] SPM-82-TC04: refuses an expiry in the past", async () => {
     atNow();
 
     expect(await refusal(given(), { holdExpiresAt: "2026-01-01T01:00:00.000Z" })).toBe("The expiry must be in the future.");
   });
 
-  it("refuses to change a hold that has expired - it is no longer active", async () => {
+  it("[SPM-82][AC3][AC4] refuses to change a hold that has expired - it is no longer active", async () => {
     atNow();
 
     expect(await refusal(given(hold({ status: "expired" })), { holdExpiresAt: "2027-01-20T01:00:00.000Z" })).toBe(
@@ -113,7 +113,7 @@ describe("PATCH /api/venue-bookings/[id]/expiry", () => {
     );
   });
 
-  it("AC11: refuses to give an approved booking an expiry", async () => {
+  it("[SPM-82][AC11] AC11: refuses to give an approved booking an expiry", async () => {
     atNow();
 
     expect(await refusal(given(hold({ status: "approved" })), { holdExpiresAt: "2027-01-20T01:00:00.000Z" })).toBe(
@@ -121,14 +121,14 @@ describe("PATCH /api/venue-bookings/[id]/expiry", () => {
     );
   });
 
-  it("expires overdue holds before reading this one, so a hold whose time just ran out is refused as expired", async () => {
+  it("[SPM-82][AC3][AC4] expires overdue holds before reading this one, so a hold whose time just ran out is refused as expired", async () => {
     atNow();
     await change(given(), { holdExpiresAt: "2027-01-20T01:00:00.000Z" });
 
     expect(holdExpirySweepOrder()).toBeLessThan(db.venueBooking.findUnique.mock.invocationCallOrder[0]);
   });
 
-  it("answers 500 when the database fails", async () => {
+  it("[SPM-82] answers 500 when the database fails", async () => {
     const token = given();
     db.venueBooking.findUnique.mockRejectedValue(new Error("connection lost"));
 

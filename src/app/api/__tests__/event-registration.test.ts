@@ -78,7 +78,7 @@ function noRegistrationTouched() {
 }
 
 describe("AC1 the assigned coordinator turns registration on or off", () => {
-  it("turns registration on (TC01)", async () => {
+  it("[SPM-64][AC1] turns registration on (TC01)", async () => {
     const token = given({ registrationEnabled: false });
 
     const res = await save(token, { registrationEnabled: true });
@@ -90,7 +90,7 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
     expect(body.flagged).toEqual([]);
   });
 
-  it("turns registration off without clearing the saved settings, and flags nothing when nobody holds a place (TC02)", async () => {
+  it("[SPM-64][AC1][AC9] turns registration off without clearing the saved settings, and flags nothing when nobody holds a place (TC02)", async () => {
     const token = given({
       status: "confirmed",
       registrationEnabled: true,
@@ -109,7 +109,7 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
   });
 
   it.each(["submitted", "under_review", "postponed", "completed", "cancelled", "rejected", "withdrawn"])(
-    "refuses an event that is %s (TC03)",
+    "[SPM-64][AC1] refuses an event that is %s (TC03)",
     async (status) => {
       const token = given({ status });
 
@@ -127,7 +127,7 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
     ["a field that is not a registration setting", { registrationEnabled: true, title: "New name" }],
     ["a switch that is not true or false", { registrationEnabled: "yes" }],
     ["a booking reference that is not an id", { registrationVenueBookingId: "studio" }],
-  ])("refuses a body with %s", async (_what, body) => {
+  ])("[SPM-64][AC1] refuses a body with %s", async (_what, body) => {
     const token = given();
 
     const res = await save(token, body);
@@ -137,7 +137,7 @@ describe("AC1 the assigned coordinator turns registration on or off", () => {
     nothingWritten();
   });
 
-  it("is 500 when the database fails", async () => {
+  it("[SPM-64] is 500 when the database fails", async () => {
     const token = given();
     db.event.update.mockRejectedValue(new Error("connection lost"));
 
@@ -164,7 +164,7 @@ const classroomBooking = {
 };
 
 describe("AC2 the coordinator sets a registration capacity", () => {
-  it("saves the capacity with the booking it was measured against, read from the event's own bookings (TC04)", async () => {
+  it("[SPM-64][AC2] saves the capacity with the booking it was measured against, read from the event's own bookings (TC04)", async () => {
     const token = given({ registrationEnabled: true });
     db.venueBooking.findMany.mockResolvedValue([classroomBooking]);
 
@@ -175,7 +175,7 @@ describe("AC2 the coordinator sets a registration capacity", () => {
     expect(callArg(db.event.update).data).toEqual({ registrationCapacity: 60, registrationVenueBookingId: ID.booking });
   });
 
-  it.each([0, -5, 12.5])("refuses a capacity of %s under its field, and writes nothing (TC05)", async (capacity) => {
+  it.each([0, -5, 12.5])("[SPM-64][AC2] refuses a capacity of %s under its field, and writes nothing (TC05)", async (capacity) => {
     const token = given({ registrationEnabled: true });
 
     const res = await save(token, { registrationCapacity: capacity });
@@ -185,7 +185,7 @@ describe("AC2 the coordinator sets a registration capacity", () => {
     nothingWritten();
   });
 
-  it("doesn't read the bookings when the capacity isn't being changed", async () => {
+  it("[SPM-64][AC2] doesn't read the bookings when the capacity isn't being changed", async () => {
     const token = given();
 
     await save(token, { registrationEnabled: true });
@@ -195,7 +195,7 @@ describe("AC2 the coordinator sets a registration capacity", () => {
 });
 
 describe("AC3 the capacity cannot exceed the booked room's layout capacity", () => {
-  it("refuses a capacity over the limit as a field error, and writes nothing (TC06)", async () => {
+  it("[SPM-64][AC3] refuses a capacity over the limit as a field error, and writes nothing (TC06)", async () => {
     const token = given({ registrationEnabled: true });
     db.venueBooking.findMany.mockResolvedValue([classroomBooking]);
 
@@ -218,7 +218,7 @@ const studioBooking = {
 };
 
 describe("AC4 with several bookings the coordinator chooses which one the capacity is measured against", () => {
-  it("saves the chosen booking with the capacity (TC09)", async () => {
+  it("[SPM-64][AC4] saves the chosen booking with the capacity (TC09)", async () => {
     const token = given({ registrationEnabled: true });
     db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
 
@@ -231,7 +231,7 @@ describe("AC4 with several bookings the coordinator chooses which one the capaci
     });
   });
 
-  it("refuses a missing choice under 'Capacity measured against', and writes nothing (TC10)", async () => {
+  it("[SPM-64][AC4] refuses a missing choice under 'Capacity measured against', and writes nothing (TC10)", async () => {
     const token = given({ registrationEnabled: true });
     db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
 
@@ -243,7 +243,7 @@ describe("AC4 with several bookings the coordinator chooses which one the capaci
     nothingWritten();
   });
 
-  it("re-checks the saved capacity when only the booking is changed (TC18)", async () => {
+  it("[SPM-64][AC4] re-checks the saved capacity when only the booking is changed (TC18)", async () => {
     const token = given({ registrationEnabled: true, registrationCapacity: 60 });
     db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
 
@@ -258,7 +258,7 @@ describe("AC4 with several bookings the coordinator chooses which one the capaci
 });
 
 describe("choosing the booking before any capacity is set", () => {
-  it("saves the booking with nothing to check it against", async () => {
+  it("[SPM-64][AC4] saves the booking with nothing to check it against", async () => {
     const token = given({ registrationEnabled: true });
     db.venueBooking.findMany.mockResolvedValue([classroomBooking, studioBooking]);
 
@@ -270,7 +270,7 @@ describe("choosing the booking before any capacity is set", () => {
 });
 
 describe("AC5 + AC6 the registration period", () => {
-  it("saves the period on its own, leaving the event's date alone (TC11)", async () => {
+  it("[SPM-64][AC5][AC6] saves the period on its own, leaving the event's date alone (TC11)", async () => {
     const token = given({ registrationEnabled: true });
 
     const res = await save(token, {
@@ -285,7 +285,7 @@ describe("AC5 + AC6 the registration period", () => {
     });
   });
 
-  it("checks a new closing date against the opening date already saved, under its field (TC12)", async () => {
+  it("[SPM-64][AC5][AC6] checks a new closing date against the opening date already saved, under its field (TC12)", async () => {
     const token = given({ registrationEnabled: true, registrationOpensAt: new Date("2027-03-01T01:00:00.000Z") });
 
     const res = await save(token, { registrationClosesAt: "2027-02-01T01:00:00.000Z" });
@@ -296,7 +296,7 @@ describe("AC5 + AC6 the registration period", () => {
     nothingWritten();
   });
 
-  it("accepts a new opening date before the closing date already saved", async () => {
+  it("[SPM-64][AC5][AC6] accepts a new opening date before the closing date already saved", async () => {
     const token = given({ registrationEnabled: true, registrationClosesAt: new Date("2027-03-10T09:00:00.000Z") });
 
     const res = await save(token, { registrationOpensAt: "2027-02-01T01:00:00.000Z" });
@@ -305,7 +305,7 @@ describe("AC5 + AC6 the registration period", () => {
     expect(callArg(db.event.update).data).toEqual({ registrationOpensAt: new Date("2027-02-01T01:00:00.000Z") });
   });
 
-  it("refuses a date that isn't a date and time", async () => {
+  it("[SPM-64][AC5][AC6] refuses a date that isn't a date and time", async () => {
     const token = given();
 
     const res = await save(token, { registrationOpensAt: "next week" });
@@ -317,7 +317,7 @@ describe("AC5 + AC6 the registration period", () => {
 });
 
 describe("AC7 a closed period can be extended or reopened until the event starts", () => {
-  it("reopens a period whose closing date has passed, before the event starts (TC14)", async () => {
+  it("[SPM-64][AC7] reopens a period whose closing date has passed, before the event starts (TC14)", async () => {
     const token = given({
       status: "confirmed",
       startsAt: new Date("2027-03-10T01:00:00.000Z"),
@@ -332,7 +332,7 @@ describe("AC7 a closed period can be extended or reopened until the event starts
     expect(callArg(db.event.update).data).toEqual({ registrationClosesAt: new Date("2027-02-28T09:00:00.000Z") });
   });
 
-  it("refuses to change the period once the event has started, and writes nothing (TC15)", async () => {
+  it("[SPM-64][AC7] refuses to change the period once the event has started, and writes nothing (TC15)", async () => {
     const token = given({
       status: "confirmed",
       startsAt: new Date("2026-10-01T01:00:00.000Z"),
@@ -348,7 +348,7 @@ describe("AC7 a closed period can be extended or reopened until the event starts
     nothingWritten();
   });
 
-  it("shows the refusal under the opening date when only that is changed", async () => {
+  it("[SPM-64][AC7] shows the refusal under the opening date when only that is changed", async () => {
     const token = given({ status: "confirmed", startsAt: new Date("2026-10-01T01:00:00.000Z"), registrationEnabled: true });
 
     const res = await save(token, { registrationOpensAt: "2026-09-01T01:00:00.000Z" });
@@ -368,7 +368,7 @@ describe("AC9 a change that leaves attendees without a place flags the registrat
     return token;
   }
 
-  it("saves a capacity lowered below the attendees holding a place, and flags the registrations (TC19)", async () => {
+  it("[SPM-64][AC9] saves a capacity lowered below the attendees holding a place, and flags the registrations (TC19)", async () => {
     const token = fullHouse();
 
     const res = await save(token, { registrationCapacity: 14 });
@@ -388,7 +388,7 @@ describe("AC9 a change that leaves attendees without a place flags the registrat
     noRegistrationTouched();
   });
 
-  it("saves registration turned off with only waitlisted attendees, and flags them (TC21)", async () => {
+  it("[SPM-64][AC9] saves registration turned off with only waitlisted attendees, and flags them (TC21)", async () => {
     const token = given({ registrationEnabled: true, registrationCapacity: 10 });
     db.registration.count.mockResolvedValue(4);
 
@@ -403,7 +403,7 @@ describe("AC9 a change that leaves attendees without a place flags the registrat
     noRegistrationTouched();
   });
 
-  it("adds its reason to a flag already raised by another story, keeping that one", async () => {
+  it("[SPM-64][AC9] adds its reason to a flag already raised by another story, keeping that one", async () => {
     const token = given({
       registrationEnabled: true,
       registrationCapacity: 10,
@@ -416,7 +416,7 @@ describe("AC9 a change that leaves attendees without a place flags the registrat
     expect(callArg(db.event.update).data.registrationReviewReason).toBe("event_schedule_changed,registration_disabled");
   });
 
-  it("doesn't count registrations for a change that can't take anyone's place", async () => {
+  it("[SPM-64][AC9] doesn't count registrations for a change that can't take anyone's place", async () => {
     const token = given();
 
     await save(token, { registrationEnabled: true });
@@ -426,26 +426,26 @@ describe("AC9 a change that leaves attendees without a place flags the registrat
 });
 
 describe("AC11 only the assigned coordinator changes registration settings", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await save(undefined, { registrationEnabled: true })).status).toBe(401);
     nothingWritten();
   });
 
-  it.each(["nope", ID.event])("is 404 for the malformed reference %s, without querying", async (reference) => {
+  it.each(["nope", ID.event])("[SPM-64][AC11] is 404 for the malformed reference %s, without querying", async (reference) => {
     const token = signIn(assignedCoordinator());
 
     expect((await save(token, { registrationEnabled: true }, reference)).status).toBe(404);
     expect(db.event.findUnique).not.toHaveBeenCalled();
   });
 
-  it("is 404 for a reference that matches no event", async () => {
+  it("[SPM-64][AC11] is 404 for a reference that matches no event", async () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(null);
 
     expect((await save(token, { registrationEnabled: true })).status).toBe(404);
   });
 
-  it("is 404, not 403, for an attendee and an event they may not see", async () => {
+  it("[SPM-64][AC11] is 404, not 403, for an attendee and an event they may not see", async () => {
     const token = given({}, user("attendee", { id: ID.thirdUser }));
 
     expect((await save(token, { registrationEnabled: true })).status).toBe(404);
@@ -458,7 +458,7 @@ describe("AC11 only the assigned coordinator changes registration settings", () 
     ["the Ops Manager (TC24)", () => user("ops_manager", { id: ID.thirdUser })],
     ["Venue Staff (TC24)", () => user("venue_staff", { id: ID.thirdUser })],
     ["Technical Support (TC24)", () => user("tech_support", { id: ID.thirdUser })],
-  ])("is 403 for %s, and writes nothing", async (_who, actor) => {
+  ])("[SPM-64][AC11] is 403 for %s, and writes nothing", async (_who, actor) => {
     const token = given({}, actor());
 
     const res = await save(token, { registrationEnabled: true });
@@ -470,7 +470,7 @@ describe("AC11 only the assigned coordinator changes registration settings", () 
     nothingWritten();
   });
 
-  it("is 403 for an attendee who can see a confirmed event open for registration (TC25)", async () => {
+  it("[SPM-64][AC11] is 403 for an attendee who can see a confirmed event open for registration (TC25)", async () => {
     const token = given({ status: "confirmed", registrationEnabled: true }, user("attendee", { id: ID.thirdUser }));
 
     expect((await save(token, { registrationEnabled: false })).status).toBe(403);
@@ -484,7 +484,7 @@ describe("GET /api/events/[id]/registration - the bookings the form offers", () 
   const load = (token: string | undefined) =>
     GET(req("GET", `/api/events/${REF}/registration`, { token }), params({ id: REF }));
 
-  it("gives the assigned coordinator the event's active bookings with their layout capacity (TC09)", async () => {
+  it("[SPM-64][AC4] gives the assigned coordinator the event's active bookings with their layout capacity (TC09)", async () => {
     const token = given();
     db.venueBooking.findMany.mockResolvedValue([
       classroomBooking,
@@ -504,7 +504,7 @@ describe("GET /api/events/[id]/registration - the bookings the form offers", () 
     });
   });
 
-  it("gives a booking with no layout a capacity of null", async () => {
+  it("[SPM-64][AC4] gives a booking with no layout a capacity of null", async () => {
     const token = given();
     db.venueBooking.findMany.mockResolvedValue([{ ...classroomBooking, layoutName: null }]);
 
@@ -513,7 +513,7 @@ describe("GET /api/events/[id]/registration - the bookings the form offers", () 
     expect(body.bookings[0].layoutCapacity).toBeNull();
   });
 
-  it("is 500 when the database fails", async () => {
+  it("[SPM-64] is 500 when the database fails", async () => {
     const token = given();
     db.venueBooking.findMany.mockRejectedValue(new Error("connection lost"));
 
@@ -523,7 +523,7 @@ describe("GET /api/events/[id]/registration - the bookings the form offers", () 
     expect(await res.json()).toEqual({ error: "Internal server error" });
   });
 
-  it("is 401 without a session, 404 for an event the user can't see, 403 for anyone else", async () => {
+  it("[SPM-64][AC11] is 401 without a session, 404 for an event the user can't see, 403 for anyone else", async () => {
     expect((await load(undefined)).status).toBe(401);
 
     expect((await load(given({}, user("attendee", { id: ID.thirdUser })))).status).toBe(404);

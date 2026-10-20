@@ -188,9 +188,12 @@ Use one of four results for each case:
 | Blocked | The case could not be run, for example because its test data no longer exists. | Say why in the notes. |
 
 `Changed by design` and `Blocked` are not failures, but they mean the test case
-is out of date. The story's owner updates the case's JSON and rebuilds the
-workbook as a separate change. That is a correction to the test case, not a
-regression result, so it does not break rule 2.
+is out of date. The story's owner marks the case Updated or Retired in the
+story's workbook, as [test-cases/README.md](test-cases/README.md#retiring-or-updating-a-test-case)
+describes, and adds it to [DECOMMISSIONED.md](test-cases/DECOMMISSIONED.md). That
+is a correction to the test case, not a regression result, so it does not break
+rule 2. Edit the workbook itself: rebuilding it from its JSON would drop its
+execution blocks.
 
 ## Step 7: Deal with failures
 

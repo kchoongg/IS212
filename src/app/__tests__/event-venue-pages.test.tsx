@@ -79,7 +79,7 @@ describe("Event Venue tab", () => {
 
   const card = async (name: string) => (await screen.findByText(name, { exact: false })).closest("div.rounded-lg") as HTMLElement;
 
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute(`/events/${REF}/venue`, { id: REF });
     mockApi(signedOut());
 
@@ -88,7 +88,7 @@ describe("Event Venue tab", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fvenue"));
   });
 
-  it("renders nothing until it knows who is looking", () => {
+  it("[SPM-41] renders nothing until it knows who is looking", () => {
     setRoute(`/events/${REF}/venue`, { id: REF });
     mockApi({ "GET /api/auth/me": () => new Promise(() => {}) });
 
@@ -97,7 +97,7 @@ describe("Event Venue tab", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("counts the venues checked and how many suit the event", async () => {
+  it("[SPM-41][AC5] counts the venues checked and how many suit the event", async () => {
     open();
 
     expect(await screen.findByText("2 venues checked · 1 suitable")).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe("Event Venue tab", () => {
   it.each([
     ["the assigned coordinator", true],
     ["a coordinator not assigned to the event", false],
-  ])("offers %s the Attendees tab only when the registrations are theirs", async (_who, canView) => {
+  ])("[SPM-22][AC2] offers %s the Attendees tab only when the registrations are theirs", async (_who, canView) => {
     open({ [INFO]: info({ canViewRegistrationList: canView }) });
 
     await screen.findByText("2 venues checked · 1 suitable");
@@ -122,7 +122,7 @@ describe("Event Venue tab", () => {
     );
   });
 
-  it("leaves the space fields empty for an event with no attendance or layout yet", async () => {
+  it("[SPM-90] leaves the space fields empty for an event with no attendance or layout yet", async () => {
     open({ [SUITABILITY]: suitability([hallA], { expectedAttendance: null, preferredLayout: null }) });
 
     await card("Hall A");
@@ -131,14 +131,14 @@ describe("Event Venue tab", () => {
     expect(screen.getByLabelText(/^Room layout/)).toHaveValue("");
   });
 
-  it("describes each venue: where it is, its capacity and its layouts", async () => {
+  it("[SPM-41] describes each venue: where it is, its capacity and its layouts", async () => {
     open();
 
     expect(await card("Hall A")).toHaveTextContent("Tower 1 — 3 · max 300 overall · Theatre 300, Banquet 180");
     expect(await card("Room B")).toHaveTextContent("Annex · max 40 overall");
   });
 
-  it("offers Request booking for a suitable venue only", async () => {
+  it("[SPM-42][AC1] offers Request booking for a suitable venue only", async () => {
     open();
 
     const suitable = await card("Hall A");
@@ -153,7 +153,7 @@ describe("Event Venue tab", () => {
     expect(within(unsuitable).queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
   });
 
-  it("lists every requirement an unsuitable venue fails, one line each", async () => {
+  it("[SPM-41][AC5][AC6] lists every requirement an unsuitable venue fails, one line each", async () => {
     open();
 
     const reasons = within(await card("Room B")).getAllByRole("listitem").map((li) => li.textContent);
@@ -161,7 +161,7 @@ describe("Event Venue tab", () => {
     expect(reasons).toEqual(["Theatre layout is not offered.", "Missing accessibility feature: Hearing loop."]);
   });
 
-  it("notes a missing nice-to-have without calling the venue unsuitable", async () => {
+  it("[SPM-41][AC5] notes a missing nice-to-have without calling the venue unsuitable", async () => {
     open({
       [SUITABILITY]: suitability([
         { ...hallA, optionalMissing: [{ kind: "facility", facilityId: "f2", name: "Stage", category: "facility" }] },
@@ -174,21 +174,21 @@ describe("Event Venue tab", () => {
     expect(within(hall).getByRole("link", { name: "Request booking" })).toBeInTheDocument();
   });
 
-  it("says which part of the check was skipped when the event has not said what it needs", async () => {
+  it("[SPM-41] says which part of the check was skipped when the event has not said what it needs", async () => {
     open({ [SUITABILITY]: suitability([hallA], { missing: ["expectedAttendance", "preferredLayout"] }) });
 
     expect(await screen.findByText("This check is incomplete")).toBeInTheDocument();
     expect(screen.getByText(/The event has no expected attendance or preferred layout yet/)).toBeInTheDocument();
   });
 
-  it("explains why booking cannot be requested, and offers no Request booking", async () => {
+  it("[SPM-42] explains why booking cannot be requested, and offers no Request booking", async () => {
     open({ [INFO]: info({ cannotRequest: "Only the assigned Coordinator can request a venue booking." }) });
 
     expect(await screen.findByText("Only the assigned Coordinator can request a venue booking.")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Request booking" })).not.toBeInTheDocument();
   });
 
-  it("SPM-93-TC01: lists the event's existing booking requests with their times, layout and status", async () => {
+  it("[SPM-93][AC1] [SPM-81][AC6] SPM-93-TC01: lists the event's existing booking requests with their times, layout and status", async () => {
     open({
       [INFO]: info({
         bookings: [
@@ -209,7 +209,7 @@ describe("Event Venue tab", () => {
   // SPM-82: a pending request is a tentative hold, and says when it expires
   // (AC1); an expired one stays on the record, marked as such (AC8); an
   // approved booking never expires, so it has no expiry line (AC11).
-  it("SPM-82-TC06: shows each hold's expiry, marks an expired one, and gives an approved booking none", async () => {
+  it("[SPM-82][AC1][AC8] SPM-82-TC06: shows each hold's expiry, marks an expired one, and gives an approved booking none", async () => {
     const at = { startsAt: "2027-03-04T05:00:00.000Z", endsAt: "2027-03-04T10:00:00.000Z", layoutName: "theatre", session: null };
     open({
       [INFO]: info({
@@ -239,7 +239,7 @@ describe("Event Venue tab", () => {
     expect(row("ROOM-E")).not.toHaveTextContent("Hold expired on");
   });
 
-  it("SPM-81-TC07: lists an event's requests at different venues together, each with its own times and status", async () => {
+  it("[SPM-81][AC6] SPM-81-TC07: lists an event's requests at different venues together, each with its own times and status", async () => {
     open({
       [INFO]: info({
         bookings: [
@@ -277,7 +277,7 @@ describe("Event Venue tab", () => {
     const requests = async () =>
       (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
 
-    it("shows Venue Staff's reason and the alternative they suggested", async () => {
+    it("[SPM-43][AC5][AC6] shows Venue Staff's reason and the alternative they suggested", async () => {
       open({ [INFO]: info({ bookings: [rejected()] }) });
 
       const card = await requests();
@@ -286,7 +286,7 @@ describe("Event Venue tab", () => {
       expect(card).toHaveTextContent("Suggested alternative: Room C (ROOM-C) — Free on the Friday instead.");
     });
 
-    it("offers to request the suggested venue, which only opens the request form", async () => {
+    it("[SPM-43][AC6] offers to request the suggested venue, which only opens the request form", async () => {
       open({ [INFO]: info({ bookings: [rejected()] }) });
 
       expect(within(await requests()).getByRole("link", { name: "Request this venue" })).toHaveAttribute(
@@ -295,7 +295,7 @@ describe("Event Venue tab", () => {
       );
     });
 
-    it("carries the session into the request for the suggested venue", async () => {
+    it("[SPM-43][AC6] carries the session into the request for the suggested venue", async () => {
       open({ [INFO]: info({ sessions, bookings: [rejected({ session: { id: "s2", label: null } })] }) });
 
       expect(within(await requests()).getByRole("link", { name: "Request this venue" })).toHaveAttribute(
@@ -308,7 +308,7 @@ describe("Event Venue tab", () => {
       ["the suggested venue has since been retired", { suggestedVenue: { id: "v9", code: "ROOM-C", name: "Room C", isActive: false } }, {}],
       ["only a note was suggested, not a venue", { suggestedVenue: null }, {}],
       ["this user cannot request bookings", {}, { cannotRequest: "Only the assigned Coordinator can request a venue booking." }],
-    ])("does not offer it when %s", async (_case, bookingOverrides, infoOverrides) => {
+    ])("[SPM-43][AC6] does not offer it when %s", async (_case, bookingOverrides, infoOverrides) => {
       open({ [INFO]: info({ bookings: [rejected(bookingOverrides)], ...infoOverrides }) });
 
       const card = await requests();
@@ -317,7 +317,7 @@ describe("Event Venue tab", () => {
       expect(within(card).queryByRole("link", { name: "Request this venue" })).not.toBeInTheDocument();
     });
 
-    it("shows a suggestion with no reason, and a reason with no suggestion", async () => {
+    it("[SPM-43][AC5][AC6] shows a suggestion with no reason, and a reason with no suggestion", async () => {
       open({
         [INFO]: info({
           bookings: [
@@ -334,7 +334,7 @@ describe("Event Venue tab", () => {
       expect(card.textContent!.match(/Suggested alternative:/g)).toHaveLength(1);
     });
 
-    it("adds nothing under a rejection that carries no reason or suggestion", async () => {
+    it("[SPM-43][AC5][AC6] adds nothing under a rejection that carries no reason or suggestion", async () => {
       open({ [INFO]: info({ bookings: [rejected({ decisionReason: null, suggestedAlternative: null, suggestedVenue: null })] }) });
 
       const card = await requests();
@@ -344,7 +344,7 @@ describe("Event Venue tab", () => {
       expect(card).not.toHaveTextContent("Suggested alternative");
     });
 
-    it("shows no decision details under a request that is not rejected", async () => {
+    it("[SPM-43] shows no decision details under a request that is not rejected", async () => {
       open({ [INFO]: info({ bookings: [rejected({ status: "approved" })] }) });
 
       expect(await requests()).not.toHaveTextContent("Reason from Venue Staff");
@@ -371,7 +371,7 @@ describe("Event Venue tab", () => {
       (await screen.findByRole("heading", { name: "Booking requests" })).closest("div.rounded-lg") as HTMLElement;
     const dialog = () => screen.getByRole("dialog", { hidden: true });
 
-    it("SPM-67-TC07: offers Withdraw request on a pending row and Release booking on an approved one, and nothing on the rest", async () => {
+    it("[SPM-67][AC1][AC3] SPM-67-TC07: offers Withdraw request on a pending row and Release booking on an approved one, and nothing on the rest", async () => {
       open({
         [INFO]: info({
           canChangeBookings: true,
@@ -401,7 +401,7 @@ describe("Event Venue tab", () => {
       expect(line("Room E (ROOM-E)")).toHaveTextContent("Reason for release: Merged sessions.");
     });
 
-    it("SPM-67-TC08: offers neither to a user who may not change the bookings", async () => {
+    it("[SPM-67][AC9] SPM-67-TC08: offers neither to a user who may not change the bookings", async () => {
       open({
         [INFO]: info({
           canChangeBookings: false,
@@ -416,7 +416,7 @@ describe("Event Venue tab", () => {
       expect(within(card).queryByRole("button", { name: "Release booking" })).not.toBeInTheDocument();
     });
 
-    it("SPM-67-TC06: shows no reason line when none was given", async () => {
+    it("[SPM-67][AC5] SPM-67-TC06: shows no reason line when none was given", async () => {
       open({ [INFO]: info({ bookings: [row({ status: "withdrawn" })] }) });
 
       const card = await requests();
@@ -425,7 +425,7 @@ describe("Event Venue tab", () => {
       expect(card).not.toHaveTextContent("Reason for withdrawal");
     });
 
-    it("SPM-67-TC01: asks before withdrawing, sends the reason, and says what happened", async () => {
+    it("[SPM-67][AC1][AC5] SPM-67-TC01: asks before withdrawing, sends the reason, and says what happened", async () => {
       const api = open({
         [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
         [PATCH_B1]: { id: "b1", status: "withdrawn" },
@@ -451,7 +451,7 @@ describe("Event Venue tab", () => {
       expect(await screen.findByText("Not needed.", { exact: false })).toHaveTextContent("Reason for withdrawal: Not needed.");
     });
 
-    it("still says what happened when the answer has no body", async () => {
+    it("[SPM-67][AC1] still says what happened when the answer has no body", async () => {
       const api = open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(200) });
       await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
 
@@ -461,7 +461,7 @@ describe("Event Venue tab", () => {
       expect(await screen.findByText("Request withdrawn")).toBeInTheDocument();
     });
 
-    it("SPM-88: adds that the withdrawal closed the event's safety check", async () => {
+    it("[SPM-88][AC6] SPM-88: adds that the withdrawal closed the event's safety check", async () => {
       const api = open({
         [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
         [PATCH_B1]: { id: "b1", status: "withdrawn", safetyCheckClosed: true },
@@ -478,7 +478,7 @@ describe("Event Venue tab", () => {
       ).toBeInTheDocument();
     });
 
-    it("SPM-67-TC03: asks before releasing, and says Venue Staff have been notified", async () => {
+    it("[SPM-67][AC3][AC7] SPM-67-TC03: asks before releasing, and says Venue Staff have been notified", async () => {
       const api = open({
         [INFO]: info({ canChangeBookings: true, bookings: [row({ status: "approved" })] }),
         [PATCH_B1]: { id: "b1", status: "released" },
@@ -503,7 +503,7 @@ describe("Event Venue tab", () => {
       ).toBeInTheDocument();
     });
 
-    it("sends nothing when the Coordinator keeps the request", async () => {
+    it("[SPM-67] sends nothing when the Coordinator keeps the request", async () => {
       const api = open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: {} });
 
       await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
@@ -512,7 +512,7 @@ describe("Event Venue tab", () => {
       expect(api.sent(PATCH_B1)).toHaveLength(0);
     });
 
-    it("shows the server's refusal and reloads the bookings, which may have changed meanwhile", async () => {
+    it("[SPM-67] shows the server's refusal and reloads the bookings, which may have changed meanwhile", async () => {
       const refusal = "This request has already been approved, so it can no longer be withdrawn. Release the booking instead.";
       const api = open({
         [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
@@ -530,7 +530,7 @@ describe("Event Venue tab", () => {
     it.each([
       ["names the session", { id: "s1", label: "Day 1" }, "Hall A (HALL-A) for Day 1 on"],
       ["calls an unnamed session 'Session'", { id: "s1", label: null }, "Hall A (HALL-A) for Session on"],
-    ])("%s a withdrawn request was for", async (_case, session, expected) => {
+    ])("[SPM-67][AC6] %s a withdrawn request was for", async (_case, session, expected) => {
       open({
         [INFO]: info({ canChangeBookings: true, bookings: [row({ session })] }),
         [PATCH_B1]: { id: "b1", status: "withdrawn" },
@@ -542,7 +542,7 @@ describe("Event Venue tab", () => {
       expect(await screen.findByText(expected, { exact: false })).toHaveTextContent(" is now Withdrawn.");
     });
 
-    it("says the change was not saved when the refusal has no body", async () => {
+    it("[SPM-67] says the change was not saved when the refusal has no body", async () => {
       open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(409) });
 
       await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
@@ -551,7 +551,7 @@ describe("Event Venue tab", () => {
       expect(await screen.findByText("Could not save the change. Please try again.")).toBeInTheDocument();
     });
 
-    it("says the change was not saved when the server cannot be reached", async () => {
+    it("[SPM-67] says the change was not saved when the server cannot be reached", async () => {
       open({
         [INFO]: info({ canChangeBookings: true, bookings: [row()] }),
         [PATCH_B1]: () => Promise.reject(new TypeError("Failed to fetch")),
@@ -563,7 +563,7 @@ describe("Event Venue tab", () => {
       expect(await screen.findByText("Could not save the change. Please try again.")).toBeInTheDocument();
     });
 
-    it("sends the user to log in when the session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when the session has expired", async () => {
       open({ [INFO]: info({ canChangeBookings: true, bookings: [row()] }), [PATCH_B1]: reply(401, {}) });
 
       await userEvent.click(within(await requests()).getByRole("button", { name: "Withdraw request" }));
@@ -573,7 +573,7 @@ describe("Event Venue tab", () => {
     });
   });
 
-  it("shows no booking requests card when there are none", async () => {
+  it("[SPM-42] shows no booking requests card when there are none", async () => {
     open();
 
     await card("Hall A");
@@ -582,7 +582,7 @@ describe("Event Venue tab", () => {
   });
 
   describe("a multi-session event", () => {
-    it("has no session picker on an ordinary event", async () => {
+    it("[SPM-42][AC4] has no session picker on an ordinary event", async () => {
       const api = open();
 
       await card("Hall A");
@@ -591,7 +591,7 @@ describe("Event Venue tab", () => {
       expect(api.sent(SUITABILITY)[0].url).toBe(`/api/events/${REF}/venue-suitability`);
     });
 
-    it("judges venues for the first session by default, and carries it into Request booking", async () => {
+    it("[SPM-42][AC4] judges venues for the first session by default, and carries it into Request booking", async () => {
       const api = open({ [INFO]: info({ sessions }) });
 
       const hall = await card("Hall A");
@@ -604,7 +604,7 @@ describe("Event Venue tab", () => {
       );
     });
 
-    it("names an unlabelled session 'Session', with its times", async () => {
+    it("[SPM-42][AC4] names an unlabelled session 'Session', with its times", async () => {
       open({ [INFO]: info({ sessions }) });
       await card("Hall A");
 
@@ -614,7 +614,7 @@ describe("Event Venue tab", () => {
       expect(options[1]).toMatch(/^Session — 5 Mar 2027/);
     });
 
-    it("re-checks every venue when another session is chosen", async () => {
+    it("[SPM-42][AC4] re-checks every venue when another session is chosen", async () => {
       const api = open({ [INFO]: info({ sessions }) });
       await card("Hall A");
 
@@ -628,7 +628,7 @@ describe("Event Venue tab", () => {
 
   // SPM-98: Events / <event title> / Venue, in every state.
   describe("its breadcrumb", () => {
-    it("names the event by its title and links it to the Overview", async () => {
+    it("[SPM-41][BUG-98] names the event by its title and links it to the Overview", async () => {
       open();
       await card("Hall A");
 
@@ -639,7 +639,7 @@ describe("Event Venue tab", () => {
       ]);
     });
 
-    it("reads 'Event' while the event is loading", async () => {
+    it("[SPM-41][BUG-98] reads 'Event' while the event is loading", async () => {
       open({ [INFO]: () => new Promise(() => {}) });
 
       expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
@@ -650,7 +650,7 @@ describe("Event Venue tab", () => {
       ]);
     });
 
-    it("is the same trail when the event cannot be loaded", async () => {
+    it("[SPM-41][BUG-98] is the same trail when the event cannot be loaded", async () => {
       open({ [INFO]: reply(500, {}) });
       await screen.findByRole("alert");
 
@@ -664,7 +664,7 @@ describe("Event Venue tab", () => {
     it.each([
       ["organiser", "My Events"],
       ["safety_officer", "Events"],
-    ])("starts '%s' for a refused %s", async (role, list) => {
+    ])("[SPM-41][BUG-98] starts '%s' for a refused %s", async (role, list) => {
       open({}, role);
       await screen.findByRole("alert");
 
@@ -682,7 +682,7 @@ describe("Event Venue tab", () => {
   // venue, booking or suitability result ever reaches the page.
   describe("for a role that may not search for venues", () => {
     it.each(ROLES.filter((role) => !can(role, "venue:view")))(
-      "refuses %s without loading anything",
+      "[SPM-22][AC4] refuses %s without loading anything",
       async (role) => {
         const api = open({}, role);
 
@@ -705,19 +705,19 @@ describe("Event Venue tab", () => {
       ["the suitability check is refused", { [SUITABILITY]: reply(403, {}) }, "Venue suitability is for ConnectSphere staff."],
       ["the suitability check cannot find the event", { [SUITABILITY]: reply(404, {}) }, "This event doesn't exist, or you don't have access to it."],
       ["the suitability check fails", { [SUITABILITY]: reply(500, {}) }, "Could not check venues for this event."],
-    ])("says so when %s", async (_case, routes, message) => {
+    ])("[SPM-41] says so when %s", async (_case, routes, message) => {
       open(routes);
 
       expect(await screen.findByRole("alert")).toHaveTextContent(message);
     });
 
-    it("shows a general error when the check fails without a reason", async () => {
+    it("[SPM-41] shows a general error when the check fails without a reason", async () => {
       open({ [SUITABILITY]: () => Promise.reject("offline") });
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
-    it("offers a Retry that loads again", async () => {
+    it("[SPM-41] offers a Retry that loads again", async () => {
       const api = open({ [SUITABILITY]: reply(500, {}) });
       await screen.findByRole("alert");
 
@@ -727,7 +727,7 @@ describe("Event Venue tab", () => {
       expect(await card("Hall A")).toBeInTheDocument();
     });
 
-    it.each([INFO, SUITABILITY])("sends the user to log in when %s answers that the session has expired", async (route) => {
+    it.each([INFO, SUITABILITY])("[SPM-22][AC4] sends the user to log in when %s answers that the session has expired", async (route) => {
       open({ [route]: reply(401, {}) });
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fvenue"));
@@ -768,7 +768,7 @@ describe("Venue booking request form", () => {
   const valueOf = (label: string) =>
     screen.getAllByRole("term").find((t) => t.textContent === label)!.nextElementSibling as HTMLElement;
 
-  it("sends an anonymous visitor to log in", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute(`/events/${REF}/booking/new?venue=v1`, { id: REF });
     mockApi(signedOut());
 
@@ -777,13 +777,13 @@ describe("Venue booking request form", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fvenue"));
   });
 
-  it("shows a placeholder while it loads", async () => {
+  it("[SPM-42] shows a placeholder while it loads", async () => {
     open({ [VENUE]: () => new Promise(() => {}) });
 
     expect(await screen.findByRole("status", { name: "Loading" })).toBeInTheDocument();
   });
 
-  it("opened without a venue in the address, shows an error instead of a form", async () => {
+  it("[SPM-42] opened without a venue in the address, shows an error instead of a form", async () => {
     open({ "GET /api/venues/null": reply(404, {}) }, "");
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this");
@@ -793,19 +793,19 @@ describe("Venue booking request form", () => {
   it.each([
     ["the venue", { [VENUE]: reply(404, {}) }],
     ["the event", { [INFO]: reply(404, {}) }],
-  ])("says so when %s cannot be found", async (_case, routes) => {
+  ])("[SPM-42] says so when %s cannot be found", async (_case, routes) => {
     open(routes);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("This event or venue could not be found.");
   });
 
-  it("shows a general error when loading fails without a reason", async () => {
+  it("[SPM-42] shows a general error when loading fails without a reason", async () => {
     open({ [VENUE]: () => Promise.reject("offline") });
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
   });
 
-  it("sends the user to log in when their session has expired", async () => {
+  it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     open({ [VENUE]: reply(401, {}) });
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fvenue"));
@@ -813,7 +813,7 @@ describe("Venue booking request form", () => {
 
   // SPM-98: Events / <event title> / Venue / Request booking.
   describe("its breadcrumb", () => {
-    it("names the event by its title, and links back to it and to its Venue tab", async () => {
+    it("[SPM-42][BUG-98] names the event by its title, and links back to it and to its Venue tab", async () => {
       open();
       await date();
 
@@ -828,7 +828,7 @@ describe("Venue booking request form", () => {
     it.each([
       ["loading", { [VENUE]: () => new Promise(() => {}) }],
       ["in error", { [VENUE]: reply(404, {}) }],
-    ])("reads 'Event' for the event while %s", async (_case, routes) => {
+    ])("[SPM-42][BUG-98] reads 'Event' for the event while %s", async (_case, routes) => {
       open(routes);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -842,7 +842,7 @@ describe("Venue booking request form", () => {
   });
 
   describe("what it starts with", () => {
-    it("the event, venue and layout being requested", async () => {
+    it("[SPM-42][AC1][AC6] the event, venue and layout being requested", async () => {
       open();
       await date();
 
@@ -852,7 +852,7 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText("Session")).not.toBeInTheDocument();
     });
 
-    it("SPM-93-TC01: the event's own date and times, and no AM / PM / Night choice", async () => {
+    it("[SPM-93][AC1][AC2] SPM-93-TC01: the event's own date and times, and no AM / PM / Night choice", async () => {
       open();
 
       expect(await date()).toHaveValue("2027-03-04");
@@ -861,7 +861,7 @@ describe("Venue booking request form", () => {
       expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
     });
 
-    it("SPM-93-TC01: an event off the 15-minute grid is widened to it", async () => {
+    it("[SPM-93][AC2] SPM-93-TC01: an event off the 15-minute grid is widened to it", async () => {
       open({ [INFO]: info({ schedule: { startsAt: "2027-03-04T06:10:00.000Z", endsAt: "2027-03-04T07:50:00.000Z" } }) });
 
       expect(await date()).toHaveValue("2027-03-04");
@@ -869,7 +869,7 @@ describe("Venue booking request form", () => {
       expect(end()).toHaveValue("16:00");
     });
 
-    it("SPM-93-TC02: a session's own date, times and layout when one is named", async () => {
+    it("[SPM-93][AC2] [SPM-42][AC4] SPM-93-TC02: a session's own date, times and layout when one is named", async () => {
       open({ [INFO]: info({ sessions }) }, "?venue=v1&session=s2");
 
       // 09:00-11:00 Singapore time on 5 March.
@@ -880,7 +880,7 @@ describe("Venue booking request form", () => {
       expect(screen.getByLabelText(/^Room layout/)).toHaveValue("");
     });
 
-    it("names a labelled session by its label", async () => {
+    it("[SPM-42][AC4] names a labelled session by its label", async () => {
       open({ [INFO]: info({ sessions }) }, "?venue=v1&session=s1");
       await date();
 
@@ -891,7 +891,7 @@ describe("Venue booking request form", () => {
     it.each([
       ["has no dates yet", { startsAt: null, endsAt: null }],
       ["runs over more than one day", { startsAt: "2027-03-04T05:30:00.000Z", endsAt: "2027-03-05T09:00:00.000Z" }],
-    ])("nothing filled in when the event %s", async (_case, schedule) => {
+    ])("[SPM-93][AC2] nothing filled in when the event %s", async (_case, schedule) => {
       open({ [INFO]: info({ schedule, event: { title: null, preferredLayout: null } }) });
 
       expect(await date()).toHaveValue("");
@@ -903,7 +903,7 @@ describe("Venue booking request form", () => {
   });
 
   describe("setup, turnaround and the room in use", () => {
-    it("SPM-93-TC08: says none is needed at a venue that needs none, and the room is in use for the booked times", async () => {
+    it("[SPM-93][AC5][AC6] SPM-93-TC08: says none is needed at a venue that needs none, and the room is in use for the booked times", async () => {
       open();
       await date();
 
@@ -912,7 +912,7 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText(/^Setup:/)).not.toBeInTheDocument();
     });
 
-    it("SPM-93-TC01: shows the times setup and turnaround take either side, which the coordinator does not choose", async () => {
+    it("[SPM-93][AC6] SPM-93-TC01: shows the times setup and turnaround take either side, which the coordinator does not choose", async () => {
       open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
       await date();
 
@@ -921,7 +921,7 @@ describe("Venue booking request form", () => {
       expect(screen.getByText("Room in use: 13:00–17:45")).toBeInTheDocument();
     });
 
-    it("SPM-93-TC09: follows the times as they are changed", async () => {
+    it("[SPM-93][AC6] SPM-93-TC09: follows the times as they are changed", async () => {
       open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
       await date();
 
@@ -931,7 +931,7 @@ describe("Venue booking request form", () => {
       expect(screen.getByText("Room in use: 13:00–18:00")).toBeInTheDocument();
     });
 
-    it("shows only setup at a venue with no turnaround", async () => {
+    it("[SPM-93][AC5] shows only setup at a venue with no turnaround", async () => {
       open({ [VENUE]: venue({ setupMinutes: 15 }) });
       await date();
 
@@ -940,14 +940,14 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText("No setup or turnaround needed at this venue.")).not.toBeInTheDocument();
     });
 
-    it("shows no room-in-use period while no date is chosen", async () => {
+    it("[SPM-93][AC6] shows no room-in-use period while no date is chosen", async () => {
       open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
       set(await date(), "");
 
       expect(screen.queryByText(/^Room in use:/)).not.toBeInTheDocument();
     });
 
-    it("shows nothing while the times cannot be booked", async () => {
+    it("[SPM-93][AC6] shows nothing while the times cannot be booked", async () => {
       open({ [VENUE]: venue({ setupMinutes: 30, teardownMinutes: 45 }) });
       await date();
 
@@ -965,7 +965,7 @@ describe("Venue booking request form", () => {
       ["an end equal to the start", () => set(end(), "13:30"), /^End time/, "The end time must be after the start time."],
       ["an end before the start", () => set(end(), "13:15"), /^End time/, "The end time must be after the start time."],
       ["an empty start time", () => set(start(), ""), /^Start time/, "Choose a start time on a 15-minute step (:00, :15, :30 or :45)."],
-    ])("%s: the message is under that field and nothing is sent", async (_case, breakIt, field, message) => {
+    ])("[SPM-93][AC3] %s: the message is under that field and nothing is sent", async (_case, breakIt, field, message) => {
       const api = open();
       await date();
 
@@ -976,7 +976,7 @@ describe("Venue booking request form", () => {
       expect(api.sent(POST)).toHaveLength(0);
     });
 
-    it("names both times when both are off the grid", async () => {
+    it("[SPM-93][AC3] names both times when both are off the grid", async () => {
       open();
       await date();
 
@@ -988,7 +988,7 @@ describe("Venue booking request form", () => {
       expect(screen.getByText("Choose an end time on a 15-minute step (:00, :15, :30 or :45).")).toBeInTheDocument();
     });
 
-    it("clears the message as soon as a time is changed", async () => {
+    it("[SPM-93][AC3] clears the message as soon as a time is changed", async () => {
       open();
       await date();
       set(start(), "13:40");
@@ -999,7 +999,7 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText(/on a 15-minute step/)).not.toBeInTheDocument();
     });
 
-    it("puts a refusal the server names a field for under that field", async () => {
+    it("[SPM-42] puts a refusal the server names a field for under that field", async () => {
       open({ [POST]: reply(400, { error: "The end time must be after the start time.", field: "endTime" }) });
       await date();
 
@@ -1014,7 +1014,7 @@ describe("Venue booking request form", () => {
   });
 
   describe("submitting", () => {
-    it("SPM-93-TC01: sends the venue, date, times and requirements, then confirms it is pending", async () => {
+    it("[SPM-93][AC1] [SPM-42][AC7][AC8] SPM-93-TC01: sends the venue, date, times and requirements, then confirms it is pending", async () => {
       const api = open();
       set(await date(), "2027-03-06");
       set(start(), "13:15");
@@ -1040,7 +1040,7 @@ describe("Venue booking request form", () => {
       expect(screen.queryByRole("button", { name: "Submit request" })).not.toBeInTheDocument();
     });
 
-    it("confirms a request the server accepts without a body", async () => {
+    it("[SPM-42][AC7] confirms a request the server accepts without a body", async () => {
       open({ [POST]: reply(201) });
       await date();
 
@@ -1049,7 +1049,7 @@ describe("Venue booking request form", () => {
       expect(await screen.findByText("Booking request sent to Venue Staff.")).toBeInTheDocument();
     });
 
-    it("sends the session when the request is for one", async () => {
+    it("[SPM-42][AC4][AC5] sends the session when the request is for one", async () => {
       const api = open({ [INFO]: info({ sessions }) }, "?venue=v1&session=s1");
       await date();
 
@@ -1072,7 +1072,7 @@ describe("Venue booking request form", () => {
       ["the server's reason", reply(400, { error: "Hall A is already booked for this time." }), "Hall A is already booked for this time."],
       ["plain words for a validation failure", reply(400, { error: "Validation failed", details: {} }), "Check the date and times, then try again."],
       ["a network failure", () => Promise.reject(new Error("offline")), "Could not send the request. Try again."],
-    ])("shows %s and keeps the form", async (_case, answer, message) => {
+    ])("[SPM-42] shows %s and keeps the form", async (_case, answer, message) => {
       open({ [POST]: answer });
       await date();
 
@@ -1083,7 +1083,7 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText("Booking request sent to Venue Staff.")).not.toBeInTheDocument();
     });
 
-    it("shows 'Submitting…' and cannot be pressed twice while in flight", async () => {
+    it("[SPM-42] shows 'Submitting…' and cannot be pressed twice while in flight", async () => {
       let finish: (value: unknown) => void = () => {};
       const api = open({ [POST]: () => new Promise((resolve) => (finish = resolve)) });
       await date();
@@ -1102,7 +1102,7 @@ describe("Venue booking request form", () => {
     const firstRequest = (answer: unknown = reply(201, { id: "b1", planningStarted: true })) =>
       open({ [INFO]: info({ willBeginPlanning: true }), [POST]: answer });
 
-    it("asks first, and sends nothing until the coordinator continues", async () => {
+    it("[SPM-54][AC1] asks first, and sends nothing until the coordinator continues", async () => {
       const api = firstRequest();
       await date();
 
@@ -1113,7 +1113,7 @@ describe("Venue booking request form", () => {
       expect(api.sent(POST)).toHaveLength(0);
     });
 
-    it("on Continue, sends the request and says planning has started", async () => {
+    it("[SPM-54][AC1] on Continue, sends the request and says planning has started", async () => {
       const api = firstRequest();
       await date();
       await submit();
@@ -1126,7 +1126,7 @@ describe("Venue booking request form", () => {
       expect(dialog().open).toBe(false);
     });
 
-    it("on Cancel, sends nothing and keeps the form", async () => {
+    it("[SPM-54][AC1] on Cancel, sends nothing and keeps the form", async () => {
       const api = firstRequest();
       await date();
       await submit();
@@ -1138,7 +1138,7 @@ describe("Venue booking request form", () => {
       expect(screen.getByRole("button", { name: "Submit request" })).toBeInTheDocument();
     });
 
-    it("closes the question and shows the error when the request is refused", async () => {
+    it("[SPM-54][AC1] closes the question and shows the error when the request is refused", async () => {
       firstRequest(reply(400, { error: "Hall A is already booked for this time." }));
       await date();
       await submit();
@@ -1150,7 +1150,7 @@ describe("Venue booking request form", () => {
     });
   });
 
-  it("does not ask, or mention planning, for an event already in planning", async () => {
+  it("[SPM-54][AC1] does not ask, or mention planning, for an event already in planning", async () => {
     const api = open({ [POST]: reply(201, { id: "b1", planningStarted: false }) });
     await date();
 
@@ -1162,7 +1162,7 @@ describe("Venue booking request form", () => {
   });
 
   // SPM-88 (AC5, AC6): a booking request closes the safety check the event rests on.
-  it("SPM-88: says when the request closed the event's safety check", async () => {
+  it("[SPM-88][AC6] SPM-88: says when the request closed the event's safety check", async () => {
     open({ [POST]: reply(201, { id: "b1", planningStarted: false, safetyCheckClosed: true }) });
     await date();
 
@@ -1172,7 +1172,7 @@ describe("Venue booking request form", () => {
     expect(screen.getByText("The event's safety check was closed and it is back in Planning. Submit it for a safety check again once the arrangements are settled.")).toBeInTheDocument();
   });
 
-  it("says nothing about a safety check the request did not close", async () => {
+  it("[SPM-88][AC6] says nothing about a safety check the request did not close", async () => {
     open({ [POST]: reply(201, { id: "b1", planningStarted: false, safetyCheckClosed: false }) });
     await date();
 
@@ -1182,7 +1182,7 @@ describe("Venue booking request form", () => {
     expect(screen.queryByText("The safety check was closed")).not.toBeInTheDocument();
   });
 
-  it("shows the reason instead of the form when a booking cannot be requested", async () => {
+  it("[SPM-42] shows the reason instead of the form when a booking cannot be requested", async () => {
     open({ [INFO]: info({ cannotRequest: "A venue cannot be requested for a completed, cancelled or rejected event." }) });
 
     expect(
@@ -1191,7 +1191,7 @@ describe("Venue booking request form", () => {
     expect(screen.queryByLabelText(/^Date/)).not.toBeInTheDocument();
   });
 
-  it("Cancel goes back to the event's Venue tab", async () => {
+  it("[SPM-42] Cancel goes back to the event's Venue tab", async () => {
     open();
     await date();
 
@@ -1250,7 +1250,7 @@ describe("SPM-90: the space a venue is needed for", () => {
     const ready = () => screen.findByRole("heading", { name: "The space you need" });
     const check = () => userEvent.click(screen.getByRole("button", { name: "Check venues" }));
 
-    it("SPM-90-TC01: starts on the event's own attendance and layout", async () => {
+    it("[SPM-90][AC2] SPM-90-TC01: starts on the event's own attendance and layout", async () => {
       const api = open();
       await ready();
 
@@ -1259,7 +1259,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(api.sent(SUITABILITY)[0].url).toBe(`/api/events/${REF}/venue-suitability`);
     });
 
-    it("SPM-90-TC02: checks every venue again for the space, and carries it into Request booking", async () => {
+    it("[SPM-90][AC1][AC3] SPM-90-TC02: checks every venue again for the space, and carries it into Request booking", async () => {
       const api = open();
       await ready();
 
@@ -1282,7 +1282,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(layout()).toHaveValue("classroom");
     });
 
-    it("checks for a space with no layout set, and carries that into Request booking too", async () => {
+    it("[SPM-90][AC1] checks for a space with no layout set, and carries that into Request booking too", async () => {
       const api = open();
       await ready();
 
@@ -1302,7 +1302,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       );
     });
 
-    it("SPM-90-TC11: goes back to a session's own attendance and layout when another session is chosen", async () => {
+    it("[SPM-90][AC1] SPM-90-TC11: goes back to a session's own attendance and layout when another session is chosen", async () => {
       const api = open({ [INFO]: info({ sessions }) });
       await ready();
       set(attendance(), "20");
@@ -1318,7 +1318,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       await waitFor(() => expect(attendance()).toHaveValue(100));
     });
 
-    it("clears the message as soon as the attendance is changed", async () => {
+    it("[SPM-90] clears the message as soon as the attendance is changed", async () => {
       open();
       await ready();
       set(attendance(), "0");
@@ -1330,7 +1330,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(screen.queryByText("Enter a whole number of at least 1.")).not.toBeInTheDocument();
     });
 
-    it("keeps the session with the space", async () => {
+    it("[SPM-90][AC1] keeps the session with the space", async () => {
       const api = open({ [INFO]: info({ sessions }) });
       await ready();
 
@@ -1347,7 +1347,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       );
     });
 
-    it.each(["0", "", "2.5"])("does not check for an attendance of '%s', and says why", async (value) => {
+    it.each(["0", "", "2.5"])("[SPM-90][AC1] does not check for an attendance of '%s', and says why", async (value) => {
       const api = open();
       await ready();
 
@@ -1358,7 +1358,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(api.sent(SUITABILITY)).toHaveLength(1);
     });
 
-    it("SPM-90-TC07: lists each request with what its space is for, its layout and its attendance", async () => {
+    it("[SPM-90][AC5] SPM-90-TC07: lists each request with what its space is for, its layout and its attendance", async () => {
       const times = { startsAt: "2027-03-04T05:00:00.000Z", endsAt: "2027-03-04T10:00:00.000Z" };
       open({
         [INFO]: info({
@@ -1375,7 +1375,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(requests).toHaveTextContent("Breakout room · Day 1 · 4 Mar 2027, 13:00–18:00 · Classroom · 20 attendees");
     });
 
-    it("SPM-90-TC10: lists a booking made before, without a purpose", async () => {
+    it("[SPM-90][AC7] SPM-90-TC10: lists a booking made before, without a purpose", async () => {
       open({
         [INFO]: info({
           bookings: [
@@ -1421,7 +1421,7 @@ describe("SPM-90: the space a venue is needed for", () => {
     const ready = () => screen.findByLabelText(/^Date/);
     const submit = () => userEvent.click(screen.getByRole("button", { name: "Submit request" }));
 
-    it("SPM-90-TC01: the event's first request starts as its main programme, on the event's own attendance and layout", async () => {
+    it("[SPM-90][AC1][AC2] SPM-90-TC01: the event's first request starts as its main programme, on the event's own attendance and layout", async () => {
       open();
       await ready();
 
@@ -1430,7 +1430,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(layout()).toHaveValue("theatre");
     });
 
-    it.each(["pending", "approved"])("SPM-90-TC05: leaves the purpose empty when the event already has a %s booking", async (status) => {
+    it.each(["pending", "approved"])("[SPM-90][AC1] SPM-90-TC05: leaves the purpose empty when the event already has a %s booking", async (status) => {
       open({ [INFO]: info({ bookings: [held(status)] }) });
       await ready();
 
@@ -1438,7 +1438,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(attendance()).toHaveValue(100);
     });
 
-    it.each(["rejected", "withdrawn", "released"])("starts as the main programme again when the only earlier request is %s", async (status) => {
+    it.each(["rejected", "withdrawn", "released"])("[SPM-90][AC1] starts as the main programme again when the only earlier request is %s", async (status) => {
       open({ [INFO]: info({ bookings: [held(status)] }) });
       await ready();
 
@@ -1446,7 +1446,7 @@ describe("SPM-90: the space a venue is needed for", () => {
     });
 
     // SPM-68: requesting a replacement for a flagged booking, for the same space.
-    it("takes what the space is for from the address, even when the event already has a booking", async () => {
+    it("[SPM-90][AC1] takes what the space is for from the address, even when the event already has a booking", async () => {
       open({ [INFO]: info({ bookings: [held("approved")] }) }, "?venue=v1&purpose=Breakout%20room&attendance=40&layout=classroom");
       await ready();
 
@@ -1455,7 +1455,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(layout()).toHaveValue("classroom");
     });
 
-    it("SPM-90-TC02: takes the space's attendance and layout from the address", async () => {
+    it("[SPM-90][AC1] SPM-90-TC02: takes the space's attendance and layout from the address", async () => {
       open({}, "?venue=v1&attendance=20&layout=classroom");
       await ready();
 
@@ -1463,7 +1463,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(layout()).toHaveValue("classroom");
     });
 
-    it("SPM-90-TC11: a session's first request starts on the session's own attendance and layout", async () => {
+    it("[SPM-90][AC1] SPM-90-TC11: a session's first request starts on the session's own attendance and layout", async () => {
       open(
         { [INFO]: info({ sessions, bookings: [held("approved", { id: "s2", label: null })] }) },
         "?venue=v1&session=s1"
@@ -1476,7 +1476,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(layout()).toHaveValue("boardroom");
     });
 
-    it("SPM-90-TC02: sends what the space is for, with its attendance and layout", async () => {
+    it("[SPM-90][AC1] SPM-90-TC02: sends what the space is for, with its attendance and layout", async () => {
       const api = open({ [INFO]: info({ bookings: [held("pending")] }) }, "?venue=v1&attendance=20&layout=classroom");
       await ready();
 
@@ -1492,7 +1492,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       });
     });
 
-    it("sends no layout when the space is given none", async () => {
+    it("[SPM-90][AC1] sends no layout when the space is given none", async () => {
       const api = open();
       await ready();
 
@@ -1503,7 +1503,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(api.sent(POST)[0].body).toMatchObject({ layoutName: null });
     });
 
-    it("SPM-90-TC05: sends nothing without a purpose, and says so under the field", async () => {
+    it("[SPM-90][AC1] SPM-90-TC05: sends nothing without a purpose, and says so under the field", async () => {
       const api = open();
       await ready();
 
@@ -1514,7 +1514,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(api.sent(POST)).toHaveLength(0);
     });
 
-    it.each(["0", "", "2.5"])("SPM-90-TC05: sends nothing for an attendance of '%s', and says so under the field", async (value) => {
+    it.each(["0", "", "2.5"])("[SPM-90][AC1] SPM-90-TC05: sends nothing for an attendance of '%s', and says so under the field", async (value) => {
       const api = open();
       await ready();
 
@@ -1525,7 +1525,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(api.sent(POST)).toHaveLength(0);
     });
 
-    it("SPM-90-TC02: an address with no layout for the space starts on 'Not set'", async () => {
+    it("[SPM-90][AC1] SPM-90-TC02: an address with no layout for the space starts on 'Not set'", async () => {
       open({}, "?venue=v1&attendance=20&layout=");
       await ready();
 
@@ -1533,7 +1533,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(layout()).toHaveValue("");
     });
 
-    it("clears each message as soon as its field is changed", async () => {
+    it("[SPM-90] clears each message as soon as its field is changed", async () => {
       open();
       await ready();
       set(purpose(), "");
@@ -1549,7 +1549,7 @@ describe("SPM-90: the space a venue is needed for", () => {
       expect(screen.queryByText("Enter a whole number of at least 1.")).not.toBeInTheDocument();
     });
 
-    it("SPM-90-TC03: shows the server's refusal for the space", async () => {
+    it("[SPM-90][AC4] SPM-90-TC03: shows the server's refusal for the space", async () => {
       const refusal = "Hall A is not suitable for this space: Classroom capacity is 20 - this space expects 25.";
       open({ [POST]: reply(400, { error: refusal }) });
       await ready();

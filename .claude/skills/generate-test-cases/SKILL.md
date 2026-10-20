@@ -121,6 +121,7 @@ Rules:
     thing are one case. Where two cases overlap across users, split them by
     user (everything user A can't do in one case, user B's route in another)
     rather than repeating checks.
+- `status` is optional: "Active" (the default), "Updated" or "Retired". Leave it out for a new case. A Retired case also needs `superseded_by` (the case or test that replaces it, or "gap") and `change` (its entry in `docs/CHANGES.md`); an Updated one needs `change`. They fill the Status, Superseded by and Change # columns of the Summary sheet (`docs/test-cases/README.md`).
 - `created_by`: use the output of `git config user.name`.
 - `creation_date`: today, as YYYY-MM-DD.
 - Do not invent requirements. If the code and the acceptance criteria disagree, or something is unclear, add it to `open_questions`. Write test cases against the acceptance criteria, not the code, when they conflict.
@@ -166,6 +167,12 @@ Run (use `python3` if `python` is not found):
 ```
 python .claude/skills/generate-test-cases/scripts/fill_template.py docs/test-cases/<ISSUE-KEY>_test_cases.json docs/test-cases/<ISSUE-KEY>_Test_Cases.xlsx
 ```
+
+Build a workbook this way **only when it is new**. Once a workbook has
+execution blocks (someone has run its cases), rebuilding it from the JSON
+throws them away: change the workbook itself instead, as
+`docs/test-cases/README.md` describes (a new execution block per run, Status
+for a retired or updated case).
 
 If it prints `VALIDATION FAILED`, fix the JSON and run it again. Repeat until it prints `OK`.
 Besides the structure, it checks the writing rules: every expected-result

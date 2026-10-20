@@ -99,7 +99,7 @@ describe("Event overview", () => {
     return api;
   }
 
-  it("sends an anonymous visitor to log in, remembering the event", async () => {
+  it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering the event", async () => {
     setRoute(`/events/${REF}`, { id: REF });
     mockApi(signedOut());
 
@@ -108,7 +108,7 @@ describe("Event overview", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007"));
   });
 
-  it("renders nothing until it knows who is looking", () => {
+  it("[SPM-31] renders nothing until it knows who is looking", () => {
     setRoute(`/events/${REF}`, { id: REF });
     mockApi({ "GET /api/auth/me": () => new Promise(() => {}) });
 
@@ -117,7 +117,7 @@ describe("Event overview", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the event's title, reference, status and details", async () => {
+  it("[SPM-31][AC1] [SPM-27][AC1] shows the event's title, reference, status and details", async () => {
     open("coordinator");
 
     expect(await screen.findByRole("heading", { level: 1, name: "Gala Dinner" })).toBeInTheDocument();
@@ -132,7 +132,7 @@ describe("Event overview", () => {
     expect(valueOf("Coordinator")).toHaveTextContent("Daniel Tan");
   });
 
-  it("leaves out the Company row when the event comes without one", async () => {
+  it("[SPM-31][AC1] leaves out the Company row when the event comes without one", async () => {
     const { organisation: _omitted, ...withoutCompany } = event();
     open("coordinator", withoutCompany);
 
@@ -141,7 +141,7 @@ describe("Event overview", () => {
     expect(terms()).not.toContain("Company");
   });
 
-  it("says when no coordinator is assigned, and dashes out what is empty", async () => {
+  it("[SPM-31][AC1] [SPM-30][AC5] says when no coordinator is assigned, and dashes out what is empty", async () => {
     open("coordinator", event({ coordinator: null, coordinatorId: null, category: null, preferredLayout: null, organisation: null }));
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -156,7 +156,7 @@ describe("Event overview", () => {
   it.each([
     ["organiser", "My Events"],
     ["coordinator", "Events"],
-  ])("calls the breadcrumb's list '%s' for %s, and ends on the event's title", async (role, list) => {
+  ])("[SPM-31][BUG-98] calls the breadcrumb's list '%s' for %s, and ends on the event's title", async (role, list) => {
     open(role);
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
@@ -166,7 +166,7 @@ describe("Event overview", () => {
     ]);
   });
 
-  it("calls the event 'Event' in the breadcrumb while it loads", async () => {
+  it("[SPM-31][BUG-98] calls the event 'Event' in the breadcrumb while it loads", async () => {
     open("coordinator", () => new Promise(() => {}));
 
     await screen.findByRole("heading", { level: 1, name: "Loading…" });
@@ -184,7 +184,7 @@ describe("Event overview", () => {
     ["tech_support", ["Overview", "Equipment"]],
     ["ops_manager", ["Overview"]],
     ["attendee", ["Overview"]],
-  ])("offers %s the tabs %j", async (role, expected) => {
+  ])("[SPM-22][AC2] offers %s the tabs %j", async (role, expected) => {
     // As the server says it for the organiser who raised the event and its
     // assigned coordinator; the other roles never have the Attendees tab.
     open(role, role === "attendee" ? publicEvent() : event({ canViewRegistrationList: true }), {
@@ -203,7 +203,7 @@ describe("Event overview", () => {
   it.each([
     ["organiser", ["Overview", "Equipment"]],
     ["coordinator", ["Overview", "Venue", "Equipment", "Readiness"]],
-  ])("offers %s no Attendees tab on an event whose registrations are not theirs", async (role, expected) => {
+  ])("[SPM-22][AC2] offers %s no Attendees tab on an event whose registrations are not theirs", async (role, expected) => {
     open(role, event({ canViewRegistrationList: false }), { "GET /api/assignments": { coordinators: [] } });
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -212,7 +212,7 @@ describe("Event overview", () => {
     expect(tabs.map((t) => t.textContent)).toEqual(expected);
   });
 
-  it("sends the owner of a draft to the editor instead", async () => {
+  it("[SPM-24][AC4] sends the owner of a draft to the editor instead", async () => {
     open("organiser", event({ status: "draft" }));
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/events/EVT-000007/edit"));
@@ -220,7 +220,7 @@ describe("Event overview", () => {
   });
 
   describe("what an attendee sees", () => {
-    it("only the public details - no internal planning rows or cards", async () => {
+    it("[SPM-22][AC5] only the public details - no internal planning rows or cards", async () => {
       open("attendee", publicEvent());
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -231,7 +231,7 @@ describe("Event overview", () => {
     });
 
     // CHANGED (SPM-64): the period is shown as 'Opens' and 'Closes'.
-    it("the registration capacity and period", async () => {
+    it("[SPM-51][AC4] the registration capacity and period", async () => {
       open("attendee", publicEvent());
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -242,7 +242,7 @@ describe("Event overview", () => {
     });
   });
 
-  it("says registration is not enabled when it is not", async () => {
+  it("[SPM-51][AC8] says registration is not enabled when it is not", async () => {
     open("coordinator");
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -250,7 +250,7 @@ describe("Event overview", () => {
     expect(valueOf("Registration")).toHaveTextContent("Not enabled for this event");
   });
 
-  it("lists the facility requirements, marking the optional ones", async () => {
+  it("[SPM-31][AC1] lists the facility requirements, marking the optional ones", async () => {
     open(
       "coordinator",
       event({
@@ -269,7 +269,7 @@ describe("Event overview", () => {
     expect(valueOf("Special requirements")).toHaveTextContent("VIP entrance");
   });
 
-  it("dashes out the facility requirements when there are none", async () => {
+  it("[SPM-31][AC1] dashes out the facility requirements when there are none", async () => {
     open("coordinator");
 
     await screen.findByRole("heading", { name: "Venue requirements" });
@@ -277,7 +277,7 @@ describe("Event overview", () => {
     expect(valueOf("Required facilities")).toHaveTextContent("—");
   });
 
-  it("shows why a rejected request was rejected", async () => {
+  it("[SPM-28][AC5] shows why a rejected request was rejected", async () => {
     open("organiser", event({ status: "rejected", rejectionReason: "No venue is licensed overnight." }));
 
     expect(await screen.findByText("This request was rejected")).toBeInTheDocument();
@@ -285,7 +285,7 @@ describe("Event overview", () => {
   });
 
   describe("the way in to a review", () => {
-    it("is offered to the assigned coordinator while the request is under review", async () => {
+    it("[SPM-28][AC1] is offered to the assigned coordinator while the request is under review", async () => {
       open("coordinator", event({ status: "under_review" }), {}, { id: "c1" });
 
       expect(await screen.findByRole("link", { name: "Review request" })).toHaveAttribute(
@@ -294,20 +294,20 @@ describe("Event overview", () => {
       );
     });
 
-    it("is offered for an event with no company on record", async () => {
+    it("[SPM-28][AC1] is offered for an event with no company on record", async () => {
       open("coordinator", event({ status: "under_review", organisationId: null }), {}, { id: "c1" });
 
       expect(await screen.findByRole("link", { name: "Review request" })).toBeInTheDocument();
     });
 
-    it("leaves the planning controls in place for an event with no company on record", async () => {
+    it("[SPM-28][AC1] leaves the planning controls in place for an event with no company on record", async () => {
       open("coordinator", event({ organisationId: null }), {}, { id: "c1" });
 
       expect(await screen.findByRole("link", { name: "Edit event information" })).toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Change registration settings" })).toBeInTheDocument();
     });
 
-    it("is not offered to a coordinator it is not assigned to", async () => {
+    it("[SPM-28][AC1] is not offered to a coordinator it is not assigned to", async () => {
       open("coordinator", event({ status: "under_review" }), {}, { id: "someone-else" });
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -315,7 +315,7 @@ describe("Event overview", () => {
       expect(screen.queryByRole("link", { name: "Review request" })).not.toBeInTheDocument();
     });
 
-    it("is not offered once the request has been decided", async () => {
+    it("[SPM-28][AC1] is not offered once the request has been decided", async () => {
       open("coordinator", event({ status: "approved" }), {}, { id: "c1" });
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -328,7 +328,7 @@ describe("Event overview", () => {
     const assignments = { "GET /api/assignments": { awaiting: [], assigned: [], coordinators: [daniel, priya] } };
     const unassigned = () => event({ status: "submitted", coordinatorId: null, coordinator: null });
 
-    it("lets the Ops Manager assign one to a submitted event, then reloads it", async () => {
+    it("[SPM-30][AC1] lets the Ops Manager assign one to a submitted event, then reloads it", async () => {
       const api = open("ops_manager", unassigned(), {
         ...assignments,
         "PUT /api/events/EVT-000007/coordinator": { status: "under_review", coordinator: daniel, previousCoordinator: null },
@@ -343,19 +343,19 @@ describe("Event overview", () => {
       await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
     });
 
-    it("is offered for an event with no company on record", async () => {
+    it("[SPM-30][AC1] is offered for an event with no company on record", async () => {
       open("ops_manager", event({ status: "submitted", coordinatorId: null, coordinator: null, organisationId: null }), assignments);
 
       expect(await screen.findByRole("heading", { name: "Assign a coordinator" })).toBeInTheDocument();
     });
 
-    it("names an untitled event as such in the picker", async () => {
+    it("[SPM-30][AC1] names an untitled event as such in the picker", async () => {
       open("ops_manager", event({ status: "submitted", coordinatorId: null, coordinator: null, title: null }), assignments);
 
       expect(await screen.findByRole("combobox", { name: "Assign to — Untitled event" })).toBeInTheDocument();
     });
 
-    it("lets the Ops Manager change the coordinator of a live event", async () => {
+    it("[SPM-30][AC6] lets the Ops Manager change the coordinator of a live event", async () => {
       open("ops_manager", event(), {
         ...assignments,
         "PUT /api/events/EVT-000007/coordinator": { status: "planning", coordinator: priya, previousCoordinator: daniel },
@@ -370,13 +370,13 @@ describe("Event overview", () => {
       expect(await screen.findByText("Reassigned from Daniel Tan to Priya Raj.")).toBeInTheDocument();
     });
 
-    it("says only 'assigned' when it cannot name the current coordinator", async () => {
+    it("[SPM-30][AC6] says only 'assigned' when it cannot name the current coordinator", async () => {
       open("ops_manager", event({ coordinator: null }), assignments);
 
       expect(await screen.findByText("Currently assigned.")).toBeInTheDocument();
     });
 
-    it("is not offered once the event is completed", async () => {
+    it("[SPM-30][AC6] is not offered once the event is completed", async () => {
       open("ops_manager", event({ status: "completed" }), assignments);
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -384,7 +384,7 @@ describe("Event overview", () => {
       expect(screen.queryByRole("heading", { name: "Change coordinator" })).not.toBeInTheDocument();
     });
 
-    it("is left out, with the rest of the page intact, when the coordinator list fails to load", async () => {
+    it("[SPM-30][AC1] is left out, with the rest of the page intact, when the coordinator list fails to load", async () => {
       open("ops_manager", unassigned(), { "GET /api/assignments": reply(500, {}) });
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -393,14 +393,14 @@ describe("Event overview", () => {
       expect(screen.getByRole("heading", { name: "Details" })).toBeInTheDocument();
     });
 
-    it("survives the coordinator list request failing outright", async () => {
+    it("[SPM-30][AC1] survives the coordinator list request failing outright", async () => {
       open("ops_manager", unassigned(), { "GET /api/assignments": () => Promise.reject(new Error("offline")) });
 
       expect(await screen.findByRole("heading", { name: "Details" })).toBeInTheDocument();
     });
 
     it.each(ROLES.filter((r) => r !== "ops_manager" && r !== "attendee"))(
-      "is never offered to %s, who is not even sent the list of coordinators",
+      "[SPM-30][AC1] [SPM-22][AC3] is never offered to %s, who is not even sent the list of coordinators",
       async (role) => {
         const api = open(role, unassigned());
 
@@ -413,7 +413,7 @@ describe("Event overview", () => {
   });
 
   describe("the venue the event is in", () => {
-    it("is named once a booking is approved", async () => {
+    it("[SPM-31][AC1] is named once a booking is approved", async () => {
       open("organiser", event({ venueBookings: [{ session: null, venue: { name: "Hall A", code: "HALL-A" } }] }));
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -421,7 +421,7 @@ describe("Event overview", () => {
       expect(valueOf("Venue")).toHaveTextContent(/^Hall A \(HALL-A\)$/);
     });
 
-    it("is named per session for a multi-session event", async () => {
+    it("[SPM-31][AC1] is named per session for a multi-session event", async () => {
       open(
         "organiser",
         event({
@@ -437,7 +437,7 @@ describe("Event overview", () => {
       expect(valueOf("Venue")).toHaveTextContent("Day 1: Hall A (HALL-A) · Room B (ROOM-B)");
     });
 
-    it("SPM-81-TC07: names every approved room when the event is booked into more than one", async () => {
+    it("[SPM-81][AC6] SPM-81-TC07: names every approved room when the event is booked into more than one", async () => {
       open(
         "organiser",
         event({
@@ -453,7 +453,7 @@ describe("Event overview", () => {
       expect(valueOf("Venue")).toHaveTextContent(/^Room B \(ROOM-B\) · Hall A \(HALL-A\)$/);
     });
 
-    it("reads 'Not booked yet' until one is", async () => {
+    it("[SPM-31][AC1] reads 'Not booked yet' until one is", async () => {
       open("organiser", event({ venueBookings: [] }));
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -461,7 +461,7 @@ describe("Event overview", () => {
       expect(valueOf("Venue")).toHaveTextContent("Not booked yet");
     });
 
-    it("has no row at all for a viewer who is not sent the bookings", async () => {
+    it("[SPM-22][AC5] has no row at all for a viewer who is not sent the bookings", async () => {
       open("attendee", publicEvent());
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -507,13 +507,13 @@ describe("Event overview", () => {
     const ask = async () => userEvent.click(await screen.findByRole("button", { name: button }));
     const go = () => userEvent.click(within(dialogTitled(title)).getByRole("button", { name: button, hidden: true }));
 
-    it("is offered to the assigned coordinator", async () => {
+    it("[SPM-34][AC4] [SPM-59][AC1] is offered to the assigned coordinator", async () => {
       openAs();
 
       expect(await screen.findByRole("button", { name: button })).toBeInTheDocument();
     });
 
-    it.each(notFrom)("is not offered while the event is %s", async (status) => {
+    it.each(notFrom)("[SPM-34][AC1] [SPM-59][AC1] is not offered while the event is %s", async (status) => {
       openAs({}, event({ status }));
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -525,7 +525,7 @@ describe("Event overview", () => {
       ["a coordinator it is not assigned to", "coordinator", { id: "c2" }],
       ["the Ops Manager", "ops_manager", {}],
       ["the organiser who owns it", "organiser", { id: "organiser-id" }],
-    ])("is not offered to %s", async (_who, role, who) => {
+    ])("[SPM-34][AC4] [SPM-59][AC1] is not offered to %s", async (_who, role, who) => {
       open(role, event({ status: from }), { "GET /api/users": [] }, who);
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -533,7 +533,7 @@ describe("Event overview", () => {
       expect(screen.queryByRole("button", { name: button })).not.toBeInTheDocument();
     });
 
-    it("asks first, saying what it does, and sends nothing yet", async () => {
+    it("[SPM-34] [SPM-59] asks first, saying what it does, and sends nothing yet", async () => {
       const api = openAs({ [PATCH]: {} });
 
       await ask();
@@ -543,7 +543,7 @@ describe("Event overview", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("words the question for an event with no title", async () => {
+    it("[SPM-34] [SPM-59] words the question for an event with no title", async () => {
       openAs({}, event({ status: from, title: null }));
 
       await ask();
@@ -551,7 +551,7 @@ describe("Event overview", () => {
       expect(dialogTitled(title)).toHaveTextContent(untitled);
     });
 
-    it("does it once confirmed, says so, and reloads the event", async () => {
+    it("[SPM-34][AC5] [SPM-59][AC2] does it once confirmed, says so, and reloads the event", async () => {
       const api = openAs({ [PATCH]: {} });
       await ask();
 
@@ -564,7 +564,7 @@ describe("Event overview", () => {
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
 
-    it("does nothing when the question is declined", async () => {
+    it("[SPM-34] [SPM-59] does nothing when the question is declined", async () => {
       const api = openAs({ [PATCH]: {} });
       await ask();
 
@@ -578,7 +578,7 @@ describe("Event overview", () => {
       ["the server's reason", reply(400, { error: refusal }), refusal],
       ["a general message when it gives none", reply(500, {}), fallback],
       ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
-    ])("shows %s when it is refused, and closes the question", async (_case, answer, message) => {
+    ])("[SPM-34][AC3] [SPM-59] shows %s when it is refused, and closes the question", async (_case, answer, message) => {
       const api = openAs({ [PATCH]: answer });
       await ask();
 
@@ -590,7 +590,7 @@ describe("Event overview", () => {
       expect(api.sent(EVENT)).toHaveLength(1);
     });
 
-    it("clears an earlier refusal when it then succeeds", async () => {
+    it("[SPM-34] [SPM-59] clears an earlier refusal when it then succeeds", async () => {
       const api = openAs({ [PATCH]: reply(400, { error: refusal }) });
       await ask();
       await go();
@@ -606,7 +606,7 @@ describe("Event overview", () => {
   });
 
   describe("when it cannot be loaded", () => {
-    it("explains a 404 without confirming the event exists", async () => {
+    it("[SPM-31] explains a 404 without confirming the event exists", async () => {
       open("organiser", reply(404, { error: "Event not found" }));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -619,13 +619,13 @@ describe("Event overview", () => {
       ]);
     });
 
-    it("shows a general error when the request fails without a reason", async () => {
+    it("[SPM-31] shows a general error when the request fails without a reason", async () => {
       open("organiser", () => Promise.reject("offline"));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
-    it("offers a Retry that loads again", async () => {
+    it("[SPM-31] offers a Retry that loads again", async () => {
       const api = open("organiser", reply(500, {}));
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this event.");
 
@@ -635,7 +635,7 @@ describe("Event overview", () => {
       expect(await screen.findByRole("heading", { level: 1, name: "Gala Dinner" })).toBeInTheDocument();
     });
 
-    it("sends the user to log in when their session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
       open("organiser", reply(401, {}));
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007"));
@@ -644,7 +644,7 @@ describe("Event overview", () => {
 });
 
 describe("EventGlance", () => {
-  it("summarises the event beside a tab's own content", () => {
+  it("[SPM-31][AC1] summarises the event beside a tab's own content", () => {
     render(
       <EventGlance
         event={{
@@ -664,7 +664,7 @@ describe("EventGlance", () => {
     expect(valueOf("Submitted")).toHaveTextContent("10 Jan 2027");
   });
 
-  it("names the venue that is booked", () => {
+  it("[SPM-31][AC1] names the venue that is booked", () => {
     render(
       <EventGlance
         event={{
@@ -681,7 +681,7 @@ describe("EventGlance", () => {
     expect(valueOf("Venue")).toHaveTextContent(/^Hall A$/);
   });
 
-  it("names each session's venue for a multi-session event", () => {
+  it("[SPM-31][AC1] names each session's venue for a multi-session event", () => {
     render(
       <EventGlance
         event={{
@@ -701,7 +701,7 @@ describe("EventGlance", () => {
     expect(valueOf("Venue")).toHaveTextContent("Day 1: Hall A · Room B");
   });
 
-  it("says no venue is booked for an empty list, as for none loaded", () => {
+  it("[SPM-31][AC1] says no venue is booked for an empty list, as for none loaded", () => {
     render(
       <EventGlance
         event={{ startsAt: null, endsAt: null, expectedAttendance: null, submittedAt: null, coordinator: null, venueBookings: [] }}
@@ -711,7 +711,7 @@ describe("EventGlance", () => {
     expect(valueOf("Venue")).toHaveTextContent("Not booked yet");
   });
 
-  it("fills in what is not known yet", () => {
+  it("[SPM-31][AC1] fills in what is not known yet", () => {
     render(
       <EventGlance event={{ startsAt: null, endsAt: null, expectedAttendance: null, submittedAt: null, coordinator: null }} />
     );
@@ -735,7 +735,7 @@ describe("Review request", () => {
   const decision = () => screen.findByRole("radiogroup", { name: "Review outcome" });
   const dialog = () => screen.getByRole("dialog", { hidden: true }) as HTMLDialogElement;
 
-  it.each(ROLES.filter((r) => r !== "coordinator"))("refuses %s without loading the request", async (role) => {
+  it.each(ROLES.filter((r) => r !== "coordinator"))("[SPM-28][AC1] refuses %s without loading the request", async (role) => {
     setRoute(`/events/${REF}/review`, { id: REF });
     const api = mockApi(signedInAs(role));
 
@@ -745,7 +745,7 @@ describe("Review request", () => {
     expect(api.sent(EVENT)).toHaveLength(0);
   });
 
-  it("refuses a coordinator the request is not assigned to, without showing the request", async () => {
+  it("[SPM-28][AC1] refuses a coordinator the request is not assigned to, without showing the request", async () => {
     open(underReview(), {}, { id: "someone-else" });
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -755,7 +755,7 @@ describe("Review request", () => {
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
   });
 
-  it("sends the assigned coordinator to the event page when the request is already decided", async () => {
+  it("[SPM-28][AC6] sends the assigned coordinator to the event page when the request is already decided", async () => {
     open(event({ status: "approved" }));
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/events/EVT-000007"));
@@ -764,7 +764,7 @@ describe("Review request", () => {
 
   // SPM-98: Events / <event title> / Review request, in every state.
   describe("its breadcrumb", () => {
-    it("names the event by its title and links it to the Overview", async () => {
+    it("[SPM-28][BUG-98] names the event by its title and links it to the Overview", async () => {
       open();
       await decision();
 
@@ -778,7 +778,7 @@ describe("Review request", () => {
     it.each([
       ["loading", () => new Promise(() => {})],
       ["in error", reply(500, {})],
-    ])("reads 'Event' for the event while %s", async (_case, eventRow) => {
+    ])("[SPM-28][BUG-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
       open(eventRow);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -792,7 +792,7 @@ describe("Review request", () => {
     it.each([
       ["organiser", "My Events"],
       ["venue_staff", "Events"],
-    ])("is the same trail when %s is refused", async (role, list) => {
+    ])("[SPM-28][BUG-98] is the same trail when %s is refused", async (role, list) => {
       setRoute(`/events/${REF}/review`, { id: REF });
       mockApi(signedInAs(role));
       render(<ReviewRequestPage />);
@@ -807,7 +807,7 @@ describe("Review request", () => {
   });
 
   describe("what was requested", () => {
-    it("shows everything the organiser asked for", async () => {
+    it("[SPM-28][AC2] shows everything the organiser asked for", async () => {
       open(
         underReview({
           registrationEnabled: true,
@@ -835,7 +835,7 @@ describe("Review request", () => {
       expect(screen.queryByText("Some information was not provided")).not.toBeInTheDocument();
     });
 
-    it("marks each empty field 'Not provided' and summarises them, without blocking the decision", async () => {
+    it("[SPM-28][AC3] marks each empty field 'Not provided' and summarises them, without blocking the decision", async () => {
       open(
         underReview({
           category: null,
@@ -865,7 +865,7 @@ describe("Review request", () => {
       expect(screen.getByRole("radio", { name: /Approve/ })).toBeEnabled();
     });
 
-    it("lists the sessions of a multi-session event, and which session each item is for", async () => {
+    it("[SPM-28][AC2] lists the sessions of a multi-session event, and which session each item is for", async () => {
       open(
         underReview({
           sessions: [
@@ -901,7 +901,7 @@ describe("Review request", () => {
       await userEvent.click(screen.getByRole("button", { name: "Approve request" }));
     }
 
-    it("asks for confirmation, saying what will change, before anything is sent", async () => {
+    it("[SPM-28][AC4] asks for confirmation, saying what will change, before anything is sent", async () => {
       const api = open();
 
       await chooseApprove();
@@ -911,7 +911,7 @@ describe("Review request", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("approves once confirmed, and stays on the page to say so", async () => {
+    it("[SPM-28][AC4] approves once confirmed, and stays on the page to say so", async () => {
       const api = open(underReview(), { [PATCH]: { status: "approved", coordinatorId: "c1" } });
       await chooseApprove();
 
@@ -925,7 +925,7 @@ describe("Review request", () => {
       expect(router.replace).not.toHaveBeenCalled();
     });
 
-    it("sends nothing when the confirmation is cancelled", async () => {
+    it("[SPM-28][AC4] sends nothing when the confirmation is cancelled", async () => {
       const api = open();
       await chooseApprove();
 
@@ -935,7 +935,7 @@ describe("Review request", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("shows the server's refusal and leaves the decision open", async () => {
+    it("[SPM-28][AC4] shows the server's refusal and leaves the decision open", async () => {
       open(underReview(), { [PATCH]: reply(400, { error: "Only a request that is under review can be approved or rejected" }) });
       await chooseApprove();
 
@@ -946,7 +946,7 @@ describe("Review request", () => {
       expect(screen.queryByText("Request approved")).not.toBeInTheDocument();
     });
 
-    it("falls back to a general message when the server gives none", async () => {
+    it("[SPM-28][AC4] falls back to a general message when the server gives none", async () => {
       open(underReview(), { [PATCH]: reply(500) });
       await chooseApprove();
 
@@ -955,7 +955,7 @@ describe("Review request", () => {
       expect(await screen.findByText("Could not save your decision. Please try again.")).toBeInTheDocument();
     });
 
-    it("shows a general error when sending fails without a reason", async () => {
+    it("[SPM-28][AC4] shows a general error when sending fails without a reason", async () => {
       open(underReview(), { [PATCH]: () => Promise.reject("offline") });
       await chooseApprove();
 
@@ -972,7 +972,7 @@ describe("Review request", () => {
     }
     const reasonBox = () => screen.getByRole("textbox", { name: /Reason for rejection/ });
 
-    it.each(["", "   "])("refuses a reason of %j without sending anything", async (text) => {
+    it.each(["", "   "])("[SPM-28][AC5] refuses a reason of %j without sending anything", async (text) => {
       const api = open();
       await chooseReject();
       if (text) await userEvent.type(reasonBox(), text);
@@ -984,7 +984,7 @@ describe("Review request", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("clears the reason error as soon as the coordinator starts typing", async () => {
+    it("[SPM-28][AC5] clears the reason error as soon as the coordinator starts typing", async () => {
       open();
       await chooseReject();
       await userEvent.click(screen.getByRole("button", { name: "Reject request" }));
@@ -994,7 +994,7 @@ describe("Review request", () => {
       expect(reasonBox()).not.toHaveAttribute("aria-invalid");
     });
 
-    it("rejects with the trimmed reason, and shows the outcome with that reason", async () => {
+    it("[SPM-28][AC5] rejects with the trimmed reason, and shows the outcome with that reason", async () => {
       const api = open(underReview(), { [PATCH]: { status: "rejected", coordinatorId: "c1" } });
       await chooseReject();
 
@@ -1007,7 +1007,7 @@ describe("Review request", () => {
       expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
     });
 
-    it("Cancel backs out of rejecting and forgets the reason", async () => {
+    it("[SPM-28][AC5] Cancel backs out of rejecting and forgets the reason", async () => {
       open();
       await chooseReject();
       await userEvent.type(reasonBox(), "Changed my mind");
@@ -1019,7 +1019,7 @@ describe("Review request", () => {
       expect(reasonBox()).toHaveValue("");
     });
 
-    it("switching to Approve hides the reason box", async () => {
+    it("[SPM-28][AC5] switching to Approve hides the reason box", async () => {
       open();
       await chooseReject();
 
@@ -1029,7 +1029,7 @@ describe("Review request", () => {
       expect(screen.getByRole("button", { name: "Approve request" })).toBeInTheDocument();
     });
 
-    it("shows the server's refusal", async () => {
+    it("[SPM-28][AC5] shows the server's refusal", async () => {
       open(underReview(), { [PATCH]: reply(403, { error: 'Your role cannot move an event to "rejected"' }) });
       await chooseReject();
 
@@ -1235,7 +1235,7 @@ describe("Review request", () => {
   });
 
   describe("when it cannot be loaded", () => {
-    it("explains a 404", async () => {
+    it("[SPM-28] explains a 404", async () => {
       open(reply(404, {}));
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
@@ -1243,13 +1243,13 @@ describe("Review request", () => {
       );
     });
 
-    it("shows a general error when loading fails without a reason", async () => {
+    it("[SPM-28] shows a general error when loading fails without a reason", async () => {
       open(() => Promise.reject("offline"));
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
-    it("offers a Retry that loads again", async () => {
+    it("[SPM-28] offers a Retry that loads again", async () => {
       const api = open(reply(500, {}));
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this request.");
 
@@ -1259,7 +1259,7 @@ describe("Review request", () => {
       expect(await decision()).toBeInTheDocument();
     });
 
-    it("sends the user to log in when their session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
       open(reply(401, {}));
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Freview"));
@@ -1283,7 +1283,7 @@ describe("Event overview - updating event information (SPM-62)", () => {
   const heading = () => screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
   describe("the way in", () => {
-    it.each(["approved", "planning", "confirmed"])("is offered to the assigned coordinator of a %s event", async (status) => {
+    it.each(["approved", "planning", "confirmed"])("[SPM-62][AC1] is offered to the assigned coordinator of a %s event", async (status) => {
       open("coordinator", event({ status }), assigned);
 
       const link = await screen.findByRole("link", { name: "Edit event information" });
@@ -1292,7 +1292,7 @@ describe("Event overview - updating event information (SPM-62)", () => {
     });
 
     it.each(["under_review", "postponed", "completed", "cancelled", "rejected", "withdrawn"])(
-      "is not offered while the event is %s",
+      "[SPM-62][AC1] is not offered while the event is %s",
       async (status) => {
         open("coordinator", event({ status }), assigned);
         await heading();
@@ -1307,7 +1307,7 @@ describe("Event overview - updating event information (SPM-62)", () => {
       ["the Ops Manager", "ops_manager", {}],
       ["Venue Staff", "venue_staff", {}],
       ["Technical Support", "tech_support", {}],
-    ])("is not offered to %s", async (_who, role, who) => {
+    ])("[SPM-62][AC3] is not offered to %s", async (_who, role, who) => {
       open(role, event(), who);
       await heading();
 
@@ -1340,14 +1340,14 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
   const ask = async () => userEvent.click(await screen.findByRole("button", { name: BUTTON }));
   const go = () => userEvent.click(within(dialogTitled(TITLE)).getByRole("button", { name: "Submit", hidden: true }));
 
-  it("SPM-86-TC01: is offered to the assigned coordinator while the event is in Planning", async () => {
+  it("[SPM-86][AC1] SPM-86-TC01: is offered to the assigned coordinator while the event is in Planning", async () => {
     open();
 
     expect(await screen.findByRole("button", { name: BUTTON })).toBeInTheDocument();
   });
 
   it.each(["approved", "safety_review", "confirmed", "postponed", "under_review"])(
-    "SPM-86-TC11: is not offered while the event is %s",
+    "[SPM-86][AC1][AC6] SPM-86-TC11: is not offered while the event is %s",
     async (status) => {
       open("coordinator", event({ status }));
 
@@ -1362,7 +1362,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
     ["the Ops Manager", "ops_manager", {}],
     ["Technical Support", "tech_support", {}],
     ["the organiser who owns it", "organiser", { id: "organiser-id" }],
-  ])("SPM-86-TC10: is not offered to %s", async (_who, role, who) => {
+  ])("[SPM-86][AC7] SPM-86-TC10: is not offered to %s", async (_who, role, who) => {
     open(role, event(), {}, who);
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -1370,7 +1370,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
     expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
   });
 
-  it("asks first, saying what will happen, and sends nothing yet", async () => {
+  it("[SPM-86] asks first, saying what will happen, and sends nothing yet", async () => {
     const api = open("coordinator", event(), { [POST]: {} });
 
     await ask();
@@ -1380,7 +1380,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
     expect(api.sent(POST)).toHaveLength(0);
   });
 
-  it("does nothing when the question is declined", async () => {
+  it("[SPM-86] does nothing when the question is declined", async () => {
     const api = open("coordinator", event(), { [POST]: {} });
     await ask();
 
@@ -1390,7 +1390,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
     expect(api.sent(POST)).toHaveLength(0);
   });
 
-  it("SPM-86-TC01: submits, says the Safety Officer was notified, and reloads the event", async () => {
+  it("[SPM-86][AC3][AC5] SPM-86-TC01: submits, says the Safety Officer was notified, and reloads the event", async () => {
     const api = open("coordinator", event(), { [POST]: { status: "safety_review" } });
     await ask();
 
@@ -1415,7 +1415,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
     ["SPM-86-TC09: that a check is already pending", reply(400, { error: "A safety check is already pending for this event." }), "A safety check is already pending for this event."],
     ["a general message when the server gives none", reply(500, {}), "Could not submit this event for a safety check."],
     ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
-  ])("shows %s when it is refused, and leaves the event as it was", async (_case, answer, message) => {
+  ])("[SPM-86][AC2] shows %s when it is refused, and leaves the event as it was", async (_case, answer, message) => {
     const api = open("coordinator", event(), { [POST]: answer });
     await ask();
 
@@ -1434,7 +1434,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
         safetyCheck: { status: "pending", submittedAt: "2026-10-09T06:30:00.000Z", submittedBy: "Daniel Tan" },
       });
 
-    it("SPM-86-TC02: shows staff who submitted it and when, in Singapore time", async () => {
+    it("[SPM-86][AC8] SPM-86-TC02: shows staff who submitted it and when, in Singapore time", async () => {
       open("coordinator", pending());
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -1445,7 +1445,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
     });
 
     // CHANGED (SPM-87): a decided check says who decided it and when, with the note.
-    it("SPM-87-TC06: words a decided check with who decided it, when, and the changes required", async () => {
+    it("[SPM-87][AC10] SPM-87-TC06: words a decided check with who decided it, when, and the changes required", async () => {
       open(
         "coordinator",
         event({
@@ -1468,7 +1468,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
       );
     });
 
-    it("is not shown for an event that was never submitted", async () => {
+    it("[SPM-86][AC8] is not shown for an event that was never submitted", async () => {
       open("coordinator", event({ safetyCheck: null }));
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -1476,7 +1476,7 @@ describe("Event overview - submitting for a safety check (SPM-86)", () => {
       expect(terms()).not.toContain("Safety check");
     });
 
-    it("SPM-86-TC03: is not shown to the organiser, whose event reads Safety review", async () => {
+    it("[SPM-86][AC4] [SPM-88][AC10] SPM-86-TC03: is not shown to the organiser, whose event reads Safety review", async () => {
       const { safetyCheck: _hidden, ...asOrganiserReceivesIt } = pending() as Record<string, unknown>;
       open("organiser", asOrganiserReceivesIt, {}, { id: "organiser-id" });
 
@@ -1552,7 +1552,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
       ...overrides,
     });
 
-  it("AC3, AC6: offers the Overview and Equipment tabs only - no Attendees, and no venue search", async () => {
+  it("[SPM-85][AC3][AC6] AC3, AC6: offers the Overview and Equipment tabs only - no Attendees, and no venue search", async () => {
     open("safety_officer", forum());
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -1560,7 +1560,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     expect(tabLabels()).toEqual(["Overview", "Equipment"]);
   });
 
-  it("AC3: shows each session's time, attendance and layout", async () => {
+  it("[SPM-85][AC3] AC3: shows each session's time, attendance and layout", async () => {
     open("safety_officer", forum());
 
     await screen.findByRole("heading", { level: 2, name: "Sessions" });
@@ -1570,7 +1570,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     expect(valueIn("Sessions", "Breakout workshop")).toHaveTextContent("14 Jun 2027, 13:00–17:00 · 60 people · Classroom");
   });
 
-  it("AC3: shows each booked room with its layout and the seats that layout holds", async () => {
+  it("[SPM-85][AC3] AC3: shows each booked room with its layout and the seats that layout holds", async () => {
     open("safety_officer", forum());
 
     await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
@@ -1585,7 +1585,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
   });
 
   // SPM-90 (AC5): what each booked space is for, straight after the room.
-  it("SPM-90-TC07: names what each booked space is for, and nothing for a booking made without one", async () => {
+  it("[SPM-90][AC5] SPM-90-TC07: names what each booked space is for, and nothing for a booking made without one", async () => {
     const [hall, seminar] = (forum() as unknown as { venueBookings: object[] }).venueBookings;
     open("coordinator", forum({ venueBookings: [{ ...hall, purpose: "Main programme" }, { ...seminar, purpose: null }] }));
 
@@ -1599,7 +1599,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     );
   });
 
-  it("SPM-90: names the space of a booking that has no layout set", async () => {
+  it("[SPM-90][AC5] SPM-90: names the space of a booking that has no layout set", async () => {
     const [hall] = (forum() as unknown as { venueBookings: object[] }).venueBookings;
     open("coordinator", forum({ venueBookings: [{ ...hall, purpose: "Green room", layoutName: null }] }));
 
@@ -1610,7 +1610,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     );
   });
 
-  it("AC3: still shows the attendance and the accessibility needs it has always shown staff", async () => {
+  it("[SPM-85][AC3] AC3: still shows the attendance and the accessibility needs it has always shown staff", async () => {
     open(
       "safety_officer",
       forum({ facilityRequirements: [{ facilityId: "f1", isMandatory: true, facility: { name: "Step-free access" } }] })
@@ -1623,7 +1623,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     expect(valueIn("Venue requirements", "Accessibility notes")).toHaveTextContent("Step-free access");
   });
 
-  it("names a whole-event booking 'Whole event', and says when no layout was booked", async () => {
+  it("[SPM-85][AC3] names a whole-event booking 'Whole event', and says when no layout was booked", async () => {
     open(
       "safety_officer",
       forum({
@@ -1638,7 +1638,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     expect(screen.queryByRole("heading", { level: 2, name: "Sessions" })).not.toBeInTheDocument();
   });
 
-  it("says when the layout booked has no recorded capacity", async () => {
+  it("[SPM-85][AC3] says when the layout booked has no recorded capacity", async () => {
     open("safety_officer", forum({ venueBookings: [booking(null, "Orchard Gallery", "ORC-GAL", "banquet", [])] }));
 
     await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
@@ -1648,7 +1648,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     );
   });
 
-  it("says so when no room is booked yet", async () => {
+  it("[SPM-85][AC3] says so when no room is booked yet", async () => {
     open("safety_officer", forum({ venueBookings: [] }));
 
     await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
@@ -1656,7 +1656,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     expect(within(card("Venue bookings")).getByText("No venue is booked yet.")).toBeInTheDocument();
   });
 
-  it("shows a session's missing label, attendance or layout as not set", async () => {
+  it("[SPM-85][AC3] shows a session's missing label, attendance or layout as not set", async () => {
     open(
       "safety_officer",
       forum({
@@ -1680,7 +1680,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     );
   });
 
-  it("gives the same two cards to the event's coordinator", async () => {
+  it("[SPM-85][AC3] gives the same two cards to the event's coordinator", async () => {
     open("coordinator", forum());
 
     await screen.findByRole("heading", { level: 2, name: "Venue bookings" });
@@ -1688,7 +1688,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     expect(screen.getByRole("heading", { level: 2, name: "Sessions" })).toBeInTheDocument();
   });
 
-  it("keeps both cards from the organiser, who learns the room from the Venue row", async () => {
+  it("[SPM-22][AC5] keeps both cards from the organiser, who learns the room from the Venue row", async () => {
     open("organiser", forum());
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -1697,7 +1697,7 @@ describe("Event overview - what a Safety Officer sees (SPM-85)", () => {
     expect(screen.queryByRole("heading", { level: 2, name: "Venue bookings" })).not.toBeInTheDocument();
   });
 
-  it("AC4, AC5: offers the Safety Officer nothing that changes the event, its venue, its equipment or its registration", async () => {
+  it("[SPM-85][AC4][AC5] AC4, AC5: offers the Safety Officer nothing that changes the event, its venue, its equipment or its registration", async () => {
     // Every one of these is offered to the event's own coordinator (c1) on a
     // Planning event with registration open.
     open("safety_officer", forum({ status: "planning", registrationEnabled: true, registrationCapacity: 150 }));
@@ -1750,13 +1750,13 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
   const choose = (name: string) => userEvent.click(within(dialog()).getByRole("radio", { name, hidden: true }));
   const record = () => userEvent.click(within(dialog()).getByRole("button", { name: "Record decision", hidden: true }));
 
-  it("SPM-87-TC03: is offered to the Safety Officer while the event is in Safety review", async () => {
+  it("[SPM-87][AC11] SPM-87-TC03: is offered to the Safety Officer while the event is in Safety review", async () => {
     open();
 
     expect(await screen.findByRole("button", { name: BUTTON })).toBeInTheDocument();
   });
 
-  it.each(["planning", "safety_cleared", "confirmed"])("SPM-87-TC10: is not offered while the event is %s", async (status) => {
+  it.each(["planning", "safety_cleared", "confirmed"])("[SPM-87][AC11] SPM-87-TC10: is not offered while the event is %s", async (status) => {
     open("safety_officer", inReview({ status }));
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -1767,7 +1767,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
   it.each([
     ["the assigned coordinator", "coordinator", daniel],
     ["the Ops Manager", "ops_manager", {}],
-  ])("SPM-87-TC11: is not offered to %s", async (_who, role, who) => {
+  ])("[SPM-87][AC12] SPM-87-TC11: is not offered to %s", async (_who, role, who) => {
     open(role, inReview(), {}, who);
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -1775,7 +1775,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
   });
 
-  it("SPM-87-TC03: offers three decisions and asks for no reason to approve", async () => {
+  it("[SPM-87][AC3][AC4][AC5] SPM-87-TC03: offers three decisions and asks for no reason to approve", async () => {
     open();
     await ask();
 
@@ -1788,7 +1788,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(within(dialog()).queryByRole("textbox", { hidden: true })).not.toBeInTheDocument();
   });
 
-  it("SPM-87-TC03: approves, says so, and reloads the event", async () => {
+  it("[SPM-87][AC3][AC7] SPM-87-TC03: approves, says so, and reloads the event", async () => {
     const api = open("safety_officer", inReview(), { [POST]: { status: "safety_cleared" } });
     await ask();
 
@@ -1804,7 +1804,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
   it.each([
     ["Request changes", "Changes required", "changes_requested", "Changes requested. The event is back in Planning and the coordinator has been notified."],
     ["Reject", "Reason for rejecting", "rejected", "Safety arrangement rejected. The event is back in Planning and the coordinator has been notified."],
-  ])("SPM-87-TC06/TC07: %s sends the note and says the event is back in Planning", async (choice, box, decision, done) => {
+  ])("[SPM-87][AC4][AC5][AC8] SPM-87-TC06/TC07: %s sends the note and says the event is back in Planning", async (choice, box, decision, done) => {
     const api = open("safety_officer", inReview(), { [POST]: { status: "planning" } });
     await ask();
 
@@ -1819,7 +1819,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
   it.each([
     ["Reject", "Reason for rejecting", "", "Give a reason for rejecting."],
     ["Request changes", "Changes required", "   ", "Describe the changes required."],
-  ])("SPM-87-TC08: %s without a reason asks for one and sends nothing", async (choice, box, value, message) => {
+  ])("[SPM-87][AC6] SPM-87-TC08: %s without a reason asks for one and sends nothing", async (choice, box, value, message) => {
     const api = open("safety_officer", inReview(), { [POST]: {} });
     await ask();
 
@@ -1832,7 +1832,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(api.sent(POST)).toHaveLength(0);
   });
 
-  it("asks for a choice before recording", async () => {
+  it("[SPM-87] asks for a choice before recording", async () => {
     const api = open("safety_officer", inReview(), { [POST]: {} });
     await ask();
 
@@ -1846,7 +1846,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     ["SPM-87-TC09: that it was already decided", reply(400, { error: "This safety check has already been decided." }), "This safety check has already been decided."],
     ["a general message when the server gives none", reply(500, {}), "Could not record this safety decision."],
     ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
-  ])("shows %s when it is refused", async (_case, answer, message) => {
+  ])("[SPM-87] shows %s when it is refused", async (_case, answer, message) => {
     const api = open("safety_officer", inReview(), { [POST]: answer });
     await ask();
 
@@ -1858,7 +1858,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(api.sent(EVENT)).toHaveLength(1);
   });
 
-  it("shows a general message when the server's refusal is not readable", async () => {
+  it("[SPM-87] shows a general message when the server's refusal is not readable", async () => {
     open("safety_officer", inReview(), { [POST]: reply(502) });
     await ask();
 
@@ -1868,7 +1868,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not record this safety decision.");
   });
 
-  it("clears the reason error as soon as one is typed", async () => {
+  it("[SPM-87][AC6] clears the reason error as soon as one is typed", async () => {
     open("safety_officer", inReview(), { [POST]: {} });
     await ask();
     await choose("Reject");
@@ -1880,7 +1880,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(within(dialog()).queryByText("Give a reason for rejecting.")).not.toBeInTheDocument();
   });
 
-  it("closes without sending anything on Cancel", async () => {
+  it("[SPM-87] closes without sending anything on Cancel", async () => {
     const api = open("safety_officer", inReview(), { [POST]: {} });
     await ask();
 
@@ -1890,7 +1890,7 @@ describe("Event overview - recording a safety decision (SPM-87)", () => {
     expect(api.sent(POST)).toHaveLength(0);
   });
 
-  it("SPM-87-TC02: shows each booked venue's opening hours and unavailable periods on the event's dates (AC2)", async () => {
+  it("[SPM-87][AC2] SPM-87-TC02: shows each booked venue's opening hours and unavailable periods on the event's dates (AC2)", async () => {
     open(
       "safety_officer",
       inReview({
@@ -1990,7 +1990,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
   const flag = () => userEvent.click(within(dialog()).getByRole("button", { name: "Flag for review", hidden: true }));
 
   describe("the history (AC1)", () => {
-    it("SPM-88-TC01: lists every submission and decision, newest first, beside the latest in the Safety check row", async () => {
+    it("[SPM-88][AC1] SPM-88-TC01: lists every submission and decision, newest first, beside the latest in the Safety check row", async () => {
       open();
 
       expect(await screen.findByRole("heading", { name: "Safety check history" })).toBeInTheDocument();
@@ -2007,7 +2007,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       ).toBeInTheDocument();
     });
 
-    it("SPM-88-TC02: shows the organiser no history", async () => {
+    it("[SPM-88][AC10] SPM-88-TC02: shows the organiser no history", async () => {
       open("organiser", event({ status: "planning" }), {}, { id: "organiser-id" });
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -2015,7 +2015,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(screen.queryByRole("heading", { name: "Safety check history" })).not.toBeInTheDocument();
     });
 
-    it("has no history card for an event never submitted", async () => {
+    it("[SPM-88][AC1] has no history card for an event never submitted", async () => {
       open("coordinator", event({ safetyCheck: null, safetyHistory: [] }));
 
       await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
@@ -2023,7 +2023,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(screen.queryByRole("heading", { name: "Safety check history" })).not.toBeInTheDocument();
     });
 
-    it("SPM-88-TC07: words a closed check in the Safety check row", async () => {
+    it("[SPM-88][AC6] SPM-88-TC07: words a closed check in the Safety check row", async () => {
       const closed = {
         ...changesRequested,
         status: "closed",
@@ -2043,7 +2043,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
     it.each([
       ["changes were requested", changesRequested, "org-id"],
       ["the check was rejected", rejected, null],
-    ])("SPM-88-TC03: is offered to the assigned coordinator once %s", async (_case, check, organisationId) => {
+    ])("[SPM-88][AC3] SPM-88-TC03: is offered to the assigned coordinator once %s", async (_case, check, organisationId) => {
       open("coordinator", returned({ safetyCheck: check, organisationId }));
 
       expect(await screen.findByRole("button", { name: BUTTON })).toBeInTheDocument();
@@ -2053,7 +2053,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       ["the check was approved", returned({ status: "safety_cleared", safetyCheck: { ...changesRequested, status: "approved" } })],
       ["the check is pending", returned({ status: "safety_review", safetyCheck: { ...changesRequested, status: "pending" } })],
       ["the event was never submitted", returned({ safetyCheck: null, safetyHistory: [] })],
-    ])("SPM-88-TC05: is not offered when %s", async (_case, row) => {
+    ])("[SPM-88][AC3] SPM-88-TC05: is not offered when %s", async (_case, row) => {
       open("coordinator", row);
 
       await screen.findByRole("heading", { level: 1 });
@@ -2065,7 +2065,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       ["a coordinator who is not assigned", "coordinator", priya],
       ["the Safety Officer", "safety_officer", { id: "so1" }],
       ["the Ops Manager", "ops_manager", {}],
-    ])("SPM-88-TC05: is not offered to %s", async (_who, role, who) => {
+    ])("[SPM-88][AC3] SPM-88-TC05: is not offered to %s", async (_who, role, who) => {
       open(role, returned(), {}, who);
 
       await screen.findByRole("heading", { level: 1 });
@@ -2073,7 +2073,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
     });
 
-    it("SPM-88-TC03: offers the event's current bookings and equipment, and nothing else", async () => {
+    it("[SPM-88][AC3] SPM-88-TC03: offers the event's current bookings and equipment, and nothing else", async () => {
       open();
       await ask();
 
@@ -2085,7 +2085,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       ]);
     });
 
-    it("SPM-88-TC03: flags what was ticked, says nothing else changed, and reloads the event", async () => {
+    it("[SPM-88][AC3] SPM-88-TC03: flags what was ticked, says nothing else changed, and reloads the event", async () => {
       const api = open("coordinator", returned(), { [FLAGS]: { flagged: 2 } });
       await ask();
 
@@ -2101,7 +2101,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(dialog().open).toBe(false);
     });
 
-    it("says '1 arrangement' for one", async () => {
+    it("[SPM-88][AC3] says '1 arrangement' for one", async () => {
       open("coordinator", returned(), { [FLAGS]: { flagged: 1 } });
       await ask();
 
@@ -2113,7 +2113,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       ).toBeInTheDocument();
     });
 
-    it("SPM-88-TC05: asks for at least one, and sends nothing", async () => {
+    it("[SPM-88][AC3] SPM-88-TC05: asks for at least one, and sends nothing", async () => {
       const api = open();
       await ask();
       await within(dialog()).findByRole("checkbox", { name: "Venue: SPM88 Harbour Studio", hidden: true });
@@ -2124,7 +2124,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(api.sent(FLAGS)).toHaveLength(0);
     });
 
-    it("clears the message once something is ticked", async () => {
+    it("[SPM-88][AC3] clears the message once something is ticked", async () => {
       open();
       await ask();
       await within(dialog()).findByRole("checkbox", { name: "Venue: SPM88 Harbour Studio", hidden: true });
@@ -2135,7 +2135,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(within(dialog()).queryByText("Choose at least one arrangement to flag.")).not.toBeInTheDocument();
     });
 
-    it("unticks a box ticked by mistake", async () => {
+    it("[SPM-88][AC3] unticks a box ticked by mistake", async () => {
       const api = open("coordinator", returned(), { [FLAGS]: { flagged: 1 } });
       await ask();
       await tick("Venue: SPM88 Harbour Studio");
@@ -2147,21 +2147,21 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(api.sent(FLAGS).map((c) => c.body)).toEqual([{ venueBookingIds: [], equipmentRequestIds: ["r1"] }]);
     });
 
-    it("says so when the event has nothing to flag", async () => {
+    it("[SPM-88] says so when the event has nothing to flag", async () => {
       open("coordinator", returned(), { [BOOKINGS]: { bookings: [] }, [EQUIPMENT]: [] });
       await ask();
 
       expect(await within(dialog()).findByText("This event has no venue bookings or equipment to flag.")).toBeInTheDocument();
     });
 
-    it("says so when the arrangements cannot be loaded", async () => {
+    it("[SPM-88] says so when the arrangements cannot be loaded", async () => {
       open("coordinator", returned(), { [EQUIPMENT]: reply(500, {}) });
       await ask();
 
       expect(await within(dialog()).findByText("Could not load this event's arrangements.")).toBeInTheDocument();
     });
 
-    it("shows the server's refusal and keeps the event as it was", async () => {
+    it("[SPM-88] shows the server's refusal and keeps the event as it was", async () => {
       const api = open("coordinator", returned(), {
         [FLAGS]: reply(400, { error: "Some of these arrangements can no longer be flagged. Reload the page and try again." }),
       });
@@ -2176,7 +2176,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(api.sent(EVENT)).toHaveLength(1);
     });
 
-    it("gives a general message when the refusal has no reason", async () => {
+    it("[SPM-88] gives a general message when the refusal has no reason", async () => {
       open("coordinator", returned(), { [FLAGS]: reply(500) });
       await ask();
       await tick("Venue: SPM88 Harbour Studio");
@@ -2186,7 +2186,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(await screen.findByText("Could not flag these arrangements.")).toBeInTheDocument();
     });
 
-    it("says so when the server cannot be reached", async () => {
+    it("[SPM-88] says so when the server cannot be reached", async () => {
       open("coordinator", returned(), { [FLAGS]: () => Promise.reject("offline") });
       await ask();
       await tick("Venue: SPM88 Harbour Studio");
@@ -2196,7 +2196,7 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(await screen.findByText("Could not reach the server. Check your connection and try again.")).toBeInTheDocument();
     });
 
-    it("closes on Cancel without sending anything", async () => {
+    it("[SPM-88][AC3] closes on Cancel without sending anything", async () => {
       const api = open();
       await ask();
       await tick("Venue: SPM88 Harbour Studio");

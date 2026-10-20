@@ -62,7 +62,7 @@ const titles = () =>
 
 describe("Notifications page (SPM-71)", () => {
   describe("who can open it", () => {
-    it("sends an anonymous visitor to log in, remembering the page", async () => {
+    it("[SPM-22][AC4] sends an anonymous visitor to log in, remembering the page", async () => {
       setRoute("/notifications");
       mockApi(signedOut());
 
@@ -71,7 +71,7 @@ describe("Notifications page (SPM-71)", () => {
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fnotifications"));
     });
 
-    it("AC1: lets any signed-in user in, whatever their role", async () => {
+    it("[SPM-71][AC1] AC1: lets any signed-in user in, whatever their role", async () => {
       setRoute("/notifications");
       mockApi({ ...signedInAs("attendee"), [LIST]: [] });
 
@@ -82,7 +82,7 @@ describe("Notifications page (SPM-71)", () => {
   });
 
   describe("the list", () => {
-    it("AC1: shows the notifications in the order given - newest first", async () => {
+    it("[SPM-71][AC1] AC1: shows the notifications in the order given - newest first", async () => {
       open();
 
       await item("Booking needs review");
@@ -94,7 +94,7 @@ describe("Notifications page (SPM-71)", () => {
       ]);
     });
 
-    it("AC2: says what happened, which event it is about and when", async () => {
+    it("[SPM-71][AC2] AC2: says what happened, which event it is about and when", async () => {
       open();
 
       const assigned = await item("You have been assigned an event");
@@ -104,13 +104,13 @@ describe("Notifications page (SPM-71)", () => {
       expect(assigned).toHaveTextContent("12 Oct 2026, 09:00");
     });
 
-    it("names an event with no title 'Untitled event'", async () => {
+    it("[SPM-71][AC2] names an event with no title 'Untitled event'", async () => {
       open({ [LIST]: [note("n1", { event: { reference: "EVT-000071", title: null } })] });
 
       expect(await item("Notification n1")).toHaveTextContent("Untitled event · EVT-000071");
     });
 
-    it("shows a notification about no event as plain text, not a link", async () => {
+    it("[SPM-71][AC2] shows a notification about no event as plain text, not a link", async () => {
       open({ [LIST]: [note("n1", { event: null, href: null })] });
 
       const plain = await item("Notification n1");
@@ -119,7 +119,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(plain).not.toHaveTextContent("EVT-");
     });
 
-    it("AC3: marks the unread ones 'Unread' and leaves the read ones plain", async () => {
+    it("[SPM-71][AC3] AC3: marks the unread ones 'Unread' and leaves the read ones plain", async () => {
       open();
 
       const unread = await item("Booking needs review");
@@ -131,7 +131,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(within(read).queryByRole("button", { name: "Mark as read" })).not.toBeInTheDocument();
     });
 
-    it("AC8: says so when there are no notifications, and offers nothing to mark", async () => {
+    it("[SPM-71][AC8] AC8: says so when there are no notifications, and offers nothing to mark", async () => {
       open({ [LIST]: [] });
 
       expect(await screen.findByText("No notifications")).toBeInTheDocument();
@@ -139,13 +139,13 @@ describe("Notifications page (SPM-71)", () => {
       expect(screen.queryByRole("button", { name: "Mark all as read" })).not.toBeInTheDocument();
     });
 
-    it("shows a general error when the request fails without a reason", async () => {
+    it("[SPM-71] shows a general error when the request fails without a reason", async () => {
       open({ [LIST]: () => Promise.reject("offline") });
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong");
     });
 
-    it("shows a load failure with a Retry that loads again", async () => {
+    it("[SPM-71] shows a load failure with a Retry that loads again", async () => {
       const api = open({ [LIST]: reply(500, {}) });
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not load your notifications.");
 
@@ -155,7 +155,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(await item("Booking needs review")).toBeInTheDocument();
     });
 
-    it("sends the user to log in when their session has expired", async () => {
+    it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
       open({ [LIST]: reply(401, {}) });
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fnotifications"));
@@ -163,7 +163,7 @@ describe("Notifications page (SPM-71)", () => {
   });
 
   describe("marking as read", () => {
-    it("AC4: marks one as read, and tells the navigation to recount", async () => {
+    it("[SPM-71][AC4] AC4: marks one as read, and tells the navigation to recount", async () => {
       const changed = vi.fn();
       window.addEventListener(NOTIFICATIONS_CHANGED, changed);
       const api = open({ [one("n2")]: { id: "n2", isRead: true } });
@@ -176,7 +176,7 @@ describe("Notifications page (SPM-71)", () => {
       window.removeEventListener(NOTIFICATIONS_CHANGED, changed);
     });
 
-    it("AC4: marks all as read, and the button goes once nothing is unread", async () => {
+    it("[SPM-71][AC4] AC4: marks all as read, and the button goes once nothing is unread", async () => {
       const changed = vi.fn();
       window.addEventListener(NOTIFICATIONS_CHANGED, changed);
       const api = open({ [ALL]: { updated: 2 } });
@@ -191,7 +191,7 @@ describe("Notifications page (SPM-71)", () => {
       window.removeEventListener(NOTIFICATIONS_CHANGED, changed);
     });
 
-    it("keeps a notification read when an older load of the list arrives after marking it", async () => {
+    it("[SPM-71][AC4] keeps a notification read when an older load of the list arrives after marking it", async () => {
       // Found in the browser: React's development mode loads the page twice,
       // and a slow second answer - read before the mark was saved - used to
       // overwrite it, showing it Unread again although the server had it read.
@@ -221,7 +221,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(loads).toBe(2);
     });
 
-    it("ignores an older load that fails after a newer one has shown the list", async () => {
+    it("[SPM-71][AC4] ignores an older load that fails after a newer one has shown the list", async () => {
       // The same double load as above, but the slow first answer is a failure:
       // it must not replace the list already showing with an error.
       let failLate: (answer: unknown) => void = () => {};
@@ -246,7 +246,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(loads).toBe(2);
     });
 
-    it("offers no Mark all as read when everything is already read", async () => {
+    it("[SPM-71][AC4] offers no Mark all as read when everything is already read", async () => {
       open({ [LIST]: [note("n1", { isRead: true })] });
 
       await item("Notification n1");
@@ -254,7 +254,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(screen.queryByRole("button", { name: "Mark all as read" })).not.toBeInTheDocument();
     });
 
-    it("keeps a notification unread, and says so, when marking it fails", async () => {
+    it("[SPM-71][AC4] keeps a notification unread, and says so, when marking it fails", async () => {
       open({ [one("n2")]: reply(500, {}) });
 
       const booking = await item("Booking needs review");
@@ -264,7 +264,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(within(booking).getByText("Unread")).toBeInTheDocument();
     });
 
-    it("says so when marking all fails, and leaves them unread", async () => {
+    it("[SPM-71][AC4] says so when marking all fails, and leaves them unread", async () => {
       open({ [ALL]: reply(500, {}) });
 
       await userEvent.click(await screen.findByRole("button", { name: "Mark all as read" }));
@@ -275,7 +275,7 @@ describe("Notifications page (SPM-71)", () => {
   });
 
   describe("selecting one", () => {
-    it("AC5: opens what it is about, marking it read first", async () => {
+    it("[SPM-71][AC5] AC5: opens what it is about, marking it read first", async () => {
       const api = open({ [one("n2")]: { id: "n2", isRead: true } });
 
       await userEvent.click(within(await item("Booking needs review")).getByRole("link", { name: "Booking needs review" }));
@@ -284,7 +284,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(api.sent(one("n2")).map((c) => c.body)).toEqual([{ isRead: true }]);
     });
 
-    it("AC5: opens a notification that is already read without marking it again", async () => {
+    it("[SPM-71][AC5] AC5: opens a notification that is already read without marking it again", async () => {
       const title = "Equipment out of service - reservation needs review";
       const api = open();
 
@@ -294,7 +294,7 @@ describe("Notifications page (SPM-71)", () => {
       expect(api.calls.filter((c) => c.method === "PATCH")).toHaveLength(0);
     });
 
-    it("still opens it when marking it read fails - reading it matters more", async () => {
+    it("[SPM-71][AC5] still opens it when marking it read fails - reading it matters more", async () => {
       open({ [one("n2")]: reply(500, {}) });
 
       await userEvent.click(within(await item("Booking needs review")).getByRole("link", { name: "Booking needs review" }));

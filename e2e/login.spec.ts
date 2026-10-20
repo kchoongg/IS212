@@ -6,7 +6,7 @@ import { ACCOUNTS, logInAs } from "./accounts";
 // come from NAV_BY_ROLE, so a sidebar change updates this test with it.
 
 for (const role of ROLES) {
-  test(`${role} logs in and lands on their dashboard with their own sidebar`, async ({ page }) => {
+  test(`[SPM-21][AC1][AC3] [SPM-22][AC1] ${role} logs in and lands on their dashboard with their own sidebar`, async ({ page }) => {
     await logInAs(page, role);
 
     const sidebar = page.getByRole("navigation", { name: "Main" });
@@ -16,7 +16,7 @@ for (const role of ROLES) {
   });
 }
 
-test("a visitor who is not logged in is sent to log in, and brought back after", async ({ page }) => {
+test("[SPM-22][AC4] a visitor who is not logged in is sent to log in, and brought back after", async ({ page }) => {
   await page.goto("/events");
 
   await expect(page).toHaveURL(/\/login\?next=%2Fevents$/);
@@ -27,7 +27,7 @@ test("a visitor who is not logged in is sent to log in, and brought back after",
   await expect(page).toHaveURL(/\/events$/);
 });
 
-test("a wrong password is refused, and the visitor stays on the login page", async ({ page }) => {
+test("[SPM-21][AC2] a wrong password is refused, and the visitor stays on the login page", async ({ page }) => {
   await page.goto("/login");
   await page.getByLabel("Email").fill(ACCOUNTS.coordinator.email);
   await page.getByLabel("Password").fill("not-the-password");

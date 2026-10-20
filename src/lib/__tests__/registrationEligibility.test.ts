@@ -35,11 +35,11 @@ function event(overrides: Record<string, unknown> = {}) {
 }
 
 describe("AC3 an event is eligible only when Confirmed, enabled and within its registration period", () => {
-  it("is open for a Confirmed event with registration on, inside its period, with a seat left (TC02)", () => {
+  it("[SPM-51][AC3] is open for a Confirmed event with registration on, inside its period, with a seat left (TC02)", () => {
     expect(registrationState(event(), 0, NOW)).toEqual({ kind: "open" });
   });
 
-  it.each(["approved", "planning", "postponed", "completed", "cancelled"])("is not open while the event is %s (TC09)", (status) => {
+  it.each(["approved", "planning", "postponed", "completed", "cancelled"])("[SPM-51][AC3] is not open while the event is %s (TC09)", (status) => {
     expect(registrationState(event({ status }), 0, NOW)).toEqual({ kind: "not_confirmed" });
   });
 
@@ -47,11 +47,11 @@ describe("AC3 an event is eligible only when Confirmed, enabled and within its r
     ["no opening date", { registrationOpensAt: null }],
     ["no closing date", { registrationClosesAt: null }],
     ["no dates at all", { registrationOpensAt: null, registrationClosesAt: null }],
-  ])("is not open with %s (TC08)", (_what, overrides) => {
+  ])("[SPM-51][AC3] is not open with %s (TC08)", (_what, overrides) => {
     expect(registrationState(event(overrides), 0, NOW)).toEqual({ kind: "no_period" });
   });
 
-  it("checks Confirmed before anything else", () => {
+  it("[SPM-51][AC3] checks Confirmed before anything else", () => {
     expect(registrationState(event({ status: "planning", registrationEnabled: false }), 3, NOW)).toEqual({
       kind: "not_confirmed",
     });
@@ -59,53 +59,53 @@ describe("AC3 an event is eligible only when Confirmed, enabled and within its r
 });
 
 describe("AC4 before the period opens or after it closes, nobody can register", () => {
-  it("is not open a minute before it opens, saying when it opens (TC06)", () => {
+  it("[SPM-51][AC4] is not open a minute before it opens, saying when it opens (TC06)", () => {
     expect(registrationState(event(), 0, new Date(OPENS.getTime() - minute))).toEqual({ kind: "not_open", opensAt: OPENS });
   });
 
-  it("is open from the moment it opens", () => {
+  it("[SPM-51][AC4] is open from the moment it opens", () => {
     expect(registrationState(event(), 0, OPENS)).toEqual({ kind: "open" });
   });
 
-  it("is still open at the moment it closes", () => {
+  it("[SPM-51][AC4] is still open at the moment it closes", () => {
     expect(registrationState(event(), 0, CLOSES)).toEqual({ kind: "open" });
   });
 
-  it("is closed a minute after, saying when it closed (TC07)", () => {
+  it("[SPM-51][AC4] is closed a minute after, saying when it closed (TC07)", () => {
     expect(registrationState(event(), 0, new Date(CLOSES.getTime() + minute))).toEqual({ kind: "closed", closesAt: CLOSES });
   });
 });
 
 describe("AC8 registration is not available when it is turned off", () => {
-  it("is not open with registration off (TC10)", () => {
+  it("[SPM-51][AC8] is not open with registration off (TC10)", () => {
     expect(registrationState(event({ registrationEnabled: false }), 0, NOW)).toEqual({ kind: "disabled" });
   });
 });
 
 describe("AC9 registration stops once the capacity is reached", () => {
-  it("is open with one seat left (TC04)", () => {
+  it("[SPM-51][AC9] is open with one seat left (TC04)", () => {
     expect(registrationState(event(), 2, NOW)).toEqual({ kind: "open" });
   });
 
-  it("is full once every seat is taken (TC05)", () => {
+  it("[SPM-51][AC9] is full once every seat is taken (TC05)", () => {
     expect(registrationState(event(), 3, NOW)).toEqual({ kind: "full" });
   });
 
-  it("has no limit when no capacity is set", () => {
+  it("[SPM-51][AC9] has no limit when no capacity is set", () => {
     expect(registrationState(event({ registrationCapacity: null }), 500, NOW)).toEqual({ kind: "open" });
   });
 
-  it("counts registered and attended attendees as taking a seat, not waitlisted or withdrawn ones (TC04)", () => {
+  it("[SPM-51][AC9] counts registered and attended attendees as taking a seat, not waitlisted or withdrawn ones (TC04)", () => {
     expect(SEAT_TAKING).toEqual(["registered", "attended"]);
   });
 
-  it("says the period, not fullness, when both apply", () => {
+  it("[SPM-51][AC4][AC9] says the period, not fullness, when both apply", () => {
     expect(registrationState(event(), 3, new Date(CLOSES.getTime() + minute))).toMatchObject({ kind: "closed" });
   });
 });
 
 describe("the refusal each state gives", () => {
-  it("words each one as the register route answers it", () => {
+  it("[SPM-51] words each one as the register route answers it", () => {
     expect(REGISTRATION_REFUSALS).toEqual({
       not_confirmed: "Event is not open for registration yet",
       disabled: "Registration is not enabled for this event",
@@ -122,38 +122,38 @@ describe("SPM-52 AC1 only a registration holding a seat can be withdrawn", () =>
   const NOW = new Date("2026-10-13T04:00:00Z");
   const upcoming = { status: "confirmed", endsAt: new Date("2028-03-04T09:00:00Z") };
 
-  it("lets a registered attendee withdraw from an upcoming event", () => {
+  it("[SPM-52][AC1] lets a registered attendee withdraw from an upcoming event", () => {
     expect(withdrawRefusal("registered", upcoming, NOW)).toBeNull();
     expect(canWithdraw("registered", upcoming, NOW)).toBe(true);
   });
 
-  it.each(["waitlisted", "withdrawn", "attended"])("does not let a %s registration be withdrawn", (status) => {
+  it.each(["waitlisted", "withdrawn", "attended"])("[SPM-52][AC1] does not let a %s registration be withdrawn", (status) => {
     expect(withdrawRefusal(status, upcoming, NOW)).toBe(WITHDRAW_REFUSALS.not_active);
     expect(canWithdraw(status, upcoming, NOW)).toBe(false);
   });
 
-  it("does not let a registration for a cancelled event be withdrawn", () => {
+  it("[SPM-52][AC1] does not let a registration for a cancelled event be withdrawn", () => {
     expect(withdrawRefusal("registered", { ...upcoming, status: "cancelled" }, NOW)).toBe(WITHDRAW_REFUSALS.cancelled);
   });
 
-  it("does not let a registration for a completed event be withdrawn", () => {
+  it("[SPM-52][AC1] does not let a registration for a completed event be withdrawn", () => {
     expect(withdrawRefusal("registered", { ...upcoming, status: "completed" }, NOW)).toBe(WITHDRAW_REFUSALS.over);
   });
 
-  it("does not let a registration be withdrawn once the event has ended, even before it is marked completed", () => {
+  it("[SPM-52][AC1] does not let a registration be withdrawn once the event has ended, even before it is marked completed", () => {
     const ended = { status: "confirmed", endsAt: new Date("2026-10-12T09:00:00Z") };
     expect(withdrawRefusal("registered", ended, NOW)).toBe(WITHDRAW_REFUSALS.over);
     expect(withdrawRefusal("registered", { ...ended, endsAt: NOW }, NOW)).toBe(WITHDRAW_REFUSALS.over);
   });
 
-  it("reads the end time as the screens receive it, an ISO string", () => {
+  it("[SPM-52][AC1] reads the end time as the screens receive it, an ISO string", () => {
     expect(canWithdraw("registered", { status: "confirmed", endsAt: "2026-10-12T09:00:00.000Z" }, NOW)).toBe(false);
     expect(canWithdraw("registered", { status: "confirmed", endsAt: "2028-03-04T09:00:00.000Z" }, NOW)).toBe(true);
   });
 });
 
 describe("SPM-52 AC4 + AC5 the registrations counted for the organiser and coordinator", () => {
-  it("counts registered and attended as places taken, and withdrawn on its own", () => {
+  it("[SPM-52][AC4][AC5] counts registered and attended as places taken, and withdrawn on its own", () => {
     expect(
       registrationCounts([
         { status: "registered", count: 10 },
@@ -164,7 +164,7 @@ describe("SPM-52 AC4 + AC5 the registrations counted for the organiser and coord
     ).toEqual({ taken: 12, waitlisted: 4, withdrawn: 3 });
   });
 
-  it("gives a withdrawn registration back its place", () => {
+  it("[SPM-52][AC4][AC5] gives a withdrawn registration back its place", () => {
     const before = registrationCounts([{ status: "registered", count: 5 }]);
     const after = registrationCounts([
       { status: "registered", count: 4 },
@@ -175,13 +175,13 @@ describe("SPM-52 AC4 + AC5 the registrations counted for the organiser and coord
     expect(after).toEqual({ taken: 4, waitlisted: 0, withdrawn: 1 });
   });
 
-  it("is zero for an event nobody has registered for", () => {
+  it("[SPM-52][AC4][AC5] is zero for an event nobody has registered for", () => {
     expect(registrationCounts([])).toEqual({ taken: 0, waitlisted: 0, withdrawn: 0 });
   });
 });
 
 describe("SPM-65 AC5 the waiting list counted for the registration list", () => {
-  it("counts waitlisted attendees on their own, holding no place", () => {
+  it("[SPM-65][AC5] counts waitlisted attendees on their own, holding no place", () => {
     const counts = registrationCounts([
       { status: "registered", count: 1 },
       { status: "waitlisted", count: 3 },
@@ -191,7 +191,7 @@ describe("SPM-65 AC5 the waiting list counted for the registration list", () => 
     expect(counts.taken).toBe(1);
   });
 
-  it("moves an attendee off the waiting list and into a place when they are given one", () => {
+  it("[SPM-65][AC5] moves an attendee off the waiting list and into a place when they are given one", () => {
     const before = registrationCounts([{ status: "registered", count: 1 }, { status: "waitlisted", count: 2 }]);
     const after = registrationCounts([{ status: "registered", count: 2 }, { status: "waitlisted", count: 1 }]);
 
@@ -204,13 +204,13 @@ describe("SPM-65 AC5 the waiting list counted for the registration list", () => 
 describe("withdrawWarning", () => {
   const NOW = new Date("2026-10-16T02:00:00.000Z");
 
-  it("warns that the event goes too when registration is turned off", () => {
+  it("[SPM-52][AC1] warns that the event goes too when registration is turned off", () => {
     expect(withdrawWarning({ registrationEnabled: false, registrationClosesAt: CLOSES }, NOW)).toBe(
       WITHDRAW_WARNINGS.disabled
     );
   });
 
-  it("warns when registration has closed, given as a Date or an ISO string", () => {
+  it("[SPM-52][AC1] warns when registration has closed, given as a Date or an ISO string", () => {
     expect(withdrawWarning({ registrationEnabled: true, registrationClosesAt: new Date("2026-10-01T09:00:00.000Z") }, NOW)).toBe(
       WITHDRAW_WARNINGS.closed
     );
@@ -219,7 +219,7 @@ describe("withdrawWarning", () => {
     );
   });
 
-  it("says nothing while registration is still open, or has no closing date", () => {
+  it("[SPM-52][AC1] says nothing while registration is still open, or has no closing date", () => {
     expect(withdrawWarning({ registrationEnabled: true, registrationClosesAt: CLOSES }, NOW)).toBeNull();
     expect(withdrawWarning({ registrationEnabled: true, registrationClosesAt: null }, NOW)).toBeNull();
   });

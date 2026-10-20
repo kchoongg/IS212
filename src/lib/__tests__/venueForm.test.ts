@@ -15,19 +15,19 @@ const VALID: VenueFormValues = {
 };
 
 describe("validateVenueForm - opening hours", () => {
-  it("accepts the defaults a new venue starts with", () => {
+  it("[SPM-39][AC4] accepts the defaults a new venue starts with", () => {
     expect(validateVenueForm(VALID)).toEqual({});
   });
 
-  it("requires an opening time", () => {
+  it("[SPM-39][AC4] requires an opening time", () => {
     expect(validateVenueForm({ ...VALID, opensAt: "" }).opensAt).toMatch(/when the venue opens/i);
   });
 
-  it("requires a closing time", () => {
+  it("[SPM-39][AC4] requires a closing time", () => {
     expect(validateVenueForm({ ...VALID, closesAt: "" }).closesAt).toMatch(/when the venue closes/i);
   });
 
-  it("rejects a closing time that is not after the opening time", () => {
+  it("[SPM-39][AC4] rejects a closing time that is not after the opening time", () => {
     expect(validateVenueForm({ ...VALID, opensAt: "18:00", closesAt: "09:00" }).closesAt).toMatch(
       /after opening time/i
     );
@@ -37,13 +37,13 @@ describe("validateVenueForm - opening hours", () => {
     );
   });
 
-  it("accepts one minute of opening", () => {
+  it("[SPM-39][AC4] accepts one minute of opening", () => {
     expect(validateVenueForm({ ...VALID, opensAt: "09:00", closesAt: "09:01" })).toEqual({});
   });
 });
 
 describe("venuePayload - opening hours", () => {
-  it("always sends both times, so an empty one cannot be silently dropped", () => {
+  it("[SPM-39][AC4] always sends both times, so an empty one cannot be silently dropped", () => {
     // `undefined` here would mean "leave this alone" to PATCH, which is how the
     // old value used to come back after a user cleared the field.
     const payload = venuePayload({ ...VALID, opensAt: "", closesAt: "" });
@@ -53,7 +53,7 @@ describe("venuePayload - opening hours", () => {
     expect("closesAt" in payload).toBe(true);
   });
 
-  it("passes the 24-hour value through unchanged", () => {
+  it("[SPM-39][AC4] passes the 24-hour value through unchanged", () => {
     // <input type="time"> reports 24-hour "HH:mm" whatever the browser renders,
     // so no conversion happens anywhere.
     const payload = venuePayload({ ...VALID, opensAt: "07:00", closesAt: "23:00" });
@@ -65,18 +65,18 @@ describe("venuePayload - opening hours", () => {
 // SPM-93 AC5: setup and turnaround are set in minutes, in 15-minute steps,
 // zero included.
 describe("validateVenueForm - setup and turnaround minutes", () => {
-  it.each(["0", "15", "30", "45", "240"])("SPM-93-TC07: accepts %s minutes for both", (minutes) => {
+  it.each(["0", "15", "30", "45", "240"])("[SPM-93][AC5] SPM-93-TC07: accepts %s minutes for both", (minutes) => {
     expect(validateVenueForm({ ...VALID, setupMinutes: minutes, teardownMinutes: minutes })).toEqual({});
   });
 
-  it("SPM-93-TC07: refuses 20 minutes of setup and 50 of turnaround, naming both fields", () => {
+  it("[SPM-93][AC5] SPM-93-TC07: refuses 20 minutes of setup and 50 of turnaround, naming both fields", () => {
     expect(validateVenueForm({ ...VALID, setupMinutes: "20", teardownMinutes: "50" })).toEqual({
       setupMinutes: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.",
       teardownMinutes: "Enter minutes in 15-minute steps: 0, 15, 30, 45 and so on.",
     });
   });
 
-  it("keeps the whole-number message for negative or non-numeric minutes", () => {
+  it("[SPM-93][AC5] keeps the whole-number message for negative or non-numeric minutes", () => {
     expect(validateVenueForm({ ...VALID, setupMinutes: "-15", teardownMinutes: "1.5" })).toEqual({
       setupMinutes: "Enter a whole number of minutes, 0 or more.",
       teardownMinutes: "Enter a whole number of minutes, 0 or more.",
@@ -103,7 +103,7 @@ describe("toVenueFormValues", () => {
     facilities: [{ facilityId: "wifi" }],
   };
 
-  it("fills the form in with what is saved, numbers as text", () => {
+  it("[SPM-39][AC5] fills the form in with what is saved, numbers as text", () => {
     expect(toVenueFormValues(saved)).toEqual({
       code: "ORC-SEM",
       name: "Orchard Seminar Room",
@@ -121,7 +121,7 @@ describe("toVenueFormValues", () => {
     });
   });
 
-  it("leaves the optional fields empty when nothing is saved for them", () => {
+  it("[SPM-39][AC5] leaves the optional fields empty when nothing is saved for them", () => {
     const values = toVenueFormValues({ ...saved, description: null, floor: null, address: null });
     expect([values.description, values.floor, values.address]).toEqual(["", "", ""]);
   });
