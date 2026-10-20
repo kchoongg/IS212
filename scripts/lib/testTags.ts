@@ -47,6 +47,8 @@ export interface FoundTest {
   untraced: boolean;
   /** The <feature> of [UNTRACED:<feature>]; "" for a bare [UNTRACED]. */
   untracedFeature: string;
+  /** What is wrong with the test's [UNTRACED] tag, for the CI message; "" when it is fine or absent. */
+  untracedProblem: string;
   /** Offset of the first character inside the name's quotes. */
   nameStart: number;
 }
@@ -58,10 +60,19 @@ export interface FoundTest {
 export const TEST_ROOTS = ["src", "integration", "e2e"];
 const TEST_FILE = /\.(test|spec)\.(ts|tsx)$/;
 const TAG = /\[(SPM-\d+)\]((?:\[(?:AC\d+|BUG-\d+)\])*)/g;
-const UNTRACED = /\[UNTRACED(?::([a-z0-9-]+))?\]/;
-const untracedOf = (name: string): { untraced: boolean; feature: string } => {
+// Read loosely - any case, any feature text - so a malformed tag is reported
+// as what it is ("feature must be lowercase") rather than as no tag at all.
+const UNTRACED = /\[UNTRACED(?::([^\]]*))?\]/i;
+const FEATURE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const untracedOf = (name: string): { untraced: boolean; feature: string; problem: string } => {
   const m = UNTRACED.exec(name);
-  return { untraced: Boolean(m), feature: m?.[1] ?? "" };
+  if (!m) return { untraced: false, feature: "", problem: "" };
+  const raw = m[1];
+  let problem = "";
+  if (!/^\[UNTRACED/.test(m[0])) problem = `write "UNTRACED" in capitals: "${m[0]}"`;
+  else if (raw === undefined || raw.trim() === "") problem = `name the feature: [UNTRACED:<feature>], e.g. [UNTRACED:self-registration]`;
+  else if (!FEATURE.test(raw)) problem = `the feature in "${m[0]}" must be lowercase letters, digits and hyphens, e.g. [UNTRACED:${raw.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}]`;
+  return { untraced: true, feature: (raw ?? "").trim().toLowerCase(), problem };
 };
 
 export function levelOf(file: string): TestLevel {
@@ -147,7 +158,7 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
   const unnamed: { line: number }[] = [];
   const level = levelOf(file);
 
-  type Suite = { name: string; tags: StoryTag[]; untraced: boolean; feature: string };
+  type Suite = { name: string; tags: StoryTag[]; untraced: boolean; feature: string; problem: string };
   const visit = (node: ts.Node, suites: Suite[]) => {
     if (ts.isCallExpression(node)) {
       const kind = callKind(node.expression);
@@ -156,7 +167,7 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
         const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
         if (kind === "suite") {
           const u = untracedOf(named?.name ?? "");
-          const inner = [...suites, { name: named?.name ?? "", tags: named ? parseTags(named.name) : [], untraced: u.untraced, feature: u.feature }];
+          const inner = [...suites, { name: named?.name ?? "", tags: named ? parseTags(named.name) : [], untraced: u.untraced, feature: u.feature, problem: u.problem }];
           node.arguments.forEach((a) => visit(a, inner));
           return;
         }
@@ -174,6 +185,7 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
             tags: [...suites.flatMap((s) => s.tags), ...ownTags],
             untraced: untracedOf(named.name).untraced || suites.some((s) => s.untraced),
             untracedFeature: untracedOf(named.name).feature || ([...suites].reverse().find((s) => s.feature)?.feature ?? ""),
+            untracedProblem: untracedOf(named.name).problem || (suites.find((s) => s.problem)?.problem ?? ""),
             nameStart: named.start,
           });
         }

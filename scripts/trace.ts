@@ -6,6 +6,9 @@
  *   npm run trace                    writes docs/traceability/TRACEABILITY.md and .csv
  *   npm run trace -- --check         writes nothing; exits 1 if a column the repo controls is
  *                                    out of date (see "the check" below). Offline: no Jira, no gh.
+ *   npm run trace -- --repo-only     offline: rewrites only the columns and sections the repo
+ *                                    controls in the committed matrix - what --check compares -
+ *                                    so a red check can be fixed without a Jira token or gh
  *   npm run trace -- --pr-source=git ignore gh even when it is installed
  *
  * The check. The matrix mixes two kinds of data. Jira (statuses, ACs, sprints)
@@ -41,12 +44,16 @@ const MD = path.join(OUT_DIR, "TRACEABILITY.md");
 const CSV = path.join(OUT_DIR, "TRACEABILITY.csv");
 const args = process.argv.slice(2);
 const CHECK = args.includes("--check");
+const REPO_ONLY = args.includes("--repo-only");
 
 // ---------------------------------------------------------------- Jira (read-only)
 
 const JIRA = (process.env.JIRA_BASE_URL ?? "").replace(/\/$/, "");
-if (!CHECK && (!JIRA || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN)) {
-  console.error("npm run trace needs JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN in .env (see .env.example).");
+if (!CHECK && !REPO_ONLY && (!JIRA || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN)) {
+  console.error(
+    "npm run trace needs JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN in .env (see .env.example). " +
+      "Without them, npm run trace -- --repo-only updates the columns a PR controls, which is all the CI check needs."
+  );
   process.exit(2);
 }
 const AUTH = "Basic " + Buffer.from(`${process.env.JIRA_EMAIL}:${process.env.JIRA_API_TOKEN}`).toString("base64");
@@ -551,6 +558,128 @@ function parseCsv(text: string): string[][] {
   return rows;
 }
 
+const csvCell = (v: unknown) => {
+  const t = String(v ?? "");
+  return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+const esc = (v: string) => v.replace(/\|/g, "\\|").replace(/\n/g, " ");
+
+/** The repo-controlled values as Markdown cells (the test case file and Retired count are links). */
+function mdRepoCells(v: string[]): string[] {
+  const [file, active, retired, latest, unit, integration, e2e] = v;
+  return [
+    file ? `[xlsx](../test-cases/${path.basename(file)})` : "",
+    active,
+    file ? (retired !== "0" ? `[${retired}](../test-cases/DECOMMISSIONED.md)` : "0") : "",
+    latest,
+    unit,
+    integration,
+    e2e,
+  ];
+}
+
+/**
+ * The matrix's last two sections, built from the tests alone: code with no
+ * story, and tests tagged with a story but no single AC. storyKeys is the
+ * matrix's story list, in order.
+ */
+function repoSections(tests: FoundTest[], storyKeys: string[]): string[] {
+  const md: string[] = [];
+  md.push("## Code with no story", "");
+  md.push(
+    "Features in the code that no Jira story asks for. Their tests are tagged `[UNTRACED:<feature>]`. Nothing here is deleted: each needs a decision to remove it " +
+      "or to back it with a story.",
+    ""
+  );
+  const untraced = tests.filter((t) => t.untraced);
+  for (const f of UNTRACED_FEATURES) {
+    const mine = untraced.filter((t) => t.untracedFeature === f.id);
+    md.push(`### ${f.name}`, "", f.why, "", "Files:", "", ...f.files.map((x) => `- \`${x}\``), "", `Tests (${mine.length}):`, "");
+    md.push(...mine.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name.replace(/^\[UNTRACED(:[^\]]*)?\]\s*/i, ""))}`), "");
+  }
+  const known = new Set(UNTRACED_FEATURES.map((f) => f.id));
+  const loose = untraced.filter((t) => !known.has(t.untracedFeature));
+  if (loose.length)
+    md.push(
+      "### Other [UNTRACED] tests",
+      "",
+      "Tagged with a feature this script does not describe yet: add it to UNTRACED_FEATURES in scripts/trace.ts.",
+      "",
+      ...loose.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name)}`),
+      ""
+    );
+
+  const storyOnly: string[] = [];
+  for (const key of storyKeys)
+    for (const t of tests) {
+      const own = t.tags.filter((tag) => tag.story === key);
+      if (own.length && own.every((tag) => !tag.acs.length))
+        storyOnly.push(`${key}\t${t.file}:${t.line}\t${t.name.replace(/\[SPM-\d+\](\[(AC\d+|BUG-\d+)\])*\s*/g, "")}`);
+    }
+  md.push("## Tests tagged with a story but no single AC", "");
+  md.push(
+    "These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). " +
+      `${storyOnly.length} tests:`,
+    ""
+  );
+  md.push("<details><summary>Show the list</summary>", "", "| Story | Test | Name |", "|---|---|---|");
+  for (const line of storyOnly.sort()) {
+    const [k, where, name] = line.split("\t");
+    md.push(`| ${k} | ${where} | ${esc(name)} |`);
+  }
+  md.push("", "</details>", "");
+  return md;
+}
+
+/**
+ * --repo-only: rewrite the committed matrix's repo-controlled columns and its
+ * test-derived sections from the tests and workbooks on this branch, leaving
+ * every Jira and GitHub value as it was. Offline.
+ */
+function repoOnly(): void {
+  if (!existsSync(CSV) || !existsSync(MD)) {
+    console.error("No committed matrix to update. Run the full npm run trace once (it needs the Jira variables in .env).");
+    process.exit(1);
+  }
+  const { tests } = findTests(ROOT);
+  const rows = parseCsv(readFileSync(CSV, "utf8")).filter((r) => r.length > 1);
+  const [head, ...body] = rows;
+  const col = (name: string) => head.indexOf(name);
+  const idx = REPO_COLUMNS.map(col);
+  if (idx.some((i) => i < 0)) {
+    console.error("The committed TRACEABILITY.csv has an older layout. Run the full npm run trace once.");
+    process.exit(1);
+  }
+  const values = new Map<string, string[]>();
+  for (const r of body) {
+    const now = repoColumns(r[col("Story")], r[col("Title")], tests);
+    values.set(r[col("Story")], now);
+    idx.forEach((i, j) => (r[i] = now[j]));
+  }
+  writeFileSync(CSV, [head, ...body].map((r) => r.map(csvCell).join(",")).join("\n") + "\n");
+
+  const lines = readFileSync(MD, "utf8").replace(/\r\n/g, "\n").split("\n");
+  const mdHead = lines.find((l) => l.startsWith("| Story |"))!.slice(2, -2).split(" | ");
+  const mdIdx = REPO_COLUMNS.map((name) => mdHead.indexOf(name));
+  const out: string[] = [];
+  for (const line of lines) {
+    const key = /^\| \[(SPM-\d+)\]/.exec(line)?.[1];
+    if (key && values.has(key)) {
+      // Cell text never holds " | ": a pipe inside a cell is written "\|".
+      const cells = line.slice(2, -2).split(" | ");
+      mdRepoCells(values.get(key)!).forEach((v, j) => (cells[mdIdx[j]] = v));
+      out.push("| " + cells.join(" | ") + " |");
+    } else out.push(line);
+  }
+  const at = out.indexOf("## Code with no story");
+  const kept = (at < 0 ? out : out.slice(0, at)).filter((l) => !l.startsWith("Repo-controlled columns refreshed offline"));
+  const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
+  const genAt = kept.findIndex((l) => l.startsWith("Generated by npm run trace on"));
+  kept.splice(genAt + 1, 0, "", `Repo-controlled columns refreshed offline (npm run trace -- --repo-only) on ${today}; Jira and GitHub values are from the date above.`);
+  writeFileSync(MD, [...kept, ...repoSections(tests, body.map((r) => r[col("Story")]))].join("\n").replace(/\n{3,}/g, "\n\n"));
+  console.log(`Updated the repo-controlled columns of ${body.length} stories, and the test sections, in docs/traceability/. Jira and GitHub values are unchanged.`);
+}
+
 /** --check: rebuild the repo-controlled columns and compare them with the committed CSV. */
 function check(): void {
   if (!existsSync(CSV)) {
@@ -577,7 +706,7 @@ function check(): void {
   const known = new Set(body.map((r) => r[col("Story")]));
   const unknown = [...new Set(tests.flatMap((t) => t.tags.map((tag) => tag.story)).filter((k) => !known.has(k)))];
   if (stale.length) {
-    console.error(`The traceability matrix is out of date for what this branch changed:\n${stale.map((x) => `  - ${x}`).join("\n")}\nRun npm run trace and commit docs/traceability/.`);
+    console.error(`The traceability matrix is out of date for what this branch changed:\n${stale.map((x) => `  - ${x}`).join("\n")}\nRun npm run trace (or, without a Jira token, npm run trace -- --repo-only) and commit docs/traceability/.`);
     process.exit(1);
   }
   if (unknown.length) console.log(`Note: tests are tagged with ${unknown.sort().join(", ")}, which the committed matrix has no row for (bugs, or stories created since it was generated).`);
@@ -591,6 +720,7 @@ const SHORT: Record<Coverage, string> = { Automated: "A", "Manual only": "M", Su
 
 async function main() {
   if (CHECK) return check();
+  if (REPO_ONLY) return repoOnly();
   const source = prSource();
   const [stories, prs] = [await loadStories(), loadPullRequests(source)];
   const { tests } = findTests(ROOT);
@@ -614,7 +744,6 @@ async function main() {
   const gapsNone: string[] = [];
   const gapsNoPr: string[] = [];
   const gapsNoTc: string[] = [];
-  const storyOnly: string[] = [];
 
   const rows = stories.map((s) => {
     const ts = byStory.get(s.key) ?? [];
@@ -659,10 +788,6 @@ async function main() {
       }
     }
     if (!s.estimate && s.points !== null) gaps.push("no estimate comment");
-    for (const t of ts) {
-      const own = t.tags.filter((tag) => tag.story === s.key);
-      if (own.length && own.every((tag) => !tag.acs.length)) storyOnly.push(`${s.key}\t${t.file}:${t.line}\t${t.name.replace(/\[SPM-\d+\](\[(AC\d+|BUG-\d+)\])*\s*/g, "")}`);
-    }
 
     return {
       story: s,
@@ -710,10 +835,6 @@ async function main() {
   };
 
   // ---- CSV
-  const csvCell = (v: unknown) => {
-    const s = String(v ?? "");
-    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-  };
   const header = [
     "Story", "Title", "Epic", "Source", "Sprint", "Points", "Estimate rationale", "# ACs", "ACs with automated coverage", "AC coverage type",
     "TC file", "Active TCs", "Retired TCs", "Latest manual result + date", "Unit", "Integration", "E2E", "Design element",
@@ -735,7 +856,6 @@ async function main() {
   }
 
   // ---- Markdown
-  const esc = (v: string) => v.replace(/\|/g, "\\|").replace(/\n/g, " ");
   const short = (v: string, n: number) => (v.length > n ? v.slice(0, n - 1).trimEnd() + "…" : v);
   const jiraLink = (key: string) => `[${key}](${JIRA}/browse/${key})`;
   const md: string[] = [];
@@ -767,15 +887,13 @@ async function main() {
   md.push("|" + header.map(() => "---").join("|") + "|");
   for (const r of rows) {
     const s = r.story;
-    const tcLink = r.tc ? `[xlsx](../test-cases/${path.basename(r.tc.file)})` : "";
-    const retired = r.tc ? (r.tc.retired ? `[${r.tc.retired}](../test-cases/DECOMMISSIONED.md)` : "0") : "";
     md.push(
       "| " +
         [
           jiraLink(s.key), esc(s.title), esc(s.epic), esc(short(s.source, 140)), s.sprints.join(" → ") || "Backlog", String(s.points ?? ""),
           esc(short(s.estimate, 160)), String(s.acs.length), r.coveredText, r.coverageText,
-          tcLink, r.tc ? String(r.tc.active) : "", retired, r.tc?.latest ?? "",
-          unitText(r), String(r.integration), String(r.e2e), esc(r.design),
+          ...mdRepoCells(repoColumns(s.key, s.title, tests)),
+          esc(r.design),
           r.prs.map((p) => (repoUrl ? `[#${p.number}](${repoUrl}/pull/${p.number})` : `#${p.number}`) + ` ${p.merged}`).join("<br>"),
           r.prs.map((p) => esc(reviewerText(p))).join("<br>"),
           r.prs.map((p) => evidence(p, (u, t) => `[${t}](${u})`).replace(/\|/g, "\\|")).join("<br>"),
@@ -824,35 +942,7 @@ async function main() {
     md.push(`| [#${p.number}](${repoUrl}/pull/${p.number}) | ${esc(p.title)} | ${t.type} | ${t.code ? "yes" : "no"} | ${p.author || "n/a"} | ${p.mergedBy || "not recorded"} | ${p.merged} | ${evidence(p, (u, x) => `[${x}](${u})`)} |`);
   }
 
-  md.push("", "## Code with no story", "");
-  md.push(
-    "Features in the code that no Jira story asks for. Their tests are tagged `[UNTRACED:<feature>]`. Nothing here is deleted: each needs a decision to remove it " +
-      "or to back it with a story.",
-    ""
-  );
-  const untraced = tests.filter((t) => t.untraced);
-  for (const f of UNTRACED_FEATURES) {
-    const mine = untraced.filter((t) => t.untracedFeature === f.id);
-    md.push(`### ${f.name}`, "", f.why, "", "Files:", "", ...f.files.map((x) => `- \`${x}\``), "", `Tests (${mine.length}):`, "");
-    md.push(...mine.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name.replace(/^\[UNTRACED(:[a-z0-9-]+)?\]\s*/, ""))}`), "");
-  }
-  const known = new Set(UNTRACED_FEATURES.map((f) => f.id));
-  const loose = untraced.filter((t) => !known.has(t.untracedFeature));
-  if (loose.length)
-    md.push("### Other [UNTRACED] tests", "", "Tagged `[UNTRACED]` with no feature, or one this script does not describe yet.", "", ...loose.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name)}`), "");
-
-  md.push("## Tests tagged with a story but no single AC", "");
-  md.push(
-    "These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). " +
-      `${storyOnly.length} tests:`,
-    ""
-  );
-  md.push("<details><summary>Show the list</summary>", "", "| Story | Test | Name |", "|---|---|---|");
-  for (const line of storyOnly.sort()) {
-    const [k, where, name] = line.split("\t");
-    md.push(`| ${k} | ${where} | ${esc(name)} |`);
-  }
-  md.push("", "</details>", "");
+  md.push("", ...repoSections(tests, stories.map((x) => x.key)));
 
   const outputs: [string, string][] = [
     [MD, md.join("\n")],

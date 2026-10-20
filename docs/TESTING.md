@@ -94,7 +94,8 @@ and again on `main` after a merge, so `main`'s own status is always visible.
 
 **Story → acceptance criterion → test case → automated test.** The whole chain,
 for every story, is in [traceability/TRACEABILITY.md](traceability/TRACEABILITY.md)
-(`npm run trace`); [START_HERE.md](START_HERE.md) walks through one story.
+(`npm run trace`, or `npm run trace -- --repo-only` without a Jira token);
+[START_HERE.md](START_HERE.md) walks through one story.
 
 - **Stories and ACs** are in Jira (SPM-n). Each story's ACs are numbered by
   position (AC1, AC2, …).
@@ -109,8 +110,11 @@ for every story, is in [traceability/TRACEABILITY.md](traceability/TRACEABILITY.
   something no single AC states (a load error, a helper) carries the story
   alone: `[SPM-44]`. A bug's test adds the bug after the story whose page or
   rule it tests: `[SPM-41][BUG-98]`. A test of code no story asks for is tagged
-  `[UNTRACED]`, and the matrix lists it under "Code with no story" until the
-  team removes the code or writes a story for it. CI's **Traceability** job fails on a test with no tag
+  `[UNTRACED:<feature>]`, the feature in lowercase letters, digits and hyphens
+  (e.g. `[UNTRACED:self-registration]`); the matrix lists it under that feature
+  in "Code with no story" until the team removes the code or writes a story
+  for it. A new feature also needs its description in `UNTRACED_FEATURES` in
+  `scripts/trace.ts`. CI's **Traceability** job fails on a test with no tag
   (`npm run trace:tags`). Integration and E2E tests also name the test case,
   e.g. `[SPM-44][AC4][AC5][AC9] (SPM-44-TC04, conflict): …`.
 - **To find the tests for an AC:** search for the tag, e.g. `git grep -n "\[SPM-44\]"`.

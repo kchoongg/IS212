@@ -47,7 +47,7 @@ case document.
 - [ ] Other stories' test cases this PR makes out of date are listed under Known Gaps in `DOCUMENTATION.md`
 - [ ] Tests tagged [SPM-xx][ACn]
 - [ ] TC file updated + execution block added
-- [ ] Ran npm run trace, matrix updated
+- [ ] Ran npm run trace (or `npm run trace -- --repo-only` without a Jira token), matrix updated
 
 **Database** <!-- tick "no schema change" and skip the rest if so -->
 - [ ] No schema change

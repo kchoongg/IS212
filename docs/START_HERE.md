@@ -55,7 +55,8 @@ is in [DOCUMENTATION.md › Quick start](../DOCUMENTATION.md#-quick-start). Then
 | The same, with coverage | `npm run test:coverage` | Nothing |
 | Integration tests (real database) | `npm run test:integration` | `DATABASE_URL` to a **local** migrated, seeded Postgres |
 | End-to-end tests (real browser) | `npm run build`, then `npm run test:e2e` | The same local database |
-| Traceability matrix | `npm run trace` | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` in `.env` (see [.env.example](../.env.example)) |
+| Traceability matrix, in full | `npm run trace` | `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN` in `.env` (see [.env.example](../.env.example)); `gh` for reviewers and CI runs |
+| Traceability matrix, only what your PR changed | `npm run trace -- --repo-only` | Nothing: updates the tests, test cases and results columns, which is all the CI check needs |
 | Check every test is tagged | `npm run trace:tags` | Nothing |
 | One story's manual test data | `npm run fixtures:spm<n>`, e.g. `npm run fixtures:spm43` | Your own database |
 
@@ -116,7 +117,8 @@ https://github.com/kchoongg/IS212/pull/34 (the matrix's PR link).
 and ACs, so a search for `[SPM-43]` finds them all (`git grep -n "\[SPM-43\]"`).
 A bug's tests also carry the bug, e.g. `[SPM-41][BUG-98]`, and are counted in
 the story's **Linked bugs** column. Tests of code that no story asks for are
-tagged `[UNTRACED]` and listed under "Code with no story" in the matrix.
+tagged `[UNTRACED:<feature>]` (lowercase, e.g. `[UNTRACED:self-registration]`)
+and listed under that feature in "Code with no story" in the matrix.
 - Unit: `src/lib/__tests__/venueBookingReview.test.ts`, e.g. "[SPM-43][AC5] a reason is required: empty or spaces-only is refused…".
 - Mocked route: `src/app/api/__tests__/venue-booking-review.test.ts`, e.g. "[SPM-43][AC3][AC7] marks the request approved, recording who decided and when".
 - Screen: the Booking Requests tests in `src/app/__tests__/list-pages.test.tsx`.

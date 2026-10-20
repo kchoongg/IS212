@@ -1028,10 +1028,11 @@ trace any story from its estimate to Done, and the trace stays current.
   source of truth (README there); the Drive folder is a read-only archive.
   Sprint 3's completed regression replaced the stale copy in `docs/regression/`.
 - **Every test names its story:** `[SPM-xx][ACn]` at the start of its name,
-  `[SPM-xx][BUG-n]` for a bug's test, `[UNTRACED]` for code no story asks
-  for. CI's new **Traceability** job fails on an untagged test, a PR that
+  `[SPM-xx][BUG-n]` for a bug's test, `[UNTRACED:<feature>]` (lowercase)
+  for code no story asks for. CI's new **Traceability** job fails on an untagged test, a PR that
   names no story (`Docs:` / `Chore:` titles exempt), or a PR that changed
-  tests or test case workbooks without running `npm run trace`. That check
+  tests or test case workbooks without running `npm run trace` (or, with no
+  Jira token, `npm run trace -- --repo-only`). That check
   (`--check`) is offline and compares only repo-controlled columns, so Jira or
   another PR merging never fails it.
 - **`npm run trace`** (`scripts/trace.ts`) rebuilds
