@@ -32,7 +32,7 @@ describe("roles and relationships", () => {
     expect(canViewEvent({ id: "u1", role: "intern", organisationId: null }, event)).toBe(false);
   });
 
-  it("[UNTRACED] only organisers and attendees may register themselves", () => {
+  it("[UNTRACED:self-registration] only organisers and attendees may register themselves", () => {
     expect(isSelfRegisterableRole("organiser")).toBe(true);
     expect(isSelfRegisterableRole("attendee")).toBe(true);
     expect(isSelfRegisterableRole("ops_manager")).toBe(false);

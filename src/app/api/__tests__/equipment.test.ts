@@ -55,12 +55,12 @@ describe("GET /api/equipment", () => {
 describe("POST /api/equipment", () => {
   const valid = { name: "Wireless microphone", category: "audio", totalQuantity: 10, quantityInMaintenance: 2 };
 
-  it("[UNTRACED] is 401 without a session", async () => {
+  it("[UNTRACED:equipment-create] is 401 without a session", async () => {
     expect((await POST(req("POST", "/api/equipment", { body: valid }))).status).toBe(401);
   });
 
   it.each(["organiser", "coordinator", "ops_manager", "venue_staff", "attendee"])(
-    "[UNTRACED] is 403 for %s",
+    "[UNTRACED:equipment-create] is 403 for %s",
     async (role) => {
       const res = await POST(req("POST", "/api/equipment", { token: signIn(user(role)), body: valid }));
 
@@ -69,7 +69,7 @@ describe("POST /api/equipment", () => {
     }
   );
 
-  it("[UNTRACED] lets Technical Support add an item", async () => {
+  it("[UNTRACED:equipment-create] lets Technical Support add an item", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.equipment, ...data }));
 
@@ -80,7 +80,7 @@ describe("POST /api/equipment", () => {
     expect(callArg(db.equipment.create).data).toEqual(valid);
   });
 
-  it("[UNTRACED] accepts an item with no maintenance figure", async () => {
+  it("[UNTRACED:equipment-create] accepts an item with no maintenance figure", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.create.mockResolvedValue({ id: ID.equipment });
 
@@ -90,7 +90,7 @@ describe("POST /api/equipment", () => {
     expect(callArg(db.equipment.create).data).toEqual({ name: "Lectern", totalQuantity: 0 });
   });
 
-  it("[UNTRACED] refuses more units in maintenance than the item has", async () => {
+  it("[UNTRACED:equipment-create] refuses more units in maintenance than the item has", async () => {
     const token = signIn(user("tech_support"));
 
     const res = await POST(
@@ -102,7 +102,7 @@ describe("POST /api/equipment", () => {
     expect(db.equipment.create).not.toHaveBeenCalled();
   });
 
-  it("[UNTRACED] rejects a body that fails validation", async () => {
+  it("[UNTRACED:equipment-create] rejects a body that fails validation", async () => {
     const token = signIn(user("tech_support"));
 
     const res = await POST(req("POST", "/api/equipment", { token, body: { name: "", totalQuantity: -1 } }));
@@ -113,7 +113,7 @@ describe("POST /api/equipment", () => {
     expect(Object.keys(body.details.fieldErrors).sort()).toEqual(["name", "totalQuantity"]);
   });
 
-  it("[UNTRACED] answers 500 when the database fails", async () => {
+  it("[UNTRACED:equipment-create] answers 500 when the database fails", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.create.mockRejectedValue(new Error("connection lost"));
 

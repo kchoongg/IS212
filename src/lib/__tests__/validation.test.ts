@@ -22,7 +22,7 @@ import { SELF_REGISTERABLE_ROLES } from "../roles";
 
 
 describe("registerSchema", () => {
-  it("[UNTRACED] accepts a valid registration", () => {
+  it("[UNTRACED:self-registration] accepts a valid registration", () => {
     const result = registerSchema.safeParse({
       name: "Kristen",
       email: "kristen@test.com",
@@ -32,7 +32,7 @@ describe("registerSchema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("[UNTRACED] rejects a short password", () => {
+  it("[UNTRACED:self-registration] rejects a short password", () => {
     const result = registerSchema.safeParse({
       name: "Kristen",
       email: "kristen@test.com",
@@ -42,7 +42,7 @@ describe("registerSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("[UNTRACED] rejects an invalid role", () => {
+  it("[UNTRACED:self-registration] rejects an invalid role", () => {
     const result = registerSchema.safeParse({
       name: "Kristen",
       email: "kristen@test.com",
@@ -55,7 +55,7 @@ describe("registerSchema", () => {
   // SPM-21 AC4. POST /api/auth/register takes no session, so this schema is
   // the only thing standing between an anonymous caller and an internal
   // account. A self-assigned `ops_manager` would read every client's events.
-  it("[UNTRACED] refuses to let a stranger claim an internal staff role", () => {
+  it("[UNTRACED:self-registration] refuses to let a stranger claim an internal staff role", () => {
     for (const role of ["ops_manager", "coordinator", "venue_staff", "tech_support"]) {
       const result = registerSchema.safeParse({
         name: "Mallory",
@@ -67,7 +67,7 @@ describe("registerSchema", () => {
     }
   });
 
-  it("[UNTRACED] still accepts the two external roles", () => {
+  it("[UNTRACED:self-registration] still accepts the two external roles", () => {
     for (const role of SELF_REGISTERABLE_ROLES) {
       const result = registerSchema.safeParse({
         name: "Kristen",
@@ -83,7 +83,7 @@ describe("registerSchema", () => {
 // SPM-21 AC1/AC2: what the login endpoint will and will not accept before it
 // ever reaches the database.
 describe("registerSchema email normalisation", () => {
-  it("[UNTRACED] stores the email lower-cased, so the account can be found again", () => {
+  it("[UNTRACED:self-registration] stores the email lower-cased, so the account can be found again", () => {
     const result = registerSchema.safeParse({
       name: "Casey Tan",
       email: "Casey.Tan@Example.com",
