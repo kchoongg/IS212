@@ -79,12 +79,12 @@ function nothingWritten() {
 }
 
 describe("POST /api/events/[id]/clarifications - who may ask", () => {
-  it("is 401 without a session", async () => {
+  it("[SPM-29] is 401 without a session", async () => {
     expect((await post(undefined)).status).toBe(401);
     nothingWritten();
   });
 
-  it("is 404 for a malformed reference, an unknown event, or one the user may not see", async () => {
+  it("[SPM-29] is 404 for a malformed reference, an unknown event, or one the user may not see", async () => {
     const token = given();
     expect((await post(token, body, "nope")).status).toBe(404);
 
@@ -102,7 +102,7 @@ describe("POST /api/events/[id]/clarifications - who may ask", () => {
     ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
     ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
     ["the Safety Officer", () => user("safety_officer", { id: ID.thirdUser })],
-  ])("is 403 for %s", async (_who, actor) => {
+  ])("[SPM-29] is 403 for %s", async (_who, actor) => {
     const res = await post(given({ actor: actor() }));
 
     expect(res.status).toBe(403);
@@ -117,7 +117,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
     [{ fields: ["budget"], message: "x" }],
     [{ fields: ["purpose"] }],
     [{ fields: ["purpose"], message: "x", status: "closed" }],
-  ])("refuses a malformed body %j", async (payload) => {
+  ])("[SPM-29][AC1][AC2] refuses a malformed body %j", async (payload) => {
     const res = await post(given(), payload);
 
     expect(res.status).toBe(400);
@@ -125,7 +125,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
     nothingWritten();
   });
 
-  it("AC1: asks which information needs clarification when none is chosen", async () => {
+  it("[SPM-29][AC1] asks which information needs clarification when none is chosen", async () => {
     const res = await post(given(), { fields: [], message: "Please clarify" });
 
     expect(res.status).toBe(400);
@@ -133,7 +133,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
     nothingWritten();
   });
 
-  it.each(["", "   "])("AC2: asks for a message when it is %j", async (message) => {
+  it.each(["", "   "])("[SPM-29][AC2] asks for a message when it is %j", async (message) => {
     const res = await post(given(), { fields: ["purpose"], message });
 
     expect(res.status).toBe(400);
@@ -142,7 +142,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
   });
 
   it.each(["submitted", "approved", "planning", "rejected", "cancelled"])(
-    "refuses an event that is %s - only one under review is being reviewed",
+    "[SPM-29][AC3] refuses an event that is %s - only one under review is being reviewed",
     async (status) => {
       const res = await post(given({ row: event({ status }) }));
 
@@ -152,7 +152,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
     }
   );
 
-  it("refuses a second clarification while one is still open", async () => {
+  it("[SPM-29] refuses a second clarification while one is still open", async () => {
     const res = await post(given({ open: { id: "earlier" } }));
 
     expect(res.status).toBe(400);
@@ -161,7 +161,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
     nothingWritten();
   });
 
-  it("looks for an open one in the same transaction that creates it", async () => {
+  it("[SPM-29] looks for an open one in the same transaction that creates it", async () => {
     const token = given();
     let inTransaction = false;
     const seen: Record<string, boolean> = {};
@@ -186,7 +186,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
     expect(seen).toEqual({ check: true, create: true });
   });
 
-  it("is 500, with nothing said about why, when the database fails", async () => {
+  it("[SPM-29] is 500, with nothing said about why, when the database fails", async () => {
     const token = given();
     db.clarificationRequest.create.mockRejectedValue(new Error("connection lost"));
 
@@ -198,7 +198,7 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
 });
 
 describe("POST /api/events/[id]/clarifications - asking", () => {
-  it("AC4: records the clarification against the event, by the coordinator, with what to clarify and the trimmed message", async () => {
+  it("[SPM-29][AC4] records the clarification against the event, by the coordinator, with what to clarify and the trimmed message", async () => {
     await post(given());
 
     expect(callArg(db.clarificationRequest.create).data).toEqual({
@@ -209,7 +209,7 @@ describe("POST /api/events/[id]/clarifications - asking", () => {
     });
   });
 
-  it("is 201 with the clarification as the event page shows it", async () => {
+  it("[SPM-29][AC4] is 201 with the clarification as the event page shows it", async () => {
     const res = await post(given());
 
     expect(res.status).toBe(201);
@@ -222,7 +222,7 @@ describe("POST /api/events/[id]/clarifications - asking", () => {
     });
   });
 
-  it("AC3: leaves the event Under review - no status change, no status history", async () => {
+  it("[SPM-29][AC3] leaves the event Under review - no status change, no status history", async () => {
     await post(given());
 
     expect(db.event.update).not.toHaveBeenCalled();

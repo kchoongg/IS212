@@ -1070,7 +1070,7 @@ describe("Review request", () => {
       await userEvent.click(clarifyOption()!);
     }
 
-    it("is offered beside approving and rejecting", async () => {
+    it("[SPM-29][AC1][AC2] is offered beside approving and rejecting", async () => {
       open(underReview({ openClarification: null }));
 
       await decision();
@@ -1079,7 +1079,7 @@ describe("Review request", () => {
       expect(clarifyOption()).toBeInTheDocument();
     });
 
-    it("AC1: lets the coordinator choose which parts of the request need clarifying", async () => {
+    it("[SPM-29][AC1] lets the coordinator choose which parts of the request need clarifying", async () => {
       open(underReview({ openClarification: null }));
 
       await chooseClarify();
@@ -1091,7 +1091,7 @@ describe("Review request", () => {
       }
     });
 
-    it("AC2: asks for a message to the organiser", async () => {
+    it("[SPM-29][AC2] asks for a message to the organiser", async () => {
       open(underReview({ openClarification: null }));
 
       await chooseClarify();
@@ -1099,7 +1099,7 @@ describe("Review request", () => {
       expect(messageBox()).toHaveValue("");
     });
 
-    it("refuses to send with nothing chosen to clarify", async () => {
+    it("[SPM-29][AC1] refuses to send with nothing chosen to clarify", async () => {
       const api = open(underReview({ openClarification: null }));
       await chooseClarify();
       await userEvent.type(messageBox(), "Please clarify");
@@ -1110,7 +1110,7 @@ describe("Review request", () => {
       expect(api.sent(CLARIFY)).toHaveLength(0);
     });
 
-    it("treats an item ticked and then unticked as not chosen", async () => {
+    it("[SPM-29][AC1] treats an item ticked and then unticked as not chosen", async () => {
       const api = open(underReview({ openClarification: null }));
       await chooseClarify();
       const purpose = within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" });
@@ -1125,7 +1125,7 @@ describe("Review request", () => {
       expect(api.sent(CLARIFY)).toHaveLength(0);
     });
 
-    it("clears the message error as soon as the coordinator starts typing", async () => {
+    it("[SPM-29][AC2] clears the message error as soon as the coordinator starts typing", async () => {
       open(underReview({ openClarification: null }));
       await chooseClarify();
       await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
@@ -1137,7 +1137,7 @@ describe("Review request", () => {
       expect(messageBox()).not.toHaveAttribute("aria-invalid");
     });
 
-    it.each(["", "   "])("refuses to send a message of %j", async (text) => {
+    it.each(["", "   "])("[SPM-29][AC2] refuses to send a message of %j", async (text) => {
       const api = open(underReview({ openClarification: null }));
       await chooseClarify();
       await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
@@ -1150,7 +1150,7 @@ describe("Review request", () => {
       expect(api.sent(CLARIFY)).toHaveLength(0);
     });
 
-    it("AC4: sends what needs clarifying and the trimmed message for this event, which stays Under review (AC3)", async () => {
+    it("[SPM-29][AC1][AC2][AC3][AC4] sends what needs clarifying and the trimmed message for this event, which stays Under review", async () => {
       const api = open(underReview({ openClarification: null }), { [CLARIFY]: reply(201, asked) });
       await chooseClarify();
       await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
@@ -1168,7 +1168,7 @@ describe("Review request", () => {
       expect(api.sent(PATCH)).toHaveLength(0);
     });
 
-    it("shows the clarification once sent, and leaves Approve and Reject available", async () => {
+    it("[SPM-29][AC3] shows the clarification once sent, and leaves Approve and Reject available", async () => {
       open(underReview({ openClarification: null }), { [CLARIFY]: reply(201, asked) });
       await chooseClarify();
       await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
@@ -1184,7 +1184,7 @@ describe("Review request", () => {
       expect(screen.getByRole("radio", { name: /Reject this request/ })).toBeInTheDocument();
     });
 
-    it("shows a clarification already open, and offers no second one", async () => {
+    it("[SPM-29][AC3] shows a clarification already open, and offers no second one", async () => {
       open(underReview({ openClarification: asked }));
 
       await decision();
@@ -1197,7 +1197,7 @@ describe("Review request", () => {
       expect(screen.getByRole("radio", { name: /Approve/ })).toBeInTheDocument();
     });
 
-    it("shows the server's refusal", async () => {
+    it("[SPM-29] shows the server's refusal", async () => {
       open(underReview({ openClarification: null }), {
         [CLARIFY]: reply(400, { error: "This event already has an open clarification." }),
       });
@@ -1211,7 +1211,7 @@ describe("Review request", () => {
       expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
     });
 
-    it("falls back to a general message when the server gives none", async () => {
+    it("[SPM-29] falls back to a general message when the server gives none", async () => {
       open(underReview({ openClarification: null }), { [CLARIFY]: reply(500) });
       await chooseClarify();
       await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
@@ -1222,7 +1222,7 @@ describe("Review request", () => {
       expect(await screen.findByText("Could not send your request. Please try again.")).toBeInTheDocument();
     });
 
-    it("shows a general error when sending fails without a reason", async () => {
+    it("[SPM-29] shows a general error when sending fails without a reason", async () => {
       open(underReview({ openClarification: null }), { [CLARIFY]: () => Promise.reject("offline") });
       await chooseClarify();
       await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
@@ -2235,7 +2235,7 @@ describe("Event overview - an open clarification (SPM-29)", () => {
   const banner = async () =>
     (await screen.findByText("Clarification requested")).closest("[role=alert], [role=status]") as HTMLElement;
 
-  it("shows the organiser what needs clarifying, the message, and who asked when", async () => {
+  it("[SPM-29][AC3][AC4] shows the organiser what needs clarifying, the message, and who asked when", async () => {
     open("organiser", event({ status: "under_review", openClarification: asked }), { id: "organiser-id" });
 
     const shown = await banner();
@@ -2246,7 +2246,7 @@ describe("Event overview - an open clarification (SPM-29)", () => {
     expect(shown).toHaveTextContent(formatDateTime(asked.requestedAt));
   });
 
-  it("shows it to the assigned coordinator too", async () => {
+  it("[SPM-29][AC3] shows it to the assigned coordinator too", async () => {
     open("coordinator", event({ status: "under_review", openClarification: asked }), { id: "c1" });
 
     const shown = await banner();
@@ -2257,7 +2257,7 @@ describe("Event overview - an open clarification (SPM-29)", () => {
   it.each([
     ["nothing is open", { openClarification: null }],
     ["the viewer is not shown clarifications", {}],
-  ])("shows nothing when %s", async (_case, overrides) => {
+  ])("[SPM-29][AC3] shows nothing when %s", async (_case, overrides) => {
     open("organiser", event({ status: "under_review", ...overrides }), { id: "organiser-id" });
 
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });

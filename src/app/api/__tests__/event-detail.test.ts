@@ -432,7 +432,7 @@ describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
     db.registration.groupBy.mockResolvedValue([]);
   });
 
-  it("loads only the open clarification", async () => {
+  it("[SPM-29][AC3] loads only the open clarification", async () => {
     db.event.findUnique.mockResolvedValue(withOpen());
 
     await get(signIn(coordinator()));
@@ -444,7 +444,7 @@ describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
     ["the organiser who raised it", organiser],
     ["an organiser at the same client", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
     ["the assigned coordinator", coordinator],
-  ])("shows it to %s, with what needs clarifying", async (_who, actor) => {
+  ])("[SPM-29][AC3] shows it to %s, with what needs clarifying", async (_who, actor) => {
     db.event.findUnique.mockResolvedValue(withOpen());
 
     const body = await (await get(signIn(actor()))).json();
@@ -459,7 +459,7 @@ describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
     expect(body).not.toHaveProperty("clarifications");
   });
 
-  it("is null for them when nothing is open", async () => {
+  it("[SPM-29][AC3] is null for them when nothing is open", async () => {
     db.event.findUnique.mockResolvedValue(event({ clarifications: [] }));
 
     const body = await (await get(signIn(organiser()))).json();
@@ -473,7 +473,7 @@ describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
     ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
     ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
     ["the Safety Officer", () => user("safety_officer", { id: ID.thirdUser })],
-  ])("keeps it from %s", async (_who, actor) => {
+  ])("[SPM-29][AC3] keeps it from %s", async (_who, actor) => {
     db.event.findUnique.mockResolvedValue(withOpen());
 
     const res = await get(signIn(actor()));
@@ -484,7 +484,7 @@ describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
     expect(body).not.toHaveProperty("clarifications");
   });
 
-  it("keeps it from an attendee", async () => {
+  it("[SPM-29][AC3] keeps it from an attendee", async () => {
     db.event.findUnique.mockResolvedValue({ ...withOpen(), status: "confirmed", registrationEnabled: true });
     db.registration.findUnique.mockResolvedValue(null);
     db.registration.count.mockResolvedValue(0);

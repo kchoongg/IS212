@@ -35,17 +35,17 @@ import {
 import { REVIEW_FIELD_LABELS } from "@/lib/eventReview";
 
 describe("what a coordinator can ask about (AC1)", () => {
-  it("is each part of the request the review page shows, in the same order", () => {
+  it("[SPM-29][AC1] is each part of the request the review page shows, in the same order", () => {
     expect(CLARIFICATION_FIELDS).toEqual(Object.keys(REVIEW_FIELD_LABELS));
   });
 
-  it("names the codes the way the review page labels them", () => {
+  it("[SPM-29][AC1] names the codes the way the review page labels them", () => {
     expect(clarificationFieldLabels(["purpose", "when", "equipment"])).toEqual(["Purpose", "When", "Equipment"]);
   });
 });
 
 describe("the messages", () => {
-  it("are worded for the coordinator", () => {
+  it("[SPM-29] are worded for the coordinator", () => {
     expect(CLARIFICATION_FIELDS_REQUIRED).toBe("Choose at least one item that needs clarification.");
     expect(CLARIFICATION_MESSAGE_REQUIRED).toBe("Write a message for the organiser.");
     expect(CLARIFICATION_FORBIDDEN_MESSAGE).toBe(
@@ -59,7 +59,7 @@ describe("the messages", () => {
 });
 
 describe("clarificationSchema", () => {
-  it("accepts the fields to clarify and a message", () => {
+  it("[SPM-29][AC1][AC2] accepts the fields to clarify and a message", () => {
     expect(clarificationSchema.parse({ fields: ["purpose", "when"], message: "Which day?" })).toEqual({
       fields: ["purpose", "when"],
       message: "Which day?",
@@ -72,40 +72,40 @@ describe("clarificationSchema", () => {
     ["no message", { fields: ["purpose"] }],
     ["a message that is not text", { fields: ["purpose"], message: 42 }],
     ["anything else", { fields: ["purpose"], message: "x", status: "closed" }],
-  ])("refuses %s", (_case, body) => {
+  ])("[SPM-29][AC1][AC2] refuses %s", (_case, body) => {
     expect(() => clarificationSchema.parse(body)).toThrow(ZodError);
   });
 });
 
 describe("clarificationProblem (AC1, AC2)", () => {
-  it("is null when at least one field is ticked and there is a message", () => {
+  it("[SPM-29][AC1][AC2] is null when at least one field is ticked and there is a message", () => {
     expect(clarificationProblem({ fields: ["purpose"], message: "What is the purpose?" })).toBeNull();
   });
 
-  it("asks for at least one field when none is ticked", () => {
+  it("[SPM-29][AC1] asks for at least one field when none is ticked", () => {
     expect(clarificationProblem({ fields: [], message: "Anything" })).toBe(CLARIFICATION_FIELDS_REQUIRED);
   });
 
-  it.each(["", "   ", "\n\t"])("asks for a message when it is %j", (message) => {
+  it.each(["", "   ", "\n\t"])("[SPM-29][AC2] asks for a message when it is %j", (message) => {
     expect(clarificationProblem({ fields: ["when"], message })).toBe(CLARIFICATION_MESSAGE_REQUIRED);
   });
 });
 
 describe("storing the fields", () => {
-  it("joins the codes with commas, once each, in the review page's order", () => {
+  it("[SPM-29][AC1] joins the codes with commas, once each, in the review page's order", () => {
     expect(encodeFields(["when", "purpose", "when"])).toBe("purpose,when");
   });
 
-  it("reads them back as the same codes", () => {
+  it("[SPM-29][AC1] reads them back as the same codes", () => {
     expect(decodeFields(encodeFields(["equipment", "category"]))).toEqual(["category", "equipment"]);
   });
 
-  it("reads nothing stored as no fields - a clarification raised before SPM-29 had none", () => {
+  it("[SPM-29][AC1] reads nothing stored as no fields - a clarification raised before SPM-29 had none", () => {
     expect(decodeFields(null)).toEqual([]);
     expect(decodeFields("")).toEqual([]);
   });
 
-  it("drops a code the app no longer knows rather than showing it raw", () => {
+  it("[SPM-29][AC1] drops a code the app no longer knows rather than showing it raw", () => {
     expect(decodeFields("purpose,budget")).toEqual(["purpose"]);
   });
 });

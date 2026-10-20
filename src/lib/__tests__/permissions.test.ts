@@ -444,15 +444,15 @@ describe("canReviewEvent (SPM-28)", () => {
 describe("canRequestClarification (SPM-29)", () => {
   const assigned = event({ status: "under_review", coordinatorId: "coordinator-1" });
 
-  it("lets the assigned coordinator ask", () => {
+  it("[SPM-29] lets the assigned coordinator ask", () => {
     expect(canRequestClarification(coordinator, assigned)).toBe(true);
   });
 
-  it("stops a coordinator the event is not assigned to", () => {
+  it("[SPM-29] stops a coordinator the event is not assigned to", () => {
     expect(canRequestClarification(otherCoordinator, assigned)).toBe(false);
   });
 
-  it("stops every other role, including the organiser who raised it", () => {
+  it("[SPM-29] stops every other role, including the organiser who raised it", () => {
     for (const other of [organiserA, colleagueA, opsManager, venueStaff, techSupport, attendee]) {
       expect(canRequestClarification(other, assigned)).toBe(false);
     }
@@ -468,7 +468,7 @@ describe("canSeeClarification (SPM-29)", () => {
     ["the organiser who raised it", organiserA],
     ["an organiser at the same client", colleagueA],
     ["the assigned coordinator", coordinator],
-  ])("shows it to %s", (_who, who) => {
+  ])("[SPM-29][AC3] shows it to %s", (_who, who) => {
     expect(canSeeClarification(who, assigned)).toBe(true);
   });
 
@@ -479,7 +479,7 @@ describe("canSeeClarification (SPM-29)", () => {
     ["Venue Staff", venueStaff],
     ["Technical Support", techSupport],
     ["an attendee", attendee],
-  ])("hides it from %s", (_who, who) => {
+  ])("[SPM-29][AC3] hides it from %s", (_who, who) => {
     expect(canSeeClarification(who, assigned)).toBe(false);
   });
 });
