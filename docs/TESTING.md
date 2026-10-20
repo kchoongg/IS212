@@ -13,7 +13,7 @@ chose. Counts are as of 2026-10-19.
 | **Route, Prisma mocked** | API route handlers with real authentication, permissions and validation; only Prisma is faked (`vi.mock("@/lib/prisma")`) | Mocked | `src/app/api/__tests__/`, plus 3 service files in `src/lib/__tests__/` | 31 | 1,469 | `npm test` |
 | **Integration, real database** | Route handlers with the real Prisma client against a real Postgres: transactions, row locks, and rules that span several tables | Real, local only | `integration/` | 3 | 8 | `npm run test:integration` |
 | **End-to-end** | The production build in real Chromium against a real, seeded Postgres: whole journeys across roles | Real, local only | `e2e/` | 3 | 11 | `npm run build`, then `npm run test:e2e` |
-| **Manual system test cases** | A person runs each case through the app, step by step, and records the result. These are traced to the story's ACs | Shared | `docs/test-cases/SPM-<n>_Test_Cases.xlsx` (and the copies in the team Drive) | 41 stories | 642 cases (297 positive, 221 negative, 124 boundary) | By hand; the end-of-sprint regression run is in `docs/regression/` |
+| **Manual system test cases** | A person runs each case through the app, step by step, and records the result. These are traced to the story's ACs | Shared | `docs/test-cases/SPM-<n>_Test_Cases.xlsx` (the Drive copies are a read-only archive since 2026-10-19) | 41 stories | 642 cases (297 positive, 221 negative, 124 boundary) | By hand; the end-of-sprint regression run is in `docs/regression/` |
 
 Unit and mocked-route tests run together in one Vitest run, with coverage
 (`npm run test:coverage`). Integration and end-to-end tests refuse any
@@ -92,24 +92,27 @@ and again on `main` after a merge, so `main`'s own status is always visible.
 
 ## Naming, and tracing a test to its story
 
-**Story → acceptance criterion → test case → automated test.**
+**Story → acceptance criterion → test case → automated test.** The whole chain,
+for every story, is in [traceability/TRACEABILITY.md](traceability/TRACEABILITY.md)
+(`npm run trace`); [START_HERE.md](START_HERE.md) walks through one story.
 
 - **Stories and ACs** are in Jira (SPM-n). Each story's ACs are numbered by
   position (AC1, AC2, …).
-- **Test cases** are in `docs/test-cases/SPM-<n>_Test_Cases.xlsx`. Each case
-  has an ID such as `SPM-44-TC04`, a "Linked AC" column, and a type
-  (positive, negative, boundary). The `.json` beside each workbook is the
-  same data, which the CI "Test cases" check reads.
-- **Automated tests** name the story and AC they cover:
-  - Integration and E2E tests also name the test case ID and the scenario,
-    e.g. `SPM-44 AC4, AC5, AC9 (SPM-44-TC04, conflict): …`.
-  - Unit tests are grouped by `describe` blocks named after the screen,
-    route or rule, and name the AC where one applies, e.g.
-    `SPM-82 (AC6): expires overdue holds…`.
-  - Each source file says which story it implements in its header comment.
-- **To find the tests for an AC:** search the repository for the story key,
-  e.g. `SPM-44`. You'll find the source, its unit tests, any integration or
-  E2E test, and the test case document.
+- **Test cases** are in `docs/test-cases/SPM-<n>_Test_Cases.xlsx`, the source of
+  truth since 2026-10-19 ([test-cases/README.md](test-cases/README.md)). Each case
+  has an ID such as `SPM-44-TC04`, a "Linked AC" column, a type (positive,
+  negative, boundary) and a Status (Active, Updated or Retired). The `.json`
+  beside a workbook is what first generated it and is now older than it: do not
+  rebuild a workbook from it.
+- **Every automated test names its story and ACs** at the start of its name:
+  `it("[SPM-44][AC4][AC5] ...")`. A test that belongs to a story but checks
+  something no single AC states (a load error, a helper) carries the story
+  alone: `[SPM-44]`. CI's **Traceability** job fails on a test with no tag
+  (`npm run trace:tags`). Integration and E2E tests also name the test case,
+  e.g. `[SPM-44][AC4][AC5][AC9] (SPM-44-TC04, conflict): …`.
+- **To find the tests for an AC:** search for the tag, e.g. `git grep -n "\[SPM-44\]"`.
+  Tests that no longer apply are archived in `tests/archive/`, which nothing
+  runs ([test-cases/DECOMMISSIONED.md](test-cases/DECOMMISSIONED.md)).
 
 ## When a test fails
 

@@ -1,5 +1,7 @@
 # IS212
 
+**New here? Start with [docs/START_HERE.md](docs/START_HERE.md):** where everything lives, how to run it, and how to trace any story end to end.
+
 ## Stack
 
 - Next.js 14 (App Router, TypeScript)

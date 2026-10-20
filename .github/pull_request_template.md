@@ -45,6 +45,9 @@ case document.
 - [ ] `npm run test:coverage` then `npm run coverage:changed` lists no untested lines (a line no test can reach is marked `// v8 ignore next -- <why>`)
 - [ ] Test cases are in `docs/test-cases/` (`SPM-<n>_Test_Cases.xlsx` and `.json`) and were run by hand
 - [ ] Other stories' test cases this PR makes out of date are listed under Known Gaps in `DOCUMENTATION.md`
+- [ ] Tests tagged [SPM-xx][ACn]
+- [ ] TC file updated + execution block added
+- [ ] Ran npm run trace, matrix updated
 
 **Database** <!-- tick "no schema change" and skip the rest if so -->
 - [ ] No schema change
