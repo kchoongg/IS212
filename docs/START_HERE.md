@@ -104,7 +104,7 @@ business rules for the review are in [PERMISSIONS.md](PERMISSIONS.md) and
 **5. The code and its review: GitHub.** Open
 https://github.com/kchoongg/IS212/pull/34 (the matrix's PR link).
 - **Files changed** shows the code: `src/app/bookings/page.tsx` (the Booking Requests screen), `src/app/api/venue-bookings/[id]/route.ts` (approve and reject) and `src/lib/venueBookingReview.ts` (the rules).
-- **Conversation** shows any review and its comments. The matrix's Reviewer column lists who submitted a GitHub review; where nobody did, it says who merged the PR. Reading it needs the GitHub CLI (`gh`); without it the column reads "n/a (no gh)".
+- **Conversation** shows any review and its comments. The matrix's Reviewer column lists who submitted a GitHub review; where nobody did, it says who merged the PR. Reading it needs the GitHub CLI (`gh`); without it the column reads "n/a (no gh)". The **Review evidence** column says what shows the PR was reviewed: a GitHub review, who merged it, or a link added to [traceability/review-evidence.csv](traceability/review-evidence.csv) (columns `PR,evidence link,note`) for a review held elsewhere, such as a call recording.
 - **Checks**, the matrix's "run" link, shows the CI run: lint, type-check, unit tests with coverage, build, migrations, integration and end-to-end.
 - To find every commit for the story: on GitHub, search the repository's commits for "SPM-43", or run `git log --oneline --grep SPM-43`.
 

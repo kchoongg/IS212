@@ -182,6 +182,8 @@ interface PullRequest {
   /** Who reviewed it, the author left out; bots are marked "(bot)". "" when nobody else did; "n/a (no gh)" without gh. */
   reviewers: string;
   ci: string;
+  /** Paths the PR changed. */
+  files: string[];
 }
 
 function run(cmd: string, argv: string[]): string | null {
@@ -211,9 +213,9 @@ function prSource(): "gh" | "git" {
 
 function loadPullRequests(source: "gh" | "git"): PullRequest[] {
   if (source === "gh") {
-    const json = run("gh", ["pr", "list", "--state", "merged", "--limit", "500", "--json", "number,title,headRefName,mergedAt,author,mergedBy,reviews"]);
+    const json = run("gh", ["pr", "list", "--state", "merged", "--limit", "500", "--json", "number,title,headRefName,mergedAt,author,mergedBy,reviews,files"]);
     if (json) {
-      type GhPr = { number: number; title: string; headRefName: string; mergedAt: string; author: { login: string }; mergedBy: { login: string } | null; reviews: { author: { login: string } }[] };
+      type GhPr = { number: number; title: string; headRefName: string; mergedAt: string; author: { login: string }; mergedBy: { login: string } | null; reviews: { author: { login: string } }[]; files: { path: string }[] };
       return (JSON.parse(json) as GhPr[])
         .map((p) => {
           // The CI run of the PR's last commit on its branch.
@@ -225,7 +227,7 @@ function loadPullRequests(source: "gh" | "git"): PullRequest[] {
             .map((l) => (/(^copilot|\[bot\]$|-bot$)/i.test(l) ? `${l} (bot)` : l))
             .join(", ");
           const mergedBy = p.mergedBy?.login ?? "";
-          return { number: p.number, title: p.title, branch: p.headRefName, merged: p.mergedAt.slice(0, 10), author: p.author.login, mergedBy, reviewers, ci };
+          return { number: p.number, title: p.title, branch: p.headRefName, merged: p.mergedAt.slice(0, 10), author: p.author.login, mergedBy, reviewers, ci, files: p.files.map((f) => f.path) };
         })
         .sort((a, b) => a.number - b.number);
     }
@@ -235,7 +237,7 @@ function loadPullRequests(source: "gh" | "git"): PullRequest[] {
   const log = run("git", ["log", "origin/main", "--merges", "--format=%H%x1f%ad%x1f%s%x1f%b%x1e", "--date=short"]) ?? "";
   const prs: PullRequest[] = [];
   for (const entry of log.split("\x1e")) {
-    const [, date, subject, body] = entry.trim().split("\x1f");
+    const [hash, date, subject, body] = entry.trim().split("\x1f");
     const m = /^Merge pull request #(\d+) from [^/\s]+\/(\S+)/.exec(subject ?? "");
     if (!m || prs.some((p) => p.number === Number(m[1]))) continue;
     prs.push({
@@ -247,9 +249,85 @@ function loadPullRequests(source: "gh" | "git"): PullRequest[] {
       mergedBy: "",
       reviewers: "n/a (no gh)",
       ci: repoUrl ? `${repoUrl}/pull/${m[1]}/checks` : "",
+      files: (run("git", ["diff", "--name-only", `${hash}^1`, hash]) ?? "").split("\n").filter(Boolean),
     });
   }
   return prs.sort((a, b) => a.number - b.number);
+}
+
+/** Jira issue type of every Bug and Task in SPM (stories come from loadStories). */
+async function loadOtherIssueTypes(): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  let token: string | undefined;
+  do {
+    const page = await jira<{ issues: { key: string; fields: { issuetype: { name: string } } }[]; nextPageToken?: string }>(
+      "/rest/api/3/search/jql?jql=" + encodeURIComponent("project = SPM AND issuetype in (Bug, Task) ORDER BY key") +
+        "&fields=issuetype&maxResults=100" + (token ? `&nextPageToken=${encodeURIComponent(token)}` : "")
+    );
+    for (const i of page.issues) out.set(i.key, i.fields.issuetype.name);
+    token = page.nextPageToken;
+  } while (token);
+  return out;
+}
+
+export type PrType = "Story" | "Bug" | "Test" | "Docs" | "Chore" | "Setup";
+
+/** What kind of file a path is, for classifying a PR. */
+function fileKind(f: string): "docs" | "test" | "app" | "tooling" {
+  // Verification and fixture scripts are test code too.
+  if (/(^|\/)__tests__\/|\.(test|spec)\.(ts|tsx)$|^(e2e|integration|tests)\/|^src\/test\/|^scripts\/(verify|seed)-/.test(f)) return "test";
+  if (/\.(md|xlsx|docx|drawio|puml|dsl|pdf)$/i.test(f) || /^(docs|design)\//.test(f) || /(^|\/)~\$/.test(f)) return "docs";
+  if (/^(src|prisma)\//.test(f) || /^(neon|next-env\.d)\.ts$/.test(f)) return "app";
+  return "tooling";
+}
+
+/**
+ * A PR's type. Story or Bug when its own key - the one its branch starts with,
+ * else the first in its branch, else the first in its title ("SPM-47" or
+ * "Spm 47") - is an SPM story or bug.
+ * Otherwise (including a Task) by what it changed: only docs files → Docs;
+ * mostly tests, or a test/ branch → Test; any other app code (src/, prisma/) →
+ * Setup; only tooling and config → Chore.
+ */
+function classifyPr(pr: PullRequest, storyKeys: Set<string>, otherTypes: Map<string, string>): { type: PrType; code: boolean } {
+  const kinds = pr.files.map(fileKind);
+  const n = (k: string) => kinds.filter((x) => x === k).length;
+  const code = n("app") + n("test") > 0;
+  const own = /^SPM-(\d+)/i.exec(pr.branch) ?? /SPM-(\d+)/i.exec(pr.branch) ?? /SPM[- ](\d+)/i.exec(pr.title);
+  const key = own ? `SPM-${own[1]}` : "";
+  if (storyKeys.has(key)) return { type: "Story", code };
+  if (otherTypes.get(key) === "Bug") return { type: "Bug", code };
+  if (!pr.files.length || n("docs") === pr.files.length) return { type: "Docs", code };
+  if (n("test") > 0 && (n("test") >= n("app") || /^test\//i.test(pr.branch))) return { type: "Test", code };
+  if (n("app") > 0) return { type: "Setup", code };
+  return { type: "Chore", code };
+}
+
+/** docs/traceability/review-evidence.csv: PR,evidence link,note - for reviews held outside GitHub (e.g. a recording). */
+function loadReviewOverrides(): Map<number, { link: string; note: string }> {
+  const out = new Map<number, { link: string; note: string }>();
+  const file = path.join(OUT_DIR, "review-evidence.csv");
+  if (!existsSync(file)) return out;
+  for (const line of readFileSync(file, "utf8").replace(/\r\n/g, "\n").split("\n").slice(1)) {
+    if (!line.trim()) continue;
+    const cells: string[] = [];
+    let cur = "";
+    let quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (quoted) {
+        if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (c === '"') quoted = false;
+        else cur += c;
+      } else if (c === '"') quoted = true;
+      else if (c === ",") { cells.push(cur); cur = ""; }
+      else cur += c;
+    }
+    cells.push(cur);
+    const pr = Number(cells[0].replace(/^#/, "").trim());
+    if (pr) out.set(pr, { link: (cells[1] ?? "").trim(), note: (cells[2] ?? "").trim() });
+  }
+  return out;
 }
 
 const mentions = (text: string, key: string) => new RegExp(`(^|[^A-Za-z0-9])${key}(?![0-9])`, "i").test(text);
@@ -423,6 +501,10 @@ async function main() {
   const [stories, prs] = [await loadStories(), loadPullRequests(source)];
   const { tests } = findTests(ROOT);
   const superseded = loadSuperseded();
+  const otherTypes = await loadOtherIssueTypes();
+  const storyKeys = new Set(stories.map((s) => s.key));
+  const overrides = loadReviewOverrides();
+  const prType = new Map(prs.map((p) => [p.number, classifyPr(p, storyKeys, otherTypes)]));
   const today = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Singapore" });
 
   const byStory = new Map<string, FoundTest[]>();
@@ -515,6 +597,16 @@ async function main() {
   const reviewerText = (p: PullRequest) =>
     p.reviewers !== "" ? p.reviewers : p.mergedBy === p.author ? `none recorded (merged by its author, ${p.author})` : `none recorded (merged by ${p.mergedBy})`;
   const humanReview = (p: PullRequest) => p.reviewers.split(", ").some((r) => r && !r.endsWith("(bot)"));
+  // Review evidence: an override in review-evidence.csv, else a GitHub review by someone else,
+  // else who merged it when that was not the author, else none recorded.
+  const evidence = (p: PullRequest, link: (url: string, text: string) => string): string => {
+    const o = overrides.get(p.number);
+    if (o) return [o.link ? link(o.link, "Recorded review") : "Recorded review", o.note].filter(Boolean).join(": ");
+    if (source !== "gh") return "n/a (no gh)";
+    if (humanReview(p)) return "GitHub review";
+    if (p.mergedBy && p.mergedBy !== p.author) return `Merged by ${p.mergedBy}`;
+    return "none recorded";
+  };
 
   // ---- CSV
   const csvCell = (v: unknown) => {
@@ -524,7 +616,7 @@ async function main() {
   const header = [
     "Story", "Title", "Epic", "Source", "Sprint", "Points", "Estimate rationale", "# ACs", "ACs with automated coverage", "AC coverage type",
     "TC file", "Active TCs", "Retired TCs", "Latest manual result + date", "Unit", "Integration", "E2E", "Design element",
-    "PR(s)", "Reviewer", "CI run", "Linked bugs", "Status", "Gaps",
+    "PR(s)", "Reviewer", "Review evidence", "CI run", "Linked bugs", "Status", "Gaps",
   ];
   const csv = [header.join(",")];
   for (const r of rows) {
@@ -535,7 +627,7 @@ async function main() {
         r.research ? "Setup / research" : r.coverage.map((c, i) => `AC${i + 1} ${c}`).join("; "),
         r.tc?.file ?? "", r.tc?.active ?? "", r.tc?.retired ?? "", r.tc?.latest ?? "",
         unitText(r), r.integration, r.e2e, r.design,
-        r.prs.map((p) => `#${p.number} (${p.merged})`).join("; "), r.prs.map(reviewerText).join("; "), r.prs.map((p) => p.ci).join("; "),
+        r.prs.map((p) => `#${p.number} (${p.merged})`).join("; "), r.prs.map(reviewerText).join("; "), r.prs.map((p) => `#${p.number}: ${evidence(p, (u, t) => `${t} ${u}`)}`).join("; "), r.prs.map((p) => p.ci).join("; "),
         bugText(r, (k) => k), s.status, r.gaps.join("; "),
       ].map(csvCell).join(",")
     );
@@ -565,6 +657,8 @@ async function main() {
       "[DECOMMISSIONED.md](../test-cases/DECOMMISSIONED.md).",
     "- **Reviewer** is who submitted a GitHub review of the PR, other than its author; \"none recorded\" means nobody did, and says who merged it. **Linked bugs** are the Jira bugs linked to the story, " +
       "and the tests tagged `[BUG-n]` under it.",
+    "- **Review evidence**, per PR: a link from [review-evidence.csv](review-evidence.csv) (for a review held outside GitHub, e.g. a recording), " +
+      "else **GitHub review** (someone other than the author submitted one), else **Merged by <name>** (someone other than the author merged it), else **none recorded**.",
     "- Gaps are only checked for stories that are Done or in the active sprint.",
     ""
   );
@@ -583,6 +677,7 @@ async function main() {
           unitText(r), String(r.integration), String(r.e2e), esc(r.design),
           r.prs.map((p) => (repoUrl ? `[#${p.number}](${repoUrl}/pull/${p.number})` : `#${p.number}`) + ` ${p.merged}`).join("<br>"),
           r.prs.map((p) => esc(reviewerText(p))).join("<br>"),
+          r.prs.map((p) => evidence(p, (u, t) => `[${t}](${u})`).replace(/\|/g, "\\|")).join("<br>"),
           r.prs.map((p) => (p.ci ? `[run](${p.ci})` : "")).join("<br>"),
           bugText(r, jiraLink), s.status, esc(r.gaps.join("; ")),
         ].join(" | ") +
@@ -598,20 +693,34 @@ async function main() {
   list("Stories with no PR", gapsNoPr);
   list("Stories with no TC file", gapsNoTc);
 
-  const noReview = source === "gh" ? prs.filter((p) => !humanReview(p)) : [];
-  list(
-    "PRs with no reviewer other than their author",
-    noReview.map(
-      (p) =>
-        `[#${p.number}](${repoUrl}/pull/${p.number}) ${esc(p.title)}: author ${p.author}, merged ${p.merged} by ` +
-        (p.mergedBy === p.author ? `**its author**` : p.mergedBy) +
-        (p.reviewers ? `; reviewed only by ${p.reviewers}` : "")
-    ),
+  const codeTypes: PrType[] = ["Story", "Bug", "Test", "Setup"];
+  const unreviewed = prs.filter((p) => source === "gh" && codeTypes.includes(prType.get(p.number)!.type) && prType.get(p.number)!.code && !humanReview(p) && !overrides.has(p.number));
+  md.push("", "## Code or test PRs with no GitHub review", "");
+  md.push(
     source === "gh"
-      ? `No GitHub review by anyone but the author: ${noReview.length} of ${prs.length} merged PRs. ` +
-          `${noReview.filter((p) => p.mergedBy === p.author).length} of them were also merged by their author.`
-      : "Needs gh: without it, reviewers are not read."
+      ? "Merged PRs of type Story, Bug, Test or Setup that change app code or tests, with no GitHub review by anyone but the author and no entry in " +
+          `[review-evidence.csv](review-evidence.csv). ${unreviewed.length} PRs; ${unreviewed.filter((p) => p.mergedBy === p.author).length} were merged by their author.`
+      : "Needs gh: without it, reviews are not read.",
+    ""
   );
+  if (unreviewed.length) {
+    md.push("| PR | Title | Type | Author | Merged by | Merged | Review evidence |", "|---|---|---|---|---|---|---|");
+    for (const p of unreviewed)
+      md.push(`| [#${p.number}](${repoUrl}/pull/${p.number}) | ${esc(p.title)} | ${prType.get(p.number)!.type} | ${p.author} | ${p.mergedBy === p.author ? `**${p.mergedBy}** (author)` : p.mergedBy} | ${p.merged} | ${evidence(p, (u, t) => `[${t}](${u})`)} |`);
+  }
+
+  md.push("", "## Pull requests by type", "");
+  md.push(
+    "Every merged PR. **Story** or **Bug**: its title or branch names an SPM story or bug. Otherwise by what it changed: **Docs** only docs " +
+      "(`.md`, `.xlsx`, `.docx`, diagrams, `docs/`, `design/`); **Test** mostly tests; **Setup** other app code (`src/`, `prisma/`) with no story; " +
+      "**Chore** tooling and config only. **Code** says whether it changed app code or tests.",
+    ""
+  );
+  md.push("| PR | Title | Type | Code | Author | Merged by | Merged | Review evidence |", "|---|---|---|---|---|---|---|---|");
+  for (const p of prs) {
+    const t = prType.get(p.number)!;
+    md.push(`| [#${p.number}](${repoUrl}/pull/${p.number}) | ${esc(p.title)} | ${t.type} | ${t.code ? "yes" : "no"} | ${p.author || "n/a"} | ${p.mergedBy || "n/a"} | ${p.merged} | ${evidence(p, (u, x) => `[${x}](${u})`)} |`);
+  }
 
   md.push("", "## Code with no story", "");
   md.push(
