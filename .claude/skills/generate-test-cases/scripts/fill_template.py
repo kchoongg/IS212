@@ -15,7 +15,8 @@ The layout of each test case sheet comes from Test_Case_Template.xlsx (sheet "TC
 This script copies that sheet once per test case, so the format never drifts.
 Each sheet carries its own case's summary (the JSON "title") under the Test Case
 ID, so a tester reading one sheet knows what it checks without the Summary sheet.
-It also adds a Summary sheet (traceability + coverage) and, when any question is
+It also adds a Summary sheet (traceability + coverage, with each case's Status,
+Superseded by and Change # - docs/test-cases/README.md) and, when any question is
 still unanswered, an Open Questions sheet. Entries starting "RESOLVED" stay in
 the JSON as the decision record and are left out of the workbook.
 
@@ -52,6 +53,9 @@ REQUIRED_TC_FIELDS = ["id", "title", "linked_ac", "type", "source",
                       "preconditions", "steps", "test_data", "expected_result"]
 VALID_TYPES = {"Positive", "Negative", "Boundary"}
 VALID_SOURCES = {"Acceptance Criteria", "Code"}
+# A case's optional "status" (default Active). Retired and Updated cases are
+# recorded in docs/test-cases/DECOMMISSIONED.md.
+VALID_STATUSES = {"Active", "Updated", "Retired"}
 
 ARIAL = "Arial"
 THIN = Side(style="thin")
@@ -84,6 +88,10 @@ def validate(data):
             problems.append(f"{label}: type must be one of {sorted(VALID_TYPES)}")
         if tc.get("source") and tc["source"] not in VALID_SOURCES:
             problems.append(f"{label}: source must be one of {sorted(VALID_SOURCES)}")
+        if tc.get("status", "Active") not in VALID_STATUSES:
+            problems.append(f"{label}: status must be one of {sorted(VALID_STATUSES)}")
+        if tc.get("status") == "Retired" and not (tc.get("superseded_by") and tc.get("change")):
+            problems.append(f"{label}: a Retired case needs 'superseded_by' (a case, a test or 'gap') and 'change' (its docs/CHANGES.md entry)")
         for ac in tc.get("linked_ac", []):
             if ac not in ac_ids:
                 problems.append(f"{label}: linked_ac '{ac}' is not in acceptance_criteria")
@@ -237,12 +245,12 @@ def build(data, out_path):
     summary = wb.create_sheet("Summary", 0)
     write_cell(summary, "A1", "Story", bold=True, fill=HEADER_FILL)
     write_cell(summary, "B1", f'{data["story_key"]}: {data["story_title"]}', bold=True, fill=HEADER_FILL)
-    summary.merge_cells("B1:F1")
+    summary.merge_cells("B1:I1")
     summary.row_dimensions[1].height = row_height(summary["B1"].value, 110)
 
-    headers = ["Sheet", "Test Case ID", "Title", "Linked AC", "Type", "Source"]
+    headers = ["Sheet", "Test Case ID", "Title", "Linked AC", "Type", "Source", "Status", "Superseded by", "Change #"]
     for col, h in enumerate(headers, start=1):
-        write_cell(summary, f"{'ABCDEF'[col-1]}3", h, bold=True, fill=HEADER_FILL)
+        write_cell(summary, f"{'ABCDEFGHI'[col-1]}3", h, bold=True, fill=HEADER_FILL)
     for r, (tc, sheet) in enumerate(zip(data["test_cases"], sheet_names), start=4):
         link = write_cell(summary, f"A{r}", sheet)
         link.hyperlink = f"#'{sheet}'!A1"
@@ -252,6 +260,9 @@ def build(data, out_path):
         write_cell(summary, f"D{r}", ", ".join(tc["linked_ac"]))
         write_cell(summary, f"E{r}", tc["type"])
         write_cell(summary, f"F{r}", tc["source"])
+        write_cell(summary, f"G{r}", tc.get("status", "Active"))
+        write_cell(summary, f"H{r}", tc.get("superseded_by"))
+        write_cell(summary, f"I{r}", tc.get("change"))
 
     r = len(data["test_cases"]) + 6
     for ref, h in [("A", "AC"), ("B", "Acceptance Criterion"), ("E", "Covered by")]:
@@ -272,10 +283,10 @@ def build(data, out_path):
         r += 2
         write_cell(summary, f"A{r}", "Code reviewed", bold=True, fill=HEADER_FILL)
         write_cell(summary, f"B{r}", "\n".join(data["code_references"]))
-        summary.merge_cells(f"B{r}:F{r}")
+        summary.merge_cells(f"B{r}:I{r}")
         summary.row_dimensions[r].height = 13.5 * len(data["code_references"]) + 4
 
-    for col, width in zip("ABCDEF", [12, 20, 48, 12, 18, 20]):
+    for col, width in zip("ABCDEFGHI", [12, 20, 48, 12, 18, 20, 11, 34, 16]):
         summary.column_dimensions[col].width = width
 
     # ---- Open Questions sheet ----

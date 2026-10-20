@@ -25,14 +25,28 @@ Each workbook has:
   Type, Source, Status, Superseded by, Change #), then the story's ACs with the
   cases that cover each one.
 - **Open Questions**: what the cases assume, and what is still to be decided.
-- **One sheet per test case**: the case itself in rows 1–8, then its execution
-  blocks.
+- **One sheet per test case**: the case itself (rows 1–9 with the Summary row
+  newer workbooks have under Test Case ID; rows 1–8 in older ones), then its
+  execution blocks. Read a sheet by its labels in column A, not by row number.
 
 The `SPM-<n>_test_cases.json` beside a workbook is the input the
 `generate-test-cases` skill used to build it the first time. Since the import
 from Drive, the workbook is newer than its JSON. **Do not rebuild an existing
 workbook from its JSON**: that would drop every execution block. Edit the
 workbook directly.
+
+## Starting a new story's workbook
+
+Use the `generate-test-cases` skill (`/generate-test-cases SPM-<n>` in Claude
+Code). It writes `SPM-<n>_test_cases.json` and builds the workbook from
+`.claude/skills/generate-test-cases/Test_Case_Template.xlsx` with
+`fill_template.py`, so every workbook has the same layout: the Summary sheet
+with the Status, Superseded by and Change # columns, each case's sheet with its
+Summary row, and an empty execution block with a Commit row. There is no
+separate blank workbook to copy; the generator is the one source of the layout.
+
+Build a workbook from its JSON only once, when it is new. After that, edit the
+workbook.
 
 ## Adding an execution block
 
