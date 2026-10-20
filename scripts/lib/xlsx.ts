@@ -98,12 +98,31 @@ export function readWorkbook(path: string): Workbook {
   return { sheets, cells };
 }
 
-/** An Excel date serial (days since 1899-12-30) as YYYY-MM-DD; text is passed through. */
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+
+/**
+ * A date cell as YYYY-MM-DD, so dates compare correctly as strings. Reads an
+ * Excel date serial (days since 1899-12-30), YYYY-MM-DD, D/M/YYYY (day first,
+ * as Singapore writes it; also with - or .) and "3 Oct 2026". Anything else
+ * gives "", so a date typed some other way is never compared as text.
+ */
 export function asDate(value: CellValue | undefined): string {
   if (value === undefined) return "";
   if (typeof value === "number") return new Date(Math.round((value - 25569) * 86_400_000)).toISOString().slice(0, 10);
-  const iso = /^(\d{4}-\d{2}-\d{2})/.exec(value.trim());
-  return iso ? iso[1] : value.trim();
+  const text = value.trim();
+  const ymd = (y: number, m: number, d: number) => {
+    const date = new Date(Date.UTC(y, m - 1, d));
+    // Refuse 31/2/2026 and the like rather than rolling it into March.
+    if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return "";
+    return date.toISOString().slice(0, 10);
+  };
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(text);
+  if (m) return ymd(Number(m[1]), Number(m[2]), Number(m[3]));
+  m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(text);
+  if (m) return ymd(Number(m[3]), Number(m[2]), Number(m[1]));
+  m = /^(\d{1,2})\s+([A-Za-z]{3})[A-Za-z]*\.?\s+(\d{4})$/.exec(text);
+  if (m && MONTHS.includes(m[2].toLowerCase())) return ymd(Number(m[3]), MONTHS.indexOf(m[2].toLowerCase()) + 1, Number(m[1]));
+  return "";
 }
 
 /** The highest row number with a value in the sheet. */

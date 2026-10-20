@@ -92,25 +92,18 @@ jobs:
         run: node scripts/check-test-cases.mts
 
   # Traceability (docs/traceability/TRACEABILITY.md, docs/START_HERE.md).
-  # Fails if a test has no [SPM-xx] tag, or the PR's title and branch name no
-  # Jira key (titles starting "Docs:" or "Chore:" are exempt). When the Jira
-  # secrets are set, it also rebuilds the matrix from Jira and git and fails if
-  # the committed one is out of date; without them that step is skipped with a
-  # notice. Jira is only read - npm run trace sends GET requests only.
+  # Fails if a test has no [SPM-xx] tag, if the PR's title and branch name no
+  # Jira key (titles starting "Docs:" or "Chore:" are exempt), or if the PR
+  # changed tests or test case workbooks without running npm run trace. The
+  # matrix check compares only what the repo controls (tests per story, test
+  # cases and their latest results), so it needs no Jira or GitHub access and a
+  # story moved in Jira or another PR merging never turns it red.
   traceability:
     name: Traceability
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    # npm run trace reads merged PRs, their reviews and CI runs with gh.
-    permissions:
-      contents: read
-      pull-requests: read
-      actions: read
     steps:
       - uses: actions/checkout@v7
-        with:
-          # npm run trace reads the merge commits of every PR on main.
-          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -123,18 +116,8 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           HEAD_REF: ${{ github.head_ref }}
         run: npm run trace:tags
-      - name: The traceability matrix is up to date
-        env:
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_EMAIL: ${{ secrets.JIRA_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          if [ -z "$JIRA_API_TOKEN" ]; then
-            echo "::notice::JIRA_API_TOKEN is not set as a repository secret, so the traceability matrix was not checked against Jira. Run npm run trace locally before marking the PR ready."
-            exit 0
-          fi
-          npm run trace -- --check
+      - name: The traceability matrix is up to date for this PR's tests and test cases
+        run: npm run trace -- --check
 
   # Known vulnerabilities in the packages the app ships with (not dev tools).
   # A warning, not a failure: a new advisory would otherwise turn every open PR

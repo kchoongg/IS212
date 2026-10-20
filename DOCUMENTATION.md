@@ -1029,8 +1029,11 @@ trace any story from its estimate to Done, and the trace stays current.
   Sprint 3's completed regression replaced the stale copy in `docs/regression/`.
 - **Every test names its story:** `[SPM-xx][ACn]` at the start of its name,
   `[SPM-xx][BUG-n]` for a bug's test, `[UNTRACED]` for code no story asks
-  for. CI's new **Traceability** job fails on an untagged test, or a PR that
-  names no story (`Docs:` / `Chore:` titles exempt).
+  for. CI's new **Traceability** job fails on an untagged test, a PR that
+  names no story (`Docs:` / `Chore:` titles exempt), or a PR that changed
+  tests or test case workbooks without running `npm run trace`. That check
+  (`--check`) is offline and compares only repo-controlled columns, so Jira or
+  another PR merging never fails it.
 - **`npm run trace`** (`scripts/trace.ts`) rebuilds
   `docs/traceability/TRACEABILITY.md` and `.csv` from Jira (GET only), gh, the
   tags and the workbooks. It shows each AC as Automated / Manual only /

@@ -4,9 +4,18 @@
  * element, code, pull requests and automated tests.
  *
  *   npm run trace                    writes docs/traceability/TRACEABILITY.md and .csv
- *   npm run trace -- --check         writes nothing; exits 1 if the committed files are out of date
- *   npm run trace -- --pr-source=git ignore gh even when it is installed (CI uses the mode
- *                                    recorded in the committed matrix, so both agree)
+ *   npm run trace -- --check         writes nothing; exits 1 if a column the repo controls is
+ *                                    out of date (see "the check" below). Offline: no Jira, no gh.
+ *   npm run trace -- --pr-source=git ignore gh even when it is installed
+ *
+ * The check. The matrix mixes two kinds of data. Jira (statuses, ACs, sprints)
+ * and GitHub (PRs, reviews, CI runs) change whenever anyone merges a PR or
+ * moves a story, so a snapshot of them goes stale on its own and no PR can be
+ * blamed for it. The check therefore compares only what a PR controls: per
+ * story, the tests tagged with it by level, its test case file, its Active and
+ * Retired cases and their latest manual result. A PR that changes tests or a
+ * workbook without running npm run trace fails; nothing else does. The rest is
+ * refreshed whenever anyone runs npm run trace.
  *
  * Reads, never writes:
  *   - Jira (JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN in .env): GET requests only.
@@ -36,7 +45,7 @@ const CHECK = args.includes("--check");
 // ---------------------------------------------------------------- Jira (read-only)
 
 const JIRA = (process.env.JIRA_BASE_URL ?? "").replace(/\/$/, "");
-if (!JIRA || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN) {
+if (!CHECK && (!JIRA || !process.env.JIRA_EMAIL || !process.env.JIRA_API_TOKEN)) {
   console.error("npm run trace needs JIRA_BASE_URL, JIRA_EMAIL and JIRA_API_TOKEN in .env (see .env.example).");
   process.exit(2);
 }
@@ -132,13 +141,22 @@ async function loadStories(): Promise<Story[]> {
     token = page.nextPageToken;
   } while (token);
 
+  // Every story's comments (for the estimate rationale), fetched 10 at a time.
+  type Comments = { comments: { created: string; body: AdfNode }[] };
+  const commentsOf = new Map<string, Comments>();
+  for (let i = 0; i < issues.length; i += 10) {
+    const batch = issues.slice(i, i + 10);
+    const pages = await Promise.all(
+      batch.map((issue) => jira<Comments>(`/rest/api/3/issue/${issue.key}/comment?maxResults=200&orderBy=created`))
+    );
+    batch.forEach((issue, j) => commentsOf.set(issue.key, pages[j]));
+  }
+
   const stories: Story[] = [];
   for (const issue of issues) {
     const f = issue.fields;
     const description = adf(f.description);
-    const comments = await jira<{ comments: { created: string; body: AdfNode }[] }>(
-      `/rest/api/3/issue/${issue.key}/comment?maxResults=200&orderBy=created`
-    );
+    const comments = commentsOf.get(issue.key)!;
     // The estimate rationale is the newest comment that starts "Estimate" (or "Estimation").
     const estimate = comments.comments
       .map((c) => adf(c.body).trim())
@@ -203,23 +221,19 @@ const repoUrl = (() => {
 function prSource(): "gh" | "git" {
   const forced = args.find((a) => a.startsWith("--pr-source="))?.split("=")[1];
   if (forced === "gh" || forced === "git") return forced;
-  if (CHECK && existsSync(MD)) {
-    // Regenerate with the source the committed matrix was made with, so a
-    // teammate without gh and CI produce the same file.
-    if (/PR data: git log/.test(readFileSync(MD, "utf8"))) return "git";
-  }
   return run("gh", ["auth", "status"]) !== null ? "gh" : "git";
 }
 
 function loadPullRequests(source: "gh" | "git"): PullRequest[] {
   if (source === "gh") {
-    const json = run("gh", ["pr", "list", "--state", "merged", "--limit", "500", "--json", "number,title,headRefName,mergedAt,author,mergedBy,reviews,files"]);
+    const json = run("gh", ["pr", "list", "--state", "merged", "--limit", "500", "--json", "number,title,headRefName,headRefOid,mergedAt,author,mergedBy,reviews,files"]);
     if (json) {
-      type GhPr = { number: number; title: string; headRefName: string; mergedAt: string; author: { login: string }; mergedBy: { login: string } | null; reviews: { author: { login: string } }[]; files: { path: string }[] };
+      type GhPr = { number: number; title: string; headRefName: string; headRefOid: string; mergedAt: string; author: { login: string }; mergedBy: { login: string } | null; reviews: { author: { login: string } }[]; files: { path: string }[] };
       return (JSON.parse(json) as GhPr[])
         .map((p) => {
-          // The CI run of the PR's last commit on its branch.
-          const runs = run("gh", ["run", "list", "--branch", p.headRefName, "--workflow", "CI", "--limit", "1", "--json", "url"]);
+          // The CI run of the PR's last commit - not the branch's newest run, which a
+          // reused branch name or a later push would change.
+          const runs = run("gh", ["run", "list", "--commit", p.headRefOid, "--workflow", "CI", "--event", "pull_request", "--limit", "1", "--json", "url"]);
           const ci = runs ? ((JSON.parse(runs) as { url: string }[])[0]?.url ?? "") : "";
           const reviewers = [...new Set(p.reviews.map((r) => r.author.login))]
             .filter((l) => l !== p.author.login)
@@ -381,23 +395,30 @@ function loadTestCases(key: string): TestCases | null {
     const sheetName = String(summary.get(`A${r}`) ?? "").trim();
     const sheet = wb.cells.get(sheetName);
     if (!sheet) continue;
-    let result = "";
+    // Each block has a "Pass/Fail/..." row; the last one is the newest run. A
+    // block whose result is still blank is "No result yet" - never the result
+    // of the block before it.
+    let result: string | null = null;
     let date = "";
     for (let row = 1; row <= lastRow(sheet); row++) {
       const label = String(sheet.get(`A${row}`) ?? "").trim();
-      if (/^Pass\/Fail/i.test(label) && sheet.get(`B${row}`) !== undefined) {
-        result = String(sheet.get(`B${row}`)).trim();
+      if (/^Pass\/Fail/i.test(label)) {
+        result = String(sheet.get(`B${row}`) ?? "").trim() || "No result yet";
         date = "";
       }
       if (/^Date of Execution/i.test(label)) date = asDate(sheet.get(`B${row}`));
     }
-    if (!result) continue;
+    if (result === null) continue;
     results.set(result, (results.get(result) ?? 0) + 1);
     if (date > newest) newest = date;
   }
-  const order = ["Pass", "Fail", "Blocked", "Not Executed"];
+  const order = ["Pass", "Fail", "Blocked", "Not Executed", "No result yet"];
+  const rank = (r: string) => {
+    const i = order.indexOf(r);
+    return i < 0 ? order.length : i;
+  };
   const summaryText = [...results.entries()]
-    .sort((a, b) => (order.indexOf(a[0]) + 10) % 14 - (order.indexOf(b[0]) + 10) % 14 || a[0].localeCompare(b[0]))
+    .sort((a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0]))
     .map(([k, n]) => `${n} ${k}`)
     .join(", ");
   return { file: rel, active, retired, acs, latest: summaryText ? `${summaryText}${newest ? ` (${newest})` : ""}` : "not run" };
@@ -434,8 +455,9 @@ function loadSuperseded(): Map<string, string> {
  * [UNTRACED]. Each stays until the team decides to remove it or back it with
  * a story; nothing here is deleted.
  */
-const UNTRACED_FEATURES: { name: string; why: string; files: string[]; tests: RegExp }[] = [
+const UNTRACED_FEATURES: { id: string; name: string; why: string; files: string[] }[] = [
   {
+    id: "self-registration",
     name: "Self-registration (Create an account)",
     why:
       "No story covers it. SPM-21 User Login has no registration criterion. Built in the project setup (2026-09-06/09), " +
@@ -447,15 +469,14 @@ const UNTRACED_FEATURES: { name: string; why: string; files: string[]; tests: Re
       "src/lib/roles.ts (SELF_REGISTERABLE_ROLES, isSelfRegisterableRole)",
       "src/app/page.tsx (the Home page's Register link)",
     ],
-    tests: /public-pages|auth\.test|validation\.test|edgeCases/,
   },
   {
+    id: "equipment-create",
     name: "Adding an item to the equipment catalogue (POST /api/equipment)",
     why:
       "No story covers creating equipment items, and no screen calls this endpoint. Built in the project setup (2026-09-06). " +
       "Viewing the catalogue (GET) and recording units out of service are SPM-48 and SPM-55.",
     files: ["src/app/api/equipment/route.ts (POST)", "src/lib/validation/equipment.ts (createEquipmentSchema)"],
-    tests: /api\/__tests__\/equipment\.test/,
   },
 ];
 
@@ -491,12 +512,85 @@ const DESIGN_BY_STORY: Record<string, string> = {
 };
 const designElement = (s: Story) => (s.key in DESIGN_BY_STORY ? DESIGN_BY_STORY[s.key] : (DESIGN_BY_EPIC[s.epic.split(" ")[0]] ?? ""));
 
+// ---------------------------------------------------------------- the columns a PR controls
+
+const isResearchTitle = (title: string) => /^\[(Research|FE)\]/.test(title);
+/** CSV headers of the columns computed from the repo alone - the ones --check compares. */
+const REPO_COLUMNS = ["TC file", "Active TCs", "Retired TCs", "Latest manual result + date", "Unit", "Integration", "E2E"];
+
+/** A story's repo-controlled column values, exactly as the CSV holds them. */
+function repoColumns(key: string, title: string, tests: FoundTest[]): string[] {
+  const ts = tests.filter((t) => t.tags.some((tag) => tag.story === key));
+  const count = (level: FoundTest["level"]) => ts.filter((t) => t.level === level).length;
+  const tc = loadTestCases(key);
+  const unit = count("unit");
+  const route = count("route");
+  const unitText = isResearchTitle(title) ? (unit + route ? `${unit + route} setup / research` : "") : `${unit} unit, ${route} route`;
+  return [tc?.file ?? "", tc ? String(tc.active) : "", tc ? String(tc.retired) : "", tc?.latest ?? "", unitText, String(count("integration")), String(count("e2e"))];
+}
+
+/** RFC 4180 CSV: quoted fields may hold commas, quotes ("") and newlines. */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  const t = text.replace(/\r\n/g, "\n");
+  for (let i = 0; i < t.length; i++) {
+    const c = t[i];
+    if (quoted) {
+      if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; }
+      else if (c === '"') quoted = false;
+      else cell += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ",") { row.push(cell); cell = ""; }
+    else if (c === "\n") { row.push(cell); rows.push(row); row = []; cell = ""; }
+    else cell += c;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+/** --check: rebuild the repo-controlled columns and compare them with the committed CSV. */
+function check(): void {
+  if (!existsSync(CSV)) {
+    console.error("No committed docs/traceability/TRACEABILITY.csv. Run npm run trace and commit the result.");
+    process.exit(1);
+  }
+  const [head, ...body] = parseCsv(readFileSync(CSV, "utf8")).filter((r) => r.length > 1);
+  const col = (name: string) => head.indexOf(name);
+  const idx = REPO_COLUMNS.map(col);
+  if (idx.some((i) => i < 0) || col("Story") < 0 || col("Title") < 0) {
+    console.error("The committed TRACEABILITY.csv has an older layout. Run npm run trace and commit the result.");
+    process.exit(1);
+  }
+  const { tests } = findTests(ROOT);
+  const stale: string[] = [];
+  for (const r of body) {
+    const key = r[col("Story")];
+    const now = repoColumns(key, r[col("Title")], tests);
+    REPO_COLUMNS.forEach((name, j) => {
+      if ((r[idx[j]] ?? "") !== now[j]) stale.push(`${key} ${name}: committed "${r[idx[j]] ?? ""}", now "${now[j]}"`);
+    });
+  }
+  // Tests tagged with a story the matrix has no row for.
+  const known = new Set(body.map((r) => r[col("Story")]));
+  const unknown = [...new Set(tests.flatMap((t) => t.tags.map((tag) => tag.story)).filter((k) => !known.has(k)))];
+  if (stale.length) {
+    console.error(`The traceability matrix is out of date for what this branch changed:\n${stale.map((x) => `  - ${x}`).join("\n")}\nRun npm run trace and commit docs/traceability/.`);
+    process.exit(1);
+  }
+  if (unknown.length) console.log(`Note: tests are tagged with ${unknown.sort().join(", ")}, which the committed matrix has no row for (bugs, or stories created since it was generated).`);
+  console.log("The traceability matrix is up to date for every column this repo controls.");
+}
+
 // ---------------------------------------------------------------- build
 
 type Coverage = "Automated" | "Manual only" | "Superseded" | "None";
 const SHORT: Record<Coverage, string> = { Automated: "A", "Manual only": "M", Superseded: "S", None: "N" };
 
 async function main() {
+  if (CHECK) return check();
   const source = prSource();
   const [stories, prs] = [await loadStories(), loadPullRequests(source)];
   const { tests } = findTests(ROOT);
@@ -516,7 +610,7 @@ async function main() {
 
   const relevant = (s: Story) => s.status === "Done" || s.sprintState === "active";
   // Research and design stories (Sprint 1): their tests are setup, not feature coverage.
-  const isResearch = (s: Story) => /^\[(Research|FE)\]/.test(s.title);
+  const isResearch = (s: Story) => isResearchTitle(s.title);
   const gapsNone: string[] = [];
   const gapsNoPr: string[] = [];
   const gapsNoTc: string[] = [];
@@ -595,7 +689,14 @@ async function main() {
     r.bugs.map((b) => (r.bugTests.get(b) ? `${link(b)} (${r.bugTests.get(b)} tests)` : link(b))).join(", ");
   // No GitHub review: say who merged it, which shows whether a second person was involved.
   const reviewerText = (p: PullRequest) =>
-    p.reviewers !== "" ? p.reviewers : p.mergedBy === p.author ? `none recorded (merged by its author, ${p.author})` : `none recorded (merged by ${p.mergedBy})`;
+    p.reviewers !== ""
+      ? p.reviewers
+      : !p.mergedBy
+        ? "none recorded"
+        : p.mergedBy === p.author
+          ? `none recorded (merged by its author, ${p.author})`
+          : `none recorded (merged by ${p.mergedBy})`;
+  const mergerText = (p: PullRequest) => (!p.mergedBy ? "not recorded" : p.mergedBy === p.author ? `**${p.mergedBy}** (author)` : p.mergedBy);
   const humanReview = (p: PullRequest) => p.reviewers.split(", ").some((r) => r && !r.endsWith("(bot)"));
   // Review evidence: an override in review-evidence.csv, else a GitHub review by someone else,
   // else who merged it when that was not the author, else none recorded.
@@ -625,8 +726,8 @@ async function main() {
       [
         s.key, s.title, s.epic, s.source, s.sprints.join(" > ") || "Backlog", s.points ?? "", s.estimate, s.acs.length, r.coveredText,
         r.research ? "Setup / research" : r.coverage.map((c, i) => `AC${i + 1} ${c}`).join("; "),
-        r.tc?.file ?? "", r.tc?.active ?? "", r.tc?.retired ?? "", r.tc?.latest ?? "",
-        unitText(r), r.integration, r.e2e, r.design,
+        ...repoColumns(s.key, s.title, tests),
+        r.design,
         r.prs.map((p) => `#${p.number} (${p.merged})`).join("; "), r.prs.map(reviewerText).join("; "), r.prs.map((p) => `#${p.number}: ${evidence(p, (u, t) => `${t} ${u}`)}`).join("; "), r.prs.map((p) => p.ci).join("; "),
         bugText(r, (k) => k), s.status, r.gaps.join("; "),
       ].map(csvCell).join(",")
@@ -678,7 +779,8 @@ async function main() {
           r.prs.map((p) => (repoUrl ? `[#${p.number}](${repoUrl}/pull/${p.number})` : `#${p.number}`) + ` ${p.merged}`).join("<br>"),
           r.prs.map((p) => esc(reviewerText(p))).join("<br>"),
           r.prs.map((p) => evidence(p, (u, t) => `[${t}](${u})`).replace(/\|/g, "\\|")).join("<br>"),
-          r.prs.map((p) => (p.ci ? `[run](${p.ci})` : "")).join("<br>"),
+          // No run: the PR is older than the CI workflow (added 2026-10-04), or ran none.
+          r.prs.map((p) => (p.ci ? `[run](${p.ci})` : "no CI run")).join("<br>"),
           bugText(r, jiraLink), s.status, esc(r.gaps.join("; ")),
         ].join(" | ") +
         " |"
@@ -699,14 +801,14 @@ async function main() {
   md.push(
     source === "gh"
       ? "Merged PRs of type Story, Bug, Test or Setup that change app code or tests, with no GitHub review by anyone but the author and no entry in " +
-          `[review-evidence.csv](review-evidence.csv). ${unreviewed.length} PRs; ${unreviewed.filter((p) => p.mergedBy === p.author).length} were merged by their author.`
+          `[review-evidence.csv](review-evidence.csv). ${unreviewed.length} PRs; ${unreviewed.filter((p) => p.mergedBy && p.mergedBy === p.author).length} were merged by their author.`
       : "Needs gh: without it, reviews are not read.",
     ""
   );
   if (unreviewed.length) {
     md.push("| PR | Title | Type | Author | Merged by | Merged | Review evidence |", "|---|---|---|---|---|---|---|");
     for (const p of unreviewed)
-      md.push(`| [#${p.number}](${repoUrl}/pull/${p.number}) | ${esc(p.title)} | ${prType.get(p.number)!.type} | ${p.author} | ${p.mergedBy === p.author ? `**${p.mergedBy}** (author)` : p.mergedBy} | ${p.merged} | ${evidence(p, (u, t) => `[${t}](${u})`)} |`);
+      md.push(`| [#${p.number}](${repoUrl}/pull/${p.number}) | ${esc(p.title)} | ${prType.get(p.number)!.type} | ${p.author} | ${mergerText(p)} | ${p.merged} | ${evidence(p, (u, t) => `[${t}](${u})`)} |`);
   }
 
   md.push("", "## Pull requests by type", "");
@@ -719,24 +821,25 @@ async function main() {
   md.push("| PR | Title | Type | Code | Author | Merged by | Merged | Review evidence |", "|---|---|---|---|---|---|---|---|");
   for (const p of prs) {
     const t = prType.get(p.number)!;
-    md.push(`| [#${p.number}](${repoUrl}/pull/${p.number}) | ${esc(p.title)} | ${t.type} | ${t.code ? "yes" : "no"} | ${p.author || "n/a"} | ${p.mergedBy || "n/a"} | ${p.merged} | ${evidence(p, (u, x) => `[${x}](${u})`)} |`);
+    md.push(`| [#${p.number}](${repoUrl}/pull/${p.number}) | ${esc(p.title)} | ${t.type} | ${t.code ? "yes" : "no"} | ${p.author || "n/a"} | ${p.mergedBy || "not recorded"} | ${p.merged} | ${evidence(p, (u, x) => `[${x}](${u})`)} |`);
   }
 
   md.push("", "## Code with no story", "");
   md.push(
-    "Features in the code that no Jira story asks for. Their tests are tagged `[UNTRACED]`. Nothing here is deleted: each needs a decision to remove it " +
+    "Features in the code that no Jira story asks for. Their tests are tagged `[UNTRACED:<feature>]`. Nothing here is deleted: each needs a decision to remove it " +
       "or to back it with a story.",
     ""
   );
   const untraced = tests.filter((t) => t.untraced);
   for (const f of UNTRACED_FEATURES) {
-    const mine = untraced.filter((t) => f.tests.test(t.file) && !(f.name.startsWith("Self") && /api\/__tests__\/equipment/.test(t.file)));
+    const mine = untraced.filter((t) => t.untracedFeature === f.id);
     md.push(`### ${f.name}`, "", f.why, "", "Files:", "", ...f.files.map((x) => `- \`${x}\``), "", `Tests (${mine.length}):`, "");
-    md.push(...mine.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name.replace(/^\[UNTRACED\]\s*/, ""))}`), "");
+    md.push(...mine.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name.replace(/^\[UNTRACED(:[a-z0-9-]+)?\]\s*/, ""))}`), "");
   }
-  const claimed = new Set(UNTRACED_FEATURES.flatMap((f) => untraced.filter((t) => f.tests.test(t.file))));
-  const loose = untraced.filter((t) => !claimed.has(t));
-  if (loose.length) md.push("### Other [UNTRACED] tests", "", ...loose.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name)}`), "");
+  const known = new Set(UNTRACED_FEATURES.map((f) => f.id));
+  const loose = untraced.filter((t) => !known.has(t.untracedFeature));
+  if (loose.length)
+    md.push("### Other [UNTRACED] tests", "", "Tagged `[UNTRACED]` with no feature, or one this script does not describe yet.", "", ...loose.map((t) => `- \`${t.file}:${t.line}\` ${esc(t.name)}`), "");
 
   md.push("## Tests tagged with a story but no single AC", "");
   md.push(
@@ -755,16 +858,6 @@ async function main() {
     [MD, md.join("\n")],
     [CSV, csv.join("\n") + "\n"],
   ];
-  if (CHECK) {
-    const strip = (t: string) => t.replace(/^Generated by npm run trace on .*$/m, "").replace(/\r\n/g, "\n");
-    const stale = outputs.filter(([file, text]) => !existsSync(file) || strip(readFileSync(file, "utf8")) !== strip(text));
-    if (stale.length) {
-      console.error(`Out of date: ${stale.map(([f]) => path.relative(ROOT, f)).join(", ")}. Run npm run trace and commit the result.`);
-      process.exit(1);
-    }
-    console.log("The traceability matrix is up to date.");
-    return;
-  }
   mkdirSync(OUT_DIR, { recursive: true });
   for (const [file, text] of outputs) writeFileSync(file, text);
   console.log(`Wrote ${path.relative(ROOT, MD)} and ${path.relative(ROOT, CSV)}: ${rows.length} stories, ${tests.length} tests, PR data from ${source}.`);

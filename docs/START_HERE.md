@@ -62,7 +62,11 @@ is in [DOCUMENTATION.md › Quick start](../DOCUMENTATION.md#-quick-start). Then
 Integration and end-to-end tests refuse any database that is not on
 `localhost`, because they write to it. CI runs all of these on every pull
 request, plus a **Traceability** job: it fails if a test has no `[SPM-xx]` tag,
-or the PR's title and branch name no story.
+if the PR's title and branch name no story, or if the PR changed tests or test
+case workbooks without running `npm run trace` (`npm run trace -- --check`). That
+check looks only at what the repo controls, so a story moving in Jira or another
+PR merging never fails it; the Jira and GitHub columns refresh whenever anyone
+runs `npm run trace`.
 
 ## How to trace a story end to end: SPM-43
 
