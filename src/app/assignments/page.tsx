@@ -74,6 +74,11 @@ function viewFrom(param: string | null): View {
   return "awaiting";
 }
 
+/// The Active events filters in the address; one left out is any.
+function filtersFrom(params: { get(name: string): string | null }): ActiveEventFilters {
+  return { coordinator: params.get("coordinator") ?? "all", status: params.get("status") ?? "all" };
+}
+
 /// "/assignments?view=active&coordinator=c1&status=planning", leaving out a
 /// filter that is set to any.
 function activeHref(filters: ActiveEventFilters): string {
@@ -121,12 +126,18 @@ function AssignmentsScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const view = viewFrom(searchParams.get("view"));
-  // SPM-84 (AC7): the Active events filters, read from the address once and
-  // written back on each change, so a reload or a shared link keeps them.
-  const [filters, setFilters] = useState<ActiveEventFilters>({
-    coordinator: searchParams.get("coordinator") ?? "all",
-    status: searchParams.get("status") ?? "all",
-  });
+  // SPM-84 (AC7): the Active events filters live in the address, so a reload
+  // or a shared link keeps them. They are read again whenever the address
+  // changes while the page stays open - a coordinator's name on the
+  // Coordinators tab, or the Active events tab itself - and written back on
+  // each change.
+  const query = searchParams.toString();
+  const [filters, setFilters] = useState<ActiveEventFilters>(() => filtersFrom(searchParams));
+  const [filtersQuery, setFiltersQuery] = useState(query);
+  if (filtersQuery !== query) {
+    setFiltersQuery(query);
+    setFilters(filtersFrom(searchParams));
+  }
 
   const [data, setData] = useState<AssignmentsData | null>(null);
   const [error, setError] = useState<string | null>(null);

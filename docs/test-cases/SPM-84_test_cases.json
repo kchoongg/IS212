@@ -238,6 +238,25 @@
       ],
       "test_data": "Event: SPM84 Harbour Gala | From: Aisha Karim | To: Benjamin Lau",
       "expected_result": "Step 5: A dialog 'Reassign this event?' appears, saying Aisha Karim will no longer be able to manage it and that both coordinators are notified.\nStep 6: The message '\"SPM84 Harbour Gala\" has been reassigned from Aisha Karim to Benjamin Lau.' appears, and 'SPM84 Harbour Gala' leaves the list filtered to Aisha Karim.\nStep 7: Aisha Karim's 'Active events' count is now 2 and Benjamin Lau's is 2."
+    },
+    {
+      "id": "SPM-84-TC10",
+      "title": "Clicking a coordinator's name on the Coordinators tab opens the Active events list filtered to that coordinator, and the Active events tab clears the filter",
+      "linked_ac": [
+        "AC4",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run (after SPM-84-TC09, run it again so SPM84 Harbour Gala is back with Aisha Karim). Aisha Karim holds three active events: SPM84 Harbour Gala (Planning), SPM84 Orchard Forum (Under review) and SPM84 Postponed Retreat (Postponed).\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Click the 'Coordinators' tab",
+        "Click 'Aisha Karim' in the Coordinator column",
+        "Click the 'Active events' tab"
+      ],
+      "test_data": "Coordinator: Aisha Karim (3 active events)",
+      "expected_result": "Step 3: Without the page reloading, the 'Active events' tab is selected, 'Coordinator' shows 'Aisha Karim', 'Status' shows 'Any status', and only SPM84 Harbour Gala, SPM84 Orchard Forum and SPM84 Postponed Retreat are listed, each with Aisha Karim as the coordinator.\nStep 4: 'Coordinator' goes back to 'Any coordinator', and the list shows every active event again, including other coordinators' events (e.g. SPM84 Riverside Launch, Benjamin Lau)."
     }
   ],
   "open_questions": [

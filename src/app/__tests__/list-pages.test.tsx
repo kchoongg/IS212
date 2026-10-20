@@ -1751,6 +1751,21 @@ describe("Assignments", () => {
       expect(screen.getByText("Try another coordinator or status.")).toBeInTheDocument();
     });
 
+    it("[SPM-84][AC7] clears the filters when the Active events tab is clicked", async () => {
+      setRoute("/assignments?view=active&coordinator=c3&status=planning");
+      mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data({ active, coordinators: [aisha, daniel, priya] }) });
+      const { rerender } = render(<AssignmentsPage />);
+      expect(await rowTexts()).toHaveLength(1);
+
+      // The tab's link has no filters in it; the page stays mounted.
+      setRoute("/assignments?view=active");
+      rerender(<AssignmentsPage />);
+
+      expect(await rowTexts()).toHaveLength(4);
+      expect(coordinatorFilter()).toHaveValue("all");
+      expect(statusFilter()).toHaveValue("all");
+    });
+
     it("[SPM-84][AC5] ignores a coordinator or status in the address that it does not offer", async () => {
       open("/assignments?view=active&coordinator=nobody&status=draft");
 
@@ -1831,6 +1846,33 @@ describe("Assignments", () => {
         "href",
         "/assignments?view=active&coordinator=c3"
       );
+    });
+
+    it("[SPM-84][AC4][AC7] SPM-84-TC02: filters to the coordinator whose name was clicked, without a reload", async () => {
+      const aisha = { id: "c3", fullName: "Aisha Karim" };
+      setRoute("/assignments?view=coordinators");
+      mockApi({
+        ...signedInAs("ops_manager"),
+        [ROUTE]: data({
+          active: [
+            item(4, { title: "SPM84 Harbour Gala", status: "planning", coordinator: aisha }),
+            item(3, { title: "Summit", status: "planning", coordinator: daniel }),
+          ],
+          coordinators: [aisha, daniel],
+          workload: [{ ...aisha, isActive: true, activeEvents: 1 }],
+        }),
+      });
+      const { rerender } = render(<AssignmentsPage />);
+      await table();
+
+      // Following the link changes the address; the page stays mounted.
+      setRoute("/assignments?view=active&coordinator=c3");
+      rerender(<AssignmentsPage />);
+
+      const rows = await rowTexts();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toContain("SPM84 Harbour Gala");
+      expect(screen.getByLabelText("Coordinator")).toHaveValue("c3");
     });
 
     it("[SPM-84][AC4] says so when there are no coordinators", async () => {

@@ -1045,7 +1045,10 @@ what changed, why, and the migration name if there is one.
     - **Coordinators** (`?view=coordinators`): every Event Coordinator, A to
       Z, with their number of active events, 0 included (AC10); a deactivated
       one only while they still hold an active event, marked "Account
-      inactive". Each name opens Active events filtered to them.
+      inactive". Each name opens Active events filtered to them. The filters
+      are read again whenever the address changes while the page is open, so
+      that link, and the Active events tab (which clears them), work without a
+      reload (found in review; TC10).
   - `GET /api/assignments`: `assigned` became `active`, and `workload` was
     added. `coordinators` (who an event can go to) is unchanged.
   - **Rules:** `src/lib/coordinatorAssignments.ts` (pure).
@@ -1058,7 +1061,7 @@ what changed, why, and the migration name if there is one.
     story's own (Aisha Karim, Benjamin Lau, Clara Tay, and Dennis Ho,
     deactivated) and eleven events; the accounts and events are appended to
     `prisma/seed.ts`.
-  - **Test cases:** `docs/test-cases/SPM-84_Test_Cases.xlsx` (9). 29 cases of
+  - **Test cases:** `docs/test-cases/SPM-84_Test_Cases.xlsx` (10). 29 cases of
     other stories that name the role, or open the renamed tab, set to
     **Updated** with a v2 note (listed in `docs/test-cases/DECOMMISSIONED.md`).
   - **Docs:** `docs/PERMISSIONS.md`, `UI_DESIGN.md`, `docs/CHANGES.md`. Not
