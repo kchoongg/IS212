@@ -60,7 +60,7 @@ stories SPM-80 to SPM-88 were created that day. SPM-90 was split from SPM-81 on
 Follows on from Manage Venue Catalogue (SPM-39, Done), which stays Done."
 
 **Stories created:** SPM-80 Re-check Bookings When Setup or Turnaround Time
-Changes (2026-10-02, Sprint 4, not built). The booking unit itself became
+Changes (2026-10-02, Sprint 4; built 2026-10-20). The booking unit itself became
 SPM-93 after forum #128 (see below).
 
 **Stories reworded:**
@@ -68,9 +68,9 @@ SPM-93 after forum #128 (see below).
 - SPM-80, AC1 removed (2026-10-04 15:44): "Venue Staff can set and change the setup time and the turnaround time for each venue." Comment 2026-10-04 15:45: "Criterion removed: already built… in SPM-39."
 - SPM-80, AC1–AC3 reworded for minutes (2026-10-06 22:29, comment the same day), for example AC2: old "…now occupy the same period once setup and turnaround are included…" → new "…now occupy overlapping periods once setup and turnaround are included…".
 
-**Test cases:** SPM-80 has none yet (not built). The slot-based cases this change and #128 made out of date are listed under #128.
+**Test cases:** SPM-80-TC01 to TC09 (`docs/test-cases/SPM-80_Test_Cases.xlsx`, 2026-10-20). SPM-80 also changed the venue page's message after a save that flags nothing, from "No approved bookings were affected, …" to "No bookings were affected, …", since a setup or turnaround change re-checks pending requests too. Ten cases quote it and are marked Updated (Week 7 #1): SPM-39-TC05, TC13, TC18, TC22, TC24; SPM-43-TC14; SPM-45-TC01, TC08, TC11; SPM-93-TC07 ([DECOMMISSIONED.md](test-cases/DECOMMISSIONED.md)). The slot-based cases this change and #128 made out of date are listed under #128.
 
-**Automated tests:** none for SPM-80 (not built). The tests for setup and turnaround in minutes came with SPM-93 (#128).
+**Automated tests:** SPM-80's are `src/lib/__tests__/turnaroundRecheck.test.ts`, the SPM-80 block of `src/app/api/__tests__/venues.test.ts`, one test in `src/app/__tests__/venue-catalogue-pages.test.tsx` and `integration/venue-turnaround-recheck.test.ts`. Three existing tests in `venue-catalogue-pages.test.tsx` now expect the new "No bookings were affected" wording. SPM-80 also changed the venue page's subtitle from "…bookings that are already approved…" to "Changes here can affect this venue's bookings. Nothing is changed for them automatically."; no test case or test quoted the old one. The tests for setup and turnaround in minutes came with SPM-93 (#128).
 
 **Design documents:** PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") changed `docs/ConnectSphere_BPMN.drawio`: "the venue search and Venue Staff's review say availability and conflicts include setup and turnaround time". See #128 for SPM-93's.
 

@@ -38,6 +38,9 @@ interface VenueFormProps {
   /// Reference data still loading: the pickers show placeholders rather than an
   /// empty group, which would read as "there are none".
   facilitiesLoading: boolean;
+  /// SPM-80: editing a venue that may have bookings, so say what changing its
+  /// setup or turnaround time does to them. A new venue has none.
+  existing?: boolean;
 }
 
 export function VenueForm({
@@ -47,6 +50,7 @@ export function VenueForm({
   clearError,
   facilities,
   facilitiesLoading,
+  existing = false,
 }: VenueFormProps) {
   function setValue<K extends keyof VenueFormValues>(field: K, value: VenueFormValues[K]) {
     setValues((current) => ({ ...current, [field]: value }));
@@ -275,7 +279,16 @@ export function VenueForm({
           />
         </Field>
 
-        <Field label="Turnaround time (minutes)" error={errors.teardownMinutes}>
+        <Field
+          label="Turnaround time (minutes)"
+          hint={
+            existing
+              ? "Changing the setup or turnaround time re-checks this venue's upcoming bookings. " +
+                "Any that now clash are flagged for their coordinator, never changed."
+              : undefined
+          }
+          error={errors.teardownMinutes}
+        >
           <Input
             name="teardownMinutes"
             type="number"

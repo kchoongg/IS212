@@ -263,6 +263,13 @@ describe("Add venue", () => {
   const submit = () => userEvent.click(button("Add venue"));
   const body = (api: MockApi) => api.sent(ROUTE)[0].body as Record<string, unknown>;
 
+  // SPM-80: a new venue has no bookings, so there is nothing to re-check.
+  it("[SPM-80][AC1] does not mention re-checking bookings under the turnaround time", async () => {
+    await open();
+
+    expect(field(/^Turnaround time/)).not.toHaveAccessibleDescription();
+  });
+
   it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
     setRoute("/venues/new");
     mockApi(signedOut());
@@ -683,6 +690,28 @@ describe("Edit venue", () => {
   const save = () => userEvent.click(button("Save changes"));
 
   describe("opening it", () => {
+    // CONTRACT (SPM-80, written before the code): the venue edit form says,
+    // under 'Turnaround time (minutes)', what changing either time does.
+    it("[SPM-80][AC1][AC4] says under the turnaround time that changing either time re-checks the venue's bookings", async () => {
+      open();
+      await ready();
+
+      expect(field(/^Turnaround time/)).toHaveAccessibleDescription(
+        "Changing the setup or turnaround time re-checks this venue's upcoming bookings. " +
+          "Any that now clash are flagged for their coordinator, never changed."
+      );
+    });
+
+    // SPM-80: pending requests are re-checked too, not only approved bookings.
+    it("[SPM-80][AC1][AC4] says changes can affect the venue's bookings without changing them", async () => {
+      open();
+      await ready();
+
+      expect(
+        screen.getByText("Changes here can affect this venue's bookings. Nothing is changed for them automatically.")
+      ).toBeInTheDocument();
+    });
+
     it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
       setRoute("/venues/v1/edit", { id: "v1" });
       mockApi(signedOut());
@@ -811,7 +840,7 @@ describe("Edit venue", () => {
 
       expect(await screen.findByText("Changes saved")).toBeInTheDocument();
       expect(screen.getByRole("status")).toHaveTextContent(
-        "No approved bookings were affected, so nobody needed to be notified."
+        "No bookings were affected, so nobody needed to be notified."
       );
       expect(api.sent(PATCH)[0].body).toEqual({
         code: "HALL-A",
@@ -852,6 +881,46 @@ describe("Edit venue", () => {
           "the booked layout is no longer offered at this venue"
       );
       expect(items[1]).toBe("Untitled event: a facility this event requires is no longer available at this venue");
+    });
+
+    // CONTRACT (SPM-80, written before the code): a flagged booking's
+    // `clashesWith` is listed after its reasons, as "clashes with <reference> <title>".
+    it("[SPM-80][AC2] names the booking each flagged booking now clashes with", async () => {
+      open(
+        venue(),
+        saved({ teardownMinutes: 75 }, [
+          {
+            bookingId: "b1",
+            eventId: "e1",
+            eventTitle: "Gala Dinner",
+            sessionLabel: null,
+            reasons: ["booking_clash"],
+            clashesWith: [{ bookingId: "b2", eventId: "e2", eventReference: "EVT-000012", eventTitle: "Product Launch" }],
+          },
+          {
+            bookingId: "b2",
+            eventId: "e2",
+            eventTitle: "Product Launch",
+            sessionLabel: null,
+            reasons: ["booking_clash"],
+            clashesWith: [{ bookingId: "b1", eventId: "e1", eventReference: "EVT-000007", eventTitle: "Gala Dinner" }],
+          },
+        ])
+      );
+      await ready();
+      set(field(/^Turnaround time/), "75");
+
+      await save();
+      const alert = await screen.findByRole("alert");
+      const items = within(alert).getAllByRole("listitem").map((li) => li.textContent);
+
+      expect(alert).toHaveTextContent("Changes saved — 2 bookings flagged for review, coordinators notified");
+      expect(items).toEqual([
+        "Gala Dinner: with the venue's new setup or turnaround time, this booking overlaps another booking " +
+          "(clashes with EVT-000012 Product Launch)",
+        "Product Launch: with the venue's new setup or turnaround time, this booking overlaps another booking " +
+          "(clashes with EVT-000007 Gala Dinner)",
+      ]);
     });
 
     it("[SPM-39][AC7] counts a single flagged booking in the singular", async () => {
@@ -1280,7 +1349,7 @@ describe("Edit venue", () => {
 
         await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
 
-        expect(await screen.findByText("No approved bookings were affected, so nobody needed to be notified.")).toBeInTheDocument();
+        expect(await screen.findByText("No bookings were affected, so nobody needed to be notified.")).toBeInTheDocument();
       });
 
       it("[SPM-45][AC3] says so when no booking was affected", async () => {
@@ -1290,7 +1359,7 @@ describe("Edit venue", () => {
         await userEvent.click(inDialog(markDialog(), "Mark unavailable"));
 
         expect(await screen.findByText("Unavailable period saved")).toBeInTheDocument();
-        expect(screen.getByText("No approved bookings were affected, so nobody needed to be notified.")).toBeInTheDocument();
+        expect(screen.getByText("No bookings were affected, so nobody needed to be notified.")).toBeInTheDocument();
       });
 
       describe("when the reason is Other", () => {

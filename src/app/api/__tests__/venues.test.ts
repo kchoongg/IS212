@@ -559,6 +559,323 @@ describe("PATCH /api/venues/[id]", () => {
     });
   });
 
+  // CONTRACT (SPM-80, written before the code): when a PATCH changes
+  // setupMinutes or teardownMinutes, the route also
+  //   - loads venueBooking.findMany({ where: { venueId, status: { in: ["pending", "approved"] }, endsAt: { gt: now } } })
+  //     with event { sequenceNumber, title, coordinatorId } and session { label },
+  //     and venueUnavailability.findMany({ where: { venueId, endsAt: { gt: now } } });
+  //   - flags each booking recheckBookings() reports (src/lib/turnaroundRecheck.ts):
+  //     needsReview, reviewReason (added to, never replaced), flaggedAt - nothing else;
+  //   - notifies coordinatorId ?? requestedBy, type "booking_needs_review", naming
+  //     the change, the booking, and each booking it now clashes with;
+  //   - reports it in flaggedBookings, with clashesWith: [{ bookingId, eventId, eventReference, eventTitle }].
+  describe("changing the setup or turnaround time (SPM-80)", () => {
+    const OTHER_COORDINATOR_ID = "other-coordinator-id";
+    const OTHER_EVENT_ID = "other-event-id";
+    const OTHER_BOOKING_ID = "other-booking-id";
+
+    const turnaroundVenue = (overrides: Record<string, unknown> = {}) =>
+      venue({ setupMinutes: 0, teardownMinutes: 0, ...overrides });
+
+    /// A booking as the re-check loads it. 10:00-12:00 Singapore time.
+    function rechecked(overrides: Record<string, unknown> = {}, eventOverrides: Record<string, unknown> = {}) {
+      return {
+        id: ID.booking,
+        eventId: ID.event,
+        sessionId: null,
+        session: null,
+        status: "approved",
+        needsReview: false,
+        reviewReason: null,
+        requestedBy: REQUESTER_ID,
+        startsAt: new Date("2027-03-04T02:00:00.000Z"),
+        endsAt: new Date("2027-03-04T04:00:00.000Z"),
+        event: { id: ID.event, title: "Gala Dinner", sequenceNumber: 7, coordinatorId: COORDINATOR_ID, ...eventOverrides },
+        ...overrides,
+      };
+    }
+
+    /// Another event's booking half an hour later: 12:30-14:00.
+    function neighbour(overrides: Record<string, unknown> = {}) {
+      return rechecked(
+        {
+          id: OTHER_BOOKING_ID,
+          eventId: OTHER_EVENT_ID,
+          startsAt: new Date("2027-03-04T04:30:00.000Z"),
+          endsAt: new Date("2027-03-04T06:00:00.000Z"),
+          ...overrides,
+        },
+        { id: OTHER_EVENT_ID, title: "Product Launch", sequenceNumber: 12, coordinatorId: OTHER_COORDINATOR_ID }
+      );
+    }
+
+    /// `rechecks` answer the re-check's query (pending and approved); the
+    /// SPM-39 impact query (approved only) gets `impacted`.
+    function givenRecheck(
+      stored: object,
+      rechecks: object[],
+      unavailable: object[] = [],
+      impacted: object[] = []
+    ) {
+      const token = given(stored, impacted);
+      db.venueBooking.findMany.mockImplementation(async ({ where }: { where: { status: unknown } }) =>
+        typeof where.status === "object" ? rechecks : impacted
+      );
+      db.venueUnavailability.findMany.mockResolvedValue(unavailable);
+      return token;
+    }
+
+    function notificationTo(recipientId: string) {
+      return db.notification.create.mock.calls.map((c) => c[0].data).find((d) => d.recipientId === recipientId);
+    }
+
+    it("[SPM-80][AC1] does not re-check when neither time is sent", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked(), neighbour()]);
+
+      await patch(token, { name: "Grand Hall" });
+
+      expect(db.venueUnavailability.findMany).not.toHaveBeenCalled();
+      expect(db.venueBooking.update).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-80][AC1] does not re-check when the times are saved unchanged", async () => {
+      const token = givenRecheck(turnaroundVenue({ teardownMinutes: 45 }), [rechecked(), neighbour()]);
+
+      await patch(token, { setupMinutes: 0, teardownMinutes: 45 });
+
+      expect(db.venueUnavailability.findMany).not.toHaveBeenCalled();
+      expect(db.venueBooking.update).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-80][AC1][AC7] re-checks the venue's pending and confirmed bookings that have not finished", async () => {
+      vi.useFakeTimers({ now: NOW });
+      const token = givenRecheck(turnaroundVenue(), []);
+
+      await patch(token, { teardownMinutes: 45 });
+
+      const queries = db.venueBooking.findMany.mock.calls.map((c) => c[0].where);
+      expect(queries).toContainEqual({
+        venueId: ID.venue,
+        status: { in: ["pending", "approved"] },
+        endsAt: { gt: NOW },
+      });
+      expect(callArg(db.venueUnavailability.findMany).where).toEqual({ venueId: ID.venue, endsAt: { gt: NOW } });
+    });
+
+    it("[SPM-80][AC1][AC2] flags both bookings that now overlap once the new turnaround is included", async () => {
+      vi.useFakeTimers({ now: NOW });
+      const token = givenRecheck(turnaroundVenue(), [rechecked(), neighbour()]);
+
+      const res = await patch(token, { teardownMinutes: 45 });
+
+      expect(res.status).toBe(200);
+      expect(db.venueBooking.update).toHaveBeenCalledTimes(2);
+      expect(callArg(db.venueBooking.update, 0)).toEqual({
+        where: { id: ID.booking },
+        data: { needsReview: true, reviewReason: "booking_clash", flaggedAt: NOW },
+      });
+      expect(callArg(db.venueBooking.update, 1)).toEqual({
+        where: { id: OTHER_BOOKING_ID },
+        data: { needsReview: true, reviewReason: "booking_clash", flaggedAt: NOW },
+      });
+    });
+
+    it("[SPM-80][AC1][AC2] flags both when the new setup time is what makes them overlap", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked(), neighbour()]);
+
+      await patch(token, { setupMinutes: 45 });
+
+      expect(db.venueBooking.update).toHaveBeenCalledTimes(2);
+    });
+
+    it("[SPM-80][AC2] reports each flagged booking with the booking it clashes with", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked(), neighbour()]);
+
+      const body = await (await patch(token, { teardownMinutes: 45 })).json();
+
+      expect(body.flaggedBookings).toEqual([
+        {
+          bookingId: ID.booking,
+          eventId: ID.event,
+          eventTitle: "Gala Dinner",
+          sessionId: null,
+          sessionLabel: null,
+          reasons: ["booking_clash"],
+          notifiedUserId: COORDINATOR_ID,
+          clashesWith: [
+            { bookingId: OTHER_BOOKING_ID, eventId: OTHER_EVENT_ID, eventReference: "EVT-000012", eventTitle: "Product Launch" },
+          ],
+        },
+        {
+          bookingId: OTHER_BOOKING_ID,
+          eventId: OTHER_EVENT_ID,
+          eventTitle: "Product Launch",
+          sessionId: null,
+          sessionLabel: null,
+          reasons: ["booking_clash"],
+          notifiedUserId: OTHER_COORDINATOR_ID,
+          clashesWith: [{ bookingId: ID.booking, eventId: ID.event, eventReference: "EVT-000007", eventTitle: "Gala Dinner" }],
+        },
+      ]);
+    });
+
+    it("[SPM-80][AC2][AC5] notifies each booking's assigned coordinator, naming the change and the booking it clashes with", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked(), neighbour()]);
+
+      await patch(token, { teardownMinutes: 45 });
+
+      expect(db.notification.create).toHaveBeenCalledTimes(2);
+      const mine = notificationTo(COORDINATOR_ID);
+      expect(mine).toMatchObject({ type: "booking_needs_review", title: "Booking needs review", eventId: ID.event });
+      expect(mine.body).toContain("Hall A (HALL-A): the turnaround time changed from 0 to 45 minutes.");
+      expect(mine.body).toContain("The approved booking for Gala Dinner on 4 Mar 2027, 10:00–12:00");
+      expect(mine.body).toContain("now overlaps the booking for EVT-000012 Product Launch on 4 Mar 2027, 12:30–14:00");
+      expect(mine.body).toContain("once setup and turnaround are included");
+      expect(mine.body).toContain("flagged for review - nothing has been changed automatically.");
+
+      const theirs = notificationTo(OTHER_COORDINATOR_ID);
+      expect(theirs.eventId).toBe(OTHER_EVENT_ID);
+      expect(theirs.body).toContain("now overlaps the booking for EVT-000007 Gala Dinner on 4 Mar 2027, 10:00–12:00");
+    });
+
+    it("[SPM-80][AC1][AC4] flags a pending request too, and calls it a request", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked({ status: "pending" }), neighbour()]);
+
+      await patch(token, { teardownMinutes: 45 });
+
+      expect(notificationTo(COORDINATOR_ID).body).toContain("The pending booking request for Gala Dinner on ");
+    });
+
+    it("[SPM-80][AC4] never writes to a booking's venue, times or status", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked({ status: "pending" }), neighbour()]);
+
+      await patch(token, { teardownMinutes: 45 });
+
+      expect(db.venueBooking.update).toHaveBeenCalledTimes(2);
+      for (const [{ data }] of db.venueBooking.update.mock.calls) {
+        expect(Object.keys(data).sort()).toEqual(["flaggedAt", "needsReview", "reviewReason"]);
+      }
+      expect(db.venueBooking.delete).not.toHaveBeenCalled();
+      expect(db.venueBooking.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-80][AC5] notifies the person who requested the booking when the event has no coordinator", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked({}, { coordinatorId: null }), neighbour()]);
+
+      await patch(token, { teardownMinutes: 45 });
+
+      expect(notificationTo(REQUESTER_ID)).toBeDefined();
+    });
+
+    it("[SPM-80][AC5] names the session when the booking belongs to one", async () => {
+      const token = givenRecheck(turnaroundVenue(), [
+        rechecked({ sessionId: ID.session, session: { label: "Day 1" } }),
+        neighbour(),
+      ]);
+
+      const body = await (await patch(token, { teardownMinutes: 45 })).json();
+
+      expect(notificationTo(COORDINATOR_ID).body).toContain("Gala Dinner (Day 1) on ");
+      expect(body.flaggedBookings[0]).toMatchObject({ sessionId: ID.session, sessionLabel: "Day 1" });
+    });
+
+    it("[SPM-80][AC5] passes the reason given on in the notification", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked(), neighbour()]);
+
+      await patch(token, { teardownMinutes: 45, reason: "Cleaning crew needs longer" });
+
+      expect(notificationTo(COORDINATOR_ID).body).toMatch(/Reason given: Cleaning crew needs longer$/);
+    });
+
+    it("[SPM-80][AC3][AC5] flags a booking whose new turnaround now runs into an unavailable period, and says so", async () => {
+      vi.useFakeTimers({ now: NOW });
+      // Maintenance 14:00-16:00; the booking ends at 12:00.
+      const maintenance = {
+        id: "period-id",
+        startsAt: new Date("2027-03-04T06:00:00.000Z"),
+        endsAt: new Date("2027-03-04T08:00:00.000Z"),
+        reason: "maintenance",
+        notes: null,
+      };
+      const token = givenRecheck(turnaroundVenue(), [rechecked()], [maintenance]);
+
+      const body = await (await patch(token, { teardownMinutes: 150 })).json();
+
+      expect(callArg(db.venueBooking.update)).toEqual({
+        where: { id: ID.booking },
+        data: { needsReview: true, reviewReason: "venue_unavailable", flaggedAt: NOW },
+      });
+      expect(body.flaggedBookings[0]).toMatchObject({ reasons: ["venue_unavailable"], clashesWith: [] });
+      expect(notificationTo(COORDINATOR_ID).body).toContain(
+        "now overlaps a period when the venue is unavailable (Maintenance, 4 Mar 2027, 14:00–16:00)"
+      );
+    });
+
+    it("[SPM-80][AC5] falls back to 'an event' for an untitled event on either side of a clash", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked({}, { title: null }), neighbour()]);
+
+      await patch(token, { teardownMinutes: 45 });
+
+      expect(notificationTo(COORDINATOR_ID).body).toContain("The approved booking for an event on ");
+      expect(notificationTo(OTHER_COORDINATOR_ID).body).toContain("now overlaps the booking for EVT-000007 an event on ");
+    });
+
+    it("[SPM-80][AC3][AC5] gives the description of an 'other' unavailable period", async () => {
+      const closure = {
+        id: "period-id",
+        startsAt: new Date("2027-03-04T06:00:00.000Z"),
+        endsAt: new Date("2027-03-04T08:00:00.000Z"),
+        reason: "other",
+        notes: "Filming",
+      };
+      const token = givenRecheck(turnaroundVenue(), [rechecked()], [closure]);
+
+      await patch(token, { teardownMinutes: 150 });
+
+      expect(notificationTo(COORDINATOR_ID).body).toContain(
+        "a period when the venue is unavailable (Other - Filming, 4 Mar 2027, 14:00–16:00)"
+      );
+    });
+
+    it("[SPM-80][AC6] leaves bookings alone that do not clash under the new times", async () => {
+      const token = givenRecheck(turnaroundVenue(), [rechecked(), neighbour()]);
+
+      // 30 minutes exactly fills the gap: the two only meet end to start.
+      const body = await (await patch(token, { teardownMinutes: 30 })).json();
+
+      expect(body.flaggedBookings).toEqual([]);
+      expect(db.venueBooking.update).not.toHaveBeenCalled();
+      expect(db.notification.create).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-80][AC2] adds to the reasons already on a booking, including another story's", async () => {
+      const token = givenRecheck(turnaroundVenue(), [
+        rechecked({ needsReview: true, reviewReason: "event_schedule_changed" }),
+        neighbour(),
+      ]);
+
+      await patch(token, { teardownMinutes: 45 });
+
+      expect(callArg(db.venueBooking.update, 0).data.reviewReason).toBe("event_schedule_changed,booking_clash");
+    });
+
+    it("[SPM-80][AC2] keeps both reasons when the same save also shrinks the venue below the booking's attendance", async () => {
+      const token = givenRecheck(
+        turnaroundVenue(),
+        [rechecked(), neighbour()],
+        [],
+        [booking({ startsAt: rechecked().startsAt, endsAt: rechecked().endsAt })]
+      );
+
+      const body = await (await patch(token, { teardownMinutes: 45, maxCapacity: 100 })).json();
+
+      const writes = db.venueBooking.update.mock.calls.map((c) => c[0]).filter((w) => w.where.id === ID.booking);
+      expect(writes.at(-1).data.reviewReason).toBe("max_capacity_below_attendance,booking_clash");
+      expect(body.flaggedBookings.filter((f: { bookingId: string }) => f.bookingId === ID.booking)).toHaveLength(1);
+      expect(body.flaggedBookings[0].reasons).toEqual(["max_capacity_below_attendance", "booking_clash"]);
+    });
+  });
+
   it("[SPM-39] answers 500 when the database fails", async () => {
     const token = given(venue());
     db.venueBooking.findMany.mockRejectedValue(new Error("connection lost"));

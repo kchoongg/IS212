@@ -15,7 +15,15 @@ import {
   type VenueState,
 } from "@/lib/venueImpact";
 import { notifyUser } from "@/lib/notifications";
-import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { eventReference, formatDateTimeRange, formatVenue } from "@/lib/format";
+import {
+  recheckBookings,
+  recheckCandidateWhere,
+  turnaroundChangeSentence,
+  turnaroundChanged,
+} from "@/lib/turnaroundRecheck";
+import { unavailabilityReasonLabel } from "@/lib/venueUnavailability";
+import type { Turnaround } from "@/lib/venueTime";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
 
@@ -79,6 +87,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
  * the booking-hours check is still unwritten (SCHEMA_REFERENCE.md lists it
  * under rules the database does not enforce). Deferred rather than guessed:
  * a wrong assumption there produces false flags on every edit.
+ *
+ * SPM-80: a change to the setup or turnaround time re-checks the venue's
+ * pending and confirmed bookings with the new times - two that now overlap
+ * are both flagged, each naming the other, and so is one that now runs into
+ * an unavailable period. Same writes as above: the flag and one notification,
+ * never the booking itself. Rules in src/lib/turnaroundRecheck.ts.
  *
  * The edit is never blocked by the impact it has. The AC says flag, not
  * prevent - so the response reports what was flagged and lets the UI say so.
@@ -212,7 +226,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       });
 
       const venueLabel = formatVenue(updated.name, updated.code);
-      const flaggedBookings = [];
+      const flaggedBookings: FlaggedBooking[] = [];
+      // What this save wrote to each booking's reviewReason, so the SPM-80
+      // re-check below adds to it rather than to the value it loaded.
+      const written = new Map<string, string>();
 
       for (const impact of affected) {
         const booking = candidates.find((b) => b.id === impact.bookingId);
@@ -224,16 +241,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         const stored = booking.needsReview ? booking.reviewReason : null;
         const reasons = mergeReasons(parseReviewReason(stored), impact.reasons);
 
+        // The venue reasons in their usual order, then every other code
+        // already there - the column is shared with other stories (SPM-62's
+        // event changes), whose codes parseReviewReason() drops.
+        const reviewReason = addReviewReasons(formatReviewReason(reasons), stored?.split(",") ?? []);
+        written.set(booking.id, reviewReason);
         await tx.venueBooking.update({
           where: { id: booking.id },
-          data: {
-            needsReview: true,
-            // The venue reasons in their usual order, then every other code
-            // already there - the column is shared with other stories
-            // (SPM-62's event changes), whose codes parseReviewReason() drops.
-            reviewReason: addReviewReasons(formatReviewReason(reasons), stored?.split(",") ?? []),
-            flaggedAt: now,
-          },
+          data: { needsReview: true, reviewReason, flaggedAt: now },
         });
 
         // "The assigned Coordinator is notified." coordinatorId is nullable -
@@ -276,6 +291,24 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         });
       }
 
+      const turnaroundBefore: Turnaround = { setupMinutes: venue.setupMinutes, teardownMinutes: venue.teardownMinutes };
+      const turnaroundAfter: Turnaround = {
+        setupMinutes: venueFields.setupMinutes ?? venue.setupMinutes,
+        teardownMinutes: venueFields.teardownMinutes ?? venue.teardownMinutes,
+      };
+      if (turnaroundChanged(turnaroundBefore, turnaroundAfter)) {
+        await recheckTurnaround(tx, {
+          venueId: id,
+          venueLabel,
+          before: turnaroundBefore,
+          after: turnaroundAfter,
+          reason,
+          now,
+          written,
+          flaggedBookings,
+        });
+      }
+
       return { venue: updated, flaggedBookings } as const;
     });
 
@@ -294,5 +327,132 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}
+
+/// One entry of the response's `flaggedBookings`. `clashesWith` is set by the
+/// SPM-80 re-check only.
+interface FlaggedBooking {
+  bookingId: string;
+  eventId: string;
+  eventTitle: string | null;
+  sessionId: string | null;
+  sessionLabel: string | null;
+  reasons: string[];
+  notifiedUserId: string;
+  clashesWith?: { bookingId: string; eventId: string; eventReference: string; eventTitle: string | null }[];
+}
+
+/**
+ * SPM-80: re-check the venue's pending and confirmed bookings that have not
+ * finished (AC1, AC7) with its new setup and turnaround times, and flag each
+ * one the change newly puts in conflict - with another booking (AC2) or with
+ * an unavailable period (AC3). The flag and one notification to the assigned
+ * Coordinator each, with the reason (AC5); the booking's status, times and
+ * venue are never touched (AC4). Bookings that still fit are left alone (AC6).
+ */
+async function recheckTurnaround(
+  tx: Prisma.TransactionClient,
+  {
+    venueId,
+    venueLabel,
+    before,
+    after,
+    reason,
+    now,
+    written,
+    flaggedBookings,
+  }: {
+    venueId: string;
+    venueLabel: string;
+    before: Turnaround;
+    after: Turnaround;
+    reason: string | undefined;
+    now: Date;
+    written: Map<string, string>;
+    flaggedBookings: FlaggedBooking[];
+  }
+) {
+  const bookings = await tx.venueBooking.findMany({
+    where: { venueId, ...recheckCandidateWhere(now) },
+    include: {
+      session: { select: { label: true } },
+      event: { select: { id: true, title: true, sequenceNumber: true, coordinatorId: true } },
+    },
+  });
+  const unavailable = await tx.venueUnavailability.findMany({
+    where: { venueId, endsAt: { gt: now } },
+  });
+
+  const byId = new Map(bookings.map((b) => [b.id, b]));
+  const change = turnaroundChangeSentence(before, after);
+
+  for (const finding of recheckBookings(before, after, bookings, unavailable)) {
+    // Every id a finding names comes from `bookings`.
+    const booking = byId.get(finding.bookingId)!;
+    const others = finding.clashesWith.map((otherId) => byId.get(otherId)!);
+
+    const stored = written.get(booking.id) ?? (booking.needsReview ? booking.reviewReason : null);
+    const reviewReason = addReviewReasons(stored, finding.reasons);
+    written.set(booking.id, reviewReason);
+    await tx.venueBooking.update({
+      where: { id: booking.id },
+      data: { needsReview: true, reviewReason, flaggedAt: now },
+    });
+
+    // AC2: name each booking it now clashes with; AC3: and each period.
+    const overlaps = [
+      ...others.map(
+        (other) =>
+          `the booking for ${eventReference(other.event.sequenceNumber)} ${other.event.title ?? "an event"} on ` +
+          formatDateTimeRange(other.startsAt, other.endsAt)
+      ),
+      ...finding.unavailableDuring.map(
+        (period) =>
+          `a period when the venue is unavailable (${unavailabilityReasonLabel(period.reason)}` +
+          `${period.notes ? ` - ${period.notes}` : ""}, ${formatDateTimeRange(period.startsAt, period.endsAt)})`
+      ),
+    ];
+
+    // The assigned Coordinator, or the requester while the event has none -
+    // the same fallback as every other venue flag.
+    const recipientId = booking.event.coordinatorId ?? booking.requestedBy;
+    await notifyUser(tx, recipientId, {
+      type: "booking_needs_review",
+      title: "Booking needs review",
+      body:
+        `${venueLabel}: ${change}. ` +
+        `The ${booking.status === "approved" ? "approved booking" : "pending booking request"} for ` +
+        `${booking.event.title ?? "an event"}${booking.session?.label ? ` (${booking.session.label})` : ""} on ` +
+        `${formatDateTimeRange(booking.startsAt, booking.endsAt)} now overlaps ${overlaps.join(" and ")}, ` +
+        `once setup and turnaround are included. It is flagged for review - nothing has been changed automatically.` +
+        (reason ? ` Reason given: ${reason}` : ""),
+      eventId: booking.eventId,
+    });
+
+    const clashesWith = others.map((other) => ({
+      bookingId: other.id,
+      eventId: other.eventId,
+      eventReference: eventReference(other.event.sequenceNumber),
+      eventTitle: other.event.title,
+    }));
+
+    // Flagged by the SPM-39 rules in this same save as well: one entry.
+    const entry = flaggedBookings.find((f) => f.bookingId === booking.id);
+    if (entry) {
+      entry.reasons = [...entry.reasons, ...finding.reasons.filter((r) => !entry.reasons.includes(r))];
+      entry.clashesWith = clashesWith;
+      continue;
+    }
+    flaggedBookings.push({
+      bookingId: booking.id,
+      eventId: booking.eventId,
+      eventTitle: booking.event.title,
+      sessionId: booking.sessionId,
+      sessionLabel: booking.session?.label ?? null,
+      reasons: finding.reasons,
+      notifiedUserId: recipientId,
+      clashesWith,
+    });
   }
 }
