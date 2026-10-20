@@ -121,7 +121,7 @@ describe("Event equipment tab", () => {
       ["organiser", "My Events"],
       ["coordinator", "Events"],
       ["tech_support", "Events"],
-    ])("[SPM-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+    ])("[SPM-47][BUG-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
       open(role);
       await itemRow("Projector");
 
@@ -135,7 +135,7 @@ describe("Event equipment tab", () => {
     it.each([
       ["loading", () => new Promise(() => {})],
       ["in error", reply(404, {})],
-    ])("[SPM-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
+    ])("[SPM-47][BUG-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
       open("coordinator", { [EVENT]: eventRow });
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -146,7 +146,7 @@ describe("Event equipment tab", () => {
       ]);
     });
 
-    it("[SPM-98] is the same trail when access is refused", async () => {
+    it("[SPM-47][BUG-98] is the same trail when access is refused", async () => {
       open("venue_staff", { [EVENT]: reply(403, {}), [LIST]: reply(403, {}) });
       await screen.findByRole("alert");
 
@@ -1112,7 +1112,7 @@ describe("Equipment request (availability and reserve)", () => {
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
   });
 
-  it("[SPM-98] names the list as the sidebar does, then the event (SPM-98)", async () => {
+  it("[SPM-48][BUG-98] names the list as the sidebar does, then the event (SPM-98)", async () => {
     open();
     await lineRow();
 

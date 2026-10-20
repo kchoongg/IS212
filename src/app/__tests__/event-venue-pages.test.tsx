@@ -628,7 +628,7 @@ describe("Event Venue tab", () => {
 
   // SPM-98: Events / <event title> / Venue, in every state.
   describe("its breadcrumb", () => {
-    it("[SPM-98] names the event by its title and links it to the Overview", async () => {
+    it("[SPM-41][BUG-98] names the event by its title and links it to the Overview", async () => {
       open();
       await card("Hall A");
 
@@ -639,7 +639,7 @@ describe("Event Venue tab", () => {
       ]);
     });
 
-    it("[SPM-98] reads 'Event' while the event is loading", async () => {
+    it("[SPM-41][BUG-98] reads 'Event' while the event is loading", async () => {
       open({ [INFO]: () => new Promise(() => {}) });
 
       expect(await screen.findByRole("navigation", { name: "Breadcrumb" })).toBeInTheDocument();
@@ -650,7 +650,7 @@ describe("Event Venue tab", () => {
       ]);
     });
 
-    it("[SPM-98] is the same trail when the event cannot be loaded", async () => {
+    it("[SPM-41][BUG-98] is the same trail when the event cannot be loaded", async () => {
       open({ [INFO]: reply(500, {}) });
       await screen.findByRole("alert");
 
@@ -664,7 +664,7 @@ describe("Event Venue tab", () => {
     it.each([
       ["organiser", "My Events"],
       ["safety_officer", "Events"],
-    ])("[SPM-98] starts '%s' for a refused %s", async (role, list) => {
+    ])("[SPM-41][BUG-98] starts '%s' for a refused %s", async (role, list) => {
       open({}, role);
       await screen.findByRole("alert");
 
@@ -813,7 +813,7 @@ describe("Venue booking request form", () => {
 
   // SPM-98: Events / <event title> / Venue / Request booking.
   describe("its breadcrumb", () => {
-    it("[SPM-98] names the event by its title, and links back to it and to its Venue tab", async () => {
+    it("[SPM-42][BUG-98] names the event by its title, and links back to it and to its Venue tab", async () => {
       open();
       await date();
 
@@ -828,7 +828,7 @@ describe("Venue booking request form", () => {
     it.each([
       ["loading", { [VENUE]: () => new Promise(() => {}) }],
       ["in error", { [VENUE]: reply(404, {}) }],
-    ])("[SPM-98] reads 'Event' for the event while %s", async (_case, routes) => {
+    ])("[SPM-42][BUG-98] reads 'Event' for the event while %s", async (_case, routes) => {
       open(routes);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 

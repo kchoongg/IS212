@@ -134,7 +134,7 @@ describe("Attendees tab (SPM-65)", () => {
     it.each([
       ["organiser", "My Events"],
       ["coordinator", "Events"],
-    ])("[SPM-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+    ])("[SPM-65][BUG-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
       open({}, role);
       await screen.findByRole("heading", { name: "Harbourfront Seminar" });
 
@@ -148,7 +148,7 @@ describe("Attendees tab (SPM-65)", () => {
     it.each([
       ["loading", () => { open({ [LIST]: () => new Promise(() => {}) }, "coordinator"); }],
       ["in error", () => { open({ [LIST]: reply(500, {}) }, "coordinator"); }],
-    ])("[SPM-98] reads 'Event' for the event while %s", async (_case, openIt) => {
+    ])("[SPM-65][BUG-98] reads 'Event' for the event while %s", async (_case, openIt) => {
       openIt();
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -159,7 +159,7 @@ describe("Attendees tab (SPM-65)", () => {
       ]);
     });
 
-    it("[SPM-98] is the same trail when access is refused", async () => {
+    it("[SPM-65][BUG-98] is the same trail when access is refused", async () => {
       open({ [LIST]: reply(403, { error: "Forbidden" }) });
       await screen.findByRole("alert");
 

@@ -131,7 +131,7 @@ describe("GET /api/auth/me", () => {
 describe("POST /api/auth/register", () => {
   const valid = { name: "Rachel Ng", email: "rachel@example.com", password: "long-enough-pw", role: "organiser" };
 
-  it("[SPM-21] creates the account with a hashed password and returns it without the hash", async () => {
+  it("[UNTRACED] creates the account with a hashed password and returns it without the hash", async () => {
     givenUsers();
     db.user.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "new-user", ...data }));
 
@@ -146,7 +146,7 @@ describe("POST /api/auth/register", () => {
     expect(await verifyPassword(valid.password, written.passwordHash)).toBe(true);
   });
 
-  it("[SPM-21] stores the email trimmed and lower-cased", async () => {
+  it("[UNTRACED] stores the email trimmed and lower-cased", async () => {
     givenUsers();
     db.user.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "new-user", ...data }));
 
@@ -155,7 +155,7 @@ describe("POST /api/auth/register", () => {
     expect(callArg(db.user.create).data.email).toBe("rachel@example.com");
   });
 
-  it("[SPM-21] refuses an email that is already registered", async () => {
+  it("[UNTRACED] refuses an email that is already registered", async () => {
     givenUsers({ id: "existing", email: valid.email });
 
     const res = await register(req("POST", "/api/auth/register", { body: valid }));
@@ -166,7 +166,7 @@ describe("POST /api/auth/register", () => {
   });
 
   it.each(["coordinator", "ops_manager", "venue_staff", "tech_support"])(
-    "[SPM-21] refuses self-registration as internal role %s",
+    "[UNTRACED] refuses self-registration as internal role %s",
     async (role) => {
       givenUsers();
 
@@ -179,7 +179,7 @@ describe("POST /api/auth/register", () => {
     }
   );
 
-  it("[SPM-21] allows self-registration as an attendee", async () => {
+  it("[UNTRACED] allows self-registration as an attendee", async () => {
     givenUsers();
     db.user.create.mockImplementation(async ({ data }: { data: object }) => ({ id: "new-user", ...data }));
 
@@ -188,7 +188,7 @@ describe("POST /api/auth/register", () => {
     expect(res.status).toBe(201);
   });
 
-  it("[SPM-21] rejects a password shorter than 8 characters", async () => {
+  it("[UNTRACED] rejects a password shorter than 8 characters", async () => {
     const res = await register(req("POST", "/api/auth/register", { body: { ...valid, password: "short" } }));
     const body = await res.json();
 
@@ -196,7 +196,7 @@ describe("POST /api/auth/register", () => {
     expect(body.details.fieldErrors.password).toEqual(["Password must be at least 8 characters"]);
   });
 
-  it("[SPM-21] answers 500 when the database fails", async () => {
+  it("[UNTRACED] answers 500 when the database fails", async () => {
     givenUsers();
     db.user.create.mockRejectedValue(new Error("connection lost"));
 

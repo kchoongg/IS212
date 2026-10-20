@@ -153,7 +153,7 @@ describe("Event overview", () => {
   it.each([
     ["organiser", "My Events"],
     ["coordinator", "Events"],
-  ])("[SPM-98] calls the breadcrumb's list '%s' for %s, and ends on the event's title", async (role, list) => {
+  ])("[SPM-31][BUG-98] calls the breadcrumb's list '%s' for %s, and ends on the event's title", async (role, list) => {
     open(role);
     await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
 
@@ -163,7 +163,7 @@ describe("Event overview", () => {
     ]);
   });
 
-  it("[SPM-98] calls the event 'Event' in the breadcrumb while it loads", async () => {
+  it("[SPM-31][BUG-98] calls the event 'Event' in the breadcrumb while it loads", async () => {
     open("coordinator", () => new Promise(() => {}));
 
     await screen.findByRole("heading", { level: 1, name: "Loading…" });
@@ -761,7 +761,7 @@ describe("Review request", () => {
 
   // SPM-98: Events / <event title> / Review request, in every state.
   describe("its breadcrumb", () => {
-    it("[SPM-98] names the event by its title and links it to the Overview", async () => {
+    it("[SPM-28][BUG-98] names the event by its title and links it to the Overview", async () => {
       open();
       await decision();
 
@@ -775,7 +775,7 @@ describe("Review request", () => {
     it.each([
       ["loading", () => new Promise(() => {})],
       ["in error", reply(500, {})],
-    ])("[SPM-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
+    ])("[SPM-28][BUG-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
       open(eventRow);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -789,7 +789,7 @@ describe("Review request", () => {
     it.each([
       ["organiser", "My Events"],
       ["venue_staff", "Events"],
-    ])("[SPM-98] is the same trail when %s is refused", async (role, list) => {
+    ])("[SPM-28][BUG-98] is the same trail when %s is refused", async (role, list) => {
       setRoute(`/events/${REF}/review`, { id: REF });
       mockApi(signedInAs(role));
       render(<ReviewRequestPage />);

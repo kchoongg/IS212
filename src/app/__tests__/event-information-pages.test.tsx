@@ -197,7 +197,7 @@ describe("Edit event information - its breadcrumb", () => {
     ["Edit event information", null],
   ];
 
-  it("[SPM-98] names the event by its title and links it to the Overview", async () => {
+  it("[SPM-62][BUG-98] names the event by its title and links it to the Overview", async () => {
     open();
     await formReady();
 
@@ -207,14 +207,14 @@ describe("Edit event information - its breadcrumb", () => {
   it.each([
     ["loading", () => new Promise(() => {})],
     ["in error", reply(500, {})],
-  ])("[SPM-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
+  ])("[SPM-62][BUG-98] reads 'Event' for the event while %s", async (_case, eventRow) => {
     open(eventRow);
     await screen.findByRole("navigation", { name: "Breadcrumb" });
 
     expect(breadcrumb()).toEqual(trail("Events", "Event"));
   });
 
-  it("[SPM-98] starts 'My Events' for an organiser who is refused", async () => {
+  it("[SPM-62][BUG-98] starts 'My Events' for an organiser who is refused", async () => {
     open(event(), {}, "organiser", {});
     await screen.findByText("You can't edit this event's information");
 

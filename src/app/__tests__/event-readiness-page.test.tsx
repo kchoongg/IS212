@@ -227,7 +227,7 @@ describe("Event Readiness tab (SPM-33)", () => {
   describe("its breadcrumb", () => {
     it.each([
       ["coordinator", "Events"],
-    ])("[SPM-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+    ])("[SPM-33][BUG-98] for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
       open([auditorium], {}, role);
       await screen.findByRole("heading", { name: "Gala Dinner" });
 
@@ -241,7 +241,7 @@ describe("Event Readiness tab (SPM-33)", () => {
     it.each([
       ["loading", () => { open([auditorium], { [LIST]: () => new Promise(() => {}) }); }],
       ["in error", () => { open([auditorium], { [LIST]: reply(500, {}) }); }],
-    ])("[SPM-98] reads 'Event' for the event while %s", async (_case, openIt) => {
+    ])("[SPM-33][BUG-98] reads 'Event' for the event while %s", async (_case, openIt) => {
       openIt();
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
@@ -252,7 +252,7 @@ describe("Event Readiness tab (SPM-33)", () => {
       ]);
     });
 
-    it("[SPM-98] is the same trail when access is refused", async () => {
+    it("[SPM-33][BUG-98] is the same trail when access is refused", async () => {
       open([auditorium], {}, "organiser");
       await screen.findByRole("alert");
 

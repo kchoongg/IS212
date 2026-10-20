@@ -6,6 +6,9 @@
  *   it("[SPM-43][AC3][AC7] ...")                   several ACs
  *   it("[SPM-43][AC3] [SPM-44][AC6] ...")          several stories
  *   it("[SPM-43] ...")                             story only: no single AC fits
+ *   it("[SPM-41][BUG-98] ...")                     a bug's test, under the story whose page it is
+ *   it("[UNTRACED] ...")                           code no story asks for (listed in the
+ *                                                  matrix's "Code with no story" section)
  *
  * A test also takes the tags of the describe blocks around it, so a tag on a
  * describe covers every test inside it.
@@ -25,6 +28,8 @@ export type TestLevel = "unit" | "route" | "integration" | "e2e";
 export interface StoryTag {
   story: string;
   acs: number[];
+  /** Jira bug keys from [BUG-n] tags, as "SPM-n". */
+  bugs: string[];
 }
 
 export interface FoundTest {
@@ -38,6 +43,8 @@ export interface FoundTest {
   ownTags: StoryTag[];
   /** Own tags plus those of every enclosing describe. */
   tags: StoryTag[];
+  /** Tagged [UNTRACED] (itself or a describe around it): code no story asks for. */
+  untraced: boolean;
   /** Offset of the first character inside the name's quotes. */
   nameStart: number;
 }
@@ -45,7 +52,8 @@ export interface FoundTest {
 /** Folders that hold tests, relative to the repo root. tests/archive/ is never read. */
 export const TEST_ROOTS = ["src", "integration", "e2e"];
 const TEST_FILE = /\.(test|spec)\.(ts|tsx)$/;
-const TAG = /\[(SPM-\d+)\]((?:\[AC\d+\])*)/g;
+const TAG = /\[(SPM-\d+)\]((?:\[(?:AC\d+|BUG-\d+)\])*)/g;
+const UNTRACED = /\[UNTRACED\]/;
 
 export function levelOf(file: string): TestLevel {
   const f = file.replace(/\\/g, "/");
@@ -59,7 +67,8 @@ export function parseTags(text: string): StoryTag[] {
   const tags: StoryTag[] = [];
   for (const m of text.matchAll(TAG)) {
     const acs = [...m[2].matchAll(/\[AC(\d+)\]/g)].map((a) => Number(a[1]));
-    tags.push({ story: m[1], acs });
+    const bugs = [...m[2].matchAll(/\[BUG-(\d+)\]/g)].map((b) => `SPM-${b[1]}`);
+    tags.push({ story: m[1], acs, bugs });
   }
   return tags;
 }
@@ -127,14 +136,14 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
   const unnamed: { line: number }[] = [];
   const level = levelOf(file);
 
-  const visit = (node: ts.Node, suites: { name: string; tags: StoryTag[] }[]) => {
+  const visit = (node: ts.Node, suites: { name: string; tags: StoryTag[]; untraced: boolean }[]) => {
     if (ts.isCallExpression(node)) {
       const kind = callKind(node.expression);
       if (kind) {
         const named = nameOf(node.arguments[0], source);
         const line = source.getLineAndCharacterOfPosition(node.getStart(source)).line + 1;
         if (kind === "suite") {
-          const inner = [...suites, { name: named?.name ?? "", tags: named ? parseTags(named.name) : [] }];
+          const inner = [...suites, { name: named?.name ?? "", tags: named ? parseTags(named.name) : [], untraced: named ? UNTRACED.test(named.name) : false }];
           node.arguments.forEach((a) => visit(a, inner));
           return;
         }
@@ -150,6 +159,7 @@ export function parseTestFile(repoRoot: string, file: string): { tests: FoundTes
             describePath: suites.map((s) => s.name),
             ownTags,
             tags: [...suites.flatMap((s) => s.tags), ...ownTags],
+            untraced: UNTRACED.test(named.name) || suites.some((s) => s.untraced),
             nameStart: named.start,
           });
         }

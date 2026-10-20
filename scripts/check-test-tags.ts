@@ -1,8 +1,9 @@
 /**
  * The CI "Traceability" job's two hard checks:
  *
- *   1. every automated test (outside tests/archive/) names its story:
- *      it("[SPM-43][AC3] ...") - the format is in scripts/lib/testTags.ts;
+ *   1. every automated test (outside tests/archive/) names its story -
+ *      it("[SPM-43][AC3] ...") - or is marked [UNTRACED] (code no story asks
+ *      for); the format is in scripts/lib/testTags.ts;
  *   2. the pull request's title or branch names a Jira key (SPM-n). A title
  *      starting "Docs:" or "Chore:" is exempt.
  *
@@ -22,7 +23,7 @@ const inCi = process.env.GITHUB_ACTIONS === "true";
 const failures: string[] = [];
 
 const { tests, unnamed } = findTests(ROOT);
-const untagged = tests.filter((t) => !t.tags.length);
+const untagged = tests.filter((t) => !t.tags.length && !t.untraced);
 for (const t of untagged) {
   const where = `${t.file}:${t.line}`;
   failures.push(`${where} "${t.name}" has no [SPM-xx] tag`);

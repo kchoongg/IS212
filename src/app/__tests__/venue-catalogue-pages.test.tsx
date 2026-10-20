@@ -288,7 +288,7 @@ describe("Add venue", () => {
     expect(router.push).toHaveBeenCalledWith("/venues");
   });
 
-  it("[SPM-98] shows Venues / Add venue in the breadcrumb (SPM-98)", async () => {
+  it("[SPM-39][BUG-98] shows Venues / Add venue in the breadcrumb (SPM-98)", async () => {
     await open();
 
     expect(breadcrumb()).toEqual([
@@ -776,7 +776,7 @@ describe("Edit venue", () => {
       ["Edit venue", null],
     ];
 
-    it("[SPM-98] names the venue and ends on the page", async () => {
+    it("[SPM-39][BUG-98] names the venue and ends on the page", async () => {
       open();
       await ready();
 
@@ -786,14 +786,14 @@ describe("Edit venue", () => {
     it.each([
       ["loading", () => new Promise(() => {})],
       ["in error", reply(500, {})],
-    ])("[SPM-98] reads 'Venue' for the venue while %s", async (_case, venueRow) => {
+    ])("[SPM-39][BUG-98] reads 'Venue' for the venue while %s", async (_case, venueRow) => {
       open(venueRow);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 
       expect(breadcrumb()).toEqual(trail("Venue"));
     });
 
-    it("[SPM-98] is the same trail when a coordinator is refused", async () => {
+    it("[SPM-39][BUG-98] is the same trail when a coordinator is refused", async () => {
       open(venue(), saved(), "coordinator");
       await screen.findByRole("alert");
 

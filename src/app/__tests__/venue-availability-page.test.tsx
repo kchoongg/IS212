@@ -170,7 +170,7 @@ describe("Venue availability", () => {
       ]);
     });
 
-    it("[SPM-98] calls the venue 'Venue' in the breadcrumb while it loads", async () => {
+    it("[SPM-46][BUG-98] calls the venue 'Venue' in the breadcrumb while it loads", async () => {
       open(() => new Promise(() => {}));
       await screen.findByRole("status", { name: "Loading" });
 

@@ -985,7 +985,7 @@ describe("New event request: this screen only", () => {
   });
 
   // SPM-98: <list> / New request - no record yet.
-  it("[SPM-98] names the organiser's list 'My Events' in the breadcrumb", async () => {
+  it("[SPM-23][BUG-98] names the organiser's list 'My Events' in the breadcrumb", async () => {
     await NEW.open();
 
     expect(breadcrumb()).toEqual([
@@ -994,7 +994,7 @@ describe("New event request: this screen only", () => {
     ]);
   });
 
-  it("[SPM-98] keeps the same breadcrumb, starting 'Events', for a role it refuses", async () => {
+  it("[SPM-23][BUG-98] keeps the same breadcrumb, starting 'Events', for a role it refuses", async () => {
     setRoute("/events/new");
     mockApi(signedInAs("coordinator"));
     render(<NewEventPage />);
@@ -1085,14 +1085,14 @@ describe("Edit draft: this screen only", () => {
       ["Edit draft", null],
     ];
 
-    it("[SPM-98] names the draft by its saved title, not what is being typed", async () => {
+    it("[SPM-24][BUG-98] names the draft by its saved title, not what is being typed", async () => {
       openWith(blankDraft({ title: "Gala Dinner" }));
       set(await screen.findByLabelText(/^Event name/), "Gala Dinner 2030");
 
       expect(breadcrumb()).toEqual(trail("Gala Dinner"));
     });
 
-    it("[SPM-98] reads 'Event' for a draft with no title yet", async () => {
+    it("[SPM-24][BUG-98] reads 'Event' for a draft with no title yet", async () => {
       openWith(blankDraft({ title: null }));
       await screen.findByLabelText(/^Event name/);
 
@@ -1102,7 +1102,7 @@ describe("Edit draft: this screen only", () => {
     it.each([
       ["loading", () => new Promise(() => {})],
       ["in error", reply(404, {})],
-    ])("[SPM-98] reads 'Event' while %s", async (_case, draft) => {
+    ])("[SPM-24][BUG-98] reads 'Event' while %s", async (_case, draft) => {
       openWith(draft);
       await screen.findByRole("navigation", { name: "Breadcrumb" });
 

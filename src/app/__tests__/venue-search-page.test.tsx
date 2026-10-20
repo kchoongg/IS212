@@ -115,7 +115,7 @@ describe("Find a venue", () => {
       ]);
     });
 
-    it("[SPM-98] keeps an event's breadcrumb, starting 'My Events', for an organiser it turns away", async () => {
+    it("[SPM-40][BUG-98] keeps an event's breadcrumb, starting 'My Events', for an organiser it turns away", async () => {
       open({ [EVENT]: reply(403, {}), [SEARCH]: reply(403, {}) }, { role: "organiser", query: `?event=${REF}` });
       await screen.findByRole("alert");
 
@@ -469,7 +469,7 @@ describe("Find a venue", () => {
       );
     });
 
-    it("[SPM-98] calls the event 'Event' in the breadcrumb while it loads", async () => {
+    it("[SPM-40][BUG-98] calls the event 'Event' in the breadcrumb while it loads", async () => {
       openFor(() => new Promise(() => {}));
 
       await screen.findByRole("navigation", { name: "Breadcrumb" });
