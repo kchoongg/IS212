@@ -21,6 +21,7 @@ import {
 import { RequirePermission } from "@/components/RequirePermission";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventReference, formatDateTimeRange } from "@/lib/format";
 import { humanise, statusLabel } from "@/lib/statuses";
 import { canReviewEvent } from "@/lib/permissions";
@@ -118,10 +119,12 @@ function orMissing(value: string | number | null | undefined): React.ReactNode {
 }
 
 export default function ReviewRequestPage() {
+  const eventId = useParams<{ id: string }>().id;
   return (
     <RequirePermission
       action="event:review"
       title="Review request"
+      breadcrumbs={(role) => eventCrumbs(role, eventId, null, { label: "Review request" })}
       reason="Reviewing event requests is the Event Coordinator's role. You can still see events you are involved in from All Events."
     >
       <ReviewScreen />
@@ -304,11 +307,7 @@ function ReviewScreen() {
             </>
           )
         }
-        breadcrumbs={[
-          { label: "Review Queue", href: "/queue" },
-          { label: event ? title : "Event", href: `/events/${ref}` },
-          { label: "Review" },
-        ]}
+        breadcrumbs={eventCrumbs(user?.role, ref, event?.title, { label: "Review request" })}
       />
 
       {error ? (

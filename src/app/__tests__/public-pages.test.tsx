@@ -167,7 +167,7 @@ describe("Login page", () => {
 
     expect(screen.getByRole("button", { name: "Logging in…" })).toBeDisabled();
     finish(success);
-    await waitFor(() => expect(router.push).toHaveBeenCalled());
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/dashboard"));
     expect(api.sent(ROUTE)).toHaveLength(1);
   });
 });

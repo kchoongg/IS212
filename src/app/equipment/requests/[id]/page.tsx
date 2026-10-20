@@ -283,7 +283,7 @@ export default function EquipmentRequestDetailPage() {
             : undefined
         }
         breadcrumbs={[
-          { label: "Equipment requests", href: "/equipment/requests" },
+          { label: "Equipment Requests", href: "/equipment/requests" },
           { label: event?.title ?? "Event" },
         ]}
       />

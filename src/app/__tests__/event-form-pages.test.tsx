@@ -13,6 +13,7 @@ import NewEventPage from "@/app/events/new/page";
 import EditDraftPage from "@/app/events/[id]/edit/page";
 import { ROLES } from "@/lib/roles";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -983,6 +984,28 @@ describe("New event request: this screen only", () => {
     expect(api.sent("GET /api/facilities")).toHaveLength(0);
   });
 
+  // SPM-98: <list> / New request - no record yet.
+  it("names the organiser's list 'My Events' in the breadcrumb", async () => {
+    await NEW.open();
+
+    expect(breadcrumb()).toEqual([
+      ["My Events", "/events"],
+      ["New request", null],
+    ]);
+  });
+
+  it("keeps the same breadcrumb, starting 'Events', for a role it refuses", async () => {
+    setRoute("/events/new");
+    mockApi(signedInAs("coordinator"));
+    render(<NewEventPage />);
+    await screen.findByRole("alert");
+
+    expect(breadcrumb()).toEqual([
+      ["Events", "/events"],
+      ["New request", null],
+    ]);
+  });
+
   it("sends an anonymous visitor to log in", async () => {
     setRoute("/events/new");
     mockApi(signedOut());
@@ -1052,6 +1075,39 @@ describe("Edit draft: this screen only", () => {
     render(<EditDraftPage />);
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fedit"));
+  });
+
+  // SPM-98: My Events / <draft's title> / Edit draft, in every state.
+  describe("its breadcrumb", () => {
+    const trail = (title: string) => [
+      ["My Events", "/events"],
+      [title, `/events/${REF}`],
+      ["Edit draft", null],
+    ];
+
+    it("names the draft by its saved title, not what is being typed", async () => {
+      openWith(blankDraft({ title: "Gala Dinner" }));
+      set(await screen.findByLabelText(/^Event name/), "Gala Dinner 2030");
+
+      expect(breadcrumb()).toEqual(trail("Gala Dinner"));
+    });
+
+    it("reads 'Event' for a draft with no title yet", async () => {
+      openWith(blankDraft({ title: null }));
+      await screen.findByLabelText(/^Event name/);
+
+      expect(breadcrumb()).toEqual(trail("Event"));
+    });
+
+    it.each([
+      ["loading", () => new Promise(() => {})],
+      ["in error", reply(404, {})],
+    ])("reads 'Event' while %s", async (_case, draft) => {
+      openWith(draft);
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+      expect(breadcrumb()).toEqual(trail("Event"));
+    });
   });
 
   it("shows a placeholder while the draft loads", async () => {

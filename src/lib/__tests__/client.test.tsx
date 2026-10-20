@@ -170,7 +170,8 @@ describe("focusFirstError", () => {
     focusFirstError(el, { category: "Choose one", title: "Required" });
 
     expect(el.querySelector("[name=category]")).toHaveFocus();
-    expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+    // Scrolled to that same field, not just to something.
+    expect(vi.mocked(Element.prototype.scrollIntoView).mock.contexts.at(-1)).toBe(el.querySelector("[name=category]"));
   });
 
   it("falls back to the first field marked invalid when no field has that name", () => {

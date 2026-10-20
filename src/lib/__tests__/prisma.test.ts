@@ -20,7 +20,8 @@ describe("the shared Prisma client", () => {
   it("is created once and kept on global outside production", async () => {
     const prisma = await load();
 
-    expect(prisma).toBeDefined();
+    // A real client, not undefined or a stand-in: it has the query API.
+    expect(typeof prisma.$queryRaw).toBe("function");
     expect(stash.prisma).toBe(prisma);
     expect(await load()).toBe(prisma);
   });
@@ -37,7 +38,8 @@ describe("the shared Prisma client", () => {
 
     const prisma = await load();
 
-    expect(prisma).toBeDefined();
+    // A real client, not undefined or a stand-in: it has the query API.
+    expect(typeof prisma.$queryRaw).toBe("function");
     expect(stash.prisma).toBeUndefined();
   });
 });

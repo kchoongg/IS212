@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import EventEquipmentPage from "@/app/events/[id]/equipment/page";
 import EquipmentRequestDetailPage from "@/app/equipment/requests/[id]/page";
 import {
+  breadcrumb,
   fireEvent,
   mockApi,
   render,
@@ -111,6 +112,49 @@ describe("Event equipment tab", () => {
 
       expect(await screen.findByRole("alert")).toHaveTextContent("You don't have access to this event.");
       expect(screen.queryByText("Projector")).not.toBeInTheDocument();
+    });
+  });
+
+  // SPM-98: <list> / <event title> / Equipment, in every state.
+  describe("its breadcrumb", () => {
+    it.each([
+      ["organiser", "My Events"],
+      ["coordinator", "Events"],
+      ["tech_support", "Events"],
+    ])("for %s starts '%s', and links the event's title to its Overview", async (role, list) => {
+      open(role);
+      await itemRow("Projector");
+
+      expect(breadcrumb()).toEqual([
+        [list, "/events"],
+        ["Gala Dinner", `/events/${REF}`],
+        ["Equipment", null],
+      ]);
+    });
+
+    it.each([
+      ["loading", () => new Promise(() => {})],
+      ["in error", reply(404, {})],
+    ])("reads 'Event' for the event while %s", async (_case, eventRow) => {
+      open("coordinator", { [EVENT]: eventRow });
+      await screen.findByRole("navigation", { name: "Breadcrumb" });
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Equipment", null],
+      ]);
+    });
+
+    it("is the same trail when access is refused", async () => {
+      open("venue_staff", { [EVENT]: reply(403, {}), [LIST]: reply(403, {}) });
+      await screen.findByRole("alert");
+
+      expect(breadcrumb()).toEqual([
+        ["Events", "/events"],
+        ["Event", `/events/${REF}`],
+        ["Equipment", null],
+      ]);
     });
   });
 
@@ -1066,6 +1110,16 @@ describe("Equipment request (availability and reserve)", () => {
     render(<EquipmentRequestDetailPage />);
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
+  });
+
+  it("names the list as the sidebar does, then the event (SPM-98)", async () => {
+    open();
+    await lineRow();
+
+    expect(breadcrumb()).toEqual([
+      ["Equipment Requests", "/equipment/requests"],
+      ["Gala Dinner", null],
+    ]);
   });
 
   it("tells any other role that availability is Technical Support's, and explains the refusal", async () => {

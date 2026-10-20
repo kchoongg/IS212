@@ -18,6 +18,7 @@ import { RequirePermission } from "@/components/RequirePermission";
 import { SessionFields } from "@/components/SessionFields";
 import { eventReference } from "@/lib/format";
 import { authedFetch } from "@/lib/session";
+import { eventsListCrumb } from "@/lib/breadcrumbs";
 import { focusFirstError, readServerError, type FieldErrors } from "@/lib/formErrors";
 import {
   CATEGORIES,
@@ -55,7 +56,7 @@ export default function NewEventPage() {
     <RequirePermission
       action="event:create"
       title="New event request"
-      breadcrumbs={[{ label: "Events", href: "/events" }, { label: "New request" }]}
+      breadcrumbs={(role) => [eventsListCrumb(role), { label: "New request" }]}
       reason="Only an Event Organiser can raise an event request. Coordinators and ConnectSphere staff work on requests once they have been submitted."
     >
       <NewEventForm />
@@ -259,7 +260,8 @@ function NewEventForm() {
       <PageHeader
         title="New event request"
         subtitle="Tell us what you need. You can save a draft and finish it later."
-        breadcrumbs={[{ label: "My Events", href: "/events" }, { label: "New request" }]}
+        // Only an organiser gets past RequirePermission to the form.
+        breadcrumbs={[eventsListCrumb("organiser"), { label: "New request" }]}
       />
 
       <form

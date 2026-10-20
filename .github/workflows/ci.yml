@@ -201,6 +201,45 @@ jobs:
             exit 1
           fi
 
+  # Integration tests (integration/): the route handlers with the real Prisma
+  # client against a real, migrated and seeded Postgres - no mocked database.
+  # They check what the unit tests cannot, such as two booking requests at the
+  # same moment meeting the venue row lock. Each test makes and deletes its own
+  # rows; this database exists for this job only.
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: connectsphere_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d connectsphere_integration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/connectsphere_integration
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx prisma migrate deploy
+      - name: Seed
+        run: npx tsx prisma/seed.ts
+      - name: Integration tests
+        run: npm run test:integration
+
   # A few end-to-end smoke tests (e2e/): the production build, driven through
   # real Chromium by Playwright, against a real, migrated and seeded Postgres -
   # no test doubles. Log in as every role, the log-in redirect, and one request

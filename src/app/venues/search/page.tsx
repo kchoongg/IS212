@@ -14,6 +14,7 @@ import {
   Field,
   Input,
   PageHeader,
+  type Crumb,
   Select,
 } from "@/components/ui";
 import { BeginPlanningDialog } from "@/components/BeginPlanningDialog";
@@ -22,6 +23,7 @@ import { eventReference, formatVenue } from "@/lib/format";
 import { can } from "@/lib/permissions";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
+import { eventCrumbs } from "@/lib/breadcrumbs";
 import { DEFAULT_SPACE_PURPOSE, layoutLabel } from "@/lib/venueSuitability";
 import {
   EMPTY_SEARCH,
@@ -288,15 +290,25 @@ function VenueSearch() {
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
   }
-  if (user && !can(user.role, "venue:view")) {
-    return (
-      <Alert variant="error" title="Not available">
-        Venue search is for ConnectSphere staff.
-      </Alert>
-    );
-  }
 
   const reference = event ? eventReference(event.sequenceNumber) : eventRef;
+  // Opened for an event, the search hangs off that event (SPM-98); otherwise
+  // off the venue catalogue. Decided by the address, so the trail is the same
+  // before the event has loaded.
+  const crumbs: Crumb[] = reference
+    ? eventCrumbs(user?.role, reference, event?.title, { label: "Find a venue" })
+    : [{ label: "Venues", href: "/venues" }, { label: "Find a venue" }];
+
+  if (user && !can(user.role, "venue:view")) {
+    return (
+      <div>
+        <PageHeader title="Find a venue" breadcrumbs={crumbs} />
+        <Alert variant="error" title="Not available">
+          Venue search is for ConnectSphere staff.
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -309,15 +321,7 @@ function VenueSearch() {
               ? `Filled in from ${event.title ?? "this event"}'s requirements. Change any filter and search again.`
               : "Only venues matching every filter you set are shown."
         }
-        breadcrumbs={
-          event && reference
-            ? [
-                { label: "Events", href: "/events" },
-                { label: reference, href: `/events/${reference}` },
-                { label: "Find a venue" },
-              ]
-            : [{ label: "Venues", href: "/venues" }, { label: "Find a venue" }]
-        }
+        breadcrumbs={crumbs}
       />
 
       {planning === "started" && (
