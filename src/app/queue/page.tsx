@@ -106,7 +106,7 @@ function QueueScreen() {
         onRetry={load}
         empty={{
           title: "Nothing to review",
-          description: "Requests appear here once the Event Operations Manager assigns them to you.",
+          description: "Requests appear here once the Event Coordinator Lead assigns them to you.",
         }}
       >
         {(list) => (

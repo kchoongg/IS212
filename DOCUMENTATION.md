@@ -188,10 +188,12 @@ IS212/
     │   │                                coordinator can use it; opened for a request
     │   │                                that's already decided, it redirects to the
     │   │                                event page.
-    │   ├── assignments/page.tsx         # S-28 Coordinator Assignment (SPM-30), Ops
-    │   │                                Manager only. Tabs: "Awaiting assignment"
-    │   │                                (submitted, no coordinator) and "Assigned"
-    │   │                                (live events, for reassignment).
+    │   ├── assignments/page.tsx         # S-28 Coordinator Assignment (SPM-30), the
+    │   │                                Event Coordinator Lead only. Tabs: "Awaiting
+    │   │                                assignment" (submitted, no coordinator),
+    │   │                                "Active events" (every active event, filtered
+    │   │                                by coordinator and status, SPM-84) and
+    │   │                                "Coordinators" (active-event counts, SPM-84).
     │   ├── events/new/page.tsx          # S-08, the event request form (create)
     │   ├── events/[id]/edit/page.tsx  # S-08, the same form (edit a saved draft) —
     │   │                                also the ONLY screen a draft has: opening a
@@ -330,6 +332,9 @@ IS212/
         ├── safetyDecision.ts             # SPM-87 (pure): the three decisions, the reason rules,
         │                                   where each leaves the event, and the wording of the
         │                                   event's "Safety check" row and the notification
+        ├── coordinatorAssignments.ts     # SPM-84 (pure): which events are active, each
+        │                                   coordinator's active-event count, the Active
+        │                                   events filters, and the Lead's refusal wording
         ├── safetyResolution.ts           # SPM-88 (pure): what follows a returned check (the
         │                                   flag reason, when the coordinator may flag), what
         │                                   closes a check, the history lines and the wording
@@ -688,7 +693,8 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
 | Only the role the briefing gives a step may perform it: organiser submits, Ops Manager assigns, assigned coordinator approves/confirms, Venue Staff decide bookings, Technical Support decides equipment | `canSetEventStatus()`, `can()` | ✅ done |
 | Catalogue writes belong to their owner — venues to Venue Staff, equipment to Technical Support | `api/venues` POST, `api/equipment` POST | ✅ done |
-| **Only the Event Operations Manager assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
+| **Only the Event Coordinator Lead (the Event Operations Manager until SPM-84) assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
+| **The Event Coordinator Lead oversees every coordinator's workload** - each Event Coordinator with their number of active events (zero included; a deactivated one only while they still hold one), and every active event (not Draft, Rejected, Withdrawn, Cancelled or Completed) with its coordinator, filterable by coordinator and status. No other role can see it | `coordinatorWorkload()`, `filterActiveEvents()`, `ACTIVE_EVENT_STATUSES` (`src/lib/coordinatorAssignments.ts`), `GET /api/assignments` | ✅ done (SPM-84) |
 | **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
 | **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
 | **An event begins planning with the assigned coordinator's first venue or equipment action, and only from Approved** — pressing Search on Find a venue, submitting a booking request, or adding, saving or removing an equipment requirement. Nothing else moves an event to Planning; the general status PATCH refuses it | `beginPlanningIfApproved()` (`src/lib/beginPlanning.ts`), `canBeginPlanning()`, `POST /api/events/[id]/begin-planning` | ✅ done (SPM-54) |
@@ -1020,6 +1026,45 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-20 — Janelle
+- **SPM-84 (Event Coordinator Lead: Rename Role and View Assignments, Week 7
+  change #5, forum #129).** The Event Operations Manager is now shown as the
+  **Event Coordinator Lead** - the same role: the key stays `ops_manager`, so
+  accounts, permissions and records are unchanged (AC1). Changed wording: the
+  role label (top bar), the Assignments refusal, the Review Queue's empty state
+  and the assign API's refusals.
+  - **Assignments gets two new tabs** (S-28):
+    - **Active events** (`?view=active`): every active event - Submitted,
+      Under review, Approved, Planning, Safety review, Safety approved,
+      Confirmed, Postponed (AC6) - with its client, date, status and
+      coordinator ("Not yet assigned" when none), filters for Coordinator and
+      Status kept in the address, a link to each event, and Assign / Reassign
+      on each row (SPM-30's control). It replaces SPM-30's "Assigned" tab; the
+      old address still opens it.
+    - **Coordinators** (`?view=coordinators`): every Event Coordinator, A to
+      Z, with their number of active events, 0 included (AC10); a deactivated
+      one only while they still hold an active event, marked "Account
+      inactive". Each name opens Active events filtered to them.
+  - `GET /api/assignments`: `assigned` became `active`, and `workload` was
+    added. `coordinators` (who an event can go to) is unchanged.
+  - **Rules:** `src/lib/coordinatorAssignments.ts` (pure).
+  - **Changed in other people's code:** SPM-30's Assignments page and API
+    (Kristen) - the tab and the list above; the assign route's refusal
+    wording; the Review Queue's empty-state wording; SPM-30's Assignments
+    tests updated for the new tab and data (values only).
+  - **Migration:** none.
+  - **Test data:** `npm run fixtures:spm84` - four coordinator accounts of the
+    story's own (Aisha Karim, Benjamin Lau, Clara Tay, and Dennis Ho,
+    deactivated) and eleven events; the accounts and events are appended to
+    `prisma/seed.ts`.
+  - **Test cases:** `docs/test-cases/SPM-84_Test_Cases.xlsx` (9). 29 cases of
+    other stories that name the role, or open the renamed tab, set to
+    **Updated** with a v2 note (listed in `docs/test-cases/DECOMMISSIONED.md`).
+  - **Docs:** `docs/PERMISSIONS.md`, `UI_DESIGN.md`, `docs/CHANGES.md`. Not
+    renamed: the C4 model (`docs/architecture/connectsphere.dsl`) still says
+    "Ops Manager"; it predates Week 7 and is listed in START_HERE.md as not yet
+    redrawn.
 
 ### 2026-10-20 — Kayalvizhi (traceability, test case import, change trail; no story)
 Docs, CI and test names only; no feature code changed. Why: so anyone can

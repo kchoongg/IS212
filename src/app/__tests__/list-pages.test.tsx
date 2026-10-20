@@ -624,6 +624,14 @@ describe("Review Queue", () => {
     expect(await screen.findByText("Nothing to review")).toBeInTheDocument();
   });
 
+  it("[SPM-84][AC1] SPM-84-TC06: says the Event Coordinator Lead assigns the requests", async () => {
+    mockApi({ ...signedInAs("coordinator"), "GET /api/queue": [] });
+
+    render(<QueuePage />);
+
+    expect(await screen.findByText("Requests appear here once the Event Coordinator Lead assigns them to you.")).toBeInTheDocument();
+  });
+
   it("[SPM-22][AC4] sends the user to log in when their session has expired", async () => {
     mockApi({ ...signedInAs("coordinator"), "GET /api/queue": reply(401, {}) });
 
@@ -1474,22 +1482,41 @@ describe("Assignments", () => {
     ...overrides,
   });
 
+  // CHANGED (SPM-84): `assigned` became `active` (every active event, with or
+  // without a coordinator), and `workload` counts each coordinator's events.
   const data = (overrides: Record<string, unknown> = {}) => ({
     awaiting: [item(1, { title: "Gala Dinner" }), item(2)],
-    assigned: [item(3, { title: "Summit", status: "planning", coordinator: daniel })],
+    active: [item(3, { title: "Summit", status: "planning", coordinator: daniel })],
     coordinators: [daniel, priya],
+    workload: [
+      { ...daniel, isActive: true, activeEvents: 1 },
+      { ...priya, isActive: true, activeEvents: 0 },
+    ],
     ...overrides,
   });
 
-  it.each(ROLES.filter((r) => r !== "ops_manager"))("[SPM-22][AC4] refuses %s without requesting the list", async (role) => {
+  // CHANGED (SPM-84 AC1): the refusal names the Event Coordinator Lead.
+  it.each(ROLES.filter((r) => r !== "ops_manager"))("[SPM-22][AC4] [SPM-84][AC12] refuses %s without requesting the list", async (role) => {
     const api = mockApi(signedInAs(role));
 
     render(<AssignmentsPage />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Assigning coordinators is the Event Operations Manager's role."
+      "Assigning coordinators is the Event Coordinator Lead's role."
     );
     expect(api.sent(ROUTE)).toHaveLength(0);
+  });
+
+  it("[SPM-84][AC1] SPM-84-TC01: offers the Lead three tabs", async () => {
+    setRoute("/assignments");
+    mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data() });
+
+    render(<AssignmentsPage />);
+
+    await table();
+    expect(screen.getByRole("link", { name: /^Awaiting assignment/ })).toHaveAttribute("href", "/assignments");
+    expect(screen.getByRole("link", { name: "Active events" })).toHaveAttribute("href", "/assignments?view=active");
+    expect(screen.getByRole("link", { name: "Coordinators" })).toHaveAttribute("href", "/assignments?view=coordinators");
   });
 
   describe("awaiting assignment", () => {
@@ -1595,29 +1622,164 @@ describe("Assignments", () => {
     });
   });
 
-  describe("assigned", () => {
-    it("[SPM-30][AC3] lists events that have a coordinator, with their status and who it is", async () => {
-      setRoute("/assignments?view=assigned");
-      mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data() });
-
+  // SPM-84 (AC5-AC9, AC11): every active event, filterable by coordinator and
+  // status, with Assign / Reassign on each row. Replaces SPM-30's "Assigned"
+  // tab, whose tests are kept below with the new data.
+  describe("active events", () => {
+    const aisha = { id: "c3", fullName: "Aisha Karim" };
+    const active = [
+      item(3, { title: "Summit", status: "planning", coordinator: daniel }),
+      item(4, { title: "SPM84 Harbour Gala", status: "planning", coordinator: aisha, organisation: { name: "Meridian Financial Group" } }),
+      item(5, { title: "SPM84 Orchard Forum", status: "under_review", coordinator: aisha }),
+      item(6, { title: "SPM84 Unassigned Request", status: "submitted", coordinator: null }),
+    ];
+    const open = (path = "/assignments?view=active", overrides: Record<string, unknown> = {}) => {
+      setRoute(path);
+      const api = mockApi({
+        ...signedInAs("ops_manager"),
+        [ROUTE]: data({ active, coordinators: [aisha, daniel, priya], ...overrides }),
+      });
       render(<AssignmentsPage />);
+      return api;
+    };
+    const coordinatorFilter = () => screen.getByLabelText("Coordinator");
+    const statusFilter = () => screen.getByLabelText("Status");
+
+    it("[SPM-30][AC3] [SPM-84][AC5] lists every active event with its client, date, status and coordinator", async () => {
+      open();
+      const rows = await rowTexts();
+
+      expect(rows).toHaveLength(4);
+      expect(rows[1]).toContain("SPM84 Harbour Gala");
+      expect(rows[1]).toContain("Meridian Financial Group");
+      expect(rows[1]).toContain("4 Mar 2027");
+      expect(rows[1]).toContain("Planning");
+      expect(rows[1]).toContain("Aisha Karim");
+      expect(screen.getByRole("link", { name: "Active events" })).toHaveAttribute("aria-current", "page");
+    });
+
+    it("[SPM-84][AC5] shows an event with no coordinator as not yet assigned, with Assign instead of Reassign", async () => {
+      open();
+      const row = within(await table()).getByText("SPM84 Unassigned Request").closest("tr")!;
+
+      expect(row).toHaveTextContent("Not yet assigned");
+      expect(within(row).getByRole("combobox", { name: "Assign to — SPM84 Unassigned Request" })).toBeInTheDocument();
+    });
+
+    it("[SPM-84][AC5] opens on the Active events tab from SPM-30's old address", async () => {
+      open("/assignments?view=assigned");
+
+      expect(await rowTexts()).toHaveLength(4);
+      expect(screen.getByRole("link", { name: "Active events" })).toHaveAttribute("aria-current", "page");
+    });
+
+    it("[SPM-84][AC7] SPM-84-TC03: filters to one coordinator and keeps it in the address", async () => {
+      open();
+      await table();
+
+      await userEvent.selectOptions(coordinatorFilter(), "Aisha Karim");
+
+      const rows = await rowTexts();
+      expect(rows).toHaveLength(2);
+      expect(rows.every((r) => r!.includes("Aisha Karim"))).toBe(true);
+      expect(router.replace).toHaveBeenLastCalledWith("/assignments?view=active&coordinator=c3");
+    });
+
+    it("[SPM-84][AC7] offers any coordinator, not yet assigned, then each coordinator A to Z", async () => {
+      open();
+      await table();
+
+      expect(within(coordinatorFilter()).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "Any coordinator",
+        "Not yet assigned",
+        "Aisha Karim",
+        "Daniel Tan",
+        "Priya Raj",
+      ]);
+    });
+
+    it("[SPM-84][AC6][AC7] SPM-84-TC04: offers only the active statuses", async () => {
+      open();
+      await table();
+
+      expect(within(statusFilter()).getAllByRole("option").map((o) => o.textContent)).toEqual([
+        "Any status",
+        "Submitted",
+        "Under review",
+        "Approved",
+        "Planning",
+        "Safety review",
+        "Safety approved",
+        "Confirmed",
+        "Postponed",
+      ]);
+    });
+
+    it("[SPM-84][AC7] SPM-84-TC04: combines the coordinator and the status, from the address", async () => {
+      open("/assignments?view=active&coordinator=c3&status=planning");
       const rows = await rowTexts();
 
       expect(rows).toHaveLength(1);
-      expect(rows[0]).toContain("Summit");
-      expect(rows[0]).toContain("Planning");
-      expect(rows[0]).toContain("Daniel Tan");
-      expect(screen.getByRole("link", { name: "Assigned" })).toHaveAttribute("aria-current", "page");
+      expect(rows[0]).toContain("SPM84 Harbour Gala");
+      expect(coordinatorFilter()).toHaveValue("c3");
+      expect(statusFilter()).toHaveValue("planning");
     });
 
-    it("[SPM-30][AC6] reassigning confirms who it moved from and to", async () => {
-      setRoute("/assignments?view=assigned");
-      mockApi({
-        ...signedInAs("ops_manager"),
-        [ROUTE]: data(),
-        "PUT /api/events/EVT-000003/coordinator": { status: "planning", coordinator: priya, previousCoordinator: daniel },
+    it("[SPM-84][AC7] writes both filters to the address, and drops one set back to any", async () => {
+      open("/assignments?view=active&coordinator=c3");
+      await table();
+
+      await userEvent.selectOptions(statusFilter(), "Under review");
+      expect(router.replace).toHaveBeenLastCalledWith("/assignments?view=active&coordinator=c3&status=under_review");
+
+      await userEvent.selectOptions(coordinatorFilter(), "Any coordinator");
+      expect(router.replace).toHaveBeenLastCalledWith("/assignments?view=active&status=under_review");
+    });
+
+    it("[SPM-84][AC7] SPM-84-TC04: keeps the events with no coordinator", async () => {
+      open("/assignments?view=active&coordinator=unassigned");
+      const rows = await rowTexts();
+
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toContain("SPM84 Unassigned Request");
+    });
+
+    it("[SPM-84][AC7] SPM-84-TC04: says so when nothing matches the filters", async () => {
+      open("/assignments?view=active&coordinator=c2&status=planning");
+
+      expect(await screen.findByText("No active events match these filters")).toBeInTheDocument();
+      expect(screen.getByText("Try another coordinator or status.")).toBeInTheDocument();
+    });
+
+    it("[SPM-84][AC5] ignores a coordinator or status in the address that it does not offer", async () => {
+      open("/assignments?view=active&coordinator=nobody&status=draft");
+
+      expect(await rowTexts()).toHaveLength(4);
+      expect(coordinatorFilter()).toHaveValue("all");
+      expect(statusFilter()).toHaveValue("all");
+    });
+
+    it("[SPM-30] [SPM-84][AC5] says so when there are no active events at all", async () => {
+      open("/assignments?view=active", { active: [] });
+
+      expect(await screen.findByText("No active events")).toBeInTheDocument();
+      expect(screen.getByText("Events appear here once an organiser submits a request.")).toBeInTheDocument();
+    });
+
+    it("[SPM-84][AC8] SPM-84-TC03: links each event to its Overview", async () => {
+      open();
+
+      expect(within(await table()).getByRole("link", { name: "SPM84 Harbour Gala" })).toHaveAttribute(
+        "href",
+        "/events/EVT-000004"
+      );
+    });
+
+    it("[SPM-30][AC6] [SPM-84][AC9][AC11] SPM-84-TC09: reassigning from the list says who it moved from and to, and reloads", async () => {
+      const api = open("/assignments?view=active", {
+        active: [item(3, { title: "Summit", status: "planning", coordinator: daniel })],
       });
-      render(<AssignmentsPage />);
+      api.on("PUT /api/events/EVT-000003/coordinator", { status: "planning", coordinator: priya, previousCoordinator: daniel });
       const picker = within(await table()).getByRole("combobox", { name: "Reassign to — Summit" });
 
       await userEvent.selectOptions(picker, "Priya Raj");
@@ -1626,27 +1788,55 @@ describe("Assignments", () => {
       await userEvent.click(within(dialog).getByRole("button", { name: "Reassign", hidden: true }));
 
       expect(await screen.findByText('"Summit" has been reassigned from Daniel Tan to Priya Raj.')).toBeInTheDocument();
+      await waitFor(() => expect(api.sent(ROUTE)).toHaveLength(2));
     });
 
-    it("[SPM-30] names an untitled assigned event as such", async () => {
-      setRoute("/assignments?view=assigned");
-      mockApi({
-        ...signedInAs("ops_manager"),
-        [ROUTE]: data({ assigned: [item(3, { title: null, status: "planning", coordinator: daniel })] }),
-      });
-
-      render(<AssignmentsPage />);
+    it("[SPM-30] names an untitled event as such", async () => {
+      open("/assignments?view=active", { active: [item(3, { title: null, status: "planning", coordinator: daniel })] });
 
       expect(within(await table()).getByRole("combobox", { name: "Reassign to — Untitled event" })).toBeInTheDocument();
     });
+  });
 
-    it("[SPM-30] says so when no event has a coordinator yet", async () => {
-      setRoute("/assignments?view=assigned");
-      mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data({ assigned: [] }) });
-
+  // SPM-84 (AC4, AC10): every coordinator and their number of active events.
+  describe("coordinators", () => {
+    const open = (workload: unknown[]) => {
+      setRoute("/assignments?view=coordinators");
+      mockApi({ ...signedInAs("ops_manager"), [ROUTE]: data({ workload }) });
       render(<AssignmentsPage />);
+    };
 
-      expect(await screen.findByText("No assigned events")).toBeInTheDocument();
+    it("[SPM-84][AC4][AC10] SPM-84-TC02: lists each coordinator with their active events, zero included", async () => {
+      open([
+        { id: "c3", fullName: "Aisha Karim", isActive: true, activeEvents: 3 },
+        { id: "c5", fullName: "Clara Tay", isActive: true, activeEvents: 0 },
+      ]);
+      const rows = await rowTexts();
+
+      expect(rows).toEqual(["Aisha Karim3", "Clara Tay0"]);
+      expect(screen.getByRole("link", { name: "Coordinators" })).toHaveAttribute("aria-current", "page");
+      expect(within(await table()).getByRole("columnheader", { name: "Active events" })).toBeInTheDocument();
+    });
+
+    it("[SPM-84][AC4] marks a deactivated coordinator who still holds events", async () => {
+      open([{ id: "c6", fullName: "Dennis Ho", isActive: false, activeEvents: 1 }]);
+
+      expect(within(await table()).getByText("Account inactive")).toBeInTheDocument();
+    });
+
+    it("[SPM-84][AC4][AC7] links each coordinator to the Active events tab filtered to them", async () => {
+      open([{ id: "c3", fullName: "Aisha Karim", isActive: true, activeEvents: 3 }]);
+
+      expect(within(await table()).getByRole("link", { name: "Aisha Karim" })).toHaveAttribute(
+        "href",
+        "/assignments?view=active&coordinator=c3"
+      );
+    });
+
+    it("[SPM-84][AC4] says so when there are no coordinators", async () => {
+      open([]);
+
+      expect(await screen.findByText("No Event Coordinators")).toBeInTheDocument();
     });
   });
 
