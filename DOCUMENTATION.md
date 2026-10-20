@@ -964,7 +964,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
 | **Cancelling or postponing an event does not release its bookings** | Since SPM-67 the assigned coordinator can withdraw a pending request or release an approved booking one at a time, from the Venue tab. Releasing every booking when the event itself is cancelled or postponed without a date (#69) belongs to SPM-37 and SPM-38. Venue Staff still have no list of what they have already decided. | SPM-37 / SPM-38 |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
-| **Review Flagged Arrangements has no reason code for a changed setup or turnaround time** | Since SPM-68 the assigned coordinator clears a flag from the Flagged Arrangements page (`/flagged`) - keep, mark registrations as reviewed, or replace and release. SPM-68's AC2 also lists "venue setup or turnaround time changed" as a reason, but nothing writes it: that is Re-check Bookings (SPM-80). Until then no booking carries it; when SPM-80 adds its code, the page shows it in plain words (underscores removed) unless the code is added to `REASON_PROSE` in `src/lib/flaggedArrangements.ts` and its twins in `eventConfirmation.ts` and `safetyCheck.ts`. Changing or ending an unavailable period (SPM-45) still does not clear the flag it raised; the coordinator keeps the booking once the room is free again. | SPM-80 |
+| **A flag stays after what raised it is undone** | Changing or ending an unavailable period (SPM-45), or lowering a venue's setup or turnaround time again (SPM-80, SPM-80-TC04), does not clear the flags it raised. The coordinator keeps the booking on the Flagged Arrangements page (`/flagged`), which offers Keep once it fits again. Decided 2026-10-20 for SPM-80: clearing a flag stays the coordinator's decision (SPM-68). | Kristen (SPM-68) |
 | **SPM-34-TC07 is out of date after SPM-33** | Its message now names the venue ("Orchard Seminar Room for this event is still awaiting a decision from Venue Staff"). | SPM-34's owner |
 | **An Ops Manager can view equipment and facilities but cannot reach them** | `ops_manager` holds `equipment:view` and `facility:view` (`src/lib/permissions.ts`) but `NAV_BY_ROLE` gives them no link to either, so the only way in is to type the address. The same was true of `venue:view` until SPM-46 added the Venues link on 2026-09-27 — found because SPM-46-TC10 asks an Ops Manager to reach the availability calendar from the sidebar. Worth a sweep: a permission nothing navigates to is a permission nobody tests. | equipment |
 | **Venue Staff and Technical Support can view events but have no event list link** | Both hold `event:view`, but `NAV_BY_ROLE` has no "All Events" for either. Venue Staff can reach an event only through a pending request on Booking Requests. Technical Support's Equipment Requests open their own equipment screen, never the event Overview, so for them typing `/events` is the only way in. Found while writing SPM-64-TC24 (2026-10-09), which types the address for Technical Support. | unclaimed |
@@ -1018,6 +1018,31 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-20 — Kristen (SPM-80, Re-check Bookings When Setup or Turnaround Time Changes)
+- **Changing a venue's setup or turnaround time re-checks its bookings.**
+  `PATCH /api/venues/[id]` re-checks the venue's pending and approved bookings
+  that have not finished (`src/lib/turnaroundRecheck.ts`). Two bookings of
+  different events whose room-in-use periods now overlap are both flagged
+  with the new reason `booking_clash`, each naming the other; one that now
+  runs into an unavailable period is flagged `venue_unavailable`. Only what
+  the change newly breaks is flagged, nothing is un-flagged, and no booking
+  is changed. The coordinator (or the requester) is notified with the
+  change and what the booking now overlaps. New requests already used the
+  current times (SPM-93).
+- **Venue edit page:** the save result names what each flagged booking
+  clashes with; a hint under Turnaround time explains the re-check; "No
+  bookings were affected" and "Changes here can affect this venue's
+  bookings" replace wording that said approved bookings only. Ten cases in
+  SPM-39, SPM-43, SPM-45 and SPM-93 quoted the old message and are marked
+  Updated (`docs/test-cases/DECOMMISSIONED.md`).
+- Tests: unit, route, page, `integration/` and `e2e/`; manual cases
+  SPM-80-TC01 to TC09 all passed (2026-10-20), fixtures `npm run
+  fixtures:spm80`. Closes the Known Gap "Review Flagged Arrangements has no
+  reason code for a changed setup or turnaround time".
+- Migration: none.
 
 ---
 
