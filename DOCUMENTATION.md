@@ -974,7 +974,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. The same holds for each of an event's rooms (SPM-90, decided 2026-10-13): a breakout room is judged on its own attendance and layout, but must still have every facility the event requires. | events / venues |
 | **Few route-level tests against a real database** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Since 2026-10-19 `npm run test:integration` covers, on a real Postgres: booking requests at the same moment (SPM-44), approval booking the room (SPM-43), an expired hold freeing the room and not being approvable (SPM-82), equipment reservations reducing what is left and the last unit reserved at the same moment (SPM-48/49), and the registration capacity (SPM-51). Everything else is unit tested against a mocked database; see `docs/TESTING.md`. | unclaimed |
 | **Two attendees can take the last registration place at the same moment** | Found by an integration test on 2026-10-19: with one place left, two `POST /api/registrations` at the same moment were both accepted, 5 runs out of 5 (2 places held, capacity 1). The route counts places inside a transaction, but a count does not stop a concurrent insert under Postgres's default isolation. The booking and reserve routes avoid this by locking a row first (`SELECT … FOR UPDATE`); this route takes no lock. Not fixed here - raise a Bug, write the failing integration test first, then lock the event row before counting. | SPM-51's owner |
-| **The booking request form shows nothing when an error reply is not JSON** | `src/app/events/[id]/booking/new/page.tsx`: if the request fails with a body that is not JSON (e.g. a proxy's HTML error page), `res.json()` falls back to `{}` and `setSubmitError(undefined)` shows no message, so the coordinator sees the button stop and nothing else. Found while reviewing coverage (README "Coverage exclusions"). | SPM-42's owner |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
@@ -1018,6 +1017,22 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-20 — Kayalvizhi (SPM-100, bug in SPM-42's request form)
+- **SPM-100 (bug): the venue booking request form now says something when a
+  refusal gives no reason.** If `POST /api/events/<ref>/venue-bookings`
+  answered an error with no body, or a body with no `error` (a crash before
+  the route answers, a proxy's 502), `send()` in
+  `src/app/events/[id]/booking/new/page.tsx` called `setSubmitError(undefined)`
+  and the form showed nothing. It now shows the general message it already
+  showed when the server could not be reached, "Could not send the request.
+  Try again.", and keeps the form open.
+- Tests: `[SPM-42][BUG-100]` in the "submitting" block of
+  `src/app/__tests__/event-venue-pages.test.tsx` (a 500 with no body, a 502
+  with `{}`). Removed from Known Gaps and from README's coverage exclusions
+  (section 4).
 
 ---
 
