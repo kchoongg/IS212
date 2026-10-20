@@ -16,7 +16,7 @@ equipment with Technical Support, and an Operational Safety Check with the
 Safety Officer. The Coordinator then confirms the event, and Attendees
 register for it.
 
-**Product Goal:** <<PASTE FROM PLAYBOOK>>
+**Product Goal:** one platform where ConnectSphere staff and event organisers plan events, book venues and equipment, and track every change from request to completion.
 
 It is one Next.js app (UI and API) on one PostgreSQL database (Neon), built by
 five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
@@ -25,7 +25,7 @@ five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
 
 | What | Where |
 |---|---|
-| Team playbook (ways of working, Definition of Done, roles) | <<PASTE PLAYBOOK LINK>> |
+| Team playbook (ways of working, Definition of Done, roles) | https://docs.google.com/document/d/1YVuC7iKUARSBwRcnyNZSczNsmqr_yR3w7B2m7S2AB2Q/edit |
 | Jira board: every story, its ACs, estimate comments and sprint | https://kkchoong.atlassian.net/browse/SPM |
 | Code and pull requests | https://github.com/kchoongg/IS212 |
 | **Traceability matrix**: every story from estimate to Done, in one table | [traceability/TRACEABILITY.md](traceability/TRACEABILITY.md) (and [.csv](traceability/TRACEABILITY.csv)) |
@@ -40,7 +40,7 @@ five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
 | Customer clarifications (forum Q&A, by topic) | [CUSTOMER_CLARIFICATIONS.md](CUSTOMER_CLARIFICATIONS.md), raw threads in [discussions/](discussions/) |
 | Developer guide: setup, structure, conventions, changelog, known gaps | [../DOCUMENTATION.md](../DOCUMENTATION.md) |
 | Schema and screens | [../SCHEMA_REFERENCE.md](../SCHEMA_REFERENCE.md), [../UI_DESIGN.md](../UI_DESIGN.md) |
-| Sprint evidence (reviews, retros, velocity) | <<PASTE SPRINT EVIDENCE LINK>> |
+| Sprint evidence (reviews, retros, velocity) | https://drive.google.com/drive/folders/1QRM41o-J406Ln-RShGYn9_XaN-q9f7m2 |
 | Old copies of test cases (read-only archive) | [Drive folder](https://drive.google.com/drive/folders/1QRM41o-J406Ln-RShGYn9_XaN-q9f7m2): do not edit; the repo is the source of truth since 2026-10-19 |
 
 ## Running it
