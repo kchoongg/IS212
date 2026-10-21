@@ -30,7 +30,17 @@ describe("navFor", () => {
     const labels = Object.fromEntries(ROLES.map((role) => [role, navFor(role).map((item) => item.label)]));
     expect(labels).toEqual({
       organiser: ["Dashboard", "My Events", "Notifications"],
-      coordinator: ["Dashboard", "Review Queue", "Flagged Arrangements", "All Events", "Venues", "Equipment", "Notifications"],
+      coordinator: [
+        "Dashboard",
+        "Review Queue",
+        "Flagged Arrangements",
+        // SPM-35
+        "Change Requests",
+        "All Events",
+        "Venues",
+        "Equipment",
+        "Notifications",
+      ],
       venue_staff: ["Dashboard", "Venues", "Booking Requests", "Notifications"],
       tech_support: ["Dashboard", "Equipment", "Equipment Requests", "Notifications"],
       attendee: ["Dashboard", "Browse Events", "My Registrations", "Notifications"],
@@ -66,6 +76,16 @@ describe("navFor", () => {
     expect(coordinator[queue + 1]).toEqual({ href: "/flagged", label: "Flagged Arrangements" });
     for (const role of ROLES.filter((r) => r !== "coordinator")) {
       expect(navFor(role).map((item) => item.href)).not.toContain("/flagged");
+    }
+  });
+
+  it("[SPM-35][AC4] gives the coordinator Change Requests after Flagged Arrangements, and nobody else", () => {
+    const coordinator = navFor("coordinator");
+    const flagged = coordinator.findIndex((item) => item.href === "/flagged");
+
+    expect(coordinator[flagged + 1]).toEqual({ href: "/change-requests", label: "Change Requests" });
+    for (const role of ROLES.filter((r) => r !== "coordinator")) {
+      expect(navFor(role).map((item) => item.href)).not.toContain("/change-requests");
     }
   });
 

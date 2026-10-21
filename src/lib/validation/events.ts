@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { deriveEventFromSessions } from "../eventSessions";
+import { CHANGE_REQUEST_KINDS, REASON_REQUIRED } from "../eventChangeRequest";
 
 // ---- Events ----
 
@@ -313,6 +314,24 @@ export const updateEventInformationSchema = z
   })
   .strict();
 export type UpdateEventInformationInput = z.infer<typeof updateEventInformationSchema>;
+
+// SPM-35: an organiser's Event Change Request. `changes` proposes new values in
+// Update Event Information's own shape (SPM-62), so Process Event Change Request
+// (SPM-32) can apply them; only a "change" carries them. Every kind needs a
+// reason (AC3). What actually changes is worked out against the event in the
+// route (fieldChanges(), src/lib/eventChangeRequest.ts).
+export const createChangeRequestSchema = z
+  .object({
+    kind: z.enum(CHANGE_REQUEST_KINDS).default("change"),
+    reason: z
+      .string({ required_error: REASON_REQUIRED, invalid_type_error: REASON_REQUIRED })
+      .trim()
+      .min(1, REASON_REQUIRED),
+    changes: updateEventInformationSchema.optional(),
+    equipmentChanges: z.string().optional(),
+  })
+  .strict();
+export type CreateChangeRequestInput = z.infer<typeof createChangeRequestSchema>;
 
 // SPM-30: assign or reassign an event's coordinator. The route checks the
 // person is an active Event Coordinator; this only checks the shape.

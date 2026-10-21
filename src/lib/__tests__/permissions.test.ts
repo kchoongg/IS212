@@ -31,6 +31,8 @@ import {
   TECH_SUPPORT_EQUIPMENT_STATUSES,
   canWithdrawEvent,
   canViewEvent,
+  canRequestEventChange,
+  canViewChangeRequests,
   eventListWhere,
   isAssignedCoordinator,
   ownsEvent,
@@ -84,7 +86,16 @@ describe("the role matrix", () => {
     // deliberate change made here as well, not a silent one.
     expect(Object.keys(ROLE_PERMISSIONS).sort()).toEqual([...ROLES].sort());
     expect(ROLE_PERMISSIONS).toEqual({
-      organiser: ["event:create", "event:view", "event:edit_draft", "equipment:view", "registration:view_list", "facility:view"],
+      organiser: [
+        "event:create",
+        "event:view",
+        "event:edit_draft",
+        // SPM-35: the organiser asks for a change after submission.
+        "event:request_change",
+        "equipment:view",
+        "registration:view_list",
+        "facility:view",
+      ],
       coordinator: [
         "event:view",
         "event:review",
@@ -979,4 +990,28 @@ describe("canViewRegistrationList (SPM-65)", () => {
       expect(canViewRegistrationList(actor(role, "organiser-1", CLIENT_A), theirs)).toBe(false);
     }
   );
+});
+
+describe("[SPM-35] Request Event Change", () => {
+  const confirmed = event({ status: "confirmed", coordinatorId: "coordinator-1" });
+
+  it("[SPM-35][AC1] only the organiser who owns the event may request a change", () => {
+    expect(canRequestEventChange(organiserA, confirmed)).toBe(true);
+    for (const someone of [colleagueA, organiserB, coordinator, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canRequestEventChange(someone, confirmed), someone.role).toBe(false);
+    }
+  });
+
+  it("[SPM-35][AC4] the event's organisers, its assigned coordinator and the Ops Manager see its change requests", () => {
+    for (const someone of [organiserA, colleagueA, coordinator, opsManager]) {
+      expect(canViewChangeRequests(someone, confirmed), someone.id).toBe(true);
+    }
+  });
+
+  it("[SPM-35] nobody else sees them: another client, another coordinator, Venue Staff, Technical Support or an attendee", () => {
+    const open = event({ status: "confirmed", coordinatorId: "coordinator-1", registrationEnabled: true });
+    for (const someone of [organiserB, otherCoordinator, venueStaff, techSupport, attendee]) {
+      expect(canViewChangeRequests(someone, open), someone.id).toBe(false);
+    }
+  });
 });
