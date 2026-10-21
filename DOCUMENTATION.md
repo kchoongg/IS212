@@ -977,7 +977,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **The booking request form shows nothing when an error reply is not JSON** | `src/app/events/[id]/booking/new/page.tsx`: if the request fails with a body that is not JSON (e.g. a proxy's HTML error page), `res.json()` falls back to `{}` and `setSubmitError(undefined)` shows no message, so the coordinator sees the button stop and nothing else. Found while reviewing coverage (README "Coverage exclusions"). | SPM-42's owner |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
-| **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
+| **The organiser cannot answer a clarification yet** | Since SPM-29 the assigned coordinator asks for clarification from the review page and the open clarification is shown on the event page, but nothing lets the organiser respond, mark it answered or change the request while it is open - that is **SPM-26**. Until then a clarification stays open, so the coordinator cannot raise another one on that event. | SPM-26 |
+| **Nobody is notified of a clarification request** | SPM-29 writes no `Notification`; the organiser sees the request only by opening the event. Telling them is **SPM-53**'s (the "notification" AC was moved there on 2026-09-18). | SPM-53 |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
 | **Nobody is notified when an event's information changes** | SPM-62 moves a Confirmed event back to Planning but writes no `Notification` — the organiser ("no longer confirmed") and registered attendees ("new date and time") are told by **SPM-53**, per the BPMN and SPM-62's reworded AC6 (decided 2026-10-05). | SPM-53 |
 | **A multi-session event's sessions cannot be edited after approval** | Edit event information shows a multi-session event's sessions read-only ("Session times and attendance can't be changed here yet."). The draft editor replaces sessions wholesale, which after approval would delete each session's bookings and equipment, so session edits need their own story that updates them in place. | events |
@@ -1021,6 +1022,34 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-21 — Sammi Chua (SPM-29, fixes from the review of PR #70)
+- **The clarification is no longer shown once the review is over.** Approve
+  and Reject stay available while a clarification is open, but nothing closes
+  it (SPM-26 only marks it answered when the organiser responds), so after an
+  approval, a rejection or a withdrawal the organiser still saw "Clarification
+  requested". `GET /api/events/[ref]` now sends `openClarification` only
+  while the event is Under review, and `null` after.
+- **Only one open clarification per event, even at the same moment.** The
+  check before the create could not stop a double-click or two tabs: both read
+  "none open" before either saved (shown on a real database: both 201, 3 runs
+  out of 3). A partial unique index on `clarification_requests(event_id) WHERE
+  status = 'open'` now refuses the second, and the route turns that into "This
+  event already has an open clarification." SPM-26 relies on there being one.
+  New integration test `integration/clarification.test.ts`.
+- **No empty "Needs clarification:" line.** Clarifications raised before
+  SPM-29 (the seed's) record no items; the line is left out when there are none.
+- Smaller: an event past review is told "not under review" before the form is
+  checked; after "already has an open clarification" the review page reloads
+  and shows the existing one; the review form's options come from
+  `CLARIFICATION_FIELDS`, the list the route checks; and the event route looks
+  clarifications up only for the organiser and the assigned coordinator,
+  with its own query instead of in every viewer's `include`.
+- Migration: `20261021120000_one_open_clarification_per_event` (index only,
+  in the SQL - Prisma can't express a partial index; see SCHEMA_REFERENCE.md).
+  No `prisma generate` needed: the client does not change.
+
+---
+
 ### 2026-10-20 — Kayalvizhi (traceability, test case import, change trail; no story)
 Docs, CI and test names only; no feature code changed. Why: so anyone can
 trace any story from its estimate to Done, and the trace stays current.
@@ -1046,6 +1075,45 @@ trace any story from its estimate to Done, and the trace stays current.
   nothing runs.
 - `docs/START_HERE.md` for new joiners. Sprint tags `sprint-1` to `sprint-3`.
 - Migration: none.
+
+---
+
+### 2026-10-19 — Sammi Chua (SPM-29, Request Event Clarification)
+- **The assigned coordinator can ask the organiser for clarification.** The
+  review page (S-13) has a third option, "Ask the organiser for
+  clarification": tick what needs clarifying (AC1 - the review page's own
+  field labels, Purpose to Equipment) and write a message (AC2), then "Send
+  request". Backed by `POST /api/events/[ref]/clarifications`
+  `{ fields, message }`, which writes a `ClarificationRequest` for the event
+  (AC4).
+- **The event stays Under review (AC3)** - the route never writes the event
+  or its status history; there is no Clarification Required status
+  (2026-09-22 decision).
+- **Shown on the event (AC3):** `GET /api/events/[ref]` now returns
+  `openClarification` (items, message, who asked and when, or `null`) to
+  the organisers of the event's client and the assigned coordinator only
+  (`canSeeClarification()`); everyone else gets no key. The event page shows
+  it as an amber "Clarification requested" banner; the review page shows an
+  "Open clarification" box. Both use `ClarificationDetails.tsx`.
+- **Rules** (`src/lib/clarification.ts`, `canRequestClarification()`): only
+  the assigned coordinator (403), only while Under review (400), at least one
+  item and a non-blank message (400), and **one open clarification per event
+  at a time** (400 "This event already has an open clarification.", held by
+  a partial unique index - see the 2026-10-21 entry; the option is hidden
+  while one is open). Approve and Reject stay available while one is open.
+  Decided 2026-10-19 (docs/test-cases/SPM-29_test_cases.json).
+- Removed SPM-28's "clarifications are out of scope" note from the review page.
+- **Test cases:** `docs/test-cases/SPM-29_Test_Cases.xlsx` (6 cases), written
+  before the code. Test data: `npm run fixtures:spm29` (`scripts/seed-spm29.ts`),
+  two "SPM29 …" events; the same events are at the end of `prisma/seed.ts`.
+- **Tests:** `clarification.test.ts`, `clarifications.test.ts` (route), and
+  additions to `permissions.test.ts`, `event-detail.test.ts` and
+  `event-pages.test.tsx` - written first (red), then the code.
+- Migration: `20261019120000_add_clarification_fields` (nullable
+  `clarification_requests.fields`, comma-separated codes; the seed's existing
+  rows read as no items, so no reseed).
+- Known Gaps: "The clarification loop is not built" replaced by two narrower
+  rows - the organiser's response (SPM-26) and the notification (SPM-53).
 
 ---
 
