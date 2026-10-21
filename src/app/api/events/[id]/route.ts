@@ -20,7 +20,7 @@ import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validatio
 import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
 import { dayIndex, dayStart } from "@/lib/equipmentAvailability";
-import { canTransition, transitionError } from "@/lib/statuses";
+import { canTransition, statusChangedError, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
@@ -310,6 +310,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
     return await handleDraftEdit(event.id, actor, event, body);
   } catch (err) {
+    if (err instanceof RouteError) {
+      return NextResponse.json({ error: err.message }, { status: err.status });
+    }
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
@@ -441,6 +444,17 @@ async function handleStatusChange(
   }
 
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // ADDED (SPM-26): every check above read the status before this
+    // transaction began, so two changes at the same moment (Approve in one
+    // tab, Reject in another) could both pass them. The row lock makes the
+    // second wait for the first; reading the status again under it refuses
+    // the second once the first has moved the event on.
+    await tx.$queryRaw`SELECT id FROM events WHERE id = ${id} FOR UPDATE`;
+    const current = await tx.event.findUnique({ where: { id }, select: { status: true } });
+    if (current && current.status !== event.status) {
+      throw new RouteError(400, statusChangedError(current.status));
+    }
+
     const e = await tx.event.update({
       where: { id },
       data: {
@@ -667,4 +681,17 @@ async function openClarificationOf(event: { id: string; status: string }) {
     select: { id: true, fields: true, message: true, requestedAt: true, requester: { select: { fullName: true } } },
   });
   return open ? { ...open, fields: decodeFields(open.fields) } : null;
+}
+
+/// Thrown inside a transaction to carry an HTTP status back out - Prisma
+/// rolls the transaction back on any thrown error, which is what a refused
+/// change needs anyway (nothing should be written). As in the equipment
+/// reserve route.
+class RouteError extends Error {
+  constructor(
+    public status: number,
+    message: string
+  ) {
+    super(message);
+  }
 }

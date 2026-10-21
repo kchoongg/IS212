@@ -780,6 +780,44 @@ describe("PATCH /api/events/[id] - status change", () => {
     });
   });
 
+  // Two status changes on one event at the same moment (Approve in one tab,
+  // Reject in another): the race itself is shown on a real database
+  // (integration/event-status.test.ts); here, that the lock comes first and
+  // a status changed in the meantime is refused.
+  describe("at the same moment as another status change", () => {
+    it("[SPM-26] locks the event's row and reads its status again before writing", async () => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event());
+      givenUpdateSucceeds();
+
+      expect((await patch(token, { status: "approved" })).status).toBe(200);
+
+      const [sql, eventId] = db.$queryRaw.mock.calls[0] as [string[], string];
+      expect(sql.join("?")).toBe("SELECT id FROM events WHERE id = ? FOR UPDATE");
+      expect(eventId).toBe(ID.event);
+      expect(callArg(db.event.findUnique, 1)).toEqual({ where: { id: ID.event }, select: { status: true } });
+      expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(db.event.findUnique.mock.invocationCallOrder[1]);
+      expect(db.event.findUnique.mock.invocationCallOrder[1]).toBeLessThan(db.event.update.mock.invocationCallOrder[0]);
+    });
+
+    it.each([
+      ["approved", "rejected", "This event is now Rejected. Reload the page to see the change."],
+      ["rejected", "approved", "This event is now Approved. Reload the page to see the change."],
+      ["withdrawn", "approved", "This event is now Approved. Reload the page to see the change."],
+    ])("[SPM-26] refuses %s when the event was just moved to %s, writing nothing", async (status, now, message) => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValueOnce(event()).mockResolvedValueOnce({ status: now });
+      givenUpdateSucceeds();
+
+      const res = await patch(token, { status, reason: "Out of budget" });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: message });
+      expect(db.event.update).not.toHaveBeenCalled();
+      expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe("later transitions", () => {
     it.each([
       ["a submitted request straight to confirmed", "submitted", "confirmed", "This event is Submitted and can't be moved to Confirmed."],
