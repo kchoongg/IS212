@@ -1027,6 +1027,22 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-21 — Kayalvizhi (test case workbooks)
+- **The Commit row of a test run fills itself.** Leave Commit blank, type in
+  the results and commit the workbook: a new pre-commit hook
+  (`.githooks/pre-commit`) writes `git rev-parse --short HEAD` into the Commit
+  cell of every execution block whose result is new since the last commit, and
+  adds the workbook to the commit. Blocks already committed are never changed,
+  and merge commits are skipped. Only those cells' sheet XML is rewritten, so
+  formatting is kept.
+- Why: testers were unsure which hash to type (the feature's commit, the one
+  where someone else's results went in, or the build they ran) and typing it
+  for every case was tedious. It is the build you ran; the hook takes it from
+  the checkout you commit from.
+- By hand, when the hook could not (workbook open in Excel, partly staged):
+  `npm run test-cases:commit` or `npm run test-cases:commit -- SPM-35`. See
+  `docs/test-cases/README.md`.
+
 ### 2026-10-21 — Sammi Chua (SPM-29, fixes from the review of PR #70)
 - **The clarification is no longer shown once the review is over.** Approve
   and Reject stay available while a clarification is open, but nothing closes
