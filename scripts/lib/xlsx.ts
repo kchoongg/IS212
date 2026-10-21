@@ -57,8 +57,9 @@ const unescape = (s: string) =>
 /** The text of every <t> inside a fragment (rich text has several). */
 const textOf = (xml: string) => [...xml.matchAll(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g)].map((m) => unescape(m[1])).join("");
 
-export function readWorkbook(path: string): Workbook {
-  const files = unzip(readFileSync(path));
+/** Reads a workbook from a file, or from its bytes (e.g. `git show HEAD:<file>`). */
+export function readWorkbook(source: string | Buffer): Workbook {
+  const files = unzip(typeof source === "string" ? readFileSync(source) : source);
   const xml = (name: string) => files.get(name)?.toString("utf8") ?? "";
 
   const shared = [...xml("xl/sharedStrings.xml").matchAll(/<si>([\s\S]*?)<\/si>/g)].map((m) => textOf(m[1]));

@@ -64,9 +64,24 @@ Leave one empty row after the previous block, then add:
 | Remarks | `NA`, or the bug key for a Fail (e.g. `SPM-102`), or why it was Blocked |
 | Executed by | Your name |
 | Date of Execution | The date you ran it (a date cell) |
-| Commit | `git rev-parse --short HEAD` of the build you tested |
+| Commit | Leave blank: filled in when you commit (below) |
 
 Blocks written before 2026-10-19 have no Commit row. Do not add one to them.
+
+**The Commit row fills itself.** Run the test on your checkout, type in the
+results with Commit left blank, save, and commit the workbook from that same
+checkout. The pre-commit hook (`.githooks/pre-commit`, switched on by
+`npm install`) writes `git rev-parse --short HEAD` - the build you tested -
+into the Commit cell of every block whose result is new since the last commit,
+and adds the filled-in workbook to the commit. Blocks already committed are
+never changed. So commit your results before you pull, merge or switch branch,
+or the hash will be of a build you did not test.
+
+If the hook could not fill a cell (the workbook was open in Excel, or part of
+it was not staged), close the workbook and run `npm run test-cases:commit`
+(or `npm run test-cases:commit -- SPM-35`), then commit again. A workbook with
+uncommitted changes under `src/` or `prisma/` gets a warning: the hash then does
+not fully describe what you tested, so say so in Remarks.
 
 `npm run trace` reads the newest block of each Active case for the
 traceability matrix (`docs/traceability/TRACEABILITY.md`).

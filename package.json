@@ -15,6 +15,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test-cases:check": "node scripts/check-test-cases.mts",
+    "test-cases:commit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fill-test-case-commits.mts",
     "trace": "tsx scripts/trace.ts",
     "trace:tags": "tsx scripts/check-test-tags.ts",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
