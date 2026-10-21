@@ -38,7 +38,7 @@ Column notes:
 | [SPM-32](https://kkchoong.atlassian.net/browse/SPM-32) | Process Event Change Request | SPM-15 Event Information & Change Management |  | Sprint 4 | 5 | Estimate: 5. Big: a queue of pending requests, approve or reject, and partial approval field by field, with approved changes applied through SPM-62's rules. Bi… | 7 | 0/7 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4, AC5, AC6, AC7; no TC file |
 | [SPM-33](https://kkchoong.atlassian.net/browse/SPM-33) | Track Outstanding Arrangements | SPM-16 Event Planning & Confirmation |  | Sprint 3 | 5 | Estimate: 5. Touches multiple areas: it pulls status from venue bookings, equipment requests and the safety check, and needs a migration to record an arrangeme… | 11 | 11/11 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A, AC10 A, AC11 A | [xlsx](../test-cases/SPM-33_Test_Cases.xlsx) | 17 | 0 | 17 Pass (2026-10-12) | 111 unit, 48 route | 0 | 0 | Web Application › Events API | [#48](https://github.com/kchoongg/IS212/pull/48) 2026-10-12 | none recorded (merged by JTKnight03) | Merged by JTKnight03 | [run](https://github.com/kchoongg/IS212/actions/runs/38258407566) | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (3 tests) | Done |  |
 | [SPM-34](https://kkchoong.atlassian.net/browse/SPM-34) | Confirm Event | SPM-16 Event Planning & Confirmation |  | Sprint 2 | 2 |  | 7 | 5/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 M, AC7 M | [xlsx](../test-cases/SPM-34_Test_Cases.xlsx) | 10 | 0 | 10 Pass (2026-10-04) | 22 unit, 5 route | 0 | 1 | Web Application › Events API | [#36](https://github.com/kchoongg/IS212/pull/36) 2026-10-04 | none recorded (merged by kayalvizhi24) | Merged by kayalvizhi24 | no CI run |  | Done | no estimate comment |
-| [SPM-35](https://kkchoong.atlassian.net/browse/SPM-35) | Request Event Change | SPM-15 Event Information & Change Management |  | Sprint 4 | 3 | Estimate: 3. Normal story: a new change-request record, one form and one endpoint. Like SPM-47 (3). | 6 | 0/6 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4, AC5, AC6; no TC file |
+| [SPM-35](https://kkchoong.atlassian.net/browse/SPM-35) | Request Event Change | SPM-15 Event Information & Change Management |  | Sprint 4 | 3 | Estimate: 3. Normal story: a new change-request record, one form and one endpoint. Like SPM-47 (3). | 6 | 0/6 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N | [xlsx](../test-cases/SPM-35_Test_Cases.xlsx) | 9 | 0 | 9 Pass (2026-10-21) | 65 unit, 33 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4, AC5, AC6; no TC file |
 | [SPM-36](https://kkchoong.atlassian.net/browse/SPM-36) | Mark Event as Completed | SPM-16 Event Planning & Confirmation |  | Sprint 4 | 3 | Estimate: 3. The manual action is small, like SPM-54 (2); completing automatically 7 days after the end date needs a timed check, which adds to it. Borderline… | 6 | 0/6 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4, AC5, AC6; no TC file |
 | [SPM-37](https://kkchoong.atlassian.net/browse/SPM-37) | Cancel Event | SPM-16 Event Planning & Confirmation |  | Sprint 4 | 5 | Estimate: 5. Big: touches multiple areas. One action that releases venue bookings and equipment reservations and closes pending change requests, safety checks… | 9 | 2/9 | AC1 N, AC2 A, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N, AC8 A, AC9 N |  |  |  |  | 1 unit, 2 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC3, AC4, AC5, AC6, AC7, AC9; no TC file |
 | [SPM-38](https://kkchoong.atlassian.net/browse/SPM-38) | Postpone Event | SPM-16 Event Planning & Confirmation |  | Sprint 4 | 3 | Estimate: 3. Normal story: reuses the release logic from Cancel Event (SPM-37), plus a new Postponed status. Build after SPM-37. | 8 | 2/8 | AC1 A, AC2 A, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N, AC8 N |  |  |  |  | 1 unit, 2 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC3, AC4, AC5, AC6, AC7, AC8; no TC file |
@@ -349,7 +349,7 @@ Tests (7):
 
 ## Tests tagged with a story but no single AC
 
-These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). 534 tests:
+These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). 596 tests:
 
 <details><summary>Show the list</summary>
 
@@ -399,11 +399,11 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:360 | recovers every one of an organiser's lists from a load failure |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:454 | with nothing submitted yet, invites them to create their first request |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:546 | shows a load failure with a Retry that loads again |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1124 | rejects a status that does not exist |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:518 | is 404 for a malformed reference |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:525 | is 404 for a reference that matches no event |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:532 | is 404, not 403, for an event the user cannot see - and nothing is written |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:542 | answers 500 when the database fails |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1154 | rejects a status that does not exist |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:548 | is 404 for a malformed reference |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:555 | is 404 for a reference that matches no event |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:562 | is 404, not 403, for an event the user cannot see - and nothing is written |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:572 | answers 500 when the database fails |
 | SPM-27 | src/lib/__tests__/validation.test.ts:274 | only accepts known statuses |
 | SPM-28 | src/app/__tests__/event-pages.test.tsx:1261 | explains a 404 |
 | SPM-28 | src/app/__tests__/event-pages.test.tsx:1269 | shows a general error when loading fails without a reason |
@@ -422,9 +422,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-29 | src/app/api/__tests__/clarifications.test.ts:87 | is 401 without a session |
 | SPM-29 | src/app/api/__tests__/clarifications.test.ts:92 | is 404 for a malformed reference, an unknown event, or one the user may not see |
 | SPM-29 | src/lib/__tests__/clarification.test.ts:48 | are worded for the coordinator |
-| SPM-29 | src/lib/__tests__/permissions.test.ts:447 | lets the assigned coordinator ask |
-| SPM-29 | src/lib/__tests__/permissions.test.ts:451 | stops a coordinator the event is not assigned to |
-| SPM-29 | src/lib/__tests__/permissions.test.ts:455 | stops every other role, including the organiser who raised it |
+| SPM-29 | src/lib/__tests__/permissions.test.ts:458 | lets the assigned coordinator ask |
+| SPM-29 | src/lib/__tests__/permissions.test.ts:462 | stops a coordinator the event is not assigned to |
+| SPM-29 | src/lib/__tests__/permissions.test.ts:466 | stops every other role, including the organiser who raised it |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:1579 | copes with an event that has no title, client or submission time |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:1595 | names an untitled event as such when confirming its assignment |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:1777 | says so when there are no active events at all |
@@ -443,9 +443,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-31 | src/app/__tests__/event-pages.test.tsx:613 | explains a 404 without confirming the event exists |
 | SPM-31 | src/app/__tests__/event-pages.test.tsx:626 | shows a general error when the request fails without a reason |
 | SPM-31 | src/app/__tests__/event-pages.test.tsx:632 | offers a Retry that loads again |
+| SPM-31 | src/app/api/__tests__/event-detail.test.ts:118 | is 404 for a reference that matches no event |
 | SPM-31 | src/app/api/__tests__/event-detail.test.ts:66 | looks the event up by the number in its reference |
 | SPM-31 | src/app/api/__tests__/event-detail.test.ts:76 | is 404 for the malformed reference %s, without querying |
-| SPM-31 | src/app/api/__tests__/event-detail.test.ts:88 | is 404 for a reference that matches no event |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:83 | looks the event up by the number in its reference |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:90 | returns null for a malformed reference without querying |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:95 | returns null when no event has that reference |
@@ -481,6 +481,68 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-34 | src/app/__tests__/event-pages.test.tsx:550 | words the question for an event with no title |
 | SPM-34 | src/app/__tests__/event-pages.test.tsx:571 | does nothing when the question is declined |
 | SPM-34 | src/app/__tests__/event-pages.test.tsx:597 | clears an earlier refusal when it then succeeds |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:100 | [AC1] opens on a change of details, filled in with the event's present values |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:111 | [AC1] refuses %s, with no form |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:122 | [AC1] refuses while the event is %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:132 | [AC1][AC2] sends only the fields changed, the equipment change and the reason |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:155 | [AC1] can propose every detail Update Event Information edits |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:185 | [AC1] can propose dropping a facility the event has |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:197 | [AC1] sends a new set of facilities |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:209 | [AC3] refuses to send without a reason |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:221 | clears the reason's error once a reason is typed |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:232 | refuses to send a change of details that changes nothing |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:243 | checks the details as Edit event information does |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:255 | [AC5] asks to %s with a reason alone |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:275 | [AC3] a postponement still needs a reason |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:286 | does not offer a multi-session event's times and attendance |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:304 | shows the server's refusal under its field and keeps the form |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:318 | says so when the server %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:332 | sends the user to log in when their session ends while sending |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:343 | goes back to the event without sending anything |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:353 | says so when the event %s, and retries |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:366 | sends the user to log in when their session has ended before the event loads |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:371 | still works when the facilities %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:389 | [AC1] offers the owning organiser 'Request a change' while the event is %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:399 | [AC1] does not offer it to %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:411 | [AC2][AC4] lists the event's change requests when it has some |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:437 | [AC5] shows a postponement as its reason alone |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:448 | does not ask for change requests when the event has none |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:456 | says so when the change requests cannot be loaded, and retries |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:91 | sends an anonymous visitor to log in, remembering the page |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:101 | answers 404 for %s, an event that cannot be found |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:108 | answers 404, not 403, to an organiser from another company |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:114 | [AC1] refuses %s: only the owner may request a change |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:126 | [AC1] refuses a request while the event is %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:139 | [AC1] accepts a request while the event is %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:147 | [AC1][AC2] records each changed field with its value now and the value proposed |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:184 | [AC6] changes nothing about the event, its arrangements or its status |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:189 | [AC4] marks a request changing %s as Important |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:203 | [AC1] stores the equipment change in the organiser's words, trimmed |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:208 | [AC2] names the proposed facilities |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:221 | refuses a facility that does not exist |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:230 | [AC3] refuses a request whose reason is %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:241 | refuses a change of details with %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:253 | refuses an end before the start, measured against the start already saved |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:263 | refuses new times or attendance for a multi-session event, as Update Event Information does |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:272 | lets a multi-session event's other details be asked for |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:277 | refuses a field Update Event Information cannot change |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:283 | [AC5] records a request to %s with its reason alone, and leaves the status alone |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:303 | [AC3] a postponement still needs a reason |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:308 | answers 500 when the database fails |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:96 | refuses a caller with no session |
+| SPM-35 | src/app/api/__tests__/event-detail.test.ts:101 | leaves the count out when there are none |
+| SPM-35 | src/app/api/__tests__/event-detail.test.ts:109 | does not count change requests for someone who may not see them |
+| SPM-35 | src/app/api/__tests__/event-detail.test.ts:88 | tells the organiser and the coordinator how many change requests the event has |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:188 | [AC2][AC4] gives each field's label, current and proposed value, and why it is Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:204 | [AC1][AC4] shows the equipment change and counts it as Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:210 | [AC4] a request that only renames the event is not Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:219 | [AC5] a %s request has no fields and is not Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:232 | shows a request made before SPM-35 from its proposed start, end and attendance, against the event now |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:251 | shows a request made before SPM-35 that only asked for more places |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:257 | shows a request made before SPM-35 that only moved the time |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:266 | labels a kind of request it does not know in words |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:270 | names a requester whose account is gone as 'Unknown' |
+| SPM-35 | src/lib/__tests__/permissions.test.ts:1011 | nobody else sees them: another client, another coordinator, Venue Staff, Technical Support or an attendee |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:134 | says Venue Staff have not added any rooms when the catalogue is empty |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:1473 | Back to Venues returns to the catalogue |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:163 | following the availability link does not also open the editor |
@@ -656,8 +718,8 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-48 | src/app/api/__tests__/event-equipment-availability.test.ts:92 | is 404 for a malformed reference |
 | SPM-48 | src/app/api/__tests__/event-equipment-availability.test.ts:96 | is 404 for a draft, which Technical Support cannot see |
 | SPM-48 | src/lib/__tests__/equipmentAvailabilityLines.test.ts:161 | names an untitled event holding the equipment |
-| SPM-48 | src/lib/__tests__/permissions.test.ts:488 | lets Technical Support check equipment availability |
-| SPM-48 | src/lib/__tests__/permissions.test.ts:492 | stops everyone else - the result names other events' bookings |
+| SPM-48 | src/lib/__tests__/permissions.test.ts:499 | lets Technical Support check equipment availability |
+| SPM-48 | src/lib/__tests__/permissions.test.ts:503 | stops everyone else - the result names other events' bookings |
 | SPM-49 | src/app/__tests__/equipment-pages.test.tsx:1300 | shows %s against the line it belongs to |
 | SPM-49 | src/app/__tests__/equipment-pages.test.tsx:1337 | is not offered for a confirmed event, whose equipment is final |
 | SPM-49 | src/app/__tests__/equipment-pages.test.tsx:1349 | is not offered for an event that is %s, and the page says when it is |
@@ -704,7 +766,7 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-51 | src/app/__tests__/register-panel-pages.test.tsx:148 | drops the old title and status badge when the event can no longer be loaded |
 | SPM-51 | src/app/__tests__/register-panel-pages.test.tsx:162 | shows a general refusal when the server gives no reason |
 | SPM-51 | src/app/__tests__/register-panel-pages.test.tsx:171 | says so when the server can't be reached |
-| SPM-51 | src/app/api/__tests__/event-detail.test.ts:279 | doesn't work out a registration state for staff |
+| SPM-51 | src/app/api/__tests__/event-detail.test.ts:309 | doesn't work out a registration state for staff |
 | SPM-51 | src/app/api/__tests__/events.test.ts:131 | doesn't count registrations for staff |
 | SPM-51 | src/app/api/__tests__/registrations.test.ts:250 | answers 500 when the database fails |
 | SPM-51 | src/app/api/__tests__/registrations.test.ts:332 | answers 500 when the database fails |
@@ -770,8 +832,8 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-65 | src/app/__tests__/event-attendees-page.test.tsx:181 | says so when the registrations fail to load, and Retry loads them again |
 | SPM-65 | src/app/__tests__/event-attendees-page.test.tsx:192 | shows a general error when the server cannot be reached |
 | SPM-65 | src/app/__tests__/event-attendees-page.test.tsx:252 | says so when nobody has registered yet |
-| SPM-65 | src/app/api/__tests__/event-detail.test.ts:327 | doesn't count the registrations for %s |
-| SPM-65 | src/app/api/__tests__/event-detail.test.ts:340 | doesn't count every registration for an attendee |
+| SPM-65 | src/app/api/__tests__/event-detail.test.ts:357 | doesn't count the registrations for %s |
+| SPM-65 | src/app/api/__tests__/event-detail.test.ts:370 | doesn't count every registration for an attendee |
 | SPM-65 | src/app/api/__tests__/event-registrations-list.test.ts:135 | answers 404 for %s |
 | SPM-65 | src/app/api/__tests__/event-registrations-list.test.ts:219 | gives the event's reference, title and status for the page header |
 | SPM-65 | src/app/api/__tests__/event-registrations-list.test.ts:232 | answers 500 when the database fails |
