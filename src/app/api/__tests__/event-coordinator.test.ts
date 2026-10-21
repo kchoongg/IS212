@@ -81,7 +81,8 @@ describe("PUT /api/events/[id]/coordinator", () => {
     const res = await assign(token, { coordinatorId: ID.otherUser });
 
     expect(res.status).toBe(403);
-    expect(await res.json()).toEqual({ error: "Only the Event Operations Manager can assign coordinators" });
+    // CHANGED (SPM-84 AC1): the role is now the Event Coordinator Lead.
+    expect(await res.json()).toEqual({ error: "Only the Event Coordinator Lead can assign coordinators" });
     expect(db.event.update).not.toHaveBeenCalled();
   });
 

@@ -25,21 +25,43 @@ describe("GET /api/assignments", () => {
     expect(db.event.findMany).not.toHaveBeenCalled();
   });
 
-  it("[SPM-30][AC2] gives the Ops Manager the unassigned events, the assigned ones and the coordinators", async () => {
+  // CHANGED (SPM-84): `assigned` became `active` - every active event, with or
+  // without a coordinator - and `workload` counts each coordinator's active
+  // events. `coordinators` is still the active accounts an event can go to.
+  it("[SPM-30][AC2] [SPM-84][AC4][AC5] gives the Lead the unassigned events, every active event, the coordinators and their workload", async () => {
     const token = signIn(user("ops_manager"));
-    const awaiting = [{ id: "e1", title: "Awaiting" }];
-    const assigned = [{ id: "e2", title: "Assigned" }];
-    const coordinators = [{ id: "c1", fullName: "Daniel Tan" }];
-    db.event.findMany.mockResolvedValueOnce(awaiting).mockResolvedValueOnce(assigned);
-    db.user.findMany.mockResolvedValue(coordinators);
+    const awaiting = [{ id: "e1", title: "Awaiting", status: "submitted", coordinator: null }];
+    const active = [
+      { id: "e2", title: "Gala", status: "planning", coordinator: { id: "c1", fullName: "Aisha Karim" } },
+      { id: "e3", title: "Workshop", status: "planning", coordinator: { id: "c4", fullName: "Dennis Ho" } },
+      { id: "e1", title: "Awaiting", status: "submitted", coordinator: null },
+    ];
+    db.event.findMany.mockResolvedValueOnce(awaiting).mockResolvedValueOnce(active);
+    db.user.findMany.mockResolvedValue([
+      { id: "c1", fullName: "Aisha Karim", isActive: true },
+      { id: "c3", fullName: "Clara Tay", isActive: true },
+      { id: "c4", fullName: "Dennis Ho", isActive: false },
+    ]);
 
     const res = await assignments(req("GET", "/api/assignments", { token }));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ awaiting, assigned, coordinators });
+    expect(await res.json()).toEqual({
+      awaiting,
+      active,
+      coordinators: [
+        { id: "c1", fullName: "Aisha Karim" },
+        { id: "c3", fullName: "Clara Tay" },
+      ],
+      workload: [
+        { id: "c1", fullName: "Aisha Karim", isActive: true, activeEvents: 1 },
+        { id: "c3", fullName: "Clara Tay", isActive: true, activeEvents: 0 },
+        { id: "c4", fullName: "Dennis Ho", isActive: false, activeEvents: 1 },
+      ],
+    });
   });
 
-  it("[SPM-30][AC2] asks for submitted events with no coordinator, and live events with one", async () => {
+  it("[SPM-30][AC2] [SPM-84][AC6] asks for submitted events with no coordinator, every active event, and every coordinator", async () => {
     const token = signIn(user("ops_manager"));
     db.event.findMany.mockResolvedValue([]);
     db.user.findMany.mockResolvedValue([]);
@@ -48,10 +70,18 @@ describe("GET /api/assignments", () => {
 
     expect(callArg(db.event.findMany, 0).where).toEqual({ status: { in: ["submitted"] }, coordinatorId: null });
     expect(callArg(db.event.findMany, 1).where).toEqual({
-      status: { in: ["under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "postponed"] },
-      coordinatorId: { not: null },
+      status: {
+        in: ["submitted", "under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "postponed"],
+      },
     });
-    expect(callArg(db.user.findMany).where).toEqual({ role: "coordinator", isActive: true });
+    expect(callArg(db.event.findMany, 1).orderBy).toEqual([{ startsAt: "asc" }, { sequenceNumber: "asc" }]);
+    expect(callArg(db.user.findMany).where).toEqual({ role: "coordinator" });
+  });
+
+  it("[SPM-84][AC1] refuses everyone else naming the Event Coordinator Lead", async () => {
+    const res = await assignments(req("GET", "/api/assignments", { token: signIn(user("coordinator")) }));
+
+    expect(await res.json()).toEqual({ error: "Only the Event Coordinator Lead can assign coordinators" });
   });
 });
 

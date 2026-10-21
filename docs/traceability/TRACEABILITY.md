@@ -84,7 +84,7 @@ Column notes:
 | [SPM-81](https://kkchoong.atlassian.net/browse/SPM-81) | Request More Than One Venue for an Event | SPM-17 Venue Booking | Source: Week 7 Customer Changes, Change #3 – Multiple Venues for One Event. "The system must therefore allow a single event to have more th… | Sprint 3 | 5 | Estimate: 5. Big: touches the booking form, the booking data model (more than one active booking per event and session) and the conflict rule, with regression… | 8 | 5/8 | AC1 M, AC2 A, AC3 M, AC4 A, AC5 A, AC6 A, AC7 A, AC8 M | [xlsx](../test-cases/SPM-81_Test_Cases.xlsx) | 11 | 0 | 11 Pass (2026-10-11) | 18 unit, 5 route | 0 | 0 | Web Application › Venues API | [#46](https://github.com/kchoongg/IS212/pull/46) 2026-10-11 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | [run](https://github.com/kchoongg/IS212/actions/runs/38068948558) |  | Done |  |
 | [SPM-82](https://kkchoong.atlassian.net/browse/SPM-82) | Expire Tentative Venue Hold | SPM-17 Venue Booking | Source: Week 7 Customer Changes, Change #4 – Tentative Venue Holds Expire. "These tentative holds should not reserve a venue indefinitely.… | Sprint 3 | 5 | Estimate: 5. Real unknown: expiry needs something to happen at a point in time, which is new for this codebase. Also a migration, a new Expired status across t… | 11 | 11/11 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A, AC10 A, AC11 A | [xlsx](../test-cases/SPM-82_Test_Cases.xlsx) | 11 | 0 | 11 Pass (2026-10-16) | 53 unit, 22 route | 2 | 0 | Web Application › Venues API | [#62](https://github.com/kchoongg/IS212/pull/62) 2026-10-16 | none recorded (merged by kchoongg) | Merged by kchoongg | [run](https://github.com/kchoongg/IS212/actions/runs/38776278419) |  | Done |  |
 | [SPM-83](https://kkchoong.atlassian.net/browse/SPM-83) | Event Coordinator Lead Role for Assignment | SPM-14 Event Review & Approval | Source: Week 7 Customer Changes, Change #5 – Addition of Event Coordinator Lead Role. "ConnectSphere has introduced a new internal role, th… | Backlog | 2 | Estimate: 2. Small and well understood: a role using the assignment screens that SPM-30 already built. Like SPM-85 (2). | 2 | 0/2 | AC1 S, AC2 S |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | Done | no PR; no TC file |
-| [SPM-84](https://kkchoong.atlassian.net/browse/SPM-84) | Event Coordinator Lead: Rename Role and View Assignments | SPM-14 Event Review & Approval | Source: Week 7 Customer Changes, Change #5 – Addition of Event Coordinator Lead Role. "...the Event Coordinator Lead should be able to view… | Sprint 4 | 3 | Estimate: 2. Small and well understood: a count of active events per Coordinator and two filters on the existing Assignments screen. | 12 | 0/12 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N, AC8 N, AC9 N, AC10 N, AC11 N, AC12 N |  |  |  |  | 0 unit, 0 route | 0 | 0 |  |  |  |  |  |  | In Progress | no coverage: AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC9, AC10, AC11, AC12; no TC file |
+| [SPM-84](https://kkchoong.atlassian.net/browse/SPM-84) | Event Coordinator Lead: Rename Role and View Assignments | SPM-14 Event Review & Approval | Source: Week 7 Customer Changes, Change #5 – Addition of Event Coordinator Lead Role. "...the Event Coordinator Lead should be able to view… | Sprint 4 | 3 | Estimate: 2. Small and well understood: a count of active events per Coordinator and two filters on the existing Assignments screen. | 12 | 0/12 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N, AC8 N, AC9 N, AC10 N, AC11 N, AC12 N | [xlsx](../test-cases/SPM-84_Test_Cases.xlsx) | 10 | 0 | 10 Pass (2026-10-21) | 37 unit, 3 route | 0 | 0 |  |  |  |  |  |  | In Progress | no coverage: AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC9, AC10, AC11, AC12; no TC file |
 | [SPM-85](https://kkchoong.atlassian.net/browse/SPM-85) | Safety Officer Role and Access | SPM-11 User Authentication & Authorisation | Source: Week 7 Customer Changes, Change #6 – Operational Feasibility Check. "ConnectSphere has introduced a new internal role, the Safety O… | Sprint 3 | 2 | Estimate: 2. Small and well understood: a new role in the permission table, navigation and event tabs, plus a seeded account. Like SPM-22 (2). | 8 | 7/8 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 M, AC8 A | [xlsx](../test-cases/SPM-85_Test_Cases.xlsx) | 14 | 0 | 14 Pass (2026-10-12) | 28 unit, 2 route | 0 | 0 |  | [#49](https://github.com/kchoongg/IS212/pull/49) 2026-10-12 | none recorded (merged by kchoongg) | Merged by kchoongg | [run](https://github.com/kchoongg/IS212/actions/runs/38275592263) |  | Done |  |
 | [SPM-86](https://kkchoong.atlassian.net/browse/SPM-86) | Submit Event for Operational Safety Check | SPM-16 Event Planning & Confirmation | Source: Week 7 Customer Changes, Change #6 – Operational Feasibility Check. "After the venue and technical arrangements have been confirmed… | Sprint 3 | 3 | Estimate: 3. Normal story: like SPM-54 (2), a status transition behind one endpoint, plus a migration for the safety check record and a new Safety Review statu… | 8 | 8/8 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A | [xlsx](../test-cases/SPM-86_Test_Cases.xlsx) | 13 | 0 | 13 Pass (2026-10-14) | 46 unit, 21 route | 0 | 1 |  | [#42](https://github.com/kchoongg/IS212/pull/42) 2026-10-10 | none recorded (merged by kchoongg) | Merged by kchoongg | [run](https://github.com/kchoongg/IS212/actions/runs/37937009404) |  | Done |  |
 | [SPM-87](https://kkchoong.atlassian.net/browse/SPM-87) | Conduct Operational Safety Check | SPM-16 Event Planning & Confirmation | Source: Week 7 Customer Changes, Change #6 – Operational Feasibility Check. "The review considers factors such as expected attendance, venu… | Sprint 3 | 3 | Estimate: 3. Normal story: a queue, a review screen and a three-way decision with reasons. Like SPM-28 Review Event Request (3), which has the same shape. | 12 | 12/12 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A, AC10 A, AC11 A, AC12 A | [xlsx](../test-cases/SPM-87_Test_Cases.xlsx) | 12 | 0 | 12 Pass (2026-10-14) | 49 unit, 22 route | 0 | 1 |  | [#54](https://github.com/kchoongg/IS212/pull/54) 2026-10-14 | none recorded (merged by kayalvizhi24) | Merged by kayalvizhi24 | [run](https://github.com/kchoongg/IS212/actions/runs/38420383889) |  | Done |  |
@@ -391,9 +391,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:141 | shows only the five most recently changed events of a long list, newest first |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:155 | says nothing about a list that is shown in full |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:165 | counts each list on its own |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:1817 | shows a general error on the %s |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:1838 | as 'Untitled event' |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:200 | does not cut short the single list of a role that has no overview |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:2049 | shows a general error on the %s |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:2070 | as 'Untitled event' |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:210 | offers no 'View all' to a role with no events list to go to |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:348 | shows a load failure with a Retry that loads again |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:360 | recovers every one of an organiser's lists from a load failure |
@@ -425,14 +425,14 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-29 | src/lib/__tests__/permissions.test.ts:447 | lets the assigned coordinator ask |
 | SPM-29 | src/lib/__tests__/permissions.test.ts:451 | stops a coordinator the event is not assigned to |
 | SPM-29 | src/lib/__tests__/permissions.test.ts:455 | stops every other role, including the organiser who raised it |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1552 | copes with an event that has no title, client or submission time |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1568 | names an untitled event as such when confirming its assignment |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1631 | names an untitled assigned event as such |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1643 | says so when no event has a coordinator yet |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1662 | shows a load failure with a Retry that loads again |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1674 | shows a general error when the request fails without a reason |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1579 | copes with an event that has no title, client or submission time |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1595 | names an untitled event as such when confirming its assignment |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1777 | says so when there are no active events at all |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1809 | names an untitled event as such |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1894 | shows a load failure with a Retry that loads again |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1906 | shows a general error when the request fails without a reason |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:245 | tells a coordinator with nothing on their plate what each list is for |
-| SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:339 | answers 500 when the database fails |
+| SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:340 | answers 500 when the database fails |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:53 | is 404 for a malformed reference, without querying |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:60 | is 404 for a reference that matches no event |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:67 | is 404 for a draft, which even the Ops Manager cannot see |
@@ -581,13 +581,13 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-42 | src/app/api/__tests__/event-venue.test.ts:93 | is 404 for a malformed reference |
 | SPM-42 | src/lib/__tests__/venueBookingRequest.test.ts:255 | a completed, cancelled or rejected event is refused |
 | SPM-43 | src/app/__tests__/event-venue-pages.test.tsx:347 | shows no decision details under a request that is not rejected |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1275 | shows a complaint about %s under that field, keeping the form |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1292 | shows any other refusal on the request and reloads the list, which may be stale |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1304 | shows the refusal above the list when the request has since left it |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1315 | says the decision could not be saved when %s |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1331 | clears an earlier refusal when a rejection is started |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1359 | shows a load failure with a Retry that loads again |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:635 | shows a load failure with a Retry that loads again |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1283 | shows a complaint about %s under that field, keeping the form |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1300 | shows any other refusal on the request and reloads the list, which may be stale |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1312 | shows the refusal above the list when the request has since left it |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1323 | says the decision could not be saved when %s |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1339 | clears an earlier refusal when a rejection is started |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1367 | shows a load failure with a Retry that loads again |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:643 | shows a load failure with a Retry that loads again |
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:158 | loads each venue once, however many requests are for it |
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:291 | is 404 for a request that does not exist |
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:298 | rejects %s |
@@ -680,9 +680,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-49 | src/lib/__tests__/equipmentAvailability.test.ts:442 | explains any other status in the words the screen and the route both show |
 | SPM-50 | src/app/__tests__/equipment-pages.test.tsx:1559 | Cancel closes the panel and forgets what was typed |
 | SPM-50 | src/app/__tests__/equipment-pages.test.tsx:1588 | shows %s above the panel, which stays open |
-| SPM-50 | src/app/__tests__/list-pages.test.tsx:1412 | shows a dash for an event with no title |
-| SPM-50 | src/app/__tests__/list-pages.test.tsx:1431 | says so when no equipment has been requested |
-| SPM-50 | src/app/__tests__/list-pages.test.tsx:1447 | shows a load failure with a Retry that loads again |
+| SPM-50 | src/app/__tests__/list-pages.test.tsx:1420 | shows a dash for an event with no title |
+| SPM-50 | src/app/__tests__/list-pages.test.tsx:1439 | says so when no equipment has been requested |
+| SPM-50 | src/app/__tests__/list-pages.test.tsx:1455 | shows a load failure with a Retry that loads again |
 | SPM-50 | src/app/api/__tests__/event-planning-fulfilment.test.ts:157 | is 404 for a malformed event reference |
 | SPM-50 | src/app/api/__tests__/event-planning-fulfilment.test.ts:161 | is 404 when the request does not exist |
 | SPM-50 | src/app/api/__tests__/event-planning-fulfilment.test.ts:165 | is 404 when the request belongs to a different event than the URL names |
@@ -850,7 +850,7 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-82 | src/app/api/__tests__/venue-hold-expiry.test.ts:65 | is 404 for a booking that does not exist |
 | SPM-86 | src/app/__tests__/event-pages.test.tsx:1396 | asks first, saying what will happen, and sends nothing yet |
 | SPM-86 | src/app/__tests__/event-pages.test.tsx:1406 | does nothing when the question is declined |
-| SPM-86 | src/app/__tests__/list-pages.test.tsx:1738 | tells a coordinator what the Safety review list is for when it is empty |
+| SPM-86 | src/app/__tests__/list-pages.test.tsx:1970 | tells a coordinator what the Safety review list is for when it is empty |
 | SPM-86 | src/app/api/__tests__/event-safety-check.test.ts:110 | is 404 for a malformed reference |
 | SPM-86 | src/app/api/__tests__/event-safety-check.test.ts:114 | is 404 for an event that does not exist |
 | SPM-86 | src/app/api/__tests__/event-safety-check.test.ts:118 | is 404 for an event the user cannot see, before any role check |
