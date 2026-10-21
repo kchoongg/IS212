@@ -33,6 +33,8 @@ import {
 } from "@/lib/eventReview";
 import { cn } from "@/lib/cn";
 import {
+  CLARIFICATION_ALREADY_OPEN,
+  CLARIFICATION_FIELDS,
   CLARIFICATION_FIELDS_REQUIRED,
   CLARIFICATION_MESSAGE_REQUIRED,
   clarificationProblem,
@@ -101,7 +103,8 @@ interface ReviewEvent {
 
 type Choice = "approve" | "reject" | "clarify" | null;
 
-const CLARIFY_OPTIONS = Object.entries(L).map(([id, name]) => ({ id, name }));
+// The same list the route checks against (PR #70 review), labelled as this page labels its rows.
+const CLARIFY_OPTIONS = CLARIFICATION_FIELDS.map((id) => ({ id, name: L[id] }));
 
 /// The visible marker for anything the organiser left empty (AC3). Text, not
 /// only colour, so it reads the same in greyscale and to a screen reader.
@@ -245,6 +248,9 @@ function ReviewScreen() {
       });
       if (!res.ok) {
         const body = await res.json().catch(() => null);
+        // Another tab or a second click opened one first: load the request
+        // again so the page shows it, not a form it can no longer send.
+        if (body?.error === CLARIFICATION_ALREADY_OPEN) void load();
         throw new Error(body?.error ?? "Could not send your request. Please try again.");
       }
       const clarification: OpenClarification = await res.json();

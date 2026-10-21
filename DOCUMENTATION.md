@@ -1022,6 +1022,34 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-21 — Sammi Chua (SPM-29, fixes from the review of PR #70)
+- **The clarification is no longer shown once the review is over.** Approve
+  and Reject stay available while a clarification is open, but nothing closes
+  it (SPM-26 only marks it answered when the organiser responds), so after an
+  approval, a rejection or a withdrawal the organiser still saw "Clarification
+  requested". `GET /api/events/[ref]` now sends `openClarification` only
+  while the event is Under review, and `null` after.
+- **Only one open clarification per event, even at the same moment.** The
+  check before the create could not stop a double-click or two tabs: both read
+  "none open" before either saved (shown on a real database: both 201, 3 runs
+  out of 3). A partial unique index on `clarification_requests(event_id) WHERE
+  status = 'open'` now refuses the second, and the route turns that into "This
+  event already has an open clarification." SPM-26 relies on there being one.
+  New integration test `integration/clarification.test.ts`.
+- **No empty "Needs clarification:" line.** Clarifications raised before
+  SPM-29 (the seed's) record no items; the line is left out when there are none.
+- Smaller: an event past review is told "not under review" before the form is
+  checked; after "already has an open clarification" the review page reloads
+  and shows the existing one; the review form's options come from
+  `CLARIFICATION_FIELDS`, the list the route checks; and the event route looks
+  clarifications up only for the organiser and the assigned coordinator,
+  with its own query instead of in every viewer's `include`.
+- Migration: `20261021120000_one_open_clarification_per_event` (index only,
+  in the SQL - Prisma can't express a partial index; see SCHEMA_REFERENCE.md).
+  No `prisma generate` needed: the client does not change.
+
+---
+
 ### 2026-10-20 — Kayalvizhi (traceability, test case import, change trail; no story)
 Docs, CI and test names only; no feature code changed. Why: so anyone can
 trace any story from its estimate to Done, and the trace stays current.
@@ -1070,10 +1098,10 @@ trace any story from its estimate to Done, and the trace stays current.
 - **Rules** (`src/lib/clarification.ts`, `canRequestClarification()`): only
   the assigned coordinator (403), only while Under review (400), at least one
   item and a non-blank message (400), and **one open clarification per event
-  at a time** (400 "This event already has an open clarification.", checked
-  in the same transaction that opens it; the option is hidden while one is
-  open). Approve and Reject stay available while one is open. Decided
-  2026-10-19 (docs/test-cases/SPM-29_test_cases.json).
+  at a time** (400 "This event already has an open clarification.", held by
+  a partial unique index - see the 2026-10-21 entry; the option is hidden
+  while one is open). Approve and Reject stay available while one is open.
+  Decided 2026-10-19 (docs/test-cases/SPM-29_test_cases.json).
 - Removed SPM-28's "clarifications are out of scope" note from the review page.
 - **Test cases:** `docs/test-cases/SPM-29_Test_Cases.xlsx` (6 cases), written
   before the code. Test data: `npm run fixtures:spm29` (`scripts/seed-spm29.ts`),

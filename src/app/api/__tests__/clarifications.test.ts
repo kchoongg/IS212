@@ -7,11 +7,15 @@
 //   src/app/api/events/[id]/clarifications/route.ts   exports POST
 //     body { fields: string[], message: string } (clarificationSchema, src/lib/clarification.ts)
 //     401; 404 unseen event; 403 CLARIFICATION_FORBIDDEN_MESSAGE unless the assigned coordinator;
+//     400 CLARIFICATION_NOT_UNDER_REVIEW unless the event is under_review - before the form is
+//       checked, so an approved event is told that, not "choose at least one item" (PR #70 review);
 //     400 "Validation failed" for a malformed body;
 //     400 CLARIFICATION_FIELDS_REQUIRED / CLARIFICATION_MESSAGE_REQUIRED (clarificationProblem);
-//     400 CLARIFICATION_NOT_UNDER_REVIEW unless the event is under_review;
-//     400 CLARIFICATION_ALREADY_OPEN when the event has an open one - checked inside the
-//       transaction that creates it, so two quick clicks cannot open two;
+//     400 CLARIFICATION_ALREADY_OPEN when the event has an open one. A check before the create
+//       cannot stop two requests at the same moment; the partial unique index on
+//       clarification_requests(event_id) WHERE status = 'open' does, and its violation (P2002)
+//       gets the same message (PR #70 review; shown on a real database in
+//       integration/clarification.test.ts);
 //     creates { eventId, requestedBy, message: <trimmed>, fields: encodeFields(fields) };
 //     never writes the event or its status history (AC3);
 //     201 { id, fields: string[], message, requestedAt, requester: { fullName } } - the same
@@ -19,6 +23,7 @@
 //   Notifying the organiser is SPM-53's, not this route's.
 
 import { describe, it, expect, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/prisma");
 
@@ -184,6 +189,25 @@ describe("POST /api/events/[id]/clarifications - what is refused", () => {
 
     expect((await post(token)).status).toBe(201);
     expect(seen).toEqual({ check: true, create: true });
+  });
+
+  it("[SPM-29][AC3] says the event is not under review before checking the form", async () => {
+    const res = await post(given({ row: event({ status: "approved" }) }), { fields: [], message: "" });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: CLARIFICATION_NOT_UNDER_REVIEW });
+  });
+
+  it("[SPM-29] refuses with the same message when the one-open index stops a second clarification", async () => {
+    const token = given();
+    db.clarificationRequest.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" })
+    );
+
+    const res = await post(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: CLARIFICATION_ALREADY_OPEN });
   });
 
   it("[SPM-29] is 500, with nothing said about why, when the database fails", async () => {

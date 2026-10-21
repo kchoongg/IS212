@@ -389,6 +389,10 @@ model ClarificationRequest {
   requester User  @relation("ClarificationRequester", fields: [requestedBy], references: [id])
 
   @@index([eventId, status])
+  // At most one OPEN clarification per event: a partial unique index
+  // (event_id WHERE status = 'open') in migration
+  // 20261021120000_one_open_clarification_per_event. Prisma can't express a
+  // partial index, so it lives only in the SQL - don't add an @@unique here.
   @@map("clarification_requests")
 }
 

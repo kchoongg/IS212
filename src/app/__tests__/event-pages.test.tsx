@@ -5,7 +5,11 @@ import ReviewRequestPage from "@/app/events/[id]/review/page";
 import { EventGlance } from "@/app/events/[id]/EventGlance";
 import { ROLES } from "@/lib/roles";
 import { REVIEW_FIELD_LABELS } from "@/lib/eventReview";
-import { CLARIFICATION_FIELDS_REQUIRED, CLARIFICATION_MESSAGE_REQUIRED } from "@/lib/clarification";
+import {
+  CLARIFICATION_ALREADY_OPEN,
+  CLARIFICATION_FIELDS_REQUIRED,
+  CLARIFICATION_MESSAGE_REQUIRED,
+} from "@/lib/clarification";
 import { formatDateTime } from "@/lib/format";
 import {
   breadcrumb,
@@ -1211,6 +1215,25 @@ describe("Review request", () => {
       expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
     });
 
+    // PR #70 review: another tab (or a second click) opened one first - load
+    // the request again so the page shows it, instead of a form it can't send.
+    it("[SPM-29][AC3] shows the clarification someone else just opened, after being told one is already open", async () => {
+      const api = open(underReview({ openClarification: null }), {
+        [CLARIFY]: reply(400, { error: CLARIFICATION_ALREADY_OPEN }),
+      });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.type(messageBox(), "Which day?");
+      api.on(EVENT, underReview({ openClarification: asked }));
+
+      await send();
+
+      expect(await screen.findByText("Open clarification")).toBeInTheDocument();
+      expect(screen.getByText("Is this a dinner or a conference? Which day?")).toBeInTheDocument();
+      expect(screen.getByText(CLARIFICATION_ALREADY_OPEN)).toBeInTheDocument();
+      expect(clarifyOption()).not.toBeInTheDocument();
+    });
+
     it("[SPM-29] falls back to a general message when the server gives none", async () => {
       open(underReview({ openClarification: null }), { [CLARIFY]: reply(500) });
       await chooseClarify();
@@ -2252,6 +2275,19 @@ describe("Event overview - an open clarification (SPM-29)", () => {
     const shown = await banner();
 
     expect(shown).toHaveTextContent("Is this a dinner or a conference? Which day?");
+  });
+
+  // PR #70 review: clarifications raised before SPM-29 (the seed's) record no
+  // items, so the line would read "Needs clarification:" with nothing after it.
+  it("[SPM-29][AC1] leaves out the 'Needs clarification' line when no items were recorded", async () => {
+    open("organiser", event({ status: "under_review", openClarification: { ...asked, fields: [] } }), {
+      id: "organiser-id",
+    });
+
+    const shown = await banner();
+
+    expect(shown).toHaveTextContent("Is this a dinner or a conference? Which day?");
+    expect(shown).not.toHaveTextContent("Needs clarification");
   });
 
   it.each([

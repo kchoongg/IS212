@@ -14,11 +14,15 @@ export interface OpenClarification {
 /// What needs clarifying, the coordinator's message, and who asked when -
 /// the same lines on the event page and the review page.
 export function ClarificationDetails({ clarification }: { clarification: OpenClarification }) {
+  const items = clarificationFieldLabels(clarification.fields);
   return (
     <div className="flex flex-col gap-1">
-      <p>
-        <span className="font-medium">Needs clarification:</span> {clarificationFieldLabels(clarification.fields).join(", ")}
-      </p>
+      {/* A clarification raised before SPM-29 recorded no items (PR #70 review). */}
+      {items.length > 0 && (
+        <p>
+          <span className="font-medium">Needs clarification:</span> {items.join(", ")}
+        </p>
+      )}
       <p className="whitespace-pre-line">{clarification.message}</p>
       <p className="text-xs opacity-80">
         Asked by {clarification.requester.fullName} on {formatDateTime(clarification.requestedAt)}

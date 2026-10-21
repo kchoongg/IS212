@@ -347,6 +347,8 @@ The coordinator ↔ organiser review loop. Repeats, so each round is a row.
 | `respondedAt` | DateTime |  |  |
 | `fields` | String |  | SPM-29: which information needs clarifying - comma-separated codes from `src/lib/clarification.ts` (`purpose`, `when`, …). NULL on rows raised before SPM-29. |
 
+**Unique:** at most one `open` clarification per event - a Postgres *partial* index on `event_id` `WHERE status = 'open'`, in migration `20261021120000_one_open_clarification_per_event` only. Prisma's schema DSL has no `WHERE` clause for indexes, so `schema.prisma` has a comment instead; don't add an `@@unique` for it. Answered and closed rows (earlier rounds) are not limited.
+
 **Relations:** `event` &rarr; Event, `requester` &rarr; User
 
 ### `EventChangeRequest`
