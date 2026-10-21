@@ -1,0 +1,28 @@
+#!/bin/sh
+# Runs before every `git commit`.
+#
+# When the commit includes a test case workbook (docs/test-cases/*.xlsx), it
+# fills the Commit row of each execution block added since the last commit
+# with the hash of the build checked out (`git rev-parse --short HEAD`), and
+# adds the filled-in workbook to the commit. So a tester leaves Commit blank,
+# types in the results, and commits. See docs/test-cases/README.md.
+#
+# Switched on by `npm install` (the "prepare" script in package.json points
+# Git at this folder), like pre-push. It never blocks a commit.
+#
+# Started with `node` directly rather than through `npm run`, for GitHub
+# Desktop (see pre-push). Keep this line in step with the "test-cases:commit"
+# script in package.json.
+#
+# To commit without it: git commit --no-verify
+
+git diff --cached --name-only | grep -qE '^docs/test-cases/SPM-[0-9]+_Test_Cases\.xlsx$' || exit 0
+
+if ! command -v node >/dev/null 2>&1; then
+  echo "pre-commit: Node.js was not found, so the workbooks' Commit cells were not filled in."
+  exit 0
+fi
+
+node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fill-test-case-commits.mts --staged ||
+  echo "pre-commit: the Commit cells could not all be filled in (see above). Committing anyway."
+exit 0
