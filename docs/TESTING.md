@@ -11,7 +11,7 @@ chose. Counts are as of 2026-10-19.
 | **Unit: rules** | Pure functions in `src/lib`: business rules such as conflicts, availability, eligibility, permissions, statuses, form checks | None | `src/lib/__tests__/` | 42 | 1,388 | `npm test` |
 | **Unit: screens** | Pages and components rendered in jsdom and driven by label and role, with the network faked (`mockApi`) | None | `src/app/__tests__/`, `src/components/__tests__/` | 23 | 1,658 | `npm test` |
 | **Route, Prisma mocked** | API route handlers with real authentication, permissions and validation; only Prisma is faked (`vi.mock("@/lib/prisma")`) | Mocked | `src/app/api/__tests__/`, plus 3 service files in `src/lib/__tests__/` | 31 | 1,469 | `npm test` |
-| **Integration, real database** | Route handlers with the real Prisma client against a real Postgres: transactions, row locks, and rules that span several tables | Real, local only | `integration/` | 3 | 9 | `npm run test:integration` |
+| **Integration, real database** | Route handlers with the real Prisma client against a real Postgres: transactions, row locks, and rules that span several tables | Real, local only | `integration/` | 4 | 10 | `npm run test:integration` |
 | **End-to-end** | The production build in real Chromium against a real, seeded Postgres: whole journeys across roles | Real, local only | `e2e/` | 3 | 11 | `npm run build`, then `npm run test:e2e` |
 | **Manual system test cases** | A person runs each case through the app, step by step, and records the result. These are traced to the story's ACs | Shared | `docs/test-cases/SPM-<n>_Test_Cases.xlsx` (the Drive copies are a read-only archive since 2026-10-19) | 41 stories | 642 cases (297 positive, 221 negative, 124 boundary) | By hand; the end-of-sprint regression run is in `docs/regression/` |
 
@@ -46,6 +46,7 @@ team's shared Neon database is never used for them.
 | An expired hold cannot be approved | SPM-82 AC5 | Failure |
 | A reservation reduces what an overlapping event can have; that event then gets only what is left | SPM-49 AC4, AC5, SPM-48 AC4 / SPM-49-TC09, TC15 | Normal, boundary |
 | Two reservations of the last unit at the same moment: exactly one gets it | SPM-49 AC5 / SPM-49-TC16 | Conflict |
+| Two clarification requests for one event at the same moment: exactly one is opened | SPM-29 AC3 / PR #70 review | Conflict |
 | Registration refused once the capacity is reached | SPM-51 AC9 / SPM-51-TC05 | Failure |
 | Two attendees register for the last place at the same moment: exactly one gets it | SPM-51 AC9 / SPM-111 (bug) | Conflict |
 | A withdrawn attendee does not hold a place; the last place can still be taken, then no more | SPM-51 AC9 / SPM-51-TC04 | Boundary |

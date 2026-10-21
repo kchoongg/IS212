@@ -43,6 +43,7 @@
     "fixtures:spm85": "tsx scripts/seed-spm85.ts",
     "fixtures:spm33": "tsx scripts/seed-spm33.ts",
     "fixtures:spm71": "tsx scripts/seed-spm71.ts",
+    "fixtures:spm84": "tsx scripts/seed-spm84.ts",
     "fixtures:spm67": "tsx scripts/seed-spm67.ts",
     "fixtures:spm87": "tsx scripts/seed-spm87.ts",
     "fixtures:spm88": "tsx scripts/seed-spm88.ts",
@@ -50,7 +51,8 @@
     "fixtures:spm68": "tsx scripts/seed-spm68.ts",
     "fixtures:spm82": "tsx scripts/seed-spm82.ts",
     "fixtures:spm52": "tsx scripts/seed-spm52.ts",
-    "fixtures:spm65": "tsx scripts/seed-spm65.ts"
+    "fixtures:spm65": "tsx scripts/seed-spm65.ts",
+    "fixtures:spm29": "tsx scripts/seed-spm29.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -145,9 +145,9 @@ SPM-93 after forum #128 (see below).
 - SPM-84 on 2026-10-06 (see #129).
 - SPM-53, added AC7 (2026-10-06 22:26): "Given an event is reassigned to a different Coordinator… the newly assigned Coordinator and the Event Organiser are notified… and the previously assigned Coordinator is notified that the event is no longer theirs." Comment: "Week 7 Change #5: 'Relevant users should be notified when assignments or reassignments occur.'"
 
-**Test cases:** none yet. SPM-84 is not built; the cases that will need rewording are listed under Pending in DECOMMISSIONED.md.
+**Test cases:** SPM-84's own, `docs/test-cases/SPM-84_Test_Cases.xlsx` (9, written 2026-10-20). 29 cases of other stories that name the role on screen, or open SPM-30's renamed 'Assigned' tab, set to **Updated** with a v2 note (SPM-21, 22, 27, 28, 30, 42, 46, 52, 54, 55, 62, 64, 67, 68, 85, 86, 87; listed in DECOMMISSIONED.md).
 
-**Automated tests:** none changed yet. Two tests assert the old role name; they are listed for SPM-84, not edited.
+**Automated tests:** the two tests that asserted the old role name now assert the new one, and SPM-30's Assignments tests use the 'Active events' tab and the API's `active` list (values only, listed in DECOMMISSIONED.md). New: `src/lib/__tests__/coordinatorAssignments.test.ts` and SPM-84 tests in `list-pages.test.tsx` and `lists.test.ts`.
 
 **Design documents:** PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") renamed the BPMN's Event Operations Manager lane (#129) and shows the unassigned queue, with the Lead assigning and reassigning; the lifecycle's Submitted → Under review arrow reads "Lead assigns". Not recorded for the C4 model: `docs/architecture/connectsphere.dsl` still names the person "Ops Manager".
 
@@ -239,7 +239,7 @@ SPM-93 after forum #128 (see below).
 | Recorded in Jira | 2026-10-06 22:26 (Kristen Choong), on SPM-83, SPM-84, SPM-58 and SPM-74 |
 | What changes | The display name only, "everywhere it appears in the system, including the top bar, navigation, dashboards and the Assignments screen. Existing accounts, permissions and records are unchanged." (SPM-84 AC1) |
 | Stories | SPM-83 folded into SPM-84 and closed without being built ("Marked Done only because the workflow has no 'Won't Do' status"); SPM-84 renamed "Event Coordinator Lead: Rename Role and View Assignments", estimate 2 + 2 |
-| Built | Not yet. SPM-84 is in Sprint 4 (In Progress on 2026-10-19) |
+| Built | SPM-84, Sprint 4 (branch `SPM-84-event-coordinator-lead-rename-role-and-view-assignments`, 2026-10-20): `ROLE_LABELS.ops_manager` is "Event Coordinator Lead"; the role key `ops_manager` is unchanged |
 
 **Stories reworded** (2026-10-06):
 - SPM-84 gained new AC1 (the rename), AC2–AC3 (from SPM-83) and AC9. Old AC6 "…(see: Assign Events as Event Coordinator Lead)" → new AC9 "…using the reassignment built in SPM-30".
