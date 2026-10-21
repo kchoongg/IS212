@@ -978,8 +978,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Sessions are set up on create/edit only** | Since 2026-09-20 an organiser can split an event into sessions on S-08 (`POST` / `PATCH /api/events`), and each session's own equipment is written with `EquipmentRequest.sessionId` set. Still to build: coordinator-side session-scoped **venue booking** (`VenueBooking.sessionId` is still always NULL — SPM-42), Technical Support seeing which session a request belongs to (SPM-47/50), and showing sessions to anyone but their organiser and internal roles on the Overview tab. | events / venues / equipment |
 | **Two sessions of one event cannot request the same equipment item** | `equipment_requests` is unique on `(event_id, equipment_id)`, not `session_id` too, so a projector needed on Day 1 *and* Day 2 can be requested once. The form's picker prevents choosing it twice and says so; the server refuses it with a 400. Fixing it properly needs a schema change (partial unique indexes) — Janelle's table, so it needs the team chat first. | equipment |
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. The same holds for each of an event's rooms (SPM-90, decided 2026-10-13): a breakout room is judged on its own attendance and layout, but must still have every facility the event requires. | events / venues |
-| **Few route-level tests against a real database** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Since 2026-10-19 `npm run test:integration` covers, on a real Postgres: booking requests at the same moment (SPM-44), approval booking the room (SPM-43), an expired hold freeing the room and not being approvable (SPM-82), equipment reservations reducing what is left and the last unit reserved at the same moment (SPM-48/49), and the registration capacity (SPM-51). Everything else is unit tested against a mocked database; see `docs/TESTING.md`. | unclaimed |
-| **Two attendees can take the last registration place at the same moment** | Found by an integration test on 2026-10-19: with one place left, two `POST /api/registrations` at the same moment were both accepted, 5 runs out of 5 (2 places held, capacity 1). The route counts places inside a transaction, but a count does not stop a concurrent insert under Postgres's default isolation. The booking and reserve routes avoid this by locking a row first (`SELECT … FOR UPDATE`); this route takes no lock. Not fixed here - raise a Bug, write the failing integration test first, then lock the event row before counting. | SPM-51's owner |
+| **Few route-level tests against a real database** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Since 2026-10-19 `npm run test:integration` covers, on a real Postgres: booking requests at the same moment (SPM-44), approval booking the room (SPM-43), an expired hold freeing the room and not being approvable (SPM-82), equipment reservations reducing what is left and the last unit reserved at the same moment (SPM-48/49), and the registration capacity, including the last place taken at the same moment (SPM-51, SPM-111). Everything else is unit tested against a mocked database; see `docs/TESTING.md`. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **The organiser cannot answer a clarification yet** | Since SPM-29 the assigned coordinator asks for clarification from the review page and the open clarification is shown on the event page, but nothing lets the organiser respond, mark it answered or change the request while it is open - that is **SPM-26**. Until then a clarification stays open, so the coordinator cannot raise another one on that event. | SPM-26 |
@@ -1112,6 +1111,28 @@ what changed, why, and the migration name if there is one.
     renamed: the C4 model (`docs/architecture/connectsphere.dsl`) still says
     "Ops Manager"; it predates Week 7 and is listed in START_HERE.md as not yet
     redrawn.
+
+---
+
+### 2026-10-20 — Sammi Chua (SPM-111, bug: two attendees can take the last registration place)
+- **Fixed:** with one registration place left, two attendees registering at
+  the same moment were both registered (found by an integration test,
+  2026-10-19). `POST /api/registrations` counted the places taken inside a
+  transaction but took no lock, so both counted "1 free" before either saved.
+  It now locks the event's row (`SELECT … FOR UPDATE`) before counting, as the
+  venue booking and equipment reserve routes do, so the second waits and then
+  counts the first one's place. Events with no capacity limit take no lock.
+- **Test first:** `integration/registration.test.ts` gained the "same moment"
+  test (`[SPM-51][AC9][BUG-111]`). It failed before the fix (both 201, 3 runs
+  out of 3) and passes after it (5 runs out of 5). A unit test in
+  `registrations.test.ts` checks the lock comes before the count.
+- Known Gaps: the row is removed. `docs/TESTING.md` lists the new test.
+- Retest: the integration test above is the retest. Two people can't
+  register at the same moment by hand, so no manual case is added and
+  `docs/test-cases/SPM-51_Test_Cases.xlsx` is unchanged.
+- Migration: none.
+
+---
 
 ### 2026-10-20 — Kayalvizhi (traceability, test case import, change trail; no story)
 Docs, CI and test names only; no feature code changed. Why: so anyone can

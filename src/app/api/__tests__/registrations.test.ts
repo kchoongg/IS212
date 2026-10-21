@@ -207,6 +207,23 @@ describe("POST /api/registrations", () => {
     });
   });
 
+  // SPM-111: the race itself is shown on a real database
+  // (integration/registration.test.ts); here, that the lock comes first.
+  it("[SPM-51][AC9][BUG-111] locks the event's row before counting the seats taken", async () => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: 50 }));
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.count.mockResolvedValue(49);
+    db.registration.create.mockResolvedValue({ id: "r1" });
+
+    await register(token);
+
+    const [sql, eventId] = db.$queryRaw.mock.calls[0] as [string[], string];
+    expect(sql.join("?")).toBe("SELECT id FROM events WHERE id = ? FOR UPDATE");
+    expect(eventId).toBe(ID.event);
+    expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(db.registration.count.mock.invocationCallOrder[0]);
+  });
+
   it("[SPM-51][AC9] does not count seats for an event with no capacity limit", async () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: null }));
