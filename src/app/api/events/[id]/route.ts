@@ -477,6 +477,18 @@ async function handleStatusChange(
       },
     });
 
+    // ADDED (SPM-26): an open clarification (SPM-29) asks the organiser
+    // something about the request under review. Once the review is over -
+    // approved, rejected or withdrawn - nobody will answer it, so it is
+    // closed, not left open for ever. Closing is not answering:
+    // responseMessage and respondedAt stay empty.
+    if (REVIEWABLE_STATUSES.includes(event.status)) {
+      await tx.clarificationRequest.updateMany({
+        where: { eventId: id, status: "open" },
+        data: { status: "closed" },
+      });
+    }
+
     // SPM-25 AC: "the relevant users receive a notification that the request
     // has been submitted". No coordinator is assigned yet at this point in
     // the process (that's Step 3, the Ops Manager's job - see

@@ -780,6 +780,41 @@ describe("PATCH /api/events/[id] - status change", () => {
     });
   });
 
+  // An open clarification (SPM-29) only means something while the request is
+  // Under review. Leaving review closes it - it was never answered, so
+  // responseMessage and respondedAt stay empty.
+  describe("an open clarification when the request leaves review", () => {
+    it.each([
+      ["approved", undefined],
+      ["rejected", "Out of budget"],
+      ["withdrawn", "Client asked to withdraw"],
+    ])("[SPM-26] closes it when the request is %s", async (status, reason) => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event());
+      givenUpdateSucceeds();
+
+      expect((await patch(token, { status, reason })).status).toBe(200);
+
+      expect(callArg(db.clarificationRequest.updateMany)).toEqual({
+        where: { eventId: ID.event, status: "open" },
+        data: { status: "closed" },
+      });
+      expect(db.clarificationRequest.updateMany.mock.invocationCallOrder[0]).toBeGreaterThan(
+        db.$queryRaw.mock.invocationCallOrder[0]
+      );
+    });
+
+    it("[SPM-26] leaves clarifications alone on a move that is not out of review", async () => {
+      const token = signIn(user("organiser", { id: ID.user }));
+      db.event.findUnique.mockResolvedValue(event({ status: "draft", coordinatorId: null }));
+      givenUpdateSucceeds();
+
+      expect((await patch(token, { status: "submitted" })).status).toBe(200);
+
+      expect(db.clarificationRequest.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   // Two status changes on one event at the same moment (Approve in one tab,
   // Reject in another): the race itself is shown on a real database
   // (integration/event-status.test.ts); here, that the lock comes first and

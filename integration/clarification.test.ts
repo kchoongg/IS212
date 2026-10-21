@@ -4,6 +4,7 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { POST as requestClarification } from "@/app/api/events/[id]/clarifications/route";
+import { PATCH as changeEvent } from "@/app/api/events/[id]/route";
 import { CLARIFICATION_ALREADY_OPEN } from "@/lib/clarification";
 import { createEvent, createWorld, destroyWorld, params, req, type TestEvent, type World } from "./world";
 
@@ -50,4 +51,25 @@ describe("one open clarification per event on a real database", () => {
       expect(await prisma.clarificationRequest.count({ where: { eventId: event.id, status: "open" } })).toBe(1);
     }
   );
+
+  it("[SPM-26] approving the request closes its open clarification, unanswered", async () => {
+    const event = await createEvent(world, {
+      title: "Integration Closing Forum",
+      day: "2031-08-19",
+      start: "09:00",
+      end: "12:00",
+      status: "under_review",
+    });
+    expect((await ask(event, "Which hall?")).status).toBe(201);
+
+    const res = await changeEvent(
+      req("PATCH", `/api/events/${event.reference}`, world.coordinator, { status: "approved" }),
+      params({ id: event.reference })
+    );
+
+    expect(res.status).toBe(200);
+    expect(await prisma.clarificationRequest.findMany({ where: { eventId: event.id } })).toEqual([
+      expect.objectContaining({ status: "closed", responseMessage: null, respondedAt: null }),
+    ]);
+  });
 });
