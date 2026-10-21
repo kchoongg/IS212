@@ -6,6 +6,7 @@ import { statusLabel } from "@/lib/statuses";
 import { ASSIGNABLE_STATUSES, can, canAssignCoordinator, canViewEvent } from "@/lib/permissions";
 import { assignCoordinatorSchema } from "@/lib/validation";
 import { notifyUser } from "@/lib/notifications";
+import { LEAD_ONLY_MESSAGE } from "@/lib/coordinatorAssignments";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 
@@ -20,7 +21,8 @@ import { Prisma } from "@prisma/client";
  *   - reassign: a live event (REASSIGNABLE_STATUSES) that has one. Status is
  *               left alone - the event is mid-flight, only its owner changes.
  *
- * Only the Event Operations Manager (clarifications #94, #101). Reassignment
+ * Only the Event Coordinator Lead - the Event Operations Manager until SPM-84
+ * (clarifications #94, #101). Reassignment
  * approval happens outside the system (#94), and the coordinator does not
  * accept or decline (#95), so the change takes effect immediately.
  *
@@ -49,7 +51,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
       return hidden();
     }
     if (!can(actor.role, "event:assign_coordinator")) {
-      return forbidden("Only the Event Operations Manager can assign coordinators");
+      return forbidden(LEAD_ONLY_MESSAGE);
     }
     if (!canAssignCoordinator(actor, event)) {
       return NextResponse.json(

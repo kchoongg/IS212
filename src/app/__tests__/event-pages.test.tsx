@@ -4,6 +4,13 @@ import EventOverviewPage from "@/app/events/[id]/page";
 import ReviewRequestPage from "@/app/events/[id]/review/page";
 import { EventGlance } from "@/app/events/[id]/EventGlance";
 import { ROLES } from "@/lib/roles";
+import { REVIEW_FIELD_LABELS } from "@/lib/eventReview";
+import {
+  CLARIFICATION_ALREADY_OPEN,
+  CLARIFICATION_FIELDS_REQUIRED,
+  CLARIFICATION_MESSAGE_REQUIRED,
+} from "@/lib/clarification";
+import { formatDateTime } from "@/lib/format";
 import {
   breadcrumb,
   fireEvent,
@@ -1037,6 +1044,219 @@ describe("Review request", () => {
     });
   });
 
+  // SPM-29: the third outcome the mockup offers (design/mockups/EventReview.dc.html).
+  //
+  // CONTRACT (SPM-29, written before the code):
+  //   a radio "Ask the organiser for clarification" beside Approve and Reject, while nothing is open;
+  //   choosing it shows a checkbox group "What needs clarification" (REVIEW_FIELD_LABELS, AC1),
+  //   a textbox "Message to the organiser" (AC2) and a "Send request" button;
+  //   the form's rules are clarificationProblem()'s; POST /api/events/<ref>/clarifications
+  //   { fields, message: <trimmed> }; afterwards "Clarification requested", the event still
+  //   Under review, and the clarification shown on the page as "Open clarification";
+  //   the server's error, or "Could not send your request. Please try again.";
+  //   Approve and Reject stay available while a clarification is open (decided 2026-10-19).
+  describe("asking for clarification (SPM-29)", () => {
+    const CLARIFY = `POST /api/events/${REF}/clarifications`;
+    const asked = {
+      id: "clarification-id",
+      fields: ["purpose", "when"],
+      message: "Is this a dinner or a conference? Which day?",
+      requestedAt: "2026-10-19T02:00:00.000Z",
+      requester: { fullName: "Daniel Tan" },
+    };
+    const clarifyOption = () => screen.queryByRole("radio", { name: /Ask the organiser for clarification/ });
+    const whatNeedsClarifying = () => screen.getByRole("group", { name: "What needs clarification" });
+    const messageBox = () => screen.getByRole("textbox", { name: /Message to the organiser/ });
+    const send = () => userEvent.click(screen.getByRole("button", { name: "Send request" }));
+
+    async function chooseClarify() {
+      await decision();
+      await userEvent.click(clarifyOption()!);
+    }
+
+    it("[SPM-29][AC1][AC2] is offered beside approving and rejecting", async () => {
+      open(underReview({ openClarification: null }));
+
+      await decision();
+
+      expect(screen.getAllByRole("radio")).toHaveLength(3);
+      expect(clarifyOption()).toBeInTheDocument();
+    });
+
+    it("[SPM-29][AC1] lets the coordinator choose which parts of the request need clarifying", async () => {
+      open(underReview({ openClarification: null }));
+
+      await chooseClarify();
+
+      const group = within(whatNeedsClarifying());
+      expect(group.getAllByRole("checkbox")).toHaveLength(Object.keys(REVIEW_FIELD_LABELS).length);
+      for (const label of Object.values(REVIEW_FIELD_LABELS)) {
+        expect(group.getByRole("checkbox", { name: label })).not.toBeChecked();
+      }
+    });
+
+    it("[SPM-29][AC2] asks for a message to the organiser", async () => {
+      open(underReview({ openClarification: null }));
+
+      await chooseClarify();
+
+      expect(messageBox()).toHaveValue("");
+    });
+
+    it("[SPM-29][AC1] refuses to send with nothing chosen to clarify", async () => {
+      const api = open(underReview({ openClarification: null }));
+      await chooseClarify();
+      await userEvent.type(messageBox(), "Please clarify");
+
+      await send();
+
+      expect(screen.getByText(CLARIFICATION_FIELDS_REQUIRED)).toBeInTheDocument();
+      expect(api.sent(CLARIFY)).toHaveLength(0);
+    });
+
+    it("[SPM-29][AC1] treats an item ticked and then unticked as not chosen", async () => {
+      const api = open(underReview({ openClarification: null }));
+      await chooseClarify();
+      const purpose = within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" });
+      await userEvent.click(purpose);
+      await userEvent.click(purpose);
+      await userEvent.type(messageBox(), "Please clarify");
+
+      await send();
+
+      expect(purpose).not.toBeChecked();
+      expect(screen.getByText(CLARIFICATION_FIELDS_REQUIRED)).toBeInTheDocument();
+      expect(api.sent(CLARIFY)).toHaveLength(0);
+    });
+
+    it("[SPM-29][AC2] clears the message error as soon as the coordinator starts typing", async () => {
+      open(underReview({ openClarification: null }));
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await send();
+      expect(messageBox()).toBeInvalid();
+
+      await userEvent.type(messageBox(), "W");
+
+      expect(messageBox()).not.toHaveAttribute("aria-invalid");
+    });
+
+    it.each(["", "   "])("[SPM-29][AC2] refuses to send a message of %j", async (text) => {
+      const api = open(underReview({ openClarification: null }));
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      if (text) await userEvent.type(messageBox(), text);
+
+      await send();
+
+      expect(messageBox()).toBeInvalid();
+      expect(screen.getByText(CLARIFICATION_MESSAGE_REQUIRED)).toBeInTheDocument();
+      expect(api.sent(CLARIFY)).toHaveLength(0);
+    });
+
+    it("[SPM-29][AC1][AC2][AC3][AC4] sends what needs clarifying and the trimmed message for this event, which stays Under review", async () => {
+      const api = open(underReview({ openClarification: null }), { [CLARIFY]: reply(201, asked) });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "When" }));
+      await userEvent.type(messageBox(), "  Is this a dinner or a conference? Which day?  ");
+
+      await send();
+
+      expect(await screen.findByText("Clarification requested")).toBeInTheDocument();
+      expect(api.sent(CLARIFY)[0].body).toEqual({
+        fields: ["purpose", "when"],
+        message: "Is this a dinner or a conference? Which day?",
+      });
+      expect(screen.getByText("Under review")).toBeInTheDocument();
+      expect(api.sent(PATCH)).toHaveLength(0);
+    });
+
+    it("[SPM-29][AC3] shows the clarification once sent, and leaves Approve and Reject available", async () => {
+      open(underReview({ openClarification: null }), { [CLARIFY]: reply(201, asked) });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.type(messageBox(), "Is this a dinner or a conference? Which day?");
+      await send();
+
+      await screen.findByText("Clarification requested");
+
+      expect(screen.getByText("Open clarification")).toBeInTheDocument();
+      expect(screen.getByText("Is this a dinner or a conference? Which day?")).toBeInTheDocument();
+      expect(clarifyOption()).not.toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: /Approve/ })).toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: /Reject this request/ })).toBeInTheDocument();
+    });
+
+    it("[SPM-29][AC3] shows a clarification already open, and offers no second one", async () => {
+      open(underReview({ openClarification: asked }));
+
+      await decision();
+
+      expect(screen.getByText("Open clarification")).toBeInTheDocument();
+      expect(screen.getByText("Is this a dinner or a conference? Which day?")).toBeInTheDocument();
+      expect(screen.getByText(/Purpose, When/)).toBeInTheDocument();
+      expect(screen.getByText(/Daniel Tan/)).toBeInTheDocument();
+      expect(clarifyOption()).not.toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: /Approve/ })).toBeInTheDocument();
+    });
+
+    it("[SPM-29] shows the server's refusal", async () => {
+      open(underReview({ openClarification: null }), {
+        [CLARIFY]: reply(400, { error: "This event already has an open clarification." }),
+      });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.type(messageBox(), "Which day?");
+
+      await send();
+
+      expect(await screen.findByText("This event already has an open clarification.")).toBeInTheDocument();
+      expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
+    });
+
+    // PR #70 review: another tab (or a second click) opened one first - load
+    // the request again so the page shows it, instead of a form it can't send.
+    it("[SPM-29][AC3] shows the clarification someone else just opened, after being told one is already open", async () => {
+      const api = open(underReview({ openClarification: null }), {
+        [CLARIFY]: reply(400, { error: CLARIFICATION_ALREADY_OPEN }),
+      });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.type(messageBox(), "Which day?");
+      api.on(EVENT, underReview({ openClarification: asked }));
+
+      await send();
+
+      expect(await screen.findByText("Open clarification")).toBeInTheDocument();
+      expect(screen.getByText("Is this a dinner or a conference? Which day?")).toBeInTheDocument();
+      expect(screen.getByText(CLARIFICATION_ALREADY_OPEN)).toBeInTheDocument();
+      expect(clarifyOption()).not.toBeInTheDocument();
+    });
+
+    it("[SPM-29] falls back to a general message when the server gives none", async () => {
+      open(underReview({ openClarification: null }), { [CLARIFY]: reply(500) });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.type(messageBox(), "Which day?");
+
+      await send();
+
+      expect(await screen.findByText("Could not send your request. Please try again.")).toBeInTheDocument();
+    });
+
+    it("[SPM-29] shows a general error when sending fails without a reason", async () => {
+      open(underReview({ openClarification: null }), { [CLARIFY]: () => Promise.reject("offline") });
+      await chooseClarify();
+      await userEvent.click(within(whatNeedsClarifying()).getByRole("checkbox", { name: "Purpose" }));
+      await userEvent.type(messageBox(), "Which day?");
+
+      await send();
+
+      expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+    });
+  });
+
   describe("when it cannot be loaded", () => {
     it("[SPM-28] explains a 404", async () => {
       open(reply(404, {}));
@@ -2009,5 +2229,75 @@ describe("Event overview - resolving a safety check outcome (SPM-88)", () => {
       expect(dialog().open).toBe(false);
       expect(api.sent(FLAGS)).toHaveLength(0);
     });
+  });
+});
+
+// SPM-29 (AC3): "The open clarification is shown on the event to the Event
+// Organiser and the assigned Event Coordinator." The API sends
+// openClarification only to them (canSeeClarification), so the page shows it
+// whenever it is there.
+//
+// CONTRACT (SPM-29, written before the code): an alert "Clarification requested" on
+// /events/<ref> naming what needs clarifying (REVIEW_FIELD_LABELS), the message, and who
+// asked and when (formatDateTime). Not shown when openClarification is null or absent.
+describe("Event overview - an open clarification (SPM-29)", () => {
+  const asked = {
+    id: "clarification-id",
+    fields: ["purpose", "when"],
+    message: "Is this a dinner or a conference? Which day?",
+    requestedAt: "2026-10-19T02:00:00.000Z",
+    requester: { fullName: "Daniel Tan" },
+  };
+
+  function open(role: string, eventRow: unknown, who = {}) {
+    setRoute(`/events/${REF}`, { id: REF });
+    mockApi({ ...signedInAs(role, who), [EVENT]: eventRow });
+    render(<EventOverviewPage />);
+  }
+
+  const banner = async () =>
+    (await screen.findByText("Clarification requested")).closest("[role=alert], [role=status]") as HTMLElement;
+
+  it("[SPM-29][AC3][AC4] shows the organiser what needs clarifying, the message, and who asked when", async () => {
+    open("organiser", event({ status: "under_review", openClarification: asked }), { id: "organiser-id" });
+
+    const shown = await banner();
+
+    expect(shown).toHaveTextContent("Purpose, When");
+    expect(shown).toHaveTextContent("Is this a dinner or a conference? Which day?");
+    expect(shown).toHaveTextContent("Daniel Tan");
+    expect(shown).toHaveTextContent(formatDateTime(asked.requestedAt));
+  });
+
+  it("[SPM-29][AC3] shows it to the assigned coordinator too", async () => {
+    open("coordinator", event({ status: "under_review", openClarification: asked }), { id: "c1" });
+
+    const shown = await banner();
+
+    expect(shown).toHaveTextContent("Is this a dinner or a conference? Which day?");
+  });
+
+  // PR #70 review: clarifications raised before SPM-29 (the seed's) record no
+  // items, so the line would read "Needs clarification:" with nothing after it.
+  it("[SPM-29][AC1] leaves out the 'Needs clarification' line when no items were recorded", async () => {
+    open("organiser", event({ status: "under_review", openClarification: { ...asked, fields: [] } }), {
+      id: "organiser-id",
+    });
+
+    const shown = await banner();
+
+    expect(shown).toHaveTextContent("Is this a dinner or a conference? Which day?");
+    expect(shown).not.toHaveTextContent("Needs clarification");
+  });
+
+  it.each([
+    ["nothing is open", { openClarification: null }],
+    ["the viewer is not shown clarifications", {}],
+  ])("[SPM-29][AC3] shows nothing when %s", async (_case, overrides) => {
+    open("organiser", event({ status: "under_review", ...overrides }), { id: "organiser-id" });
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
   });
 });

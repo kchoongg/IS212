@@ -14,6 +14,8 @@ import {
   canConfirmEvent,
   canUpdateEventInformation,
   canReviewEvent,
+  canRequestClarification,
+  canSeeClarification,
   canCheckEquipmentAvailability,
   canReserveEquipment,
   canUpdateEquipmentFulfilment,
@@ -433,6 +435,52 @@ describe("canReviewEvent (SPM-28)", () => {
     for (const outcome of REVIEW_OUTCOMES) {
       expect(STATUS_TRANSITION_ROLES[outcome]).toEqual(["coordinator"]);
     }
+  });
+});
+
+// SPM-29: the coordinator assigned to the event asks the organiser for
+// clarification. Whether the event is Under review is checked separately
+// (REVIEWABLE_STATUSES), so the refusal can say which rule was broken.
+describe("canRequestClarification (SPM-29)", () => {
+  const assigned = event({ status: "under_review", coordinatorId: "coordinator-1" });
+
+  it("[SPM-29] lets the assigned coordinator ask", () => {
+    expect(canRequestClarification(coordinator, assigned)).toBe(true);
+  });
+
+  it("[SPM-29] stops a coordinator the event is not assigned to", () => {
+    expect(canRequestClarification(otherCoordinator, assigned)).toBe(false);
+  });
+
+  it("[SPM-29] stops every other role, including the organiser who raised it", () => {
+    for (const other of [organiserA, colleagueA, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canRequestClarification(other, assigned)).toBe(false);
+    }
+  });
+});
+
+// SPM-29 (AC3): "The open clarification is shown on the event to the Event
+// Organiser and the assigned Event Coordinator" - and to no one else.
+describe("canSeeClarification (SPM-29)", () => {
+  const assigned = event({ status: "under_review", coordinatorId: "coordinator-1" });
+
+  it.each([
+    ["the organiser who raised it", organiserA],
+    ["an organiser at the same client", colleagueA],
+    ["the assigned coordinator", coordinator],
+  ])("[SPM-29][AC3] shows it to %s", (_who, who) => {
+    expect(canSeeClarification(who, assigned)).toBe(true);
+  });
+
+  it.each([
+    ["an organiser at another client", organiserB],
+    ["a coordinator it is not assigned to", otherCoordinator],
+    ["the Ops Manager", opsManager],
+    ["Venue Staff", venueStaff],
+    ["Technical Support", techSupport],
+    ["an attendee", attendee],
+  ])("[SPM-29][AC3] hides it from %s", (_who, who) => {
+    expect(canSeeClarification(who, assigned)).toBe(false);
   });
 });
 

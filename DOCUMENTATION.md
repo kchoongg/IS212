@@ -188,10 +188,12 @@ IS212/
     │   │                                coordinator can use it; opened for a request
     │   │                                that's already decided, it redirects to the
     │   │                                event page.
-    │   ├── assignments/page.tsx         # S-28 Coordinator Assignment (SPM-30), Ops
-    │   │                                Manager only. Tabs: "Awaiting assignment"
-    │   │                                (submitted, no coordinator) and "Assigned"
-    │   │                                (live events, for reassignment).
+    │   ├── assignments/page.tsx         # S-28 Coordinator Assignment (SPM-30), the
+    │   │                                Event Coordinator Lead only. Tabs: "Awaiting
+    │   │                                assignment" (submitted, no coordinator),
+    │   │                                "Active events" (every active event, filtered
+    │   │                                by coordinator and status, SPM-84) and
+    │   │                                "Coordinators" (active-event counts, SPM-84).
     │   ├── events/new/page.tsx          # S-08, the event request form (create)
     │   ├── events/[id]/edit/page.tsx  # S-08, the same form (edit a saved draft) —
     │   │                                also the ONLY screen a draft has: opening a
@@ -330,6 +332,9 @@ IS212/
         ├── safetyDecision.ts             # SPM-87 (pure): the three decisions, the reason rules,
         │                                   where each leaves the event, and the wording of the
         │                                   event's "Safety check" row and the notification
+        ├── coordinatorAssignments.ts     # SPM-84 (pure): which events are active, each
+        │                                   coordinator's active-event count, the Active
+        │                                   events filters, and the Lead's refusal wording
         ├── safetyResolution.ts           # SPM-88 (pure): what follows a returned check (the
         │                                   flag reason, when the coordinator may flag), what
         │                                   closes a check, the history lines and the wording
@@ -688,7 +693,8 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
 | Only the role the briefing gives a step may perform it: organiser submits, Ops Manager assigns, assigned coordinator approves/confirms, Venue Staff decide bookings, Technical Support decides equipment | `canSetEventStatus()`, `can()` | ✅ done |
 | Catalogue writes belong to their owner — venues to Venue Staff, equipment to Technical Support | `api/venues` POST, `api/equipment` POST | ✅ done |
-| **Only the Event Operations Manager assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
+| **Only the Event Coordinator Lead (the Event Operations Manager until SPM-84) assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
+| **The Event Coordinator Lead oversees every coordinator's workload** - each Event Coordinator with their number of active events (zero included; a deactivated one only while they still hold one), and every active event (not Draft, Rejected, Withdrawn, Cancelled or Completed) with its coordinator, filterable by coordinator and status. No other role can see it | `coordinatorWorkload()`, `filterActiveEvents()`, `ACTIVE_EVENT_STATUSES` (`src/lib/coordinatorAssignments.ts`), `GET /api/assignments` | ✅ done (SPM-84) |
 | **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
 | **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
 | **An event begins planning with the assigned coordinator's first venue or equipment action, and only from Approved** — pressing Search on Find a venue, submitting a booking request, or adding, saving or removing an equipment requirement. Nothing else moves an event to Planning; the general status PATCH refuses it | `beginPlanningIfApproved()` (`src/lib/beginPlanning.ts`), `canBeginPlanning()`, `POST /api/events/[id]/begin-planning` | ✅ done (SPM-54) |
@@ -976,7 +982,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Two attendees can take the last registration place at the same moment** | Found by an integration test on 2026-10-19: with one place left, two `POST /api/registrations` at the same moment were both accepted, 5 runs out of 5 (2 places held, capacity 1). The route counts places inside a transaction, but a count does not stop a concurrent insert under Postgres's default isolation. The booking and reserve routes avoid this by locking a row first (`SELECT … FOR UPDATE`); this route takes no lock. Not fixed here - raise a Bug, write the failing integration test first, then lock the event row before counting. | SPM-51's owner |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
-| **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
+| **The organiser cannot answer a clarification yet** | Since SPM-29 the assigned coordinator asks for clarification from the review page and the open clarification is shown on the event page, but nothing lets the organiser respond, mark it answered or change the request while it is open - that is **SPM-26**. Until then a clarification stays open, so the coordinator cannot raise another one on that event. | SPM-26 |
+| **Nobody is notified of a clarification request** | SPM-29 writes no `Notification`; the organiser sees the request only by opening the event. Telling them is **SPM-53**'s (the "notification" AC was moved there on 2026-09-18). | SPM-53 |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
 | **Nobody is notified when an event's information changes** | SPM-62 moves a Confirmed event back to Planning but writes no `Notification` — the organiser ("no longer confirmed") and registered attendees ("new date and time") are told by **SPM-53**, per the BPMN and SPM-62's reworded AC6 (decided 2026-10-05). | SPM-53 |
 | **A multi-session event's sessions cannot be edited after approval** | Edit event information shows a multi-session event's sessions read-only ("Session times and attendance can't be changed here yet."). The draft editor replaces sessions wholesale, which after approval would delete each session's bookings and equipment, so session edits need their own story that updates them in place. | events |
@@ -1020,6 +1027,34 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-21 — Sammi Chua (SPM-29, fixes from the review of PR #70)
+- **The clarification is no longer shown once the review is over.** Approve
+  and Reject stay available while a clarification is open, but nothing closes
+  it (SPM-26 only marks it answered when the organiser responds), so after an
+  approval, a rejection or a withdrawal the organiser still saw "Clarification
+  requested". `GET /api/events/[ref]` now sends `openClarification` only
+  while the event is Under review, and `null` after.
+- **Only one open clarification per event, even at the same moment.** The
+  check before the create could not stop a double-click or two tabs: both read
+  "none open" before either saved (shown on a real database: both 201, 3 runs
+  out of 3). A partial unique index on `clarification_requests(event_id) WHERE
+  status = 'open'` now refuses the second, and the route turns that into "This
+  event already has an open clarification." SPM-26 relies on there being one.
+  New integration test `integration/clarification.test.ts`.
+- **No empty "Needs clarification:" line.** Clarifications raised before
+  SPM-29 (the seed's) record no items; the line is left out when there are none.
+- Smaller: an event past review is told "not under review" before the form is
+  checked; after "already has an open clarification" the review page reloads
+  and shows the existing one; the review form's options come from
+  `CLARIFICATION_FIELDS`, the list the route checks; and the event route looks
+  clarifications up only for the organiser and the assigned coordinator,
+  with its own query instead of in every viewer's `include`.
+- Migration: `20261021120000_one_open_clarification_per_event` (index only,
+  in the SQL - Prisma can't express a partial index; see SCHEMA_REFERENCE.md).
+  No `prisma generate` needed: the client does not change.
+
+---
+
 ### 2026-10-20 — Kayalvizhi (SPM-100, bug in SPM-42's request form)
 - **SPM-100 (bug): the venue booking request form now says something when a
   refusal gives no reason.** If `POST /api/events/<ref>/venue-bookings`
@@ -1035,6 +1070,48 @@ what changed, why, and the migration name if there is one.
   (section 4).
 
 ---
+
+### 2026-10-20 — Janelle
+- **SPM-84 (Event Coordinator Lead: Rename Role and View Assignments, Week 7
+  change #5, forum #129).** The Event Operations Manager is now shown as the
+  **Event Coordinator Lead** - the same role: the key stays `ops_manager`, so
+  accounts, permissions and records are unchanged (AC1). Changed wording: the
+  role label (top bar), the Assignments refusal, the Review Queue's empty state
+  and the assign API's refusals.
+  - **Assignments gets two new tabs** (S-28):
+    - **Active events** (`?view=active`): every active event - Submitted,
+      Under review, Approved, Planning, Safety review, Safety approved,
+      Confirmed, Postponed (AC6) - with its client, date, status and
+      coordinator ("Not yet assigned" when none), filters for Coordinator and
+      Status kept in the address, a link to each event, and Assign / Reassign
+      on each row (SPM-30's control). It replaces SPM-30's "Assigned" tab; the
+      old address still opens it.
+    - **Coordinators** (`?view=coordinators`): every Event Coordinator, A to
+      Z, with their number of active events, 0 included (AC10); a deactivated
+      one only while they still hold an active event, marked "Account
+      inactive". Each name opens Active events filtered to them. The filters
+      are read again whenever the address changes while the page is open, so
+      that link, and the Active events tab (which clears them), work without a
+      reload (found in review; TC10).
+  - `GET /api/assignments`: `assigned` became `active`, and `workload` was
+    added. `coordinators` (who an event can go to) is unchanged.
+  - **Rules:** `src/lib/coordinatorAssignments.ts` (pure).
+  - **Changed in other people's code:** SPM-30's Assignments page and API
+    (Kristen) - the tab and the list above; the assign route's refusal
+    wording; the Review Queue's empty-state wording; SPM-30's Assignments
+    tests updated for the new tab and data (values only).
+  - **Migration:** none.
+  - **Test data:** `npm run fixtures:spm84` - four coordinator accounts of the
+    story's own (Aisha Karim, Benjamin Lau, Clara Tay, and Dennis Ho,
+    deactivated) and eleven events; the accounts and events are appended to
+    `prisma/seed.ts`.
+  - **Test cases:** `docs/test-cases/SPM-84_Test_Cases.xlsx` (10). 29 cases of
+    other stories that name the role, or open the renamed tab, set to
+    **Updated** with a v2 note (listed in `docs/test-cases/DECOMMISSIONED.md`).
+  - **Docs:** `docs/PERMISSIONS.md`, `UI_DESIGN.md`, `docs/CHANGES.md`. Not
+    renamed: the C4 model (`docs/architecture/connectsphere.dsl`) still says
+    "Ops Manager"; it predates Week 7 and is listed in START_HERE.md as not yet
+    redrawn.
 
 ### 2026-10-20 — Kayalvizhi (traceability, test case import, change trail; no story)
 Docs, CI and test names only; no feature code changed. Why: so anyone can
@@ -1061,6 +1138,45 @@ trace any story from its estimate to Done, and the trace stays current.
   nothing runs.
 - `docs/START_HERE.md` for new joiners. Sprint tags `sprint-1` to `sprint-3`.
 - Migration: none.
+
+---
+
+### 2026-10-19 — Sammi Chua (SPM-29, Request Event Clarification)
+- **The assigned coordinator can ask the organiser for clarification.** The
+  review page (S-13) has a third option, "Ask the organiser for
+  clarification": tick what needs clarifying (AC1 - the review page's own
+  field labels, Purpose to Equipment) and write a message (AC2), then "Send
+  request". Backed by `POST /api/events/[ref]/clarifications`
+  `{ fields, message }`, which writes a `ClarificationRequest` for the event
+  (AC4).
+- **The event stays Under review (AC3)** - the route never writes the event
+  or its status history; there is no Clarification Required status
+  (2026-09-22 decision).
+- **Shown on the event (AC3):** `GET /api/events/[ref]` now returns
+  `openClarification` (items, message, who asked and when, or `null`) to
+  the organisers of the event's client and the assigned coordinator only
+  (`canSeeClarification()`); everyone else gets no key. The event page shows
+  it as an amber "Clarification requested" banner; the review page shows an
+  "Open clarification" box. Both use `ClarificationDetails.tsx`.
+- **Rules** (`src/lib/clarification.ts`, `canRequestClarification()`): only
+  the assigned coordinator (403), only while Under review (400), at least one
+  item and a non-blank message (400), and **one open clarification per event
+  at a time** (400 "This event already has an open clarification.", held by
+  a partial unique index - see the 2026-10-21 entry; the option is hidden
+  while one is open). Approve and Reject stay available while one is open.
+  Decided 2026-10-19 (docs/test-cases/SPM-29_test_cases.json).
+- Removed SPM-28's "clarifications are out of scope" note from the review page.
+- **Test cases:** `docs/test-cases/SPM-29_Test_Cases.xlsx` (6 cases), written
+  before the code. Test data: `npm run fixtures:spm29` (`scripts/seed-spm29.ts`),
+  two "SPM29 …" events; the same events are at the end of `prisma/seed.ts`.
+- **Tests:** `clarification.test.ts`, `clarifications.test.ts` (route), and
+  additions to `permissions.test.ts`, `event-detail.test.ts` and
+  `event-pages.test.tsx` - written first (red), then the code.
+- Migration: `20261019120000_add_clarification_fields` (nullable
+  `clarification_requests.fields`, comma-separated codes; the seed's existing
+  rows read as no items, so no reseed).
+- Known Gaps: "The clarification loop is not built" replaced by two narrower
+  rows - the organiser's response (SPM-26) and the notification (SPM-53).
 
 ---
 
