@@ -268,6 +268,7 @@ describe("Add venue", () => {
     await open();
 
     expect(field(/^Turnaround time/)).not.toHaveAccessibleDescription();
+    expect(field(/^Setup time/)).toHaveAccessibleDescription("In 15-minute steps: 0, 15, 30, 45 and so on.");
   });
 
   it("[SPM-22][AC4] sends an anonymous visitor to log in", async () => {
@@ -699,6 +700,16 @@ describe("Edit venue", () => {
       expect(field(/^Turnaround time/)).toHaveAccessibleDescription(
         "Changing the setup or turnaround time re-checks this venue's upcoming bookings. " +
           "Any that now clash are flagged for their coordinator, never changed."
+      );
+    });
+
+    // Review of PR #74: changing either time triggers the re-check.
+    it("[SPM-80][AC1] says under the setup time that changing it re-checks the venue's bookings", async () => {
+      open();
+      await ready();
+
+      expect(field(/^Setup time/)).toHaveAccessibleDescription(
+        "In 15-minute steps: 0, 15, 30, 45 and so on. Changing it re-checks this venue's upcoming bookings."
       );
     });
 

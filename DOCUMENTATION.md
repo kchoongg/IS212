@@ -1046,7 +1046,14 @@ what changed, why, and the migration name if there is one.
   Updated (`docs/test-cases/DECOMMISSIONED.md`).
 - Tests: unit, route, page, `integration/` and `e2e/`; manual cases
   SPM-80-TC01 to TC09 all passed (2026-10-20), fixtures `npm run
-  fixtures:spm80`. Closes the Known Gap "Review Flagged Arrangements has no
+  fixtures:spm80`.
+- **From the review of PR #74:** one notification per flagged booking, giving
+  both reasons when a save also fails it on capacity, layout or facilities;
+  a booking that has just ended still counts while its new turnaround holds
+  the room, so the booking after it is flagged (the ended one is not); one
+  query loads the bookings for both checks; the re-check note is under
+  Setup time too. SPM-93-TC07's note covers the new Setup hint.
+  Closes the Known Gap "Review Flagged Arrangements has no
   reason code for a changed setup or turnaround time".
 - Migration: none.
 

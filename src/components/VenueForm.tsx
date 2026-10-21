@@ -266,7 +266,10 @@ export function VenueForm({
             the form can say why. */}
         <Field
           label="Setup time (minutes)"
-          hint="In 15-minute steps: 0, 15, 30, 45 and so on."
+          hint={
+            "In 15-minute steps: 0, 15, 30, 45 and so on." +
+            (existing ? " Changing it re-checks this venue's upcoming bookings." : "")
+          }
           error={errors.setupMinutes}
         >
           <Input

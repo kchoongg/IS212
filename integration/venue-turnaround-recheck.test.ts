@@ -154,6 +154,38 @@ describe("changing a venue's setup or turnaround time on a real database (SPM-80
     expect(await notificationsAbout(morning)).toEqual([]);
   });
 
+  // Review of PR #74: the query must load a booking that has just ended while
+  // its new turnaround still holds the room. Times are relative to now, as the
+  // rule is about now.
+  it("[SPM-80][AC2][AC7] flags the booking after one that has just ended, but not the ended one", async () => {
+    const minutesFromNow = (minutes: number) => new Date(Date.now() + minutes * 60_000);
+    const today = DAY;
+    const ended = await createEvent(world, { title: "Integration Ended Talk", day: today, start: "08:00", end: "09:00" });
+    const next = await createEvent(world, { title: "Integration Next Talk", day: today, start: "10:00", end: "11:00" });
+    const endedBooking = await prisma.venueBooking.create({
+      data: { eventId: ended.id, venueId: world.venue.id, startsAt: minutesFromNow(-70), endsAt: minutesFromNow(-10), status: "approved", requestedBy: world.coordinator.id },
+      select: { id: true },
+    });
+    const nextBooking = await prisma.venueBooking.create({
+      data: { eventId: next.id, venueId: world.venue.id, startsAt: minutesFromNow(10), endsAt: minutesFromNow(70), status: "approved", requestedBy: world.coordinator.id },
+      select: { id: true },
+    });
+
+    // 45 minutes of turnaround: the ended booking holds the room until 35 minutes from now.
+    const res = await changeVenue({ teardownMinutes: 45 });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).flaggedBookings).toEqual([
+      expect.objectContaining({
+        bookingId: nextBooking.id,
+        clashesWith: [expect.objectContaining({ bookingId: endedBooking.id, eventReference: ended.reference })],
+      }),
+    ]);
+    expect((await stored(endedBooking.id)).needsReview).toBe(false);
+    expect((await stored(nextBooking.id)).reviewReason).toBe("booking_clash");
+    expect(await notificationsAbout(ended)).toEqual([]);
+  });
+
   it("[SPM-80][AC8] checks a booking request made after the change with the new turnaround time", async () => {
     const morning = await createEvent(world, { title: "Integration Booked Talk", day: DAY, start: "10:00", end: "12:00" });
     await bookingFor(morning, "10:00", "12:00");

@@ -33,18 +33,16 @@ import { occupiedWindow, overlapping, type Interval, type Turnaround } from "@/l
 /// the venue (VenueBooking.status in prisma/schema.prisma).
 export const RECHECK_STATUSES = ["pending", "approved"] as const;
 
-/// AC1, AC7: a pending or confirmed booking that has not finished. `endsAt`,
-/// not `startsAt`, as every venue flag does: a booking under way still has its
-/// turnaround ahead of it.
-export function isRecheckCandidate(booking: { status: string; endsAt: Date }, now: Date): boolean {
-  return (
-    (RECHECK_STATUSES as readonly string[]).includes(booking.status) && booking.endsAt.getTime() > now.getTime()
-  );
-}
-
-/// isRecheckCandidate() as a Prisma `where`. Keep the two in step.
-export function recheckCandidateWhere(now: Date) {
-  return { status: { in: [...RECHECK_STATUSES] }, endsAt: { gt: now } };
+/// AC1, AC7: the bookings to load, as a Prisma `where` - pending and confirmed
+/// ones whose room-in-use time under the NEW turnaround has not ended. That
+/// includes one that finished a few minutes ago but whose turnaround still
+/// holds the room: it is not flagged itself (recheckBookings() takes `now`),
+/// but the booking after it must be, naming it (review of PR #74).
+export function recheckCandidateWhere(now: Date, after: Turnaround) {
+  return {
+    status: { in: [...RECHECK_STATUSES] },
+    endsAt: { gt: new Date(now.getTime() - after.teardownMinutes * 60_000) },
+  };
 }
 
 /// AC1: "is changed" - saving the same times again re-checks nothing.
@@ -81,26 +79,34 @@ export interface RecheckFinding<P extends Interval = Interval> {
 
 /// Every booking the change newly puts in conflict, in input order. Bookings
 /// with nothing new are left out (AC6), so the result is exactly what to flag.
+///
+/// With `now`, a booking that ended before it is only ever the other side of a
+/// clash: nobody can act on a booking whose event is over (AC7).
 export function recheckBookings<B extends RecheckBooking, P extends Interval>(
   before: Turnaround,
   after: Turnaround,
   bookings: readonly B[],
-  unavailable: readonly P[]
+  unavailable: readonly P[],
+  now?: Date
 ): RecheckFinding<P>[] {
-  const findings: RecheckFinding<P>[] = [];
-  for (const booking of bookings) {
-    const was = occupiedWindow(booking, before);
-    const now = occupiedWindow(booking, after);
+  // Each booking's room-in-use time, worked out once rather than per pair.
+  const windows = bookings.map((booking) => ({
+    booking,
+    was: occupiedWindow(booking, before),
+    is: occupiedWindow(booking, after),
+  }));
 
-    const clashesWith = bookings
+  const findings: RecheckFinding<P>[] = [];
+  for (const { booking, was, is } of windows) {
+    if (now && booking.endsAt.getTime() <= now.getTime()) continue;
+
+    const clashesWith = windows
       .filter(
         (other) =>
-          other.eventId !== booking.eventId &&
-          overlapping(now, occupiedWindow(other, after)) &&
-          !overlapping(was, occupiedWindow(other, before))
+          other.booking.eventId !== booking.eventId && overlapping(is, other.is) && !overlapping(was, other.was)
       )
-      .map((other) => other.id);
-    const unavailableDuring = unavailable.filter((period) => overlapping(now, period) && !overlapping(was, period));
+      .map((other) => other.booking.id);
+    const unavailableDuring = unavailable.filter((period) => overlapping(is, period) && !overlapping(was, period));
 
     const reasons: ImpactReason[] = [];
     if (clashesWith.length > 0) reasons.push("booking_clash");

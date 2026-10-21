@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   RECHECK_STATUSES,
-  isRecheckCandidate,
   recheckBookings,
   recheckCandidateWhere,
   turnaroundChangeSentence,
@@ -14,14 +13,17 @@ import type { Interval, Turnaround } from "../venueTime";
 // CONTRACT (SPM-80, written before the code) - what these tests expect to exist:
 //   src/lib/turnaroundRecheck.ts, pure functions over plain data:
 //     RECHECK_STATUSES = ["pending", "approved"]
-//     isRecheckCandidate({ status, endsAt }, now)  / recheckCandidateWhere(now) - the same rule twice
+//     recheckCandidateWhere(now, after)            - the bookings to load (a Prisma where)
 //     turnaroundChanged(before, after)             - did setup or turnaround change?
 //     turnaroundChangeSentence(before, after)      - "the setup time changed from 0 to 30 minutes"
-//     recheckBookings(before, after, bookings, unavailable) -> [{ bookingId, reasons, clashesWith, unavailableDuring }]
+//     recheckBookings(before, after, bookings, unavailable, now?) -> [{ bookingId, reasons, clashesWith, unavailableDuring }]
 //   src/lib/venueImpact.ts gains the reason code "booking_clash".
 // Decided here, not in the story (change the test if the team wants otherwise):
 //   - "future" is endsAt > now, the rule every other venue flag uses: a booking
-//     under way still counts, one that has finished does not (AC7).
+//     under way still counts, one that has finished is not flagged (AC7). One
+//     that has just finished is still LOADED while its new turnaround holds
+//     the room, so the booking after it is flagged and names it (review of
+//     PR #74, 2026-10-21).
 //   - only what the change NEWLY breaks is flagged, as with every other venue
 //     edit (venueImpact.ts): a clash or overlap already there under the old
 //     times was flagged, or refused, when it arose.
@@ -43,25 +45,18 @@ const period = (start: string, end: string): Interval => ({ startsAt: at(start),
 describe("which bookings are re-checked", () => {
   it("[SPM-80][AC1] re-checks pending and confirmed bookings", () => {
     expect(RECHECK_STATUSES).toEqual(["pending", "approved"]);
-    expect(isRecheckCandidate({ status: "pending", endsAt: at("12:00") }, NOW)).toBe(true);
-    expect(isRecheckCandidate({ status: "approved", endsAt: at("12:00") }, NOW)).toBe(true);
+    expect(recheckCandidateWhere(NOW, NONE).status).toEqual({ in: ["pending", "approved"] });
   });
 
-  it.each(["rejected", "withdrawn", "released", "expired"])("[SPM-80][AC1] does not re-check a %s booking", (status) => {
-    expect(isRecheckCandidate({ status, endsAt: at("12:00") }, NOW)).toBe(false);
+  it("[SPM-80][AC7] with no turnaround, loads only bookings that have not finished", () => {
+    expect(recheckCandidateWhere(NOW, NONE)).toEqual({ status: { in: ["pending", "approved"] }, endsAt: { gt: NOW } });
   });
 
-  it("[SPM-80][AC7] does not re-check a booking that has already finished", () => {
-    expect(isRecheckCandidate({ status: "approved", endsAt: new Date(NOW.getTime() - 60_000) }, NOW)).toBe(false);
-    expect(isRecheckCandidate({ status: "approved", endsAt: NOW }, NOW)).toBe(false);
-  });
-
-  it("[SPM-80][AC1][AC7] still re-checks a booking that is under way", () => {
-    expect(isRecheckCandidate({ status: "approved", endsAt: new Date(NOW.getTime() + 60_000) }, NOW)).toBe(true);
-  });
-
-  it("[SPM-80][AC1][AC7] filters the database the same way", () => {
-    expect(recheckCandidateWhere(NOW)).toEqual({ status: { in: ["pending", "approved"] }, endsAt: { gt: NOW } });
+  it("[SPM-80][AC2][AC7] also loads a booking that has finished while its new turnaround still holds the room", () => {
+    // 45 minutes of turnaround: a booking that ended at 07:20 holds the room until 08:05.
+    expect(recheckCandidateWhere(NOW, { setupMinutes: 0, teardownMinutes: 45 }).endsAt).toEqual({
+      gt: new Date(NOW.getTime() - 45 * 60_000),
+    });
   });
 });
 
@@ -177,6 +172,18 @@ describe("recheckBookings - two bookings that now overlap", () => {
     expect(
       recheckBookings({ setupMinutes: 30, teardownMinutes: 30 }, NONE, [booking("a", "10:00", "11:00"), booking("b", "11:00", "12:00")], [])
     ).toEqual([]);
+  });
+
+  it("[SPM-80][AC2][AC7] flags the booking after one that has just finished, naming it, but not the finished one", () => {
+    // It is 12:20. The morning booking ended at 12:00; with 45 minutes of
+    // turnaround it holds the room until 12:45, into the afternoon booking.
+    const now = at("12:20");
+
+    const findings = recheckBookings(NONE, { setupMinutes: 0, teardownMinutes: 45 }, [morning, afternoon], [], now);
+
+    expect(findings).toEqual([
+      { bookingId: "afternoon", reasons: ["booking_clash"], clashesWith: ["morning"], unavailableDuring: [] },
+    ]);
   });
 
   it("[SPM-80][AC6] flags nothing when nothing changed", () => {

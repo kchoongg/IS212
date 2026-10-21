@@ -18,6 +18,7 @@ import {
   periodPayload,
   periodPhase,
   unavailabilityReasonLabel,
+  unavailabilityReasonText,
   validatePeriodForm,
   type PeriodFormValues,
 } from "../venueUnavailability";
@@ -53,6 +54,16 @@ describe("the reasons a venue can be unavailable for", () => {
     ["internal_activity", "Internal activity"],
   ])("[SPM-45][AC6] labels %s as %s", (code, label) => {
     expect(unavailabilityReasonLabel(code)).toBe(label);
+  });
+
+  // One wording for a period's reason in every notification - SPM-45's and
+  // SPM-80's (review of PR #74).
+  it("[SPM-45][AC6] gives the reason alone when there is no description", () => {
+    expect(unavailabilityReasonText({ reason: "maintenance", notes: null })).toBe("Maintenance");
+  });
+
+  it("[SPM-45][AC6] adds the description of an 'other' reason", () => {
+    expect(unavailabilityReasonText({ reason: "other", notes: "Filming" })).toBe("Other - Filming");
   });
 });
 
