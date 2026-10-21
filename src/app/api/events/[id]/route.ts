@@ -22,6 +22,7 @@ import { isExternalRole } from "@/lib/roles";
 import { dayIndex, dayStart } from "@/lib/equipmentAvailability";
 import { canTransition, statusChangedError, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
+import { missingSubmissionFields } from "@/lib/eventSubmission";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
 import { SEAT_TAKING, registrationCounts, registrationState } from "@/lib/registrationEligibility";
@@ -366,30 +367,16 @@ async function handleStatusChange(
     return NextResponse.json({ error: transitionError(event.status, data.status) }, { status: 400 });
   }
 
-  // ADDED: a draft may be incomplete, but anything past draft may not.
-  // The SQL design enforced this with a CHECK constraint; Prisma has no
-  // equivalent, so the rule moves here - the one place status leaves draft.
+  // ADDED: a draft may be incomplete, but anything past draft may not. The
+  // rule is missingSubmissionFields() (src/lib/eventSubmission.ts), shared
+  // with SPM-26's update of a request Under review.
   if (event.status === "draft" && data.status !== "draft") {
-    const missing: string[] = [];
-    if (!event.title) missing.push("title");
-    if (!event.category) missing.push("category");
-    if (!event.startsAt) missing.push("startsAt");
-    if (!event.endsAt) missing.push("endsAt");
-    if (event.expectedAttendance == null) missing.push("expectedAttendance");
-
-    // A multi-session event's own attendance is derived from its sessions (the
-    // largest one), so it is non-null as soon as ANY session has a figure -
-    // which would let a session with none through. Each session has to be
-    // complete in its own right ("each with its own ... expected attendance").
     const sessions = await prisma.eventSession.findMany({
       where: { eventId: id },
       orderBy: { startsAt: "asc" },
       select: { expectedAttendance: true },
     });
-    sessions.forEach((session, i) => {
-      if (session.expectedAttendance == null) missing.push(`session ${i + 1} expectedAttendance`);
-    });
-
+    const missing = missingSubmissionFields(event, sessions);
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `Cannot submit an incomplete event. Missing: ${missing.join(", ")}` },
