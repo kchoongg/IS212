@@ -15,6 +15,13 @@ export default defineConfig({
     // a wider include can never pick them up.
     exclude: ["**/node_modules/**", "tests/archive/**"],
     setupFiles: ["./src/test/setup.ts"],
+    // How long one test may run. A UI test's findBy*/waitFor may each wait up
+    // to 5 seconds (asyncUtilTimeout, src/test/setup.ts), which is also
+    // Vitest's default for a whole test - so on a loaded CI runner a page test
+    // that renders and then waits once was cut off at 5000ms with nothing
+    // wrong (SPM-90's "keeps the session with the space", 2026-10-21). Longer
+    // than any single wait, so a real failure still reports its own message.
+    testTimeout: 15_000,
     // src/lib/auth.ts refuses to load without one. Test-only value.
     env: { JWT_SECRET: "test-secret" },
     coverage: {
