@@ -57,7 +57,7 @@ changing nothing.
 | `venue_staff` | Venue Staff | Internal | `/dashboard` — pending booking requests |
 | `tech_support` | Technical Support | Internal | `/dashboard` — pending equipment requests |
 | `attendee` | Attendee | External | `/dashboard` — my registrations + open events |
-| `ops_manager` | Operations Manager | Internal | `/dashboard` — unassigned submitted events |
+| `ops_manager` | Event Coordinator Lead (the Operations Manager until SPM-84) | Internal | `/dashboard` — unassigned submitted events |
 | `safety_officer` | Safety Officer | Internal | `/dashboard` — events awaiting their safety check |
 
 **Never show a raw role key to a user.** `venue_staff` is a database value;
@@ -131,11 +131,11 @@ cite.
 *(Attendees reach a public view of an event through S-06, rendered with the
 attendee variant — see §4.3.)*
 
-### 3.7 Operations Manager
+### 3.7 Event Coordinator Lead (the Operations Manager until SPM-84)
 
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
-| S-28 | Assignment queue | `/assignments` | Submitted events with no coordinator. |
+| S-28 | Assignments | `/assignments` | Three tabs. **Awaiting assignment**: submitted events with no coordinator, with Assign (SPM-30). **Active events** (`?view=active`, SPM-84): every active event with its client, date, status and coordinator ("Not yet assigned" when none), filterable by Coordinator and Status (kept in the address), with Assign / Reassign on each row; SPM-30's old `?view=assigned` opens here. **Coordinators** (`?view=coordinators`, SPM-84): every Event Coordinator, A to Z, with their number of active events (0 included); a deactivated one is listed only while they hold an active event, marked "Account inactive"; each name opens Active events filtered to them. |
 
 ### 3.8 Safety Officer
 
@@ -201,7 +201,7 @@ attendee variant — see §4.3.)*
 | Venue Staff | Dashboard · Venues · Booking Requests · Notifications |
 | Tech Support | Dashboard · Equipment · Equipment Requests · Notifications |
 | Attendee | Dashboard · Browse Events · My Registrations · Notifications |
-| Ops Manager | Dashboard · Assignments · All Events · Notifications |
+| Event Coordinator Lead | Dashboard · Assignments · All Events · Venues · Notifications |
 | Safety Officer | Dashboard · Safety Checks · All Events · Notifications |
 
 ### 4.3 Event detail as the hub

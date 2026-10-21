@@ -11,7 +11,7 @@ chose. Counts are as of 2026-10-19.
 | **Unit: rules** | Pure functions in `src/lib`: business rules such as conflicts, availability, eligibility, permissions, statuses, form checks | None | `src/lib/__tests__/` | 42 | 1,388 | `npm test` |
 | **Unit: screens** | Pages and components rendered in jsdom and driven by label and role, with the network faked (`mockApi`) | None | `src/app/__tests__/`, `src/components/__tests__/` | 23 | 1,658 | `npm test` |
 | **Route, Prisma mocked** | API route handlers with real authentication, permissions and validation; only Prisma is faked (`vi.mock("@/lib/prisma")`) | Mocked | `src/app/api/__tests__/`, plus 3 service files in `src/lib/__tests__/` | 31 | 1,469 | `npm test` |
-| **Integration, real database** | Route handlers with the real Prisma client against a real Postgres: transactions, row locks, and rules that span several tables | Real, local only | `integration/` | 3 | 8 | `npm run test:integration` |
+| **Integration, real database** | Route handlers with the real Prisma client against a real Postgres: transactions, row locks, and rules that span several tables | Real, local only | `integration/` | 4 | 10 | `npm run test:integration` |
 | **End-to-end** | The production build in real Chromium against a real, seeded Postgres: whole journeys across roles | Real, local only | `e2e/` | 3 | 11 | `npm run build`, then `npm run test:e2e` |
 | **Manual system test cases** | A person runs each case through the app, step by step, and records the result. These are traced to the story's ACs | Shared | `docs/test-cases/SPM-<n>_Test_Cases.xlsx` (the Drive copies are a read-only archive since 2026-10-19) | 41 stories | 642 cases (297 positive, 221 negative, 124 boundary) | By hand; the end-of-sprint regression run is in `docs/regression/` |
 
@@ -29,7 +29,8 @@ team's shared Neon database is never used for them.
   it, what it refuses, and what it writes. They don't check what the database
   then does.
 - **Integration tests** cover what only a real database can show:
-  - two requests at the same moment meeting a row lock (bookings, equipment)
+  - two requests at the same moment meeting a row lock (bookings, equipment,
+    registration)
   - expiry sweeps that change rows before the next read
   - counts over real rows (registration capacity)
 - **End-to-end tests** prove the screens, routes and database work together
@@ -45,15 +46,17 @@ team's shared Neon database is never used for them.
 | An expired hold cannot be approved | SPM-82 AC5 | Failure |
 | A reservation reduces what an overlapping event can have; that event then gets only what is left | SPM-49 AC4, AC5, SPM-48 AC4 / SPM-49-TC09, TC15 | Normal, boundary |
 | Two reservations of the last unit at the same moment: exactly one gets it | SPM-49 AC5 / SPM-49-TC16 | Conflict |
+| Two clarification requests for one event at the same moment: exactly one is opened | SPM-29 AC3 / PR #70 review | Conflict |
 | Registration refused once the capacity is reached | SPM-51 AC9 / SPM-51-TC05 | Failure |
+| Two attendees register for the last place at the same moment: exactly one gets it | SPM-51 AC9 / SPM-111 (bug) | Conflict |
 | A withdrawn attendee does not hold a place; the last place can still be taken, then no more | SPM-51 AC9 / SPM-51-TC04 | Boundary |
 
-Both "same moment" tests were checked against the bug they exist for. With
-the row lock removed from the route, both requests were accepted 3 runs out
-of 3, so the test failed as it should. The same kind of test showed that
-**registration has no such lock**: two attendees can both take the last place
-(DOCUMENTATION.md, Known Gaps). That test is not committed yet, because it
-fails until the bug is fixed (see "When a test fails").
+The "same moment" tests were each checked against the bug they exist for.
+With the row lock removed from the route, both requests were accepted 3 runs
+out of 3, so the test failed as it should. The registration one found a real
+bug (SPM-111): the route had no lock, so two attendees could both take the
+last place. It was written first and failed (both 201, 3 runs out of 3), then
+the route was fixed to lock the event row before counting.
 
 ### End-to-end tests
 

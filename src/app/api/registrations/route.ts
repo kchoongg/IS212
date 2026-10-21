@@ -96,8 +96,13 @@ export async function POST(req: NextRequest) {
 
     // ADDED: capacity check. Counted inside the transaction below so two
     // attendees claiming the last seat at the same time cannot both succeed.
+    // CHANGED (SPM-111): counting inside a transaction is not enough on its
+    // own - both could count "1 free" before either saves. The row lock on the
+    // event makes the second wait for the first and then count its place, as
+    // the venue booking and equipment reserve routes do.
     const registration = await prisma.$transaction(async (tx) => {
       if (event.registrationCapacity != null) {
+        await tx.$queryRaw`SELECT id FROM events WHERE id = ${data.eventId} FOR UPDATE`;
         const taken = await tx.registration.count({
           where: { eventId: data.eventId, status: { in: SEAT_TAKING } },
         });

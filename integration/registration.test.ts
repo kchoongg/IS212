@@ -64,6 +64,28 @@ describe("registration capacity on a real database", () => {
   });
 
   it(
+    "[SPM-51][AC9][BUG-111] (conflict): two attendees registering for the last place at the same moment - " +
+      "exactly one gets it",
+    async () => {
+      const event = await openEvent(1);
+      // Created one after the other: only the registrations race.
+      const first = await createAttendee(world);
+      const second = await createAttendee(world);
+      const registerAs = (attendee: typeof first) =>
+        register(req("POST", "/api/registrations", attendee, { eventId: event.id }));
+
+      // Without a row lock on the event in the registration route, both would
+      // count "1 free" before either saved, and both would be registered.
+      const responses = await Promise.all([registerAs(first), registerAs(second)]);
+
+      expect(responses.map((r) => r.status).sort()).toEqual([201, 400]);
+      const refused = responses.find((r) => r.status === 400)!;
+      expect(await refused.json()).toEqual({ error: REGISTRATION_REFUSALS.full });
+      expect(await holdingAPlace(event)).toBe(1);
+    }
+  );
+
+  it(
     "[SPM-51][AC9] (SPM-51-TC04, boundary): a withdrawn attendee does not hold a place, so the last place can " +
       "still be taken - and then no more",
     async () => {

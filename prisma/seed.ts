@@ -223,6 +223,21 @@ async function main() {
     users[email] = u.id;
   }
 
+  // SPM-84 (Event Coordinator Lead) coordinator accounts - the same four as
+  // scripts/seed-spm84.ts. Dennis Ho is deactivated but still holds an event.
+  const spm84Accounts: [string, string, boolean][] = [
+    ["Aisha Karim", "aisha.karim@connectsphere.com", true],
+    ["Benjamin Lau", "benjamin.lau@connectsphere.com", true],
+    ["Clara Tay", "clara.tay@connectsphere.com", true],
+    ["Dennis Ho", "dennis.ho@connectsphere.com", false],
+  ];
+  for (const [fullName, email, isActive] of spm84Accounts) {
+    const u = await prisma.user.create({
+      data: { email, passwordHash, fullName, role: "coordinator", department: "Event Management", isActive },
+    });
+    users[email] = u.id;
+  }
+
   // -------------------------------------------------------------------
   // FACILITIES
   // -------------------------------------------------------------------
@@ -2002,10 +2017,60 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-29 QA fixtures (Request Event Clarification). The SAME events as
+  // scripts/seed-spm29.ts (`npm run fixtures:spm29`) - keep the two in step.
+  //
+  // The events only. The open clarification on SPM29 Meridian Open Question
+  // Forum - with the date SPM-29-TC03 quotes - is created by that script
+  // alone, so run it once after a full reseed. Pushed LAST, after SPM-65, so
+  // no earlier event's EVT- reference number shifts. Add new events AFTER
+  // this block.
+  // -----------------------------------------------------------------
+  const spm29 = (key: string, title: string, date: string): EventSeed => ({
+    key, title, status: "under_review", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "Client update for Meridian's wealth advisory team", category: "conference",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 80, layout: "theatre",
+  });
+  eventData.push(
+    spm29("spm29_summit", "SPM29 Meridian Clarity Summit", "2028-04-06"),
+    spm29("spm29_forum", "SPM29 Meridian Open Question Forum", "2028-04-13"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-84 QA fixtures (Event Coordinator Lead: Rename Role and View
+  // Assignments). The SAME events as scripts/seed-spm84.ts
+  // (`npm run fixtures:spm84`) - keep the two in step. Pushed LAST, after
+  // SPM-29, so no earlier event's EVT- reference number shifts. Add new events
+  // AFTER this block.
+  // -----------------------------------------------------------------
+  const spm84 = (key: string, title: string, status: string, coordinator: string | undefined, date: string,
+    chain?: string[]): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator,
+    purpose: "SPM-84 event coordinator lead test event", category: "conference",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 60, layout: "theatre",
+    ...(chain ? { chain } : {}),
+  });
+  const aisha = "aisha.karim@connectsphere.com";
+  eventData.push(
+    spm84("spm84_harbour_gala", "SPM84 Harbour Gala", "planning", aisha, "2027-11-09"),
+    spm84("spm84_orchard_forum", "SPM84 Orchard Forum", "under_review", aisha, "2027-11-11"),
+    spm84("spm84_postponed_retreat", "SPM84 Postponed Retreat", "postponed", aisha, "2027-11-16"),
+    spm84("spm84_closed_showcase", "SPM84 Closed Showcase", "completed", aisha, "2026-09-08"),
+    spm84("spm84_called_off_expo", "SPM84 Called Off Expo", "cancelled", aisha, "2027-11-18"),
+    spm84("spm84_rejected_request", "SPM84 Rejected Request", "rejected", aisha, "2027-11-23"),
+    spm84("spm84_withdrawn_request", "SPM84 Withdrawn Request", "withdrawn", aisha, "2027-11-25",
+      ["submitted", "under_review", "withdrawn"]),
+    spm84("spm84_riverside_launch", "SPM84 Riverside Launch", "confirmed", "benjamin.lau@connectsphere.com", "2027-11-30"),
+    spm84("spm84_past_seminar", "SPM84 Past Seminar", "completed", "clara.tay@connectsphere.com", "2026-09-10"),
+    spm84("spm84_inherited_workshop", "SPM84 Inherited Workshop", "planning", "dennis.ho@connectsphere.com", "2027-12-02"),
+    spm84("spm84_unassigned_request", "SPM84 Unassigned Request", "submitted", undefined, "2027-12-07"),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-80 QA fixtures (Re-check Bookings When Setup or Turnaround Time
   // Changes). The SAME events as scripts/seed-spm80.ts (`npm run
   // fixtures:spm80`) - keep the two in step. Their bookings and the
-  // maintenance period are created further down. Pushed LAST, after SPM-65,
+  // maintenance period are created further down. Pushed LAST, after SPM-84,
   // so no earlier event's EVT- reference number shifts. Add new events AFTER
   // this block.
   // -----------------------------------------------------------------

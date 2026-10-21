@@ -1,0 +1,287 @@
+{
+  "story_key": "SPM-84",
+  "story_title": "Event Coordinator Lead: Rename Role and View Assignments",
+  "created_by": "Janelle",
+  "creation_date": "2026-10-20",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The role previously shown as \"Event Operations Manager\" is shown as \"Event Coordinator Lead\" everywhere it appears in the system, including the top bar, navigation, dashboards and the Assignments screen. Existing accounts, permissions and records are unchanged."
+    },
+    {
+      "id": "AC2",
+      "text": "The Lead can view the unassigned queue and assign and reassign events, as built in SPM-30."
+    },
+    {
+      "id": "AC3",
+      "text": "The Lead cannot perform a Coordinator's planning actions (reviewing a request, booking venues, managing equipment, confirming an event)."
+    },
+    {
+      "id": "AC4",
+      "text": "The Lead can view a list of Event Coordinators, each with the number of active events assigned to them."
+    },
+    {
+      "id": "AC5",
+      "text": "The Lead can view all active events, each showing its assigned Coordinator, status, client organisation and event date."
+    },
+    {
+      "id": "AC6",
+      "text": "An active event is one that is not Draft, Rejected, Withdrawn, Cancelled or Completed."
+    },
+    {
+      "id": "AC7",
+      "text": "The Lead can filter the events by assigned Coordinator and by status."
+    },
+    {
+      "id": "AC8",
+      "text": "The Lead can open an event from the list to view its information."
+    },
+    {
+      "id": "AC9",
+      "text": "The Lead can start a reassignment from the list, using the reassignment built in SPM-30."
+    },
+    {
+      "id": "AC10",
+      "text": "Given a Coordinator has no active events, when the list is shown, then that Coordinator still appears, with a count of zero."
+    },
+    {
+      "id": "AC11",
+      "text": "The list reflects assignments and reassignments as they are made."
+    },
+    {
+      "id": "AC12",
+      "text": "Event Coordinators, Venue Staff, Technical Support Staff, Safety Officers and external users cannot access this view."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-84-TC01",
+      "title": "The Event Operations Manager is shown as the Event Coordinator Lead, with the same account, sidebar and Assignments screen as before",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run.\nGrace Lim's account (grace.lim@connectsphere.com) is the role previously called Event Operations Manager.\nLogged out.",
+      "steps": [
+        "Log in as grace.lim@connectsphere.com / password123",
+        "Click 'Assignments' in the sidebar",
+        "Click 'All Events' in the sidebar"
+      ],
+      "test_data": "Account: grace.lim@connectsphere.com / password123 (unchanged)",
+      "expected_result": "Step 1: Login succeeds with the existing password. The top bar shows 'Grace Lim' and the role 'Event Coordinator Lead' - not 'Operations Manager'. The sidebar shows Dashboard, Assignments, All Events, Venues and Notifications, as before.\nStep 2: The 'Assignments' page opens with three tabs: 'Awaiting assignment', 'Active events' and 'Coordinators'. 'Operations Manager' does not appear anywhere on the page.\nStep 3: The All Events list opens as before, with no 'Operations Manager' wording."
+    },
+    {
+      "id": "SPM-84-TC02",
+      "title": "The Coordinators tab lists every Event Coordinator with their number of active events, including one with none and a deactivated one who still holds an event",
+      "linked_ac": [
+        "AC4",
+        "AC10",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run. It creates four coordinator accounts of SPM-84's own:\n- Aisha Karim: SPM84 Harbour Gala (Planning), SPM84 Orchard Forum (Under review), SPM84 Postponed Retreat (Postponed) - active; SPM84 Closed Showcase (Completed), SPM84 Called Off Expo (Cancelled), SPM84 Rejected Request (Rejected), SPM84 Withdrawn Request (Withdrawn) - not active\n- Benjamin Lau: SPM84 Riverside Launch (Confirmed)\n- Clara Tay: SPM84 Past Seminar (Completed) only\n- Dennis Ho: account deactivated, still assigned SPM84 Inherited Workshop (Planning)\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Click the 'Coordinators' tab"
+      ],
+      "test_data": "Coordinators: Aisha Karim (3 active), Benjamin Lau (1), Clara Tay (0), Dennis Ho (1, account inactive)",
+      "expected_result": "Step 2: A table lists every Event Coordinator by name, A to Z, with an 'Active events' column. Aisha Karim shows 3 (her Completed, Cancelled, Rejected and Withdrawn events are not counted). Benjamin Lau shows 1. Clara Tay is listed with 0. Dennis Ho shows 1 and is labelled 'Account inactive'. The base coordinators (e.g. Daniel Tan, Priya Raj) are listed too."
+    },
+    {
+      "id": "SPM-84-TC03",
+      "title": "The Active events tab, filtered to one coordinator, shows only their active events with coordinator, status, client and date, and each opens its event",
+      "linked_ac": [
+        "AC5",
+        "AC6",
+        "AC7",
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run (Aisha Karim has three active and four inactive SPM84 events, all for the client Meridian Financial Group).\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Click the 'Active events' tab",
+        "In 'Coordinator', choose 'Aisha Karim'",
+        "Click 'SPM84 Harbour Gala'"
+      ],
+      "test_data": "Coordinator filter: Aisha Karim",
+      "expected_result": "Step 2: A table of active events opens with the columns Event, Client, When, Status, Coordinator and 'Reassign to', and the filters 'Coordinator' (set to 'Any coordinator') and 'Status' (set to 'Any status').\nStep 3: Exactly three rows remain: 'SPM84 Harbour Gala' (Planning, 9 Nov 2027), 'SPM84 Orchard Forum' (Under review, 11 Nov 2027) and 'SPM84 Postponed Retreat' (Postponed, 16 Nov 2027), each with Client 'Meridian Financial Group' and Coordinator 'Aisha Karim'. SPM84 Closed Showcase, SPM84 Called Off Expo, SPM84 Rejected Request and SPM84 Withdrawn Request are not listed.\nStep 4: The event's Overview opens with the title 'SPM84 Harbour Gala', the status 'Planning', Coordinator 'Aisha Karim' and Company 'Meridian Financial Group', and a 'Change coordinator' card."
+    },
+    {
+      "id": "SPM-84-TC04",
+      "title": "The Coordinator and Status filters narrow the list together, offer only active statuses, survive a reload, say when nothing matches, and can show events with no coordinator",
+      "linked_ac": [
+        "AC7",
+        "AC6",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run (Aisha Karim has 'SPM84 Harbour Gala' in Planning; Benjamin Lau has only a Confirmed event; 'SPM84 Unassigned Request' is Submitted with no coordinator).\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Click the 'Active events' tab",
+        "In 'Coordinator', choose 'Aisha Karim'",
+        "Open the 'Status' list",
+        "Choose 'Planning'",
+        "Reload the page",
+        "In 'Coordinator', choose 'Benjamin Lau'",
+        "In 'Status', choose 'Any status'",
+        "In 'Coordinator', choose 'Not yet assigned'"
+      ],
+      "test_data": "Aisha Karim + Planning; Benjamin Lau + Planning (no match); Not yet assigned",
+      "expected_result": "Step 4: The list offers 'Any status', then Submitted, Under review, Approved, Planning, Safety review, Safety approved, Confirmed and Postponed - no Draft, Rejected, Withdrawn, Cancelled or Completed.\nStep 5: Only 'SPM84 Harbour Gala' (Planning, Aisha Karim) is listed.\nStep 6: The page reopens on the 'Active events' tab with 'Aisha Karim' and 'Planning' still chosen, and still only 'SPM84 Harbour Gala' listed.\nStep 7: No rows are shown; the message 'No active events match these filters' appears with 'Try another coordinator or status.'\nStep 8: 'SPM84 Riverside Launch' (Confirmed, Benjamin Lau) is listed.\nStep 9: 'SPM84 Unassigned Request' is listed with Status 'Submitted' and Coordinator 'Not yet assigned', and an 'Assign to' control instead of 'Reassign to'."
+    },
+    {
+      "id": "SPM-84-TC05",
+      "title": "The Event Coordinator Lead is offered none of a coordinator's planning actions and cannot open the event's Equipment tab",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run ('SPM84 Harbour Gala' is in Planning, 'SPM84 Orchard Forum' is Under review).\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM84 Orchard Forum'",
+        "Click 'All Events' in the sidebar and open 'SPM84 Harbour Gala'",
+        "Note the event's reference shown under its title",
+        "Type /events/<reference from step 3>/equipment after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference>/equipment) and press Enter"
+      ],
+      "test_data": "Events: SPM84 Orchard Forum (Under review), SPM84 Harbour Gala (Planning)",
+      "expected_result": "Step 1: There is no 'Review request' button. Only the 'Change coordinator' card offers an action.\nStep 2: There is no 'Submit for safety check', 'Confirm event' or 'Edit event information' button, and no Venue, Equipment or Readiness tab.\nStep 4: The page shows 'Not authorised' and 'You don't have access to this event.'; no equipment can be added or changed."
+    },
+    {
+      "id": "SPM-84-TC06",
+      "title": "An Event Coordinator is told the Event Coordinator Lead assigns requests, has no Assignments link, and is refused the screen",
+      "linked_ac": [
+        "AC12",
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run (Clara Tay has no event Under review).\nLogged out.",
+      "steps": [
+        "Log in as clara.tay@connectsphere.com / password123",
+        "Click 'Review Queue' in the sidebar",
+        "Type /assignments?view=coordinators after the site address in the browser address bar (e.g. http://localhost:3000/assignments?view=coordinators) and press Enter"
+      ],
+      "test_data": "Account: clara.tay@connectsphere.com (Event Coordinator)",
+      "expected_result": "Step 1: The top bar shows 'Clara Tay' and the role 'Event Coordinator'. The sidebar has no 'Assignments' link.\nStep 2: The Review Queue is empty and says 'Requests appear here once the Event Coordinator Lead assigns them to you.'\nStep 3: The 'Assignments' page shows 'You do not have access to this' and 'Assigning coordinators is the Event Coordinator Lead's role.' No coordinators or events are listed."
+    },
+    {
+      "id": "SPM-84-TC07",
+      "title": "Venue Staff, Technical Support, the Safety Officer, an Event Organiser and an Attendee are refused the Assignments screen",
+      "linked_ac": [
+        "AC12"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run.\nLogged out.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123 (Venue Staff)",
+        "Type /assignments?view=active after the site address in the browser address bar and press Enter",
+        "Log out, then log in as kenji.sato@connectsphere.com / password123 (Technical Support)",
+        "Type /assignments?view=active after the site address in the browser address bar and press Enter",
+        "Log out, then log in as hana.yusof@connectsphere.com / password123 (Safety Officer)",
+        "Type /assignments?view=active after the site address in the browser address bar and press Enter",
+        "Log out, then log in as rachel.ng@meridianfina.com / password123 (Event Organiser)",
+        "Type /assignments?view=coordinators after the site address in the browser address bar and press Enter",
+        "Log out, then log in as lee.wei.ming@example.com / password123 (Attendee)",
+        "Type /assignments?view=coordinators after the site address in the browser address bar and press Enter"
+      ],
+      "test_data": "Accounts: marcus.wong, kenji.sato, hana.yusof (@connectsphere.com), rachel.ng@meridianfina.com, lee.wei.ming@example.com",
+      "expected_result": "Step 2: 'You do not have access to this' and 'Assigning coordinators is the Event Coordinator Lead's role.' are shown; no events are listed.\nStep 4: The same refusal is shown for Technical Support; no events are listed.\nStep 6: The same refusal is shown for the Safety Officer; no events are listed.\nStep 8: The same refusal is shown for the Event Organiser; no coordinators are listed.\nStep 10: The same refusal is shown for the Attendee; no coordinators are listed."
+    },
+    {
+      "id": "SPM-84-TC08",
+      "title": "Assigning an unassigned request from the queue moves it into the Active events list under that coordinator and raises their count",
+      "linked_ac": [
+        "AC2",
+        "AC11"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm84 before and after this case ('SPM84 Unassigned Request' is Submitted with no coordinator; Clara Tay has 0 active events).\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "On the 'SPM84 Unassigned Request' row, choose 'Clara Tay' in 'Assign to'",
+        "Click 'Assign'",
+        "Click the 'Active events' tab",
+        "In 'Coordinator', choose 'Clara Tay'",
+        "Click the 'Coordinators' tab"
+      ],
+      "test_data": "Event: SPM84 Unassigned Request | Coordinator: Clara Tay",
+      "expected_result": "Step 1: The 'Awaiting assignment' tab lists 'SPM84 Unassigned Request' with Client 'Meridian Financial Group'.\nStep 3: The message 'Clara Tay is now the coordinator for \"SPM84 Unassigned Request\". It has moved to Under review.' appears and the row leaves the Awaiting assignment list.\nStep 5: 'SPM84 Unassigned Request' is listed with Status 'Under review' and Coordinator 'Clara Tay'.\nStep 6: Clara Tay's 'Active events' count is now 1."
+    },
+    {
+      "id": "SPM-84-TC09",
+      "title": "Reassigning from the Active events list moves the event to the new coordinator and updates both coordinators' counts",
+      "linked_ac": [
+        "AC9",
+        "AC11",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm84 before and after this case ('SPM84 Harbour Gala' is assigned to Aisha Karim, who has 3 active events; Benjamin Lau has 1).\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Click the 'Active events' tab",
+        "In 'Coordinator', choose 'Aisha Karim'",
+        "On the 'SPM84 Harbour Gala' row, choose 'Benjamin Lau' in 'Reassign to'",
+        "Click 'Reassign'",
+        "Click 'Reassign' in the dialog",
+        "Click the 'Coordinators' tab"
+      ],
+      "test_data": "Event: SPM84 Harbour Gala | From: Aisha Karim | To: Benjamin Lau",
+      "expected_result": "Step 5: A dialog 'Reassign this event?' appears, saying Aisha Karim will no longer be able to manage it and that both coordinators are notified.\nStep 6: The message '\"SPM84 Harbour Gala\" has been reassigned from Aisha Karim to Benjamin Lau.' appears, and 'SPM84 Harbour Gala' leaves the list filtered to Aisha Karim.\nStep 7: Aisha Karim's 'Active events' count is now 2 and Benjamin Lau's is 2."
+    },
+    {
+      "id": "SPM-84-TC10",
+      "title": "Clicking a coordinator's name on the Coordinators tab opens the Active events list filtered to that coordinator, and the Active events tab clears the filter",
+      "linked_ac": [
+        "AC4",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm84 has been run (after SPM-84-TC09, run it again so SPM84 Harbour Gala is back with Aisha Karim). Aisha Karim holds three active events: SPM84 Harbour Gala (Planning), SPM84 Orchard Forum (Under review) and SPM84 Postponed Retreat (Postponed).\nLogged in as the Event Coordinator Lead, Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Click the 'Coordinators' tab",
+        "Click 'Aisha Karim' in the Coordinator column",
+        "Click the 'Active events' tab"
+      ],
+      "test_data": "Coordinator: Aisha Karim (3 active events)",
+      "expected_result": "Step 3: Without the page reloading, the 'Active events' tab is selected, 'Coordinator' shows 'Aisha Karim', 'Status' shows 'Any status', and only SPM84 Harbour Gala, SPM84 Orchard Forum and SPM84 Postponed Retreat are listed, each with Aisha Karim as the coordinator.\nStep 4: 'Coordinator' goes back to 'Any coordinator', and the list shows every active event again, including other coordinators' events (e.g. SPM84 Riverside Launch, Benjamin Lau)."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): Where the view lives - the existing Assignments page (S-28, /assignments) gets three tabs: 'Awaiting assignment' (unchanged, /assignments), 'Active events' (/assignments?view=active, replacing SPM-30's 'Assigned' tab and adding active events with no coordinator) and 'Coordinators' (/assignments?view=coordinators). The old address /assignments?view=assigned opens 'Active events'.",
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): Active events tab - columns Event (title link to the Overview, reference under it), Client, When, Status, Coordinator ('Not yet assigned' when none), and 'Reassign to' (or 'Assign to' for an event with no coordinator, using SPM-30's control). Filters 'Coordinator' ('Any coordinator', 'Not yet assigned', then each coordinator A to Z) and 'Status' ('Any status', then each active status). Both are kept in the address (?coordinator=<id>&status=<key>), so a reload or a shared link keeps them. Empty: 'No active events match these filters' / 'Try another coordinator or status.'; with no filters and no events: 'No active events' / 'Events appear here once an organiser submits a request.' Sorted by event date, earliest first. Subtitle: 'Every active event and its coordinator. Reassign one when responsibilities or availability change.'",
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): Coordinators tab - columns Coordinator and 'Active events', A to Z by name. Each name links to the Active events tab filtered to that coordinator. A coordinator with no active events is listed with 0 (AC10). A deactivated coordinator is listed only while they still hold an active event, labelled 'Account inactive'; they are not offered in 'Assign to' / 'Reassign to' (SPM-30). Subtitle: 'Every Event Coordinator and the number of active events assigned to them.'",
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): Active means AC6 literally - Submitted, Under review, Approved, Planning, Safety review, Safety approved, Confirmed and Postponed. A Submitted event has no coordinator, so it appears under 'Not yet assigned' and counts toward nobody.",
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): The rename (AC1) - ROLE_LABELS shows 'Event Coordinator Lead' (top bar, wherever a role name is shown). The Assignments refusal reads 'Assigning coordinators is the Event Coordinator Lead's role.'; the Review Queue's empty state 'Requests appear here once the Event Coordinator Lead assigns them to you.'; the assign API's refusal 'Only the Event Coordinator Lead can assign coordinators'. The stored role key (ops_manager), accounts, permissions and records are unchanged. The sidebar link stays 'Assignments'; the dashboard is unchanged (it never named the role).",
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): AC11 - the lists reload after every assign or reassign made on the screen, and on every visit. No live push: a change made in another browser shows on the next load, like the rest of the app.",
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): Other stories' test cases that name the role 'Operations Manager' on screen (listed under Pending in docs/test-cases/DECOMMISSIONED.md) are set to Updated, with a v2 line, in the same PR, as docs/test-cases/README.md requires.",
+    "RESOLVED 2026-10-20 (agreed by the team, all recommendations followed): Fixtures (scripts/seed-spm84.ts, written with the code) - four coordinator accounts of SPM-84's own, password password123: Aisha Karim (aisha.karim@connectsphere.com), Benjamin Lau (benjamin.lau@), Clara Tay (clara.tay@), Dennis Ho (dennis.ho@, deactivated). Events for client Meridian Financial Group (organiser Rachel Ng), November 2027: SPM84 Harbour Gala (Planning, 9 Nov), SPM84 Orchard Forum (Under review, 11 Nov), SPM84 Postponed Retreat (Postponed, 16 Nov), SPM84 Closed Showcase (Completed), SPM84 Called Off Expo (Cancelled), SPM84 Rejected Request (Rejected), SPM84 Withdrawn Request (Withdrawn) - all Aisha's; SPM84 Riverside Launch (Confirmed, Benjamin); SPM84 Past Seminar (Completed, Clara); SPM84 Inherited Workshop (Planning, Dennis); SPM84 Unassigned Request (Submitted, no coordinator). Counts are only ever checked for these accounts, since other stories' fixtures change the base coordinators' counts.",
+    "RESOLVED 2026-10-20: Notifying users of an assignment or reassignment is Receive Event Notifications (SPM-53); SPM-30 already notifies both coordinators. No case here.",
+    "RESOLVED 2026-10-20: The unassigned queue, assign and reassign are SPM-30's and are not rebuilt (SPM-83 folded into SPM-84). TC08 and TC09 check them from the Lead's new tabs only."
+  ],
+  "code_references": [
+    "src/lib/coordinatorAssignments.ts",
+    "src/lib/roles.ts",
+    "src/lib/permissions.ts",
+    "src/app/api/assignments/route.ts",
+    "src/app/api/events/[id]/coordinator/route.ts",
+    "src/app/assignments/page.tsx",
+    "src/components/AssignCoordinator.tsx",
+    "src/app/queue/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "scripts/seed-spm84.ts"
+  ]
+}
