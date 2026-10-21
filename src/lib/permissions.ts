@@ -585,6 +585,25 @@ export function canFlagForSafetyReview(actor: Actor, event: EventAccessFields): 
 }
 
 // ---------------------------------------------------------------------------
+// CLARIFICATION (SPM-29)
+// ---------------------------------------------------------------------------
+
+/// Only the coordinator assigned to the event asks its organiser for
+/// clarification. That the event is Under review (REVIEWABLE_STATUSES) is
+/// checked separately, so a refusal can say which rule was broken.
+export function canRequestClarification(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
+}
+
+/// "The open clarification is shown on the event to the Event Organiser and
+/// the assigned Event Coordinator" (AC3) - the organisers of the event's
+/// client, as for the rest of the event, and no other staff.
+export function canSeeClarification(actor: Actor, event: EventAccessFields): boolean {
+  if (isAssignedCoordinator(actor, event)) return true;
+  return actor.role === "organiser" && canViewEvent(actor, event);
+}
+
+// ---------------------------------------------------------------------------
 // BEGIN PLANNING (SPM-54)
 // ---------------------------------------------------------------------------
 

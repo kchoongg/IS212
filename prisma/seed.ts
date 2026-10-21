@@ -2003,10 +2003,30 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-29 QA fixtures (Request Event Clarification). The SAME events as
+  // scripts/seed-spm29.ts (`npm run fixtures:spm29`) - keep the two in step.
+  //
+  // The events only. The open clarification on SPM29 Meridian Open Question
+  // Forum - with the date SPM-29-TC03 quotes - is created by that script
+  // alone, so run it once after a full reseed. Pushed LAST, after SPM-65, so
+  // no earlier event's EVT- reference number shifts. Add new events AFTER
+  // this block.
+  // -----------------------------------------------------------------
+  const spm29 = (key: string, title: string, date: string): EventSeed => ({
+    key, title, status: "under_review", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "Client update for Meridian's wealth advisory team", category: "conference",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 80, layout: "theatre",
+  });
+  eventData.push(
+    spm29("spm29_summit", "SPM29 Meridian Clarity Summit", "2028-04-06"),
+    spm29("spm29_forum", "SPM29 Meridian Open Question Forum", "2028-04-13"),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-84 QA fixtures (Event Coordinator Lead: Rename Role and View
   // Assignments). The SAME events as scripts/seed-spm84.ts
   // (`npm run fixtures:spm84`) - keep the two in step. Pushed LAST, after
-  // SPM-65, so no earlier event's EVT- reference number shifts. Add new events
+  // SPM-29, so no earlier event's EVT- reference number shifts. Add new events
   // AFTER this block.
   // -----------------------------------------------------------------
   const spm84 = (key: string, title: string, status: string, coordinator: string | undefined, date: string,

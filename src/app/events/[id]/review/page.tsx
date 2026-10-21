@@ -8,6 +8,7 @@ import {
   ButtonLink,
   Card,
   CardBody,
+  CheckboxGroup,
   CardHeader,
   ConfirmDialog,
   DetailList,
@@ -31,6 +32,14 @@ import {
   missingRequestFields,
 } from "@/lib/eventReview";
 import { cn } from "@/lib/cn";
+import {
+  CLARIFICATION_ALREADY_OPEN,
+  CLARIFICATION_FIELDS,
+  CLARIFICATION_FIELDS_REQUIRED,
+  CLARIFICATION_MESSAGE_REQUIRED,
+  clarificationProblem,
+} from "@/lib/clarification";
+import { ClarificationDetails, type OpenClarification } from "../ClarificationDetails";
 
 // S-13 Event review (SPM-28), design/mockups/EventReview.dc.html. A task
 // screen of its own (UI_DESIGN.md §3.3), not a tab of the event hub (S-06).
@@ -40,10 +49,14 @@ import { cn } from "@/lib/cn";
 // or rejects it with a reason (AC5). Either outcome moves the status (AC6)
 // and takes the request off the Review Queue.
 //
+// SPM-29: or asks the organiser for clarification - which parts of the
+// request, and a message. The event stays Under review, the clarification is
+// shown here and on the event page, and Approve and Reject stay available
+// (decided 2026-10-19). One is open at a time, so the option is hidden while
+// one is.
+//
 // Decisions made 2026-09-30 (docs/test-cases/SPM-28_test_cases.json):
 //   - missing information is flagged, never blocking (discussions #80, #72)
-//   - clarifications - raising them or showing them - are out of scope for
-//     SPM-28, so the mockup's "Ask the organiser for clarification" is left out
 //   - Approve asks for confirmation; Reject needs a reason instead
 
 interface ReviewEvent {
@@ -84,9 +97,14 @@ interface ReviewEvent {
     expectedAttendance: number | null;
     preferredLayout: string | null;
   }>;
+  /// SPM-29: sent to the assigned coordinator; null when none is open.
+  openClarification?: OpenClarification | null;
 }
 
-type Choice = "approve" | "reject" | null;
+type Choice = "approve" | "reject" | "clarify" | null;
+
+// The same list the route checks against (PR #70 review), labelled as this page labels its rows.
+const CLARIFY_OPTIONS = CLARIFICATION_FIELDS.map((id) => ({ id, name: L[id] }));
 
 /// The visible marker for anything the organiser left empty (AC3). Text, not
 /// only colour, so it reads the same in greyscale and to a screen reader.
@@ -134,6 +152,13 @@ function ReviewScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Set once a decision is saved: the page stays, showing the outcome.
   const [outcome, setOutcome] = useState<"approved" | "rejected" | null>(null);
+
+  // SPM-29: asking the organiser for clarification.
+  const [clarifyFields, setClarifyFields] = useState<string[]>([]);
+  const [clarifyMessage, setClarifyMessage] = useState("");
+  const [fieldsError, setFieldsError] = useState<string | null>(null);
+  const [messageError, setMessageError] = useState<string | null>(null);
+  const [clarified, setClarified] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -195,6 +220,46 @@ function ReviewScreen() {
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong");
       setConfirmOpen(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function toggleClarifyField(field: string) {
+    setClarifyFields((current) =>
+      current.includes(field) ? current.filter((f) => f !== field) : [...current, field]
+    );
+    setFieldsError(null);
+  }
+
+  async function sendClarification() {
+    const problem = clarificationProblem({ fields: clarifyFields, message: clarifyMessage });
+    setFieldsError(problem === CLARIFICATION_FIELDS_REQUIRED ? problem : null);
+    setMessageError(problem === CLARIFICATION_MESSAGE_REQUIRED ? problem : null);
+    if (problem) return;
+
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/clarifications`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fields: clarifyFields, message: clarifyMessage.trim() }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        // Another tab or a second click opened one first: load the request
+        // again so the page shows it, not a form it can no longer send.
+        if (body?.error === CLARIFICATION_ALREADY_OPEN) void load();
+        throw new Error(body?.error ?? "Could not send your request. Please try again.");
+      }
+      const clarification: OpenClarification = await res.json();
+      // v8 ignore next -- the form is only shown once the event has loaded, so `current` is never null here
+      setEvent((current) => (current ? { ...current, openClarification: clarification } : current));
+      setClarified(true);
+      setChoice(null);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setSubmitting(false);
     }
@@ -300,6 +365,21 @@ function ReviewScreen() {
               &ldquo;{title}&rdquo; is now {statusLabel("rejected")}. The organiser can see your reason on the event.
               <span className="mt-1 block">Reason: {reason.trim()}</span>
             </Alert>
+          )}
+
+          {clarified && (
+            <Alert variant="success" title="Clarification requested">
+              &ldquo;{title}&rdquo; stays {statusLabel("under_review")}. The organiser can see your request on the event.
+            </Alert>
+          )}
+
+          {event.openClarification && (
+            <Card>
+              <CardHeader title="Open clarification" />
+              <CardBody className="text-sm text-ink-2">
+                <ClarificationDetails clarification={event.openClarification} />
+              </CardBody>
+            </Card>
           )}
 
           {reviewable && missing.length > 0 && (
@@ -427,6 +507,14 @@ function ReviewScreen() {
                     title="Reject this request"
                     description="The decision and its reason stay on the event record. The organiser sees the reason."
                   />
+                  {!event.openClarification && (
+                    <DecisionOption
+                      checked={choice === "clarify"}
+                      onSelect={() => choose("clarify")}
+                      title="Ask the organiser for clarification"
+                      description="Keeps the request Under review and shows your message to the organiser on the event."
+                    />
+                  )}
                 </div>
 
                 {choice === "approve" && (
@@ -459,6 +547,41 @@ function ReviewScreen() {
                       </Button>
                       <Button variant="secondary" onClick={cancelReject} disabled={submitting}>
                         Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {choice === "clarify" && (
+                  <div className="flex flex-col gap-3">
+                    <div>
+                      <CheckboxGroup
+                        legend="What needs clarification"
+                        hint="Tick each part of the request the organiser should clarify."
+                        options={CLARIFY_OPTIONS}
+                        selected={clarifyFields}
+                        onToggle={toggleClarifyField}
+                      />
+                      {fieldsError && <p className="mt-2 text-xs font-medium text-tone-danger-fg">{fieldsError}</p>}
+                    </div>
+                    <Field
+                      label="Message to the organiser"
+                      required
+                      hint="Say what is unclear or missing. The organiser sees this message."
+                      error={messageError}
+                    >
+                      <Textarea
+                        value={clarifyMessage}
+                        onChange={(e) => {
+                          setClarifyMessage(e.target.value);
+                          if (messageError) setMessageError(null);
+                        }}
+                        rows={4}
+                      />
+                    </Field>
+                    <div>
+                      <Button onClick={() => void sendClarification()} loading={submitting} loadingText="Sending…">
+                        Send request
                       </Button>
                     </div>
                   </div>
