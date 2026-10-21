@@ -8,6 +8,7 @@ import {
   REVIEW_OUTCOMES,
   can,
   canEditEventContent,
+  canSeeClarification,
   canSetEventStatus,
   canViewChangeRequests,
   canViewEvent,
@@ -15,6 +16,7 @@ import {
   visibleEventFor,
   type Actor,
 } from "@/lib/permissions";
+import { decodeFields } from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
@@ -165,7 +167,15 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // external user (the organiser, an attendee) sees the Safety review status
   // and nothing more.
   // SPM-88 (AC1): and every check, newest first, as `safetyHistory`.
-  const { safetyChecks, ...rest } = event;
+  // SPM-29 (AC3): the open clarification, shown to the organiser and the
+  // assigned coordinator - no one else gets the key, and it is looked up only
+  // for them. Only while the event is Under review: approving, rejecting or
+  // withdrawing ends the review, so the clarification is no longer shown
+  // (PR #70 review - nothing else closes it until SPM-26).
+  const { safetyChecks, ...withoutHistory } = event;
+  const rest = canSeeClarification(actor, event)
+    ? { ...withoutHistory, openClarification: await openClarificationOf(event) }
+    : withoutHistory;
   const safetyHistory = (safetyChecks ?? []).map((check) => ({
     status: check.status,
     submittedAt: check.submittedAt,
@@ -653,4 +663,15 @@ async function handleDraftEdit(
   });
 
   return NextResponse.json(updated);
+}
+
+/// The event's open clarification as the pages show it, or null - none is
+/// shown once the event has left Under review (SPM-29, PR #70 review).
+async function openClarificationOf(event: { id: string; status: string }) {
+  if (!REVIEWABLE_STATUSES.includes(event.status)) return null;
+  const open = await prisma.clarificationRequest.findFirst({
+    where: { eventId: event.id, status: "open" },
+    select: { id: true, fields: true, message: true, requestedAt: true, requester: { select: { fullName: true } } },
+  });
+  return open ? { ...open, fields: decodeFields(open.fields) } : null;
 }

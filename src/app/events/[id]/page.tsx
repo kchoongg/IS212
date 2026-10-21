@@ -32,6 +32,7 @@ import { SafetyDecisionDialog } from "./SafetyDecisionDialog";
 import { SafetyFlagDialog, type SafetyFlagChoice } from "./SafetyFlagDialog";
 import { ChangeRequestsCard } from "./ChangeRequestsCard";
 import { canRequestChangeIn } from "@/lib/eventChangeRequest";
+import { ClarificationDetails, type OpenClarification } from "./ClarificationDetails";
 import { canFlagAfterReturn, safetyFlaggedMessage, safetyHistoryLine } from "@/lib/safetyResolution";
 import {
   EVENT_INFORMATION_EDIT_STATUSES,
@@ -131,6 +132,8 @@ interface EventDetail extends RegistrationEvent {
   facilityRequirements?: FacilityRequirement[];
   // SPM-28: shown as a banner on a rejected event. Absent for an Attendee.
   rejectionReason?: string | null;
+  // SPM-29: sent only to the organiser and the assigned coordinator.
+  openClarification?: OpenClarification | null;
   // Present for an Attendee too - which company is running the event is
   // public, even though who personally organised it (above) is not.
   organisation?: { name: string } | null;
@@ -698,6 +701,15 @@ export default function EventOverviewPage() {
           {event.status === "rejected" && event.rejectionReason && (
             <Alert variant="error" title="This request was rejected">
               {event.rejectionReason}
+            </Alert>
+          )}
+
+          {/* SPM-29 (AC3): the open clarification, on the event itself. The
+              API sends it only to the organiser and the assigned coordinator,
+              so it is shown whenever it is here. */}
+          {event.openClarification && (
+            <Alert variant="warning" title="Clarification requested">
+              <ClarificationDetails clarification={event.openClarification} />
             </Alert>
           )}
 

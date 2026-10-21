@@ -438,6 +438,108 @@ describe("GET /api/events/[id]", () => {
   });
 });
 
+// SPM-29 (AC3): "The open clarification is shown on the event to the Event
+// Organiser and the assigned Event Coordinator."
+//
+// CONTRACT (SPM-29; changed after review on PR #70, 2026-10-21):
+//   GET reads the event's open clarification with its own query
+//   (clarificationRequest.findFirst, where { eventId, status: "open" }) and returns it as
+//   openClarification { id, fields: string[], message, requestedAt, requester: { fullName } },
+//   or null when there is none - only to those canSeeClarification() lets see it.
+//   Only while the event is Under review: once it is approved, rejected or withdrawn the
+//   review is over, so openClarification is null and the query is not run (review point 1).
+//   Everyone else gets no openClarification key, and the query is not run for them either.
+describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
+  const requestedAt = new Date("2026-10-19T02:00:00.000Z");
+  const open = {
+    id: "clarification-id",
+    fields: "purpose,when",
+    message: "Is this a dinner or a conference? Which day?",
+    requestedAt,
+    requester: { fullName: "Daniel Tan" },
+  };
+
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+    db.clarificationRequest.findFirst.mockResolvedValue(open);
+  });
+
+  it("[SPM-29][AC4] reads the open clarification of this event", async () => {
+    db.event.findUnique.mockResolvedValue(event());
+
+    await get(signIn(coordinator()));
+
+    expect(callArg(db.clarificationRequest.findFirst).where).toEqual({ eventId: ID.event, status: "open" });
+  });
+
+  it.each([
+    ["the organiser who raised it", organiser],
+    ["an organiser at the same client", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
+    ["the assigned coordinator", coordinator],
+  ])("[SPM-29][AC3] shows it to %s, with what needs clarifying", async (_who, actor) => {
+    db.event.findUnique.mockResolvedValue(event());
+
+    const body = await (await get(signIn(actor()))).json();
+
+    expect(body.openClarification).toEqual({
+      id: "clarification-id",
+      fields: ["purpose", "when"],
+      message: "Is this a dinner or a conference? Which day?",
+      requestedAt: requestedAt.toISOString(),
+      requester: { fullName: "Daniel Tan" },
+    });
+  });
+
+  it("[SPM-29][AC3] is null for them when nothing is open", async () => {
+    db.event.findUnique.mockResolvedValue(event());
+    db.clarificationRequest.findFirst.mockResolvedValue(null);
+
+    const body = await (await get(signIn(organiser()))).json();
+
+    expect(body.openClarification).toBeNull();
+  });
+
+  it.each(["approved", "rejected", "withdrawn"])(
+    "[SPM-29][AC3] is null once the review is over - the event is %s - so no banner is left behind",
+    async (status) => {
+      // Open both ways the route could read it, so the old include-based code fails too.
+      db.event.findUnique.mockResolvedValue(event({ status, clarifications: [open] }));
+
+      const body = await (await get(signIn(organiser()))).json();
+
+      expect(body.openClarification).toBeNull();
+      expect(db.clarificationRequest.findFirst).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ["a coordinator it is not assigned to", () => user("coordinator", { id: ID.thirdUser })],
+    ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
+    ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
+    ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
+    ["the Safety Officer", () => user("safety_officer", { id: ID.thirdUser })],
+  ])("[SPM-29][AC3] keeps it from %s, without looking it up", async (_who, actor) => {
+    db.event.findUnique.mockResolvedValue(event());
+
+    const res = await get(signIn(actor()));
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).not.toHaveProperty("openClarification");
+    expect(db.clarificationRequest.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-29][AC3] keeps it from an attendee", async () => {
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: true }));
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.count.mockResolvedValue(0);
+
+    const body = await (await get(signIn(user("attendee", { id: ID.thirdUser })))).json();
+
+    expect(body).not.toHaveProperty("openClarification");
+    expect(db.clarificationRequest.findFirst).not.toHaveBeenCalled();
+  });
+});
+
 describe("PATCH /api/events/[id] - who can reach it", () => {
   it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await patch(undefined, { status: "submitted" })).status).toBe(401);

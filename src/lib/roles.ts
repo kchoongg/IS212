@@ -26,7 +26,9 @@ export const ROLE_LABELS: Record<Role, string> = {
   venue_staff: "Venue Staff",
   tech_support: "Technical Support",
   attendee: "Attendee",
-  ops_manager: "Operations Manager",
+  // SPM-84 (Week 7 change #5, forum #129): the same role, renamed. The key
+  // stays ops_manager so accounts, permissions and records are unchanged.
+  ops_manager: "Event Coordinator Lead",
   safety_officer: "Safety Officer",
 };
 

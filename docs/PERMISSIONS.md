@@ -30,7 +30,7 @@ else's event; owning an event does not let you approve your own.
 | `venue_staff` | Venue Staff | Internal | Briefing §3 |
 | `tech_support` | Technical Support Staff | Internal | Briefing §3 |
 | `attendee` | Attendee | External | Briefing §3 |
-| `ops_manager` | Event Operations Manager | Internal | **Our addition** — see below |
+| `ops_manager` | Event Coordinator Lead (shown as "Event Operations Manager" until SPM-84; Week 7 change #5, forum #129) | Internal | **Our addition** — see below |
 | `safety_officer` | Safety Officer | Internal | Week 7 change #6 (SPM-85) — see below |
 
 The briefing names five roles. `ops_manager` is a sixth that we added: §5 Step 3
@@ -77,7 +77,7 @@ an admin screen for them is an open item (§8).
 `can(role, action)` answers this table and nothing else — it is the role half of
 the model, deliberately blind to which event is involved.
 
-| Action | Organiser | Coordinator | Ops Manager | Venue Staff | Tech Support | Attendee | Safety Officer |
+| Action | Organiser | Coordinator | Coordinator Lead | Venue Staff | Tech Support | Attendee | Safety Officer |
 | --- | :-: | :-: | :-: | :-: | :-: | :-: | :-: |
 | `event:create` | ✅ | — | — | — | — | — | — |
 | `event:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
@@ -179,6 +179,14 @@ any coordinator could pick work off the review queue before Coordinator
 Assignment existed. SPM-30 removed it (confirmed 2026-09-28): the Event
 Operations Manager assigns every submitted event (clarifications #94, #101),
 so an unassigned event is visible to every coordinator but managed by none.
+
+**The Event Coordinator Lead** (SPM-84) is this role under its new name: the key
+stays `ops_manager`, so accounts, permissions and records are unchanged, and
+"Ops Manager" below means the Lead. Besides assigning, the Lead sees every
+Event Coordinator with their number of active events and every active event
+(not Draft, Rejected, Withdrawn, Cancelled or Completed) on the Assignments
+screen. No other role can open it, and the Lead holds none of a coordinator's
+planning permissions.
 
 **Who may assign.** `canAssignCoordinator()` — the Ops Manager only
 (`event:assign_coordinator`), and only while there is something to coordinate:
@@ -353,7 +361,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `POST /api/events/[id]/safety-decision` | `canViewEvent()` → 404, then `event:safety_check` → 403 (Safety Officer only), then the event must be in Safety review with a pending check (400 "This safety check has already been decided."), then `safetyDecisionSchema` → 400 for a missing reason (SPM-87) |
 | `POST /api/events/[id]/safety-check` | `canViewEvent()` → 404, then `isAssignedCoordinator()` → 403, then the event must be in Planning (400; "A safety check is already pending for this event." when it is already in Safety review), then `checkSafetySubmission()` → 400 naming what is outstanding or flagged (SPM-86) |
 | `PUT /api/events/[id]/coordinator` | `canViewEvent()` → 404, then `event:assign_coordinator` → 403, then `canAssignCoordinator()` → 400 (SPM-30) |
-| `GET /api/assignments` | `event:assign_coordinator` — Ops Manager (SPM-30) |
+| `GET /api/assignments` | `event:assign_coordinator` — the Event Coordinator Lead (SPM-30; SPM-84 adds every active event and each coordinator's active-event count) |
 | `GET /api/venues` | `venue:view` — Coordinator, Ops Manager, Venue Staff |
 | `POST /api/venues` | `venue:manage` — Venue Staff |
 | `GET`/`POST /api/venues/[id]/unavailability` | `venue:manage` — Venue Staff (SPM-45) |
