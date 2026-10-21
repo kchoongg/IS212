@@ -21,7 +21,7 @@ Column notes:
 | [SPM-3](https://kkchoong.atlassian.net/browse/SPM-3) | [Research] Design Domain/Data Model | SPM-1 System Architecture & Design |  | Sprint 1 | 5 |  | 7 |  | Setup / research |  |  |  |  |  | 0 | 0 | Container › Database | [#1](https://github.com/kchoongg/IS212/pull/1) 2026-09-10 | none recorded (merged by its author, kchoongg) | none recorded | no CI run |  | Done | no estimate comment |
 | [SPM-4](https://kkchoong.atlassian.net/browse/SPM-4) | [Research] Design Role-Based Access Model | SPM-6 UI/UX Design |  | Sprint 1 | 3 |  | 5 |  | Setup / research |  |  |  |  | 31 setup / research | 0 | 0 | Web Application › Auth API | [#6](https://github.com/kchoongg/IS212/pull/6) 2026-09-18 | none recorded (merged by kchoongg) | Merged by kchoongg | no CI run |  | Done | no estimate comment |
 | [SPM-5](https://kkchoong.atlassian.net/browse/SPM-5) | [Research] Design Event Workflow | SPM-1 System Architecture & Design |  | Sprint 1 | 3 |  | 7 |  | Setup / research |  |  |  |  | 11 setup / research | 0 | 0 |  |  |  |  |  |  | Done | no estimate comment |
-| [SPM-7](https://kkchoong.atlassian.net/browse/SPM-7) | [FE] Design User Interface | SPM-6 UI/UX Design |  | Sprint 1 | 5 |  | 6 |  | Setup / research |  |  |  |  | 115 setup / research | 0 | 0 |  | [#2](https://github.com/kchoongg/IS212/pull/2) 2026-09-14 | none recorded (merged by kchoongg) | Merged by kchoongg | no CI run |  | Done | no estimate comment |
+| [SPM-7](https://kkchoong.atlassian.net/browse/SPM-7) | [FE] Design User Interface | SPM-6 UI/UX Design |  | Sprint 1 | 5 |  | 6 |  | Setup / research |  |  |  |  | 111 setup / research | 0 | 0 |  | [#2](https://github.com/kchoongg/IS212/pull/2) 2026-09-14 | none recorded (merged by kchoongg) | Merged by kchoongg | no CI run |  | Done | no estimate comment |
 | [SPM-8](https://kkchoong.atlassian.net/browse/SPM-8) | [Research] Investigate Technology Stack | SPM-9 Technical Investigation |  | Sprint 1 | 3 |  | 5 |  | Setup / research |  |  |  |  | 3 setup / research | 0 | 0 |  |  |  |  |  |  | Done | no estimate comment |
 | [SPM-10](https://kkchoong.atlassian.net/browse/SPM-10) | [Research] Investigate Integration Approach | SPM-9 Technical Investigation |  | Sprint 1 | 5 |  | 5 |  | Setup / research |  |  |  |  |  | 0 | 0 | Containers view (Web Application ↔ Database) |  |  |  |  |  | Done | no estimate comment |
 | [SPM-21](https://kkchoong.atlassian.net/browse/SPM-21) | User Login | SPM-11 User Authentication & Authorisation |  | Sprint 1 | 5 |  | 4 | 4/4 | AC1 A, AC2 A, AC3 A, AC4 A | [xlsx](../test-cases/SPM-21_Test_Cases.xlsx) | 19 | 0 | 19 Pass (2026-09-20) | 48 unit, 96 route | 0 | 2 | Web Application › Auth API | [#8](https://github.com/kchoongg/IS212/pull/8) 2026-09-20 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | no CI run | [SPM-103](https://kkchoong.atlassian.net/browse/SPM-103) | Done | no estimate comment |
@@ -29,7 +29,7 @@ Column notes:
 | [SPM-23](https://kkchoong.atlassian.net/browse/SPM-23) | Create Event Request | SPM-12 Event Request Management |  | Sprint 1 | 5 |  | 8 | 5/8 | AC1 M, AC2 M, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 M | [xlsx](../test-cases/SPM-23_Test_Cases.xlsx) | 35 | 0 | 35 Pass (2026-09-20) | 136 unit, 33 route | 0 | 0 | Web Application › Events API | [#3](https://github.com/kchoongg/IS212/pull/3) 2026-09-14<br>[#13](https://github.com/kchoongg/IS212/pull/13) 2026-09-20 | none recorded (merged by janelleip2024)<br>none recorded (merged by Chua-Yu-Tian-Sammi) | Merged by janelleip2024<br>Merged by Chua-Yu-Tian-Sammi | no CI run<br>no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (2 tests) | Done | no estimate comment |
 | [SPM-24](https://kkchoong.atlassian.net/browse/SPM-24) | Save Draft Event Request | SPM-12 Event Request Management |  | Sprint 1 | 3 |  | 5 | 5/5 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A | [xlsx](../test-cases/SPM-24_Test_Cases.xlsx) | 17 | 0 | 17 Pass (2026-09-17) | 46 unit, 12 route | 0 | 0 | Web Application › Events API | [#4](https://github.com/kchoongg/IS212/pull/4) 2026-09-17 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (3 tests) | Done | no estimate comment |
 | [SPM-25](https://kkchoong.atlassian.net/browse/SPM-25) | Submit Event Request | SPM-12 Event Request Management |  | Sprint 1 | 5 |  | 4 | 3/4 | AC1 A, AC2 A, AC3 A, AC4 M | [xlsx](../test-cases/SPM-25_Test_Cases.xlsx) | 7 | 0 | 7 Pass (2026-09-19) | 8 unit, 5 route | 0 | 1 | Web Application › Events API | [#7](https://github.com/kchoongg/IS212/pull/7) 2026-09-19 | Chua-Yu-Tian-Sammi | GitHub review | no CI run |  | Done | no estimate comment |
-| [SPM-26](https://kkchoong.atlassian.net/browse/SPM-26) | Respond to Clarification Request | SPM-14 Event Review & Approval |  | Sprint 4 | 3 | Estimate: 3. Normal story: the Organiser sees the clarification request, edits on the existing event form and resubmits, and the status returns to review. Like… | 4 | 0/4 | AC1 N, AC2 N, AC3 N, AC4 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4; no TC file |
+| [SPM-26](https://kkchoong.atlassian.net/browse/SPM-26) | Respond to Clarification Request | SPM-14 Event Review & Approval |  | Sprint 4 | 3 | Estimate: 3. Normal story: the Organiser sees the clarification request, edits on the existing event form and resubmits, and the status returns to review. Like… | 4 | 0/4 | AC1 N, AC2 N, AC3 N, AC4 N |  |  |  |  | 0 unit, 2 route | 1 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4; no TC file |
 | [SPM-27](https://kkchoong.atlassian.net/browse/SPM-27) | View Event Status | SPM-12 Event Request Management |  | Sprint 2 | 3 |  | 4 | 4/4 | AC1 A, AC2 A, AC3 A, AC4 A | [xlsx](../test-cases/SPM-27_Test_Cases.xlsx) | 7 | 0 | 7 Pass (2026-10-03) | 29 unit, 10 route | 0 | 0 | Web Application › Events API | [#32](https://github.com/kchoongg/IS212/pull/32) 2026-10-03<br>[#67](https://github.com/kchoongg/IS212/pull/67) 2026-10-18 | none recorded (merged by janelleip2024)<br>none recorded (merged by Chua-Yu-Tian-Sammi) | Merged by janelleip2024<br>Merged by Chua-Yu-Tian-Sammi | no CI run<br>[run](https://github.com/kchoongg/IS212/actions/runs/39115152955) |  | Done | no estimate comment |
 | [SPM-28](https://kkchoong.atlassian.net/browse/SPM-28) | Review Event Request | SPM-14 Event Review & Approval |  | Sprint 2 | 3 |  | 6 | 6/6 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A | [xlsx](../test-cases/SPM-28_Test_Cases.xlsx) | 15 | 0 | 15 Pass (2026-10-01) | 49 unit, 7 route | 0 | 1 | Web Application › Events API | [#29](https://github.com/kchoongg/IS212/pull/29) 2026-10-01 | none recorded (merged by Chua-Yu-Tian-Sammi) | Merged by Chua-Yu-Tian-Sammi | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (3 tests) | Done | no estimate comment |
 | [SPM-29](https://kkchoong.atlassian.net/browse/SPM-29) | Request Event Clarification | SPM-14 Event Review & Approval |  | Sprint 4 | 3 | Estimate: 3. Normal story: one more action on the review screen, a clarification message and a new status. Like SPM-28 (3). | 4 | 0/4 | AC1 N, AC2 N, AC3 N, AC4 N | [xlsx](../test-cases/SPM-29_Test_Cases.xlsx) | 6 | 0 | 6 Pass (2026-10-20) | 35 unit, 21 route | 1 | 0 | Web Application › Events API |  |  |  |  |  | In Progress | no coverage: AC1, AC2, AC3, AC4; no TC file |
@@ -320,7 +320,7 @@ Tests (27):
 - `src/app/api/__tests__/auth.test.ts:182` allows self-registration as an attendee
 - `src/app/api/__tests__/auth.test.ts:191` rejects a password shorter than 8 characters
 - `src/app/api/__tests__/auth.test.ts:199` answers 500 when the database fails
-- `src/lib/__tests__/edgeCases.test.ts:35` only organisers and attendees may register themselves
+- `src/lib/__tests__/edgeCases.test.ts:34` only organisers and attendees may register themselves
 - `src/lib/__tests__/validation.test.ts:25` accepts a valid registration
 - `src/lib/__tests__/validation.test.ts:35` rejects a short password
 - `src/lib/__tests__/validation.test.ts:45` rejects an invalid role
@@ -349,7 +349,7 @@ Tests (7):
 
 ## Tests tagged with a story but no single AC
 
-These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). 534 tests:
+These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). 533 tests:
 
 <details><summary>Show the list</summary>
 
@@ -386,6 +386,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-24 | src/app/__tests__/event-form-pages.test.tsx:209 | shows 'Saving…' and cannot be pressed twice while the save is in flight |
 | SPM-25 | src/app/__tests__/event-form-pages.test.tsx:270 | if saved but not submitted, says the work is safe as a draft |
 | SPM-25 | src/app/__tests__/event-form-pages.test.tsx:282 | says so even when the server gives no reason for refusing the submission |
+| SPM-26 | integration/clarification.test.ts:55 | approving the request closes its open clarification, unanswered |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:787 | closes it when the request is %s |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:804 | leaves clarifications alone on a move that is not out of review |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:107 | says what each of an organiser's lists is waiting for when it is empty |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:132 | labels an event with no title as untitled |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:141 | shows only the five most recently changed events of a long list, newest first |
@@ -399,7 +402,7 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:360 | recovers every one of an organiser's lists from a load failure |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:454 | with nothing submitted yet, invites them to create their first request |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:546 | shows a load failure with a Retry that loads again |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1124 | rejects a status that does not exist |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1156 | rejects a status that does not exist |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:518 | is 404 for a malformed reference |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:525 | is 404 for a reference that matches no event |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:532 | is 404, not 403, for an event the user cannot see - and nothing is written |
@@ -449,10 +452,10 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:83 | looks the event up by the number in its reference |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:90 | returns null for a malformed reference without querying |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:95 | returns null when no event has that reference |
-| SPM-31 | src/lib/__tests__/format.test.ts:128 | formats and parses back the same number |
-| SPM-31 | src/lib/__tests__/format.test.ts:133 | is case-insensitive and needs no padding to parse |
-| SPM-31 | src/lib/__tests__/format.test.ts:137 | rejects anything that isn't the EVT-<digits> shape, including a raw UUID |
-| SPM-31 | src/lib/__tests__/format.test.ts:147 | rejects a number too large for the database's sequence column, rather than crashing later |
+| SPM-31 | src/lib/__tests__/format.test.ts:104 | is case-insensitive and needs no padding to parse |
+| SPM-31 | src/lib/__tests__/format.test.ts:108 | rejects anything that isn't the EVT-<digits> shape, including a raw UUID |
+| SPM-31 | src/lib/__tests__/format.test.ts:118 | rejects a number too large for the database's sequence column, rather than crashing later |
+| SPM-31 | src/lib/__tests__/format.test.ts:99 | formats and parses back the same number |
 | SPM-33 | src/app/__tests__/event-readiness-page.test.tsx:204 | renders nothing until it knows who is looking |
 | SPM-33 | src/app/__tests__/event-readiness-page.test.tsx:228 | for %s starts '%s', and links the event's title to its Overview |
 | SPM-33 | src/app/__tests__/event-readiness-page.test.tsx:241 | reads 'Event' for the event while %s |
@@ -818,24 +821,20 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-7 | src/app/__tests__/layout.test.tsx:34 | puts a 'Skip to content' link first, pointing at the page content |
 | SPM-7 | src/app/__tests__/layout.test.tsx:51 | titles the site |
 | SPM-7 | src/components/__tests__/shell.test.tsx:437 | says the screen is unfinished, and which story it belongs to |
-| SPM-7 | src/lib/__tests__/edgeCases.test.ts:15 | shows a dash instead of a time, a date-time, a duration or a venue |
-| SPM-7 | src/lib/__tests__/format.test.ts:105 | appends the code staff say aloud |
-| SPM-7 | src/lib/__tests__/format.test.ts:109 | omits an absent code |
-| SPM-7 | src/lib/__tests__/format.test.ts:115 | passes through real values, including zero |
-| SPM-7 | src/lib/__tests__/format.test.ts:120 | replaces null, undefined and empty strings |
-| SPM-7 | src/lib/__tests__/format.test.ts:26 | renders the agreed format |
-| SPM-7 | src/lib/__tests__/format.test.ts:30 | accepts a Date as well as a string |
-| SPM-7 | src/lib/__tests__/format.test.ts:34 | renders missing and invalid values as an em dash, never blank |
-| SPM-7 | src/lib/__tests__/format.test.ts:42 | renders 24-hour Singapore time |
-| SPM-7 | src/lib/__tests__/format.test.ts:49 | joins the date and time |
-| SPM-7 | src/lib/__tests__/format.test.ts:55 | collapses a same-day range to one date |
-| SPM-7 | src/lib/__tests__/format.test.ts:59 | keeps both timestamps for a multi-day event |
-| SPM-7 | src/lib/__tests__/format.test.ts:67 | renders whichever end it has when one is missing |
-| SPM-7 | src/lib/__tests__/format.test.ts:72 | renders an em dash when it has neither |
-| SPM-7 | src/lib/__tests__/format.test.ts:78 | renders hours and minutes |
-| SPM-7 | src/lib/__tests__/format.test.ts:84 | refuses to render a negative duration |
-| SPM-7 | src/lib/__tests__/format.test.ts:93 | renders used over total |
-| SPM-7 | src/lib/__tests__/format.test.ts:98 | needs both numbers |
+| SPM-7 | src/lib/__tests__/edgeCases.test.ts:15 | shows a dash instead of a time, a date-time or a venue |
+| SPM-7 | src/lib/__tests__/format.test.ts:24 | renders the agreed format |
+| SPM-7 | src/lib/__tests__/format.test.ts:28 | accepts a Date as well as a string |
+| SPM-7 | src/lib/__tests__/format.test.ts:32 | renders missing and invalid values as an em dash, never blank |
+| SPM-7 | src/lib/__tests__/format.test.ts:40 | renders 24-hour Singapore time |
+| SPM-7 | src/lib/__tests__/format.test.ts:47 | joins the date and time |
+| SPM-7 | src/lib/__tests__/format.test.ts:53 | collapses a same-day range to one date |
+| SPM-7 | src/lib/__tests__/format.test.ts:57 | keeps both timestamps for a multi-day event |
+| SPM-7 | src/lib/__tests__/format.test.ts:65 | renders whichever end it has when one is missing |
+| SPM-7 | src/lib/__tests__/format.test.ts:70 | renders an em dash when it has neither |
+| SPM-7 | src/lib/__tests__/format.test.ts:76 | appends the code staff say aloud |
+| SPM-7 | src/lib/__tests__/format.test.ts:80 | omits an absent code |
+| SPM-7 | src/lib/__tests__/format.test.ts:86 | passes through real values, including zero |
+| SPM-7 | src/lib/__tests__/format.test.ts:91 | replaces null, undefined and empty strings |
 | SPM-71 | src/app/__tests__/notifications-page.test.tsx:142 | shows a general error when the request fails without a reason |
 | SPM-71 | src/app/__tests__/notifications-page.test.tsx:148 | shows a load failure with a Retry that loads again |
 | SPM-71 | src/app/api/__tests__/notifications.test.ts:100 | answers 500 when the database fails |

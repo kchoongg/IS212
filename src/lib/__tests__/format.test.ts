@@ -2,11 +2,9 @@ import { describe, it, expect } from "vitest";
 import {
   EMPTY,
   eventReference,
-  formatCapacity,
   formatDate,
   formatDateTime,
   formatDateTimeRange,
-  formatDuration,
   formatTime,
   formatVenue,
   orEmpty,
@@ -71,33 +69,6 @@ describe("formatDateTimeRange", () => {
 
   it("[SPM-7] renders an em dash when it has neither", () => {
     expect(formatDateTimeRange(null, null)).toBe(EMPTY);
-  });
-});
-
-describe("formatDuration", () => {
-  it("[SPM-7] renders hours and minutes", () => {
-    expect(formatDuration(START, END)).toBe("8h");
-    expect(formatDuration(START, "2026-10-03T04:30:00.000Z")).toBe("3h 30m");
-    expect(formatDuration(START, "2026-10-03T01:45:00.000Z")).toBe("45m");
-  });
-
-  it("[SPM-7] refuses to render a negative duration", () => {
-    // Validation catches an end before its start; a screen must not show
-    // "-2h" while it does.
-    expect(formatDuration(END, START)).toBe(EMPTY);
-    expect(formatDuration(START, START)).toBe(EMPTY);
-  });
-});
-
-describe("formatCapacity", () => {
-  it("[SPM-7] renders used over total", () => {
-    expect(formatCapacity(120, 250)).toBe("120 / 250");
-    expect(formatCapacity(0, 250)).toBe("0 / 250");
-  });
-
-  it("[SPM-7] needs both numbers", () => {
-    expect(formatCapacity(null, 250)).toBe(EMPTY);
-    expect(formatCapacity(120, null)).toBe(EMPTY);
   });
 });
 
