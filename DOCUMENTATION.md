@@ -1112,8 +1112,9 @@ what changed, why, and the migration name if there is one.
   out of 3) and passes after it (5 runs out of 5). A unit test in
   `registrations.test.ts` checks the lock comes before the count.
 - Known Gaps: the row is removed. `docs/TESTING.md` lists the new test.
-- Retest: SPM-51-TC04 and TC05 to be re-run and recorded in
-  `docs/test-cases/SPM-51_Test_Cases.xlsx`.
+- Retest: the integration test above is the retest. Two people can't
+  register at the same moment by hand, so no manual case is added and
+  `docs/test-cases/SPM-51_Test_Cases.xlsx` is unchanged.
 - Migration: none.
 
 ---
