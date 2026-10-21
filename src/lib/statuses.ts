@@ -176,9 +176,3 @@ export function canTransition(from: string, to: string): boolean {
 export function transitionError(from: string, to: string): string {
   return `This event is ${statusLabel(from)} and can't be moved to ${statusLabel(to)}.`;
 }
-
-/// SPM-26: someone else changed the event's status after this request read it
-/// (Approve in one tab, Reject in another), so the change is refused.
-export function statusChangedError(now: string): string {
-  return `This event is now ${statusLabel(now)}. Reload the page to see the change.`;
-}

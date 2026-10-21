@@ -20,9 +20,8 @@ import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validatio
 import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
 import { dayIndex, dayStart } from "@/lib/equipmentAvailability";
-import { canTransition, statusChangedError, transitionError } from "@/lib/statuses";
+import { canTransition, transitionError } from "@/lib/statuses";
 import { checkEventConfirmation } from "@/lib/eventConfirmation";
-import { missingSubmissionFields } from "@/lib/eventSubmission";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
 import { SEAT_TAKING, registrationCounts, registrationState } from "@/lib/registrationEligibility";
@@ -311,9 +310,6 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
     return await handleDraftEdit(event.id, actor, event, body);
   } catch (err) {
-    if (err instanceof RouteError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
@@ -367,16 +363,30 @@ async function handleStatusChange(
     return NextResponse.json({ error: transitionError(event.status, data.status) }, { status: 400 });
   }
 
-  // ADDED: a draft may be incomplete, but anything past draft may not. The
-  // rule is missingSubmissionFields() (src/lib/eventSubmission.ts), shared
-  // with SPM-26's update of a request Under review.
+  // ADDED: a draft may be incomplete, but anything past draft may not.
+  // The SQL design enforced this with a CHECK constraint; Prisma has no
+  // equivalent, so the rule moves here - the one place status leaves draft.
   if (event.status === "draft" && data.status !== "draft") {
+    const missing: string[] = [];
+    if (!event.title) missing.push("title");
+    if (!event.category) missing.push("category");
+    if (!event.startsAt) missing.push("startsAt");
+    if (!event.endsAt) missing.push("endsAt");
+    if (event.expectedAttendance == null) missing.push("expectedAttendance");
+
+    // A multi-session event's own attendance is derived from its sessions (the
+    // largest one), so it is non-null as soon as ANY session has a figure -
+    // which would let a session with none through. Each session has to be
+    // complete in its own right ("each with its own ... expected attendance").
     const sessions = await prisma.eventSession.findMany({
       where: { eventId: id },
       orderBy: { startsAt: "asc" },
       select: { expectedAttendance: true },
     });
-    const missing = missingSubmissionFields(event, sessions);
+    sessions.forEach((session, i) => {
+      if (session.expectedAttendance == null) missing.push(`session ${i + 1} expectedAttendance`);
+    });
+
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `Cannot submit an incomplete event. Missing: ${missing.join(", ")}` },
@@ -431,17 +441,6 @@ async function handleStatusChange(
   }
 
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-    // ADDED (SPM-26): every check above read the status before this
-    // transaction began, so two changes at the same moment (Approve in one
-    // tab, Reject in another) could both pass them. The row lock makes the
-    // second wait for the first; reading the status again under it refuses
-    // the second once the first has moved the event on.
-    await tx.$queryRaw`SELECT id FROM events WHERE id = ${id} FOR UPDATE`;
-    const current = await tx.event.findUnique({ where: { id }, select: { status: true } });
-    if (current && current.status !== event.status) {
-      throw new RouteError(400, statusChangedError(current.status));
-    }
-
     const e = await tx.event.update({
       where: { id },
       data: {
@@ -464,11 +463,8 @@ async function handleStatusChange(
       },
     });
 
-    // ADDED (SPM-26): an open clarification (SPM-29) asks the organiser
-    // something about the request under review. Once the review is over -
-    // approved, rejected or withdrawn - nobody will answer it, so it is
-    // closed, not left open for ever. Closing is not answering:
-    // responseMessage and respondedAt stay empty.
+    // SPM-26: once the review is over, nobody will answer an open
+    // clarification, so it is closed (not answered - no response is set).
     if (REVIEWABLE_STATUSES.includes(event.status)) {
       await tx.clarificationRequest.updateMany({
         where: { eventId: id, status: "open" },
@@ -680,17 +676,4 @@ async function openClarificationOf(event: { id: string; status: string }) {
     select: { id: true, fields: true, message: true, requestedAt: true, requester: { select: { fullName: true } } },
   });
   return open ? { ...open, fields: decodeFields(open.fields) } : null;
-}
-
-/// Thrown inside a transaction to carry an HTTP status back out - Prisma
-/// rolls the transaction back on any thrown error, which is what a refused
-/// change needs anyway (nothing should be written). As in the equipment
-/// reserve route.
-class RouteError extends Error {
-  constructor(
-    public status: number,
-    message: string
-  ) {
-    super(message);
-  }
 }
