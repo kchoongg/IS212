@@ -49,7 +49,7 @@ const files = staged
   ? lines(git("diff", "--cached", "--name-only", "--diff-filter=AM")).filter(isWorkbook)
   : names.length
     ? names.map((a) =>
-        /\.xlsx$/i.test(a) ? path.relative(ROOT, path.resolve(a)).replace(/\/g, "/") : `docs/test-cases/${a.toUpperCase()}_Test_Cases.xlsx`,
+        /\.xlsx$/i.test(a) ? path.relative(ROOT, path.resolve(a)).split(path.sep).join("/") : `docs/test-cases/${a.toUpperCase()}_Test_Cases.xlsx`,
       )
     : [...lines(git("diff", "--name-only", "HEAD", "--", "docs/test-cases")), ...lines(git("ls-files", "--others", "--exclude-standard", "--", "docs/test-cases"))].filter(isWorkbook);
 if (!files.length) process.exit(0);
