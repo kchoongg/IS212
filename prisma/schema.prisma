@@ -404,13 +404,30 @@ model EventChangeRequest {
   requestedAt DateTime @default(now()) @map("requested_at")
   reason      String
 
-  /// NULL means "not changing this field".
+  /// SPM-35: what the organiser asks for - change (new values for the event's
+  /// details) | postpone | cancel. Postpone and cancel carry a reason only.
+  kind String @default("change")
+  /// SPM-35 (AC1, AC2): one entry per field the request changes, in the order
+  /// of REQUESTABLE_FIELDS (src/lib/eventChangeRequest.ts):
+  /// { field, current, proposed }. Values are as Update Event Information
+  /// (SPM-62) takes them - ISO date strings, numbers, layout codes - except the
+  /// facilities, stored as [{ id, name }] so the request still reads the same
+  /// if a facility is renamed. `current` is the value when the request was made.
+  changes Json?
+  /// SPM-35 (AC1): changes to equipment, in the organiser's own words.
+  equipmentChanges String? @map("equipment_changes")
+
+  /// Before SPM-35: NULL means "not changing this field". Requests made since
+  /// keep them NULL and use `changes`; the base seed's three requests still use
+  /// them, and are shown from them.
   proposedStartsAt   DateTime? @map("proposed_starts_at")
   proposedEndsAt     DateTime? @map("proposed_ends_at")
   proposedAttendance Int?      @map("proposed_attendance")
   otherChanges       String?   @map("other_changes")
 
-  /// true = date/time/attendance changed → re-check venue and equipment.
+  /// The request is Important (SPM-35 AC4): it changes the date and time,
+  /// expected attendance, venue requirements or equipment (IMPORTANT_CHANGES,
+  /// src/lib/eventChangeImpact.ts) - what existing arrangements depend on.
   isSignificant Boolean @default(false) @map("is_significant")
 
   /// pending | approved | rejected | withdrawn

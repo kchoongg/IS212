@@ -2067,10 +2067,44 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-35 QA fixtures (Request Event Change). The SAME events as
+  // scripts/seed-spm35.ts (`npm run fixtures:spm35`) - keep the two in step.
+  //
+  // The events only. SPM35 Harbour Townhall's facility, SPM35 Riverside
+  // Roadshow's approved booking and reserved projectors, and SPM35 Requests
+  // Showcase's five pending change requests are created by that script alone,
+  // so run it once after a full reseed. Pushed LAST, after SPM-84, so no earlier
+  // event's EVT- reference number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm35 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    attendance: number, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    category: "meeting", days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm35("spm35_townhall", "SPM35 Harbour Townhall", "approved", "2027-04-12", 9, 3, 80,
+      { purpose: "Quarterly all-hands", description: "Leadership update and Q&A." }),
+    spm35("spm35_roadshow", "SPM35 Riverside Roadshow", "planning", "2027-04-19", 10, 6, 100,
+      { purpose: "Client roadshow", description: "Product briefings for wealth clients." }),
+    spm35("spm35_forum", "SPM35 Marina Client Forum", "confirmed", "2027-04-26", 14, 3, 50,
+      { purpose: "Client forum", description: "Market outlook for key clients." }),
+    spm35("spm35_postponed", "SPM35 Postponed Product Showcase", "postponed", "2027-05-03", 9, 4, 60,
+      { purpose: "Product showcase", description: "New savings products on show." }),
+    spm35("spm35_under_review", "SPM35 Under Review Workshop", "under_review", "2027-05-24", 9, 3, 30,
+      { purpose: "Advisers' workshop", description: "Hands-on session for advisers." }),
+    spm35("spm35_cancelled", "SPM35 Cancelled Gala Dinner", "cancelled", "2027-05-31", 19, 3, 120,
+      { purpose: "Year-end gala", description: "Dinner for staff and partners.", cancellationReason: "Client cancelled the gala." }),
+    spm35("spm35_requests", "SPM35 Requests Showcase", "confirmed", "2027-05-10", 9, 8, 100,
+      { purpose: "Client showcase", description: "A day of client presentations." }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-80 QA fixtures (Re-check Bookings When Setup or Turnaround Time
   // Changes). The SAME events as scripts/seed-spm80.ts (`npm run
   // fixtures:spm80`) - keep the two in step. Their bookings and the
-  // maintenance period are created further down. Pushed LAST, after SPM-84,
+  // maintenance period are created further down. Pushed LAST, after SPM-35,
   // so no earlier event's EVT- reference number shifts. Add new events AFTER
   // this block.
   // -----------------------------------------------------------------

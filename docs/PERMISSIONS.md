@@ -82,6 +82,7 @@ the model, deliberately blind to which event is involved.
 | `event:create` | ✅ | — | — | — | — | — | — |
 | `event:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `event:edit_draft` | ✅ | — | — | — | — | — | — |
+| `event:request_change` (SPM-35: ask for a change after submission) | ✅ | — | — | — | — | — | — |
 | `event:review` (clarify / approve / reject) | — | ✅ | — | — | — | — | — |
 | `event:assign_coordinator` | — | — | ✅ | — | — | — | — |
 | `event:confirm` | — | ✅ | — | — | — | — | — |
@@ -479,7 +480,11 @@ allowed to see.
 - **No admin screen for staff accounts.** The four internal roles can no longer
   be self-registered, which is right, but nothing in the app creates them
   either — `npx prisma db seed` is the only path today.
-- **Event Change Requests has no endpoint**, which is how an Organiser would ask
-  for a cancellation now that they cannot perform one themselves. Until it
-  exists, an organiser who wants their event called off has to contact their
-  coordinator outside the system.
+- **Event Change Requests can be raised but not processed.** Since SPM-35 the
+  organiser who owns an event asks for new details, a postponement or a
+  cancellation (`POST /api/events/[id]/change-requests`, `canRequestEventChange()`:
+  `event:request_change` and ownership - not a colleague from the same company -
+  while the event is Approved, Planning, Safety review, Safety approved,
+  Confirmed or Postponed). The event's organisers, its assigned coordinator and
+  the Ops Manager see them (`canViewChangeRequests()`); the coordinator's pending
+  ones are `GET /api/change-requests`. Approving or rejecting one is SPM-32.
