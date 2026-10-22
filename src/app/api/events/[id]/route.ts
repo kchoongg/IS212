@@ -8,6 +8,7 @@ import {
   REVIEW_OUTCOMES,
   can,
   canEditEventContent,
+  canRespondToClarification,
   canSeeClarification,
   canSetEventStatus,
   canViewEvent,
@@ -15,7 +16,12 @@ import {
   visibleEventFor,
   type Actor,
 } from "@/lib/permissions";
-import { decodeFields } from "@/lib/clarification";
+import {
+  CLARIFICATION_NONE_OPEN,
+  CLARIFICATION_NO_LONGER_UNDER_REVIEW,
+  CLARIFICATION_RESPOND_FORBIDDEN,
+  decodeFields,
+} from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import { isExternalRole } from "@/lib/roles";
@@ -310,6 +316,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
     return await handleDraftEdit(event.id, actor, event, body);
   } catch (err) {
+    // SPM-26: the resubmit's own refusals, decided under the row lock.
+    if (err instanceof ResubmitRefused) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
@@ -473,11 +483,21 @@ async function handleStatusChange(
   return NextResponse.json(updated);
 }
 
+/// A refusal decided inside the resubmit's transaction (SPM-26), turned into
+/// a 400 outside it.
+class ResubmitRefused extends Error {}
+
 /**
  * SPM-24: save changes to a draft's own fields. Restricted to the owning
  * organiser and to drafts - AC "a draft is not treated as a submitted event
  * request" means this must not become a back door for editing a request
  * that has already left the organiser's hands.
+ *
+ * SPM-26: the one exception - while a request is Under review with an open
+ * clarification, the organiser who raised it answers by changing any field a
+ * draft can have and resubmitting, here, in one request. The changes and the
+ * clarification marked answered are written together; the status and its
+ * history are not (the event stays Under review).
  */
 async function handleDraftEdit(
   id: string,
@@ -488,11 +508,22 @@ async function handleDraftEdit(
   // Only the owning organiser edits a draft's content. A draft belonging to
   // someone else was already hidden as a 404 by the caller, so the remaining
   // refusals are honest: the wrong role, or an event that has left draft.
-  if (event.status !== "draft") {
+  const responding = REVIEWABLE_STATUSES.includes(event.status);
+  if (event.status !== "draft" && !responding) {
     return NextResponse.json({ error: "Only draft requests can be edited" }, { status: 400 });
   }
-  if (!canEditEventContent(actor, event)) {
+  if (responding && !canRespondToClarification(actor, event)) {
+    return forbidden(CLARIFICATION_RESPOND_FORBIDDEN);
+  }
+  if (!responding && !canEditEventContent(actor, event)) {
     return forbidden("Only the organiser who owns this draft can edit it");
+  }
+  // Before the form: nothing to answer is said so, not "fix this field".
+  const openClarification = responding
+    ? await prisma.clarificationRequest.findFirst({ where: { eventId: id, status: "open" }, select: { id: true } })
+    : null;
+  if (responding && !openClarification) {
+    return NextResponse.json({ error: CLARIFICATION_NONE_OPEN }, { status: 400 });
   }
 
   const data = updateEventDraftSchema.parse(body);
@@ -564,10 +595,48 @@ async function handleDraftEdit(
     );
   }
 
+  // SPM-26: a request past draft stays as complete as submitting required.
+  if (responding) {
+    const missing = missingSubmissionFields(
+      {
+        title: data.title ?? event.title,
+        category: data.category ?? event.category,
+        startsAt,
+        endsAt,
+        expectedAttendance: derived
+          ? (derived.expectedAttendance ?? null)
+          : (data.expectedAttendance ?? event.expectedAttendance),
+      },
+      data.sessions ?? (await savedSessions(id))
+    );
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot resubmit an incomplete request. Missing: ${missing.join(", ")}` },
+        { status: 400 }
+      );
+    }
+  }
+
   // Equipment is held wider than the event, same as on create.
   const equipmentTimes = startsAt && endsAt ? equipmentWindow(startsAt, endsAt) : null;
 
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // SPM-26: the coordinator may approve, reject or withdraw the request at
+    // the same moment, so its status is read again under a row lock, and the
+    // clarification is answered only if it is still open (a second tab, a
+    // double click) - before anything else is written.
+    if (responding) {
+      const [locked] = await tx.$queryRaw<{ status: string }[]>`SELECT status FROM events WHERE id = ${id} FOR UPDATE`;
+      if (!locked || !REVIEWABLE_STATUSES.includes(locked.status)) {
+        throw new ResubmitRefused(CLARIFICATION_NO_LONGER_UNDER_REVIEW);
+      }
+      const answered = await tx.clarificationRequest.updateMany({
+        where: { id: openClarification!.id, status: "open" },
+        data: { status: "answered", respondedAt: new Date() },
+      });
+      if (answered.count === 0) throw new ResubmitRefused(CLARIFICATION_NONE_OPEN);
+    }
+
     // A field that's being replaced is cleared first and rebuilt from the
     // payload below - simpler than diffing rows against what's already there.
     if (data.facilityIds !== undefined) {
