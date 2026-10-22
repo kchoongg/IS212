@@ -2301,3 +2301,246 @@ describe("Event overview - an open clarification (SPM-29)", () => {
     expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
   });
 });
+
+// SPM-37 - Cancel Event.
+//
+// CONTRACT (SPM-37, written before the code) - what these tests expect the
+// Overview (src/app/events/[id]/page.tsx) to do:
+//   - a "Cancel event" header button for the assigned coordinator only, while
+//     canCancelEvent() (src/lib/permissions.ts) says the event can be cancelled
+//   - clicking it opens the dialog "Cancel this event?" and asks
+//     GET /api/events/[id]/cancellation for { consequences }, listed under
+//     "Cancelling will:"; [] shows NOTHING_TO_RELEASE instead
+//   - "Reason (optional)" (up to 2,000 characters); "Cancel event" sends
+//     PATCH /api/events/[id] { status: "cancelled", reason? } (no reason key when
+//     it is empty), then shows EVENT_CANCELLED_MESSAGE and reloads the event;
+//     "Keep event" sends nothing
+//   - a cancelled event shows a red "This event was cancelled" alert with its
+//     cancellationReason, or NO_CANCELLATION_REASON
+// Decided here, not in the story: "Could not load what cancelling will
+// release." when the preview fails - Cancel event is still offered, as the
+// server releases everything either way.
+describe("Event overview - cancelling an event (SPM-37)", () => {
+  const PATCH = `PATCH /api/events/${REF}`;
+  const PREVIEW = `GET /api/events/${REF}/cancellation`;
+  const TITLE = "Cancel this event?";
+  const DONE = "The event has been cancelled. Its venue bookings and equipment have been released.";
+  const CONSEQUENCES = [
+    "Release SPM37 Hall (SPM37-HAL) on 2 Nov 2027, 09:00–12:00",
+    "Withdraw the request for SPM37 Studio (SPM37-STU) on 2 Nov 2027, 09:00–12:00",
+    "Release 2 × SPM37 Projector",
+  ];
+
+  function open(role: string, eventRow: unknown, routes: Record<string, unknown> = {}, who = {}) {
+    setRoute(`/events/${REF}`, { id: REF });
+    const api = mockApi({
+      ...signedInAs(role, who),
+      [EVENT]: eventRow,
+      [PREVIEW]: { consequences: CONSEQUENCES },
+      [PATCH]: {},
+      "GET /api/assignments": { coordinators: [] },
+      ...routes,
+    });
+    render(<EventOverviewPage />);
+    return api;
+  }
+  const openAsAssigned = (eventRow: unknown = event(), routes: Record<string, unknown> = {}) =>
+    open("coordinator", eventRow, routes, { id: "c1" });
+  const ask = async () => userEvent.click(await screen.findByRole("button", { name: "Cancel event" }));
+  const dialog = () => dialogTitled(TITLE);
+  const go = () => userEvent.click(within(dialog()).getByRole("button", { name: "Cancel event", hidden: true }));
+
+  it.each(["under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "postponed"])(
+    "[SPM-37][AC1] is offered to the assigned coordinator while the event is %s",
+    async (status) => {
+      openAsAssigned(event({ status }));
+
+      expect(await screen.findByRole("button", { name: "Cancel event" })).toBeInTheDocument();
+    }
+  );
+
+  it.each(["submitted", "completed", "rejected", "withdrawn", "cancelled"])(
+    "[SPM-37][AC1][AC9] is not offered while the event is %s",
+    async (status) => {
+      openAsAssigned(event({ status }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("button", { name: "Cancel event" })).not.toBeInTheDocument();
+    }
+  );
+
+  it.each([
+    ["a coordinator it is not assigned to", "coordinator", { id: "c2" }],
+    ["the Event Coordinator Lead", "ops_manager", {}],
+    ["the organiser who owns it", "organiser", { id: "organiser-id" }],
+    ["Venue Staff", "venue_staff", {}],
+    ["Technical Support", "tech_support", {}],
+    ["the Safety Officer", "safety_officer", {}],
+  ])("[SPM-37][AC2] is not offered to %s", async (_who, role, who) => {
+    open(role, event(), {}, who);
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByRole("button", { name: "Cancel event" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-37][AC3][AC4] asks first, naming the event and everything it will release, and sends nothing yet", async () => {
+    const api = openAsAssigned();
+
+    await ask();
+
+    expect(dialog().open).toBe(true);
+    expect(dialog()).toHaveTextContent("Gala Dinner will be marked Cancelled. This can't be undone.");
+    expect(dialog()).toHaveTextContent("Cancelling will:");
+    const listed = await within(dialog()).findAllByRole("listitem", { hidden: true });
+    expect(listed.map((li) => li.textContent)).toEqual(CONSEQUENCES);
+    expect(api.sent(PREVIEW)).toHaveLength(1);
+    expect(api.sent(PATCH)).toHaveLength(0);
+  });
+
+  it("[SPM-37][AC1] says when the event has nothing to release", async () => {
+    openAsAssigned(event({ status: "approved" }), { [PREVIEW]: { consequences: [] } });
+
+    await ask();
+
+    expect(
+      await within(dialog()).findByText("This event has no venue bookings, equipment or registration to release.")
+    ).toBeInTheDocument();
+    expect(dialog()).not.toHaveTextContent("Cancelling will:");
+  });
+
+  it("[SPM-37] still offers to cancel when what it releases cannot be loaded", async () => {
+    openAsAssigned(event(), { [PREVIEW]: reply(500, {}) });
+
+    await ask();
+
+    expect(await within(dialog()).findByText("Could not load what cancelling will release.")).toBeInTheDocument();
+    expect(within(dialog()).getByRole("button", { name: "Cancel event", hidden: true })).toBeEnabled();
+  });
+
+  it("[SPM-37][AC1][AC8] cancels with the reason typed, says so, and reloads the event", async () => {
+    const api = openAsAssigned();
+    await ask();
+
+    fireEvent.change(within(dialog()).getByLabelText("Reason (optional)"), {
+      target: { value: "The client has called off the summit." },
+    });
+    await go();
+
+    expect(await screen.findByText(DONE)).toBeInTheDocument();
+    expect(api.sent(PATCH).map((c) => c.body)).toEqual([
+      { status: "cancelled", reason: "The client has called off the summit." },
+    ]);
+    await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+    expect(dialog().open).toBe(false);
+  });
+
+  it("[SPM-37][AC8] sends no reason when it is left empty", async () => {
+    const api = openAsAssigned();
+    await ask();
+
+    await go();
+
+    await screen.findByText(DONE);
+    expect(api.sent(PATCH).map((c) => c.body)).toEqual([{ status: "cancelled" }]);
+  });
+
+  it("[SPM-37][AC8] limits the reason to 2,000 characters", async () => {
+    openAsAssigned();
+    await ask();
+
+    expect(within(dialog()).getByLabelText("Reason (optional)")).toHaveAttribute("maxLength", "2000");
+  });
+
+  it("[SPM-37][AC1] does nothing when the coordinator keeps the event", async () => {
+    const api = openAsAssigned();
+    await ask();
+
+    await userEvent.click(within(dialog()).getByRole("button", { name: "Keep event", hidden: true }));
+
+    expect(dialog().open).toBe(false);
+    expect(api.sent(PATCH)).toHaveLength(0);
+    expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "the server's reason",
+      reply(400, { error: "This event is Completed and can't be moved to Cancelled." }),
+      "This event is Completed and can't be moved to Cancelled.",
+    ],
+    ["a general message when it gives none", reply(500, {}), "Could not cancel this event."],
+    [
+      "a network failure",
+      () => Promise.reject(new Error("offline")),
+      "Could not reach the server. Check your connection and try again.",
+    ],
+  ])("[SPM-37][AC1] shows %s when cancelling is refused, and closes the question", async (_case, answer, message) => {
+    const api = openAsAssigned(event(), { [PATCH]: answer });
+    await ask();
+
+    await go();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(dialog().open).toBe(false);
+    expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+    expect(api.sent(EVENT)).toHaveLength(1);
+  });
+
+  describe("a cancelled event (AC8, AC9)", () => {
+    const banner = async () =>
+      (await screen.findByText("This event was cancelled")).closest("[role=alert]") as HTMLElement;
+
+    it.each([
+      ["coordinator", { id: "c1" }],
+      ["organiser", { id: "organiser-id" }],
+      ["ops_manager", {}],
+    ])("[SPM-37][AC8] shows %s why it was cancelled", async (role, who) => {
+      open(role, event({ status: "cancelled", cancellationReason: "The client's product launch was called off." }), {}, who);
+
+      expect(await banner()).toHaveTextContent("The client's product launch was called off.");
+    });
+
+    // Decided 2026-10-21: an attendee holding a place opens it from My
+    // Registrations and sees why, with nothing to register for or withdraw from.
+    it("[SPM-37][AC7][AC8] shows a registered attendee why it was cancelled, with no Register or Withdraw", async () => {
+      open("attendee", {
+        ...publicEvent(),
+        status: "cancelled",
+        cancellationReason: "The trainer is unavailable and no replacement could be found.",
+        registrationState: { kind: "not_confirmed" },
+        myRegistration: { id: "registration-id", status: "registered", registeredAt: "2026-10-05T02:00:00.000Z" },
+      });
+
+      expect(await banner()).toHaveTextContent("The trainer is unavailable and no replacement could be found.");
+      expect(screen.queryByRole("button", { name: "Register" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-37][AC8] says when no reason was recorded", async () => {
+      openAsAssigned(event({ status: "cancelled", cancellationReason: null }));
+
+      expect(await banner()).toHaveTextContent("No reason was recorded.");
+    });
+
+    it("[SPM-37][AC9] offers its assigned coordinator no action that changes its status", async () => {
+      openAsAssigned(event({ status: "cancelled", cancellationReason: null }));
+
+      await banner();
+
+      for (const name of ["Cancel event", "Confirm event", "Submit for safety check", "Record withdrawal", "Edit event information"]) {
+        expect(screen.queryByRole("button", { name }), name).not.toBeInTheDocument();
+        expect(screen.queryByRole("link", { name }), name).not.toBeInTheDocument();
+      }
+    });
+
+    it.each(["planning", "confirmed"])("[SPM-37][AC8] shows no cancellation alert on an event that is %s", async (status) => {
+      openAsAssigned(event({ status }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByText("This event was cancelled")).not.toBeInTheDocument();
+    });
+  });
+});

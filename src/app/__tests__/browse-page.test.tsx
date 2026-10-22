@@ -111,6 +111,19 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(within(table()).queryByText("SPM51 Private Board Dinner")).not.toBeInTheDocument();
   });
 
+  // SPM-37 (decided 2026-10-21): the server now sends an attendee the cancelled
+  // events they hold a place in, so they can open them from My Registrations.
+  it("[SPM-37][AC7] leaves out a cancelled event the attendee holds a place in", async () => {
+    open([
+      row(),
+      row({ id: "gone", title: "SPM37 Open Workshop", status: "cancelled", registrationState: { kind: "not_confirmed" } }),
+    ]);
+
+    await screen.findByRole("table");
+
+    expect(within(table()).queryByText("SPM37 Open Workshop")).not.toBeInTheDocument();
+  });
+
   it("[SPM-51][AC1] opens the event when its row is clicked", async () => {
     open([row()]);
 

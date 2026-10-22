@@ -2052,6 +2052,42 @@ async function main() {
     spm84("spm84_unassigned_request", "SPM84 Unassigned Request", "submitted", undefined, "2027-12-07"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-37 QA fixtures (Cancel Event). The SAME events as
+  // scripts/seed-spm37.ts (`npm run fixtures:spm37`) - keep the two in step.
+  //
+  // The events only. Their test rooms (SPM37 Hall, SPM37 Studio), equipment
+  // (SPM37 Projector, SPM37 Lectern Mic), bookings, equipment lines, safety
+  // check, change requests and registration are created by that script alone,
+  // so run it once after a full reseed. Pushed LAST, after SPM-84, so no
+  // earlier event's EVT- reference number shifts. Add new events AFTER this
+  // block.
+  // -----------------------------------------------------------------
+  const spm37 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-37 cancel event test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 3, attendance: 30, layout: "theatre",
+    ...options,
+  });
+  eventData.push(
+    spm37("spm37_harbour_summit", "SPM37 Harbour Summit", "planning", "2027-11-02"),
+    spm37("spm37_blocking_expo", "SPM37 Blocking Expo", "planning", "2027-11-16"),
+    spm37("spm37_rival_forum", "SPM37 Rival Forum", "planning", "2027-11-16"),
+    spm37("spm37_safety_pending", "SPM37 Safety Pending", "safety_review", "2027-11-18"),
+    spm37("spm37_change_pending", "SPM37 Change Pending", "confirmed", "2027-11-23"),
+    spm37("spm37_open_workshop", "SPM37 Open Workshop", "confirmed", "2027-11-25", { regEnabled: true, regCapacity: 40 }),
+    spm37("spm37_quiet_approval", "SPM37 Quiet Approval", "approved", "2027-11-30"),
+    spm37("spm37_early_call", "SPM37 Early Call", "under_review", "2027-12-02"),
+    spm37("spm37_on_hold", "SPM37 On Hold", "postponed", "2027-12-07"),
+    spm37("spm37_turned_down", "SPM37 Turned Down", "rejected", "2027-12-09",
+      { rejectionReason: "The client's budget does not cover a venue of this size." }),
+    spm37("spm37_wrapped_up", "SPM37 Wrapped Up", "completed", "2026-10-05"),
+    spm37("spm37_guarded_event", "SPM37 Guarded Event", "planning", "2027-12-14"),
+    spm37("spm37_already_cancelled", "SPM37 Already Cancelled", "cancelled", "2027-12-16",
+      { cancellationReason: "The client's product launch was called off." }),
+    spm37("spm37_change_closed", "SPM37 Change Closed", "planning", "2027-12-21"),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {

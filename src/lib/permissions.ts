@@ -212,7 +212,10 @@ export function canViewEvent(actor: Actor, event: EventAccessFields): boolean {
   // (briefing §4 "Attendee Registration": register for *confirmed* events) -
   // or, once registration is turned off, if they already hold a place in it
   // (SPM-64; #10: attendees "can view events that they register for").
+  // SPM-37 (decided 2026-10-21): and an attendee who holds a place in a
+  // cancelled event can still open it, to see that and why it was cancelled.
   if (actor.role === "attendee") {
+    if (event.status === "cancelled") return event.attendeeHoldsPlace === true;
     return event.status === "confirmed" && (event.registrationEnabled === true || event.attendeeHoldsPlace === true);
   }
 
@@ -239,11 +242,12 @@ export function eventListWhere(actor: Actor): Record<string, unknown> {
   }
 
   if (actor.role === "attendee") {
+    const holdsPlace = { registrations: { some: { attendeeId: actor.id, status: { in: HOLDING_A_PLACE } } } };
     return {
-      status: "confirmed",
       OR: [
-        { registrationEnabled: true },
-        { registrations: { some: { attendeeId: actor.id, status: { in: HOLDING_A_PLACE } } } },
+        { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
+        // SPM-37: as canViewEvent(). Browse Events leaves these out itself.
+        { status: "cancelled", ...holdsPlace },
       ],
     };
   }
@@ -517,6 +521,13 @@ export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolea
   return canSetEventStatus(actor, event, "withdrawn") && canTransition(event.status, "withdrawn");
 }
 
+/// SPM-37: does the event page offer this user "Cancel event"? The assigned
+/// coordinator only (AC2), on an event the lifecycle lets into Cancelled - any
+/// stage that is not final (AC1). The same two checks the PATCH route makes.
+export function canCancelEvent(actor: Actor, event: EventAccessFields): boolean {
+  return canSetEventStatus(actor, event, "cancelled") && canTransition(event.status, "cancelled");
+}
+
 /// SPM-34 (AC4). Whether this actor may even attempt to confirm: the assigned
 /// coordinator, on an event the lifecycle allows into Confirmed. Whether the
 /// arrangements are ready is a separate question, answered by
@@ -653,6 +664,9 @@ export const ATTENDEE_EVENT_FIELDS = [
   // and their own registration for the event, if any.
   "registrationState",
   "myRegistration",
+  // SPM-37: why it was cancelled, for an attendee who holds a place in it -
+  // the reason SPM-53 also sends them. NULL on any event that is not cancelled.
+  "cancellationReason",
 ] as const;
 
 /// Narrow an event record to the fields this actor may see. Returns a new

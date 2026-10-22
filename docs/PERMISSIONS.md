@@ -204,7 +204,7 @@ organiser is not.
 | Role | Sees |
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
-| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10) |
+| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10) — and `cancelled` events they are registered or waitlisted for, with the cancellation reason (SPM-37). Browse Events lists neither of the last two. |
 | Coordinator, Ops Manager, Venue Staff, Tech Support, Safety Officer | Every event that has left `draft` |
 | Anyone | Never another organiser's draft |
 
@@ -277,11 +277,25 @@ and equipment requests, not the event's status.
 
 **Cancellation is the Event Coordinator's alone** (customer clarification,
 2026-09-18). Cancelling an
-event releases its venue booking, frees its equipment reservations and drops the
-attendee list (briefing §4, "Cancellation Management"), so it is a ConnectSphere
+event releases its venue bookings, frees its equipment reservations and closes
+its registration (briefing §4, "Cancellation Management"), so it is a ConnectSphere
 operational decision rather than a client-side one. An Organiser who wants their
 event called off raises an Event Change Request and the assigned coordinator
 acts on it; the Ops Manager assigns coordinators and does not cancel either.
+
+**Cancel Event (SPM-37, built 2026-10-22).** Any stage that has an assigned
+coordinator and is not final - Under review to Postponed - may move to
+`cancelled` (#68 "any stage"; `canCancelEvent()` decides who sees the button).
+In the status change's own transaction (`releaseForCancellation()` in
+`src/app/api/events/[id]/route.ts`, the rules in `src/lib/eventCancellation.ts`):
+Approved bookings become `released` and Pending requests `withdrawn` (SPM-67's
+statuses, with "Event cancelled: <reason>"), and Venue Staff get SPM-67's
+"Venue booking released" notification for each released booking; every
+equipment line becomes `cancelled`; pending change requests become `withdrawn`
+unapplied; a pending or approved safety check is closed. Registrations are kept
+as they are (SPM-52), and an attendee holding a place can still open the
+cancelled event to see why (below). Nothing moves out of `cancelled`.
+Notifying the Organiser and attendees of the cancellation is SPM-53's.
 
 **Planning is entered one way only** (SPM-54, decided 2026-10-02). There is no
 "begin planning" button and the status PATCH refuses a move to `planning`. An
@@ -350,6 +364,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]` | `canViewEvent()` → 404; `visibleEventFor()` narrows the fields |
 | `GET /api/events/[id]` (safety check) | `safetyCheck` (the latest Operational Safety Check: who submitted it and when, and the decision) and `safetyHistory` (every check, newest first, SPM-88) are added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403. `safety_review` is refused (400): it is entered only through `POST /api/events/[id]/safety-check` (SPM-86) |
+| `GET /api/events/[id]/cancellation` | `canViewEvent()` → 404, then `canSetEventStatus(…, "cancelled")` → 403 "Only the assigned Coordinator can cancel this event.", then `canTransition()` → 400. Read-only: what the Cancel event dialog lists (SPM-37) |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
 | `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
 | `GET /api/events/[id]/registration` | Same 404 / 403 checks; the assigned coordinator's list of bookings to measure the capacity against (SPM-64) |

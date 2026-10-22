@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { parseEventReference } from "@/lib/format";
+import { eventReference, parseEventReference } from "@/lib/format";
 import {
   REVIEWABLE_STATUSES,
   REVIEW_OUTCOMES,
@@ -18,6 +18,13 @@ import {
 import { decodeFields } from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
+import {
+  CHANGE_REQUEST_CLOSED_NOTE,
+  SAFETY_CHECK_CLOSED_NOTE,
+  arrangementCancellationNote,
+} from "@/lib/eventCancellation";
+import { releaseNotification } from "@/lib/venueBookingChange";
+import { closeSafetyCheck } from "@/lib/safetyCheckClose";
 import { isExternalRole } from "@/lib/roles";
 import { dayIndex, dayStart } from "@/lib/equipmentAvailability";
 import { canTransition, transitionError } from "@/lib/statuses";
@@ -440,6 +447,9 @@ async function handleStatusChange(
     );
   }
 
+  // SPM-37 (AC8): the reason is optional; one of only spaces is none.
+  const cancellationReason = data.status === "cancelled" ? data.reason?.trim() || null : null;
+
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const e = await tx.event.update({
       where: { id },
@@ -447,7 +457,7 @@ async function handleStatusChange(
         status: data.status,
         // Keep the decision record on the event itself as well as in history.
         ...(data.status === "rejected" ? { rejectionReason: data.reason?.trim() } : {}),
-        ...(data.status === "cancelled" ? { cancellationReason: data.reason } : {}),
+        ...(data.status === "cancelled" ? { cancellationReason } : {}),
         ...(data.status === "submitted" ? { submittedAt: new Date() } : {}),
         ...(data.status === "confirmed" ? { confirmedAt: new Date() } : {}),
       },
@@ -459,9 +469,14 @@ async function handleStatusChange(
         fromStatus: event.status,
         toStatus: data.status,
         changedBy: actor.id,
-        reason: data.reason,
+        reason: data.status === "cancelled" ? (cancellationReason ?? undefined) : data.reason,
       },
     });
+
+    // SPM-37: everything the event holds is let go with it (AC3-AC6).
+    if (data.status === "cancelled") {
+      await releaseForCancellation(tx, e, actor, cancellationReason);
+    }
 
     // SPM-25 AC: "the relevant users receive a notification that the request
     // has been submitted". No coordinator is assigned yet at this point in
@@ -481,6 +496,85 @@ async function handleStatusChange(
   });
 
   return NextResponse.json(updated);
+}
+
+/**
+ * SPM-37: what a cancellation lets go, in the status change's transaction
+ * (src/lib/eventCancellation.ts says what each becomes). Registrations are
+ * left as they are (AC7, SPM-52).
+ */
+async function releaseForCancellation(
+  tx: Prisma.TransactionClient,
+  event: { id: string; sequenceNumber: number; title: string | null },
+  actor: Actor,
+  reason: string | null
+) {
+  const now = new Date();
+  const note = arrangementCancellationNote(reason);
+
+  // Read before they change: Venue Staff are told of each released booking.
+  const released = await tx.venueBooking.findMany({
+    where: { eventId: event.id, status: "approved" },
+    select: {
+      startsAt: true,
+      endsAt: true,
+      venue: { select: { name: true, code: true } },
+      session: { select: { label: true } },
+    },
+    orderBy: { startsAt: "asc" },
+  });
+
+  // AC3, AC4: SPM-67's statuses - released frees the room, withdrawn takes the
+  // request off Venue Staff's Booking Requests list.
+  const taken = { cancelledBy: actor.id, cancelledAt: now, cancellationReason: note };
+  await tx.venueBooking.updateMany({
+    where: { eventId: event.id, status: "approved" },
+    data: { status: "released", ...taken },
+  });
+  await tx.venueBooking.updateMany({
+    where: { eventId: event.id, status: "pending" },
+    data: { status: "withdrawn", ...taken },
+  });
+
+  // AC3: every line, reserved or not - nothing stays committed or queued.
+  await tx.equipmentRequest.updateMany({
+    where: { eventId: event.id, status: { not: "cancelled" } },
+    data: { status: "cancelled" },
+  });
+
+  // AC5: closed, not decided - nothing they propose reaches the event.
+  await tx.eventChangeRequest.updateMany({
+    where: { eventId: event.id, status: "pending" },
+    data: { status: "withdrawn", reviewedBy: actor.id, reviewedAt: now, reviewNotes: CHANGE_REQUEST_CLOSED_NOTE },
+  });
+
+  // AC6: a pending check leaves the Safety Officer's list with the status
+  // change; an approved one must not stay live either.
+  await closeSafetyCheck(tx, event.id, actor.id, SAFETY_CHECK_CLOSED_NOTE, now);
+
+  // As SPM-67 AC7 (decided 2026-10-21): Venue Staff had set these rooms aside.
+  if (released.length > 0) {
+    const coordinator = await tx.user.findUnique({ where: { id: actor.id }, select: { fullName: true } });
+    for (const booking of released) {
+      await notifyRole(
+        tx,
+        "venue_staff",
+        releaseNotification({
+          // v8 ignore next -- the actor was looked up to sign them in, so their row exists
+          coordinatorName: coordinator?.fullName ?? "The assigned Coordinator",
+          venueName: booking.venue.name,
+          venueCode: booking.venue.code,
+          eventId: event.id,
+          eventReference: eventReference(event.sequenceNumber),
+          eventTitle: event.title,
+          sessionLabel: booking.session?.label ?? null,
+          startsAt: booking.startsAt,
+          endsAt: booking.endsAt,
+          reason: note,
+        })
+      );
+    }
+  }
 }
 
 /**
