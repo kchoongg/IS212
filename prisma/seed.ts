@@ -720,6 +720,9 @@ async function main() {
     specialRequirements?: string;
     /// Overrides CHAIN[status] - SPM-27's events carry their own history.
     chain?: string[];
+    /// Overrides REASONS for this event's history, by the status moved to -
+    /// so a fixture's history can say what its own script says (SPM-59).
+    historyReasons?: Partial<Record<string, string>>;
   };
 
   const eventData: EventSeed[] = [
@@ -2151,8 +2154,10 @@ async function main() {
     spm59("spm59_draft", "SPM59 Draft Offsite", "draft", "2027-06-21", { coordinator: undefined }),
     spm59("spm59_submitted", "SPM59 Submitted Briefing", "submitted", "2027-06-28", { coordinator: undefined }),
     spm59("spm59_approved", "SPM59 Approved Seminar", "approved", "2027-07-05"),
-    spm59("spm59_rejected", "SPM59 Rejected Gala", "rejected", "2027-07-12",
-      { rejectionReason: "Budget for the gala was not confirmed." }),
+    spm59("spm59_rejected", "SPM59 Rejected Gala", "rejected", "2027-07-12", {
+      rejectionReason: "Budget for the gala was not confirmed.",
+      historyReasons: { rejected: "Budget for the gala was not confirmed." },
+    }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -2293,7 +2298,7 @@ async function main() {
             ? users[`organiser:${e.organiser}`]
             : e.coordinator ? users[e.coordinator] : users["grace.lim@connectsphere.com"],
           changedAt: day(e.days - 40 + i * 5),
-          reason: REASONS[to],
+          reason: e.historyReasons?.[to] ?? REASONS[to],
         },
       });
       prev = to;

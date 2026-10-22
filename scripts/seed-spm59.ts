@@ -15,7 +15,10 @@
  *
  * Run it before SPM-59-TC01, and after SPM-59-TC02
  * (docs/test-cases/SPM-59_Test_Cases.xlsx). prisma/seed.ts creates the same
- * events - keep the two in step.
+ * events - keep the two in step. It follows the seed's own rules: a draft has
+ * no dates yet, the coordinator records each step after submission, and the
+ * history reasons are the seed's REASONS (the Rejected Gala's own reason is an
+ * override there too).
  */
 
 import { PrismaClient } from "@prisma/client";
@@ -34,7 +37,7 @@ const REASONS: Record<string, string> = {
   under_review: "Coordinator assigned",
   approved: "Requirements sufficiently clear",
   rejected: "Budget for the gala was not confirmed.",
-  withdrawn: "Organiser asked to withdraw the request",
+  withdrawn: "Organiser asked to withdraw; coordinator recorded it",
 };
 
 type Fixture = {
@@ -73,7 +76,6 @@ async function main() {
     return u.id;
   };
   const coordinator = await find("daniel.tan@connectsphere.com");
-  const opsManager = await find("grace.lim@connectsphere.com");
   const organiser = await prisma.user.findFirst({
     where: { fullName: "Rachel Ng", role: "organiser" },
     select: { id: true, organisationId: true },
@@ -85,7 +87,8 @@ async function main() {
 
   const historyStart = new Date("2026-09-21T02:00:00.000Z");
   for (const f of FIXTURES) {
-    const startsAt = sgt(f.date, 9);
+    // As in prisma/seed.ts, a draft has no dates yet.
+    const startsAt = f.status === "draft" ? null : sgt(f.date, 9);
     const created = await prisma.event.create({
       data: {
         seedKey: f.key,
@@ -98,7 +101,7 @@ async function main() {
         coordinatorId: f.assigned ? coordinator : null,
         status: f.status,
         startsAt,
-        endsAt: new Date(startsAt.getTime() + 4 * 3_600_000),
+        endsAt: startsAt ? new Date(startsAt.getTime() + 4 * 3_600_000) : null,
         expectedAttendance: 60,
         preferredLayout: "theatre",
         submittedAt: f.status === "draft" ? undefined : historyStart,
@@ -107,7 +110,7 @@ async function main() {
           create: f.chain.map((to, i) => ({
             fromStatus: i === 0 ? "draft" : f.chain[i - 1],
             toStatus: to,
-            changedBy: to === "submitted" ? organiser.id : to === "under_review" ? opsManager : coordinator,
+            changedBy: to === "submitted" ? organiser.id : coordinator,
             changedAt: addDays(historyStart, i * 2),
             reason: REASONS[to],
           })),

@@ -11,7 +11,7 @@
 // Pure functions over plain data, like the rest of src/lib.
 
 import { formatDateTimeRange } from "@/lib/format";
-import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { describeVenueConflict, findDuplicateRequest, findVenueConflict } from "@/lib/venueConflict";
 import { type SearchBooking, type SearchableVenue } from "@/lib/venueSearch";
 import {
@@ -99,7 +99,7 @@ export function openingHoursMessage(
 }
 
 /// Same rule as recording equipment (SPM-47): a closed event takes no new requests.
-export const CLOSED_EVENT_MESSAGE = "A venue cannot be requested for a completed, cancelled, rejected or withdrawn event.";
+export const CLOSED_EVENT_MESSAGE = `A venue cannot be requested for a ${CLOSED_EVENT_STATUSES_PHRASE} event.`;
 
 /// SPM-54: arrangements wait for approval (isBeforeApproval, src/lib/statuses.ts).
 export const NOT_APPROVED_MESSAGE = "A venue can be requested once this request has been approved.";

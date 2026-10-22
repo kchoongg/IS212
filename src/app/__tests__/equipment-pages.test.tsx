@@ -342,7 +342,7 @@ describe("Event equipment tab", () => {
       });
 
       it.each([
-        ["the server's reason", reply(400, { error: "Cannot update equipment for a completed, cancelled, or rejected event" }), "Cannot update equipment for a completed"],
+        ["the server's reason", reply(400, { error: "Cannot update equipment for a completed, cancelled, rejected or withdrawn event" }), "Cannot update equipment for a completed"],
         ["a general message when there is none", reply(500, {}), "Could not save this row."],
         ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server."],
       ])("[SPM-47][AC7] shows %s against the row, and keeps the edit", async (_case, answer, message) => {
@@ -403,7 +403,7 @@ describe("Event equipment tab", () => {
       });
 
       it.each([
-        ["the server's reason", reply(400, { error: "Cannot update equipment for a completed, cancelled, or rejected event" }), "Cannot update equipment for a completed"],
+        ["the server's reason", reply(400, { error: "Cannot update equipment for a completed, cancelled, rejected or withdrawn event" }), "Cannot update equipment for a completed"],
         ["a general message when there is none", reply(500, {}), "Could not remove this row."],
         ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server."],
       ])("[SPM-47][AC7] shows %s when the removal fails", async (_case, answer, message) => {
