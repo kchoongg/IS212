@@ -1207,6 +1207,20 @@ describe("Edit draft: this screen only", () => {
     expect(within(group("Session 1")).queryByLabelText("Equipment")).not.toBeInTheDocument();
   });
 
+  it("[SPM-24][AC4] [SPM-26] sends a cleared attendance and layout as null, so a draft can be emptied again", async () => {
+    const api = openWith(blankDraft({ title: "Gala Dinner", expectedAttendance: 200, preferredLayout: "banquet" }), {
+      [`PATCH /api/events/${REF}`]: { id: "event-id" },
+    });
+    await screen.findByRole("checkbox", { name: "Stage" });
+
+    set(field(/^Expected attendance/), "");
+    set(field("Preferred room layout"), "");
+    await saveDraft();
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith("/events"));
+    expect(api.sent(`PATCH /api/events/${REF}`)[0].body).toMatchObject({ expectedAttendance: null, preferredLayout: null });
+  });
+
   it("[SPM-24][AC3][AC4] still lets the draft be saved when the reference data fails to load", async () => {
     const api = openWith(blankDraft({ title: "Gala Dinner" }), {
       "GET /api/facilities": reply(500, {}),
@@ -1430,6 +1444,19 @@ describe("Update request: answering a clarification (SPM-26)", () => {
     // The clarification stays on the page too, so the error is found by its words.
     expect(await screen.findByText(message, { exact: false })).toBeInTheDocument();
     expect(router.push).not.toHaveBeenCalled();
+  });
+
+  // Found while building SPM-26: a cleared field was sent as `undefined`,
+  // which the route reads as "leave it alone", so "No preference" was never saved.
+  it("[SPM-26][AC2] sends a cleared Preferred room layout as null, so it is removed", async () => {
+    const api = openWith(underReview());
+    await screen.findByRole("checkbox", { name: "Stage" });
+
+    set(field("Preferred room layout"), "");
+    await resubmit();
+
+    await waitFor(() => expect(api.sent(PATCH_EVENT)).toHaveLength(1));
+    expect(api.sent(PATCH_EVENT)[0].body).toMatchObject({ preferredLayout: null });
   });
 
   it("[SPM-26] goes back to the event on Cancel", async () => {

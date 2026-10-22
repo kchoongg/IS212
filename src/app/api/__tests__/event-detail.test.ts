@@ -1228,6 +1228,14 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     expect(db.eventSession.deleteMany).not.toHaveBeenCalled();
   });
 
+  it("[SPM-24][AC4] [SPM-26] clears a draft's attendance and layout sent as null", async () => {
+    const token = givenOwnDraft();
+
+    expect((await patch(token, { expectedAttendance: null, preferredLayout: null })).status).toBe(200);
+
+    expect(callArg(db.event.update).data).toMatchObject({ expectedAttendance: null, preferredLayout: null });
+  });
+
   it("[SPM-24][AC4] edits a draft that has no dates yet", async () => {
     const token = givenOwnDraft({ startsAt: null, endsAt: null });
 
@@ -1750,6 +1758,24 @@ describe("PATCH /api/events/[id] - answering a clarification (SPM-26)", () => {
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe("Cannot resubmit an incomplete request. Missing: session 2 expectedAttendance");
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC2] removes a preferred layout sent as null", async () => {
+    const token = givenResponding();
+
+    expect((await patch(token, { preferredLayout: null })).status).toBe(200);
+
+    expect(callArg(db.event.update).data).toMatchObject({ preferredLayout: null });
+  });
+
+  it("[SPM-26][AC3] refuses an expected attendance sent as null", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, { expectedAttendance: null });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Cannot resubmit an incomplete request. Missing: expectedAttendance" });
     nothingWritten();
   });
 
