@@ -158,15 +158,23 @@
     }
   ],
   "open_questions": [
-    "DECIDED 2026-10-21: Written before the code (test-first). The wording below is decided here and matches the CONTRACT comments in the unit tests (src/lib/__tests__/permissions.test.ts, src/app/api/__tests__/event-detail.test.ts, src/app/__tests__/event-form-pages.test.tsx, src/app/__tests__/event-pages.test.tsx).",
-    "DECIDED 2026-10-21: One action. The organiser's edit and the resubmit are a single 'Resubmit request' button on the 'Update request' page (the draft editor at /events/<reference>/edit, opened in response mode). It saves the changes and marks the clarification answered together; there is no 'Save draft' while Under review.",
-    "DECIDED 2026-10-21: Wording - 'Update request' button in the event page's 'Clarification requested' banner; page title 'Update request'; button 'Resubmit request' (busy: 'Resubmitting…') and 'Cancel'; after resubmitting, the event page says 'Your updated request has been sent to <coordinator>. It stays Under review.'; refusals 'Could not open this request' with 'Only the organiser who raised this request can update it.' or 'This request has no open clarification to answer, so it can't be changed here.'",
-    "DECIDED 2026-10-21: No reply message. The ACs ask for the update and the resubmit only, so responding stores no message (ClarificationRequest.responseMessage stays empty); the clarification is marked answered with the time.",
-    "DECIDED 2026-10-21: Only the organiser who raised the request can respond - the same rule as editing a draft (SPM-24). Colleagues in the same client still see the clarification (SPM-29 AC3) but get no 'Update request' button (TC06).",
-    "DECIDED 2026-10-21: The fields that can be changed are exactly the draft's (SPM-24, AC2), and a resubmitted request must be as complete as a submitted one (the same required fields as 'Submit request'), so a required field cannot be cleared (TC04).",
+    "RESOLVED 2026-10-21: Written before the code (test-first). The wording below is decided here and matches the CONTRACT comments in the unit tests (src/lib/__tests__/permissions.test.ts, src/app/api/__tests__/event-detail.test.ts, src/app/__tests__/event-form-pages.test.tsx, src/app/__tests__/event-pages.test.tsx). Checked against the built screens on 2026-10-22: no wording changed.",
+    "RESOLVED 2026-10-21: One action. The organiser's edit and the resubmit are a single 'Resubmit request' button on the 'Update request' page (the draft editor at /events/<reference>/edit, opened in response mode). It saves the changes and marks the clarification answered together; there is no 'Save draft' while Under review.",
+    "RESOLVED 2026-10-21: Wording - 'Update request' button in the event page's 'Clarification requested' banner; page title 'Update request'; button 'Resubmit request' (busy: 'Resubmitting…') and 'Cancel'; after resubmitting, the event page says 'Your updated request has been sent to <coordinator>. It stays Under review.'; refusals 'Could not open this request' with 'Only the organiser who raised this request can update it.' or 'This request has no open clarification to answer, so it can't be changed here.'",
+    "RESOLVED 2026-10-21: No reply message. The ACs ask for the update and the resubmit only, so responding stores no message (ClarificationRequest.responseMessage stays empty); the clarification is marked answered with the time.",
+    "RESOLVED 2026-10-21: Only the organiser who raised the request can respond - the same rule as editing a draft (SPM-24). Colleagues in the same client still see the clarification (SPM-29 AC3) but get no 'Update request' button (TC06).",
+    "RESOLVED 2026-10-21: The fields that can be changed are exactly the draft's (SPM-24, AC2), and a resubmitted request must be as complete as a submitted one (the same required fields as 'Submit request'), so a required field cannot be cleared (TC04).",
     "RESOLVED 2026-10-21: Refusals reachable only by calling the API (a coordinator or another role sending a change, an event that is not Under review, two resubmits at the same moment, a resubmit at the same moment as an approval) are covered by unit and integration tests, not manual cases.",
     "RESOLVED 2026-10-21: Out of scope - notifying the coordinator of the response (moved to SPM-53, Jira comment 2026-09-18) and the Discussion tab (S-09). No case for either.",
     "RESOLVED 2026-10-21: Test data. scripts/seed-spm26.ts (`npm run fixtures:spm26`) recreates only these events, organiser Rachel Ng (Meridian Financial Group), coordinator Daniel Tan, dated May 2028: 'SPM26 Meridian Advisory Briefing' (Under review, a clarification open since 20 Oct 2026, 10:00 about Description and Expected attendance) and 'SPM26 Meridian Answered Workshop' (Under review, its clarification answered on 16 Oct 2026). The same events go at the end of prisma/seed.ts. TC02 and TC05 change data, so their preconditions say when to reset."
   ],
-  "code_references": []
+  "code_references": [
+    "src/app/api/events/[id]/route.ts",
+    "src/lib/permissions.ts",
+    "src/lib/clarification.ts",
+    "src/app/events/[id]/edit/page.tsx",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/ClarificationDetails.tsx",
+    "scripts/seed-spm26.ts"
+  ]
 }
