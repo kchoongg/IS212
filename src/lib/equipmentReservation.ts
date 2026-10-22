@@ -48,6 +48,7 @@ export function checkAdjustment(line: AdjustableLine, quantity: number, availabl
   if (quantity > line.quantityRequested) {
     return `The event requested ${line.quantityRequested} — a reservation cannot be more than that.`;
   }
+  // v8 ignore next -- holdsStock() passed, and a line holding stock always has a quantity reserved
   const current = line.quantityReserved ?? 0;
   if (quantity === current && adjustedStatus(quantity, line.quantityRequested) === line.status) {
     return "That is already the reserved quantity.";

@@ -1503,6 +1503,18 @@ describe("Equipment request (availability and reserve)", () => {
         expect(api.sent(`PATCH ${reservation("r1")}`)).toHaveLength(0);
       });
 
+      it("[SPM-69][AC3] refuses an increase while the event has no dates to check against", async () => {
+        const api = await openAdjust({}, [
+          reservedLine({ requestStatus: "partially_fulfilled", quantityReserved: 2, result: null }),
+        ]);
+
+        set(within(adjustForm()).getByLabelText("Reserved quantity"), "3");
+        await userEvent.click(within(adjustForm()).getByRole("button", { name: "Save" }));
+
+        expect(within(adjustForm()).getByText("Set the event date and time before reserving equipment")).toBeInTheDocument();
+        expect(api.sent(`PATCH ${reservation("r1")}`)).toHaveLength(0);
+      });
+
       it.each([
         ["the server's reason", reply(400, { error: "Only 1 available for this event's dates." }), "Only 1 available for this event's dates."],
         ["a general message when there is none", reply(500), "Could not change this reservation."],
@@ -1546,6 +1558,14 @@ describe("Equipment request (availability and reserve)", () => {
           "This frees the 4 Projector reserved for Gala Dinner for other events. The event's Coordinator is told."
         );
         expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(0);
+      });
+
+      it("[SPM-69][AC1] names an untitled event sensibly when asking", async () => {
+        open([reservedLine()], { [EVENT]: event({ title: null }) });
+
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+
+        expect(releaseDialog()).toHaveTextContent("This frees the 4 Projector reserved for this event for other events.");
       });
 
       it("[SPM-69][AC1] releases once confirmed, confirms it, and reloads every line", async () => {

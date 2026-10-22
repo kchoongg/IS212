@@ -125,7 +125,7 @@ export async function PATCH(req: NextRequest, context: Context) {
             eventId: access.event.id,
             eventTitle: access.event.title,
             equipmentName: line.equipmentName,
-            // holdsStock() passed, so there is a quantity reserved.
+            // v8 ignore next -- holdsStock() passed, so there is a quantity reserved
             from: line.quantityReserved ?? 0,
             to: quantity,
           })
@@ -164,6 +164,7 @@ export async function DELETE(req: NextRequest, context: Context) {
             eventId: access.event.id,
             eventTitle: access.event.title,
             equipmentName: line.equipmentName,
+            // v8 ignore next -- checkRelease() passed, so there is a quantity reserved
             quantity: line.quantityReserved ?? 0,
           })
         );

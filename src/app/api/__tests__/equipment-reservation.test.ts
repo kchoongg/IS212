@@ -243,6 +243,16 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/reservation", () => {
     expect(callArg(db.equipmentRequest.update).data).toMatchObject({ quantityReserved: 4 });
   });
 
+  it("[SPM-69][AC3] refuses an increase while the event has no dates to check against", async () => {
+    const token = given(requestRow({ status: "partially_fulfilled", quantityReserved: 2 }, { startsAt: null, endsAt: null }));
+
+    const res = await adjust(token, { quantity: 3 });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Set the event date and time before reserving equipment" });
+    expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+  });
+
   it("[SPM-69][AC3] refuses more than the event requested", async () => {
     const res = await adjust(given(requestRow()), { quantity: 5 });
 

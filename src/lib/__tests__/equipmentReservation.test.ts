@@ -114,6 +114,14 @@ describe("sendsBackForReview", () => {
     expect(sendsBackForReview(held, { technicalRequirements: "VGA" })).toBe(true);
   });
 
+  it("[SPM-69][AC7] sends a reserved line back when technical requirements are added where there were none", () => {
+    expect(sendsBackForReview({ ...held, technicalRequirements: null }, { technicalRequirements: "VGA" })).toBe(true);
+  });
+
+  it("[SPM-69][AC7] treats clearing requirements that were never set as no change", () => {
+    expect(sendsBackForReview({ ...held, technicalRequirements: null }, { technicalRequirements: "" })).toBe(false);
+  });
+
   it("[SPM-69][AC7] sends a partly fulfilled line back too", () => {
     expect(sendsBackForReview({ ...held, status: "partially_fulfilled", quantityReserved: 2 }, { quantityRequested: 2 })).toBe(true);
   });

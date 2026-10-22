@@ -242,12 +242,14 @@ export default function EquipmentRequestDetailPage() {
   }
 
   function startAdjust(line: Line) {
+    // v8 ignore next -- Adjust is only offered on a line holding stock, which always has a quantity reserved
     setAdjusting({ requestId: line.requestId, quantity: String(line.quantityReserved ?? "") });
     setAdjustError(null);
     clearLineMessages(line.requestId);
   }
 
   async function saveAdjust(line: Line) {
+    // v8 ignore next -- only the open Adjust form can save, so a draft is always set
     if (!adjusting) return;
     const typed = adjusting.quantity.trim();
     const quantity = Number(typed);
@@ -293,6 +295,7 @@ export default function EquipmentRequestDetailPage() {
   }
 
   async function confirmRelease() {
+    // v8 ignore next -- the dialog only opens, and so can only confirm, with a line chosen
     if (!releasing) return;
     const { requestId } = releasing;
     setReleaseBusy(true);
