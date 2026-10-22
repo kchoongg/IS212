@@ -11,6 +11,7 @@ import {
   canRespondToClarification,
   canSeeClarification,
   canSetEventStatus,
+  canViewChangeRequests,
   canViewEvent,
   canViewRegistrationList,
   visibleEventFor,
@@ -197,6 +198,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         safetyCheck: safetyHistory[0] ?? null,
         safetyHistory,
       };
+  // SPM-35: how many change requests the event has, for the people who may
+  // see them, so the page loads its Change requests card only when there is one.
+  if (canViewChangeRequests(actor, event)) {
+    const changeRequestCount = (await prisma.eventChangeRequest.count({ where: { eventId: event.id } })) ?? 0;
+    if (changeRequestCount > 0) Object.assign(shaped, { changeRequestCount });
+  }
   if (actor.role === "attendee") {
     // SPM-51 AC4: whether they can register now, and if not why - the same
     // rule POST /api/registrations applies.

@@ -90,6 +90,36 @@ describe("GET /api/events/[id]", () => {
     }
   );
 
+  it("[SPM-35] tells the organiser and the coordinator how many change requests the event has", async () => {
+    for (const who of [organiser(), coordinator()]) {
+      const token = signIn(who);
+      db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
+      db.eventChangeRequest.count.mockResolvedValue(2);
+
+      const body = await (await get(token)).json();
+
+      expect(body.changeRequestCount).toBe(2);
+      expect(callArg(db.eventChangeRequest.count)).toEqual({ where: { eventId: ID.event } });
+    }
+  });
+
+  it("[SPM-35] leaves the count out when there are none", async () => {
+    const token = signIn(organiser());
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
+    db.eventChangeRequest.count.mockResolvedValue(0);
+
+    expect(await (await get(token)).json()).not.toHaveProperty("changeRequestCount");
+  });
+
+  it("[SPM-35] does not count change requests for someone who may not see them", async () => {
+    const token = signIn(user("venue_staff", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
+
+    await get(token);
+
+    expect(db.eventChangeRequest.count).not.toHaveBeenCalled();
+  });
+
   it("[SPM-31] is 404 for a reference that matches no event", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(null);

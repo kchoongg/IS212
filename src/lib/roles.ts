@@ -85,6 +85,8 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     // SPM-68: the coordinator's other work list - arrangements on their
     // events that a change has flagged for another look.
     { href: "/flagged", label: "Flagged Arrangements" },
+    // SPM-35: the organisers' change requests waiting on the coordinator's events.
+    { href: "/change-requests", label: "Change Requests" },
     { href: "/events", label: "All Events" },
     { href: "/venues", label: "Venues" },
     { href: "/equipment", label: "Equipment" },

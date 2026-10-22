@@ -1083,6 +1083,20 @@ describe("Venue booking request form", () => {
       expect(screen.queryByText("Booking request sent to Venue Staff.")).not.toBeInTheDocument();
     });
 
+    it.each([
+      ["no body", reply(500)],
+      ["a body with no reason", reply(502, {})],
+    ])("[SPM-42][BUG-100] shows the general message for a refusal with %s, and keeps the form", async (_case, answer) => {
+      open({ [POST]: answer });
+      await date();
+
+      await submit();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent("Could not send the request. Try again.");
+      expect(screen.getByRole("button", { name: "Submit request" })).toBeEnabled();
+      expect(screen.queryByText("Booking request sent to Venue Staff.")).not.toBeInTheDocument();
+    });
+
     it("[SPM-42] shows 'Submitting…' and cannot be pressed twice while in flight", async () => {
       let finish: (value: unknown) => void = () => {};
       const api = open({ [POST]: () => new Promise((resolve) => (finish = resolve)) });

@@ -248,7 +248,12 @@ function BookingRequestForm() {
         setTimeErrors({ [body.field]: body.error });
         return;
       }
-      setSubmitError(body.error === "Validation failed" ? "Check the date and times, then try again." : body.error);
+      // SPM-100: a refusal with no reason (an empty 500, a proxy's 502) still says something.
+      setSubmitError(
+        body.error === "Validation failed"
+          ? "Check the date and times, then try again."
+          : body.error ?? "Could not send the request. Try again."
+      );
     } catch {
       setSubmitError("Could not send the request. Try again.");
     } finally {
