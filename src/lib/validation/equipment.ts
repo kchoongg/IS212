@@ -62,6 +62,16 @@ export const updateEquipmentFulfilmentSchema = z.object({
 });
 export type UpdateEquipmentFulfilmentInput = z.infer<typeof updateEquipmentFulfilmentSchema>;
 
+// ---- Adjusting a reservation (SPM-69) ----
+
+// The new reserved quantity. At least 1: freeing all of it is Release, its own
+// action. Whether it fits what was requested and what is free depends on the
+// line, so src/lib/equipmentReservation.ts checks that.
+export const adjustReservationSchema = z.object({
+  quantity: z.number().int().positive(),
+});
+export type AdjustReservationInput = z.infer<typeof adjustReservationSchema>;
+
 // ---- Recording units out of service (SPM-48 AC7 / SPM-55) ----
 
 // How many units of an item are unavailable, damaged or under maintenance - one

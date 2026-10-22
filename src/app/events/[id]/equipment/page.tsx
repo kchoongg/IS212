@@ -556,8 +556,12 @@ export default function EventEquipmentPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <StatusBadge status={row.status} />
+                            {/* SPM-69 AC8: a released reservation stays on the
+                                record, worded apart from one still held. */}
                             {row.quantityReserved != null && (
-                              <span className="text-xs text-ink-3">{row.quantityReserved} reserved</span>
+                              <span className="text-xs text-ink-3">
+                                {row.quantityReserved} {row.status === "released" ? "released" : "reserved"}
+                              </span>
                             )}
                           </div>
                         </div>

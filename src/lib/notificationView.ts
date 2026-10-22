@@ -2,6 +2,8 @@
 // Pure, so the list route, the Notifications page and the app shell's unread
 // count all read the same rules. Writing notifications is notifications.ts.
 
+import { RESERVATION_NOTIFICATION_TYPES } from "@/lib/equipmentReservation";
+
 /// Notification types about a venue booking that needs the coordinator's
 /// review (SPM-39 venue changes, SPM-45 venue unavailability). The arrangement
 /// is on the event's Venue tab, where its booking requests are listed.
@@ -14,9 +16,14 @@ const VENUE_REVIEW_TYPES = [
   "venue_hold_expired",
 ];
 
-/// Equipment that needs review (SPM-55 equipment out of service). The
+/// Equipment that needs review (SPM-55 equipment out of service), or whose
+/// reservation Technical Support released or changed (SPM-69). The
 /// arrangement is on the event's Equipment tab.
-const EQUIPMENT_REVIEW_TYPES = ["equipment_unavailable"];
+const EQUIPMENT_REVIEW_TYPES = [
+  "equipment_unavailable",
+  RESERVATION_NOTIFICATION_TYPES.released,
+  RESERVATION_NOTIFICATION_TYPES.adjusted,
+];
 
 /// Where selecting a notification goes (AC5): the arrangement it is about when
 /// it is about one, otherwise the event's Overview - including any type this

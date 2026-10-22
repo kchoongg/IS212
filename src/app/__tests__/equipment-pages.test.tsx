@@ -610,6 +610,23 @@ describe("Event equipment tab", () => {
     });
   });
 
+  describe("a reservation Technical Support released (SPM-69)", () => {
+    it("[SPM-69][AC8] stays on the record, marked Released, saying how many it held", async () => {
+      open("coordinator", { [LIST]: [projectorRow({ status: "released", quantityReserved: 4 }), lecternRow()] });
+      const row = await itemRow("Projector");
+
+      expect(within(row).getByText("Released")).toBeInTheDocument();
+      expect(within(row).getByText("4 released")).toBeInTheDocument();
+      expect(within(row).queryByText("4 reserved")).not.toBeInTheDocument();
+    });
+
+    it("[SPM-69][AC8] still says how many an active reservation holds", async () => {
+      open("coordinator", { [LIST]: [projectorRow({ status: "reserved", quantityReserved: 2 }), lecternRow()] });
+
+      expect(within(await itemRow("Projector")).getByText("2 reserved")).toBeInTheDocument();
+    });
+  });
+
   describe("Technical Support's notes on a line", () => {
     it.each(["coordinator", "organiser", "tech_support"])("[SPM-50][AC4] are shown to %s on the item they are about", async (role) => {
       open(role, { [LIST]: [projectorRow({ staffNotes: "Spare unit on standby." }), lecternRow({ staffNotes: null })] });
@@ -1367,6 +1384,233 @@ describe("Equipment request (availability and reserve)", () => {
       await lineRow();
 
       expect(screen.queryByText(/This event is/)).not.toBeInTheDocument();
+    });
+  });
+
+  // CONTRACT (SPM-69, written before the code): on a line that holds stock,
+  // Technical Support sees "Adjust" (a "Reserved quantity" box in a form named
+  // "Adjust reservation") and "Release" (asks first, in a "Release this
+  // reservation?" dialog). PATCH / DELETE .../reservation, then the page reloads.
+  describe("adjusting and releasing a reservation (SPM-69)", () => {
+    const reservation = (id: string) => `/api/events/${REF}/equipment/${id}/reservation`;
+    const reservedLine = (overrides: Record<string, unknown> = {}) =>
+      line("r1", { requestStatus: "reserved", quantityReserved: 4, result: result({ available: 7 }), ...overrides });
+    const adjustForm = () => screen.getByRole("form", { name: "Adjust reservation" });
+    const releaseDialog = () =>
+      screen.getByText("Release this reservation?", { selector: "dialog h2" }).closest("dialog") as HTMLDialogElement;
+
+    async function openAdjust(routes: Record<string, unknown> = {}, lines = [reservedLine()]) {
+      const api = open(lines, routes);
+      await userEvent.click(within(await lineRow()).getByRole("button", { name: "Adjust" }));
+      return api;
+    }
+
+    it.each([
+      ["reserved", { requestStatus: "reserved", quantityReserved: 4 }],
+      ["partly fulfilled", { requestStatus: "partially_fulfilled", quantityReserved: 2 }],
+      ["sent back by the Coordinator with units still reserved", { requestStatus: "requested", quantityReserved: 4 }],
+    ])("[SPM-69][AC1][AC2][AC3] offers Adjust and Release on a line that is %s", async (_case, overrides) => {
+      open([reservedLine(overrides)]);
+      const row = await lineRow();
+
+      expect(within(row).getByRole("button", { name: "Adjust" })).toBeInTheDocument();
+      expect(within(row).getByRole("button", { name: "Release" })).toBeInTheDocument();
+    });
+
+    it.each([
+      ["never reserved", { requestStatus: "requested", quantityReserved: null }],
+      ["released", { requestStatus: "released", quantityReserved: 4 }],
+      ["marked as cannot be provided", { requestStatus: "unavailable", quantityReserved: null }],
+      ["withdrawn", { requestStatus: "cancelled", quantityReserved: null }],
+    ])("[SPM-69][AC1][AC2] offers neither on a line that is %s", async (_case, overrides) => {
+      open([reservedLine(overrides)]);
+      const row = await lineRow();
+
+      expect(within(row).queryByRole("button", { name: "Adjust" })).not.toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-69] offers neither on a confirmed event, whose equipment is final", async () => {
+      open([reservedLine()], { [EVENT]: event({ status: "confirmed" }) });
+      const row = await lineRow();
+
+      expect(within(row).queryByRole("button", { name: "Adjust" })).not.toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-69] offers neither to anyone but Technical Support", async () => {
+      open([reservedLine()], {}, "coordinator");
+      const row = await lineRow();
+
+      expect(within(row).queryByRole("button", { name: "Adjust" })).not.toBeInTheDocument();
+      expect(within(row).queryByRole("button", { name: "Release" })).not.toBeInTheDocument();
+    });
+
+    describe("adjusting", () => {
+      it("[SPM-69][AC2] starts from the quantity reserved now", async () => {
+        await openAdjust();
+
+        expect(within(adjustForm()).getByLabelText("Reserved quantity")).toHaveValue(4);
+      });
+
+      it("[SPM-69][AC2][AC5] saves a smaller quantity, confirms it, and reloads every line", async () => {
+        const api = await openAdjust({
+          [`PATCH ${reservation("r1")}`]: { id: "r1", quantityReserved: 2, status: "partially_fulfilled" },
+        });
+
+        set(within(adjustForm()).getByLabelText("Reserved quantity"), "2");
+        await userEvent.click(within(adjustForm()).getByRole("button", { name: "Save" }));
+
+        expect(await screen.findByText("Reservation changed: 2 reserved.")).toBeInTheDocument();
+        expect(api.sent(`PATCH ${reservation("r1")}`)[0].body).toEqual({ quantity: 2 });
+        await waitFor(() => expect(api.sent(AVAILABILITY)).toHaveLength(2));
+        expect(screen.queryByRole("form", { name: "Adjust reservation" })).not.toBeInTheDocument();
+      });
+
+      it("[SPM-69][AC3] saves a larger quantity that is available", async () => {
+        const api = await openAdjust(
+          { [`PATCH ${reservation("r1")}`]: { quantityReserved: 4, status: "reserved" } },
+          [reservedLine({ requestStatus: "partially_fulfilled", quantityReserved: 2, result: result({ available: 5 }) })]
+        );
+
+        set(within(adjustForm()).getByLabelText("Reserved quantity"), "4");
+        await userEvent.click(within(adjustForm()).getByRole("button", { name: "Save" }));
+
+        expect(await screen.findByText("Reservation changed: 4 reserved.")).toBeInTheDocument();
+        expect(api.sent(`PATCH ${reservation("r1")}`)[0].body).toEqual({ quantity: 4 });
+      });
+
+      it.each([
+        ["more than is available", "5", "Only 4 available for this event's dates."],
+        ["more than was requested", "7", "The event requested 6 — a reservation cannot be more than that."],
+        ["nothing", "0", "Enter a whole number of at least 1. To free all of it, use Release."],
+        ["a blank", "", "Enter a whole number of at least 1. To free all of it, use Release."],
+        ["the same quantity", "2", "That is already the reserved quantity."],
+      ])("[SPM-69][AC2][AC3] refuses %s before sending anything", async (_case, value, message) => {
+        const api = await openAdjust({}, [
+          reservedLine({
+            requestStatus: "partially_fulfilled",
+            quantityRequested: 6,
+            quantityReserved: 2,
+            result: result({ available: 4 }),
+          }),
+        ]);
+
+        set(within(adjustForm()).getByLabelText("Reserved quantity"), value);
+        await userEvent.click(within(adjustForm()).getByRole("button", { name: "Save" }));
+
+        expect(within(adjustForm()).getByText(message)).toBeInTheDocument();
+        expect(api.sent(`PATCH ${reservation("r1")}`)).toHaveLength(0);
+      });
+
+      it.each([
+        ["the server's reason", reply(400, { error: "Only 1 available for this event's dates." }), "Only 1 available for this event's dates."],
+        ["a general message when there is none", reply(500), "Could not change this reservation."],
+        ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server."],
+      ])("[SPM-69][AC3] shows %s and keeps the form open", async (_case, answer, message) => {
+        await openAdjust({ [`PATCH ${reservation("r1")}`]: answer });
+
+        set(within(adjustForm()).getByLabelText("Reserved quantity"), "2");
+        await userEvent.click(within(adjustForm()).getByRole("button", { name: "Save" }));
+
+        expect(await within(adjustForm()).findByText(message)).toBeInTheDocument();
+      });
+
+      it("[SPM-69] closes without sending anything on Cancel", async () => {
+        const api = await openAdjust();
+
+        await userEvent.click(within(adjustForm()).getByRole("button", { name: "Cancel" }));
+
+        expect(screen.queryByRole("form", { name: "Adjust reservation" })).not.toBeInTheDocument();
+        expect(api.sent(`PATCH ${reservation("r1")}`)).toHaveLength(0);
+      });
+
+      it("[SPM-22][AC4] sends the user to log in when their session expires mid-adjustment", async () => {
+        await openAdjust({ [`PATCH ${reservation("r1")}`]: reply(401, {}) });
+
+        set(within(adjustForm()).getByLabelText("Reserved quantity"), "2");
+        await userEvent.click(within(adjustForm()).getByRole("button", { name: "Save" }));
+
+        await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
+      });
+    });
+
+    describe("releasing", () => {
+      it("[SPM-69][AC1][AC4] asks first, saying what is freed and that the Coordinator is told", async () => {
+        const api = open([reservedLine()]);
+
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+
+        expect(releaseDialog().open).toBe(true);
+        expect(releaseDialog()).toHaveTextContent(
+          "This frees the 4 Projector reserved for Gala Dinner for other events. The event's Coordinator is told."
+        );
+        expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(0);
+      });
+
+      it("[SPM-69][AC1] releases once confirmed, confirms it, and reloads every line", async () => {
+        const api = open([reservedLine()], { [`DELETE ${reservation("r1")}`]: { id: "r1", status: "released" } });
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+
+        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Release", hidden: true }));
+
+        expect(await screen.findByText("Reservation released.")).toBeInTheDocument();
+        expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(1);
+        await waitFor(() => expect(api.sent(AVAILABILITY)).toHaveLength(2));
+        expect(releaseDialog().open).toBe(false);
+      });
+
+      it("[SPM-69][AC1] keeps the reservation when the question is cancelled", async () => {
+        const api = open([reservedLine()]);
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+
+        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+        expect(releaseDialog().open).toBe(false);
+        expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(0);
+      });
+
+      it.each([
+        ["the server's reason", reply(400, { error: "Only reserved equipment can be released." }), "Only reserved equipment can be released."],
+        ["a general message when there is none", reply(500), "Could not release this reservation."],
+        ["a network failure", () => Promise.reject(new Error("offline")), "Could not release this reservation."],
+      ])("[SPM-69][AC1] shows %s against the line", async (_case, answer, message) => {
+        open([reservedLine()], { [`DELETE ${reservation("r1")}`]: answer });
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+
+        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Release", hidden: true }));
+
+        expect(await within(await lineRow()).findByText(message)).toBeInTheDocument();
+      });
+
+      it("[SPM-22][AC4] sends the user to log in when their session expires mid-release", async () => {
+        open([reservedLine()], { [`DELETE ${reservation("r1")}`]: reply(401, {}) });
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+
+        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Release", hidden: true }));
+
+        await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
+      });
+    });
+
+    it("[SPM-69][AC8] shows a released reservation as released, holding nothing, with what it held", async () => {
+      // 6 requested, so the only "4" box there could be is the Reserved one.
+      open([reservedLine({ requestStatus: "released", quantityRequested: 6, quantityReserved: 4 })]);
+      const row = await lineRow();
+
+      expect(within(row).getByText("Released")).toBeInTheDocument();
+      expect(within(row).getByText("Released — 4 were reserved.")).toBeInTheDocument();
+      expect(within(row).queryByText("4", { selector: "div" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-69][AC7] says when the Coordinator changed a reserved line, and what is still reserved", async () => {
+      open([reservedLine({ requestStatus: "requested", quantityRequested: 6, quantityReserved: 4 })]);
+      const row = await lineRow();
+
+      expect(within(row).getByText("4", { selector: "div" })).toBeInTheDocument();
+      expect(
+        within(row).getByText("The Coordinator changed this requirement — 4 still reserved. Review it again.")
+      ).toBeInTheDocument();
     });
   });
 
