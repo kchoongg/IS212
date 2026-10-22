@@ -554,6 +554,20 @@ async function main() {
       setupMinutes: 60, teardownMinutes: 60,
       layouts: [["theatre", 80], ["classroom", 40]],
       facilities: [] },
+    // SPM-80 fixtures (scripts/seed-spm80.ts - keep in step): four rooms with
+    // no setup or turnaround, whose times the cases change.
+    ...([
+      ["SPM80-TRN", "SPM80 Turnaround Room", "bookings half an hour apart on 3 Aug 2027"],
+      ["SPM80-SET", "SPM80 Setup Room", "an approved booking and a pending request on 4 Aug 2027"],
+      ["SPM80-MNT", "SPM80 Maintenance Room", "maintenance on 5 Aug 2027, 14:00-16:00"],
+      ["SPM80-REQ", "SPM80 Request Room", "an approved booking on 6 Aug 2027, 10:00-12:00"],
+    ] as const).map(([code, name, what]): VenueSeed => ({
+      code, name, description: `SPM-80 test venue: ${what}`,
+      building: "Orchard Hub", floor: "L6", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [],
+    })),
   ];
 
   const venues: Record<string, string> = {};
@@ -2053,13 +2067,79 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-35 QA fixtures (Request Event Change). The SAME events as
+  // scripts/seed-spm35.ts (`npm run fixtures:spm35`) - keep the two in step.
+  //
+  // The events only. SPM35 Harbour Townhall's facility, SPM35 Riverside
+  // Roadshow's approved booking and reserved projectors, and SPM35 Requests
+  // Showcase's five pending change requests are created by that script alone,
+  // so run it once after a full reseed. Pushed LAST, after SPM-84, so no earlier
+  // event's EVT- reference number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm35 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    attendance: number, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    category: "meeting", days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm35("spm35_townhall", "SPM35 Harbour Townhall", "approved", "2027-04-12", 9, 3, 80,
+      { purpose: "Quarterly all-hands", description: "Leadership update and Q&A." }),
+    spm35("spm35_roadshow", "SPM35 Riverside Roadshow", "planning", "2027-04-19", 10, 6, 100,
+      { purpose: "Client roadshow", description: "Product briefings for wealth clients." }),
+    spm35("spm35_forum", "SPM35 Marina Client Forum", "confirmed", "2027-04-26", 14, 3, 50,
+      { purpose: "Client forum", description: "Market outlook for key clients." }),
+    spm35("spm35_postponed", "SPM35 Postponed Product Showcase", "postponed", "2027-05-03", 9, 4, 60,
+      { purpose: "Product showcase", description: "New savings products on show." }),
+    spm35("spm35_under_review", "SPM35 Under Review Workshop", "under_review", "2027-05-24", 9, 3, 30,
+      { purpose: "Advisers' workshop", description: "Hands-on session for advisers." }),
+    spm35("spm35_cancelled", "SPM35 Cancelled Gala Dinner", "cancelled", "2027-05-31", 19, 3, 120,
+      { purpose: "Year-end gala", description: "Dinner for staff and partners.", cancellationReason: "Client cancelled the gala." }),
+    spm35("spm35_requests", "SPM35 Requests Showcase", "confirmed", "2027-05-10", 9, 8, 100,
+      { purpose: "Client showcase", description: "A day of client presentations." }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-80 QA fixtures (Re-check Bookings When Setup or Turnaround Time
+  // Changes). The SAME events as scripts/seed-spm80.ts (`npm run
+  // fixtures:spm80`) - keep the two in step. Their bookings and the
+  // maintenance period are created further down. Pushed LAST, after SPM-35,
+  // so no earlier event's EVT- reference number shifts. Add new events AFTER
+  // this block.
+  // -----------------------------------------------------------------
+  const spm80 = (key: string, title: string, date: string, from: string, to: string, options: Partial<EventSeed> = {}): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+      purpose: "SPM-80 setup and turnaround re-check test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "classroom", ...options,
+    };
+  };
+  eventData.push(
+    spm80("spm80_morning", "SPM80 Morning Seminar", "2027-08-03", "10:00", "12:00"),
+    spm80("spm80_lunch", "SPM80 Lunch Forum", "2027-08-03", "12:30", "14:00"),
+    spm80("spm80_evening", "SPM80 Evening Workshop", "2027-08-03", "18:00", "20:00"),
+    spm80("spm80_past_first", "SPM80 Past Briefing", "2026-09-01", "10:00", "12:00", { status: "completed" }),
+    spm80("spm80_past_second", "SPM80 Past Review", "2026-09-01", "12:30", "14:00", { status: "completed" }),
+    spm80("spm80_demo", "SPM80 Product Demo", "2027-08-04", "10:00", "12:00"),
+    spm80("spm80_meetup", "SPM80 Partner Meetup", "2027-08-04", "12:30", "14:00"),
+    spm80("spm80_talk", "SPM80 Afternoon Talk", "2027-08-05", "12:00", "13:30"),
+    spm80("spm80_booked", "SPM80 Booked Seminar", "2027-08-06", "10:00", "12:00"),
+    spm80("spm80_followon", "SPM80 Follow-on Workshop", "2027-08-06", "12:15", "14:00"),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-37 QA fixtures (Cancel Event). The SAME events as
   // scripts/seed-spm37.ts (`npm run fixtures:spm37`) - keep the two in step.
   //
   // The events only. Their test rooms (SPM37 Hall, SPM37 Studio), equipment
   // (SPM37 Projector, SPM37 Lectern Mic), bookings, equipment lines, safety
   // check, change requests and registration are created by that script alone,
-  // so run it once after a full reseed. Pushed LAST, after SPM-84, so no
+  // so run it once after a full reseed. Pushed LAST, after SPM-80, so no
   // earlier event's EVT- reference number shifts. Add new events AFTER this
   // block.
   // -----------------------------------------------------------------
@@ -2904,6 +2984,47 @@ async function main() {
       },
     });
   }
+
+  // SPM-80 fixtures, the same as scripts/seed-spm80.ts. Each booking spans its
+  // event's own times; SPM80 Follow-on Workshop has none (the cases request
+  // it), and SPM80 Partner Meetup's is a pending request.
+  const spm80Bookings: [string, string, string][] = [
+    ["spm80_morning", "SPM80-TRN", "approved"],
+    ["spm80_lunch", "SPM80-TRN", "approved"],
+    ["spm80_evening", "SPM80-TRN", "approved"],
+    ["spm80_past_first", "SPM80-TRN", "approved"],
+    ["spm80_past_second", "SPM80-TRN", "approved"],
+    ["spm80_demo", "SPM80-SET", "approved"],
+    ["spm80_meetup", "SPM80-SET", "pending"],
+    ["spm80_talk", "SPM80-MNT", "approved"],
+    ["spm80_booked", "SPM80-REQ", "approved"],
+  ];
+  for (const [event, venueCode, status] of spm80Bookings) {
+    const approved = status === "approved";
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[event].id,
+        venueId: venues[venueCode],
+        layoutName: "classroom",
+        startsAt: events[event].startsAt!,
+        endsAt: events[event].endsAt!,
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(-3),
+        decidedBy: approved ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: approved ? day(-2) : undefined,
+      },
+    });
+  }
+  await prisma.venueUnavailability.create({
+    data: {
+      venueId: venues["SPM80-MNT"],
+      startsAt: day(daysUntil("2027-08-05"), 14),
+      endsAt: day(daysUntil("2027-08-05"), 16),
+      reason: "maintenance",
+      createdBy: users["marcus.wong@connectsphere.com"],
+    },
+  });
 
   // -------------------------------------------------------------------
   // REGISTRATIONS

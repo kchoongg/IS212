@@ -36,17 +36,17 @@ Column notes:
 | [SPM-32](https://kkchoong.atlassian.net/browse/SPM-32) | Process Event Change Request | SPM-15 Event Information & Change Management |  | Sprint 4 | 5 | Estimate: 5. Big: a queue of pending requests, approve or reject, and partial approval field by field, with approved changes applied through SPM-62's rules. Bi… | 7 | 0/7 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4, AC5, AC6, AC7; no TC file |
 | [SPM-33](https://kkchoong.atlassian.net/browse/SPM-33) | Track Outstanding Arrangements | SPM-16 Event Planning & Confirmation |  | Sprint 3 | 5 | Estimate: 5. Touches multiple areas: it pulls status from venue bookings, equipment requests and the safety check, and needs a migration to record an arrangeme… | 11 | 11/11 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A, AC10 A, AC11 A | [xlsx](../test-cases/SPM-33_Test_Cases.xlsx) | 17 | 0 | 17 Pass (2026-10-12) | 111 unit, 48 route | 0 | 0 | Web Application › Events API | [#48](https://github.com/kchoongg/IS212/pull/48) 2026-10-12 | none recorded (merged by JTKnight03) | Merged by JTKnight03 | [run](https://github.com/kchoongg/IS212/actions/runs/38258407566) | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (3 tests) | Done |  |
 | [SPM-34](https://kkchoong.atlassian.net/browse/SPM-34) | Confirm Event | SPM-16 Event Planning & Confirmation |  | Sprint 2 | 2 |  | 7 | 5/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 M, AC7 M | [xlsx](../test-cases/SPM-34_Test_Cases.xlsx) | 10 | 0 | 10 Pass (2026-10-04) | 22 unit, 5 route | 0 | 1 | Web Application › Events API | [#36](https://github.com/kchoongg/IS212/pull/36) 2026-10-04 | none recorded (merged by kayalvizhi24) | Merged by kayalvizhi24 | no CI run |  | Done | no estimate comment |
-| [SPM-35](https://kkchoong.atlassian.net/browse/SPM-35) | Request Event Change | SPM-15 Event Information & Change Management |  | Sprint 4 | 3 | Estimate: 3. Normal story: a new change-request record, one form and one endpoint. Like SPM-47 (3). | 6 | 0/6 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API | [#73](https://github.com/kchoongg/IS212/pull/73) 2026-10-21 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | [run](https://github.com/kchoongg/IS212/actions/runs/39630029215) |  | Done | no coverage: AC1, AC2, AC3, AC4, AC5, AC6; no TC file |
+| [SPM-35](https://kkchoong.atlassian.net/browse/SPM-35) | Request Event Change | SPM-15 Event Information & Change Management |  | Sprint 4 | 3 | Estimate: 3. Normal story: a new change-request record, one form and one endpoint. Like SPM-47 (3). | 6 | 3/6 | AC1 A, AC2 A, AC3 M, AC4 A, AC5 M, AC6 M | [xlsx](../test-cases/SPM-35_Test_Cases.xlsx) | 9 | 0 | 9 Pass (2026-10-21) | 65 unit, 33 route | 0 | 0 | Web Application › Events API | [#73](https://github.com/kchoongg/IS212/pull/73) 2026-10-21 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | [run](https://github.com/kchoongg/IS212/actions/runs/39630029215) |  | Done |  |
 | [SPM-36](https://kkchoong.atlassian.net/browse/SPM-36) | Mark Event as Completed | SPM-16 Event Planning & Confirmation |  | Sprint 4 | 3 | Estimate: 3. The manual action is small, like SPM-54 (2); completing automatically 7 days after the end date needs a timed check, which adds to it. Borderline… | 6 | 0/6 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | In Progress | no coverage: AC1, AC2, AC3, AC4, AC5, AC6; no TC file |
-| [SPM-37](https://kkchoong.atlassian.net/browse/SPM-37) | Cancel Event | SPM-16 Event Planning & Confirmation |  | Sprint 4 | 5 | Estimate: 5. Big: touches multiple areas. One action that releases venue bookings and equipment reservations and closes pending change requests, safety checks… | 9 | 9/9 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A | [xlsx](../test-cases/SPM-37_Test_Cases.xlsx) | 12 | 0 | 11 Pass, 1 Blocked (2026-10-22) | 45 unit, 29 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | In Progress |  |
+| [SPM-37](https://kkchoong.atlassian.net/browse/SPM-37) | Cancel Event | SPM-16 Event Planning & Confirmation |  | Sprint 4 | 5 | Estimate: 5. Big: touches multiple areas. One action that releases venue bookings and equipment reservations and closes pending change requests, safety checks… | 9 | 9/9 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A | [xlsx](../test-cases/SPM-37_Test_Cases.xlsx) | 12 | 0 | 11 Pass, 1 Blocked (2026-10-22) | 47 unit, 29 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | In Progress |  |
 | [SPM-38](https://kkchoong.atlassian.net/browse/SPM-38) | Postpone Event | SPM-16 Event Planning & Confirmation |  | Sprint 4 | 3 | Estimate: 3. Normal story: reuses the release logic from Cancel Event (SPM-37), plus a new Postponed status. Build after SPM-37. | 8 | 2/8 | AC1 A, AC2 A, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N, AC8 N |  |  |  |  | 1 unit, 2 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC3, AC4, AC5, AC6, AC7, AC8; no TC file |
-| [SPM-39](https://kkchoong.atlassian.net/browse/SPM-39) | Manage Venue Catalogue | SPM-13 Venue Management |  | Sprint 1 | 5 |  | 7 | 7/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A | [xlsx](../test-cases/SPM-39_Test_Cases.xlsx) | 24 | 0 | 24 Pass (2026-09-26) | 122 unit, 42 route | 0 | 0 | Web Application › Venues API | [#11](https://github.com/kchoongg/IS212/pull/11) 2026-09-20 | none recorded (merged by kchoongg) | Merged by kchoongg | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (4 tests) | Done | no estimate comment |
+| [SPM-39](https://kkchoong.atlassian.net/browse/SPM-39) | Manage Venue Catalogue | SPM-13 Venue Management |  | Sprint 1 | 5 |  | 7 | 7/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A | [xlsx](../test-cases/SPM-39_Test_Cases.xlsx) | 24 | 0 | 24 Pass (2026-09-26) | 122 unit, 43 route | 0 | 0 | Web Application › Venues API | [#11](https://github.com/kchoongg/IS212/pull/11) 2026-09-20 | none recorded (merged by kchoongg) | Merged by kchoongg | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (4 tests) | Done | no estimate comment |
 | [SPM-40](https://kkchoong.atlassian.net/browse/SPM-40) | Search and Filter Suitable Venues | SPM-13 Venue Management |  | Sprint 2 | 3 |  | 7 | 7/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A | [xlsx](../test-cases/SPM-40_Test_Cases.xlsx) | 15 | [1](../test-cases/DECOMMISSIONED.md) | 15 Pass (2026-09-28) | 87 unit, 16 route | 0 | 0 | Web Application › Venues API | [#24](https://github.com/kchoongg/IS212/pull/24) 2026-09-28<br>[#27](https://github.com/kchoongg/IS212/pull/27) 2026-09-28 | none recorded (merged by kchoongg)<br>none recorded (merged by janelleip2024) | Merged by kchoongg<br>Merged by janelleip2024 | no CI run<br>no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (2 tests) | Done | no estimate comment |
 | [SPM-41](https://kkchoong.atlassian.net/browse/SPM-41) | Check Venue Suitability | SPM-13 Venue Management |  | Sprint 2 | 3 |  | 6 | 6/6 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A | [xlsx](../test-cases/SPM-41_Test_Cases.xlsx) | 13 | 0 | 13 Pass (2026-09-27) | 35 unit, 10 route | 0 | 0 | Web Application › Venues API | [#20](https://github.com/kchoongg/IS212/pull/20) 2026-09-27 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (4 tests) | Done | no estimate comment |
-| [SPM-42](https://kkchoong.atlassian.net/browse/SPM-42) | Request Venue Booking | SPM-17 Venue Booking |  | Sprint 2 | 5 |  | 8 | 6/8 | AC1 A, AC2 S, AC3 S, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A | [xlsx](../test-cases/SPM-42_Test_Cases.xlsx) | 9 | [7](../test-cases/DECOMMISSIONED.md) | 9 Pass (2026-10-01) | 39 unit, 23 route | 0 | 1 | Web Application › Venues API | [#30](https://github.com/kchoongg/IS212/pull/30) 2026-10-01 | none recorded (merged by JTKnight03) | Merged by JTKnight03 | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (2 tests) | Done | no estimate comment |
+| [SPM-42](https://kkchoong.atlassian.net/browse/SPM-42) | Request Venue Booking | SPM-17 Venue Booking |  | Sprint 2 | 5 |  | 8 | 6/8 | AC1 A, AC2 S, AC3 S, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A | [xlsx](../test-cases/SPM-42_Test_Cases.xlsx) | 9 | [7](../test-cases/DECOMMISSIONED.md) | 9 Pass (2026-10-01) | 40 unit, 23 route | 0 | 1 | Web Application › Venues API | [#30](https://github.com/kchoongg/IS212/pull/30) 2026-10-01 | none recorded (merged by JTKnight03) | Merged by JTKnight03 | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (2 tests), [SPM-100](https://kkchoong.atlassian.net/browse/SPM-100) (1 tests) | Done | no estimate comment |
 | [SPM-43](https://kkchoong.atlassian.net/browse/SPM-43) | Review Venue Booking Request | SPM-17 Venue Booking |  | Sprint 2 | 3 |  | 7 | 7/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A | [xlsx](../test-cases/SPM-43_Test_Cases.xlsx) | 14 | [2](../test-cases/DECOMMISSIONED.md) | 14 Pass (2026-10-03) | 52 unit, 18 route | 1 | 1 | Web Application › Venues API | [#34](https://github.com/kchoongg/IS212/pull/34) 2026-10-03 | none recorded (merged by kchoongg) | Merged by kchoongg | no CI run |  | Done | no estimate comment |
 | [SPM-44](https://kkchoong.atlassian.net/browse/SPM-44) | Detect Venue Booking Conflicts | SPM-17 Venue Booking |  | Sprint 2 → Sprint 3 | 5 | Estimate: 5 (original, Sprint 2). Carried into Sprint 3 in review; remaining work is about 1 point (review fixes and merge). | 10 | 7/10 | AC1 M, AC2 S, AC3 A, AC4 S, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A, AC10 A | [xlsx](../test-cases/SPM-44_Test_Cases.xlsx) | 8 | [3](../test-cases/DECOMMISSIONED.md) | 8 Pass (2026-10-08) | 53 unit, 14 route | 1 | 1 | Web Application › Venues API | [#37](https://github.com/kchoongg/IS212/pull/37) 2026-10-08 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | [run](https://github.com/kchoongg/IS212/actions/runs/37731969489) |  | Done |  |
-| [SPM-45](https://kkchoong.atlassian.net/browse/SPM-45) | Record Venue Unavailability | SPM-17 Venue Booking |  | Sprint 3 | 3 | Estimate: 3. Normal story: like SPM-50 (2), plus a migration for the two dates and every "is this venue active" check needing to respect the period. No unknown… | 6 | 6/6 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A | [xlsx](../test-cases/SPM-45_Test_Cases.xlsx) | 19 | 0 | 19 Pass (2026-10-10) | 65 unit, 51 route | 0 | 0 | Web Application › Venues API | [#44](https://github.com/kchoongg/IS212/pull/44) 2026-10-10 | none recorded (merged by kchoongg) | Merged by kchoongg | [run](https://github.com/kchoongg/IS212/actions/runs/38061974689) |  | Done |  |
+| [SPM-45](https://kkchoong.atlassian.net/browse/SPM-45) | Record Venue Unavailability | SPM-17 Venue Booking |  | Sprint 3 | 3 | Estimate: 3. Normal story: like SPM-50 (2), plus a migration for the two dates and every "is this venue active" check needing to respect the period. No unknown… | 6 | 6/6 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A | [xlsx](../test-cases/SPM-45_Test_Cases.xlsx) | 19 | 0 | 19 Pass (2026-10-10) | 67 unit, 51 route | 0 | 0 | Web Application › Venues API | [#44](https://github.com/kchoongg/IS212/pull/44) 2026-10-10 | none recorded (merged by kchoongg) | Merged by kchoongg | [run](https://github.com/kchoongg/IS212/actions/runs/38061974689) |  | Done |  |
 | [SPM-46](https://kkchoong.atlassian.net/browse/SPM-46) | View Venue Availability | SPM-13 Venue Management |  | Sprint 2 | 3 |  | 7 | 6/7 | AC1 A, AC2 S, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A | [xlsx](../test-cases/SPM-46_Test_Cases.xlsx) | 10 | [4](../test-cases/DECOMMISSIONED.md) | 10 Pass (2026-09-28) | 51 unit, 15 route | 0 | 0 | Web Application › Venues API | [#17](https://github.com/kchoongg/IS212/pull/17) 2026-09-28 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (1 tests) | Done | no estimate comment |
 | [SPM-47](https://kkchoong.atlassian.net/browse/SPM-47) | Record Equipment Requirements | SPM-18 Equipment Management |  | Sprint 1 | 3 |  | 7 | 7/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A | [xlsx](../test-cases/SPM-47_Test_Cases.xlsx) | 21 | 0 | 21 Pass (2026-09-20) | 68 unit, 29 route | 0 | 1 | Web Application › Equipment API | [#9](https://github.com/kchoongg/IS212/pull/9) 2026-09-20<br>[#12](https://github.com/kchoongg/IS212/pull/12) 2026-09-20<br>[#14](https://github.com/kchoongg/IS212/pull/14) 2026-09-20<br>[#26](https://github.com/kchoongg/IS212/pull/26) 2026-09-28 | none recorded (merged by JTKnight03)<br>none recorded (merged by its author, janelleip2024)<br>none recorded (merged by JTKnight03)<br>none recorded (merged by kchoongg) | Merged by JTKnight03<br>none recorded<br>Merged by JTKnight03<br>Merged by kchoongg | no CI run<br>no CI run<br>no CI run<br>no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (3 tests) | Done | no estimate comment |
 | [SPM-48](https://kkchoong.atlassian.net/browse/SPM-48) | Check Equipment Availability | SPM-18 Equipment Management |  | Sprint 2 | 5 |  | 8 | 8/8 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A | [xlsx](../test-cases/SPM-48_Test_Cases.xlsx) | 21 | 0 | 21 Pass (2026-09-28) | 85 unit, 22 route | 1 | 0 | Web Application › Equipment API | [#21](https://github.com/kchoongg/IS212/pull/21) 2026-09-28<br>[#26](https://github.com/kchoongg/IS212/pull/26) 2026-09-28 | none recorded (merged by Chua-Yu-Tian-Sammi)<br>none recorded (merged by kchoongg) | Merged by Chua-Yu-Tian-Sammi<br>Merged by kchoongg | no CI run<br>no CI run | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (1 tests) | Done | no estimate comment |
@@ -78,7 +78,7 @@ Column notes:
 | [SPM-77](https://kkchoong.atlassian.net/browse/SPM-77) | Suggest Alternative Equipment | SPM-18 Equipment Management |  | Sprint 4 | 3 | Estimate: 3. Normal story: a new suggestion record with an availability check, and accept or decline by the Coordinator. Like SPM-49 (3). | 9 | 0/9 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N, AC8 N, AC9 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Equipment API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC9; no TC file |
 | [SPM-78](https://kkchoong.atlassian.net/browse/SPM-78) | Switch Between Roles | SPM-11 User Authentication & Authorisation |  | Backlog | 5 | Estimate: 5. Big: accounts hold one role today, so this changes the user data model, the session and how every permission check reads the role. It could turn o… | 7 | 0/7 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Auth API |  |  |  |  |  | To Do |  |
 | [SPM-79](https://kkchoong.atlassian.net/browse/SPM-79) | Show Venue Search Feedback | SPM-13 Venue Management |  | Backlog | 1 | Estimate: 1. Trivial: one confirmation message on an existing screen. Understood completely. | 4 | 0/4 | AC1 N, AC2 N, AC3 N, AC4 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Venues API |  |  |  |  |  | To Do |  |
-| [SPM-80](https://kkchoong.atlassian.net/browse/SPM-80) | Re-check Bookings When Setup or Turnaround Time Changes | SPM-13 Venue Management | Source: Week 7 Customer Changes, Change #1 – Venue Setup and Turnaround Time. "Each venue must therefore have a configurable setup time and… | Sprint 4 | 5 | Estimation Rational: Like PSM-42, minute-level overlap plus a new flag reason that ripples into confirmation | 8 | 0/8 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N, AC7 N, AC8 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Venues API | [#74](https://github.com/kchoongg/IS212/pull/74) 2026-10-22 | none recorded (merged by kayalvizhi24) | Merged by kayalvizhi24 | [run](https://github.com/kchoongg/IS212/actions/runs/39742123998) |  | Done | no coverage: AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8; no TC file |
+| [SPM-80](https://kkchoong.atlassian.net/browse/SPM-80) | Re-check Bookings When Setup or Turnaround Time Changes | SPM-13 Venue Management | Source: Week 7 Customer Changes, Change #1 – Venue Setup and Turnaround Time. "Each venue must therefore have a configurable setup time and… | Sprint 4 | 5 | Estimation Rational: Like PSM-42, minute-level overlap plus a new flag reason that ripples into confirmation | 8 | 8/8 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A | [xlsx](../test-cases/SPM-80_Test_Cases.xlsx) | 9 | 0 | 9 Pass (2026-10-22) | 32 unit, 20 route | 5 | 1 | Web Application › Venues API | [#74](https://github.com/kchoongg/IS212/pull/74) 2026-10-22 | none recorded (merged by kayalvizhi24) | Merged by kayalvizhi24 | [run](https://github.com/kchoongg/IS212/actions/runs/39742123998) |  | Done |  |
 | [SPM-81](https://kkchoong.atlassian.net/browse/SPM-81) | Request More Than One Venue for an Event | SPM-17 Venue Booking | Source: Week 7 Customer Changes, Change #3 – Multiple Venues for One Event. "The system must therefore allow a single event to have more th… | Sprint 3 | 5 | Estimate: 5. Big: touches the booking form, the booking data model (more than one active booking per event and session) and the conflict rule, with regression… | 8 | 5/8 | AC1 M, AC2 A, AC3 M, AC4 A, AC5 A, AC6 A, AC7 A, AC8 M | [xlsx](../test-cases/SPM-81_Test_Cases.xlsx) | 11 | 0 | 11 Pass (2026-10-11) | 18 unit, 5 route | 0 | 0 | Web Application › Venues API | [#46](https://github.com/kchoongg/IS212/pull/46) 2026-10-11 | none recorded (merged by janelleip2024) | Merged by janelleip2024 | [run](https://github.com/kchoongg/IS212/actions/runs/38068948558) |  | Done |  |
 | [SPM-82](https://kkchoong.atlassian.net/browse/SPM-82) | Expire Tentative Venue Hold | SPM-17 Venue Booking | Source: Week 7 Customer Changes, Change #4 – Tentative Venue Holds Expire. "These tentative holds should not reserve a venue indefinitely.… | Sprint 3 | 5 | Estimate: 5. Real unknown: expiry needs something to happen at a point in time, which is new for this codebase. Also a migration, a new Expired status across t… | 11 | 11/11 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A, AC10 A, AC11 A | [xlsx](../test-cases/SPM-82_Test_Cases.xlsx) | 11 | 0 | 11 Pass (2026-10-16) | 53 unit, 22 route | 2 | 0 | Web Application › Venues API | [#62](https://github.com/kchoongg/IS212/pull/62) 2026-10-16 | none recorded (merged by kchoongg) | Merged by kchoongg | [run](https://github.com/kchoongg/IS212/actions/runs/38776278419) |  | Done |  |
 | [SPM-83](https://kkchoong.atlassian.net/browse/SPM-83) | Event Coordinator Lead Role for Assignment | SPM-14 Event Review & Approval | Source: Week 7 Customer Changes, Change #5 – Addition of Event Coordinator Lead Role. "ConnectSphere has introduced a new internal role, th… | Backlog | 2 | Estimate: 2. Small and well understood: a role using the assignment screens that SPM-30 already built. Like SPM-85 (2). | 2 | 0/2 | AC1 S, AC2 S |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | Done | no PR; no TC file |
@@ -102,7 +102,6 @@ Current ACs with no automated test, no Active or Updated test case, and not supe
 
 - SPM-26 Respond to Clarification Request (In Progress): AC1, AC2, AC3, AC4
 - SPM-32 Process Event Change Request (To Do): AC1, AC2, AC3, AC4, AC5, AC6, AC7
-- SPM-35 Request Event Change (Done): AC1, AC2, AC3, AC4, AC5, AC6
 - SPM-36 Mark Event as Completed (In Progress): AC1, AC2, AC3, AC4, AC5, AC6
 - SPM-38 Postpone Event (To Do): AC3, AC4, AC5, AC6, AC7, AC8
 - SPM-53 Receive Event Notifications (To Do): AC2, AC3, AC4, AC5, AC8, AC9, AC10, AC11, AC12, AC13, AC14, AC15, AC16, AC17, AC18, AC19, AC20
@@ -111,7 +110,6 @@ Current ACs with no automated test, no Active or Updated test case, and not supe
 - SPM-66 Join and Respond to Waiting List (To Do): AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC9, AC10
 - SPM-69 Release or Adjust Equipment Reservation (In Progress): AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8
 - SPM-77 Suggest Alternative Equipment (To Do): AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8, AC9
-- SPM-80 Re-check Bookings When Setup or Turnaround Time Changes (Done): AC1, AC2, AC3, AC4, AC5, AC6, AC7, AC8
 - SPM-94 Limit Who Sees a Request's Review Outcome (To Do): AC1, AC2, AC3, AC4, AC5, AC6, AC7
 
 ## Stories with no PR
@@ -122,7 +120,6 @@ Current ACs with no automated test, no Active or Updated test case, and not supe
 
 - SPM-26 Respond to Clarification Request (In Progress)
 - SPM-32 Process Event Change Request (To Do)
-- SPM-35 Request Event Change (Done)
 - SPM-36 Mark Event as Completed (In Progress)
 - SPM-38 Postpone Event (To Do)
 - SPM-53 Receive Event Notifications (To Do)
@@ -131,7 +128,6 @@ Current ACs with no automated test, no Active or Updated test case, and not supe
 - SPM-66 Join and Respond to Waiting List (To Do)
 - SPM-69 Release or Adjust Equipment Reservation (In Progress)
 - SPM-77 Suggest Alternative Equipment (To Do)
-- SPM-80 Re-check Bookings When Setup or Turnaround Time Changes (Done)
 - SPM-83 Event Coordinator Lead Role for Assignment (Done)
 - SPM-94 Limit Who Sees a Request's Review Outcome (To Do)
 
@@ -356,7 +352,7 @@ Tests (7):
 
 ## Tests tagged with a story but no single AC
 
-These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). 536 tests:
+These tests name the story they belong to but check something no one AC states (a load error, an empty state, a helper, a bug's fix). 599 tests:
 
 <details><summary>Show the list</summary>
 
@@ -406,11 +402,11 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:360 | recovers every one of an organiser's lists from a load failure |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:454 | with nothing submitted yet, invites them to create their first request |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:546 | shows a load failure with a Retry that loads again |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1384 | rejects a status that does not exist |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:544 | is 404 for a malformed reference |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:551 | is 404 for a reference that matches no event |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:558 | is 404, not 403, for an event the user cannot see - and nothing is written |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:568 | answers 500 when the database fails |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1414 | rejects a status that does not exist |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:574 | is 404 for a malformed reference |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:581 | is 404 for a reference that matches no event |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:588 | is 404, not 403, for an event the user cannot see - and nothing is written |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:598 | answers 500 when the database fails |
 | SPM-27 | src/lib/__tests__/validation.test.ts:274 | only accepts known statuses |
 | SPM-28 | src/app/__tests__/event-pages.test.tsx:1261 | explains a 404 |
 | SPM-28 | src/app/__tests__/event-pages.test.tsx:1269 | shows a general error when loading fails without a reason |
@@ -429,9 +425,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-29 | src/app/api/__tests__/clarifications.test.ts:87 | is 401 without a session |
 | SPM-29 | src/app/api/__tests__/clarifications.test.ts:92 | is 404 for a malformed reference, an unknown event, or one the user may not see |
 | SPM-29 | src/lib/__tests__/clarification.test.ts:48 | are worded for the coordinator |
-| SPM-29 | src/lib/__tests__/permissions.test.ts:471 | lets the assigned coordinator ask |
-| SPM-29 | src/lib/__tests__/permissions.test.ts:475 | stops a coordinator the event is not assigned to |
-| SPM-29 | src/lib/__tests__/permissions.test.ts:479 | stops every other role, including the organiser who raised it |
+| SPM-29 | src/lib/__tests__/permissions.test.ts:482 | lets the assigned coordinator ask |
+| SPM-29 | src/lib/__tests__/permissions.test.ts:486 | stops a coordinator the event is not assigned to |
+| SPM-29 | src/lib/__tests__/permissions.test.ts:490 | stops every other role, including the organiser who raised it |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:1579 | copes with an event that has no title, client or submission time |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:1595 | names an untitled event as such when confirming its assignment |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:1777 | says so when there are no active events at all |
@@ -450,9 +446,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-31 | src/app/__tests__/event-pages.test.tsx:613 | explains a 404 without confirming the event exists |
 | SPM-31 | src/app/__tests__/event-pages.test.tsx:626 | shows a general error when the request fails without a reason |
 | SPM-31 | src/app/__tests__/event-pages.test.tsx:632 | offers a Retry that loads again |
+| SPM-31 | src/app/api/__tests__/event-detail.test.ts:118 | is 404 for a reference that matches no event |
 | SPM-31 | src/app/api/__tests__/event-detail.test.ts:66 | looks the event up by the number in its reference |
 | SPM-31 | src/app/api/__tests__/event-detail.test.ts:76 | is 404 for the malformed reference %s, without querying |
-| SPM-31 | src/app/api/__tests__/event-detail.test.ts:88 | is 404 for a reference that matches no event |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:83 | looks the event up by the number in its reference |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:90 | returns null for a malformed reference without querying |
 | SPM-31 | src/lib/__tests__/apiAuth.test.ts:95 | returns null when no event has that reference |
@@ -488,28 +484,90 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-34 | src/app/__tests__/event-pages.test.tsx:550 | words the question for an event with no title |
 | SPM-34 | src/app/__tests__/event-pages.test.tsx:571 | does nothing when the question is declined |
 | SPM-34 | src/app/__tests__/event-pages.test.tsx:597 | clears an earlier refusal when it then succeeds |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:100 | [AC1] opens on a change of details, filled in with the event's present values |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:111 | [AC1] refuses %s, with no form |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:122 | [AC1] refuses while the event is %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:132 | [AC1][AC2] sends only the fields changed, the equipment change and the reason |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:155 | [AC1] can propose every detail Update Event Information edits |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:185 | [AC1] can propose dropping a facility the event has |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:197 | [AC1] sends a new set of facilities |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:209 | [AC3] refuses to send without a reason |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:221 | clears the reason's error once a reason is typed |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:232 | refuses to send a change of details that changes nothing |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:243 | checks the details as Edit event information does |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:255 | [AC5] asks to %s with a reason alone |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:275 | [AC3] a postponement still needs a reason |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:286 | does not offer a multi-session event's times and attendance |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:304 | shows the server's refusal under its field and keeps the form |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:318 | says so when the server %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:332 | sends the user to log in when their session ends while sending |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:343 | goes back to the event without sending anything |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:353 | says so when the event %s, and retries |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:366 | sends the user to log in when their session has ended before the event loads |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:371 | still works when the facilities %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:389 | [AC1] offers the owning organiser 'Request a change' while the event is %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:399 | [AC1] does not offer it to %s |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:411 | [AC2][AC4] lists the event's change requests when it has some |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:437 | [AC5] shows a postponement as its reason alone |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:448 | does not ask for change requests when the event has none |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:456 | says so when the change requests cannot be loaded, and retries |
+| SPM-35 | src/app/__tests__/event-change-request-pages.test.tsx:91 | sends an anonymous visitor to log in, remembering the page |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:101 | answers 404 for %s, an event that cannot be found |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:108 | answers 404, not 403, to an organiser from another company |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:114 | [AC1] refuses %s: only the owner may request a change |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:126 | [AC1] refuses a request while the event is %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:139 | [AC1] accepts a request while the event is %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:147 | [AC1][AC2] records each changed field with its value now and the value proposed |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:184 | [AC6] changes nothing about the event, its arrangements or its status |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:189 | [AC4] marks a request changing %s as Important |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:203 | [AC1] stores the equipment change in the organiser's words, trimmed |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:208 | [AC2] names the proposed facilities |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:221 | refuses a facility that does not exist |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:230 | [AC3] refuses a request whose reason is %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:241 | refuses a change of details with %s |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:253 | refuses an end before the start, measured against the start already saved |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:263 | refuses new times or attendance for a multi-session event, as Update Event Information does |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:272 | lets a multi-session event's other details be asked for |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:277 | refuses a field Update Event Information cannot change |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:283 | [AC5] records a request to %s with its reason alone, and leaves the status alone |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:303 | [AC3] a postponement still needs a reason |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:308 | answers 500 when the database fails |
+| SPM-35 | src/app/api/__tests__/event-change-requests.test.ts:96 | refuses a caller with no session |
+| SPM-35 | src/app/api/__tests__/event-detail.test.ts:101 | leaves the count out when there are none |
+| SPM-35 | src/app/api/__tests__/event-detail.test.ts:109 | does not count change requests for someone who may not see them |
+| SPM-35 | src/app/api/__tests__/event-detail.test.ts:88 | tells the organiser and the coordinator how many change requests the event has |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:188 | [AC2][AC4] gives each field's label, current and proposed value, and why it is Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:204 | [AC1][AC4] shows the equipment change and counts it as Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:210 | [AC4] a request that only renames the event is not Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:219 | [AC5] a %s request has no fields and is not Important |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:232 | shows a request made before SPM-35 from its proposed start, end and attendance, against the event now |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:251 | shows a request made before SPM-35 that only asked for more places |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:257 | shows a request made before SPM-35 that only moved the time |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:266 | labels a kind of request it does not know in words |
+| SPM-35 | src/lib/__tests__/eventChangeRequest.test.ts:270 | names a requester whose account is gone as 'Unknown' |
+| SPM-35 | src/lib/__tests__/permissions.test.ts:1067 | nobody else sees them: another client, another coordinator, Venue Staff, Technical Support or an attendee |
 | SPM-37 | src/app/__tests__/event-pages.test.tsx:2413 | still offers to cancel when what it releases cannot be loaded |
 | SPM-37 | src/app/api/__tests__/event-cancellation.test.ts:183 | is 500 when the database fails |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:134 | says Venue Staff have not added any rooms when the catalogue is empty |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:1473 | Back to Venues returns to the catalogue |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:1553 | Back to Venues returns to the catalogue |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:163 | following the availability link does not also open the editor |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:171 | pressing Enter on the availability link in a mobile card does not also open the editor |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:202 | filters by building, offering each building once in alphabetical order |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:212 | says when no venue matches the filters, rather than that there are none |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:227 | explains a refusal from the server |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:233 | shows a load failure with a Retry that loads again |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:291 | shows Venues / Add venue in the breadcrumb (SPM-98) |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:695 | titles the page 'Edit venue' for a venue saved with no name |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:702 | shows a placeholder while the venue loads |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:708 | says so when the venue %s, and offers the way back |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:299 | shows Venues / Add venue in the breadcrumb (SPM-98) |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:735 | titles the page 'Edit venue' for a venue saved with no name |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:742 | shows a placeholder while the venue loads |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:748 | says so when the venue %s, and offers the way back |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:75 | shows a general error when the request fails without a reason |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:779 | names the venue and ends on the page |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:786 | reads 'Venue' for the venue while %s |
-| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:796 | is the same trail when a coordinator is refused |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:819 | names the venue and ends on the page |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:826 | reads 'Venue' for the venue while %s |
+| SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:836 | is the same trail when a coordinator is refused |
 | SPM-39 | src/app/api/__tests__/venues.test.ts:119 | answers 500 when the database fails |
 | SPM-39 | src/app/api/__tests__/venues.test.ts:150 | is 404 for a venue that does not exist |
-| SPM-39 | src/app/api/__tests__/venues.test.ts:229 | is 404 for a venue that does not exist |
-| SPM-39 | src/app/api/__tests__/venues.test.ts:562 | answers 500 when the database fails |
+| SPM-39 | src/app/api/__tests__/venues.test.ts:233 | is 404 for a venue that does not exist |
+| SPM-39 | src/app/api/__tests__/venues.test.ts:925 | answers 500 when the database fails |
 | SPM-40 | src/app/__tests__/venue-search-page.test.tsx:118 | keeps an event's breadcrumb, starting 'My Events', for an organiser it turns away |
 | SPM-40 | src/app/__tests__/venue-search-page.test.tsx:143 | describes each venue: where it is, when it is open, its layouts and facilities |
 | SPM-40 | src/app/__tests__/venue-search-page.test.tsx:159 | offers no suitability check when no event is being searched for |
@@ -563,9 +621,10 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-41 | src/lib/__tests__/venueSuitability.test.ts:242 | reads like the form does |
 | SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1002 | puts a refusal the server names a field for under that field |
 | SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1071 | shows %s and keeps the form |
-| SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1086 | shows 'Submitting…' and cannot be pressed twice while in flight |
-| SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1185 | shows the reason instead of the form when a booking cannot be requested |
-| SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1194 | Cancel goes back to the event's Venue tab |
+| SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1086 | shows the general message for a refusal with %s, and keeps the form |
+| SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1100 | shows 'Submitting…' and cannot be pressed twice while in flight |
+| SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1199 | shows the reason instead of the form when a booking cannot be requested |
+| SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:1208 | Cancel goes back to the event's Venue tab |
 | SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:184 | explains why booking cannot be requested, and offers no Request booking |
 | SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:576 | shows no booking requests card when there are none |
 | SPM-42 | src/app/__tests__/event-venue-pages.test.tsx:780 | shows a placeholder while it loads |
@@ -602,14 +661,14 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:298 | rejects %s |
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:476 | answers 500 when the database fails |
 | SPM-44 | src/app/api/__tests__/venue-booking-review.test.ts:221 | gives no verdict when the venue cannot be loaded |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1104 | says so when the venue has none, and still offers to mark it unavailable |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1112 | says so when the list cannot be loaded |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1118 | does not mark the venue as retired |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1349 | does nothing when the dialog is cancelled |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1359 | shows the server's refusal and records nothing |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1370 | explains a network failure |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1453 | says so when the server cannot be reached |
-| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1462 | shows the error and keeps the period when ending is refused |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1184 | says so when the venue has none, and still offers to mark it unavailable |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1192 | says so when the list cannot be loaded |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1198 | does not mark the venue as retired |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1429 | does nothing when the dialog is cancelled |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1439 | shows the server's refusal and records nothing |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1450 | explains a network failure |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1533 | says so when the server cannot be reached |
+| SPM-45 | src/app/__tests__/venue-catalogue-pages.test.tsx:1542 | shows the error and keeps the period when ending is refused |
 | SPM-45 | src/app/api/__tests__/venue-unavailability.test.ts:154 | is 404 for a venue that does not exist |
 | SPM-45 | src/app/api/__tests__/venue-unavailability.test.ts:185 | answers 500 when the database fails |
 | SPM-45 | src/app/api/__tests__/venue-unavailability.test.ts:205 | is 404 for a venue that does not exist |
@@ -665,8 +724,8 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-48 | src/app/api/__tests__/event-equipment-availability.test.ts:92 | is 404 for a malformed reference |
 | SPM-48 | src/app/api/__tests__/event-equipment-availability.test.ts:96 | is 404 for a draft, which Technical Support cannot see |
 | SPM-48 | src/lib/__tests__/equipmentAvailabilityLines.test.ts:161 | names an untitled event holding the equipment |
-| SPM-48 | src/lib/__tests__/permissions.test.ts:512 | lets Technical Support check equipment availability |
-| SPM-48 | src/lib/__tests__/permissions.test.ts:516 | stops everyone else - the result names other events' bookings |
+| SPM-48 | src/lib/__tests__/permissions.test.ts:523 | lets Technical Support check equipment availability |
+| SPM-48 | src/lib/__tests__/permissions.test.ts:527 | stops everyone else - the result names other events' bookings |
 | SPM-49 | src/app/__tests__/equipment-pages.test.tsx:1300 | shows %s against the line it belongs to |
 | SPM-49 | src/app/__tests__/equipment-pages.test.tsx:1337 | is not offered for a confirmed event, whose equipment is final |
 | SPM-49 | src/app/__tests__/equipment-pages.test.tsx:1349 | is not offered for an event that is %s, and the page says when it is |
@@ -713,7 +772,7 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-51 | src/app/__tests__/register-panel-pages.test.tsx:148 | drops the old title and status badge when the event can no longer be loaded |
 | SPM-51 | src/app/__tests__/register-panel-pages.test.tsx:162 | shows a general refusal when the server gives no reason |
 | SPM-51 | src/app/__tests__/register-panel-pages.test.tsx:171 | says so when the server can't be reached |
-| SPM-51 | src/app/api/__tests__/event-detail.test.ts:305 | doesn't work out a registration state for staff |
+| SPM-51 | src/app/api/__tests__/event-detail.test.ts:335 | doesn't work out a registration state for staff |
 | SPM-51 | src/app/api/__tests__/events.test.ts:132 | doesn't count registrations for staff |
 | SPM-51 | src/app/api/__tests__/registrations.test.ts:250 | answers 500 when the database fails |
 | SPM-51 | src/app/api/__tests__/registrations.test.ts:332 | answers 500 when the database fails |
@@ -779,8 +838,8 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-65 | src/app/__tests__/event-attendees-page.test.tsx:181 | says so when the registrations fail to load, and Retry loads them again |
 | SPM-65 | src/app/__tests__/event-attendees-page.test.tsx:192 | shows a general error when the server cannot be reached |
 | SPM-65 | src/app/__tests__/event-attendees-page.test.tsx:252 | says so when nobody has registered yet |
-| SPM-65 | src/app/api/__tests__/event-detail.test.ts:353 | doesn't count the registrations for %s |
-| SPM-65 | src/app/api/__tests__/event-detail.test.ts:366 | doesn't count every registration for an attendee |
+| SPM-65 | src/app/api/__tests__/event-detail.test.ts:383 | doesn't count the registrations for %s |
+| SPM-65 | src/app/api/__tests__/event-detail.test.ts:396 | doesn't count every registration for an attendee |
 | SPM-65 | src/app/api/__tests__/event-registrations-list.test.ts:135 | answers 404 for %s |
 | SPM-65 | src/app/api/__tests__/event-registrations-list.test.ts:219 | gives the event's reference, title and status for the page header |
 | SPM-65 | src/app/api/__tests__/event-registrations-list.test.ts:232 | answers 500 when the database fails |
@@ -884,8 +943,8 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-88 | src/app/api/__tests__/safety-flags.test.ts:216 | answers 500 when the database fails |
 | SPM-88 | src/app/api/__tests__/safety-flags.test.ts:67 | is 404 for a malformed reference, an unknown event, or one the user may not see |
 | SPM-90 | src/app/__tests__/event-venue-pages.test.tsx:125 | leaves the space fields empty for an event with no attendance or layout yet |
-| SPM-90 | src/app/__tests__/event-venue-pages.test.tsx:1321 | clears the message as soon as the attendance is changed |
-| SPM-90 | src/app/__tests__/event-venue-pages.test.tsx:1536 | clears each message as soon as its field is changed |
+| SPM-90 | src/app/__tests__/event-venue-pages.test.tsx:1335 | clears the message as soon as the attendance is changed |
+| SPM-90 | src/app/__tests__/event-venue-pages.test.tsx:1550 | clears each message as soon as its field is changed |
 | SPM-90 | src/lib/__tests__/eventConfirmation.test.ts:1023 | gives rows that are not bookings no purpose |
 | SPM-93 | src/lib/__tests__/venueTime.test.ts:152 | writes minutes of the day as HH:MM, with the end of the day as 24:00 |
 | SPM-93 | src/lib/__tests__/venueTime.test.ts:158 | reads HH:MM into minutes of the day |

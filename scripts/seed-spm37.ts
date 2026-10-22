@@ -308,6 +308,7 @@ async function main() {
       });
     }
 
+    // In SPM-35's shape: the fields it changes, with their values then and now.
     if (f.changeRequestTo) {
       await prisma.eventChangeRequest.create({
         data: {
@@ -315,8 +316,11 @@ async function main() {
           requestedBy: organiser.id,
           requestedAt: addDays(now, -1),
           reason: "Our keynote speaker can only come a week later.",
-          proposedStartsAt: sgt(f.changeRequestTo, "09:00"),
-          proposedEndsAt: sgt(f.changeRequestTo, "12:00"),
+          kind: "change",
+          changes: [
+            { field: "startsAt", current: startsAt.toISOString(), proposed: sgt(f.changeRequestTo, "09:00").toISOString() },
+            { field: "endsAt", current: endsAt.toISOString(), proposed: sgt(f.changeRequestTo, "12:00").toISOString() },
+          ],
           isSignificant: true,
           status: "pending",
         },

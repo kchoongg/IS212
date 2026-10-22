@@ -291,6 +291,7 @@ describe("impactSentence", () => {
       max_capacity_below_attendance: "the venue's maximum capacity is now below the expected attendance",
       mandatory_facility_removed: "a facility this event requires is no longer available at this venue",
       venue_unavailable: "the venue is unavailable during this booking",
+      booking_clash: "with the venue's new setup or turnaround time, this booking overlaps another booking",
     });
   });
 

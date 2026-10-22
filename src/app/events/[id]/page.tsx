@@ -32,6 +32,8 @@ import { decisionDoneMessage, safetyCheckSummary, type SafetyDecision } from "@/
 import { unavailabilityReasonLabel } from "@/lib/venueUnavailability";
 import { SafetyDecisionDialog } from "./SafetyDecisionDialog";
 import { SafetyFlagDialog, type SafetyFlagChoice } from "./SafetyFlagDialog";
+import { ChangeRequestsCard } from "./ChangeRequestsCard";
+import { canRequestChangeIn } from "@/lib/eventChangeRequest";
 import { ClarificationDetails, type OpenClarification } from "./ClarificationDetails";
 import { canFlagAfterReturn, safetyFlaggedMessage, safetyHistoryLine } from "@/lib/safetyResolution";
 import {
@@ -44,6 +46,7 @@ import {
   canConfirmEvent,
   canFlagForSafetyReview,
   canRecordSafetyDecision,
+  canRequestEventChange,
   canReviewEvent,
   canSubmitForSafetyCheck,
   canUpdateEventInformation,
@@ -64,6 +67,9 @@ interface FacilityRequirement {
 
 interface EventDetail extends RegistrationEvent {
   id: string;
+  // SPM-35: how many change requests the event has - present (and above 0)
+  // only for the people who may see them, so the card loads only then.
+  changeRequestCount?: number;
   // SPM-51: an Attendee's only - whether they can register now, and their
   // own registration for the event, if any.
   registrationState?: RegistrationStateJson;
@@ -646,6 +652,24 @@ export default function EventOverviewPage() {
     )
   );
 
+  // SPM-35 (AC1): the organiser who owns the event asks for a change, from
+  // approval until it is over - the same rule as the change-request route.
+  const showRequestChange = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    canRequestChangeIn(event.status) &&
+    canRequestEventChange(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId ?? null,
+        status: event.status,
+      }
+    )
+  );
+
   // SPM-64: the assigned coordinator configures registration in the same
   // status window as the route (EVENT_INFORMATION_STATUSES).
   const showRegistrationControls = Boolean(
@@ -710,6 +734,11 @@ export default function EventOverviewPage() {
               <Button variant="secondary" onClick={() => setWithdrawOpen(true)}>
                 Record withdrawal
               </Button>
+            )}
+            {showRequestChange && (
+              <ButtonLink href={`/events/${eventId}/change-request`} variant="secondary">
+                Request a change
+              </ButtonLink>
             )}
             {showCancel && (
               <Button variant="secondary" onClick={() => void askToCancel()}>
@@ -870,6 +899,10 @@ export default function EventOverviewPage() {
               />
             </CardBody>
           </Card>
+
+          {/* SPM-35 (AC2): what has been asked for, for the event's organisers,
+              its coordinator and the Ops Manager - the only people given a count. */}
+          {(event.changeRequestCount ?? 0) > 0 && <ChangeRequestsCard eventRef={eventReference(event.sequenceNumber)} />}
 
           {/* SPM-88 (AC1): every submission and decision, newest first. Staff
               only - the API leaves the history out for an external user. */}

@@ -31,6 +31,9 @@ export const ACTIONS = [
   "event:create",
   "event:view",
   "event:edit_draft",
+  // SPM-35: after submission an organiser changes nothing directly (#102) -
+  // they ask, through an Event Change Request the coordinator processes.
+  "event:request_change",
   "event:review",
   "event:assign_coordinator",
   "event:confirm",
@@ -71,6 +74,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     "event:create",
     "event:view",
     "event:edit_draft",
+    "event:request_change",
     "equipment:view",
     "registration:view_list",
     "facility:view",
@@ -261,6 +265,25 @@ export function eventListWhere(actor: Actor): Record<string, unknown> {
 export function canEditEventContent(actor: Actor, event: EventAccessFields): boolean {
   if (!can(actor.role, "event:edit_draft")) return false;
   return ownsEvent(actor, event) && event.status === "draft";
+}
+
+/// SPM-35 (AC1): the organiser who owns the event asks for a change to it - not
+/// a colleague from the same company, who can see it but did not raise it.
+/// Which statuses allow it is canRequestChangeIn() (src/lib/eventChangeRequest.ts),
+/// checked beside this, as the information route checks its statuses.
+export function canRequestEventChange(actor: Actor, event: EventAccessFields): boolean {
+  return can(actor.role, "event:request_change") && ownsEvent(actor, event);
+}
+
+/// SPM-35: who sees an event's change requests - the client's organisers (the
+/// owner and their colleagues, who can see the event), its assigned
+/// coordinator, who processes them, and the Ops Manager. Not Venue Staff,
+/// Technical Support, the Safety Officer or an attendee.
+export function canViewChangeRequests(actor: Actor, event: EventAccessFields): boolean {
+  if (!canViewEvent(actor, event)) return false;
+  if (actor.role === "organiser") return true;
+  if (actor.role === "ops_manager") return true;
+  return isAssignedCoordinator(actor, event);
 }
 
 /// SPM-62: an event's information can be updated after approval, while it is

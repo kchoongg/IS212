@@ -15,6 +15,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:integration": "vitest run --config vitest.integration.config.mts",
     "test-cases:check": "node scripts/check-test-cases.mts",
+    "test-cases:commit": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/fill-test-case-commits.mts",
     "trace": "tsx scripts/trace.ts",
     "trace:tags": "tsx scripts/check-test-tags.ts",
     "prepare": "node -e \"try{require('child_process').execSync('git config core.hooksPath .githooks',{stdio:'ignore'})}catch{}\"",
@@ -52,6 +53,8 @@
     "fixtures:spm82": "tsx scripts/seed-spm82.ts",
     "fixtures:spm52": "tsx scripts/seed-spm52.ts",
     "fixtures:spm65": "tsx scripts/seed-spm65.ts",
+    "fixtures:spm80": "tsx scripts/seed-spm80.ts",
+    "fixtures:spm35": "tsx scripts/seed-spm35.ts",
     "fixtures:spm29": "tsx scripts/seed-spm29.ts",
     "fixtures:spm37": "tsx scripts/seed-spm37.ts"
   },

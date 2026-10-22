@@ -57,8 +57,8 @@
 
 ## Coverage exclusions
 
-`npm run test:coverage` covers **100% of lines** under `src/`, 99.82% of
-statements, 99.94% of functions and 99.37% of branches (2026-10-19). Every
+`npm run test:coverage` covers **100% of lines** and **100% of functions**
+under `src/`, 99.83% of statements and 99.37% of branches (2026-10-20). Every
 piece that is not covered is listed here with the reason. None is a business
 rule left untested. How the tests are organised is in `docs/TESTING.md`.
 
@@ -102,12 +102,6 @@ reached from the screen.
 | File | Line | Why |
 |---|---|---|
 | `src/app/api/venues/search/route.ts` | 67 | V8 reports the path past `if (!event \|\| !canViewEvent(...)) return hidden();` as never taken, but the next statement (`eventId = event.id`) runs and is covered: "still offers a venue to the event that already holds it" in `venue-availability-search.test.ts` |
-
-**4. Reachable, but not tested, because what it does is a known gap**
-
-| File | Line | Why |
-|---|---|---|
-| `src/app/events/[id]/booking/new/page.tsx` | 245 | `res.json().catch(() => ({}))`: an error reply that is not JSON. The form then shows no message at all. A test would lock that in, so this is a Known Gap in DOCUMENTATION.md, to be fixed and tested together |
 
 ## Documentation
 

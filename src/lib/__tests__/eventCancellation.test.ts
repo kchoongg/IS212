@@ -112,6 +112,12 @@ describe("cancellationConsequences", () => {
     ]);
   });
 
+  it("[SPM-37][AC3] calls a session with no label 'Session'", () => {
+    expect(cancellationConsequences(input({ bookings: [booking("pending", STUDIO, { label: null })] }))).toEqual([
+      "Withdraw the request for SPM37 Studio (SPM37-STU) for Session on 2 Nov 2027, 09:00–12:00",
+    ]);
+  });
+
   it.each(["rejected", "withdrawn", "released", "expired"])(
     "[SPM-37][AC3] leaves out a %s booking, which holds nothing",
     (status) => {
@@ -134,6 +140,12 @@ describe("cancellationConsequences", () => {
       "Cancel the request for 1 × SPM37 Lectern Mic",
       "Cancel the request for 2 × SPM37 Clicker",
       "Cancel the request for 1 × SPM37 Smoke Machine",
+    ]);
+  });
+
+  it("[SPM-37][AC3] falls back to the quantity requested for a reserved line with no reserved quantity recorded", () => {
+    expect(cancellationConsequences(input({ equipment: [line("reserved", "SPM37 Projector", 2, null)] }))).toEqual([
+      "Release 2 × SPM37 Projector",
     ]);
   });
 
