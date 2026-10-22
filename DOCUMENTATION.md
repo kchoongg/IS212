@@ -164,6 +164,7 @@ IS212/
 │   ├── seed-spm71.ts            # `npm run fixtures:spm71` — SPM-71 test accounts, notifications and events, no reseed
 │   ├── seed-spm82.ts            # `npm run fixtures:spm82` — SPM-82 hold room and events with expiring holds, no reseed
 │   ├── seed-spm35.ts            # `npm run fixtures:spm35` — SPM-35 events and pending change requests, no reseed
+│   ├── seed-spm26.ts            # `npm run fixtures:spm26` — SPM-26 events with an open and an answered clarification, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -201,6 +202,10 @@ IS212/
     │   │                                draft's Overview address redirects straight
     │   │                                here (SPM-31, 2026-09-23), so this page has
     │   │                                no Tabs and no link back to Overview.
+    │   │                                SPM-26: also "Update request" - a request
+    │   │                                Under review with an open clarification,
+    │   │                                for the organiser who raised it; one
+    │   │                                "Resubmit request" saves and answers it.
     │   ├── events/[id]/page.tsx         # S-06, "the hub" — Overview tab (SPM-47 built
     │   │                                the page, SPM-31 filled in what it shows).
     │   │                                The address is the event's reference, e.g.
@@ -987,7 +992,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Two test cases quote the coordinator's sidebar from before SPM-68 and SPM-35** | SPM-22-TC02 ("The sidebar reads exactly: Dashboard, Review Queue, All Events, Venues, Equipment, Notifications") and SPM-43-TC11 ("The sidebar has Dashboard, Review Queue, All Events, Venues, Equipment and Notifications"). Since SPM-68 the coordinator's sidebar also has Flagged Arrangements, and since SPM-35 Change Requests, after it: Dashboard, Review Queue, Flagged Arrangements, Change Requests, All Events, Venues, Equipment, Notifications. Changed by design; the two cases need the new list. | SPM-22's and SPM-43's owners |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
 | **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
-| **The organiser cannot answer a clarification yet** | Since SPM-29 the assigned coordinator asks for clarification from the review page and the open clarification is shown on the event page, but nothing lets the organiser respond, mark it answered or change the request while it is open - that is **SPM-26**. Until then a clarification stays open, so the coordinator cannot raise another one on that event. | SPM-26 |
+| **The coordinator is not told a clarification was answered** | Since SPM-26 the organiser answers by updating and resubmitting the request, and the clarification is marked answered. The review page then simply stops showing it and offers "Ask the organiser for clarification" again; nothing says it was answered, when, or what changed (no AC asks for it). Notifying the coordinator is **SPM-53**'s. The organiser stores no reply message (`responseMessage` stays empty, decided 2026-10-21). | SPM-53 |
 | **Nobody is notified of a clarification request** | SPM-29 writes no `Notification`; the organiser sees the request only by opening the event. Telling them is **SPM-53**'s (the "notification" AC was moved there on 2026-09-18). | SPM-53 |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
 | **Nobody is notified when an event's information changes** | SPM-62 moves a Confirmed event back to Planning but writes no `Notification` — the organiser ("no longer confirmed") and registered attendees ("new date and time") are told by **SPM-53**, per the BPMN and SPM-62's reworded AC6 (decided 2026-10-05). | SPM-53 |
@@ -1029,6 +1034,56 @@ what changed, why, and the migration name if there is one.
 - Why
 - Migration: <name, if applicable>
 ```
+
+---
+
+### 2026-10-22 — Sammi Chua (SPM-26, Respond to Clarification Request)
+- **The organiser answers a clarification by updating and resubmitting the
+  request.** The event page's "Clarification requested" banner gives the
+  organiser who raised the request an "Update request" link (AC1). It opens
+  the draft editor (S-08) in Update request mode: the clarification at the
+  top, every field a draft can have, filled in (AC2), and one "Resubmit
+  request" button (AC3). Afterwards the event page says "Your updated request
+  has been sent to <coordinator>. It stays Under review."
+- **The event stays Under review; the clarification is marked answered
+  (AC4).** `PATCH /api/events/[ref]` with the draft's payload now also accepts
+  a request Under review with an open clarification. In one transaction it
+  locks the event row and reads its status again, sets the clarification
+  `answered` with `respondedAt` (only if it is still open), and writes the
+  changes. The status and its history are not written. The coordinator's
+  review page then offers "Ask the organiser for clarification" again.
+- **Rules** (`canRespondToClarification()`, `src/lib/clarification.ts`): the
+  organiser who raised it only - a colleague at the same client sees the
+  clarification but gets no link and a 403; only while one is open (400 "This
+  request has no open clarification to answer, so it can't be changed
+  here."); the draft's validation; and the request stays as complete as
+  submitting required (400 "Cannot resubmit an incomplete request. Missing:
+  …", the same check as submitting, now `missingSubmissionFields()` in the
+  route). A request approved, rejected or withdrawn at the same moment is
+  refused with "This request is no longer under review. Reload the page to
+  see what changed." Decided 2026-10-21: one button, no reply message, owner
+  only (docs/test-cases/SPM-26_test_cases.json).
+- **Bug fixed on the way (2026-10-21 commits):** approving, rejecting or
+  withdrawing a request left its clarification `open` for ever; it is now set
+  to `closed` (unanswered) in the same transaction.
+- **Bug fixed on the way:** a cleared Expected attendance or Preferred room
+  layout was sent as `undefined` ("leave alone"), so "No preference" was never
+  saved - on a draft or when resubmitting - and a draft's attendance could not
+  be emptied again. The editor now sends `null`, which `updateEventDraftSchema`
+  accepts for those two fields and the route writes; a resubmit with no
+  attendance is refused as incomplete.
+- **Test cases:** `docs/test-cases/SPM-26_Test_Cases.xlsx` (7 cases), written
+  before the code. Test data: `npm run fixtures:spm26`
+  (`scripts/seed-spm26.ts`), two "SPM26 …" events; the same events are at the
+  end of `prisma/seed.ts`.
+- **Tests:** additions to `permissions.test.ts`, `event-detail.test.ts`
+  (route), `event-form-pages.test.tsx`, `event-pages.test.tsx` and
+  `integration/clarification.test.ts` (two resubmits at the same moment, and a
+  resubmit racing an approval) - written first (red), then the code. Every
+  changed line under `src/` runs in a test.
+- Known Gaps: "The organiser cannot answer a clarification yet" replaced by
+  "The coordinator is not told a clarification was answered".
+- Migration: none.
 
 ---
 
