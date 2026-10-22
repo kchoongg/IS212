@@ -1427,7 +1427,8 @@ describe("Update request: answering a clarification (SPM-26)", () => {
 
     await resubmit();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    // The clarification stays on the page too, so the error is found by its words.
+    expect(await screen.findByText(message, { exact: false })).toBeInTheDocument();
     expect(router.push).not.toHaveBeenCalled();
   });
 

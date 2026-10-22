@@ -37,6 +37,8 @@ import {
   type EquipmentItem,
   type EventRecord,
 } from "@/lib/eventForm";
+import { CLARIFICATION_NONE_OPEN, CLARIFICATION_RESPOND_FORBIDDEN } from "@/lib/clarification";
+import { ClarificationDetails, type OpenClarification } from "../ClarificationDetails";
 
 // SPM-24: edit a saved draft before submitting it. Same fields and the same
 // validation as "New event request" (src/lib/eventForm.ts) — the difference
@@ -44,6 +46,12 @@ import {
 // POST, and only ever operates on a draft: PATCH /api/events/[id] refuses a
 // content edit once the event has left draft status, so this page has to
 // refuse it too rather than let someone submit into a 400.
+//
+// SPM-26: the one exception is "Update request" - a request Under review with
+// an open clarification, opened by the organiser who raised it. The same
+// form, with the clarification at the top and one "Resubmit request" button:
+// a single PATCH saves the changes and answers the clarification, and the
+// request stays Under review. Nothing here changes its status.
 
 export default function EditDraftPage() {
   const router = useRouter();
@@ -61,6 +69,10 @@ export default function EditDraftPage() {
   // found, not yours, or already submitted) and the form is not shown.
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  // SPM-26: set when the page opened a request to answer, not a draft.
+  const [clarification, setClarification] = useState<OpenClarification | null>(null);
+  // A refusal of a request that has left draft is not about "this draft".
+  const [refusedRequest, setRefusedRequest] = useState(false);
   // SPM-98: the draft's saved name, for the breadcrumb - not what is being typed.
   const [savedTitle, setSavedTitle] = useState<string | null>(null);
 
@@ -102,8 +114,26 @@ export default function EditDraftPage() {
         setLoadError("Could not load this draft.");
         return;
       }
-      const event: EventRecord & { status: string } = await res.json();
-      if (event.status !== "draft") {
+      const event: EventRecord & {
+        status: string;
+        organiserId?: string;
+        openClarification?: OpenClarification | null;
+      } = await res.json();
+      if (event.status === "under_review") {
+        // The PATCH route's own rules (canRespondToClarification, an open
+        // clarification), so the form is never shown only to be refused.
+        setRefusedRequest(true);
+        if (event.organiserId !== user?.id) {
+          setLoadError(CLARIFICATION_RESPOND_FORBIDDEN);
+          return;
+        }
+        if (!event.openClarification) {
+          setLoadError(CLARIFICATION_NONE_OPEN);
+          return;
+        }
+        setClarification(event.openClarification);
+      } else if (event.status !== "draft") {
+        setRefusedRequest(true);
         setLoadError("This request has already been submitted, so it can no longer be edited here.");
         return;
       }
@@ -113,7 +143,7 @@ export default function EditDraftPage() {
     } catch {
       setLoadError("Could not reach the server. Check your connection and try again.");
     }
-  }, [eventId, router]);
+  }, [eventId, router, user?.id]);
 
   useEffect(() => {
     if (authState === "anonymous") {
@@ -231,6 +261,9 @@ export default function EditDraftPage() {
 
   async function save(intent: "draft" | "submit") {
     setFormError(null);
+    // SPM-26: resubmitting is checked as submitting is - a request past draft
+    // stays complete - but it is one save and never a status change.
+    const responding = clarification !== null;
 
     const clientErrors = validateForm(values, intent);
     if (Object.keys(clientErrors).length > 0) {
@@ -248,13 +281,20 @@ export default function EditDraftPage() {
 
       const body = await res.json();
       if (!res.ok) {
-        const { formError: message, fieldErrors } = readServerError(body, "Could not save this draft");
+        const { formError: message, fieldErrors } = readServerError(
+          body,
+          responding ? "Could not resubmit this request" : "Could not save this draft"
+        );
         setErrors(fieldErrors);
         setFormError(message);
         focusFirstError(formRef.current, fieldErrors);
         return;
       }
 
+      if (responding) {
+        router.push(`/events/${eventId}?resubmitted=1`);
+        return;
+      }
       if (intent === "draft") {
         router.push("/events");
         return;
@@ -284,16 +324,17 @@ export default function EditDraftPage() {
     }
   }
 
-  const crumbs = eventCrumbs(user?.role, eventId, savedTitle, { label: "Edit draft" });
+  const pageTitle = clarification || refusedRequest ? "Update request" : "Edit draft";
+  const crumbs = eventCrumbs(user?.role, eventId, savedTitle, { label: pageTitle });
 
   if (loadError) {
     return (
       <div className="max-w-2xl">
         <PageHeader
-          title="Edit draft"
+          title={pageTitle}
           breadcrumbs={crumbs}
         />
-        <Alert variant="error" title="Could not open this draft">
+        <Alert variant="error" title={refusedRequest ? "Could not open this request" : "Could not open this draft"}>
           {loadError}
         </Alert>
         <div className="mt-4">
@@ -320,10 +361,14 @@ export default function EditDraftPage() {
   return (
     <div className="max-w-2xl">
       <PageHeader
-        title="Edit draft"
-        subtitle="Pick up where you left off. Nothing here is sent until you submit it."
+        title={pageTitle}
+        subtitle={
+          clarification
+            ? "Change anything your coordinator asked about, or anything else, then resubmit. The request stays Under review."
+            : "Pick up where you left off. Nothing here is sent until you submit it."
+        }
         breadcrumbs={crumbs}
-        meta={<StatusBadge status="draft" />}
+        meta={<StatusBadge status={clarification ? "under_review" : "draft"} />}
       />
 
       <form
@@ -335,6 +380,12 @@ export default function EditDraftPage() {
         className="flex flex-col gap-6"
         noValidate
       >
+        {clarification && (
+          <Alert variant="warning" title="Clarification requested">
+            <ClarificationDetails clarification={clarification} />
+          </Alert>
+        )}
+
         {formError && <Alert variant="error">{formError}</Alert>}
 
         <Fieldset legend="Basics">
@@ -647,21 +698,34 @@ export default function EditDraftPage() {
         </Fieldset>
 
         <div className="sticky bottom-0 -mx-4 flex flex-wrap gap-2 border-t border-line bg-surface-2 px-4 py-3 sm:mx-0 sm:rounded-md sm:px-4">
-          <Button type="submit" loading={pending === "submit"} loadingText="Submitting…">
-            Submit request
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => void save("draft")}
-            loading={pending === "draft"}
-            loadingText="Saving…"
-          >
-            Save draft
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => router.push("/events")}>
-            Cancel
-          </Button>
+          {clarification ? (
+            <>
+              <Button type="submit" loading={pending === "submit"} loadingText="Resubmitting…">
+                Resubmit request
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => router.push(`/events/${eventId}`)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button type="submit" loading={pending === "submit"} loadingText="Submitting…">
+                Submit request
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void save("draft")}
+                loading={pending === "draft"}
+                loadingText="Saving…"
+              >
+                Save draft
+              </Button>
+              <Button type="button" variant="ghost" onClick={() => router.push("/events")}>
+                Cancel
+              </Button>
+            </>
+          )}
         </div>
       </form>
     </div>
