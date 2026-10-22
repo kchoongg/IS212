@@ -98,6 +98,7 @@ export default function EditDraftPage() {
     }
   }, []);
 
+  const viewerId = user?.id;
   const loadDraft = useCallback(async () => {
     setLoadError(null);
     try {
@@ -123,7 +124,7 @@ export default function EditDraftPage() {
         // The PATCH route's own rules (canRespondToClarification, an open
         // clarification), so the form is never shown only to be refused.
         setRefusedRequest(true);
-        if (event.organiserId !== user?.id) {
+        if (event.organiserId !== viewerId) {
           setLoadError(CLARIFICATION_RESPOND_FORBIDDEN);
           return;
         }
@@ -143,7 +144,7 @@ export default function EditDraftPage() {
     } catch {
       setLoadError("Could not reach the server. Check your connection and try again.");
     }
-  }, [eventId, router, user?.id]);
+  }, [eventId, router, viewerId]);
 
   useEffect(() => {
     if (authState === "anonymous") {
