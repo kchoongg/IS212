@@ -612,7 +612,9 @@ async function handleDraftEdit(
         endsAt,
         expectedAttendance: derived
           ? (derived.expectedAttendance ?? null)
-          : (data.expectedAttendance ?? event.expectedAttendance),
+          : data.expectedAttendance !== undefined
+            ? data.expectedAttendance
+            : event.expectedAttendance,
       },
       data.sessions ?? (await savedSessions(id))
     );

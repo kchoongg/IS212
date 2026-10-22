@@ -1066,6 +1066,12 @@ what changed, why, and the migration name if there is one.
 - **Bug fixed on the way (2026-10-21 commits):** approving, rejecting or
   withdrawing a request left its clarification `open` for ever; it is now set
   to `closed` (unanswered) in the same transaction.
+- **Bug fixed on the way:** a cleared Expected attendance or Preferred room
+  layout was sent as `undefined` ("leave alone"), so "No preference" was never
+  saved - on a draft or when resubmitting - and a draft's attendance could not
+  be emptied again. The editor now sends `null`, which `updateEventDraftSchema`
+  accepts for those two fields and the route writes; a resubmit with no
+  attendance is refused as incomplete.
 - **Test cases:** `docs/test-cases/SPM-26_Test_Cases.xlsx` (7 cases), written
   before the code. Test data: `npm run fixtures:spm26`
   (`scripts/seed-spm26.ts`), two "SPM26 …" events; the same events are at the

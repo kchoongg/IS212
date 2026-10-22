@@ -253,8 +253,10 @@ export const updateEventDraftSchema = z
     description: z.string().optional(),
     startsAt: z.string().datetime().optional(),
     endsAt: z.string().datetime().optional(),
-    expectedAttendance: z.number().int().positive().optional(),
-    preferredLayout: z.string().optional(),
+    // `null` clears it (SPM-26: a cleared field used to be sent as undefined,
+    // "leave alone", so it could never be emptied again).
+    expectedAttendance: z.number().int().positive().nullable().optional(),
+    preferredLayout: z.string().nullable().optional(),
     accessibilityNotes: z.string().optional(),
     specialRequirements: z.string().optional(),
     registrationEnabled: z.boolean().optional(),

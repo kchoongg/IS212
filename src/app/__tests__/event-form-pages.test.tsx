@@ -1255,6 +1255,9 @@ describe("Edit draft: this screen only", () => {
       title: "Gala Dinner",
       purpose: "",
       description: "Dinner and awards",
+      // SPM-26: an empty attendance and layout are sent as null too.
+      expectedAttendance: null,
+      preferredLayout: null,
       accessibilityNotes: "",
       specialRequirements: "",
       registrationEnabled: false,

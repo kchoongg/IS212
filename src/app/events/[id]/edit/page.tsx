@@ -237,8 +237,10 @@ export default function EditDraftPage() {
       // sessions; the server works the event's own out from them.
       startsAt: v.multiSession ? undefined : toIso(v.startsAt),
       endsAt: v.multiSession ? undefined : toIso(v.endsAt),
-      expectedAttendance: !v.multiSession && v.expectedAttendance ? Number(v.expectedAttendance) : undefined,
-      preferredLayout: (!v.multiSession && v.preferredLayout) || undefined,
+      // Cleared is sent as null, which removes it; undefined would leave the
+      // saved value in place (SPM-26).
+      expectedAttendance: v.multiSession ? undefined : v.expectedAttendance ? Number(v.expectedAttendance) : null,
+      preferredLayout: v.multiSession ? undefined : v.preferredLayout || null,
       accessibilityNotes: v.accessibilityNotes,
       specialRequirements: v.specialRequirements,
       registrationEnabled: v.registrationEnabled,
