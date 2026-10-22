@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { ASSIGNABLE_STATUSES, can } from "@/lib/permissions";
 import { ACTIVE_EVENT_STATUSES, LEAD_ONLY_MESSAGE, coordinatorWorkload } from "@/lib/coordinatorAssignments";
+import { completeDueEvents } from "@/lib/eventCompletionService";
 
 /**
  * SPM-30 — the data behind the Assignments screen (S-28).
@@ -42,6 +43,9 @@ export async function GET(req: NextRequest) {
   if (!can(actor.role, "event:assign_coordinator")) {
     return forbidden(LEAD_ONLY_MESSAGE);
   }
+
+  // SPM-36 (AC6): an event 7 days past its end is no longer an active event.
+  await completeDueEvents();
 
   const [awaiting, active, accounts] = await Promise.all([
     prisma.event.findMany({

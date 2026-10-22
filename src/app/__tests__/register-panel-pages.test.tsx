@@ -127,6 +127,37 @@ describe("AC6 + AC7 an attendee who already holds a place sees it instead of Reg
     expect(registerButton()).not.toBeInTheDocument();
   });
 
+  // SPM-36: a completed event stays open to the attendee who registered for it.
+  it("[SPM-36][AC6] says a completed event they registered for has ended, with no Withdraw", async () => {
+    open(publicEvent({
+      status: "completed",
+      endsAt: "2026-09-30T09:00:00.000Z",
+      registrationState: { kind: "not_confirmed" },
+      myRegistration: { id: "r1", status: "registered", registeredAt: "2026-09-05T02:00:00.000Z" },
+    }));
+
+    const card = await panel();
+
+    expect(within(card).getByText("Registered")).toBeInTheDocument();
+    expect(screen.getByText("You registered on 5 Sept 2026.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument();
+    expect(registerButton()).not.toBeInTheDocument();
+  });
+
+  it("[SPM-36][AC6] shows an attended registration on a completed event", async () => {
+    open(publicEvent({
+      status: "completed",
+      endsAt: "2026-09-30T09:00:00.000Z",
+      registrationState: { kind: "not_confirmed" },
+      myRegistration: { id: "r1", status: "attended", registeredAt: "2026-09-05T02:00:00.000Z" },
+    }));
+
+    const card = await panel();
+
+    expect(within(card).getByText("Attended")).toBeInTheDocument();
+    expect(registerButton()).not.toBeInTheDocument();
+  });
+
   it("[SPM-51][AC2] [SPM-52][AC3] offers Register again to an attendee who withdrew", async () => {
     open(publicEvent({ myRegistration: { status: "withdrawn", registeredAt: "2026-10-05T02:00:00.000Z" } }));
 

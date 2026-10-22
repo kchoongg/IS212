@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
+import { completeDueEvents } from "@/lib/eventCompletionService";
+import { NOT_ENDED_MESSAGE, hasEnded } from "@/lib/eventCompletion";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import {
@@ -43,6 +45,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // parseEventReference() in src/lib/format.ts. A segment that doesn't parse
   // gets the same refusal as one that parses but matches nothing.
   const sequenceNumber = parseEventReference(id);
+  // SPM-36 (AC6): an event 7 days past its end is never read as Confirmed.
+  if (sequenceNumber !== null) await completeDueEvents();
   const event =
     sequenceNumber === null
       ? null
@@ -154,7 +158,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     (await prisma.registration.count({
       where: { eventId: event.id, attendeeId: actor.id, status: { in: HOLDING_A_PLACE } },
     })) > 0;
-  if (!canViewEvent(actor, { ...event, attendeeHoldsPlace })) {
+  // SPM-36: a completed event stays visible to the attendee who attended it.
+  const attendeeAttended =
+    actor.role === "attendee" &&
+    event.status === "completed" &&
+    (await prisma.registration.count({
+      where: { eventId: event.id, attendeeId: actor.id, status: "attended" },
+    })) > 0;
+  if (!canViewEvent(actor, { ...event, attendeeHoldsPlace, attendeeAttended })) {
     return hidden();
   }
 
@@ -368,6 +379,12 @@ async function handleStatusChange(
   // lifecycle allows it - no skipping steps, nothing out of a final status.
   if (!canTransition(event.status, data.status)) {
     return NextResponse.json({ error: transitionError(event.status, data.status) }, { status: 400 });
+  }
+
+  // ADDED (SPM-36, #71): an event is marked completed only after it has taken
+  // place. Confirmed-only is the lifecycle's rule, checked just above.
+  if (data.status === "completed" && !hasEnded(event.endsAt, new Date())) {
+    return NextResponse.json({ error: NOT_ENDED_MESSAGE }, { status: 400 });
   }
 
   // ADDED: a draft may be incomplete, but anything past draft may not.

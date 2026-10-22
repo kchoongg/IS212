@@ -2132,6 +2132,33 @@ async function main() {
     spm80("spm80_followon", "SPM80 Follow-on Workshop", "2027-08-06", "12:15", "14:00"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-36 QA fixtures (Mark Event as Completed). The SAME events as
+  // scripts/seed-spm36.ts (`npm run fixtures:spm36`) - keep the two in step.
+  //
+  // The events only. Their approved bookings, reserved equipment and Lee Wei
+  // Ming's registration are created by that script alone, so run it once
+  // after a full reseed.
+  // SPM36 Harbour Awards Night ended YESTERDAY, counted from when the seed
+  // runs, not from SEED_ANCHOR: over (AC1) but not yet 7 days over (AC6). The
+  // other dates are fixed. Pushed LAST, after SPM-80, so no earlier event's
+  // EVT- reference number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm36Yesterday = new Date(Date.now() + SGT_OFFSET_HOURS * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
+  const spm36 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number
+  ): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-36 mark event as completed test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance: 80, layout: "theatre",
+  });
+  eventData.push(
+    spm36("spm36_awards", "SPM36 Harbour Awards Night", "confirmed", spm36Yesterday, 19, 3),
+    spm36("spm36_launch", "SPM36 Riverside Product Launch", "confirmed", "2027-11-18", 9, 4),
+    spm36("spm36_planning", "SPM36 Overdue Planning Forum", "planning", "2026-10-05", 9, 3),
+    spm36("spm36_expo", "SPM36 Forgotten Trade Expo", "confirmed", "2026-10-01", 10, 7),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
