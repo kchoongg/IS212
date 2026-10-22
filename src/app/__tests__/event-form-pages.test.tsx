@@ -1284,3 +1284,179 @@ describe("Edit draft: this screen only", () => {
     expect(EDIT.saved(api).sessions).toHaveLength(2);
   });
 });
+
+// CONTRACT (SPM-26, written before the code): the draft editor also opens a
+// request that is Under review with an open clarification, for the organiser
+// who raised it - "Update request" mode:
+//   - title and breadcrumb "Update request", the Under review badge, and the
+//     clarification at the top (ClarificationDetails, as on the event page);
+//   - the same fields, filled from the request; one "Resubmit request"
+//     button (no Save draft / Submit request) and "Cancel" back to the event;
+//   - Resubmit checks the form as Submit does, sends ONE PATCH with the
+//     draft's payload and no `status`, then goes to /events/<ref>?resubmitted=1;
+//   - a refusal is "Could not open this request" with
+//     CLARIFICATION_RESPOND_FORBIDDEN (not the organiser who raised it) or
+//     CLARIFICATION_NONE_OPEN (no clarification open).
+describe("Update request: answering a clarification (SPM-26)", () => {
+  const EVENT = `GET /api/events/${REF}`;
+  const PATCH_EVENT = `PATCH /api/events/${REF}`;
+  const asked = {
+    id: "clarification-id",
+    fields: ["description", "expectedAttendance"],
+    message: "How many advisers will attend?",
+    requestedAt: "2026-10-20T02:00:00.000Z",
+    requester: { fullName: "Daniel Tan" },
+  };
+
+  /// A complete request, Under review, raised by the signed-in organiser.
+  function underReview(overrides: Record<string, unknown> = {}) {
+    return blankDraft({
+      status: "under_review",
+      organiserId: "organiser-id",
+      title: "Advisory Briefing",
+      category: "conference",
+      description: "Half-day session followed by networking.",
+      startsAt: iso(START),
+      endsAt: iso(END),
+      expectedAttendance: 80,
+      preferredLayout: "theatre",
+      coordinator: { fullName: "Daniel Tan" },
+      openClarification: asked,
+      ...overrides,
+    });
+  }
+
+  function openWith(request: unknown, routes: Record<string, unknown> = {}) {
+    setRoute(`/events/${REF}/edit`, { id: REF });
+    const api = mockApi({
+      ...signedInAs("organiser"),
+      ...reference,
+      [EVENT]: request,
+      [PATCH_EVENT]: { id: "event-id" },
+      ...routes,
+    });
+    render(<EditDraftPage />);
+    return api;
+  }
+
+  const resubmit = () => userEvent.click(button("Resubmit request"));
+
+  it("[SPM-26][AC1] shows the clarification at the top of the Update request page", async () => {
+    openWith(underReview());
+
+    expect(await screen.findByRole("heading", { level: 1, name: "Update request" })).toBeInTheDocument();
+    const shown = screen.getByText("Clarification requested").closest("[role=alert], [role=status]") as HTMLElement;
+    expect(shown).toHaveTextContent("Needs clarification: Description, Expected attendance");
+    expect(shown).toHaveTextContent("How many advisers will attend?");
+    expect(shown).toHaveTextContent("Asked by Daniel Tan");
+    expect(screen.getByText("Under review")).toBeInTheDocument();
+    expect(breadcrumb()).toEqual([
+      ["My Events", "/events"],
+      ["Advisory Briefing", `/events/${REF}`],
+      ["Update request", null],
+    ]);
+  });
+
+  it("[SPM-26][AC2] fills the form from the request and offers Resubmit, not the draft's buttons", async () => {
+    openWith(underReview());
+
+    expect(await screen.findByLabelText(/^Event name/)).toHaveValue("Advisory Briefing");
+    expect(field(/^Type of event/)).toHaveValue("conference");
+    expect(field("Description")).toHaveValue("Half-day session followed by networking.");
+    expect(field(/^Expected attendance/)).toHaveValue(80);
+    expect(field("Preferred room layout")).toHaveValue("theatre");
+    expect(button("Resubmit request")).toBeInTheDocument();
+    expect(button("Cancel")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save draft" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit request" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-26][AC2][AC3] resubmits the changes in one PATCH with no status, then returns to the event", async () => {
+    const api = openWith(underReview());
+    await screen.findByRole("checkbox", { name: "Stage" });
+
+    set(field("Description"), "Half-day briefing for 120 advisers.");
+    set(field(/^Expected attendance/), "120");
+    set(field("Preferred room layout"), "classroom");
+    await resubmit();
+
+    await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/events/${REF}?resubmitted=1`));
+    const sent = api.sent(PATCH_EVENT);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].body).not.toHaveProperty("status");
+    expect(sent[0].body).toMatchObject({
+      title: "Advisory Briefing",
+      description: "Half-day briefing for 120 advisers.",
+      expectedAttendance: 120,
+      preferredLayout: "classroom",
+      startsAt: iso(START),
+      endsAt: iso(END),
+    });
+  });
+
+  it("[SPM-26][AC3] resubmits with nothing changed", async () => {
+    const api = openWith(underReview());
+    await screen.findByRole("checkbox", { name: "Stage" });
+
+    await resubmit();
+
+    await waitFor(() => expect(api.sent(PATCH_EVENT)).toHaveLength(1));
+    expect(router.push).toHaveBeenCalledWith(`/events/${REF}?resubmitted=1`);
+  });
+
+  it("[SPM-26][AC3] refuses to resubmit with a required field cleared, and sends nothing", async () => {
+    const api = openWith(underReview());
+    await screen.findByRole("checkbox", { name: "Stage" });
+
+    set(field(/^Event name/), "");
+    set(field(/^Expected attendance/), "");
+    await resubmit();
+
+    expect(await screen.findByText("Give the event a name so you can find it again.")).toBeInTheDocument();
+    expect(screen.getByText("Enter how many people you expect.")).toBeInTheDocument();
+    expect(api.sent(PATCH_EVENT)).toHaveLength(0);
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["the server's reason", reply(400, { error: "This request has no open clarification to answer, so it can't be changed here." }), "This request has no open clarification to answer, so it can't be changed here."],
+    ["a fallback when it gives none", reply(500, {}), "Could not resubmit this request"],
+  ])("[SPM-26][AC3] shows %s when the resubmit is refused, and stays on the page", async (_case, answer, message) => {
+    openWith(underReview(), { [PATCH_EVENT]: answer });
+    await screen.findByRole("checkbox", { name: "Stage" });
+
+    await resubmit();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-26] goes back to the event on Cancel", async () => {
+    openWith(underReview());
+    await screen.findByRole("checkbox", { name: "Stage" });
+
+    await userEvent.click(button("Cancel"));
+
+    expect(router.push).toHaveBeenCalledWith(`/events/${REF}`);
+  });
+
+  it.each([
+    [
+      "the viewer did not raise it",
+      underReview({ organiserId: "colleague-id" }),
+      "Only the organiser who raised this request can update it.",
+    ],
+    [
+      "no clarification is open",
+      underReview({ openClarification: null }),
+      "This request has no open clarification to answer, so it can't be changed here.",
+    ],
+  ])("[SPM-26][AC2] refuses to open the request when %s", async (_case, request, message) => {
+    openWith(request);
+
+    const refusal = await screen.findByRole("alert");
+    expect(refusal).toHaveTextContent("Could not open this request");
+    expect(refusal).toHaveTextContent(message);
+    expect(screen.queryByLabelText(/^Event name/)).not.toBeInTheDocument();
+  });
+});
