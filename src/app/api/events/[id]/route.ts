@@ -367,26 +367,7 @@ async function handleStatusChange(
   // The SQL design enforced this with a CHECK constraint; Prisma has no
   // equivalent, so the rule moves here - the one place status leaves draft.
   if (event.status === "draft" && data.status !== "draft") {
-    const missing: string[] = [];
-    if (!event.title) missing.push("title");
-    if (!event.category) missing.push("category");
-    if (!event.startsAt) missing.push("startsAt");
-    if (!event.endsAt) missing.push("endsAt");
-    if (event.expectedAttendance == null) missing.push("expectedAttendance");
-
-    // A multi-session event's own attendance is derived from its sessions (the
-    // largest one), so it is non-null as soon as ANY session has a figure -
-    // which would let a session with none through. Each session has to be
-    // complete in its own right ("each with its own ... expected attendance").
-    const sessions = await prisma.eventSession.findMany({
-      where: { eventId: id },
-      orderBy: { startsAt: "asc" },
-      select: { expectedAttendance: true },
-    });
-    sessions.forEach((session, i) => {
-      if (session.expectedAttendance == null) missing.push(`session ${i + 1} expectedAttendance`);
-    });
-
+    const missing = missingSubmissionFields(event, await savedSessions(id));
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `Cannot submit an incomplete event. Missing: ${missing.join(", ")}` },
@@ -665,6 +646,44 @@ async function handleDraftEdit(
   });
 
   return NextResponse.json(updated);
+}
+
+/// What a request past draft must have and this one lacks - checked when a
+/// draft is submitted, and (SPM-26) when an organiser resubmits a request
+/// that is Under review, so neither can leave it incomplete.
+function missingSubmissionFields(
+  event: {
+    title: string | null;
+    category: string | null;
+    startsAt: Date | null;
+    endsAt: Date | null;
+    expectedAttendance: number | null;
+  },
+  sessions: { expectedAttendance?: number | null }[]
+): string[] {
+  const missing: string[] = [];
+  if (!event.title) missing.push("title");
+  if (!event.category) missing.push("category");
+  if (!event.startsAt) missing.push("startsAt");
+  if (!event.endsAt) missing.push("endsAt");
+  if (event.expectedAttendance == null) missing.push("expectedAttendance");
+
+  // A multi-session event's own attendance is derived from its sessions (the
+  // largest one), so it is non-null as soon as ANY session has a figure -
+  // which would let a session with none through. Each session has to be
+  // complete in its own right ("each with its own ... expected attendance").
+  sessions.forEach((session, i) => {
+    if (session.expectedAttendance == null) missing.push(`session ${i + 1} expectedAttendance`);
+  });
+  return missing;
+}
+
+function savedSessions(eventId: string) {
+  return prisma.eventSession.findMany({
+    where: { eventId },
+    orderBy: { startsAt: "asc" },
+    select: { expectedAttendance: true },
+  });
 }
 
 /// The event's open clarification as the pages show it, or null - none is
