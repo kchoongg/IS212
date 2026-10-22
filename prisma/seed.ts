@@ -554,6 +554,20 @@ async function main() {
       setupMinutes: 60, teardownMinutes: 60,
       layouts: [["theatre", 80], ["classroom", 40]],
       facilities: [] },
+    // SPM-80 fixtures (scripts/seed-spm80.ts - keep in step): four rooms with
+    // no setup or turnaround, whose times the cases change.
+    ...([
+      ["SPM80-TRN", "SPM80 Turnaround Room", "bookings half an hour apart on 3 Aug 2027"],
+      ["SPM80-SET", "SPM80 Setup Room", "an approved booking and a pending request on 4 Aug 2027"],
+      ["SPM80-MNT", "SPM80 Maintenance Room", "maintenance on 5 Aug 2027, 14:00-16:00"],
+      ["SPM80-REQ", "SPM80 Request Room", "an approved booking on 6 Aug 2027, 10:00-12:00"],
+    ] as const).map(([code, name, what]): VenueSeed => ({
+      code, name, description: `SPM-80 test venue: ${what}`,
+      building: "Orchard Hub", floor: "L6", maxCapacity: 40, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["classroom", 40], ["theatre", 40]],
+      facilities: [],
+    })),
   ];
 
   const venues: Record<string, string> = {};
@@ -2106,6 +2120,35 @@ async function main() {
   eventData.push(
     spm26("spm26_briefing", "SPM26 Meridian Advisory Briefing", "2028-05-04"),
     spm26("spm26_answered", "SPM26 Meridian Answered Workshop", "2028-05-11"),
+  // SPM-80 QA fixtures (Re-check Bookings When Setup or Turnaround Time
+  // Changes). The SAME events as scripts/seed-spm80.ts (`npm run
+  // fixtures:spm80`) - keep the two in step. Their bookings and the
+  // maintenance period are created further down. Pushed LAST, after SPM-35,
+  // so no earlier event's EVT- reference number shifts. Add new events AFTER
+  // this block.
+  // -----------------------------------------------------------------
+  const spm80 = (key: string, title: string, date: string, from: string, to: string, options: Partial<EventSeed> = {}): EventSeed => {
+    const [startHour, startMinute] = from.split(":").map(Number);
+    const [endHour, endMinute] = to.split(":").map(Number);
+    return {
+      key, title, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com", status: "planning",
+      purpose: "SPM-80 setup and turnaround re-check test event", category: "meeting",
+      days: daysUntil(date), startHour, startMinute,
+      durationHours: (endHour * 60 + endMinute - startHour * 60 - startMinute) / 60,
+      attendance: 30, layout: "classroom", ...options,
+    };
+  };
+  eventData.push(
+    spm80("spm80_morning", "SPM80 Morning Seminar", "2027-08-03", "10:00", "12:00"),
+    spm80("spm80_lunch", "SPM80 Lunch Forum", "2027-08-03", "12:30", "14:00"),
+    spm80("spm80_evening", "SPM80 Evening Workshop", "2027-08-03", "18:00", "20:00"),
+    spm80("spm80_past_first", "SPM80 Past Briefing", "2026-09-01", "10:00", "12:00", { status: "completed" }),
+    spm80("spm80_past_second", "SPM80 Past Review", "2026-09-01", "12:30", "14:00", { status: "completed" }),
+    spm80("spm80_demo", "SPM80 Product Demo", "2027-08-04", "10:00", "12:00"),
+    spm80("spm80_meetup", "SPM80 Partner Meetup", "2027-08-04", "12:30", "14:00"),
+    spm80("spm80_talk", "SPM80 Afternoon Talk", "2027-08-05", "12:00", "13:30"),
+    spm80("spm80_booked", "SPM80 Booked Seminar", "2027-08-06", "10:00", "12:00"),
+    spm80("spm80_followon", "SPM80 Follow-on Workshop", "2027-08-06", "12:15", "14:00"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -2924,6 +2967,47 @@ async function main() {
       },
     });
   }
+
+  // SPM-80 fixtures, the same as scripts/seed-spm80.ts. Each booking spans its
+  // event's own times; SPM80 Follow-on Workshop has none (the cases request
+  // it), and SPM80 Partner Meetup's is a pending request.
+  const spm80Bookings: [string, string, string][] = [
+    ["spm80_morning", "SPM80-TRN", "approved"],
+    ["spm80_lunch", "SPM80-TRN", "approved"],
+    ["spm80_evening", "SPM80-TRN", "approved"],
+    ["spm80_past_first", "SPM80-TRN", "approved"],
+    ["spm80_past_second", "SPM80-TRN", "approved"],
+    ["spm80_demo", "SPM80-SET", "approved"],
+    ["spm80_meetup", "SPM80-SET", "pending"],
+    ["spm80_talk", "SPM80-MNT", "approved"],
+    ["spm80_booked", "SPM80-REQ", "approved"],
+  ];
+  for (const [event, venueCode, status] of spm80Bookings) {
+    const approved = status === "approved";
+    await prisma.venueBooking.create({
+      data: {
+        eventId: events[event].id,
+        venueId: venues[venueCode],
+        layoutName: "classroom",
+        startsAt: events[event].startsAt!,
+        endsAt: events[event].endsAt!,
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(-3),
+        decidedBy: approved ? users["marcus.wong@connectsphere.com"] : undefined,
+        decidedAt: approved ? day(-2) : undefined,
+      },
+    });
+  }
+  await prisma.venueUnavailability.create({
+    data: {
+      venueId: venues["SPM80-MNT"],
+      startsAt: day(daysUntil("2027-08-05"), 14),
+      endsAt: day(daysUntil("2027-08-05"), 16),
+      reason: "maintenance",
+      createdBy: users["marcus.wong@connectsphere.com"],
+    },
+  });
 
   // -------------------------------------------------------------------
   // REGISTRATIONS
