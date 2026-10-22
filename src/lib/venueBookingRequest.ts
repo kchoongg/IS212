@@ -99,7 +99,7 @@ export function openingHoursMessage(
 }
 
 /// Same rule as recording equipment (SPM-47): a closed event takes no new requests.
-export const CLOSED_EVENT_MESSAGE = "A venue cannot be requested for a completed, cancelled or rejected event.";
+export const CLOSED_EVENT_MESSAGE = "A venue cannot be requested for a completed, cancelled, rejected or withdrawn event.";
 
 /// SPM-54: arrangements wait for approval (isBeforeApproval, src/lib/statuses.ts).
 export const NOT_APPROVED_MESSAGE = "A venue can be requested once this request has been approved.";

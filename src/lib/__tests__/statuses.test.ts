@@ -306,3 +306,26 @@ describe("registration statuses on the registration list (SPM-65)", () => {
     expect(new Set(tones).size).toBe(4);
   });
 });
+
+describe("[SPM-59] a withdrawn request", () => {
+  it("[SPM-59][AC3] is labelled Withdrawn, unlike a Draft, Submitted, Approved or Rejected request", () => {
+    const labels = ["draft", "submitted", "approved", "rejected", "withdrawn"].map(statusLabel);
+
+    expect(statusLabel("withdrawn")).toBe("Withdrawn");
+    expect(new Set(labels).size).toBe(5);
+  });
+
+  it("[SPM-59][AC2] is reached from Under review only", () => {
+    for (const from of EVENT_STATUSES) {
+      expect(canTransition(from, "withdrawn"), from).toBe(from === "under_review");
+    }
+  });
+
+  it("[SPM-59][AC4] is final: it goes nowhere else", () => {
+    expect(isTerminalEventStatus("withdrawn")).toBe(true);
+    for (const to of EVENT_STATUSES) {
+      expect(canTransition("withdrawn", to), to).toBe(false);
+    }
+  });
+});
+

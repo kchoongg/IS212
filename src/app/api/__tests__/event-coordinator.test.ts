@@ -271,6 +271,17 @@ describe("PUT /api/events/[id]/coordinator", () => {
     expect(await res.json()).toEqual({ error: "This person is already the assigned coordinator." });
   });
 
+  it("[SPM-59][AC4] a withdrawn request can no longer be given another coordinator", async () => {
+    const token = signIn(opsManager(), daniel(), priya());
+    db.event.findUnique.mockResolvedValue(assignedToDaniel({ status: "withdrawn" }));
+
+    const res = await assign(token, { coordinatorId: ID.thirdUser });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "This event is Withdrawn and its coordinator can no longer be changed." });
+    expect(db.event.update).not.toHaveBeenCalled();
+  });
+
   describe("who can be chosen", () => {
     const refusal = {
       error: "Choose an active Event Coordinator.",
