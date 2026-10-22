@@ -1,0 +1,172 @@
+{
+  "story_key": "SPM-26",
+  "story_title": "As an Event Organiser, I want to update my event request when additional information is requested so that planning can continue with accurate requirements",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-10-22",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Event Organiser can view the clarification request."
+    },
+    {
+      "id": "AC2",
+      "text": "The Event Organiser can update any field of the event request that can be edited on a draft (see: Save Draft Event Request, SPM-24) while the clarification is open."
+    },
+    {
+      "id": "AC3",
+      "text": "The Event Organiser can resubmit the updated request."
+    },
+    {
+      "id": "AC4",
+      "text": "The event stays Under review throughout, and once the Organiser responds the clarification is marked answered so the assigned Coordinator can continue the review (see: Request Event Clarification, SPM-29)."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-26-TC01",
+      "title": "The organiser who raised the request sees the open clarification on the event and on the Update request page, with the request's current details filled in",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm26` has been run from the project folder (it only touches the 'SPM26 …' events, never anyone else's data).\n'SPM26 Meridian Advisory Briefing' is Under review, raised by Rachel Ng and assigned to Daniel Tan, with a clarification Daniel Tan opened on 20 Oct 2026, 10:00 about Description and Expected attendance.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM26 Meridian Advisory Briefing'",
+        "Click 'Update request' in the 'Clarification requested' banner",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM26 Meridian Advisory Briefing\nClarification: Description, Expected attendance - 'How many advisers will attend, and is there a networking session after the briefing?'",
+      "expected_result": "Step 1: The event page shows the 'Under review' badge and an amber 'Clarification requested' banner listing 'Needs clarification: Description, Expected attendance', the message 'How many advisers will attend, and is there a networking session after the briefing?', 'Asked by Daniel Tan on 20 Oct 2026, 10:00' and an 'Update request' button.\nStep 2: The 'Update request' page opens with the 'Under review' badge. At the top a 'Clarification requested' box shows the same items, message and 'Asked by Daniel Tan on 20 Oct 2026, 10:00'. The form is filled in with the request as it stands: Event name 'SPM26 Meridian Advisory Briefing', Type of event 'Conference', Description 'Half-day session followed by networking.', Expected attendance '80', Preferred room layout 'Theatre'. At the bottom are 'Resubmit request' and 'Cancel'; there is no 'Save draft' or 'Submit request' button.\nStep 3: The event page opens again, still 'Under review', with the same 'Clarification requested' banner and Expected attendance '80'."
+    },
+    {
+      "id": "SPM-26-TC02",
+      "title": "The organiser changes fields the coordinator asked about and one they did not, resubmits, and the event stays Under review with the clarification answered",
+      "linked_ac": [
+        "AC2",
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm26` before this case: it resubmits 'SPM26 Meridian Advisory Briefing'. Go straight on to SPM-26-TC03 and reset after that one.\n'SPM26 Meridian Advisory Briefing' is Under review, raised by Rachel Ng and assigned to Daniel Tan, with a clarification open about Description and Expected attendance.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM26 Meridian Advisory Briefing'",
+        "Click 'Update request' in the 'Clarification requested' banner",
+        "Replace 'Description' with the new description",
+        "Replace 'Expected attendance' with 120",
+        "Change 'Preferred room layout' to 'Classroom'",
+        "Click 'Resubmit request'",
+        "Click 'My Events' in the sidebar"
+      ],
+      "test_data": "Event: SPM26 Meridian Advisory Briefing\nDescription: Half-day briefing for 120 advisers, followed by a networking lunch.\nExpected attendance: 120 (was 80)\nPreferred room layout: Classroom (was Theatre - not one of the items the coordinator asked about)",
+      "expected_result": "Step 6: The event page opens with a green message 'Your updated request has been sent to Daniel Tan. It stays Under review.' The status badge reads 'Under review', no 'Clarification requested' banner is shown, and Details shows Expected attendance '120', Preferred layout 'Classroom' and Description 'Half-day briefing for 120 advisers, followed by a networking lunch.'\nStep 7: 'SPM26 Meridian Advisory Briefing' is listed with the 'Under review' badge."
+    },
+    {
+      "id": "SPM-26-TC03",
+      "title": "After the organiser resubmits, the assigned coordinator sees the updated request and can carry on with the review, including asking for clarification again",
+      "linked_ac": [
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-26-TC02 has just been run ('SPM26 Meridian Advisory Briefing' was resubmitted with Expected attendance 120). Run `npm run fixtures:spm26` after this case.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar",
+        "Open 'SPM26 Meridian Advisory Briefing'",
+        "Click 'Review request'"
+      ],
+      "test_data": "Event: SPM26 Meridian Advisory Briefing (resubmitted in SPM-26-TC02)",
+      "expected_result": "Step 1: 'SPM26 Meridian Advisory Briefing' is still listed in the Review Queue with the 'Under review' badge.\nStep 2: The event page shows the 'Under review' badge, no 'Clarification requested' banner, and Expected attendance '120', Preferred layout 'Classroom' and the new Description.\nStep 3: The 'Review request' page shows no 'Open clarification' box. Under 'Your decision' all three options are offered: 'Approve — planning can start', 'Reject this request' and 'Ask the organiser for clarification'."
+    },
+    {
+      "id": "SPM-26-TC04",
+      "title": "A required field cleared on the Update request page is refused and nothing is resubmitted",
+      "linked_ac": [
+        "AC2",
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm26` has been run from the project folder.\n'SPM26 Meridian Advisory Briefing' is Under review with a clarification open about Description and Expected attendance.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM26 Meridian Advisory Briefing'",
+        "Click 'Update request' in the 'Clarification requested' banner",
+        "Clear 'Event name'",
+        "Clear 'Expected attendance'",
+        "Click 'Resubmit request'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM26 Meridian Advisory Briefing\nEvent name: empty\nExpected attendance: empty",
+      "expected_result": "Step 5: The page stays on 'Update request'. 'Give the event a name so you can find it again.' is shown under Event name and 'Enter how many people you expect.' under Expected attendance, and no success message appears.\nStep 6: The event page still shows the title 'SPM26 Meridian Advisory Briefing', Expected attendance '80', the 'Under review' badge and the 'Clarification requested' banner."
+    },
+    {
+      "id": "SPM-26-TC05",
+      "title": "The smallest response is accepted: resubmitting with nothing changed answers the clarification",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm26` before and after this case: it resubmits 'SPM26 Meridian Advisory Briefing'.\n'SPM26 Meridian Advisory Briefing' is Under review with a clarification open about Description and Expected attendance.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM26 Meridian Advisory Briefing'",
+        "Click 'Update request' in the 'Clarification requested' banner",
+        "Click 'Resubmit request' without changing anything",
+        "Refresh the page"
+      ],
+      "test_data": "Event: SPM26 Meridian Advisory Briefing (no field changed)",
+      "expected_result": "Step 3: The event page opens with the green message 'Your updated request has been sent to Daniel Tan. It stays Under review.', the 'Under review' badge, no 'Clarification requested' banner, and Expected attendance '80' and Description 'Half-day session followed by networking.' unchanged.\nStep 4: The 'Under review' badge is shown and the 'Clarification requested' banner does not come back."
+    },
+    {
+      "id": "SPM-26-TC06",
+      "title": "Another organiser of the same client sees the clarification but cannot update or resubmit the request",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm26` has been run from the project folder.\n'SPM26 Meridian Advisory Briefing' was raised by Rachel Ng and has an open clarification.\nLogged in as Event Organiser James Koh (james.koh@meridianfina.com / password123), Rachel Ng's colleague at Meridian Financial Group, who did not raise it.",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM26 Meridian Advisory Briefing'",
+        "Note the event's reference from the browser address bar (e.g. EVT-000123)",
+        "Type /events/<reference from step 2>/edit after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123/edit) and press Enter"
+      ],
+      "test_data": "Event: SPM26 Meridian Advisory Briefing (raised by Rachel Ng)\nUser: James Koh",
+      "expected_result": "Step 1: The 'Clarification requested' banner is shown with 'Needs clarification: Description, Expected attendance' and the message, but there is no 'Update request' button.\nStep 3: The 'Update request' page shows the message 'Could not open this request' - 'Only the organiser who raised this request can update it.' and no form."
+    },
+    {
+      "id": "SPM-26-TC07",
+      "title": "A request whose clarification has already been answered cannot be updated again",
+      "linked_ac": [
+        "AC2",
+        "AC4"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: `npm run fixtures:spm26` has been run from the project folder.\n'SPM26 Meridian Answered Workshop' is Under review, raised by Rachel Ng and assigned to Daniel Tan; its only clarification was answered on 16 Oct 2026, so none is open.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM26 Meridian Answered Workshop'",
+        "Note the event's reference from the browser address bar (e.g. EVT-000123)",
+        "Type /events/<reference from step 2>/edit after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123/edit) and press Enter"
+      ],
+      "test_data": "Event: SPM26 Meridian Answered Workshop (clarification answered, none open)",
+      "expected_result": "Step 1: The event page shows the 'Under review' badge, no 'Clarification requested' banner and no 'Update request' button.\nStep 3: The page shows the message 'Could not open this request' - 'This request has no open clarification to answer, so it can't be changed here.' and no form."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-21: Written before the code (test-first). The wording below is decided here and matches the CONTRACT comments in the unit tests (src/lib/__tests__/permissions.test.ts, src/app/api/__tests__/event-detail.test.ts, src/app/__tests__/event-form-pages.test.tsx, src/app/__tests__/event-pages.test.tsx).",
+    "DECIDED 2026-10-21: One action. The organiser's edit and the resubmit are a single 'Resubmit request' button on the 'Update request' page (the draft editor at /events/<reference>/edit, opened in response mode). It saves the changes and marks the clarification answered together; there is no 'Save draft' while Under review.",
+    "DECIDED 2026-10-21: Wording - 'Update request' button in the event page's 'Clarification requested' banner; page title 'Update request'; button 'Resubmit request' (busy: 'Resubmitting…') and 'Cancel'; after resubmitting, the event page says 'Your updated request has been sent to <coordinator>. It stays Under review.'; refusals 'Could not open this request' with 'Only the organiser who raised this request can update it.' or 'This request has no open clarification to answer, so it can't be changed here.'",
+    "DECIDED 2026-10-21: No reply message. The ACs ask for the update and the resubmit only, so responding stores no message (ClarificationRequest.responseMessage stays empty); the clarification is marked answered with the time.",
+    "DECIDED 2026-10-21: Only the organiser who raised the request can respond - the same rule as editing a draft (SPM-24). Colleagues in the same client still see the clarification (SPM-29 AC3) but get no 'Update request' button (TC06).",
+    "DECIDED 2026-10-21: The fields that can be changed are exactly the draft's (SPM-24, AC2), and a resubmitted request must be as complete as a submitted one (the same required fields as 'Submit request'), so a required field cannot be cleared (TC04).",
+    "RESOLVED 2026-10-21: Refusals reachable only by calling the API (a coordinator or another role sending a change, an event that is not Under review, two resubmits at the same moment, a resubmit at the same moment as an approval) are covered by unit and integration tests, not manual cases.",
+    "RESOLVED 2026-10-21: Out of scope - notifying the coordinator of the response (moved to SPM-53, Jira comment 2026-09-18) and the Discussion tab (S-09). No case for either.",
+    "RESOLVED 2026-10-21: Test data. scripts/seed-spm26.ts (`npm run fixtures:spm26`) recreates only these events, organiser Rachel Ng (Meridian Financial Group), coordinator Daniel Tan, dated May 2028: 'SPM26 Meridian Advisory Briefing' (Under review, a clarification open since 20 Oct 2026, 10:00 about Description and Expected attendance) and 'SPM26 Meridian Answered Workshop' (Under review, its clarification answered on 16 Oct 2026). The same events go at the end of prisma/seed.ts. TC02 and TC05 change data, so their preconditions say when to reset."
+  ],
+  "code_references": []
+}
