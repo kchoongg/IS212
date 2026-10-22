@@ -1,0 +1,284 @@
+{
+  "story_key": "SPM-80",
+  "story_title": "As Venue Staff, I want existing bookings to be re-checked when I change a venue's setup or turnaround time so that bookings that now clash are identified instead of being silently removed or left unnoticed",
+  "created_by": "kchoongg",
+  "creation_date": "2026-10-20",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given a venue's setup or turnaround time (in minutes, 15-minute steps) is changed, when the change is saved, then every pending and confirmed future booking at that venue is re-checked using the new times."
+    },
+    {
+      "id": "AC2",
+      "text": "Given two bookings at the venue now occupy overlapping periods once setup and turnaround are included, when the re-check runs, then both bookings are flagged for review and each identifies the booking it clashes with."
+    },
+    {
+      "id": "AC3",
+      "text": "Given a booking's setup or turnaround period now overlaps a recorded unavailable period, when the re-check runs, then the booking is flagged for review."
+    },
+    {
+      "id": "AC4",
+      "text": "A flagged booking is never cancelled, removed or changed automatically, and keeps its current status."
+    },
+    {
+      "id": "AC5",
+      "text": "The assigned Event Coordinator of each flagged booking is notified, with the reason."
+    },
+    {
+      "id": "AC6",
+      "text": "Bookings that do not clash under the new times are not flagged."
+    },
+    {
+      "id": "AC7",
+      "text": "Bookings for past dates are not re-checked."
+    },
+    {
+      "id": "AC8",
+      "text": "New booking requests made after the change are checked for availability and conflicts using the new times."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-80-TC01",
+      "title": "A turnaround time that only fills the gap between two bookings, so they meet end to start, flags nothing",
+      "linked_ac": [
+        "AC6",
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm80` from the project folder before this case (it only touches the 'SPM80 …' events and rooms, never anyone else's data). It prints each SPM80 event's EVT- reference; keep that list for the cases that follow.\n'SPM80 Turnaround Room' (SPM80-TRN) then has no setup or turnaround time and these approved bookings: SPM80 Morning Seminar (3 Aug 2027, 10:00–12:00), SPM80 Lunch Forum (3 Aug 2027, 12:30–14:00), SPM80 Evening Workshop (3 Aug 2027, 18:00–20:00), and two that are over: SPM80 Past Briefing (1 Sep 2026, 10:00–12:00) and SPM80 Past Review (1 Sep 2026, 12:30–14:00).\nLogged out.\nSPM-80-TC02 continues from where this case ends: go straight to it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM80 Turnaround Room' row",
+        "Change 'Turnaround time (minutes)' to 30",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Venue: SPM80 Turnaround Room (SPM80-TRN)\nTurnaround time: 0 → 30 minutes (setup stays 0)\nMorning Seminar now holds the room 10:00–12:30; Lunch Forum starts at 12:30",
+      "expected_result": "Step 3: The venue's page opens, subtitled 'Changes here can affect this venue's bookings. Nothing is changed for them automatically.', with 'Setup time (minutes)' showing 0 and 'Turnaround time (minutes)' showing 0. Under 'Turnaround time (minutes)' it says 'Changing the setup or turnaround time re-checks this venue's upcoming bookings. Any that now clash are flagged for their coordinator, never changed.'\nStep 5: A green 'Changes saved' message reads 'No bookings were affected, so nobody needed to be notified.' 'Turnaround time (minutes)' shows 30."
+    },
+    {
+      "id": "SPM-80-TC02",
+      "title": "Raising the turnaround time so two bookings now overlap flags both, each naming the other, and leaves the later and past bookings alone",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC6",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-80-TC01 has just been run ('SPM80 Turnaround Room' has a turnaround time of 30 minutes and nothing is flagged).\nLogged in as Marcus Wong, on the 'SPM80 Turnaround Room' page.\nThis case flags two bookings. SPM-80-TC03 checks them: go straight to it.",
+      "steps": [
+        "Change 'Turnaround time (minutes)' to 45",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Venue: SPM80 Turnaround Room (SPM80-TRN)\nTurnaround time: 30 → 45 minutes\nMorning Seminar now holds the room 10:00–12:45, overlapping the Lunch Forum from 12:30\nThe EVT- references of SPM80 Morning Seminar and SPM80 Lunch Forum, from the fixture script's output",
+      "expected_result": "Step 2: An amber message titled 'Changes saved — 2 bookings flagged for review, coordinators notified' appears, reading 'These bookings have not been changed. Each one is flagged for its coordinator to decide what to do.' It lists exactly two bookings, in either order: 'SPM80 Morning Seminar: with the venue's new setup or turnaround time, this booking overlaps another booking (clashes with <reference of SPM80 Lunch Forum> SPM80 Lunch Forum)' and 'SPM80 Lunch Forum: with the venue's new setup or turnaround time, this booking overlaps another booking (clashes with <reference of SPM80 Morning Seminar> SPM80 Morning Seminar)'. SPM80 Evening Workshop is not listed (it does not clash), and neither are SPM80 Past Briefing or SPM80 Past Review, although they are also half an hour apart (they are over)."
+    },
+    {
+      "id": "SPM-80-TC03",
+      "title": "The coordinator is notified of each clashing booking with the reason, and finds both still Approved and unchanged on Flagged Arrangements, each naming the other",
+      "linked_ac": [
+        "AC2",
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-80-TC02 has just been run (SPM80 Morning Seminar and SPM80 Lunch Forum are flagged; the room's turnaround time is 45 minutes).\nDaniel Tan is the coordinator assigned to every SPM80 event.\nThis case changes nothing. SPM-80-TC04 continues from it: go straight to it.",
+      "steps": [
+        "Click 'Log out'",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Notifications' in the sidebar",
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click the 'Venue bookings' tab"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvents: SPM80 Morning Seminar, SPM80 Lunch Forum\nVenue: SPM80 Turnaround Room (SPM80-TRN), turnaround now 45 minutes",
+      "expected_result": "Step 3: At the top are two new notifications titled 'Booking needs review', one for each event. One, under 'SPM80 Morning Seminar · <its reference>', reads 'SPM80 Turnaround Room (SPM80-TRN): the turnaround time changed from 30 to 45 minutes. The approved booking for SPM80 Morning Seminar on 3 Aug 2027, 10:00–12:00 now overlaps the booking for <reference of SPM80 Lunch Forum> SPM80 Lunch Forum on 3 Aug 2027, 12:30–14:00, once setup and turnaround are included. It is flagged for review - nothing has been changed automatically.' The other, under 'SPM80 Lunch Forum · <its reference>', reads the same but for 'The approved booking for SPM80 Lunch Forum on 3 Aug 2027, 12:30–14:00 now overlaps the booking for <reference of SPM80 Morning Seminar> SPM80 Morning Seminar on 3 Aug 2027, 10:00–12:00'. There is no notification about SPM80 Evening Workshop, SPM80 Past Briefing or SPM80 Past Review.\nStep 5: 'SPM80 Morning Seminar' is listed at 'SPM80 Turnaround Room (SPM80-TRN)', '3 Aug 2027, 10:00–12:00', with the 'Approved' badge, 'Flagged because: with the venue's new setup or turnaround time, this booking overlaps another booking', 'Availability: Not available' and 'SPM80 Turnaround Room is already booked for <reference of SPM80 Lunch Forum> SPM80 Lunch Forum on 3 Aug 2027, 12:30–12:45.' It says 'This booking can't be kept while it doesn't meet the event's requirements.' and has no 'Keep booking' button. 'SPM80 Lunch Forum' is listed the same way at '3 Aug 2027, 12:30–14:00', 'Approved', with 'SPM80 Turnaround Room is already booked for <reference of SPM80 Morning Seminar> SPM80 Morning Seminar on 3 Aug 2027, 12:30–12:45.' Neither booking's times, venue or status has changed. SPM80 Evening Workshop is not listed."
+    },
+    {
+      "id": "SPM-80-TC04",
+      "title": "Lowering the turnaround time again flags nothing new and leaves the earlier flags for the coordinator to clear",
+      "linked_ac": [
+        "AC6",
+        "AC4"
+      ],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "SPM-80-TC03 has just been run (SPM80 Morning Seminar and SPM80 Lunch Forum are flagged; the room's turnaround time is 45 minutes).\nLogged in as Daniel Tan.\nRun `npm run fixtures:spm80` after this case: it puts the room back to no turnaround and clears the flags and notifications.",
+      "steps": [
+        "Click 'Log out'",
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM80 Turnaround Room' row",
+        "Change 'Turnaround time (minutes)' to 0",
+        "Click 'Save changes'",
+        "Click 'Log out'",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click the 'Venue bookings' tab"
+      ],
+      "test_data": "Venue: SPM80 Turnaround Room (SPM80-TRN)\nTurnaround time: 45 → 0 minutes",
+      "expected_result": "Step 6: A green 'Changes saved' message reads 'No bookings were affected, so nobody needed to be notified.'\nStep 10: 'SPM80 Morning Seminar' and 'SPM80 Lunch Forum' are both still listed with the 'Approved' badge and 'Flagged because: with the venue's new setup or turnaround time, this booking overlaps another booking'. Each now shows 'Availability: Available' and a 'Keep booking' button (they no longer clash). Do not click it."
+    },
+    {
+      "id": "SPM-80-TC05",
+      "title": "Raising the setup time flags a pending request and an approved booking that now overlap; the request stays Pending and names the booking in its way",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm80` before this case. 'SPM80 Setup Room' (SPM80-SET) then has no setup or turnaround time, an approved booking for SPM80 Product Demo (4 Aug 2027, 10:00–12:00) and a pending request for SPM80 Partner Meetup (4 Aug 2027, 12:30–14:00). Keep the EVT- references the script prints.\nLogged out.\nRun `npm run fixtures:spm80` again after this case.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM80 Setup Room' row",
+        "Change 'Setup time (minutes)' to 45",
+        "Click 'Save changes'",
+        "Click 'Log out'",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click the 'Venue bookings' tab",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Venue: SPM80 Setup Room (SPM80-SET)\nSetup time: 0 → 45 minutes (turnaround stays 0)\nPartner Meetup's setup now starts at 11:45, while the Product Demo has the room until 12:00",
+      "expected_result": "Step 5: An amber message titled 'Changes saved — 2 bookings flagged for review, coordinators notified' lists exactly two bookings, in either order: 'SPM80 Product Demo: with the venue's new setup or turnaround time, this booking overlaps another booking (clashes with <reference of SPM80 Partner Meetup> SPM80 Partner Meetup)' and 'SPM80 Partner Meetup: with the venue's new setup or turnaround time, this booking overlaps another booking (clashes with <reference of SPM80 Product Demo> SPM80 Product Demo)'.\nStep 9: 'SPM80 Partner Meetup' is listed at 'SPM80 Setup Room (SPM80-SET)', '4 Aug 2027, 12:30–14:00', with the 'Pending' badge (still a request: not approved, withdrawn or cancelled), 'Flagged because: with the venue's new setup or turnaround time, this booking overlaps another booking', 'Availability: Not available' and 'SPM80 Setup Room is already booked for <reference of SPM80 Product Demo> SPM80 Product Demo on 4 Aug 2027, 11:45–12:00.' 'SPM80 Product Demo' is also listed, with the 'Approved' badge, the same 'Flagged because' line, 'Availability: Available' and a 'Keep booking' button: an approved booking comes before a pending request, so it is the request that has to move. Do not click it.\nStep 10: Two new 'Booking needs review' notifications are at the top. The one under 'SPM80 Partner Meetup' reads 'SPM80 Setup Room (SPM80-SET): the setup time changed from 0 to 45 minutes. The pending booking request for SPM80 Partner Meetup on 4 Aug 2027, 12:30–14:00 now overlaps the booking for <reference of SPM80 Product Demo> SPM80 Product Demo on 4 Aug 2027, 10:00–12:00, once setup and turnaround are included. It is flagged for review - nothing has been changed automatically.' The one under 'SPM80 Product Demo' begins the same way, then reads 'The approved booking for SPM80 Product Demo on 4 Aug 2027, 10:00–12:00 now overlaps the booking for <reference of SPM80 Partner Meetup> SPM80 Partner Meetup on 4 Aug 2027, 12:30–14:00'."
+    },
+    {
+      "id": "SPM-80-TC06",
+      "title": "A turnaround time that ends exactly as an unavailable period starts flags nothing",
+      "linked_ac": [
+        "AC6",
+        "AC3"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm80` before this case. 'SPM80 Maintenance Room' (SPM80-MNT) then has no setup or turnaround time, an approved booking for SPM80 Afternoon Talk (5 Aug 2027, 12:00–13:30), and is unavailable for maintenance on 5 Aug 2027 from 14:00 to 16:00.\nLogged out.\nSPM-80-TC07 continues from where this case ends: go straight to it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM80 Maintenance Room' row",
+        "Change 'Turnaround time (minutes)' to 30",
+        "Click 'Save changes'"
+      ],
+      "test_data": "Venue: SPM80 Maintenance Room (SPM80-MNT)\nTurnaround time: 0 → 30 minutes\nAfternoon Talk now holds the room until 14:00, when the maintenance starts",
+      "expected_result": "Step 3: The 'Unavailable periods' section lists 'Maintenance', 'Unavailable from 5 Aug 2027, 14:00. Available again from 5 Aug 2027, 16:00.'\nStep 5: A green 'Changes saved' message reads 'No bookings were affected, so nobody needed to be notified.'"
+    },
+    {
+      "id": "SPM-80-TC07",
+      "title": "A turnaround time that now runs into an unavailable period flags the booking, and the coordinator is told which period",
+      "linked_ac": [
+        "AC3",
+        "AC4",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-80-TC06 has just been run ('SPM80 Maintenance Room' has a turnaround time of 30 minutes and nothing is flagged).\nLogged in as Marcus Wong, on the 'SPM80 Maintenance Room' page.\nRun `npm run fixtures:spm80` after this case.",
+      "steps": [
+        "Change 'Turnaround time (minutes)' to 45",
+        "Click 'Save changes'",
+        "Click 'Log out'",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Notifications' in the sidebar",
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click the 'Venue bookings' tab"
+      ],
+      "test_data": "Venue: SPM80 Maintenance Room (SPM80-MNT)\nTurnaround time: 30 → 45 minutes\nAfternoon Talk now holds the room until 14:15, into the maintenance (14:00–16:00)",
+      "expected_result": "Step 2: An amber message titled 'Changes saved — 1 booking flagged for review, coordinators notified' lists one booking: 'SPM80 Afternoon Talk: the venue is unavailable during this booking'.\nStep 5: A new 'Booking needs review' notification is at the top, under 'SPM80 Afternoon Talk', reading 'SPM80 Maintenance Room (SPM80-MNT): the turnaround time changed from 30 to 45 minutes. The approved booking for SPM80 Afternoon Talk on 5 Aug 2027, 12:00–13:30 now overlaps a period when the venue is unavailable (Maintenance, 5 Aug 2027, 14:00–16:00), once setup and turnaround are included. It is flagged for review - nothing has been changed automatically.'\nStep 7: 'SPM80 Afternoon Talk' is listed at 'SPM80 Maintenance Room (SPM80-MNT)', '5 Aug 2027, 12:00–13:30', with the 'Approved' badge, 'Flagged because: the venue is unavailable during this booking', 'Availability: Not available' and 'SPM80 Maintenance Room is unavailable at this time (maintenance, 5 Aug 2027, 14:00–16:00).'"
+    },
+    {
+      "id": "SPM-80-TC08",
+      "title": "A booking request made after the turnaround time is raised is checked with the new time and refused, naming the booking in its way",
+      "linked_ac": [
+        "AC8"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm80` before this case. 'SPM80 Request Room' (SPM80-REQ) then has no setup or turnaround time and an approved booking for SPM80 Booked Seminar (6 Aug 2027, 10:00–12:00). SPM80 Follow-on Workshop (6 Aug 2027, 12:15–14:00) has no booking. Keep the EVT- references the script prints.\nLogged out.\nThis case changes the room's turnaround time; the request is refused. Run `npm run fixtures:spm80` after it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM80 Request Room' row",
+        "Change 'Turnaround time (minutes)' to 30",
+        "Click 'Save changes'",
+        "Click 'Log out'",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM80 Follow-on Workshop'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM80 Request Room (SPM80-REQ)'",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM80 Request Room (SPM80-REQ)\nTurnaround time: 0 → 30 minutes\nBooked Seminar now holds the room until 12:30\nRequest: SPM80 Follow-on Workshop, 6 Aug 2027, 12:15–14:00",
+      "expected_result": "Step 5: A green 'Changes saved' message reads 'No bookings were affected, so nobody needed to be notified.' (the room has only one booking, so nothing can clash).\nStep 10: The 'Request a venue booking' page opens for 'SPM80 Follow-on Workshop' at 'SPM80 Request Room (SPM80-REQ)'. 'Date' shows 6 Aug 2027, 'Start time' 12:15 and 'End time' 14:00. Below them: 'Turnaround: 14:00–14:30 (30 min)' and 'Room in use: 12:15–14:30'.\nStep 11: The request is not sent. A red alert reads 'SPM80 Request Room is already booked for <reference of SPM80 Booked Seminar> SPM80 Booked Seminar on 6 Aug 2027, 12:15–12:30.'"
+    },
+    {
+      "id": "SPM-80-TC09",
+      "title": "A booking request that starts exactly as the new turnaround of the booking before it ends is accepted",
+      "linked_ac": [
+        "AC8",
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm80` before this case ('SPM80 Request Room' back to no turnaround; SPM80 Follow-on Workshop has no booking).\nLogged out.\nThis case sends a booking request. Run `npm run fixtures:spm80` after it.",
+      "steps": [
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Venues' in the sidebar",
+        "Click the 'SPM80 Request Room' row",
+        "Change 'Turnaround time (minutes)' to 15",
+        "Click 'Save changes'",
+        "Click 'Log out'",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM80 Follow-on Workshop'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM80 Request Room (SPM80-REQ)'",
+        "Click 'Submit request'"
+      ],
+      "test_data": "Venue: SPM80 Request Room (SPM80-REQ)\nTurnaround time: 0 → 15 minutes\nBooked Seminar now holds the room until 12:15\nRequest: SPM80 Follow-on Workshop, 6 Aug 2027, 12:15–14:00",
+      "expected_result": "Step 5: A green 'Changes saved' message reads 'No bookings were affected, so nobody needed to be notified.'\nStep 10: Below the times: 'Turnaround: 14:00–14:15 (15 min)' and 'Room in use: 12:15–14:15'.\nStep 11: A green alert 'Booking request sent to Venue Staff.' is shown: the Booked Seminar's turnaround ends at 12:15, exactly when this request starts."
+    }
+  ],
+  "open_questions": [
+    "Written on 2026-10-20, after the code and its automated tests (built test-first on branch SPM-80-Re-check-Bookings-When-Setup-or-Turnaround-Time-Changes): src/lib/__tests__/turnaroundRecheck.test.ts, the 'changing the setup or turnaround time (SPM-80)' block of src/app/api/__tests__/venues.test.ts, one test in src/app/__tests__/venue-catalogue-pages.test.tsx, and integration/venue-turnaround-recheck.test.ts. Every label and message quoted here is taken from the code; All 9 cases passed when run by hand on 2026-10-20 (Kristen, commit fb8eb36). Entries marked DECIDED were chosen during the build rather than taken from the story; change them in code and cases together.",
+    "RESOLVED 2026-10-20 (Kristen): an approved booking that now clashes only with a pending request is flagged, and its notification names the request, but on Flagged Arrangements it stays 'Availability: Available' with 'Keep booking' offered. The approved booking takes priority, as when Venue Staff approve (SPM-44 AC6): it is the pending request that has to move, and the request's own entry shows 'Not available' and names the approved booking. TC05 checks both.",
+    "RESOLVED 2026-10-20 (Kristen): the bookings CUSTOMER_CLARIFICATIONS.md (2026-10-08) expected SPM-80 to flag, left clashing when SPM-93's script rounded two seeded rooms' (CBP-MTG1, CBP-MTG2) times up to a 15-minute step, do not exist. The script's dry run on the shared database reports every venue already on 15-minute steps, and a read-only check on 2026-10-20 found no upcoming pending or approved bookings clashing at either room. The only clashes in the database are other stories' deliberate conflict fixtures (SPM-34, SPM-43, SPM-44). No script is needed.",
+    "RESOLVED 2026-10-20 (Kristen): after a save that flags nothing, the venue page now reads 'No bookings were affected, so nobody needed to be notified.' (was 'No approved bookings were affected, …'), for every save, since a setup or turnaround change re-checks pending requests too (TC01, TC04, TC06, TC08, TC09). Ten other cases quote the old wording and are marked Updated with a note: SPM-39-TC05, TC13, TC18, TC22, TC24; SPM-43-TC14; SPM-45-TC01, TC08, TC11; SPM-93-TC07 (docs/test-cases/DECOMMISSIONED.md).",
+    "DECIDED 2026-10-20 (AC2, AC3, AC6): only what the change NEWLY breaks is flagged, as with every other venue edit (SPM-39, SPM-45). Two bookings that already overlapped under the old times, or a booking an unavailable period already overlapped, are not flagged again: they were refused or flagged when that arose. So saving the same times twice flags once, and lowering a time flags nothing (TC04).",
+    "DECIDED 2026-10-20 (AC4): nothing is un-flagged by the re-check. A booking that no longer clashes after a later change keeps its flag until the coordinator keeps or replaces it on Flagged Arrangements (SPM-68), where it is then offered 'Keep booking' (TC04).",
+    "DECIDED 2026-10-20 (AC2): two bookings of the same event never flag each other - one session's turnaround must not flag the same event's next session in the same room - the rule the booking conflict check already uses (SPM-44, SPM-81). No case covers it, since no fixture event has two sessions in one room; the automated tests do.",
+    "DECIDED 2026-10-20 (AC7): 'future' means the booking has not ended yet, the rule every venue flag uses. A booking under way when the change is saved is re-checked; one that has finished is not (TC02: SPM80 Past Briefing and SPM80 Past Review). Changed 2026-10-21 (review of PR #74): a booking that finished only minutes ago, whose new turnaround still holds the room, is not flagged itself, but the booking after it is flagged and names it. Covered by the automated tests; no manual case, since it depends on the time the case is run.",
+    "DECIDED 2026-10-20 (AC2): a booking clashes when its room-in-use period (start minus setup, end plus turnaround) overlaps another booking's, SPM-93's rule. Periods that only meet end to start do not clash (TC01, TC06, TC09). AC2's 'identifies the booking it clashes with' is shown in three places: after the save on the venue page ('(clashes with <reference> <title>)'), in the coordinator's notification, and on Flagged Arrangements (Availability).",
+    "DECIDED 2026-10-20 (AC5): a new reason code, booking_clash, worded 'with the venue's new setup or turnaround time, this booking overlaps another booking'. A booking that now runs into an unavailable period gets SPM-45's 'the venue is unavailable during this booking'. The notification is titled 'Booking needs review' (SPM-39's), names the change ('the turnaround time changed from 30 to 45 minutes'), the booking ('approved booking' or 'pending booking request'), and each booking or period it now overlaps. It goes to the event's assigned coordinator, or to the person who requested the booking when the event has none, as SPM-39 does. If one save both shrinks the venue and creates a clash, the coordinator gets one notification giving both reasons (changed 2026-10-21, review of PR #74: it was one for each).",
+    "RESOLVED 2026-10-20: AC8 needed no new code. Since SPM-93, a new request is checked against the venue's setup and turnaround as they are when it is made (TC08, TC09). SPM-93-TC12 covers the same check against an unavailable period.",
+    "RESOLVED 2026-10-20: only Venue Staff can change a venue's setup or turnaround time; that refusal was built and is covered in SPM-39 (SPM-39-TC14), so no case repeats it here.",
+    "Fixtures: scripts/seed-spm80.ts (npm run fixtures:spm80) and its copy at the end of prisma/seed.ts. No schema change. Four rooms, all open 07:00–23:00, seating 40, with no setup or turnaround: 'SPM80 Turnaround Room' (SPM80-TRN), 'SPM80 Setup Room' (SPM80-SET), 'SPM80 Maintenance Room' (SPM80-MNT; Maintenance on 5 Aug 2027, 14:00–16:00) and 'SPM80 Request Room' (SPM80-REQ). Ten events (seed keys spm80_…), coordinator Daniel Tan, each booking's times the same as its event's: SPM80 Morning Seminar, SPM80 Lunch Forum and SPM80 Evening Workshop (3 Aug 2027), SPM80 Past Briefing and SPM80 Past Review (1 Sep 2026, completed), SPM80 Product Demo and SPM80 Partner Meetup (4 Aug 2027; the Meetup's booking is Pending), SPM80 Afternoon Talk (5 Aug 2027), SPM80 Booked Seminar and SPM80 Follow-on Workshop (6 Aug 2027; the Workshop has no booking). Every run puts each room back to no setup or turnaround and resets the events' bookings and notifications in place. The script must be run once against the shared database before the cases can be run."
+  ],
+  "code_references": [
+    "src/lib/turnaroundRecheck.ts",
+    "src/lib/venueImpact.ts",
+    "src/lib/venueTime.ts",
+    "src/lib/venueConflict.ts",
+    "src/lib/reviewFlags.ts",
+    "src/lib/notifications.ts",
+    "src/lib/flaggedArrangements.ts",
+    "src/lib/flaggedArrangementsService.ts",
+    "src/lib/roles.ts",
+    "src/app/api/venues/[id]/route.ts",
+    "src/app/venues/[id]/edit/page.tsx",
+    "src/components/VenueForm.tsx",
+    "src/app/flagged/page.tsx",
+    "src/app/notifications/page.tsx",
+    "src/app/events/[id]/booking/new/page.tsx",
+    "src/app/events/[id]/venue/page.tsx",
+    "prisma/schema.prisma",
+    "scripts/seed-spm80.ts",
+    "prisma/seed.ts"
+  ]
+}

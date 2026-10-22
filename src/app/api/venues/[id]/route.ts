@@ -9,13 +9,21 @@ import {
   formatReviewReason,
   impactSentence,
   mergeReasons,
+  isReviewCandidate,
   parseReviewReason,
-  reviewCandidateWhere,
   type BookingState,
   type VenueState,
 } from "@/lib/venueImpact";
 import { notifyUser } from "@/lib/notifications";
-import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { eventReference, formatDateTimeRange, formatVenue } from "@/lib/format";
+import {
+  recheckBookings,
+  recheckCandidateWhere,
+  turnaroundChangeSentence,
+  turnaroundChanged,
+} from "@/lib/turnaroundRecheck";
+import { unavailabilityReasonText } from "@/lib/venueUnavailability";
+import type { Turnaround } from "@/lib/venueTime";
 import { ZodError } from "zod";
 import type { Prisma } from "@prisma/client";
 
@@ -80,6 +88,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
  * under rules the database does not enforce). Deferred rather than guessed:
  * a wrong assumption there produces false flags on every edit.
  *
+ * SPM-80: a change to the setup or turnaround time re-checks the venue's
+ * pending and confirmed bookings with the new times - two that now overlap
+ * are both flagged, each naming the other, and so is one that now runs into
+ * an unavailable period. Same writes as above: the flag and one notification,
+ * never the booking itself. Rules in src/lib/turnaroundRecheck.ts.
+ *
  * The edit is never blocked by the impact it has. The AC says flag, not
  * prevent - so the response reports what was flagged and lets the UI say so.
  */
@@ -142,8 +156,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       };
 
       const now = new Date();
-      const candidates = await tx.venueBooking.findMany({
-        where: { venueId: id, ...reviewCandidateWhere(now) },
+      const turnaroundBefore: Turnaround = { setupMinutes: venue.setupMinutes, teardownMinutes: venue.teardownMinutes };
+      const turnaroundAfter: Turnaround = {
+        setupMinutes: venueFields.setupMinutes ?? venue.setupMinutes,
+        teardownMinutes: venueFields.teardownMinutes ?? venue.teardownMinutes,
+      };
+
+      // One load serves both checks: SPM-39's (approved bookings that have not
+      // finished, isReviewCandidate()) and SPM-80's re-check (pending ones too,
+      // and one that has just finished while its new turnaround still holds
+      // the room).
+      const bookings = await tx.venueBooking.findMany({
+        where: { venueId: id, ...recheckCandidateWhere(now, turnaroundAfter) },
         include: {
           // A multi-session event books each session separately (SPM-25), and
           // a session carries its own expectedAttendance. Null on the session
@@ -153,6 +177,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
             select: {
               id: true,
               title: true,
+              sequenceNumber: true,
               coordinatorId: true,
               expectedAttendance: true,
               // Mandatory only. A missing nice-to-have must not disqualify a
@@ -170,6 +195,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           },
         },
       });
+      const candidates = bookings.filter((booking) => isReviewCandidate(booking, now));
 
       const bookingStates: BookingState[] = candidates.map((booking) => ({
         id: booking.id,
@@ -188,6 +214,18 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         mandatoryFacilityIds: booking.event.facilityRequirements.map((r) => r.facilityId),
       }));
       const affected = assessVenueEdit(before, after, bookingStates);
+
+      // SPM-80: a new setup or turnaround time re-checks the bookings against
+      // each other and the venue's unavailable periods.
+      const findings = turnaroundChanged(turnaroundBefore, turnaroundAfter)
+        ? recheckBookings(
+            turnaroundBefore,
+            turnaroundAfter,
+            bookings,
+            await tx.venueUnavailability.findMany({ where: { venueId: id, endsAt: { gt: now } } }),
+            now
+          )
+        : [];
 
       // A replaced relation is cleared and rebuilt from the payload, the same
       // way a draft edit does it in api/events/[id] - simpler than diffing
@@ -212,29 +250,61 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       });
 
       const venueLabel = formatVenue(updated.name, updated.code);
-      const flaggedBookings = [];
+      const change = turnaroundChangeSentence(turnaroundBefore, turnaroundAfter);
+      const byId = new Map(bookings.map((booking) => [booking.id, booking]));
+      const impactById = new Map(affected.map((impact) => [impact.bookingId, impact.reasons]));
+      const findingById = new Map(findings.map((finding) => [finding.bookingId, finding]));
+      const flaggedBookings: FlaggedBooking[] = [];
 
-      for (const impact of affected) {
-        const booking = candidates.find((b) => b.id === impact.bookingId);
-        if (!booking) continue;
+      // One write and one notification per booking, whichever check flagged
+      // it - or both, when one save changes, say, the capacity and the
+      // turnaround time (AC5: the coordinator is notified, once).
+      for (const booking of bookings) {
+        const impact = impactById.get(booking.id) ?? [];
+        const finding = findingById.get(booking.id);
+        if (impact.length === 0 && !finding) continue;
 
-        // Keep whatever an earlier edit flagged. assessVenueEdit() only ever
-        // reports newly introduced problems, so these reasons are additional
-        // to any already on the row, not a correction of them.
+        // Keep whatever an earlier edit flagged. Both checks report only newly
+        // introduced problems, so these reasons are additional to any already
+        // on the row, not a correction of them. SPM-39's venue reasons come in
+        // their usual order, then every other code already there - the column
+        // is shared with other stories (SPM-62's event changes), whose codes
+        // parseReviewReason() drops - then SPM-80's.
         const stored = booking.needsReview ? booking.reviewReason : null;
-        const reasons = mergeReasons(parseReviewReason(stored), impact.reasons);
-
+        const withImpact =
+          impact.length > 0
+            ? addReviewReasons(formatReviewReason(mergeReasons(parseReviewReason(stored), impact)), stored?.split(",") ?? [])
+            : stored;
+        const reviewReason = addReviewReasons(withImpact, finding?.reasons ?? []);
         await tx.venueBooking.update({
           where: { id: booking.id },
-          data: {
-            needsReview: true,
-            // The venue reasons in their usual order, then every other code
-            // already there - the column is shared with other stories
-            // (SPM-62's event changes), whose codes parseReviewReason() drops.
-            reviewReason: addReviewReasons(formatReviewReason(reasons), stored?.split(",") ?? []),
-            flaggedAt: now,
-          },
+          data: { needsReview: true, reviewReason, flaggedAt: now },
         });
+
+        // AC2: each booking it now clashes with; AC3: each period it now overlaps.
+        const others = finding?.clashesWith.map((otherId) => byId.get(otherId)!) ?? [];
+        const overlaps = [
+          ...others.map(
+            (other) =>
+              `the booking for ${eventReference(other.event.sequenceNumber)} ${other.event.title ?? "an event"} on ` +
+              formatDateTimeRange(other.startsAt, other.endsAt)
+          ),
+          ...(finding?.unavailableDuring ?? []).map(
+            (period) =>
+              `a period when the venue is unavailable (${unavailabilityReasonText(period)}, ` +
+              `${formatDateTimeRange(period.startsAt, period.endsAt)})`
+          ),
+        ];
+        const causes = [impact.length > 0 ? impactSentence(impact) : null, finding ? change : null]
+          .filter(Boolean)
+          .join("; ");
+        // Which session, when the booking belongs to one: eventId alone cannot
+        // tell a coordinator which of a multi-day event's sessions this is about.
+        const which =
+          `${booking.event.title ?? "an event"}` +
+          `${booking.session?.label ? ` (${booking.session.label})` : ""} on ` +
+          formatDateTimeRange(booking.startsAt, booking.endsAt);
+        const kind = booking.status === "approved" ? "approved booking" : "pending booking request";
 
         // "The assigned Coordinator is notified." coordinatorId is nullable -
         // an event that has not been assigned yet has no assigned coordinator
@@ -242,7 +312,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         // who asked for this room and in practice the coordinator who will
         // have to find another one.
         const recipientId = booking.event.coordinatorId ?? booking.requestedBy;
-        const retired = impact.reasons.includes("venue_retired");
+        const retired = impact.includes("venue_retired");
         // Named person, not a role queue: notifyUser() rather than
         // notifyRole(), because "the assigned Coordinator" is one specific
         // person per affected booking.
@@ -250,14 +320,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           type: retired ? "booking_venue_retired" : "booking_needs_review",
           title: retired ? "Venue retired - booking needs review" : "Booking needs review",
           body:
-            `${venueLabel}: ${impactSentence(impact.reasons)}. ` +
-            `The approved booking for ${booking.event.title ?? "an event"}` +
-            // Which session, when the booking belongs to one: eventId alone
-            // cannot tell a coordinator which of a multi-day event's sessions
-            // this is about.
-            `${booking.session?.label ? ` (${booking.session.label})` : ""} on ` +
-            `${formatDateTimeRange(booking.startsAt, booking.endsAt)} is flagged for review - ` +
-            `nothing has been changed automatically.` +
+            `${venueLabel}: ${causes}. The ${kind} for ${which} ` +
+            (finding ? `now overlaps ${overlaps.join(" and ")}, once setup and turnaround are included. It is ` : "is ") +
+            `flagged for review - nothing has been changed automatically.` +
             (reason ? ` Reason given: ${reason}` : ""),
           // Notification has no venue or booking column, only eventId, so the
           // room and the dates have to be spelled out in the body above or the
@@ -271,8 +336,16 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           eventTitle: booking.event.title,
           sessionId: booking.sessionId,
           sessionLabel: booking.session?.label ?? null,
-          reasons: impact.reasons,
+          reasons: [...impact, ...(finding?.reasons.filter((code) => !impact.includes(code)) ?? [])],
           notifiedUserId: recipientId,
+          ...(finding && {
+            clashesWith: others.map((other) => ({
+              bookingId: other.id,
+              eventId: other.eventId,
+              eventReference: eventReference(other.event.sequenceNumber),
+              eventTitle: other.event.title,
+            })),
+          }),
         });
       }
 
@@ -295,4 +368,17 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
+}
+
+/// One entry of the response's `flaggedBookings`. `clashesWith` is set by the
+/// SPM-80 re-check only.
+interface FlaggedBooking {
+  bookingId: string;
+  eventId: string;
+  eventTitle: string | null;
+  sessionId: string | null;
+  sessionLabel: string | null;
+  reasons: string[];
+  notifiedUserId: string;
+  clashesWith?: { bookingId: string; eventId: string; eventReference: string; eventTitle: string | null }[];
 }
