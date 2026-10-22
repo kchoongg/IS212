@@ -21,7 +21,7 @@ import {
   describePeriod,
   periodBounds,
   periodInterval,
-  unavailabilityReasonLabel,
+  unavailabilityReasonText,
   type PeriodBounds,
 } from "@/lib/venueUnavailability";
 import type { Interval } from "@/lib/venueTime";
@@ -107,8 +107,7 @@ export async function flagBookingsInPeriod(
   });
 
   const venueLabel = formatVenue(venue.name, venue.code);
-  const why =
-    unavailabilityReasonLabel(period.reason) + (period.notes ? ` - ${period.notes}` : "");
+  const why = unavailabilityReasonText(period);
   const flaggedBookings = [];
 
   for (const booking of candidates) {

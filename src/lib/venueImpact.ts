@@ -31,6 +31,11 @@ export const IMPACT_REASONS = [
   // venue_retired because SPM-68 lists "venue retired" and "venue blocked" as
   // two reasons. Last, so the stored order of the older codes does not move.
   "venue_unavailable",
+  // SPM-80: a change to the venue's setup or turnaround time makes this
+  // booking's occupied period overlap another booking's. Not a problemsFor()
+  // rule either - PATCH /api/venues/[id] adds it through recheckBookings()
+  // (src/lib/turnaroundRecheck.ts), which knows which booking it clashes with.
+  "booking_clash",
 ] as const;
 
 export type ImpactReason = (typeof IMPACT_REASONS)[number];
@@ -45,6 +50,7 @@ export const IMPACT_REASON_PROSE: Record<ImpactReason, string> = {
   mandatory_facility_removed:
     "a facility this event requires is no longer available at this venue",
   venue_unavailable: "the venue is unavailable during this booking",
+  booking_clash: "with the venue's new setup or turnaround time, this booking overlaps another booking",
 };
 
 /// The parts of a venue an impact decision depends on, before or after an

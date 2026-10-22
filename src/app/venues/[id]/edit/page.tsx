@@ -53,6 +53,8 @@ interface FlaggedBooking {
   eventTitle: string | null;
   sessionLabel: string | null;
   reasons: ImpactReason[];
+  /// SPM-80: the bookings this one now overlaps, after a setup or turnaround change.
+  clashesWith?: { bookingId: string; eventReference: string; eventTitle: string | null }[];
 }
 
 interface PatchResponse {
@@ -258,7 +260,7 @@ export default function EditVenuePage() {
     <div className="max-w-2xl">
       <PageHeader
         title={venueName || "Edit venue"}
-        subtitle="Changes here can affect bookings that are already approved. Nothing is changed for them automatically."
+        subtitle="Changes here can affect this venue's bookings. Nothing is changed for them automatically."
         breadcrumbs={crumbs}
         // SPM-46: the availability calendar for this room. Also linked from
         // each row of the Venues list - that is the way in for coordinators,
@@ -316,6 +318,7 @@ export default function EditVenuePage() {
           clearError={clearError}
           facilities={facilities ?? []}
           facilitiesLoading={facilities === null}
+          existing
         />
 
         <div className="sticky bottom-0 -mx-4 flex flex-wrap gap-2 border-t border-line bg-surface-2 px-4 py-3 sm:mx-0 sm:rounded-md sm:px-4">
@@ -419,7 +422,7 @@ function SaveResult({
   if (flagged.length === 0) {
     return (
       <Alert variant="success" title={verb} className="mt-4">
-        No approved bookings were affected, so nobody needed to be notified.
+        No bookings were affected, so nobody needed to be notified.
       </Alert>
     );
   }
@@ -441,6 +444,11 @@ function SaveResult({
             {booking.sessionLabel && <span className="text-ink-3"> ({booking.sessionLabel})</span>}
             {": "}
             {booking.reasons.map((reason) => IMPACT_REASON_PROSE[reason]).join("; ")}
+            {booking.clashesWith?.length
+              ? ` (clashes with ${booking.clashesWith
+                  .map((other) => [other.eventReference, other.eventTitle].filter(Boolean).join(" "))
+                  .join(", ")})`
+              : null}
           </li>
         ))}
       </ul>

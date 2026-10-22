@@ -60,6 +60,14 @@ export function unavailabilityReasonLabel(reason: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
 
+/// "Maintenance", or "Other - Film crew on site" with the description of an
+/// "other" reason (kept in the row's notes). The one wording of a period's
+/// reason in a notification: SPM-45's when a period is recorded, SPM-80's when
+/// a setup or turnaround change runs a booking into one.
+export function unavailabilityReasonText(period: { reason: string; notes: string | null }): string {
+  return unavailabilityReasonLabel(period.reason) + (period.notes ? ` - ${period.notes}` : "");
+}
+
 /// The longest description of an "other" reason, kept in the row's notes.
 export const OTHER_REASON_MAX = 500;
 
