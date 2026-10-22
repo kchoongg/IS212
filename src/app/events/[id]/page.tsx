@@ -454,7 +454,9 @@ function EventOverview() {
       { id: user.id, role: user.role, organisationId: null },
       {
         organiserId: event.organiserId,
+        // v8 ignore next -- the API always sends it to an organiser; `?? null` only satisfies the type
         organisationId: event.organisationId ?? null,
+        // v8 ignore next -- as above
         coordinatorId: event.coordinatorId ?? null,
         status: event.status,
       }

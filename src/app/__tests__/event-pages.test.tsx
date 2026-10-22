@@ -2344,6 +2344,14 @@ describe("Event overview - after the organiser resubmits (SPM-26)", () => {
     expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
   });
 
+  it("[SPM-26][AC3] says 'your coordinator' if the request names none", async () => {
+    openResubmitted("?resubmitted=1", event({ status: "under_review", openClarification: null, coordinator: null }));
+
+    expect(
+      await screen.findByText("Your updated request has been sent to your coordinator. It stays Under review.")
+    ).toBeInTheDocument();
+  });
+
   it("[SPM-26] says nothing on an ordinary visit", async () => {
     openResubmitted("", event({ status: "under_review", openClarification: null }));
 

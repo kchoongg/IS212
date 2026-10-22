@@ -1695,6 +1695,23 @@ describe("PATCH /api/events/[id] - answering a clarification (SPM-26)", () => {
     nothingWritten();
   });
 
+  it("[SPM-26][AC3] refuses sessions none of which has an expected attendance", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, {
+      sessions: [
+        { startsAt: "2027-03-04T01:00:00.000Z", endsAt: "2027-03-04T05:00:00.000Z" },
+        { startsAt: "2027-03-05T01:00:00.000Z", endsAt: "2027-03-05T05:00:00.000Z" },
+      ],
+    });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "Cannot resubmit an incomplete request. Missing: expectedAttendance, session 1 expectedAttendance, session 2 expectedAttendance"
+    );
+    nothingWritten();
+  });
+
   it("[SPM-26][AC3] refuses a saved session with no expected attendance when the sessions are not resent", async () => {
     const token = givenResponding();
     db.eventSession.findMany.mockResolvedValue([{ expectedAttendance: 80 }, { expectedAttendance: null }]);
