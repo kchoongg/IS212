@@ -1,0 +1,266 @@
+{
+  "story_key": "SPM-69",
+  "story_title": "As Technical Support Staff, I want to release or adjust an equipment reservation so that reserved quantities match what the event now needs and unneeded equipment is free for other events",
+  "created_by": "kchoongg",
+  "creation_date": "2026-10-22",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Technical Support Staff can release an equipment reservation for an event."
+    },
+    {
+      "id": "AC2",
+      "text": "Technical Support Staff can reduce the reserved quantity of a reservation."
+    },
+    {
+      "id": "AC3",
+      "text": "Technical Support Staff can increase the reserved quantity, and the system prevents an increase beyond the quantity available for the event's dates."
+    },
+    {
+      "id": "AC4",
+      "text": "Given a reservation is released or reduced, when availability is next checked, then the freed quantity is available for overlapping events."
+    },
+    {
+      "id": "AC5",
+      "text": "The fulfilment status of the related equipment requirement is updated to reflect the change (see: Review and Update Equipment Request)."
+    },
+    {
+      "id": "AC6",
+      "text": "The assigned Event Coordinator is notified when a reservation for their event is released or adjusted."
+    },
+    {
+      "id": "AC7",
+      "text": "Given the Event Coordinator changes an equipment requirement that already has a reservation, when the change is saved, then the requirement goes back to Technical Support Staff as Requested, showing the quantity already reserved, for them to review again; the reservation is not changed automatically and is not flagged."
+    },
+    {
+      "id": "AC8",
+      "text": "A released reservation remains on the event record and is distinguishable from an active reservation."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-69-TC01",
+      "title": "Technical Support releases a reservation after first cancelling, the line is marked Released, and its units become available to an overlapping event",
+      "linked_ac": ["AC1", "AC4", "AC5", "AC8"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Both events are on 13 Jun 2028 and use Wireless Presenter (4 in stock):\n- SPM69 Release Rehearsal: 3 requested, 3 reserved (Status 'Reserved')\n- SPM69 Overlap Seminar: 3 requested, nothing reserved\nData: run `npm run fixtures:spm69` first. Go straight on to SPM-69-TC02, and run the script again after it.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM69 Overlap Seminar event",
+        "Click 'Equipment Requests' in the breadcrumb",
+        "Open the equipment request for the SPM69 Release Rehearsal event",
+        "On the Wireless Presenter line, click 'Release'",
+        "In the dialog, click 'Cancel'",
+        "On the Wireless Presenter line, click 'Release' again",
+        "In the dialog, click 'Release'",
+        "Click 'Equipment Requests' in the breadcrumb",
+        "Open the equipment request for the SPM69 Overlap Seminar event"
+      ],
+      "test_data": "Released: SPM69 Release Rehearsal, Wireless Presenter (3 reserved)\nOverlapping event: SPM69 Overlap Seminar, Wireless Presenter (3 requested)",
+      "expected_result": "Step 2: The Wireless Presenter line reads '4 total − 0 out of service − 3 reserved elsewhere = 1 available for these dates' and '3 requested, 1 available.' Its Availability chip shows 'Partial'.\nStep 4: The Wireless Presenter line shows Requested 3, Reserved 3 and Status 'Reserved', with 'Adjust' and 'Release' buttons and no 'Reserve' button.\nStep 5: A dialog 'Release this reservation?' appears, saying 'This frees the 3 Wireless Presenter reserved for SPM69 Release Rehearsal for other events. The event's Coordinator is told.'\nStep 6: The dialog closes. The line still shows Reserved 3 and Status 'Reserved'.\nStep 8: The dialog closes and 'Reservation released.' appears on the line. Its Status chip shows 'Released', the Reserved column shows '—', and the line says 'Released — 3 were reserved.' 'Adjust' and 'Release' are no longer offered; 'Reserve' is.\nStep 10: The Wireless Presenter line now reads '4 total − 0 out of service − 0 reserved elsewhere = 4 available for these dates' and its Availability chip shows 'Available'."
+    },
+    {
+      "id": "SPM-69-TC02",
+      "title": "The assigned Coordinator is notified of the release, and the released reservation stays on the event's Equipment tab marked Released",
+      "linked_ac": ["AC6", "AC8"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-69-TC01 has just been run (the Wireless Presenter reservation of SPM69 Release Rehearsal was released). Daniel Tan is the event's assigned Coordinator.\nData: run `npm run fixtures:spm69` after this case.",
+      "steps": [
+        "Click 'Log out'",
+        "Log in as the Event Coordinator (daniel.tan@connectsphere.com, password123)",
+        "Click 'Notifications' in the sidebar",
+        "Click the 'Equipment reservation released' notification"
+      ],
+      "test_data": "Coordinator: daniel.tan@connectsphere.com\nEvent: SPM69 Release Rehearsal",
+      "expected_result": "Step 3: The list shows an unread notification 'Equipment reservation released' reading 'Technical Support released the 3 Wireless Presenter reserved for SPM69 Release Rehearsal.'\nStep 4: The Equipment tab of SPM69 Release Rehearsal opens. The Wireless Presenter row is still listed, with the status 'Released' and '3 released' beside it (not '3 reserved')."
+    },
+    {
+      "id": "SPM-69-TC03",
+      "title": "Technical Support reduces a reservation, the line becomes Partially fulfilled, the freed units show as available to an overlapping event, and the Coordinator is notified",
+      "linked_ac": ["AC2", "AC4", "AC5", "AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Both events are on 20 Jun 2028 and use Confidence Monitor (4 in stock):\n- SPM69 Reduce Workshop: 4 requested, 4 reserved (Status 'Reserved')\n- SPM69 Neighbour Briefing: 2 requested, nothing reserved\nData: run `npm run fixtures:spm69` before and after this case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM69 Neighbour Briefing event",
+        "Click 'Equipment Requests' in the breadcrumb",
+        "Open the equipment request for the SPM69 Reduce Workshop event",
+        "On the Confidence Monitor line, click 'Adjust'",
+        "In 'Reserved quantity', enter 2",
+        "Click 'Save'",
+        "Click 'Equipment Requests' in the breadcrumb",
+        "Open the equipment request for the SPM69 Neighbour Briefing event",
+        "Click 'Log out'",
+        "Log in as the Event Coordinator (daniel.tan@connectsphere.com, password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM69 Reduce Workshop\nReserved quantity: 4 -> 2",
+      "expected_result": "Step 2: The Confidence Monitor line reads '4 total − 0 out of service − 4 reserved elsewhere = 0 available for these dates' and 'Held by SPM69 Reduce Workshop (4 units) until 21 Jun.' Its Availability chip shows 'None available'.\nStep 5: A form opens on the line with a 'Reserved quantity' field showing 4, and 'Save' and 'Cancel' buttons.\nStep 7: The form closes and 'Reservation changed: 2 reserved.' appears on the line. Reserved shows 2 and the Status chip shows 'Partially fulfilled'.\nStep 9: The Confidence Monitor line now reads '4 total − 0 out of service − 2 reserved elsewhere = 2 available for these dates' and its Availability chip shows 'Available'.\nStep 12: The list shows an unread notification 'Equipment reservation changed' reading 'Technical Support changed the Confidence Monitor reserved for SPM69 Reduce Workshop from 4 to 2.'"
+    },
+    {
+      "id": "SPM-69-TC04",
+      "title": "An increase to one more unit than is available for the event's dates is refused and nothing is saved",
+      "linked_ac": ["AC3"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Both events are on 27 Jun 2028 and use Wireless Presenter (4 in stock):\n- SPM69 Increase Forum: 4 requested, 2 reserved (Status 'Partially fulfilled')\n- SPM69 Rival Launch: 1 reserved\nSo 3 are available to SPM69 Increase Forum (its own 2 are not counted against it).\nData: run `npm run fixtures:spm69` first. This case changes nothing.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM69 Increase Forum event",
+        "On the Wireless Presenter line, click 'Adjust'",
+        "In 'Reserved quantity', enter 4",
+        "Click 'Save'",
+        "Refresh the page"
+      ],
+      "test_data": "Event: SPM69 Increase Forum\nAvailable: 3\nReserved quantity: 2 -> 4 (one more than available)",
+      "expected_result": "Step 2: The Wireless Presenter line reads '4 total − 0 out of service − 1 reserved elsewhere = 3 available for these dates', with Requested 4, Reserved 2 and Status 'Partially fulfilled'.\nStep 5: 'Only 3 available for this event's dates.' appears under 'Reserved quantity'. The form stays open.\nStep 6: The line still shows Reserved 2 and Status 'Partially fulfilled'."
+    },
+    {
+      "id": "SPM-69-TC05",
+      "title": "The Adjust form refuses more than was requested, zero, and the quantity already reserved, and Cancel saves nothing",
+      "linked_ac": ["AC2", "AC3"],
+      "type": "Negative",
+      "source": "Code",
+      "preconditions": "SPM69 Increase Forum's Wireless Presenter line: 4 requested, 2 reserved, 3 available (see SPM-69-TC04).\nData: run `npm run fixtures:spm69` first. This case changes nothing.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM69 Increase Forum event",
+        "On the Wireless Presenter line, click 'Adjust'",
+        "In 'Reserved quantity', enter 5",
+        "Click 'Save'",
+        "In 'Reserved quantity', enter 0",
+        "Click 'Save'",
+        "In 'Reserved quantity', enter 2",
+        "Click 'Save'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Reserved quantity: 5 (more than the 4 requested), 0, 2 (unchanged)",
+      "expected_result": "Step 5: 'The event requested 4 — a reservation cannot be more than that.' appears under 'Reserved quantity'.\nStep 7: 'Enter a whole number of at least 1. To free all of it, use Release.' appears under 'Reserved quantity'.\nStep 9: 'That is already the reserved quantity.' appears under 'Reserved quantity'.\nStep 10: The form closes. The line still shows Reserved 2 and Status 'Partially fulfilled', with no confirmation message."
+    },
+    {
+      "id": "SPM-69-TC06",
+      "title": "Technical Support increases a reservation to exactly what is available, and the Coordinator is notified",
+      "linked_ac": ["AC3", "AC5", "AC6"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM69 Increase Forum's Wireless Presenter line: 4 requested, 2 reserved, 3 available (see SPM-69-TC04).\nData: run `npm run fixtures:spm69` before and after this case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM69 Increase Forum event",
+        "On the Wireless Presenter line, click 'Adjust'",
+        "In 'Reserved quantity', enter 3",
+        "Click 'Save'",
+        "Click 'Log out'",
+        "Log in as the Event Coordinator (daniel.tan@connectsphere.com, password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM69 Increase Forum\nReserved quantity: 2 -> 3 (exactly what is available)",
+      "expected_result": "Step 5: The form closes and 'Reservation changed: 3 reserved.' appears on the line. Reserved shows 3 and the Status chip stays 'Partially fulfilled' (3 of the 4 requested). The line still reads '4 total − 0 out of service − 1 reserved elsewhere = 3 available for these dates'.\nStep 8: The list shows an unread notification 'Equipment reservation changed' reading 'Technical Support changed the Wireless Presenter reserved for SPM69 Increase Forum from 2 to 3.'"
+    },
+    {
+      "id": "SPM-69-TC07",
+      "title": "A Coordinator's change to a reserved requirement sends it back to Technical Support as Requested, still showing what is reserved, without flagging it",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM69 Coordinator Change Expo (4 Jul 2028, Planning) has one line: Confidence Monitor, 2 requested, 2 reserved (Status 'Reserved'), technical requirements 'HDMI from the lectern'. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm69` first. Go straight on to SPM-69-TC08, and run the script again after it.\nLogged out.",
+      "steps": [
+        "Log in as the Event Coordinator (daniel.tan@connectsphere.com, password123)",
+        "Click 'All Events' in the sidebar",
+        "Open the SPM69 Coordinator Change Expo event",
+        "Click the 'Equipment' tab",
+        "On the Confidence Monitor row, change 'Quantity' to 3",
+        "Click 'Save'",
+        "Click 'Flagged Arrangements' in the sidebar",
+        "Click 'Log out'",
+        "Log in as Technical Support Staff (vikram.nair@connectsphere.com, password123)",
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM69 Coordinator Change Expo event"
+      ],
+      "test_data": "Event: SPM69 Coordinator Change Expo\nQuantity: 2 -> 3",
+      "expected_result": "Step 4: The Confidence Monitor row shows the status 'Reserved' and '2 reserved'.\nStep 6: The row now shows the status 'Requested' and still '2 reserved'.\nStep 7: SPM69 Coordinator Change Expo is not listed.\nStep 11: The Confidence Monitor line shows Requested 3, Reserved 2 and Status 'Requested', with 'The Coordinator changed this requirement — 2 still reserved. Review it again.' and 'Technical requirements: HDMI from the lectern'. 'Adjust', 'Release' and 'Reserve' are offered."
+    },
+    {
+      "id": "SPM-69-TC08",
+      "title": "Technical Support reviews a sent-back requirement and adjusts the reservation to the new quantity, marking it Reserved again",
+      "linked_ac": ["AC7", "AC3", "AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-69-TC07 has just been run (SPM69 Coordinator Change Expo's Confidence Monitor line is back with Technical Support: 3 requested, 2 reserved, Status 'Requested'), and the tester is on its Equipment request page as Technical Support Staff.\nData: run `npm run fixtures:spm69` after this case.",
+      "steps": [
+        "On the Confidence Monitor line, click 'Adjust'",
+        "In 'Reserved quantity', enter 3",
+        "Click 'Save'"
+      ],
+      "test_data": "Reserved quantity: 2 -> 3 (the Coordinator's new quantity)",
+      "expected_result": "Step 1: A form opens with 'Reserved quantity' showing 2.\nStep 3: The form closes and 'Reservation changed: 3 reserved.' appears on the line. Reserved shows 3, the Status chip shows 'Reserved', and 'The Coordinator changed this requirement' is no longer shown."
+    },
+    {
+      "id": "SPM-69-TC09",
+      "title": "Adjust and Release are not offered on a line with nothing reserved, nor on a confirmed event",
+      "linked_ac": ["AC1", "AC2", "AC3"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM69 Overlap Seminar's Wireless Presenter line has nothing reserved (Status 'Requested'). SPM69 Confirmed Gala (11 Jul 2028, Confirmed) has 1 Mobile Charging Cart reserved.\nData: run `npm run fixtures:spm69` first. This case changes nothing.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM69 Overlap Seminar event",
+        "Click 'Equipment Requests' in the breadcrumb",
+        "Open the equipment request for the SPM69 Confirmed Gala event"
+      ],
+      "test_data": "Events: SPM69 Overlap Seminar (nothing reserved), SPM69 Confirmed Gala (Confirmed)",
+      "expected_result": "Step 2: The Wireless Presenter line shows Reserved '—' and Status 'Requested'. 'Reserve' and 'Update' are offered; 'Adjust' and 'Release' are not.\nStep 4: The page says 'This event is confirmed — its equipment is final. A change now goes through a change request.' The Mobile Charging Cart line shows Reserved 1 and Status 'Reserved', with no 'Adjust', 'Release', 'Reserve' or 'Update' button."
+    },
+    {
+      "id": "SPM-69-TC10",
+      "title": "The Event Coordinator cannot release or adjust a reservation, even by typing the Equipment request page's address",
+      "linked_ac": ["AC1", "AC2", "AC3"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM69 Release Rehearsal has 3 Wireless Presenter reserved. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm69` first. This case changes nothing.\nLogged out.",
+      "steps": [
+        "Log in as the Event Coordinator (daniel.tan@connectsphere.com, password123)",
+        "Click 'All Events' in the sidebar",
+        "Open the SPM69 Release Rehearsal event",
+        "Note the event reference shown beside the event title (EVT- followed by six digits)",
+        "Click the 'Equipment' tab",
+        "Type /equipment/requests/<reference from step 4> after the site address in the browser address bar (e.g. http://localhost:3000/equipment/requests/<reference>) and press Enter"
+      ],
+      "test_data": "Coordinator: daniel.tan@connectsphere.com\nEvent: SPM69 Release Rehearsal",
+      "expected_result": "Step 5: The Wireless Presenter row shows the status 'Reserved' and '3 reserved'. The only controls are 'Quantity', 'Technical requirements' and 'Remove'; there is no 'Adjust' or 'Release'.\nStep 6: The Equipment request page shows 'Equipment availability is for Technical Support Staff.' and 'Only Technical Support Staff can check equipment availability.' No lines are listed, and there is no 'Adjust' or 'Release' button."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-22 (kchoongg) - a reservation can never be more than the quantity the Coordinator requested (TC05). Technical Support matches the requirement; to need more, the Coordinator changes it first (AC7). Not in the story's wording.",
+    "DECIDED 2026-10-22 (kchoongg) - releasing and adjusting are allowed only while the event is in Planning, the same window as Reserve (SPM-49) and Update (SPM-50). On a Confirmed event the equipment is final and a change goes through a change request (TC09).",
+    "DECIDED 2026-10-22 (kchoongg) - a released line keeps its quantity as the record of what it held ('Released — 3 were reserved.' on the Equipment request page, '3 released' on the Coordinator's Equipment tab) and holds no stock. Reserve is offered on it again, so the reservation can be made again if the event needs it after all (TC01).",
+    "DECIDED 2026-10-22 (kchoongg) - a requirement sent back by the Coordinator (AC7) keeps its reserved units counted against availability until Technical Support acts on it: adjusts, releases, reserves again, or marks it 'Cannot be provided'. That is how 'the reservation is not changed automatically' is built.",
+    "DECIDED 2026-10-22 (kchoongg) - screen wording, chosen to match the Reserve and Update panels: buttons 'Adjust' and 'Release'; field 'Reserved quantity'; dialog 'Release this reservation?'; confirmations 'Reservation changed: N reserved.' and 'Reservation released.'; refusals 'Only N available for this event's dates.', 'The event requested N — a reservation cannot be more than that.', 'Enter a whole number of at least 1. To free all of it, use Release.', 'That is already the reserved quantity.'; notifications 'Equipment reservation released' / 'Equipment reservation changed'; AC7 note 'The Coordinator changed this requirement — N still reserved. Review it again.'",
+    "OPEN - a released line still counts as an outstanding equipment arrangement when the Coordinator confirms the event or submits it for a safety check (only 'cancelled' lines are skipped in src/lib/eventConfirmation.ts and safetyCheck.ts). So after a release, the Coordinator must remove the requirement or mark it not required before confirming. This seems right, since the requirement is no longer met, but the team should confirm it.",
+    "OPEN - recording units out of service (SPM-55) flags only Reserved and Partially fulfilled lines whose reservation is now short. A line sent back to Technical Support (AC7) that still holds units is not flagged. Technical Support is reviewing that line anyway, so this was left as it is.",
+    "OPEN - no notification goes to Technical Support when a requirement comes back as Requested (AC7). The story only says it goes back to them; it shows on their Equipment request page with the note above."
+  ],
+  "code_references": [
+    "src/app/api/events/[id]/equipment/[requestId]/reservation/route.ts",
+    "src/lib/equipmentReservation.ts",
+    "src/lib/equipmentAvailability.ts",
+    "src/lib/equipmentAvailabilityService.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/route.ts",
+    "src/app/equipment/requests/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/lib/notificationView.ts",
+    "src/lib/notifications.ts",
+    "src/lib/validation/equipment.ts",
+    "src/lib/equipmentFulfilment.ts",
+    "src/lib/eventConfirmation.ts",
+    "src/lib/statuses.ts",
+    "src/lib/roles.ts",
+    "src/app/notifications/page.tsx",
+    "src/app/login/page.tsx",
+    "scripts/seed-spm69.ts",
+    "prisma/seed.ts"
+  ]
+}

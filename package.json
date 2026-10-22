@@ -55,7 +55,8 @@
     "fixtures:spm65": "tsx scripts/seed-spm65.ts",
     "fixtures:spm80": "tsx scripts/seed-spm80.ts",
     "fixtures:spm35": "tsx scripts/seed-spm35.ts",
-    "fixtures:spm29": "tsx scripts/seed-spm29.ts"
+    "fixtures:spm29": "tsx scripts/seed-spm29.ts",
+    "fixtures:spm69": "tsx scripts/seed-spm69.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
