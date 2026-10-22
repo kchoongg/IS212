@@ -1055,6 +1055,14 @@ what changed, why, and the migration name if there is one.
     AC5 (the organiser sees Withdrawn), which had none.
   - **Test data:** `npm run fixtures:spm59`;
     `docs/test-cases/SPM-59_Test_Cases.xlsx` (6 cases). No schema change.
+- **Build: the title font is now in the repo** (no story; CI fix in the same
+  PR). Source Serif 4 was loaded through `next/font/google`, so every
+  `npm run build` downloaded it from Google, and a failed download failed the
+  build (Build on PR #73, End-to-end on PR #80). Its two weights (600, 700,
+  Latin) are now in `src/app/fonts/` with their SIL Open Font License and
+  loaded with `next/font/local`, like Geist. Looks the same; no build needs
+  Google any more.
+
 ### 2026-10-21 — Kristen (SPM-80, Re-check Bookings When Setup or Turnaround Time Changes)
 - **Changing a venue's setup or turnaround time re-checks its bookings.**
   `PATCH /api/venues/[id]` re-checks the venue's pending and approved bookings
