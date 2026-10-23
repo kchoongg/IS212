@@ -68,30 +68,6 @@ export function formatDateTimeRange(start: DateInput, end: DateInput): string {
     : `${formatDateTime(from)} – ${formatDateTime(to)}`;
 }
 
-/// "3h 30m". Returns EMPTY rather than a negative duration for an end that
-/// precedes its start — the validation layer catches that case, and a screen
-/// should not render "-2h" while it does.
-export function formatDuration(start: DateInput, end: DateInput): string {
-  const from = toDate(start);
-  const to = toDate(end);
-  if (!from || !to) return EMPTY;
-
-  const minutes = Math.round((to.getTime() - from.getTime()) / 60000);
-  if (minutes <= 0) return EMPTY;
-
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours === 0) return `${rest}m`;
-  if (rest === 0) return `${hours}h`;
-  return `${hours}h ${rest}m`;
-}
-
-/// "120 / 250"
-export function formatCapacity(used: number | null | undefined, total: number | null | undefined): string {
-  if (used == null || total == null) return EMPTY;
-  return `${used} / ${total}`;
-}
-
 /// "Marina Grand Hall (MAR-GH)" — the code is what staff say aloud.
 export function formatVenue(name: string | null | undefined, code?: string | null): string {
   if (!name) return EMPTY;

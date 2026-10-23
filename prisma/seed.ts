@@ -2133,6 +2133,28 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-26 QA fixtures (Respond to Clarification Request). The SAME events
+  // as scripts/seed-spm26.ts (`npm run fixtures:spm26`) - keep the two in
+  // step.
+  //
+  // The events only. Their clarifications - open on the Advisory Briefing,
+  // answered on the Answered Workshop, with the dates SPM-26's cases quote -
+  // are created by that script alone, so run it once after a full reseed.
+  // Pushed LAST, after SPM-80, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm26 = (key: string, title: string, date: string): EventSeed => ({
+    key, title, status: "under_review", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "Quarterly briefing for Meridian's wealth advisers", category: "conference",
+    description: "Half-day session followed by networking.",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 80, layout: "theatre",
+  });
+  eventData.push(
+    spm26("spm26_briefing", "SPM26 Meridian Advisory Briefing", "2028-05-04"),
+    spm26("spm26_answered", "SPM26 Meridian Answered Workshop", "2028-05-11"),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-36 QA fixtures (Mark Event as Completed). The SAME events as
   // scripts/seed-spm36.ts (`npm run fixtures:spm36`) - keep the two in step.
   //
@@ -2141,7 +2163,7 @@ async function main() {
   // after a full reseed.
   // SPM36 Harbour Awards Night ended YESTERDAY, counted from when the seed
   // runs, not from SEED_ANCHOR: over (AC1) but not yet 7 days over (AC6). The
-  // other dates are fixed. Pushed LAST, after SPM-80, so no earlier event's
+  // other dates are fixed. Pushed LAST, after SPM-26, so no earlier event's
   // EVT- reference number shifts. Add new events AFTER this block.
   // -----------------------------------------------------------------
   const spm36Yesterday = new Date(Date.now() + SGT_OFFSET_HOURS * 3_600_000 - 86_400_000).toISOString().slice(0, 10);
