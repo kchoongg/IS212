@@ -637,6 +637,16 @@ export function canSeeClarification(actor: Actor, event: EventAccessFields): boo
   return actor.role === "organiser" && canViewEvent(actor, event);
 }
 
+/// SPM-26: the organiser who raised the request answers a clarification by
+/// updating and resubmitting it, while it is Under review - the same person
+/// who could edit it as a draft (SPM-24); colleagues at the client only see
+/// it (decided 2026-10-21). That a clarification is open is checked
+/// separately, so a refusal can say which rule was broken.
+export function canRespondToClarification(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "event:edit_draft")) return false;
+  return ownsEvent(actor, event) && REVIEWABLE_STATUSES.includes(event.status);
+}
+
 // ---------------------------------------------------------------------------
 // BEGIN PLANNING (SPM-54)
 // ---------------------------------------------------------------------------

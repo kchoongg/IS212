@@ -8,6 +8,7 @@ import {
   REVIEW_OUTCOMES,
   can,
   canEditEventContent,
+  canRespondToClarification,
   canSeeClarification,
   canSetEventStatus,
   canViewChangeRequests,
@@ -16,7 +17,12 @@ import {
   visibleEventFor,
   type Actor,
 } from "@/lib/permissions";
-import { decodeFields } from "@/lib/clarification";
+import {
+  CLARIFICATION_NONE_OPEN,
+  CLARIFICATION_NO_LONGER_UNDER_REVIEW,
+  CLARIFICATION_RESPOND_FORBIDDEN,
+  decodeFields,
+} from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import {
@@ -324,6 +330,10 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     }
     return await handleDraftEdit(event.id, actor, event, body);
   } catch (err) {
+    // SPM-26: the resubmit's own refusals, decided under the row lock.
+    if (err instanceof ResubmitRefused) {
+      return NextResponse.json({ error: err.message }, { status: 400 });
+    }
     if (err instanceof ZodError) {
       return NextResponse.json({ error: "Validation failed", details: err.flatten() }, { status: 400 });
     }
@@ -381,26 +391,7 @@ async function handleStatusChange(
   // The SQL design enforced this with a CHECK constraint; Prisma has no
   // equivalent, so the rule moves here - the one place status leaves draft.
   if (event.status === "draft" && data.status !== "draft") {
-    const missing: string[] = [];
-    if (!event.title) missing.push("title");
-    if (!event.category) missing.push("category");
-    if (!event.startsAt) missing.push("startsAt");
-    if (!event.endsAt) missing.push("endsAt");
-    if (event.expectedAttendance == null) missing.push("expectedAttendance");
-
-    // A multi-session event's own attendance is derived from its sessions (the
-    // largest one), so it is non-null as soon as ANY session has a figure -
-    // which would let a session with none through. Each session has to be
-    // complete in its own right ("each with its own ... expected attendance").
-    const sessions = await prisma.eventSession.findMany({
-      where: { eventId: id },
-      orderBy: { startsAt: "asc" },
-      select: { expectedAttendance: true },
-    });
-    sessions.forEach((session, i) => {
-      if (session.expectedAttendance == null) missing.push(`session ${i + 1} expectedAttendance`);
-    });
-
+    const missing = missingSubmissionFields(event, await savedSessions(id));
     if (missing.length > 0) {
       return NextResponse.json(
         { error: `Cannot submit an incomplete event. Missing: ${missing.join(", ")}` },
@@ -485,6 +476,16 @@ async function handleStatusChange(
       await releaseForCancellation(tx, e, actor, cancellationReason);
     }
 
+    // SPM-26: once the review is over, nobody will answer an open
+    // clarification, so it is closed (not answered - no response is set).
+    // That includes an Under review event being cancelled (SPM-37).
+    if (REVIEWABLE_STATUSES.includes(event.status)) {
+      await tx.clarificationRequest.updateMany({
+        where: { eventId: id, status: "open" },
+        data: { status: "closed" },
+      });
+    }
+
     // SPM-25 AC: "the relevant users receive a notification that the request
     // has been submitted". No coordinator is assigned yet at this point in
     // the process (that's Step 3, the Ops Manager's job - see
@@ -504,6 +505,10 @@ async function handleStatusChange(
 
   return NextResponse.json(updated);
 }
+
+/// A refusal decided inside the resubmit's transaction (SPM-26), turned into
+/// a 400 outside it.
+class ResubmitRefused extends Error {}
 
 /**
  * SPM-37: what a cancellation lets go, in the status change's transaction
@@ -589,6 +594,12 @@ async function releaseForCancellation(
  * organiser and to drafts - AC "a draft is not treated as a submitted event
  * request" means this must not become a back door for editing a request
  * that has already left the organiser's hands.
+ *
+ * SPM-26: the one exception - while a request is Under review with an open
+ * clarification, the organiser who raised it answers by changing any field a
+ * draft can have and resubmitting, here, in one request. The changes and the
+ * clarification marked answered are written together; the status and its
+ * history are not (the event stays Under review).
  */
 async function handleDraftEdit(
   id: string,
@@ -599,11 +610,22 @@ async function handleDraftEdit(
   // Only the owning organiser edits a draft's content. A draft belonging to
   // someone else was already hidden as a 404 by the caller, so the remaining
   // refusals are honest: the wrong role, or an event that has left draft.
-  if (event.status !== "draft") {
+  const responding = REVIEWABLE_STATUSES.includes(event.status);
+  if (event.status !== "draft" && !responding) {
     return NextResponse.json({ error: "Only draft requests can be edited" }, { status: 400 });
   }
-  if (!canEditEventContent(actor, event)) {
+  if (responding && !canRespondToClarification(actor, event)) {
+    return forbidden(CLARIFICATION_RESPOND_FORBIDDEN);
+  }
+  if (!responding && !canEditEventContent(actor, event)) {
     return forbidden("Only the organiser who owns this draft can edit it");
+  }
+  // Before the form: nothing to answer is said so, not "fix this field".
+  const openClarification = responding
+    ? await prisma.clarificationRequest.findFirst({ where: { eventId: id, status: "open" }, select: { id: true } })
+    : null;
+  if (responding && !openClarification) {
+    return NextResponse.json({ error: CLARIFICATION_NONE_OPEN }, { status: 400 });
   }
 
   const data = updateEventDraftSchema.parse(body);
@@ -675,10 +697,50 @@ async function handleDraftEdit(
     );
   }
 
+  // SPM-26: a request past draft stays as complete as submitting required.
+  if (responding) {
+    const missing = missingSubmissionFields(
+      {
+        title: data.title ?? event.title,
+        category: data.category ?? event.category,
+        startsAt,
+        endsAt,
+        expectedAttendance: derived
+          ? (derived.expectedAttendance ?? null)
+          : data.expectedAttendance !== undefined
+            ? data.expectedAttendance
+            : event.expectedAttendance,
+      },
+      data.sessions ?? (await savedSessions(id))
+    );
+    if (missing.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot resubmit an incomplete request. Missing: ${missing.join(", ")}` },
+        { status: 400 }
+      );
+    }
+  }
+
   // Equipment is held wider than the event, same as on create.
   const equipmentTimes = startsAt && endsAt ? equipmentWindow(startsAt, endsAt) : null;
 
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    // SPM-26: the coordinator may approve, reject or withdraw the request at
+    // the same moment, so its status is read again under a row lock, and the
+    // clarification is answered only if it is still open (a second tab, a
+    // double click) - before anything else is written.
+    if (responding) {
+      const [locked] = await tx.$queryRaw<{ status: string }[]>`SELECT status FROM events WHERE id = ${id} FOR UPDATE`;
+      if (!locked || !REVIEWABLE_STATUSES.includes(locked.status)) {
+        throw new ResubmitRefused(CLARIFICATION_NO_LONGER_UNDER_REVIEW);
+      }
+      const answered = await tx.clarificationRequest.updateMany({
+        where: { id: openClarification!.id, status: "open" },
+        data: { status: "answered", respondedAt: new Date() },
+      });
+      if (answered.count === 0) throw new ResubmitRefused(CLARIFICATION_NONE_OPEN);
+    }
+
     // A field that's being replaced is cleared first and rebuilt from the
     // payload below - simpler than diffing rows against what's already there.
     if (data.facilityIds !== undefined) {
@@ -757,6 +819,44 @@ async function handleDraftEdit(
   });
 
   return NextResponse.json(updated);
+}
+
+/// What a request past draft must have and this one lacks - checked when a
+/// draft is submitted, and (SPM-26) when an organiser resubmits a request
+/// that is Under review, so neither can leave it incomplete.
+function missingSubmissionFields(
+  event: {
+    title: string | null;
+    category: string | null;
+    startsAt: Date | null;
+    endsAt: Date | null;
+    expectedAttendance: number | null;
+  },
+  sessions: { expectedAttendance?: number | null }[]
+): string[] {
+  const missing: string[] = [];
+  if (!event.title) missing.push("title");
+  if (!event.category) missing.push("category");
+  if (!event.startsAt) missing.push("startsAt");
+  if (!event.endsAt) missing.push("endsAt");
+  if (event.expectedAttendance == null) missing.push("expectedAttendance");
+
+  // A multi-session event's own attendance is derived from its sessions (the
+  // largest one), so it is non-null as soon as ANY session has a figure -
+  // which would let a session with none through. Each session has to be
+  // complete in its own right ("each with its own ... expected attendance").
+  sessions.forEach((session, i) => {
+    if (session.expectedAttendance == null) missing.push(`session ${i + 1} expectedAttendance`);
+  });
+  return missing;
+}
+
+function savedSessions(eventId: string) {
+  return prisma.eventSession.findMany({
+    where: { eventId },
+    orderBy: { startsAt: "asc" },
+    select: { expectedAttendance: true },
+  });
 }
 
 /// The event's open clarification as the pages show it, or null - none is

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   Button,
@@ -47,6 +47,7 @@ import {
   canFlagForSafetyReview,
   canRecordSafetyDecision,
   canRequestEventChange,
+  canRespondToClarification,
   canReviewEvent,
   canSubmitForSafetyCheck,
   canUpdateEventInformation,
@@ -221,7 +222,19 @@ function venueSummary(bookings: NonNullable<EventDetail["venueBookings"]>): stri
 }
 
 export default function EventOverviewPage() {
+  return (
+    // useSearchParams needs a Suspense boundary above it.
+    <Suspense fallback={null}>
+      <EventOverview />
+    </Suspense>
+  );
+}
+
+function EventOverview() {
   const router = useRouter();
+  // SPM-26: the Update request page brings the organiser back with
+  // ?resubmitted=1 once their answer is saved.
+  const resubmitted = useSearchParams().get("resubmitted") === "1";
   const params = useParams<{ id: string }>();
   const eventId = params.id;
   const { user, state } = useCurrentUser();
@@ -489,6 +502,25 @@ export default function EventOverviewPage() {
       setFlagOpen(false);
     }
   }
+
+  // SPM-26: the organiser who raised the request answers the clarification -
+  // the PATCH route's own rule, so the link is never shown only to be refused.
+  const showRespond = Boolean(
+    user &&
+    event?.openClarification &&
+    event.organiserId !== undefined &&
+    canRespondToClarification(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        // v8 ignore next -- the API always sends it to an organiser; `?? null` only satisfies the type
+        organisationId: event.organisationId ?? null,
+        // v8 ignore next -- as above
+        coordinatorId: event.coordinatorId ?? null,
+        status: event.status,
+      }
+    )
+  );
 
   // Same fields and checks as the PATCH route, so the button only appears
   // when withdrawing would succeed.
@@ -768,6 +800,12 @@ export default function EventOverviewPage() {
       ) : (
         <div className="flex flex-col gap-6">
           {notice && <Alert variant="success">{notice}</Alert>}
+          {resubmitted && !event.openClarification && (
+            <Alert variant="success">
+              Your updated request has been sent to {event.coordinator?.fullName ?? "your coordinator"}. It stays{" "}
+              {statusLabel(event.status)}.
+            </Alert>
+          )}
           {actionError && <Alert variant="error">{actionError}</Alert>}
 
           {/* SPM-28: the decision and its reason stay on the event record, and
@@ -791,7 +829,17 @@ export default function EventOverviewPage() {
               API sends it only to the organiser and the assigned coordinator,
               so it is shown whenever it is here. */}
           {event.openClarification && (
-            <Alert variant="warning" title="Clarification requested">
+            <Alert
+              variant="warning"
+              title="Clarification requested"
+              action={
+                showRespond ? (
+                  <ButtonLink href={`/events/${eventId}/edit`} size="sm">
+                    Update request
+                  </ButtonLink>
+                ) : undefined
+              }
+            >
               <ClarificationDetails clarification={event.openClarification} />
             </Alert>
           )}

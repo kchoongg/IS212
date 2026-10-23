@@ -86,8 +86,8 @@ cite.
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
 | S-07 | My events | `/events` | All my events; drafts visibly separated from submitted. |
-| S-08 | Event request form | `/events/new`, `/events/[id]/edit` | Create/edit a request. Save draft or submit. |
-| S-09 | Clarification response | `/events/[id]` → Discussion tab | Answer a coordinator's question. |
+| S-08 | Event request form | `/events/new`, `/events/[id]/edit` | Create/edit a request. Save draft or submit. Also **Update request** (SPM-26): the same form on a request Under review with an open clarification, for the organiser who raised it - see §6.2. |
+| S-09 | Clarification response | `/events/[id]` → Discussion tab | Answer a coordinator's question. Built differently (SPM-26): the clarification is an amber **Clarification requested** banner on S-06 with an **Update request** link (the organiser who raised the request only), and the answer is S-08's Update request mode. The Discussion tab is not built. |
 | S-10 | Change request form | `/events/[id]/change-request` | Built (SPM-35): "Request a change", from the event header's **Request a change** (the organiser who owns the event, while it is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed). "What do you need?" - **Change the event's details** (Edit event information's fields, filled in, plus **Equipment changes**), **Postpone the event** or **Cancel the event** ("Your coordinator decides whether to … the event. It stays <status> until then."). **Reason for the change** is required. **Send change request** shows "Change request sent to your coordinator." / "Nothing about the event changes until your coordinator processes the request." Anyone else, or another status: "You can't request a change to this event". The requests appear on the event's Overview in a **Change requests** card: kind, status, **Important** where it applies ("Affects existing arrangements: …"), who and when, the reason, a Field / Current / Proposed table and "Equipment: …". |
 | S-11 | Registration list (own event) | `/events/[id]/attendees` (Attendees tab) | Who registered for my event (SPM-65). Above the table: "3 of 3 places taken · 1 on the waiting list" (no limit when capacity isn't set). Columns Attendee (with "Added by <name>" for a manually added attendee), Contact (email, phone), Status (Registered, Waiting list, Withdrawn, Attended) and Registered (date, plus "Withdrew …"), oldest first. Re-reads every 15 seconds while in view. When registration is not enabled it says so instead of showing an empty list. Only the organiser who raised the event and the assigned coordinator: anyone else, including another organiser at the same client and a coordinator not assigned to the event, has no Attendees tab, and typing its address shows "Not authorised". |
 
@@ -291,7 +291,8 @@ only because managing it requires seeing it, not as a separate viewing right.
                                                |
                               coordinator asks clarification
                                                v
-                                   /events/[id] Discussion -> reply
+               /events/[id] "Update request" -> /events/[id]/edit -> resubmit
+                          (stays Under review; clarification answered)
                                                v
                                     notification: approved
                                                v
@@ -429,6 +430,8 @@ it is added to the list first.
   user came from. Long forms show the submit in a sticky footer.
 - **Draft-first.** Where a draft exists (S-08), the form has two submits: "Save
   draft" (no validation beyond title) and "Submit request" (full validation).
+  The exception is S-08's Update request mode (SPM-26), which has one:
+  "Resubmit request" (full validation, as Submit).
 
 ### 6.2 S-08 Event request form
 
@@ -468,6 +471,29 @@ session starts.
 Conditional fields (capacity, open/close dates) are hidden until the checkbox is
 ticked rather than disabled — a disabled field the user cannot explain is worse
 than no field.
+
+**Update request mode (SPM-26).** When the coordinator has asked for
+clarification (S-13), the event page's amber **Clarification requested** banner
+gives the organiser who raised the request an **Update request** link to
+`/events/[id]/edit`. The same form opens with:
+
+- title and breadcrumb **Update request**, and the **Under review** badge;
+- the clarification at the top, as on the event page (what needs clarifying, the
+  message, "Asked by <coordinator> on <date, time>");
+- every field above, filled in from the request - any of them can be changed,
+  not only the ones the coordinator named;
+- one **Resubmit request** button (busy: "Resubmitting…"), checked as Submit is,
+  and **Cancel** back to the event. No Save draft.
+
+Resubmitting saves the changes and marks the clarification answered in one step;
+the request stays Under review. The event page then says "Your updated request
+has been sent to <coordinator>. It stays Under review." and the banner is gone.
+Anyone else - including another organiser at the same client, who still sees the
+banner but no link - or a request with no open clarification gets "Could not
+open this request" with "Only the organiser who raised this request can update
+it." or "This request has no open clarification to answer, so it can't be
+changed here." A cleared Expected attendance or Preferred layout is saved as
+empty (on a draft too), and an empty required field is refused as on Submit.
 
 **Draft completeness.** A draft may be missing anything. Leaving draft may not:
 `PATCH /api/events/[id]` refuses a submission unless title, category, starts at,
@@ -600,7 +626,7 @@ Non-negotiable, and cheap when done from the start:
 | User Authorisation and Authentication | S-01, S-02, plus role-gated nav (§4.2) and tabs (§4.3) |
 | Event Request Creation | S-08 |
 | Draft Event Requests | S-07, S-08 |
-| Event Review and Approval | S-12, S-13 |
+| Event Review and Approval | S-12, S-13, S-08 Update request mode (answering a clarification) |
 | Coordinator Assignment | S-28 |
 | Event Status Management | S-06 (badge and History tab), §5.2 |
 | Event Information Management | S-08 edit mode, S-06 |
@@ -642,6 +668,7 @@ This document specifies the whole first release. What is built so far:
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |
 | S-08 Sessions section (multi-session events) | `src/components/SessionFields.tsx`, `src/lib/eventSessions.ts` |
+| S-08 Update request mode and S-06's "Update request" link: the organiser answers a clarification and resubmits (SPM-26) | `src/app/events/[id]/edit/page.tsx`, `src/app/events/[id]/page.tsx`, `src/app/api/events/[id]/route.ts` |
 | Facility and accessibility requirements as rows (§6.2) | `src/app/api/facilities/route.ts`, `createEventSchema.facilityIds` |
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |

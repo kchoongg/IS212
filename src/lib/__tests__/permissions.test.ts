@@ -15,6 +15,7 @@ import {
   canUpdateEventInformation,
   canReviewEvent,
   canRequestClarification,
+  canRespondToClarification,
   canSeeClarification,
   canCheckEquipmentAvailability,
   canReserveEquipment,
@@ -517,6 +518,37 @@ describe("canSeeClarification (SPM-29)", () => {
   ])("[SPM-29][AC3] hides it from %s", (_who, who) => {
     expect(canSeeClarification(who, assigned)).toBe(false);
   });
+});
+
+// SPM-26: the organiser who raised the request answers the clarification by
+// updating and resubmitting it, while it is Under review - the same person
+// who could edit it as a draft (SPM-24). Whether a clarification is open is
+// checked separately, so the refusal can say which rule was broken.
+describe("canRespondToClarification (SPM-26)", () => {
+  const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+
+  it("[SPM-26][AC2][AC3] lets the organiser who raised it respond", () => {
+    expect(canRespondToClarification(organiserA, underReview)).toBe(true);
+  });
+
+  it.each([
+    ["an organiser at the same client", colleagueA],
+    ["an organiser at another client", organiserB],
+    ["the assigned coordinator", coordinator],
+    ["the Ops Manager", opsManager],
+    ["Venue Staff", venueStaff],
+    ["Technical Support", techSupport],
+    ["an attendee", attendee],
+  ])("[SPM-26][AC2] stops %s", (_who, who) => {
+    expect(canRespondToClarification(who, underReview)).toBe(false);
+  });
+
+  it.each(["draft", "submitted", "approved", "planning", "rejected", "withdrawn"])(
+    "[SPM-26][AC4] stops the organiser once the event is %s",
+    (status) => {
+      expect(canRespondToClarification(organiserA, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  );
 });
 
 describe("canCheckEquipmentAvailability (SPM-48)", () => {
