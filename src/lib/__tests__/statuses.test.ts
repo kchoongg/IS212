@@ -153,6 +153,9 @@ describe("canTransition", () => {
     ["under_review", "approved"],
     ["under_review", "rejected"],
     ["under_review", "withdrawn"],
+    // SPM-37 (AC1): cancelled at any stage that has an assigned coordinator
+    // (#68; decided 2026-10-21, docs/test-cases/SPM-37_test_cases.json).
+    ["under_review", "cancelled"],
     ["approved", "planning"],
     ["approved", "cancelled"],
     ["planning", "confirmed"],
