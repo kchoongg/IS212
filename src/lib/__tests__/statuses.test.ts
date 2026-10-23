@@ -3,6 +3,7 @@ import {
   availabilityStatusKey,
   isBeforeApproval,
   canTransition,
+  CLOSED_EVENT_STATUSES_PHRASE,
   isTerminalEventStatus,
   statusLabel,
   statusTone,
@@ -26,6 +27,7 @@ const EVENT_STATUSES = [
   "postponed",
   "rejected",
   "cancelled",
+  "withdrawn",
 ];
 
 describe("statusLabel", () => {
@@ -181,7 +183,7 @@ describe("canTransition", () => {
   });
 
   it("[SPM-5][AC2] SPM-27-TC05: refuses every move that is not on the lifecycle", () => {
-    const statuses = [...EVENT_STATUSES, "withdrawn"];
+    const statuses = EVENT_STATUSES;
     for (const from of statuses) {
       for (const to of statuses) {
         const legal = LEGAL.some(([f, t]) => f === from && t === to);
@@ -203,7 +205,7 @@ describe("canTransition", () => {
 
   it("[SPM-5][AC2] SPM-27-TC05: nothing moves out of a final status, including to itself", () => {
     for (const from of ["completed", "rejected", "cancelled", "withdrawn"]) {
-      for (const to of [...EVENT_STATUSES, "withdrawn"]) {
+      for (const to of EVENT_STATUSES) {
         expect(canTransition(from, to), `${from} -> ${to}`).toBe(false);
       }
     }
@@ -306,3 +308,30 @@ describe("registration statuses on the registration list (SPM-65)", () => {
     expect(new Set(tones).size).toBe(4);
   });
 });
+
+describe("[SPM-59] a withdrawn request", () => {
+  it("[SPM-59][AC3] is labelled Withdrawn, unlike a Draft, Submitted, Approved or Rejected request", () => {
+    const labels = ["draft", "submitted", "approved", "rejected", "withdrawn"].map(statusLabel);
+
+    expect(statusLabel("withdrawn")).toBe("Withdrawn");
+    expect(new Set(labels).size).toBe(5);
+  });
+
+  it("[SPM-59][AC2] is reached from Under review only", () => {
+    for (const from of EVENT_STATUSES) {
+      expect(canTransition(from, "withdrawn"), from).toBe(from === "under_review");
+    }
+  });
+
+  it("[SPM-59][AC4] is named, with every other final status, in the messages that refuse a closed event", () => {
+    expect(CLOSED_EVENT_STATUSES_PHRASE).toBe("completed, cancelled, rejected or withdrawn");
+  });
+
+  it("[SPM-59][AC4] is final: it goes nowhere else", () => {
+    expect(isTerminalEventStatus("withdrawn")).toBe(true);
+    for (const to of EVENT_STATUSES) {
+      expect(canTransition("withdrawn", to), to).toBe(false);
+    }
+  });
+});
+

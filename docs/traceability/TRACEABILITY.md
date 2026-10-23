@@ -62,7 +62,7 @@ Column notes:
 | [SPM-56](https://kkchoong.atlassian.net/browse/SPM-56) | Check In Attendee | SPM-19 Attendee Registration |  | Backlog | 3 | Estimate: 3. Normal story with manual lookup: one screen and one action on a registration. If QR code scanning is included it is a 5, because scanning is new f… | 5 | 0/5 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Registrations API |  |  |  |  |  | To Do |  |
 | [SPM-57](https://kkchoong.atlassian.net/browse/SPM-57) | Manually Add Attendee | SPM-19 Attendee Registration |  | Sprint 4 | 2 | Estimate: 2. Small and well understood: one form on top of registration, with a capacity check. Like SPM-50 (2). | 5 | 0/5 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Registrations API |  |  |  |  |  | To Do | no coverage: AC1, AC2, AC3, AC4, AC5; no TC file |
 | [SPM-58](https://kkchoong.atlassian.net/browse/SPM-58) | Change Event Organiser | SPM-15 Event Information & Change Management |  | Backlog | 2 | Estimate: 2. Small and well understood: one action with a same-organisation rule. Like SPM-54 (2). | 6 | 0/6 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N, AC6 N |  |  |  |  | 0 unit, 0 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do |  |
-| [SPM-59](https://kkchoong.atlassian.net/browse/SPM-59) | Record Request Withdrawal | SPM-14 Event Review & Approval |  | Sprint 4 | 2 | Estimate: 2. Small and well understood: one action and a new Withdrawn status. Like SPM-54 (2). | 5 | 2/5 | AC1 A, AC2 A, AC3 N, AC4 N, AC5 N |  |  |  |  | 14 unit, 2 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC3, AC4, AC5; no TC file |
+| [SPM-59](https://kkchoong.atlassian.net/browse/SPM-59) | Record Request Withdrawal | SPM-14 Event Review & Approval |  | Sprint 4 | 2 | Estimate: 2. Small and well understood: one action and a new Withdrawn status. Like SPM-54 (2). | 5 | 2/5 | AC1 A, AC2 A, AC3 N, AC4 N, AC5 N | [xlsx](../test-cases/SPM-59_Test_Cases.xlsx) | 6 | 0 | 6 Pass (2026-10-22) | 24 unit, 6 route | 0 | 0 | Web Application › Events API |  |  |  |  |  | To Do | no coverage: AC3, AC4, AC5; no TC file |
 | [SPM-60](https://kkchoong.atlassian.net/browse/SPM-60) | Send Arrangement Reminders | SPM-20 Notification System |  | Backlog | 5 | Estimate: 5. Real unknown: reminders need timed, batched sending at a configurable interval, and the app is not hosted, so there is nowhere for a scheduled job… | 5 | 0/5 | AC1 N, AC2 N, AC3 N, AC4 N, AC5 N |  |  |  |  | 0 unit, 0 route | 0 | 0 |  |  |  |  |  |  | To Do |  |
 | [SPM-62](https://kkchoong.atlassian.net/browse/SPM-62) | Update Event Information | SPM-15 Event Information & Change Management |  | Sprint 3 | 5 | Estimate: 5. Big: touches event editing, venue bookings, equipment, registration and event status, with the rule for which changes count as important. Like SPM… | 7 | 7/7 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A | [xlsx](../test-cases/SPM-62_Test_Cases.xlsx) | 20 | 0 | 20 Pass (2026-10-07) | 82 unit, 48 route | 0 | 0 | Web Application › Events API | [#40](https://github.com/kchoongg/IS212/pull/40) 2026-10-07 | none recorded (merged by kayalvizhi24) | Merged by kayalvizhi24 | [run](https://github.com/kchoongg/IS212/actions/runs/37469825348) | [SPM-98](https://kkchoong.atlassian.net/browse/SPM-98) (3 tests) | Done |  |
 | [SPM-64](https://kkchoong.atlassian.net/browse/SPM-64) | Configure Event Registration | SPM-19 Attendee Registration |  | Sprint 3 | 3 | Estimate: 3. Normal story: one form, one endpoint, and validation of capacity and dates against the booked venue. Like SPM-47 (3). | 11 | 11/11 | AC1 A, AC2 A, AC3 A, AC4 A, AC5 A, AC6 A, AC7 A, AC8 A, AC9 A, AC10 A, AC11 A | [xlsx](../test-cases/SPM-64_Test_Cases.xlsx) | 25 | 0 | 25 Pass (2026-10-10) | 66 unit, 38 route | 0 | 1 | Web Application › Registrations API | [#43](https://github.com/kchoongg/IS212/pull/43) 2026-10-12 | copilot-pull-request-reviewer (bot) | Merged by kchoongg | [run](https://github.com/kchoongg/IS212/actions/runs/38197257354) |  | Done |  |
@@ -389,40 +389,40 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-26 | integration/clarification.test.ts:55 | approving the request closes its open clarification, unanswered |
 | SPM-26 | src/app/__tests__/event-form-pages.test.tsx:1210 | sends a cleared attendance and layout as null, so a draft can be emptied again |
 | SPM-26 | src/app/__tests__/event-form-pages.test.tsx:1465 | goes back to the event on Cancel |
-| SPM-26 | src/app/__tests__/event-pages.test.tsx:2475 | says nothing on an ordinary visit |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1231 | clears a draft's attendance and layout sent as null |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1981 | answers 500 when the database fails inside the transaction |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1989 | a draft edit takes no lock and answers no clarification |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:822 | closes it when the request is %s |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:839 | leaves clarifications alone on a move that is not out of review |
+| SPM-26 | src/app/__tests__/event-pages.test.tsx:2482 | says nothing on an ordinary visit |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1261 | clears a draft's attendance and layout sent as null |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:2011 | answers 500 when the database fails inside the transaction |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:2019 | a draft edit takes no lock and answers no clarification |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:852 | closes it when the request is %s |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:869 | leaves clarifications alone on a move that is not out of review |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:107 | says what each of an organiser's lists is waiting for when it is empty |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:132 | labels an event with no title as untitled |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:141 | shows only the five most recently changed events of a long list, newest first |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:155 | says nothing about a list that is shown in full |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:165 | counts each list on its own |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:200 | does not cut short the single list of a role that has no overview |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:2049 | shows a general error on the %s |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:2070 | as 'Untitled event' |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:2075 | shows a general error on the %s |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:2096 | as 'Untitled event' |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:210 | offers no 'View all' to a role with no events list to go to |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:348 | shows a load failure with a Retry that loads again |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:360 | recovers every one of an organiser's lists from a load failure |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:454 | with nothing submitted yet, invites them to create their first request |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:546 | shows a load failure with a Retry that loads again |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1191 | rejects a status that does not exist |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:480 | with nothing submitted yet, invites them to create their first request |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:572 | shows a load failure with a Retry that loads again |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1221 | rejects a status that does not exist |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:553 | is 404 for a malformed reference |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:560 | is 404 for a reference that matches no event |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:567 | is 404, not 403, for an event the user cannot see - and nothing is written |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:577 | answers 500 when the database fails |
 | SPM-27 | src/lib/__tests__/validation.test.ts:274 | only accepts known statuses |
-| SPM-28 | src/app/__tests__/event-pages.test.tsx:1381 | explains a 404 |
-| SPM-28 | src/app/__tests__/event-pages.test.tsx:1389 | shows a general error when loading fails without a reason |
-| SPM-28 | src/app/__tests__/event-pages.test.tsx:1395 | offers a Retry that loads again |
-| SPM-28 | src/app/__tests__/event-pages.test.tsx:891 | names the event by its title and links it to the Overview |
-| SPM-28 | src/app/__tests__/event-pages.test.tsx:902 | reads 'Event' for the event while %s |
-| SPM-28 | src/app/__tests__/event-pages.test.tsx:916 | is the same trail when %s is refused |
-| SPM-29 | src/app/__tests__/event-pages.test.tsx:1324 | shows the server's refusal |
-| SPM-29 | src/app/__tests__/event-pages.test.tsx:1357 | falls back to a general message when the server gives none |
-| SPM-29 | src/app/__tests__/event-pages.test.tsx:1368 | shows a general error when sending fails without a reason |
+| SPM-28 | src/app/__tests__/event-pages.test.tsx:1388 | explains a 404 |
+| SPM-28 | src/app/__tests__/event-pages.test.tsx:1396 | shows a general error when loading fails without a reason |
+| SPM-28 | src/app/__tests__/event-pages.test.tsx:1402 | offers a Retry that loads again |
+| SPM-28 | src/app/__tests__/event-pages.test.tsx:898 | names the event by its title and links it to the Overview |
+| SPM-28 | src/app/__tests__/event-pages.test.tsx:909 | reads 'Event' for the event while %s |
+| SPM-28 | src/app/__tests__/event-pages.test.tsx:923 | is the same trail when %s is refused |
+| SPM-29 | src/app/__tests__/event-pages.test.tsx:1331 | shows the server's refusal |
+| SPM-29 | src/app/__tests__/event-pages.test.tsx:1364 | falls back to a general message when the server gives none |
+| SPM-29 | src/app/__tests__/event-pages.test.tsx:1375 | shows a general error when sending fails without a reason |
 | SPM-29 | src/app/api/__tests__/clarifications.test.ts:104 | is 403 for %s |
 | SPM-29 | src/app/api/__tests__/clarifications.test.ts:160 | refuses a second clarification while one is still open |
 | SPM-29 | src/app/api/__tests__/clarifications.test.ts:169 | looks for an open one in the same transaction that creates it |
@@ -434,14 +434,14 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-29 | src/lib/__tests__/permissions.test.ts:472 | lets the assigned coordinator ask |
 | SPM-29 | src/lib/__tests__/permissions.test.ts:476 | stops a coordinator the event is not assigned to |
 | SPM-29 | src/lib/__tests__/permissions.test.ts:480 | stops every other role, including the organiser who raised it |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1579 | copes with an event that has no title, client or submission time |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1595 | names an untitled event as such when confirming its assignment |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1777 | says so when there are no active events at all |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1809 | names an untitled event as such |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1894 | shows a load failure with a Retry that loads again |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1906 | shows a general error when the request fails without a reason |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1605 | copes with an event that has no title, client or submission time |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1621 | names an untitled event as such when confirming its assignment |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1803 | says so when there are no active events at all |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1835 | names an untitled event as such |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1920 | shows a load failure with a Retry that loads again |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1932 | shows a general error when the request fails without a reason |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:245 | tells a coordinator with nothing on their plate what each list is for |
-| SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:340 | answers 500 when the database fails |
+| SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:351 | answers 500 when the database fails |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:53 | is 404 for a malformed reference, without querying |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:60 | is 404 for a reference that matches no event |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:67 | is 404 for a draft, which even the Ops Manager cannot see |
@@ -554,7 +554,7 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-35 | src/lib/__tests__/permissions.test.ts:1056 | nobody else sees them: another client, another coordinator, Venue Staff, Technical Support or an attendee |
 | SPM-36 | src/app/__tests__/event-pages.test.tsx:684 | words the question for an event with no title |
 | SPM-36 | src/app/__tests__/event-pages.test.tsx:705 | does nothing when the question is declined |
-| SPM-36 | src/app/api/__tests__/event-detail.test.ts:1668 | does not look for an attended registration on an event that is not completed |
+| SPM-36 | src/app/api/__tests__/event-detail.test.ts:1698 | does not look for an attended registration on an event that is not completed |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:134 | says Venue Staff have not added any rooms when the catalogue is empty |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:1553 | Back to Venues returns to the catalogue |
 | SPM-39 | src/app/__tests__/venue-catalogue-pages.test.tsx:163 | following the availability link does not also open the editor |
@@ -654,15 +654,15 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-42 | src/app/api/__tests__/event-venue.test.ts:714 | is 404 for a malformed reference |
 | SPM-42 | src/app/api/__tests__/event-venue.test.ts:718 | is 404 for a draft |
 | SPM-42 | src/app/api/__tests__/event-venue.test.ts:93 | is 404 for a malformed reference |
-| SPM-42 | src/lib/__tests__/venueBookingRequest.test.ts:255 | a completed, cancelled or rejected event is refused |
+| SPM-42 | src/lib/__tests__/venueBookingRequest.test.ts:262 | a completed, cancelled or rejected event is refused |
 | SPM-43 | src/app/__tests__/event-venue-pages.test.tsx:347 | shows no decision details under a request that is not rejected |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1283 | shows a complaint about %s under that field, keeping the form |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1300 | shows any other refusal on the request and reloads the list, which may be stale |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1312 | shows the refusal above the list when the request has since left it |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1323 | says the decision could not be saved when %s |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1339 | clears an earlier refusal when a rejection is started |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:1367 | shows a load failure with a Retry that loads again |
-| SPM-43 | src/app/__tests__/list-pages.test.tsx:643 | shows a load failure with a Retry that loads again |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1309 | shows a complaint about %s under that field, keeping the form |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1326 | shows any other refusal on the request and reloads the list, which may be stale |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1338 | shows the refusal above the list when the request has since left it |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1349 | says the decision could not be saved when %s |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1365 | clears an earlier refusal when a rejection is started |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:1393 | shows a load failure with a Retry that loads again |
+| SPM-43 | src/app/__tests__/list-pages.test.tsx:669 | shows a load failure with a Retry that loads again |
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:158 | loads each venue once, however many requests are for it |
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:291 | is 404 for a request that does not exist |
 | SPM-43 | src/app/api/__tests__/venue-booking-review.test.ts:298 | rejects %s |
@@ -755,9 +755,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-49 | src/lib/__tests__/equipmentAvailability.test.ts:442 | explains any other status in the words the screen and the route both show |
 | SPM-50 | src/app/__tests__/equipment-pages.test.tsx:1559 | Cancel closes the panel and forgets what was typed |
 | SPM-50 | src/app/__tests__/equipment-pages.test.tsx:1588 | shows %s above the panel, which stays open |
-| SPM-50 | src/app/__tests__/list-pages.test.tsx:1420 | shows a dash for an event with no title |
-| SPM-50 | src/app/__tests__/list-pages.test.tsx:1439 | says so when no equipment has been requested |
-| SPM-50 | src/app/__tests__/list-pages.test.tsx:1455 | shows a load failure with a Retry that loads again |
+| SPM-50 | src/app/__tests__/list-pages.test.tsx:1446 | shows a dash for an event with no title |
+| SPM-50 | src/app/__tests__/list-pages.test.tsx:1465 | says so when no equipment has been requested |
+| SPM-50 | src/app/__tests__/list-pages.test.tsx:1481 | shows a load failure with a Retry that loads again |
 | SPM-50 | src/app/api/__tests__/event-planning-fulfilment.test.ts:157 | is 404 for a malformed event reference |
 | SPM-50 | src/app/api/__tests__/event-planning-fulfilment.test.ts:161 | is 404 when the request does not exist |
 | SPM-50 | src/app/api/__tests__/event-planning-fulfilment.test.ts:165 | is 404 when the request belongs to a different event than the URL names |
@@ -890,8 +890,8 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-68 | src/app/api/__tests__/flagged-arrangements.test.ts:866 | refuses an event whose registrations are not flagged |
 | SPM-68 | src/app/api/__tests__/flagged-arrangements.test.ts:877 | answers 500 when the database fails |
 | SPM-7 | src/app/__tests__/layout.test.tsx:26 | declares the page language and loads both typefaces |
-| SPM-7 | src/app/__tests__/layout.test.tsx:34 | puts a 'Skip to content' link first, pointing at the page content |
-| SPM-7 | src/app/__tests__/layout.test.tsx:51 | titles the site |
+| SPM-7 | src/app/__tests__/layout.test.tsx:35 | puts a 'Skip to content' link first, pointing at the page content |
+| SPM-7 | src/app/__tests__/layout.test.tsx:52 | titles the site |
 | SPM-7 | src/components/__tests__/shell.test.tsx:437 | says the screen is unfinished, and which story it belongs to |
 | SPM-7 | src/lib/__tests__/edgeCases.test.ts:15 | shows a dash instead of a time, a date-time or a venue |
 | SPM-7 | src/lib/__tests__/format.test.ts:24 | renders the agreed format |
@@ -919,18 +919,18 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-8 | src/lib/__tests__/prisma.test.ts:36 | is not kept on global in production |
 | SPM-82 | src/app/api/__tests__/venue-hold-expiry.test.ts:131 | answers 500 when the database fails |
 | SPM-82 | src/app/api/__tests__/venue-hold-expiry.test.ts:65 | is 404 for a booking that does not exist |
-| SPM-86 | src/app/__tests__/event-pages.test.tsx:1516 | asks first, saying what will happen, and sends nothing yet |
-| SPM-86 | src/app/__tests__/event-pages.test.tsx:1526 | does nothing when the question is declined |
-| SPM-86 | src/app/__tests__/list-pages.test.tsx:1970 | tells a coordinator what the Safety review list is for when it is empty |
+| SPM-86 | src/app/__tests__/event-pages.test.tsx:1523 | asks first, saying what will happen, and sends nothing yet |
+| SPM-86 | src/app/__tests__/event-pages.test.tsx:1533 | does nothing when the question is declined |
+| SPM-86 | src/app/__tests__/list-pages.test.tsx:1996 | tells a coordinator what the Safety review list is for when it is empty |
 | SPM-86 | src/app/api/__tests__/event-safety-check.test.ts:110 | is 404 for a malformed reference |
 | SPM-86 | src/app/api/__tests__/event-safety-check.test.ts:114 | is 404 for an event that does not exist |
 | SPM-86 | src/app/api/__tests__/event-safety-check.test.ts:118 | is 404 for an event the user cannot see, before any role check |
 | SPM-86 | src/app/api/__tests__/event-safety-check.test.ts:314 | answers 500 when the database fails |
 | SPM-86 | src/lib/__tests__/equipmentAvailability.test.ts:436 | SPM-86: says the equipment is held still while the Safety Officer checks it |
-| SPM-87 | src/app/__tests__/event-pages.test.tsx:1978 | asks for a choice before recording |
-| SPM-87 | src/app/__tests__/event-pages.test.tsx:1988 | shows %s when it is refused |
-| SPM-87 | src/app/__tests__/event-pages.test.tsx:2004 | shows a general message when the server's refusal is not readable |
-| SPM-87 | src/app/__tests__/event-pages.test.tsx:2026 | closes without sending anything on Cancel |
+| SPM-87 | src/app/__tests__/event-pages.test.tsx:1985 | asks for a choice before recording |
+| SPM-87 | src/app/__tests__/event-pages.test.tsx:1995 | shows %s when it is refused |
+| SPM-87 | src/app/__tests__/event-pages.test.tsx:2011 | shows a general message when the server's refusal is not readable |
+| SPM-87 | src/app/__tests__/event-pages.test.tsx:2033 | closes without sending anything on Cancel |
 | SPM-87 | src/app/__tests__/safety-checks-page.test.tsx:140 | shows a general error when the request fails without a reason |
 | SPM-87 | src/app/__tests__/safety-checks-page.test.tsx:147 | shows a load failure with a Retry that loads again |
 | SPM-87 | src/app/api/__tests__/safety-checks.test.ts:117 | answers 500 when the database fails |
@@ -938,11 +938,11 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-87 | src/app/api/__tests__/safety-decision.test.ts:80 | is 404 for a malformed reference or an event that does not exist |
 | SPM-87 | src/lib/__tests__/equipmentAvailability.test.ts:430 | SPM-87: says a safety-approved event's equipment stays as it was approved |
 | SPM-87 | src/lib/__tests__/safetyDecision.test.ts:84 | words %s |
-| SPM-88 | src/app/__tests__/event-pages.test.tsx:2293 | says so when the event has nothing to flag |
-| SPM-88 | src/app/__tests__/event-pages.test.tsx:2300 | says so when the arrangements cannot be loaded |
-| SPM-88 | src/app/__tests__/event-pages.test.tsx:2307 | shows the server's refusal and keeps the event as it was |
-| SPM-88 | src/app/__tests__/event-pages.test.tsx:2322 | gives a general message when the refusal has no reason |
-| SPM-88 | src/app/__tests__/event-pages.test.tsx:2332 | says so when the server cannot be reached |
+| SPM-88 | src/app/__tests__/event-pages.test.tsx:2300 | says so when the event has nothing to flag |
+| SPM-88 | src/app/__tests__/event-pages.test.tsx:2307 | says so when the arrangements cannot be loaded |
+| SPM-88 | src/app/__tests__/event-pages.test.tsx:2314 | shows the server's refusal and keeps the event as it was |
+| SPM-88 | src/app/__tests__/event-pages.test.tsx:2329 | gives a general message when the refusal has no reason |
+| SPM-88 | src/app/__tests__/event-pages.test.tsx:2339 | says so when the server cannot be reached |
 | SPM-88 | src/app/api/__tests__/safety-flags.test.ts:216 | answers 500 when the database fails |
 | SPM-88 | src/app/api/__tests__/safety-flags.test.ts:67 | is 404 for a malformed reference, an unknown event, or one the user may not see |
 | SPM-90 | src/app/__tests__/event-venue-pages.test.tsx:125 | leaves the space fields empty for an event with no attendance or layout yet |

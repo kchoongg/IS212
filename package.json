@@ -56,6 +56,7 @@
     "fixtures:spm80": "tsx scripts/seed-spm80.ts",
     "fixtures:spm35": "tsx scripts/seed-spm35.ts",
     "fixtures:spm36": "tsx scripts/seed-spm36.ts",
+    "fixtures:spm59": "tsx scripts/seed-spm59.ts",
     "fixtures:spm29": "tsx scripts/seed-spm29.ts",
     "fixtures:spm26": "tsx scripts/seed-spm26.ts"
   },

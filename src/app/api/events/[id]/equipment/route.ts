@@ -4,7 +4,7 @@ import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { canManageEquipmentRequests, canViewEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
-import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
@@ -88,7 +88,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     if (isTerminalEventStatus(event.status)) {
       return NextResponse.json(
-        { error: "Cannot record equipment for a completed, cancelled, or rejected event" },
+        { error: `Cannot record equipment for a ${CLOSED_EVENT_STATUSES_PHRASE} event` },
         { status: 400 }
       );
     }
