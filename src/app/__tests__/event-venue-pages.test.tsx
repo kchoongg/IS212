@@ -1197,10 +1197,10 @@ describe("Venue booking request form", () => {
   });
 
   it("[SPM-42] shows the reason instead of the form when a booking cannot be requested", async () => {
-    open({ [INFO]: info({ cannotRequest: "A venue cannot be requested for a completed, cancelled, rejected or withdrawn event." }) });
+    open({ [INFO]: info({ cannotRequest: "A venue cannot be requested for a completed, cancelled or rejected event." }) });
 
     expect(
-      await screen.findByText("A venue cannot be requested for a completed, cancelled, rejected or withdrawn event.")
+      await screen.findByText("A venue cannot be requested for a completed, cancelled or rejected event.")
     ).toBeInTheDocument();
     expect(screen.queryByLabelText(/^Date/)).not.toBeInTheDocument();
   });

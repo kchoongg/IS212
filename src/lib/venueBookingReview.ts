@@ -11,7 +11,7 @@
 // Pure functions over plain data, like the rest of src/lib. The route
 // (src/app/api/venue-bookings/[id]/route.ts) loads the rows and calls these.
 
-import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { EXPIRED_HOLD_MESSAGE } from "@/lib/holdExpiry";
 import { formatDateTimeRange } from "@/lib/format";
 import { findVenueConflict } from "@/lib/venueConflict";
@@ -135,7 +135,7 @@ export function checkBookingDecision(input: BookingDecisionInput): BookingDecisi
 
   if (decision.decision === "approve") {
     if (isTerminalEventStatus(input.eventStatus)) {
-      return refuse(`A booking cannot be approved for a ${CLOSED_EVENT_STATUSES_PHRASE} event. Reject it instead.`);
+      return refuse("A booking cannot be approved for a completed, cancelled or rejected event. Reject it instead.");
     }
     const waiting = awaitingEventApproval(input.eventStatus);
     if (waiting) return refuse(waiting);

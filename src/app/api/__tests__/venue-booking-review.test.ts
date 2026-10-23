@@ -352,7 +352,7 @@ describe("PATCH /api/venue-bookings/[id]", () => {
         "is for a cancelled event",
         booking({ event: { status: "cancelled" } }),
         venueRow(),
-        "A booking cannot be approved for a completed, cancelled, rejected or withdrawn event. Reject it instead.",
+        "A booking cannot be approved for a completed, cancelled or rejected event. Reject it instead.",
       ],
       [
         "is for an event not yet approved",

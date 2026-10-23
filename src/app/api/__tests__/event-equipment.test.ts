@@ -188,7 +188,7 @@ describe("POST /api/events/[id]/equipment", () => {
     const res = await add(token, valid);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Cannot record equipment for a completed, cancelled, rejected or withdrawn event" });
+    expect(await res.json()).toEqual({ error: "Cannot record equipment for a completed, cancelled, or rejected event" });
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
@@ -457,7 +457,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
 
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({
-        error: "Cannot update equipment for a completed, cancelled, rejected or withdrawn event",
+        error: "Cannot update equipment for a completed, cancelled, or rejected event",
       });
       expect(db.equipmentRequest.update).not.toHaveBeenCalled();
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();

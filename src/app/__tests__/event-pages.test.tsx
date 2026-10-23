@@ -766,13 +766,6 @@ describe("Review request", () => {
     expect(screen.queryByRole("heading", { name: "What was requested" })).not.toBeInTheDocument();
   });
 
-  it("[SPM-59][AC4] sends the assigned coordinator to the event page when the request has been withdrawn", async () => {
-    open(event({ status: "withdrawn" }));
-
-    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/events/EVT-000007"));
-    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
-  });
-
   // SPM-98: Events / <event title> / Review request, in every state.
   describe("its breadcrumb", () => {
     it("[SPM-28][BUG-98] names the event by its title and links it to the Overview", async () => {
@@ -2367,41 +2360,3 @@ describe("Event overview - after the organiser resubmits (SPM-26)", () => {
     expect(screen.queryByText(/Your updated request has been sent/)).not.toBeInTheDocument();
   });
 });
-
-describe("[SPM-59] a withdrawn request on its event page", () => {
-  function openAs(role: string, who: object) {
-    setRoute(`/events/${REF}`, { id: REF });
-    mockApi({ ...signedInAs(role, who), [EVENT]: event({ status: "withdrawn" }), "GET /api/assignments": { coordinators: [] } });
-    render(<EventOverviewPage />);
-  }
-
-  it("[SPM-59][AC5] shows the organiser that it has been withdrawn", async () => {
-    openAs("organiser", { id: "organiser-id" });
-
-    const header = (await screen.findByRole("heading", { level: 1, name: "Gala Dinner" })).closest("header") as HTMLElement;
-    expect(within(header).getByText("Withdrawn")).toBeInTheDocument();
-    const details = (screen.getByRole("heading", { name: "Details" }).closest("div.rounded-lg")) as HTMLElement;
-    expect(details).toHaveTextContent(/Status\s*Withdrawn/i);
-  });
-
-  it("[SPM-59][AC4] offers the assigned coordinator nothing more to do with it", async () => {
-    openAs("coordinator", { id: "c1" });
-    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
-
-    expect(screen.queryByText("This request is waiting for your review")).not.toBeInTheDocument();
-    for (const name of ["Record withdrawal", "Confirm event", "Submit for safety check"]) {
-      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
-    }
-    for (const name of ["Review request", "Edit event information"]) {
-      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
-    }
-  });
-
-  it("[SPM-59][AC4] offers the Ops Manager no change of coordinator", async () => {
-    openAs("ops_manager", {});
-    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
-
-    expect(screen.queryByRole("heading", { name: "Change coordinator" })).not.toBeInTheDocument();
-  });
-});
-

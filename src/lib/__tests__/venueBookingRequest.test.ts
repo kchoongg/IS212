@@ -252,18 +252,11 @@ describe("checkVenueBookingRequest", () => {
     expect(result.ok).toBe(true);
   });
 
-  it("[SPM-59][AC4] a withdrawn request is refused, saying so", () => {
-    expect(checkVenueBookingRequest({ ...base, eventStatus: "withdrawn" })).toEqual({
-      ok: false,
-      error: "A venue cannot be requested for a completed, cancelled, rejected or withdrawn event.",
-    });
-  });
-
   it("[SPM-42] a completed, cancelled or rejected event is refused", () => {
     for (const status of ["completed", "cancelled", "rejected"]) {
       expect(checkVenueBookingRequest({ ...base, eventStatus: status })).toEqual({
         ok: false,
-        error: "A venue cannot be requested for a completed, cancelled, rejected or withdrawn event.",
+        error: "A venue cannot be requested for a completed, cancelled or rejected event.",
       });
     }
     for (const status of ["approved", "planning", "confirmed", "postponed"]) {

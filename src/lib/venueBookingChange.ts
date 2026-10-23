@@ -19,7 +19,7 @@
 
 import type { NotificationContent } from "./notifications";
 import { formatDateTimeRange, formatVenue } from "./format";
-import { CLOSED_EVENT_STATUSES_PHRASE, isTerminalEventStatus } from "./statuses";
+import { isTerminalEventStatus } from "./statuses";
 
 export type BookingChangeAction = "withdraw" | "release";
 
@@ -29,7 +29,8 @@ const RESULT = { withdraw: "withdrawn", release: "released" } as const;
 const FROM = { withdraw: "pending", release: "approved" } as const;
 
 export const ONLY_ASSIGNED_TO_CHANGE = "Only the assigned Coordinator can withdraw or release a venue booking.";
-export const CLOSED_EVENT_CHANGE_MESSAGE = `Venue bookings cannot be changed on a ${CLOSED_EVENT_STATUSES_PHRASE} event.`;
+export const CLOSED_EVENT_CHANGE_MESSAGE =
+  "Venue bookings cannot be changed on a completed, cancelled, rejected or withdrawn event.";
 /// Venue Staff approved it after the Coordinator's page loaded.
 export const ALREADY_APPROVED_MESSAGE =
   "This request has already been approved, so it can no longer be withdrawn. Release the booking instead.";

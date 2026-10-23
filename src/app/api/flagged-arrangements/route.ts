@@ -5,7 +5,7 @@ import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
 import { can, type Actor } from "@/lib/permissions";
 import { reviewFlaggedArrangementSchema } from "@/lib/validation";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
-import { CLOSED_EVENT_STATUSES_PHRASE, TERMINAL_EVENT_STATUSES } from "@/lib/statuses";
+import { TERMINAL_EVENT_STATUSES } from "@/lib/statuses";
 import { flagReasons, keepRefusal } from "@/lib/flaggedArrangements";
 import {
   FLAGGED_BOOKING_SELECT,
@@ -41,7 +41,7 @@ const NOT_FLAGGED = "This arrangement is not flagged for review.";
 const NOT_FOUND = "This arrangement could not be found.";
 /// The same three limits GET lists by, so nothing can be kept or reviewed
 /// that the page would never show - a direct request included.
-const EVENT_CLOSED = `This event is ${CLOSED_EVENT_STATUSES_PHRASE}, so its flags are no longer reviewed.`;
+const EVENT_CLOSED = "This event is completed, cancelled, rejected or withdrawn, so its flags are no longer reviewed.";
 const NOTHING_HELD = "This arrangement no longer holds anything, so there is nothing to review.";
 
 const eventClosed = (event: { status: string }) => TERMINAL_EVENT_STATUSES.includes(event.status);

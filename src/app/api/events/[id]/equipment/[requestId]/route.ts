@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
 import { canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
-import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
@@ -62,7 +62,7 @@ export async function PATCH(
 
     if (isTerminalEventStatus(existing.event.status)) {
       return NextResponse.json(
-        { error: `Cannot update equipment for a ${CLOSED_EVENT_STATUSES_PHRASE} event` },
+        { error: "Cannot update equipment for a completed, cancelled, or rejected event" },
         { status: 400 }
       );
     }
@@ -140,7 +140,7 @@ export async function DELETE(
   }
   if (isTerminalEventStatus(existing.event.status)) {
     return NextResponse.json(
-      { error: `Cannot update equipment for a ${CLOSED_EVENT_STATUSES_PHRASE} event` },
+      { error: "Cannot update equipment for a completed, cancelled, or rejected event" },
       { status: 400 }
     );
   }

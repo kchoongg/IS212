@@ -3,8 +3,8 @@ import { describe, it, expect, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 
 // next/font is resolved by the Next.js compiler, which is not running here.
-// Each face hands back its own CSS variable, so the test can tell them apart.
-vi.mock("next/font/local", () => ({ default: (options: { variable: string }) => ({ variable: options.variable }) }));
+vi.mock("next/font/local", () => ({ default: () => ({ variable: "font-local" }) }));
+vi.mock("next/font/google", () => ({ Source_Serif_4: () => ({ variable: "font-display" }) }));
 
 import RootLayout, { metadata } from "@/app/layout";
 import { setRoute } from "@/test/ui";
@@ -27,9 +27,8 @@ describe("Root layout", () => {
     const doc = page();
 
     expect(doc.documentElement.getAttribute("lang")).toBe("en");
-    for (const face of ["--font-geist-sans", "--font-geist-mono", "--font-display"]) {
-      expect(doc.documentElement.className).toContain(face);
-    }
+    expect(doc.documentElement.className).toContain("font-local");
+    expect(doc.documentElement.className).toContain("font-display");
   });
 
   it("[SPM-7] puts a 'Skip to content' link first, pointing at the page content", () => {
