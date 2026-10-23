@@ -389,12 +389,12 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-26 | integration/clarification.test.ts:55 | approving the request closes its open clarification, unanswered |
 | SPM-26 | src/app/__tests__/event-form-pages.test.tsx:1210 | sends a cleared attendance and layout as null, so a draft can be emptied again |
 | SPM-26 | src/app/__tests__/event-form-pages.test.tsx:1465 | goes back to the event on Cancel |
-| SPM-26 | src/app/__tests__/event-pages.test.tsx:2355 | says nothing on an ordinary visit |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1231 | clears a draft's attendance and layout sent as null |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1782 | answers 500 when the database fails inside the transaction |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1790 | a draft edit takes no lock and answers no clarification |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:822 | closes it when the request is %s |
-| SPM-26 | src/app/api/__tests__/event-detail.test.ts:839 | leaves clarifications alone on a move that is not out of review |
+| SPM-26 | src/app/__tests__/event-pages.test.tsx:2362 | says nothing on an ordinary visit |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1261 | clears a draft's attendance and layout sent as null |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1812 | answers 500 when the database fails inside the transaction |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:1820 | a draft edit takes no lock and answers no clarification |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:852 | closes it when the request is %s |
+| SPM-26 | src/app/api/__tests__/event-detail.test.ts:869 | leaves clarifications alone on a move that is not out of review |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:107 | says what each of an organiser's lists is waiting for when it is empty |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:132 | labels an event with no title as untitled |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:141 | shows only the five most recently changed events of a long list, newest first |
@@ -406,9 +406,9 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:210 | offers no 'View all' to a role with no events list to go to |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:348 | shows a load failure with a Retry that loads again |
 | SPM-27 | src/app/__tests__/list-pages.test.tsx:360 | recovers every one of an organiser's lists from a load failure |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:454 | with nothing submitted yet, invites them to create their first request |
-| SPM-27 | src/app/__tests__/list-pages.test.tsx:546 | shows a load failure with a Retry that loads again |
-| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1191 | rejects a status that does not exist |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:480 | with nothing submitted yet, invites them to create their first request |
+| SPM-27 | src/app/__tests__/list-pages.test.tsx:572 | shows a load failure with a Retry that loads again |
+| SPM-27 | src/app/api/__tests__/event-detail.test.ts:1221 | rejects a status that does not exist |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:553 | is 404 for a malformed reference |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:560 | is 404 for a reference that matches no event |
 | SPM-27 | src/app/api/__tests__/event-detail.test.ts:567 | is 404, not 403, for an event the user cannot see - and nothing is written |
@@ -434,12 +434,12 @@ These tests name the story they belong to but check something no one AC states (
 | SPM-29 | src/lib/__tests__/permissions.test.ts:459 | lets the assigned coordinator ask |
 | SPM-29 | src/lib/__tests__/permissions.test.ts:463 | stops a coordinator the event is not assigned to |
 | SPM-29 | src/lib/__tests__/permissions.test.ts:467 | stops every other role, including the organiser who raised it |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1579 | copes with an event that has no title, client or submission time |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1595 | names an untitled event as such when confirming its assignment |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1777 | says so when there are no active events at all |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1809 | names an untitled event as such |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1894 | shows a load failure with a Retry that loads again |
-| SPM-30 | src/app/__tests__/list-pages.test.tsx:1906 | shows a general error when the request fails without a reason |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1605 | copes with an event that has no title, client or submission time |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1621 | names an untitled event as such when confirming its assignment |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1803 | says so when there are no active events at all |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1835 | names an untitled event as such |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1920 | shows a load failure with a Retry that loads again |
+| SPM-30 | src/app/__tests__/list-pages.test.tsx:1932 | shows a general error when the request fails without a reason |
 | SPM-30 | src/app/__tests__/list-pages.test.tsx:245 | tells a coordinator with nothing on their plate what each list is for |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:351 | answers 500 when the database fails |
 | SPM-30 | src/app/api/__tests__/event-coordinator.test.ts:53 | is 404 for a malformed reference, without querying |

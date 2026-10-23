@@ -2136,28 +2136,6 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
-  // SPM-59 QA fixtures (Record Request Withdrawal). The SAME events as
-  // scripts/seed-spm59.ts (`npm run fixtures:spm59`) - keep the two in step.
-  // One request in each status before planning, the withdrawn one among them.
-  // Pushed LAST, after SPM-80, so no earlier event's EVT- reference number
-  // shifts. Add new events AFTER this block.
-  // -----------------------------------------------------------------
-  const spm59 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
-    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
-    purpose: "SPM-59 record request withdrawal test event", description: "A request for Meridian's client team.",
-    category: "seminar", days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 60, layout: "theatre", ...options,
-  });
-  eventData.push(
-    spm59("spm59_strategy_day", "SPM59 Harbour Strategy Day", "under_review", "2027-06-07"),
-    spm59("spm59_withdrawn", "SPM59 Withdrawn Product Launch", "withdrawn", "2027-06-14",
-      { chain: ["submitted", "under_review", "withdrawn"] }),
-    spm59("spm59_draft", "SPM59 Draft Offsite", "draft", "2027-06-21", { coordinator: undefined }),
-    spm59("spm59_submitted", "SPM59 Submitted Briefing", "submitted", "2027-06-28", { coordinator: undefined }),
-    spm59("spm59_approved", "SPM59 Approved Seminar", "approved", "2027-07-05"),
-    spm59("spm59_rejected", "SPM59 Rejected Gala", "rejected", "2027-07-12", {
-      rejectionReason: "Budget for the gala was not confirmed.",
-      historyReasons: { rejected: "Budget for the gala was not confirmed." },
-    }),
   // SPM-26 QA fixtures (Respond to Clarification Request). The SAME events
   // as scripts/seed-spm26.ts (`npm run fixtures:spm26`) - keep the two in
   // step.
@@ -2177,6 +2155,31 @@ async function main() {
   eventData.push(
     spm26("spm26_briefing", "SPM26 Meridian Advisory Briefing", "2028-05-04"),
     spm26("spm26_answered", "SPM26 Meridian Answered Workshop", "2028-05-11"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-59 QA fixtures (Record Request Withdrawal). The SAME events as
+  // scripts/seed-spm59.ts (`npm run fixtures:spm59`) - keep the two in step.
+  // One request in each status before planning, the withdrawn one among them.
+  // Pushed LAST, after SPM-26, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm59 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-59 record request withdrawal test event", description: "A request for Meridian's client team.",
+    category: "seminar", days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 60, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm59("spm59_strategy_day", "SPM59 Harbour Strategy Day", "under_review", "2027-06-07"),
+    spm59("spm59_withdrawn", "SPM59 Withdrawn Product Launch", "withdrawn", "2027-06-14",
+      { chain: ["submitted", "under_review", "withdrawn"] }),
+    spm59("spm59_draft", "SPM59 Draft Offsite", "draft", "2027-06-21", { coordinator: undefined }),
+    spm59("spm59_submitted", "SPM59 Submitted Briefing", "submitted", "2027-06-28", { coordinator: undefined }),
+    spm59("spm59_approved", "SPM59 Approved Seminar", "approved", "2027-07-05"),
+    spm59("spm59_rejected", "SPM59 Rejected Gala", "rejected", "2027-07-12", {
+      rejectionReason: "Budget for the gala was not confirmed.",
+      historyReasons: { rejected: "Budget for the gala was not confirmed." },
+    }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
