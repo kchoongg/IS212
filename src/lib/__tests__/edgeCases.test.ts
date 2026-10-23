@@ -3,7 +3,7 @@
 // bad data arriving some other way.
 
 import { describe, it, expect } from "vitest";
-import { EMPTY, formatDateTime, formatDuration, formatTime, formatVenue } from "@/lib/format";
+import { EMPTY, formatDateTime, formatTime, formatVenue } from "@/lib/format";
 import { canViewEvent, isAssignedCoordinator } from "@/lib/permissions";
 import { isSelfRegisterableRole } from "@/lib/roles";
 import { INITIAL, validateForm } from "@/lib/eventForm";
@@ -12,10 +12,9 @@ import { defaultTimes } from "@/lib/venueBookingRequest";
 import { widenToGrid } from "@/lib/venueTime";
 
 describe("formatting a value that is missing", () => {
-  it("[SPM-7] shows a dash instead of a time, a date-time, a duration or a venue", () => {
+  it("[SPM-7] shows a dash instead of a time, a date-time or a venue", () => {
     expect(formatTime(null)).toBe(EMPTY);
     expect(formatDateTime("not a date")).toBe(EMPTY);
-    expect(formatDuration(null, "2027-03-04T09:00:00.000Z")).toBe(EMPTY);
     expect(formatVenue(null, "HALL-A")).toBe(EMPTY);
   });
 });

@@ -18,6 +18,11 @@ export const CLARIFICATION_FORBIDDEN_MESSAGE = "Only the coordinator assigned to
 export const CLARIFICATION_NOT_UNDER_REVIEW = "Clarification can only be requested while the event is under review.";
 export const CLARIFICATION_ALREADY_OPEN = "This event already has an open clarification.";
 
+// SPM-26 - the organiser answers by updating and resubmitting the request.
+export const CLARIFICATION_RESPOND_FORBIDDEN = "Only the organiser who raised this request can update it.";
+export const CLARIFICATION_NONE_OPEN = "This request has no open clarification to answer, so it can't be changed here.";
+export const CLARIFICATION_NO_LONGER_UNDER_REVIEW = "This request is no longer under review. Reload the page to see what changed.";
+
 /// The shape of a request. The rules a person can break from the form -
 /// nothing ticked, no message - are clarificationProblem()'s, so the page and
 /// the route word them the same way.

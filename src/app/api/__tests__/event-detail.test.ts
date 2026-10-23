@@ -7,6 +7,11 @@ import { GET, PATCH } from "@/app/api/events/[id]/route";
 import { ROLES } from "@/lib/roles";
 import { can } from "@/lib/permissions";
 import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
+import {
+  CLARIFICATION_NONE_OPEN,
+  CLARIFICATION_NO_LONGER_UNDER_REVIEW,
+  CLARIFICATION_RESPOND_FORBIDDEN,
+} from "@/lib/clarification";
 
 const REF = "EVT-000007";
 const NOW = new Date("2026-10-02T04:00:00Z");
@@ -840,6 +845,38 @@ describe("PATCH /api/events/[id] - status change", () => {
     });
   });
 
+  // An open clarification (SPM-29) only means something while the request is
+  // Under review. Leaving review closes it - it was never answered, so
+  // responseMessage and respondedAt stay empty.
+  describe("an open clarification when the request leaves review", () => {
+    it.each([
+      ["approved", undefined],
+      ["rejected", "Out of budget"],
+      ["withdrawn", "Client asked to withdraw"],
+    ])("[SPM-26] closes it when the request is %s", async (status, reason) => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event());
+      givenUpdateSucceeds();
+
+      expect((await patch(token, { status, reason })).status).toBe(200);
+
+      expect(callArg(db.clarificationRequest.updateMany)).toEqual({
+        where: { eventId: ID.event, status: "open" },
+        data: { status: "closed" },
+      });
+    });
+
+    it("[SPM-26] leaves clarifications alone on a move that is not out of review", async () => {
+      const token = signIn(user("organiser", { id: ID.user }));
+      db.event.findUnique.mockResolvedValue(event({ status: "draft", coordinatorId: null }));
+      givenUpdateSucceeds();
+
+      expect((await patch(token, { status: "submitted" })).status).toBe(200);
+
+      expect(db.clarificationRequest.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
   describe("later transitions", () => {
     it.each([
       ["a submitted request straight to confirmed", "submitted", "confirmed", "This event is Submitted and can't be moved to Confirmed."],
@@ -1221,6 +1258,14 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
     expect(db.eventSession.deleteMany).not.toHaveBeenCalled();
   });
 
+  it("[SPM-24][AC4] [SPM-26] clears a draft's attendance and layout sent as null", async () => {
+    const token = givenOwnDraft();
+
+    expect((await patch(token, { expectedAttendance: null, preferredLayout: null })).status).toBe(200);
+
+    expect(callArg(db.event.update).data).toMatchObject({ expectedAttendance: null, preferredLayout: null });
+  });
+
   it("[SPM-24][AC4] edits a draft that has no dates yet", async () => {
     const token = givenOwnDraft({ startsAt: null, endsAt: null });
 
@@ -1482,5 +1527,302 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Each item can only be requested once per event, across all sessions." });
+  });
+});
+
+// CONTRACT (SPM-26, written before the code) - the organiser answers an open
+// clarification by updating the request and resubmitting it, in one PATCH
+// with no `status` key (the draft editor's own payload, SPM-24):
+//   - only the organiser who raised it (canRespondToClarification), only while
+//     Under review: 403 CLARIFICATION_RESPOND_FORBIDDEN for anyone else who can
+//     see the event; an event past review keeps "Only draft requests can be
+//     edited";
+//   - only while a clarification is open: 400 CLARIFICATION_NONE_OPEN;
+//   - the draft's fields and rules (updateEventDraftSchema, the merged-record
+//     field errors), and the request must stay as complete as submitting
+//     requires: 400 "Cannot resubmit an incomplete request. Missing: ...";
+//   - one transaction: lock the event row and read its status again
+//     (SELECT status FROM events WHERE id = ? FOR UPDATE) - changed meanwhile:
+//     400 CLARIFICATION_NO_LONGER_UNDER_REVIEW; mark the open clarification
+//     answered (updateMany where it is still open; count 0: 400
+//     CLARIFICATION_NONE_OPEN), then write the content;
+//   - the status and its history are never written (AC4), and no reply
+//     message is stored (decided 2026-10-21).
+describe("PATCH /api/events/[id] - answering a clarification (SPM-26)", () => {
+  const OPEN = { id: "clarification-1" };
+
+  function givenResponding({
+    row = event(),
+    actor = organiser(),
+    open = OPEN as { id: string } | null,
+    lockedStatus = "under_review",
+    answered = 1,
+  } = {}) {
+    const token = signIn(actor);
+    db.event.findUnique.mockResolvedValue(row);
+    db.clarificationRequest.findFirst.mockResolvedValue(open);
+    db.$queryRaw.mockResolvedValue([{ status: lockedStatus }]);
+    db.clarificationRequest.updateMany.mockResolvedValue({ count: answered });
+    db.eventSession.findMany.mockResolvedValue([]);
+    db.event.update.mockImplementation(async ({ data }: { data: object }) => ({ ...row, ...data }));
+    return token;
+  }
+
+  function nothingWritten() {
+    expect(db.event.update).not.toHaveBeenCalled();
+    expect(db.clarificationRequest.updateMany).not.toHaveBeenCalled();
+    expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+  }
+
+  it("[SPM-26][AC2][AC3] saves the organiser's changes", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, { description: "Gala for 150 guests", expectedAttendance: 150 });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).where).toEqual({ id: ID.event });
+    expect(callArg(db.event.update).data).toMatchObject({ description: "Gala for 150 guests", expectedAttendance: 150 });
+  });
+
+  it("[SPM-26][AC4] marks the open clarification answered, with the time and no reply message", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(NOW);
+    const token = givenResponding();
+
+    expect((await patch(token, { description: "Gala for 150 guests" })).status).toBe(200);
+
+    expect(callArg(db.clarificationRequest.updateMany)).toEqual({
+      where: { id: OPEN.id, status: "open" },
+      data: { status: "answered", respondedAt: NOW },
+    });
+  });
+
+  it("[SPM-26][AC4] keeps the event Under review: the status and its history are not written", async () => {
+    const token = givenResponding();
+
+    expect((await patch(token, { title: "Gala Dinner 2027" })).status).toBe(200);
+
+    expect(callArg(db.event.update).data).not.toHaveProperty("status");
+    expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-26][AC2] accepts any field a draft can change, not only the ones the coordinator asked about", async () => {
+    const token = givenResponding();
+    const facilityId = "11111111-1111-4111-8111-111111111111";
+    const equipmentId = "22222222-2222-4222-8222-222222222222";
+
+    const res = await patch(token, {
+      title: "Gala Dinner 2027",
+      category: "networking",
+      purpose: "Fundraising",
+      preferredLayout: "banquet",
+      accessibilityNotes: "Step-free entrance",
+      specialRequirements: "Halal catering",
+      facilityIds: [facilityId],
+      equipment: [{ equipmentId, quantityRequested: 2 }],
+    });
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.event.update).data).toMatchObject({
+      title: "Gala Dinner 2027",
+      category: "networking",
+      purpose: "Fundraising",
+      preferredLayout: "banquet",
+      accessibilityNotes: "Step-free entrance",
+      specialRequirements: "Halal catering",
+      facilityRequirements: { create: [{ facilityId, isMandatory: true }] },
+    });
+    expect(db.eventFacilityRequirement.deleteMany).toHaveBeenCalledWith({ where: { eventId: ID.event } });
+    expect(db.equipmentRequest.deleteMany).toHaveBeenCalledWith({ where: { eventId: ID.event, sessionId: null } });
+  });
+
+  it("[SPM-26][AC3] locks the event row and reads its status again before writing", async () => {
+    const token = givenResponding();
+
+    expect((await patch(token, { title: "Gala Dinner 2027" })).status).toBe(200);
+
+    const [sql, lockedId] = db.$queryRaw.mock.calls[0];
+    expect(sql.join("?")).toBe("SELECT status FROM events WHERE id = ? FOR UPDATE");
+    expect(lockedId).toBe(ID.event);
+    const locked = db.$queryRaw.mock.invocationCallOrder[0];
+    expect(locked).toBeLessThan(db.clarificationRequest.updateMany.mock.invocationCallOrder[0]);
+    expect(locked).toBeLessThan(db.event.update.mock.invocationCallOrder[0]);
+  });
+
+  it("[SPM-26][AC4] refuses when the request left review in the meantime, and writes nothing", async () => {
+    const token = givenResponding({ lockedStatus: "approved" });
+
+    const res = await patch(token, { title: "Gala Dinner 2027" });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: CLARIFICATION_NO_LONGER_UNDER_REVIEW });
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC4] refuses when the clarification was answered in the meantime, before writing the content", async () => {
+    const token = givenResponding({ answered: 0 });
+
+    const res = await patch(token, { title: "Gala Dinner 2027" });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: CLARIFICATION_NONE_OPEN });
+    expect(db.event.update).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-26][AC2] refuses when no clarification is open, without opening a transaction", async () => {
+    const token = givenResponding({ open: null });
+
+    const res = await patch(token, { title: "Gala Dinner 2027" });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: CLARIFICATION_NONE_OPEN });
+    expect(callArg(db.clarificationRequest.findFirst).where).toEqual({ eventId: ID.event, status: "open" });
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+    nothingWritten();
+  });
+
+  it.each([
+    ["an organiser at the same client", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
+    ["the assigned coordinator", coordinator],
+    ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
+    ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
+  ])("[SPM-26][AC2] refuses %s with 403", async (_who, actor) => {
+    const token = givenResponding({ actor: actor() });
+
+    const res = await patch(token, { title: "Not mine to change" });
+
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: CLARIFICATION_RESPOND_FORBIDDEN });
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC2] is 404 for an organiser at another client", async () => {
+    const token = givenResponding({ actor: user("organiser", { id: ID.thirdUser, organisationId: ID.otherOrg }) });
+
+    expect((await patch(token, { title: "Hijacked" })).status).toBe(404);
+    nothingWritten();
+  });
+
+  it.each(["approved", "rejected", "withdrawn"])(
+    "[SPM-26][AC4] still refuses a content edit once the request is %s",
+    async (status) => {
+      const token = givenResponding({ row: event({ status }) });
+
+      const res = await patch(token, { title: "Too late" });
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "Only draft requests can be edited" });
+      nothingWritten();
+    }
+  );
+
+  it("[SPM-26][AC2] applies the draft's validation", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, { title: "   " });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.title).toEqual(["Title cannot be blank"]);
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC2] checks the changes against what is already saved", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, { endsAt: "2027-03-04T00:00:00.000Z" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).details.fieldErrors.endsAt).toEqual(["Ends at must be after starts at."]);
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC3] refuses to resubmit a request a required field was cleared from", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, { category: "" });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Cannot resubmit an incomplete request. Missing: category" });
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC3] refuses sessions sent without their own expected attendance", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, {
+      sessions: [
+        { label: "Day 1", startsAt: "2027-03-04T01:00:00.000Z", endsAt: "2027-03-04T05:00:00.000Z", expectedAttendance: 80 },
+        { label: "Day 2", startsAt: "2027-03-05T01:00:00.000Z", endsAt: "2027-03-05T05:00:00.000Z" },
+      ],
+    });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "Cannot resubmit an incomplete request. Missing: session 2 expectedAttendance",
+    });
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC3] refuses sessions none of which has an expected attendance", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, {
+      sessions: [
+        { startsAt: "2027-03-04T01:00:00.000Z", endsAt: "2027-03-04T05:00:00.000Z" },
+        { startsAt: "2027-03-05T01:00:00.000Z", endsAt: "2027-03-05T05:00:00.000Z" },
+      ],
+    });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe(
+      "Cannot resubmit an incomplete request. Missing: expectedAttendance, session 1 expectedAttendance, session 2 expectedAttendance"
+    );
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC3] refuses a saved session with no expected attendance when the sessions are not resent", async () => {
+    const token = givenResponding();
+    db.eventSession.findMany.mockResolvedValue([{ expectedAttendance: 80 }, { expectedAttendance: null }]);
+
+    const res = await patch(token, { title: "Gala Dinner 2027" });
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Cannot resubmit an incomplete request. Missing: session 2 expectedAttendance");
+    nothingWritten();
+  });
+
+  it("[SPM-26][AC2] removes a preferred layout sent as null", async () => {
+    const token = givenResponding();
+
+    expect((await patch(token, { preferredLayout: null })).status).toBe(200);
+
+    expect(callArg(db.event.update).data).toMatchObject({ preferredLayout: null });
+  });
+
+  it("[SPM-26][AC3] refuses an expected attendance sent as null", async () => {
+    const token = givenResponding();
+
+    const res = await patch(token, { expectedAttendance: null });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Cannot resubmit an incomplete request. Missing: expectedAttendance" });
+    nothingWritten();
+  });
+
+  it("[SPM-26] answers 500 when the database fails inside the transaction", async () => {
+    const token = givenResponding();
+    db.$queryRaw.mockRejectedValue(new Error("lock timeout"));
+
+    expect((await patch(token, { title: "Gala Dinner 2027" })).status).toBe(500);
+    nothingWritten();
+  });
+
+  it("[SPM-26] a draft edit takes no lock and answers no clarification", async () => {
+    const token = givenResponding({ row: event({ status: "draft", coordinatorId: null }) });
+
+    expect((await patch(token, { title: "Gala Dinner 2027" })).status).toBe(200);
+
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+    expect(db.clarificationRequest.updateMany).not.toHaveBeenCalled();
   });
 });

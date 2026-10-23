@@ -2307,6 +2307,65 @@ describe("Event overview - an open clarification (SPM-29)", () => {
 
     expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
   });
+
+  // CONTRACT (SPM-26, written before the code): the banner offers the organiser
+  // who raised the request an "Update request" link to /events/<ref>/edit,
+  // where they answer it. No one else gets it - a colleague at the same client
+  // sees the banner only (decided 2026-10-21).
+  it("[SPM-26][AC1][AC2] offers the organiser who raised it 'Update request'", async () => {
+    open("organiser", event({ status: "under_review", openClarification: asked }), { id: "organiser-id" });
+
+    const link = within(await banner()).getByRole("link", { name: "Update request" });
+
+    expect(link).toHaveAttribute("href", `/events/${REF}/edit`);
+  });
+
+  it.each([
+    ["an organiser at the same client", "organiser", { id: "colleague-id" }],
+    ["the assigned coordinator", "coordinator", { id: "c1" }],
+  ])("[SPM-26][AC2] does not offer it to %s", async (_who, role, who) => {
+    open(role, event({ status: "under_review", openClarification: asked }), who);
+
+    const shown = await banner();
+
+    expect(within(shown).queryByRole("link", { name: "Update request" })).not.toBeInTheDocument();
+  });
+});
+
+// SPM-26 (AC3, AC4): after resubmitting, the Update request page brings the
+// organiser back here with ?resubmitted=1, and the page says the request was
+// sent and stays Under review.
+describe("Event overview - after the organiser resubmits (SPM-26)", () => {
+  function openResubmitted(query: string, eventRow: unknown) {
+    setRoute(`/events/${REF}${query}`, { id: REF });
+    mockApi({ ...signedInAs("organiser", { id: "organiser-id" }), [EVENT]: eventRow });
+    render(<EventOverviewPage />);
+  }
+
+  it("[SPM-26][AC3][AC4] says the request was sent to the coordinator and stays Under review", async () => {
+    openResubmitted("?resubmitted=1", event({ status: "under_review", openClarification: null }));
+
+    expect(
+      await screen.findByText("Your updated request has been sent to Daniel Tan. It stays Under review.")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Clarification requested")).not.toBeInTheDocument();
+  });
+
+  it("[SPM-26][AC3] says 'your coordinator' if the request names none", async () => {
+    openResubmitted("?resubmitted=1", event({ status: "under_review", openClarification: null, coordinator: null }));
+
+    expect(
+      await screen.findByText("Your updated request has been sent to your coordinator. It stays Under review.")
+    ).toBeInTheDocument();
+  });
+
+  it("[SPM-26] says nothing on an ordinary visit", async () => {
+    openResubmitted("", event({ status: "under_review", openClarification: null }));
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByText(/Your updated request has been sent/)).not.toBeInTheDocument();
+  });
 });
 
 describe("[SPM-59] a withdrawn request on its event page", () => {

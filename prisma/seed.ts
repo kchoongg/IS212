@@ -2158,6 +2158,25 @@ async function main() {
       rejectionReason: "Budget for the gala was not confirmed.",
       historyReasons: { rejected: "Budget for the gala was not confirmed." },
     }),
+  // SPM-26 QA fixtures (Respond to Clarification Request). The SAME events
+  // as scripts/seed-spm26.ts (`npm run fixtures:spm26`) - keep the two in
+  // step.
+  //
+  // The events only. Their clarifications - open on the Advisory Briefing,
+  // answered on the Answered Workshop, with the dates SPM-26's cases quote -
+  // are created by that script alone, so run it once after a full reseed.
+  // Pushed LAST, after SPM-80, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm26 = (key: string, title: string, date: string): EventSeed => ({
+    key, title, status: "under_review", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "Quarterly briefing for Meridian's wealth advisers", category: "conference",
+    description: "Half-day session followed by networking.",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 80, layout: "theatre",
+  });
+  eventData.push(
+    spm26("spm26_briefing", "SPM26 Meridian Advisory Briefing", "2028-05-04"),
+    spm26("spm26_answered", "SPM26 Meridian Answered Workshop", "2028-05-11"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
