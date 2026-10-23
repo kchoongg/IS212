@@ -70,11 +70,12 @@ function BrowseEvents() {
   }, [state, load]);
 
   // An attendee holding a place can still see an event whose registration was
-  // turned off (SPM-64, #10) - that belongs in My Registrations, not here.
+  // turned off (SPM-64, #10), or that was cancelled (SPM-37) - that belongs in
+  // My Registrations, not here.
   const rows = useMemo(
     () =>
       events
-        ?.filter((e) => e.registrationState.kind !== "disabled")
+        ?.filter((e) => e.registrationState.kind !== "disabled" && e.registrationState.kind !== "not_confirmed")
         .sort((a, b) => time(a.startsAt) - time(b.startsAt)) ?? null,
     [events]
   );

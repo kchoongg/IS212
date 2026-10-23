@@ -160,7 +160,9 @@ export function isBeforeApproval(status: string): boolean {
 const EVENT_TRANSITIONS: Record<string, readonly string[]> = {
   draft: ["submitted"],
   submitted: ["under_review"],
-  under_review: ["approved", "rejected", "withdrawn"],
+  // SPM-37 (AC1): cancelled at any stage that has an assigned coordinator
+  // (#68; confirmed 2026-10-22), so from Under review too.
+  under_review: ["approved", "rejected", "withdrawn", "cancelled"],
   approved: ["planning", "cancelled"],
   planning: ["confirmed", "postponed", "cancelled", "safety_review"],
   // SPM-86: the Safety Officer's decision (SPM-87) or a significant change
