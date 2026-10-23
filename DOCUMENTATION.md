@@ -164,6 +164,7 @@ IS212/
 │   ├── seed-spm71.ts            # `npm run fixtures:spm71` — SPM-71 test accounts, notifications and events, no reseed
 │   ├── seed-spm82.ts            # `npm run fixtures:spm82` — SPM-82 hold room and events with expiring holds, no reseed
 │   ├── seed-spm35.ts            # `npm run fixtures:spm35` — SPM-35 events and pending change requests, no reseed
+│   ├── seed-spm59.ts            # `npm run fixtures:spm59` — SPM-59 requests in every pre-planning status, no reseed
 │   ├── seed-spm26.ts            # `npm run fixtures:spm26` — SPM-26 events with an open and an answered clarification, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
@@ -831,6 +832,7 @@ traceability the module asks for.
 | `npm run fixtures:spm71` | Creates or refreshes SPM-71's four test accounts (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee; all `password123`), deletes and recreates every notification they hold, and resets SPM-71's 4 events ("SPM71 …", Nov 2027) without reseeding - only those accounts and events whose `seedKey` starts with `spm71_` are touched. The accounts are the story's own so the unread counts the cases quote never move with other testers' work. No pinned reference numbers. Run it before and after any case that marks or opens a notification. The accounts and events, without the notifications or arrangements, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm82` | Adds or resets SPM-82's test room, SPM82 Hold Room (SPM82-HOLD, 60 minutes of setup and turnaround), and its 8 events ("SPM82 …") with their venue bookings, without reseeding. Holds already past their expiry are created pending, as real ones would be, and the app expires them (and notifies Daniel Tan) the next time bookings are read. Three things are relative to when it runs, because they are about time passing: SPM82 Short Notice Meetup starts 3 days later and SPM82 Closing Soon Forum's hold expires 12 hours later (the script prints both). Run it before and after any case that changes data. The venue and events, without bookings, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm35` | Adds or resets SPM-35's 7 test events ("SPM35 …", Apr–May 2027), all organised by Rachel Ng and assigned to Daniel Tan, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm35_`, with their change requests. One in each status a case needs (Approved, Planning with an approved booking and reserved projectors, Confirmed, Postponed, Under review, Cancelled), and SPM35 Requests Showcase with five pending change requests. Run it before and after any case that sends a change request. The events (without bookings, equipment or change requests) are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm59` | Adds or resets SPM-59's 6 test events ("SPM59 …", Jun–Jul 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm59_`. One request in each status before planning: Draft, Submitted (no coordinator), Under review, Approved, Rejected and Withdrawn (the last four assigned to Daniel Tan). Run it before SPM-59-TC01 and after SPM-59-TC02. The same events are at the end of `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -988,6 +990,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. The same holds for each of an event's rooms (SPM-90, decided 2026-10-13): a breakout room is judged on its own attendance and layout, but must still have every facility the event requires. | events / venues |
 | **Few route-level tests against a real database** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Since 2026-10-19 `npm run test:integration` covers, on a real Postgres: booking requests at the same moment (SPM-44), approval booking the room (SPM-43), an expired hold freeing the room and not being approvable (SPM-82), equipment reservations reducing what is left and the last unit reserved at the same moment (SPM-48/49), and the registration capacity, including the last place taken at the same moment (SPM-51, SPM-111). Everything else is unit tested against a mocked database; see `docs/TESTING.md`. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
+| **"Filter by status" has no Postponed option** | Found with SPM-59 (2026-10-22): the My Events / All Events filter (`ALL_STATUSES`, `src/app/events/page.tsx`) lists every status but `postponed`, so a postponed event cannot be filtered on. SPM-59 added Withdrawn only, as the one its ACs need. One line to add, with a test. | SPM-38 (Postpone Event) |
 | **A change request can be made but not yet processed** | Since SPM-35 the organiser can ask for new details, a postponement or a cancellation, and the coordinator sees the request (Change Requests, and the event's Change requests card) - but nothing approves, rejects or applies it. That is **SPM-32** (Process Event Change Request), with Postpone Event and Cancel Event; the proposed values are stored in Update Event Information's payload shape for it. Until then a request stays Pending, and the coordinator acts on it by hand (Edit event information, or the status change). Nobody is told of a new request either: **SPM-53**. | SPM-32 |
 | **Two test cases quote the coordinator's sidebar from before SPM-68 and SPM-35** | SPM-22-TC02 ("The sidebar reads exactly: Dashboard, Review Queue, All Events, Venues, Equipment, Notifications") and SPM-43-TC11 ("The sidebar has Dashboard, Review Queue, All Events, Venues, Equipment and Notifications"). Since SPM-68 the coordinator's sidebar also has Flagged Arrangements, and since SPM-35 Change Requests, after it: Dashboard, Review Queue, Flagged Arrangements, Change Requests, All Events, Venues, Equipment, Notifications. Changed by design; the two cases need the new list. | SPM-22's and SPM-43's owners |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
@@ -1037,6 +1040,46 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-22 — Jordan
+- **SPM-59 (Record Request Withdrawal).** The withdrawal itself was built with
+  SPM-27 and SPM-34: the assigned coordinator's **Record withdrawal** on a
+  request Under review (#103). SPM-59 checks it against its own ACs and closes
+  two gaps:
+  - **My Events / All Events' "Filter by status" now offers "Withdrawn"**
+    (AC3). It listed every other final status but not this one, so a withdrawn
+    request could not be filtered on. (`src/app/events/page.tsx`)
+  - **The Venue tab's refusal for a closed event names withdrawal:** "A venue
+    cannot be requested for a completed, cancelled, rejected or withdrawn
+    event." (was "... completed, cancelled or rejected event.", wrong for a
+    withdrawn request; `CLOSED_EVENT_MESSAGE`, `src/lib/venueBookingRequest.ts`).
+  - Read as #103 says: a request is withdrawn while Under review. A Submitted
+    request has no coordinator yet, so nobody can record it; the organiser
+    never records it themselves.
+  - Automated tests tagged [SPM-59] now cover AC3 (its own label and filter),
+    AC4 (not reviewable, approvable, reassignable or bookable afterwards) and
+    AC5 (the organiser sees Withdrawn), which had none.
+  - **Test data:** `npm run fixtures:spm59`;
+    `docs/test-cases/SPM-59_Test_Cases.xlsx` (6 cases). No schema change.
+- **From the review of PR #80:** every message refusing an action on a closed
+  event now names withdrawn events, from one phrase built from
+  `TERMINAL_EVENT_STATUSES` (`CLOSED_EVENT_STATUSES_PHRASE`): recording or
+  updating equipment ("... completed, cancelled, rejected or withdrawn
+  event") and approving a booking ("A booking cannot be approved for a
+  completed, cancelled, rejected or withdrawn event. Reject it instead.").
+  The SPM-59 events in `prisma/seed.ts` now match `scripts/seed-spm59.ts`
+  (the draft has no dates; the coordinator records each step; the Rejected
+  Gala's history keeps its own reason through a new `historyReasons` option).
+  The three other stories' cases that quote the old wording, SPM-42-TC13,
+  SPM-43-TC06 and SPM-54-TC13, are marked Updated with a v2 (v3 for TC06)
+  note in their workbooks (`docs/test-cases/DECOMMISSIONED.md`, Forum #103 in
+  `docs/CHANGES.md`).
+- **Build: the title font is now in the repo** (no story; CI fix in the same
+  PR). Source Serif 4 was loaded through `next/font/google`, so every
+  `npm run build` downloaded it from Google, and a failed download failed the
+  build (Build on PR #73, End-to-end on PR #80). Its two weights (600, 700,
+  Latin) are now in `src/app/fonts/` with their SIL Open Font License and
+  loaded with `next/font/local`, like Geist. Looks the same; no build needs
+  Google any more.
 ### 2026-10-22 — Sammi Chua (SPM-26, Respond to Clarification Request)
 - **The organiser answers a clarification by updating and resubmitting the
   request.** The event page's "Clarification requested" banner gives the

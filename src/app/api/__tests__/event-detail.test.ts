@@ -788,6 +788,36 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect((await patch(token, { status: "withdrawn" })).status).toBe(403);
     });
 
+    it("[SPM-59][AC1] refuses a withdrawal for a Submitted request, which has no coordinator to record it", async () => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ status: "submitted", coordinatorId: null }));
+
+      expect((await patch(token, { status: "withdrawn" })).status).toBe(403);
+      expect(db.event.update).not.toHaveBeenCalled();
+    });
+
+    it.each(["approved", "rejected", "withdrawn"])(
+      "[SPM-59][AC1] refuses a withdrawal once the request is %s",
+      async (status) => {
+        const token = signIn(coordinator());
+        db.event.findUnique.mockResolvedValue(event({ status }));
+
+        expect((await patch(token, { status: "withdrawn" })).status).toBe(400);
+        expect(db.event.update).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each(["approved", "rejected"])("[SPM-59][AC4] a withdrawn request can no longer be %s", async (outcome) => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ status: "withdrawn" }));
+
+      const res = await patch(token, { status: outcome, reason: "Too late" });
+
+      expect(res.status).toBe(400);
+      expect(db.event.update).not.toHaveBeenCalled();
+      expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+    });
+
     it.each([undefined, "", "   "])("[SPM-28][AC5] refuses a rejection with reason %j", async (reason) => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event());

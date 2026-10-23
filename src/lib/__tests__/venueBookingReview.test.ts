@@ -90,7 +90,7 @@ describe("approving a booking request (AC3, AC7)", () => {
     for (const eventStatus of ["completed", "cancelled", "rejected"]) {
       expect(checkBookingDecision({ ...base, eventStatus })).toEqual({
         ok: false,
-        error: "A booking cannot be approved for a completed, cancelled or rejected event. Reject it instead.",
+        error: "A booking cannot be approved for a completed, cancelled, rejected or withdrawn event. Reject it instead.",
       });
     }
     for (const eventStatus of ["approved", "planning", "confirmed", "postponed"]) {
