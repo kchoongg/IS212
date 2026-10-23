@@ -269,6 +269,19 @@ describe("canViewEvent", () => {
   // SPM-64 (#10: attendees "can view events that they register for"):
   // turning registration off must not hide the event from the people already
   // holding a place. Manual case SPM-64-TC22.
+  // SPM-36: an event is completed by its coordinator or 7 days after it ends;
+  // the attendee who registered for it keeps it (#10). Not everyone else.
+  it.each([
+    ["registered or on the waiting list", { attendeeHoldsPlace: true }],
+    ["marked attended", { attendeeAttended: true }],
+  ])("[SPM-36][AC6] [SPM-51][AC1] keeps showing a completed event to an attendee who %s", (_who, flags) => {
+    expect(canViewEvent(attendee, event({ status: "completed", registrationEnabled: false, ...flags }))).toBe(true);
+  });
+
+  it("[SPM-36][AC6] [SPM-51][AC1] hides a completed event from an attendee who never registered or withdrew", () => {
+    expect(canViewEvent(attendee, event({ status: "completed", registrationEnabled: true }))).toBe(false);
+  });
+
   it("[SPM-4][AC3] [SPM-51][AC1] keeps showing a confirmed event to an attendee who holds a place after registration is turned off", () => {
     expect(
       canViewEvent(attendee, event({ status: "confirmed", registrationEnabled: false, attendeeHoldsPlace: true }))
@@ -301,7 +314,8 @@ describe("canViewEvent", () => {
     expect(canViewEvent(attendee, event({ status: "cancelled", registrationEnabled: true }))).toBe(false);
   });
 
-  it.each(["completed", "rejected", "withdrawn", "postponed"])(
+  // "completed" is SPM-36's: an attendee holding a place still sees it.
+  it.each(["rejected", "withdrawn", "postponed"])(
     "[SPM-37][AC7] still hides a %s event from an attendee who holds a place",
     (status) => {
       expect(canViewEvent(attendee, event({ status, registrationEnabled: true, attendeeHoldsPlace: true }))).toBe(false);

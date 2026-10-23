@@ -34,6 +34,7 @@ import { SafetyDecisionDialog } from "./SafetyDecisionDialog";
 import { SafetyFlagDialog, type SafetyFlagChoice } from "./SafetyFlagDialog";
 import { ChangeRequestsCard } from "./ChangeRequestsCard";
 import { canRequestChangeIn } from "@/lib/eventChangeRequest";
+import { completedMessage } from "@/lib/eventCompletion";
 import { ClarificationDetails, type OpenClarification } from "./ClarificationDetails";
 import { canFlagAfterReturn, safetyFlaggedMessage, safetyHistoryLine } from "@/lib/safetyResolution";
 import {
@@ -45,6 +46,7 @@ import {
   canConfigureRegistration,
   canConfirmEvent,
   canFlagForSafetyReview,
+  canMarkEventCompleted,
   canRecordSafetyDecision,
   canRequestEventChange,
   canRespondToClarification,
@@ -254,6 +256,10 @@ function EventOverview() {
   // asks, and shows what it says back.
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // SPM-36: the assigned coordinator marking the event completed once it has
+  // taken place.
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [completing, setCompleting] = useState(false);
   // SPM-86: the assigned coordinator submitting the event for an Operational
   // Safety Check. As with Confirm, the server decides whether the
   // arrangements are ready and the page shows what it says back.
@@ -434,6 +440,29 @@ function EventOverview() {
     }
   }
 
+  async function markCompleted() {
+    setCompleting(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      if (!res.ok) {
+        setActionError((await res.json().catch(() => ({}))).error ?? "Could not mark this event as completed.");
+        return;
+      }
+      setNotice(completedMessage(event?.title));
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setCompleting(false);
+      setCompleteOpen(false);
+    }
+  }
+
   async function submitForSafetyCheck() {
     setSubmittingSafety(true);
     setActionError(null);
@@ -557,6 +586,26 @@ function EventOverview() {
         coordinatorId: event.coordinatorId,
         status: event.status,
       }
+    )
+  );
+
+  // SPM-36 (AC1, AC2): the assigned coordinator, on a Confirmed event that
+  // has ended - the PATCH route's own checks.
+  const showComplete = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canMarkEventCompleted(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+        endsAt: event.endsAt,
+      },
+      new Date()
     )
   );
 
@@ -756,6 +805,9 @@ function EventOverview() {
             )}
             {showConfirm && (
               <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
+            )}
+            {showComplete && (
+              <Button onClick={() => setCompleteOpen(true)}>Mark as completed</Button>
             )}
             {showEditInformation && (
               <ButtonLink href={`/events/${eventId}/update`} variant="secondary">
@@ -1132,6 +1184,19 @@ function EventOverview() {
         {event?.title || "This event"} will be marked Confirmed, and the organiser will be
         able to see the venue and equipment arranged for it. Anything still outstanding will
         be listed instead.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={completeOpen}
+        title="Mark this event as completed?"
+        confirmLabel="Mark as completed"
+        cancelLabel="Not yet"
+        loading={completing}
+        onConfirm={() => void markCompleted()}
+        onCancel={() => setCompleteOpen(false)}
+      >
+        {event?.title || "This event"} will be marked Completed. Its venue and equipment stay on
+        record, and its status can&apos;t be changed after this.
       </ConfirmDialog>
 
       <ConfirmDialog

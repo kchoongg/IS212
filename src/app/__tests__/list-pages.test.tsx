@@ -411,6 +411,32 @@ describe("Events page", () => {
       expect(within(submitted).queryByText("Unsent idea")).not.toBeInTheDocument();
     });
 
+    it("[SPM-59][AC3][AC5] lists a withdrawn request with its own badge, apart from draft, submitted, approved and rejected ones", async () => {
+      renderPage([
+        event(1, { title: "Unsent idea", status: "draft" }),
+        event(2, { title: "Fresh request", status: "submitted" }),
+        event(3, { title: "Go-ahead", status: "approved" }),
+        event(4, { title: "Turned down", status: "rejected" }),
+        event(5, { title: "Called back", status: "withdrawn" }),
+      ]);
+
+      const submitted = await screen.findByRole("table", { name: "Events" });
+      const badgeOf = (title: string) => within(submitted).getByText(title).closest("tr") as HTMLElement;
+      expect(badgeOf("Fresh request")).toHaveTextContent("Submitted");
+      expect(badgeOf("Go-ahead")).toHaveTextContent("Approved");
+      expect(badgeOf("Turned down")).toHaveTextContent("Rejected");
+      expect(badgeOf("Called back")).toHaveTextContent("Withdrawn");
+      expect(within(screen.getByRole("table", { name: "Draft event requests" })).getByText("Unsent idea")).toBeInTheDocument();
+
+      fireEvent.change(statusFilter(), { target: { value: "withdrawn" } });
+
+      const filtered = await screen.findByRole("table", { name: "Events" });
+      expect(within(filtered).getByText("Called back")).toBeInTheDocument();
+      for (const title of ["Fresh request", "Go-ahead", "Turned down"]) {
+        expect(within(filtered).queryByText(title)).not.toBeInTheDocument();
+      }
+    });
+
     it("[SPM-27][AC1] shows each event's reference, attendance and status", async () => {
       renderPage([event(3, { title: "Gala Dinner", status: "under_review", expectedAttendance: 250 })]);
 

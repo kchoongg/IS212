@@ -814,6 +814,36 @@ describe("PATCH /api/events/[id] - status change", () => {
       expect((await patch(token, { status: "withdrawn" })).status).toBe(403);
     });
 
+    it("[SPM-59][AC1] refuses a withdrawal for a Submitted request, which has no coordinator to record it", async () => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ status: "submitted", coordinatorId: null }));
+
+      expect((await patch(token, { status: "withdrawn" })).status).toBe(403);
+      expect(db.event.update).not.toHaveBeenCalled();
+    });
+
+    it.each(["approved", "rejected", "withdrawn"])(
+      "[SPM-59][AC1] refuses a withdrawal once the request is %s",
+      async (status) => {
+        const token = signIn(coordinator());
+        db.event.findUnique.mockResolvedValue(event({ status }));
+
+        expect((await patch(token, { status: "withdrawn" })).status).toBe(400);
+        expect(db.event.update).not.toHaveBeenCalled();
+      }
+    );
+
+    it.each(["approved", "rejected"])("[SPM-59][AC4] a withdrawn request can no longer be %s", async (outcome) => {
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ status: "withdrawn" }));
+
+      const res = await patch(token, { status: outcome, reason: "Too late" });
+
+      expect(res.status).toBe(400);
+      expect(db.event.update).not.toHaveBeenCalled();
+      expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+    });
+
     it.each([undefined, "", "   "])("[SPM-28][AC5] refuses a rejection with reason %j", async (reason) => {
       const token = signIn(coordinator());
       db.event.findUnique.mockResolvedValue(event());
@@ -1757,6 +1787,205 @@ describe("PATCH /api/events/[id] - editing a draft", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "Each item can only be requested once per event, across all sessions." });
+  });
+});
+
+// SPM-36: the assigned coordinator marks a Confirmed event completed once it
+// has taken place (#71); an event 7 days past its end is completed by the
+// sweep that runs before the event is read.
+describe("PATCH /api/events/[id] - marking completed", () => {
+  const ENDED = { status: "confirmed", startsAt: new Date("2026-09-30T01:00:00Z"), endsAt: new Date("2026-09-30T09:00:00Z") };
+
+  function givenUpdateSucceeds() {
+    db.event.update.mockImplementation(async ({ data }: { data: object }) => ({ ...event(ENDED), ...data }));
+  }
+
+  it("[SPM-36][AC1] SPM-36-TC01: lets the assigned coordinator mark a Confirmed event that has ended as completed", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event(ENDED));
+    givenUpdateSucceeds();
+
+    const res = await patch(token, { status: "completed" });
+
+    expect(res.status).toBe(200);
+    expect((await res.json()).status).toBe("completed");
+    expect(callArg(db.event.update)).toEqual({ where: { id: ID.event }, data: { status: "completed" } });
+    expect(callArg(db.eventStatusHistory.create).data).toEqual({
+      eventId: ID.event,
+      fromStatus: "confirmed",
+      toStatus: "completed",
+      changedBy: ID.otherUser,
+      reason: undefined,
+    });
+  });
+
+  it("[SPM-36][AC3] leaves the venue bookings and equipment as they are", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event(ENDED));
+    givenUpdateSucceeds();
+
+    await patch(token, { status: "completed" });
+
+    expect(db.venueBooking.update).not.toHaveBeenCalled();
+    expect(db.venueBooking.updateMany).not.toHaveBeenCalled();
+    expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+    expect(db.equipmentRequest.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-36][AC1] SPM-36-TC04: refuses an event that has not ended yet", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event({ ...ENDED, endsAt: new Date(NOW.getTime() + HOUR) }));
+
+    const res = await patch(token, { status: "completed" });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "This event hasn't ended yet, so it can't be marked completed." });
+    expect(db.event.update).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-36][AC1] counts an event that ends at this very moment as ended", async () => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event({ ...ENDED, endsAt: NOW }));
+    givenUpdateSucceeds();
+
+    expect((await patch(token, { status: "completed" })).status).toBe(200);
+  });
+
+  it.each(["planning", "safety_cleared", "postponed", "approved"])(
+    "[SPM-36][AC2] refuses to complete a %s event - only a Confirmed one",
+    async (status) => {
+      vi.useFakeTimers({ now: NOW });
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ ...ENDED, status }));
+
+      const res = await patch(token, { status: "completed" });
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatch(/can't be moved to Completed\.$/);
+      expect(db.event.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["confirmed", "postponed", "cancelled", "planning"])(
+    "[SPM-36][AC5] refuses to move a completed event to %s",
+    async (status) => {
+      vi.useFakeTimers({ now: NOW });
+      const token = signIn(coordinator());
+      db.event.findUnique.mockResolvedValue(event({ ...ENDED, status: "completed" }));
+
+      const res = await patch(token, { status, reason: "Changed plans" });
+
+      expect(res.status).toBe(400);
+      expect(db.event.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each([
+    ["another coordinator", () => user("coordinator", { id: ID.thirdUser })],
+    ["the organiser", () => organiser()],
+    ["the Event Coordinator Lead", () => user("ops_manager", { id: ID.thirdUser })],
+  ])("[SPM-36][AC1] SPM-36-TC05: refuses %s", async (_who, actor) => {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(actor());
+    db.event.findUnique.mockResolvedValue(event(ENDED));
+
+    expect((await patch(token, { status: "completed" })).status).toBe(403);
+    expect(db.event.update).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/events/[id] - completing events 7 days past their end", () => {
+  it("[SPM-36][AC6] completes due events before reading this one", async () => {
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(null);
+
+    await get(token);
+
+    const [strings] = db.$queryRaw.mock.calls[0] as [TemplateStringsArray];
+    expect(strings.join("?")).toContain("UPDATE events SET status = 'completed'");
+  });
+
+  it("[SPM-36][AC6] does not sweep for a reference that cannot exist", async () => {
+    const token = signIn(coordinator());
+
+    await get(token, "not-a-reference");
+
+    expect(db.$queryRaw).not.toHaveBeenCalled();
+  });
+});
+
+// SPM-36: once an event is completed, the attendee who registered for it can
+// still open it from My Registrations (#10).
+describe("GET /api/events/[id] - an attendee and a completed event", () => {
+  const attendee = () => user("attendee", { id: ID.thirdUser });
+  const completed = () => event({ status: "completed", endsAt: new Date("2026-09-30T09:00:00Z") });
+
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+  });
+
+  it("[SPM-36][AC6] [SPM-51][AC1] shows it to an attendee who is still registered", async () => {
+    const token = signIn(attendee());
+    db.event.findUnique.mockResolvedValue(completed());
+    db.registration.count.mockResolvedValueOnce(1);
+
+    expect((await get(token)).status).toBe(200);
+  });
+
+  it("[SPM-36][AC6] [SPM-51][AC1] shows it to an attendee who was marked attended", async () => {
+    const token = signIn(attendee());
+    db.event.findUnique.mockResolvedValue(completed());
+    db.registration.count.mockResolvedValueOnce(0).mockResolvedValueOnce(1);
+
+    expect((await get(token)).status).toBe(200);
+    expect(db.registration.count.mock.calls[1][0]).toEqual({
+      where: { eventId: ID.event, attendeeId: ID.thirdUser, status: "attended" },
+    });
+  });
+
+  it("[SPM-36][AC6] [SPM-51][AC1] hides it from an attendee who never registered or withdrew", async () => {
+    const token = signIn(attendee());
+    db.event.findUnique.mockResolvedValue(completed());
+    db.registration.count.mockResolvedValue(0);
+
+    expect((await get(token)).status).toBe(404);
+  });
+
+  it("[SPM-36] does not look for an attended registration on an event that is not completed", async () => {
+    const token = signIn(attendee());
+    db.event.findUnique.mockResolvedValue(event({ status: "confirmed", registrationEnabled: false }));
+    db.registration.count.mockResolvedValue(0);
+
+    expect((await get(token)).status).toBe(404);
+    expect(db.registration.count).toHaveBeenCalledTimes(1);
+  });
+});
+
+// SPM-36 (AC3, AC4): the organiser can still open a completed event, with the
+// venue booked and the equipment recorded for it.
+describe("GET /api/events/[id] - the organiser and a completed event", () => {
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+  });
+
+  it("[SPM-36][AC4] SPM-36-TC02: gives the organiser who owns it the event with its approved bookings and equipment", async () => {
+    const token = signIn(organiser());
+    const venueBookings = [{ startsAt: new Date("2026-09-30T01:00:00Z"), venue: { name: "Orchard Gallery", code: "ORC-GAL" } }];
+    const equipmentRequests = [{ id: "r1", status: "reserved", equipment: { name: "Handheld Wireless Mic" } }];
+    db.event.findUnique.mockResolvedValue(event({ status: "completed", venueBookings, equipmentRequests }));
+
+    const res = await get(token);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("completed");
+    expect(body.venueBookings).toHaveLength(1);
+    expect(body.equipmentRequests).toHaveLength(1);
+    expect(callArg(db.event.findUnique).include.venueBookings.where).toEqual({ status: "approved" });
   });
 });
 

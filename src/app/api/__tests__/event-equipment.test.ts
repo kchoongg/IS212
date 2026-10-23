@@ -71,6 +71,20 @@ describe("GET /api/events/[id]/equipment", () => {
     expect(callArg(db.equipmentRequest.findMany).where).toEqual({ eventId: ID.event });
   });
 
+  // SPM-36 (AC3, AC4): completing an event leaves its equipment on it as the
+  // record of what took place, and the organiser can still read it.
+  it("[SPM-36][AC3][AC4] SPM-36-TC02: lists a completed event's equipment for the organiser who owns it", async () => {
+    const token = signIn(owner());
+    const rows = [{ id: ID.request, quantityRequested: 2, status: "reserved", equipment: { id: ID.equipment, name: "Handheld Wireless Mic" } }];
+    db.event.findUnique.mockResolvedValue(event({ status: "completed" }));
+    db.equipmentRequest.findMany.mockResolvedValue(rows);
+
+    const res = await list(token);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(rows);
+  });
+
   it.each([
     ["a coordinator who is not assigned", otherCoordinator],
     ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
@@ -188,7 +202,7 @@ describe("POST /api/events/[id]/equipment", () => {
     const res = await add(token, valid);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Cannot record equipment for a completed, cancelled, or rejected event" });
+    expect(await res.json()).toEqual({ error: "Cannot record equipment for a completed, cancelled, rejected or withdrawn event" });
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
@@ -457,7 +471,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
 
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({
-        error: "Cannot update equipment for a completed, cancelled, or rejected event",
+        error: "Cannot update equipment for a completed, cancelled, rejected or withdrawn event",
       });
       expect(db.equipmentRequest.update).not.toHaveBeenCalled();
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
