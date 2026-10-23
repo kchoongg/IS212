@@ -968,6 +968,7 @@ function EventOverview() {
           {user?.role === "attendee" && event.registrationState && (
             <RegisterPanel
               eventId={event.id}
+              eventRef={eventReference(event.sequenceNumber)}
               eventTitle={event.title}
               eventStatus={event.status}
               eventEndsAt={event.endsAt}

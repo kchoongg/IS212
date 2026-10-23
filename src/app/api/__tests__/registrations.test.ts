@@ -195,7 +195,8 @@ describe("POST /api/registrations", () => {
     const token = signIn(user("attendee"));
     db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: 50 }));
     db.registration.findUnique.mockResolvedValue(null);
-    db.registration.count.mockResolvedValue(49);
+    // Taken, then (SPM-66) under offer and waiting.
+    db.registration.count.mockResolvedValueOnce(49).mockResolvedValue(0);
     db.registration.create.mockResolvedValue({ id: "r1" });
 
     const res = await register(token);
@@ -205,6 +206,24 @@ describe("POST /api/registrations", () => {
       eventId: ID.event,
       status: { in: ["registered", "attended"] },
     });
+  });
+
+  // SPM-66 (AC8): a place under offer is held, and nobody registers past the
+  // waiting list.
+  it.each([
+    ["a place is under offer", [49, 1, 0]],
+    ["someone is still waiting", [48, 0, 1]],
+  ])("[SPM-66][AC8] refuses the last place when %s", async (_case, [taken, underOffer, waiting]) => {
+    const token = signIn(user("attendee"));
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationCapacity: 50 }));
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.count.mockResolvedValueOnce(taken).mockResolvedValueOnce(underOffer).mockResolvedValueOnce(waiting);
+
+    const res = await register(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "This event is full" });
+    expect(db.registration.create).not.toHaveBeenCalled();
   });
 
   // SPM-111: the race itself is shown on a real database
@@ -299,8 +318,10 @@ describe("GET /api/registrations", () => {
       orderBy: { registeredAt: "desc" },
       select: {
         id: true,
+        eventId: true,
         status: true,
         registeredAt: true,
+        offerExpiresAt: true,
         event: {
           select: {
             sequenceNumber: true,
@@ -314,11 +335,13 @@ describe("GET /api/registrations", () => {
         },
       },
     });
+    // CHANGED (SPM-66, AC3): with their place in the queue.
     expect(await res.json()).toEqual([
       {
         id: "r2",
         status: "waitlisted",
         registeredAt: "2026-10-08T02:00:00.000Z",
+        waitingListPosition: 1,
         event: {
           sequenceNumber: 44,
           title: "SPM51 Sold Out Summit",

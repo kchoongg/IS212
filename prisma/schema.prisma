@@ -720,6 +720,21 @@ model Registration {
   /// registered themselves.
   addedById String? @map("added_by_id")
 
+  /// Join and Respond to Waiting List (SPM-66): when the attendee joined the
+  /// waiting list - its first-in, first-out order. NULL for a registration
+  /// that never waited.
+  waitlistedAt     DateTime? @map("waitlisted_at")
+  /// SPM-66: when a place was last offered to this attendee.
+  offeredAt        DateTime? @map("offered_at")
+  /// SPM-66: set while a place is under offer to this waitlisted attendee -
+  /// 3 days after the offer, or the event's start if sooner (AC6, AC10). NULL
+  /// once the offer is accepted or ends.
+  offerExpiresAt   DateTime? @map("offer_expires_at")
+  /// SPM-66: how the last offer ended without being accepted - declined |
+  /// expired | event_started | moved (the coordinator gave it to someone
+  /// else) | left. NULL while it stands, or once accepted.
+  offerEndedReason String?   @map("offer_ended_reason")
+
   event    Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   attendee User  @relation("RegistrationAttendee", fields: [attendeeId], references: [id], onDelete: Cascade)
   addedBy  User? @relation("RegistrationAddedBy", fields: [addedById], references: [id], onDelete: SetNull)
@@ -731,6 +746,8 @@ model Registration {
   @@unique([eventId, attendeeId])
   @@index([eventId, status])
   @@index([attendeeId, status])
+  /// SPM-66: the sweep looks for offers whose time has run out.
+  @@index([status, offerExpiresAt])
   @@map("registrations")
 }
 

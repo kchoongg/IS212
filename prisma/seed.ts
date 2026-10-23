@@ -238,6 +238,21 @@ async function main() {
     users[email] = u.id;
   }
 
+  // SPM-66 (Join and Respond to Waiting List) attendee accounts - the same
+  // five as scripts/seed-spm66.ts, the story's own so a waiting list position
+  // never moves with other testers' work.
+  const spm66Accounts: [string, string][] = [
+    ["Hana Quek", "hana.quek@example.com"],
+    ["Ravi Nathan", "ravi.nathan@example.com"],
+    ["Siew Ling Goh", "siew.ling.goh@example.com"],
+    ["Tomas Reyes", "tomas.reyes@example.com"],
+    ["Uma Pillay", "uma.pillay@example.com"],
+  ];
+  for (const [fullName, email] of spm66Accounts) {
+    const u = await prisma.user.create({ data: { email, passwordHash, fullName, role: "attendee" } });
+    users[email] = u.id;
+  }
+
   // -------------------------------------------------------------------
   // FACILITIES
   // -------------------------------------------------------------------
@@ -2152,6 +2167,32 @@ async function main() {
   eventData.push(
     spm26("spm26_briefing", "SPM26 Meridian Advisory Briefing", "2028-05-04"),
     spm26("spm26_answered", "SPM26 Meridian Answered Workshop", "2028-05-11"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-66 QA fixtures (Join and Respond to Waiting List). The SAME events as
+  // scripts/seed-spm66.ts (`npm run fixtures:spm66`) - keep the two in step.
+  //
+  // The events only. Their registrations, waiting lists and offers (made
+  // relative to when the script runs), and their registration periods, are
+  // created by that script alone, so run it once after a full reseed. Pushed
+  // LAST, after SPM-26, so no earlier event's EVT- reference number shifts. Add
+  // new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm66 = (key: string, title: string, date: string, startHour: number, durationHours: number): EventSeed => ({
+    key, title, status: "confirmed", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-66 waiting list test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance: 2, layout: "theatre",
+    regEnabled: true, regCapacity: 2,
+  });
+  eventData.push(
+    spm66("spm66_summit", "SPM66 Harbour Summit", "2027-11-08", 9, 8),
+    spm66("spm66_gala", "SPM66 Offer Gala", "2027-11-10", 19, 3),
+    spm66("spm66_forum", "SPM66 Withdrawal Forum", "2027-11-12", 9, 3),
+    spm66("spm66_workshop", "SPM66 Decline Workshop", "2027-11-15", 14, 3),
+    spm66("spm66_talk", "SPM66 Lapsed Offer Talk", "2027-11-17", 9, 2),
+    spm66("spm66_showcase", "SPM66 Override Showcase", "2027-11-19", 10, 6),
+    spm66("spm66_expo", "SPM66 Started Expo", "2026-10-20", 9, 24 * 100 + 8),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

@@ -202,13 +202,16 @@ describe("AC3 + AC4 an event outside its period can't be registered for, and say
 });
 
 describe("AC9 + AC10 a full event offers the waiting list instead of Register", () => {
-  it("[SPM-51][AC9][AC10] says the event is full and offers the waiting list, with no Register button (TC05)", async () => {
+  // CHANGED (SPM-66, AC1): the waiting list can now be joined - "Join waiting
+  // list" with the same optional needs, in place of Register.
+  it("[SPM-51][AC9][AC10] [SPM-66][AC1] says the event is full and offers the waiting list, with no Register button (TC05)", async () => {
     open(publicEvent({ registrationState: { kind: "full" } }));
 
     expect(await screen.findByText("This event is full. You can join the waiting list instead.")).toBeInTheDocument();
-    expect(screen.getByText("Joining the waiting list isn't available yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Joining the waiting list isn't available yet.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Join waiting list" })).toBeInTheDocument();
     expect(registerButton()).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Dietary requirements")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Dietary requirements")).toBeInTheDocument();
   });
 
   it("[SPM-51][AC9] shows the refusal when the last seat went while the page was open (TC05)", async () => {
@@ -377,5 +380,174 @@ describe("SPM-52 an attendee withdraws from the event page", () => {
     expect(
       await within(dialog()).findByText("Could not reach the server. Check your connection and try again.")
     ).toBeInTheDocument();
+  });
+});
+
+// SPM-66 - Join and Respond to Waiting List: the attendee's side of the card.
+describe("SPM-66 the waiting list", () => {
+  const JOIN = `POST /api/events/${REF}/waiting-list`;
+  const LEAVE = "PATCH /api/registrations/reg-1";
+  const ANSWER = "POST /api/registrations/reg-1/offer";
+  const full = (overrides: Record<string, unknown> = {}) => publicEvent({ registrationState: { kind: "full" }, ...overrides });
+  const waiting = (overrides: Record<string, unknown> = {}) => ({
+    id: "reg-1",
+    status: "waitlisted",
+    registeredAt: "2026-10-20T02:00:00.000Z",
+    offerExpiresAt: null,
+    waitingListPosition: 3,
+    ...overrides,
+  });
+  const offered = () => waiting({ offerExpiresAt: "2099-10-26T02:00:00.000Z", waitingListPosition: 1 });
+  const dialogTitled = (name: string) => screen.getByRole("heading", { hidden: true, name }).closest("dialog") as HTMLElement;
+
+  it("[SPM-66][AC1] SPM-66-TC01: joins a full event's waiting list with the needs typed, and says so", async () => {
+    const api = open(full(), { [JOIN]: { id: "reg-1", status: "waitlisted" } });
+    await panel();
+
+    fireEvent.change(screen.getByLabelText("Dietary requirements"), { target: { value: " Halal " } });
+    await userEvent.click(screen.getByRole("button", { name: "Join waiting list" }));
+
+    expect(await screen.findByText("You're on the waiting list.")).toBeInTheDocument();
+    expect(api.sent(JOIN)[0].body).toEqual({ dietaryRequirements: "Halal" });
+    expect(api.sent(REGISTER)).toHaveLength(0);
+    expect(screen.queryByText("You're registered for this event.")).not.toBeInTheDocument();
+  });
+
+  it("[SPM-66][AC2] SPM-66-TC02: shows the server's refusal when joining", async () => {
+    open(full(), { [JOIN]: reply(400, { error: "You're already on the waiting list for this event." }) });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Join waiting list" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("You're already on the waiting list for this event.");
+  });
+
+  it("[SPM-66][AC1] falls back to a general message when joining is refused without one", async () => {
+    open(full(), { [JOIN]: reply(400, {}) });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Join waiting list" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not join the waiting list.");
+  });
+
+  it("[SPM-66][AC3] SPM-66-TC03: shows a waiting attendee their position, and Leave waiting list", async () => {
+    open(full({ myRegistration: waiting() }));
+
+    const card = await panel();
+
+    expect(within(card).getByText("Waiting list")).toBeInTheDocument();
+    expect(within(card).getByText("You're number 3 on the waiting list.")).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Leave waiting list" })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Join waiting list" })).not.toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-66][AC3] says they are waiting when no position was sent", async () => {
+    open(full({ myRegistration: waiting({ waitingListPosition: null }) }));
+
+    expect(within(await panel()).getByText("You're on the waiting list.")).toBeInTheDocument();
+  });
+
+  it("[SPM-66][AC4] SPM-66-TC03: asks before leaving, then leaves and says so", async () => {
+    const api = open(full({ myRegistration: waiting() }), { [LEAVE]: { id: "reg-1", status: "withdrawn" } });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Leave waiting list" }));
+    const ask = dialogTitled("Leave the waiting list for SPM51 Harbour Open House?");
+    expect(ask).toHaveTextContent("You lose your place in the queue. To wait again, you would join at the back of the list.");
+    expect(api.sent(LEAVE)).toHaveLength(0);
+    await userEvent.click(within(ask).getByRole("button", { hidden: true, name: "Leave waiting list" }));
+
+    expect(await screen.findByText("You have left the waiting list.")).toBeInTheDocument();
+    expect(api.sent(LEAVE)[0].body).toEqual({ status: "withdrawn" });
+  });
+
+  it("[SPM-66][AC4] words the Leave question for an event with no title", async () => {
+    open(full({ title: null, myRegistration: waiting() }));
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Leave waiting list" }));
+
+    expect(dialogTitled("Leave the waiting list for this event?")).toBeInTheDocument();
+  });
+
+  it("[SPM-66][AC4] keeps the attendee on the list when they choose to stay", async () => {
+    const api = open(full({ myRegistration: waiting() }), { [LEAVE]: {} });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Leave waiting list" }));
+    await userEvent.click(
+      within(dialogTitled("Leave the waiting list for SPM51 Harbour Open House?")).getByRole("button", { hidden: true, name: "Stay on the list" })
+    );
+
+    expect(api.sent(LEAVE)).toHaveLength(0);
+  });
+
+  it("[SPM-66][AC5][AC6] SPM-66-TC04: shows a place offered, and until when", async () => {
+    open(full({ myRegistration: offered() }));
+
+    const card = await panel();
+
+    expect(within(card).getByText("A place is available for you")).toBeInTheDocument();
+    expect(card).toHaveTextContent("Accept it by 26 Oct 2099, 10:00. If you don't, it goes to the next person on the waiting list.");
+    expect(within(card).getByRole("button", { name: "Accept place" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Decline" })).toBeInTheDocument();
+    expect(within(card).queryByRole("button", { name: "Leave waiting list" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-66][AC6] SPM-66-TC04: accepts the place, and says they are registered", async () => {
+    const api = open(full({ myRegistration: offered() }), { [ANSWER]: { id: "reg-1", status: "registered" } });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Accept place" }));
+
+    expect(await screen.findByText("You're registered for this event.")).toBeInTheDocument();
+    expect(api.sent(ANSWER)[0].body).toEqual({ response: "accept" });
+  });
+
+  it("[SPM-66][AC7] SPM-66-TC06: asks before declining, then declines and says so", async () => {
+    const api = open(full({ myRegistration: offered() }), { [ANSWER]: { id: "reg-1", status: "withdrawn" } });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Decline" }));
+    const ask = dialogTitled("Decline this place?");
+    expect(ask).toHaveTextContent("The place goes to the next person on the waiting list, and you leave the waiting list.");
+    await userEvent.click(within(ask).getByRole("button", { hidden: true, name: "Decline place" }));
+
+    expect(await screen.findByText("You have declined the place.")).toBeInTheDocument();
+    expect(api.sent(ANSWER)[0].body).toEqual({ response: "decline" });
+  });
+
+  it("[SPM-66][AC7] keeps the offer when they change their mind", async () => {
+    const api = open(full({ myRegistration: offered() }), { [ANSWER]: {} });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Decline" }));
+    await userEvent.click(within(dialogTitled("Decline this place?")).getByRole("button", { hidden: true, name: "Keep the offer" }));
+
+    expect(api.sent(ANSWER)).toHaveLength(0);
+  });
+
+  it("[SPM-66][AC6] treats an offer whose time has passed as ended", async () => {
+    open(full({ myRegistration: waiting({ offerExpiresAt: "2020-01-01T00:00:00.000Z", waitingListPosition: 1 }) }));
+
+    const card = await panel();
+
+    expect(within(card).queryByRole("button", { name: "Accept place" })).not.toBeInTheDocument();
+    expect(within(card).getByText("You're number 1 on the waiting list.")).toBeInTheDocument();
+  });
+
+  it.each([
+    ["the server's reason", reply(400, { error: "This offer has ended." }), "This offer has ended."],
+    ["a general message when it gives none", reply(500), "Could not update your place on the waiting list."],
+    ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
+  ])("[SPM-66][AC6] shows %s when accepting fails", async (_case, answer, message) => {
+    open(full({ myRegistration: offered() }), { [ANSWER]: answer });
+    await panel();
+
+    await userEvent.click(screen.getByRole("button", { name: "Accept place" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
   });
 });

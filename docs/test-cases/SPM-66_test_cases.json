@@ -1,0 +1,282 @@
+{
+  "story_key": "SPM-66",
+  "story_title": "Join and Respond to Waiting List",
+  "created_by": "Janelle",
+  "creation_date": "2026-10-23",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given an event has reached its registration capacity and registration is open, when an Attendee views it, then they can join the waiting list instead of registering."
+    },
+    {
+      "id": "AC2",
+      "text": "An Attendee cannot join the waiting list for an event they are already registered or waitlisted for."
+    },
+    {
+      "id": "AC3",
+      "text": "The Attendee can view their position on the waiting list."
+    },
+    {
+      "id": "AC4",
+      "text": "The Attendee can leave the waiting list, after which those behind them move up."
+    },
+    {
+      "id": "AC5",
+      "text": "Given a place becomes available, when the waiting list is not empty, then the place is offered to the first Attendee on the list (first in, first out) and that Attendee is notified."
+    },
+    {
+      "id": "AC6",
+      "text": "The Attendee can accept the offer within 3 days, after which they are registered and removed from the waiting list."
+    },
+    {
+      "id": "AC7",
+      "text": "Given the Attendee declines the offer or does not respond within 3 days, when the offer ends, then the place is offered to the next Attendee on the list."
+    },
+    {
+      "id": "AC8",
+      "text": "A place under offer is not available for direct registration by other Attendees."
+    },
+    {
+      "id": "AC9",
+      "text": "The assigned Event Coordinator can override the order and offer a place to a chosen waitlisted Attendee."
+    },
+    {
+      "id": "AC10",
+      "text": "No new offer is made once the event has started, and an outstanding offer ends when the event starts even if 3 days have not passed."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-66-TC01",
+      "title": "An Attendee viewing a full event with registration open joins its waiting list instead of registering, and is told their position",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case, and again after it (it joins the list). 'SPM66 Harbour Summit' (8 Nov 2027) has 2 places, both taken (Uma Pillay, Tomas Reyes), registration open until 31 Oct 2027, and 2 attendees waiting: Hana Quek (1st) and Ravi Nathan (2nd). Siew Ling Goh holds no registration for it.",
+      "steps": [
+        "Log in as siew.ling.goh@example.com / password123 (Siew Ling Goh, an Attendee)",
+        "Click 'Browse Events' in the sidebar and open 'SPM66 Harbour Summit'",
+        "Type 'Vegetarian' in 'Dietary requirements'",
+        "Click 'Join waiting list'",
+        "Click 'My Registrations' in the sidebar"
+      ],
+      "test_data": "Attendee: Siew Ling Goh | Event: SPM66 Harbour Summit (2 of 2 places taken, 2 waiting) | Dietary requirements: Vegetarian",
+      "expected_result": "Step 2: The 'Your registration' card says 'This event is full. You can join the waiting list instead.' above 'Dietary requirements', 'Accessibility requirements' and a 'Join waiting list' button. There is no 'Register' button.\nStep 4: 'You're on the waiting list.' appears, and the card now shows the badge 'Waiting list', 'You're number 3 on the waiting list.' and a 'Leave waiting list' button.\nStep 5: 'SPM66 Harbour Summit' is listed with the status 'Waiting list' and 'Number 3 in the queue'."
+    },
+    {
+      "id": "SPM-66-TC02",
+      "title": "An Attendee already registered for, or already waiting for, a full event is not offered the waiting list again",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm66 has been run (as for SPM-66-TC01). Uma Pillay is registered for 'SPM66 Harbour Summit'; Hana Quek is 1st on its waiting list. Nothing is changed in this case.",
+      "steps": [
+        "Log in as uma.pillay@example.com / password123 (Uma Pillay, an Attendee)",
+        "Click 'My Registrations' in the sidebar and click the 'SPM66 Harbour Summit' row",
+        "Log out, then log in as hana.quek@example.com / password123 (Hana Quek, an Attendee)",
+        "Click 'My Registrations' in the sidebar and click the 'SPM66 Harbour Summit' row"
+      ],
+      "test_data": "Registered: Uma Pillay | Waiting: Hana Quek | Event: SPM66 Harbour Summit",
+      "expected_result": "Step 2: The card shows the badge 'Registered', 'You registered on 1 Oct 2026.' and 'Withdraw' - no 'Join waiting list' and no 'Register'.\nStep 4: The card shows the badge 'Waiting list', 'You're number 1 on the waiting list.' and 'Leave waiting list' - no 'Join waiting list'."
+    },
+    {
+      "id": "SPM-66-TC03",
+      "title": "An Attendee sees their position on the waiting list, and when the one ahead leaves the list everyone behind moves up",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case, and again after it (Hana leaves the list). On 'SPM66 Harbour Summit', Hana Quek is 1st and Ravi Nathan 2nd on the waiting list.",
+      "steps": [
+        "Log in as ravi.nathan@example.com / password123 (Ravi Nathan, an Attendee)",
+        "Click 'My Registrations' in the sidebar",
+        "Log out, then log in as hana.quek@example.com / password123 (Hana Quek, an Attendee)",
+        "Click 'My Registrations' in the sidebar and click the 'SPM66 Harbour Summit' row",
+        "Click 'Leave waiting list'",
+        "Click 'Leave waiting list' in the dialog",
+        "Log out, then log in as ravi.nathan@example.com / password123",
+        "Click 'My Registrations' in the sidebar"
+      ],
+      "test_data": "Event: SPM66 Harbour Summit | Leaving: Hana Quek (1st) | Behind her: Ravi Nathan (2nd)",
+      "expected_result": "Step 2: 'SPM66 Harbour Summit' shows the status 'Waiting list' and 'Number 2 in the queue'.\nStep 4: The card says 'You're number 1 on the waiting list.'\nStep 5: A dialog 'Leave the waiting list for SPM66 Harbour Summit?' says 'You lose your place in the queue. To wait again, you would join at the back of the list.', with 'Leave waiting list' and 'Stay on the list'.\nStep 6: 'You have left the waiting list.' appears, and the card offers 'Join waiting list' again.\nStep 8: 'SPM66 Harbour Summit' now shows 'Number 1 in the queue'."
+    },
+    {
+      "id": "SPM-66-TC04",
+      "title": "An Attendee offered a place accepts it within 3 days, and is registered and off the waiting list",
+      "linked_ac": [
+        "AC6",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case, and again after it (Hana accepts). On 'SPM66 Offer Gala', a place was offered to Hana Quek an hour before the script ran; it can be accepted for 3 days.",
+      "steps": [
+        "Log in as hana.quek@example.com / password123 (Hana Quek, an Attendee)",
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM66 Offer Gala' row",
+        "Click 'Accept place'",
+        "Click 'My Registrations' in the sidebar"
+      ],
+      "test_data": "Attendee: Hana Quek | Event: SPM66 Offer Gala | Offer: made an hour before the script ran, for 3 days",
+      "expected_result": "Step 2: 'SPM66 Offer Gala' shows the status 'Waiting list' and 'Place offered - accept by <date and time 3 days after the offer>'.\nStep 3: The card shows 'A place is available for you' and 'Accept it by <the same date and time>. If you don't, it goes to the next person on the waiting list.', with 'Accept place' and 'Decline'.\nStep 4: 'You're registered for this event.' appears, and the card shows the badge 'Registered', 'You registered on <today>.' and 'Withdraw'.\nStep 5: 'SPM66 Offer Gala' shows the status 'Registered', with nothing about the queue."
+    },
+    {
+      "id": "SPM-66-TC05",
+      "title": "When a registered Attendee withdraws, the place is offered to the first on the waiting list, who is notified, and no other Attendee can register into it",
+      "linked_ac": [
+        "AC5",
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case, and again after it (Uma withdraws). 'SPM66 Withdrawal Forum' has 2 places, both taken (Uma Pillay, Tomas Reyes), with Hana Quek 1st and Ravi Nathan 2nd waiting.",
+      "steps": [
+        "Log in as uma.pillay@example.com / password123 (Uma Pillay, an Attendee)",
+        "Click 'My Registrations' in the sidebar, then 'Withdraw' on the 'SPM66 Withdrawal Forum' row",
+        "Click 'Withdraw' in the dialog",
+        "Log out, then log in as hana.quek@example.com / password123 (Hana Quek)",
+        "Click 'Notifications' in the sidebar",
+        "Click 'My Registrations' in the sidebar",
+        "Log out, then log in as siew.ling.goh@example.com / password123 (Siew Ling Goh, not on the list)",
+        "Click 'Browse Events' in the sidebar and open 'SPM66 Withdrawal Forum'"
+      ],
+      "test_data": "Withdrawing: Uma Pillay | 1st waiting: Hana Quek | 2nd: Ravi Nathan | Newcomer: Siew Ling Goh",
+      "expected_result": "Step 3: 'You have withdrawn from SPM66 Withdrawal Forum.' appears.\nStep 5: A notification 'A place is available' says 'A place is available for \"SPM66 Withdrawal Forum\". Accept it by <date and time 3 days from now>, or it goes to the next person on the waiting list.'\nStep 6: 'SPM66 Withdrawal Forum' shows 'Place offered - accept by <the same date and time>'.\nStep 8: Although a place came free, the card says 'This event is full. You can join the waiting list instead.' with 'Join waiting list' - no 'Register' - because the place is under offer to Hana."
+    },
+    {
+      "id": "SPM-66-TC06",
+      "title": "An Attendee who declines a place leaves the waiting list, and the place is offered to the next Attendee",
+      "linked_ac": [
+        "AC7",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case, and again after it (Hana declines). On 'SPM66 Decline Workshop', a place is under offer to Hana Quek (1st); Ravi Nathan is 2nd.",
+      "steps": [
+        "Log in as hana.quek@example.com / password123 (Hana Quek, an Attendee)",
+        "Click 'My Registrations' in the sidebar and click the 'SPM66 Decline Workshop' row",
+        "Click 'Decline'",
+        "Click 'Decline place' in the dialog",
+        "Log out, then log in as ravi.nathan@example.com / password123 (Ravi Nathan)",
+        "Click 'My Registrations' in the sidebar"
+      ],
+      "test_data": "Declining: Hana Quek | Next: Ravi Nathan | Event: SPM66 Decline Workshop",
+      "expected_result": "Step 3: A dialog 'Decline this place?' says 'The place goes to the next person on the waiting list, and you leave the waiting list.', with 'Decline place' and 'Keep the offer'.\nStep 4: 'You have declined the place.' appears, and the card offers 'Join waiting list' again.\nStep 6: 'SPM66 Decline Workshop' shows 'Place offered - accept by <date and time 3 days from now>'."
+    },
+    {
+      "id": "SPM-66-TC07",
+      "title": "An offer not accepted within 3 days ends: the Attendee leaves the list and is told, and the place is offered to the next Attendee",
+      "linked_ac": [
+        "AC7",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case. On 'SPM66 Lapsed Offer Talk', a place was offered to Hana Quek 3 days and an hour before the script ran, so it ended an hour ago without an answer. Ravi Nathan is 2nd. The app ends it the next time anyone opens a page. Run npm run fixtures:spm66 again after this case.",
+      "steps": [
+        "Log in as ravi.nathan@example.com / password123 (Ravi Nathan, an Attendee)",
+        "Click 'My Registrations' in the sidebar",
+        "Click 'Notifications' in the sidebar",
+        "Log out, then log in as hana.quek@example.com / password123 (Hana Quek)",
+        "Click 'Notifications' in the sidebar",
+        "Click 'My Registrations' in the sidebar"
+      ],
+      "test_data": "Lapsed: Hana Quek | Next: Ravi Nathan | Event: SPM66 Lapsed Offer Talk",
+      "expected_result": "Step 2: 'SPM66 Lapsed Offer Talk' shows 'Place offered - accept by <date and time 3 days from now>'.\nStep 3: A notification 'A place is available' names 'SPM66 Lapsed Offer Talk'.\nStep 5: A notification 'Your offer has ended' says 'Your offer of a place for \"SPM66 Lapsed Offer Talk\" has ended because it wasn't accepted in time, and you have left the waiting list.'\nStep 6: 'SPM66 Lapsed Offer Talk' shows the status 'Withdrawn'."
+    },
+    {
+      "id": "SPM-66-TC08",
+      "title": "The assigned Event Coordinator gives the place under offer to a chosen waitlisted Attendee instead; the one it was offered to keeps their position",
+      "linked_ac": [
+        "AC9",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case, and again after it (the offer moves). 'SPM66 Override Showcase' is Daniel Tan's: a place is under offer to Hana Quek (1st); Ravi Nathan is 2nd and Siew Ling Goh 3rd.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123 (the assigned Event Coordinator)",
+        "Click 'All Events' in the sidebar, open 'SPM66 Override Showcase' and click the 'Attendees' tab",
+        "Click 'Offer place' on Siew Ling Goh's row",
+        "Click 'Offer place' in the dialog",
+        "Log out, then log in as hana.quek@example.com / password123 (Hana Quek)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Coordinator: Daniel Tan | Chosen: Siew Ling Goh (3rd) | Offer moved from: Hana Quek (1st)",
+      "expected_result": "Step 2: Hana Quek's row shows 'Waiting list' and 'Place offered until <date and time>'; Ravi Nathan's 'Number 2 in the queue'; Siew Ling Goh's 'Number 3 in the queue'. Ravi's and Siew Ling's rows have 'Offer place'; Hana's and Uma Pillay's do not.\nStep 3: A dialog 'Offer the place to Siew Ling Goh?' says 'The place now offered to Hana Quek moves to Siew Ling Goh, who has 3 days to accept it. Hana Quek stays on the waiting list in the same position, and both are notified.'\nStep 4: 'Siew Ling Goh has been offered the place.' appears; Siew Ling Goh's row now shows 'Place offered until <3 days from now>' and Hana Quek's 'Number 1 in the queue'.\nStep 6: A notification 'Your offer has ended' says 'The coordinator has offered the place for \"SPM66 Override Showcase\" to someone else. You're still on the waiting list, in the same position.'"
+    },
+    {
+      "id": "SPM-66-TC09",
+      "title": "Only the assigned Event Coordinator can offer a place out of turn - not the organiser, and not another coordinator",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm66 has been run. 'SPM66 Override Showcase' is organised by Rachel Ng and assigned to Daniel Tan, with a place under offer to Hana Quek. Nothing is changed in this case.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123 (the organiser)",
+        "Click 'My Events' in the sidebar, open 'SPM66 Override Showcase' and click the 'Attendees' tab",
+        "Log out, then log in as priya.raj@connectsphere.com / password123 (an Event Coordinator not assigned to it)",
+        "Type /events/<reference shown under the event's title in step 2>/attendees after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference>/attendees) and press Enter"
+      ],
+      "test_data": "Organiser: Rachel Ng | Not assigned: Priya Raj | Event: SPM66 Override Showcase",
+      "expected_result": "Step 2: The list shows the waiting list with positions and Hana Quek's offer, but no 'Offer place' button on any row.\nStep 4: The page says 'Not authorised' - 'You can only view the registrations for events you are responsible for.' - and lists nobody."
+    },
+    {
+      "id": "SPM-66-TC10",
+      "title": "Once an event has started, an outstanding offer ends - the Attendee keeps their position - and no place is offered",
+      "linked_ac": [
+        "AC10"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm66 just before this case. 'SPM66 Started Expo' started on 20 Oct 2026 and runs for 100 days; the script gave Hana Quek (1st) an offer for 3 days, which the start ends the next time anyone opens a page. Ravi Nathan is 2nd. Run npm run fixtures:spm66 again after this case.",
+      "steps": [
+        "Log in as hana.quek@example.com / password123 (Hana Quek, an Attendee)",
+        "Click 'Notifications' in the sidebar",
+        "Click 'My Registrations' in the sidebar and click the 'SPM66 Started Expo' row",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123 (the assigned Event Coordinator)",
+        "Click 'All Events' in the sidebar, open 'SPM66 Started Expo' and click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM66 Started Expo (started 20 Oct 2026) | Offer ended: Hana Quek (1st) | Ravi Nathan (2nd)",
+      "expected_result": "Step 2: A notification 'Your offer has ended' says 'Your offer of a place for \"SPM66 Started Expo\" has ended because the event has started. You're still on the waiting list.'\nStep 3: The card shows the badge 'Waiting list' and 'You're number 1 on the waiting list.' - no 'Accept place'.\nStep 5: Hana Quek's row shows 'Number 1 in the queue' and Ravi Nathan's 'Number 2 in the queue'; nobody's shows a place offered, and there is no 'Offer place' button."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-23 (agreed by the team, all recommendations followed): Data - four nullable columns on registrations (waitlisted_at, offered_at, offer_expires_at, offer_ended_reason), migration 20261023120000_add_waiting_list_offers. A waiting registration is 'waitlisted'; a place is under offer while offer_expires_at is set.",
+    "RESOLVED 2026-10-23: A place is free when registered + under offer < capacity. Free places go to the earliest to join (first in, first out, #26) whenever one comes free - an attendee withdraws, someone holding an offer leaves, an offer is declined or lapses, the capacity is raised or registration turned back on. Lapsed offers end like SPM-82's holds: no scheduled job, on reading events and registrations and on the unread count.",
+    "RESOLVED 2026-10-23: Declining, or letting an offer lapse after 3 days (#44), takes the attendee off the list (status Withdrawn) and the place goes to the next; they may join again at the back.",
+    "RESOLVED 2026-10-23: When the event starts, an outstanding offer ends (an offer made less than 3 days before the start ends at the start) and the attendee keeps their position; no offer is made after the start (AC10, #116), nor while the event isn't Confirmed.",
+    "RESOLVED 2026-10-23: The coordinator's override (AC9) moves a place under offer - the offer made last - to a chosen waiting attendee, with a fresh 3 days; the one it was offered to keeps their position; both are notified. Never beyond the capacity: with no place under offer there is nothing to give.",
+    "RESOLVED 2026-10-23: Joining needs the event full and its registration period open (AC1). While anyone is waiting, a newcomer joins the list rather than registering past them (AC8). Offers continue after registration closes, until the event starts.",
+    "DECIDED 2026-10-23: Wording - 'Join waiting list', 'You're on the waiting list.', 'You're number N on the waiting list.', 'Leave waiting list' ('Leave the waiting list for <title>?' / 'Stay on the list'), 'A place is available for you' / 'Accept it by <date>. If you don't, it goes to the next person on the waiting list.' with 'Accept place' and 'Decline' ('Decline this place?' / 'Decline place' / 'Keep the offer'); My Registrations 'Number N in the queue' / 'Place offered - accept by <date>'; Attendees tab 'Place offered until <date>' and 'Offer place' ('Offer the place to <name>?' / 'Not now'). Notifications 'A place is available' and 'Your offer has ended'.",
+    "RESOLVED 2026-10-23: Not in this story - notifying anyone but the attendee (e.g. the coordinator when an offer lapses), and email; notifications are in-app (SPM-53)."
+  ],
+  "code_references": [
+    "src/lib/waitingList.ts",
+    "src/lib/waitingListService.ts",
+    "src/lib/registrationEligibility.ts",
+    "src/app/api/events/[id]/waiting-list/route.ts",
+    "src/app/api/events/[id]/waiting-list/offers/route.ts",
+    "src/app/api/registrations/[id]/offer/route.ts",
+    "src/app/api/registrations/[id]/route.ts",
+    "src/app/api/registrations/route.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/events/[id]/registrations/route.ts",
+    "src/app/api/events/[id]/registration/route.ts",
+    "src/app/events/[id]/RegisterPanel.tsx",
+    "src/app/registrations/page.tsx",
+    "src/app/events/[id]/attendees/page.tsx",
+    "scripts/seed-spm66.ts",
+    "prisma/migrations/20261023120000_add_waiting_list_offers/migration.sql"
+  ]
+}
