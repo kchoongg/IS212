@@ -1087,6 +1087,10 @@ what changed, why, and the migration name if there is one.
     out of date (Known Gaps). Base-seed Confirmed events are completed 7 days
     after they end too; cases on them that already depend on dates passing
     (SPM-39-TC17 to TC21, SPM-48-TC21) are unchanged by this.
+  - **Diagram:** the BPMN timer (`docs/ConnectSphere_BPMN.drawio`) reads
+    "7 days after event end: auto-complete if still Confirmed" - AC6's
+    wording since 18 Oct ("open" is not a status). The status lifecycle
+    diagram already had it right.
   - Migration: none.
 
 ### 2026-10-22 — Sammi Chua (SPM-26, Respond to Clarification Request)

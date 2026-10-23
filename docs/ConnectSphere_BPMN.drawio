@@ -187,7 +187,7 @@
         <mxCell id="t_complete" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Mark event&#xa;completed" vertex="1">
           <mxGeometry height="64" width="160" x="8450" y="3163" as="geometry" />
         </mxCell>
-        <mxCell id="ev_timer" parent="1" style="ellipse;shape=doubleEllipse;html=1;fillColor=#ffffff;strokeColor=#B0562A;strokeWidth=1.4;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="7 days after event end:&#xa;auto-complete if still open" vertex="1">
+        <mxCell id="ev_timer" parent="1" style="ellipse;shape=doubleEllipse;html=1;fillColor=#ffffff;strokeColor=#B0562A;strokeWidth=1.4;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="7 days after event end:&#xa;auto-complete if still Confirmed" vertex="1">
           <mxGeometry height="48" width="48" x="8506" y="3046" as="geometry" />
         </mxCell>
         <mxCell id="ev_completed" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Event&#xa;completed" vertex="1">
