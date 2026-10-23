@@ -164,6 +164,8 @@ IS212/
 │   ├── seed-spm71.ts            # `npm run fixtures:spm71` — SPM-71 test accounts, notifications and events, no reseed
 │   ├── seed-spm82.ts            # `npm run fixtures:spm82` — SPM-82 hold room and events with expiring holds, no reseed
 │   ├── seed-spm35.ts            # `npm run fixtures:spm35` — SPM-35 events and pending change requests, no reseed
+│   ├── seed-spm84.ts            # `npm run fixtures:spm84` — SPM-84 coordinator accounts and events, no reseed
+│   ├── seed-spm36.ts            # `npm run fixtures:spm36` — SPM-36 events to complete, no reseed
 │   ├── seed-spm59.ts            # `npm run fixtures:spm59` — SPM-59 requests in every pre-planning status, no reseed
 │   ├── seed-spm26.ts            # `npm run fixtures:spm26` — SPM-26 events with an open and an answered clarification, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
@@ -327,6 +329,11 @@ IS212/
         │                                   SPM-62 adds revertConfirmationIfConfirmed():
         │                                   an equipment change moves a Confirmed event
         │                                   back to Planning.
+        ├── eventCompletion.ts             # SPM-36 (pure): when an event has ended, the
+        │                                   7-day auto-complete cutoff, the wording
+        ├── eventCompletionService.ts      # SPM-36: completeDueEvents() - Confirmed events
+        │                                   7 days past their end become Completed; run
+        │                                   before events are read (no scheduled job)
         ├── eventConfirmation.ts           # SPM-34 + SPM-33 rules, pure: arrangementsFor() is THE
         │                                   list of an event's arrangements (each booking, each
         │                                   equipment line, registration setup) and their state;
@@ -673,6 +680,7 @@ defend under questioning.
 | **Approval re-checks the room** — refused if another *approved* booking's occupied time (setup and turnaround included) or an unavailability period overlap, if the venue is retired, or if the event is completed, cancelled or rejected. A rival *pending* request does not block: approving one is how Venue Staff choose. The venue row is locked for the check, so two approvals cannot both pass | `approvalConflict()`, `checkBookingDecision()`, `api/venue-bookings/[id]` PATCH | ✅ done (SPM-43) |
 | **Reason required when rejecting a booking**; a suggested venue must be active and not the one refused. The suggestion books nothing (#45, #110) | `checkBookingDecision()` | ✅ done (SPM-43) |
 | **Confirm refuses on everything the Readiness tab shows as outstanding** - no venue, a pending venue request (each booking judged on its own), equipment that is not reserved (Reserved and Partially fulfilled both count as held, the same rule as Submit for safety check, SPM-86), a booking or equipment line flagged for review, and registration that is enabled but has no capacity or period. One rule lists and judges them | `arrangementsFor()`, `checkEventConfirmation()` (`src/lib/eventConfirmation.ts`), read by `loadConfirmationInput()` | ✅ done (SPM-34, SPM-33) |
+| **An event is completed by its assigned coordinator once it has ended, or by the system 7 days after** (#71) - only from Confirmed; refused before the end ("This event hasn't ended yet, so it can't be marked completed."). Completing changes only the status: the venue bookings and equipment stay on the event as its record, and nothing leaves Completed. The automatic completion has no scheduled job: the event page, the events list, the Assignments screen and the unread count run it first, and record it in the status history with no user | `hasEnded()`, `canMarkEventCompleted()`, `completeDueEvents()` (`src/lib/eventCompletion.ts`, `src/lib/eventCompletionService.ts`), `PATCH /api/events/[id]` | ✅ done (SPM-36) |
 | **An arrangement marked as not required prevents nothing, but an event always needs a venue** - any booking, equipment line or the registration setup can be waived, only while outstanding; "No venue booked" never can, and comes back when an event's only booking is waived. Who decided and when is recorded on marking and on reversing | `arrangement()`, `WAIVABLE_KINDS` (`src/lib/eventConfirmation.ts`), `PATCH /api/events/[id]/arrangements` | ✅ done (SPM-33) |
 | **An unavailable period is stated in dates and times on the 15-minute grid** — stored exactly as stated, the return must be later than the start, so the shortest period is 15 minutes; off-grid times are refused (#126, #128). A period already over when saved or changed is refused | `venueUnavailabilitySchema`, `periodInterval()`, `periodOverResponse()`, `api/venues/[id]/unavailability` | ✅ done (SPM-45) |
 | **A period needs a reason; "other" needs a typed one** — required, trimmed, 500 characters at most, kept in the row's `notes`; ignored for a listed reason | `venueUnavailabilitySchema`, `periodColumns()` | ✅ done (SPM-45) |
@@ -832,6 +840,8 @@ traceability the module asks for.
 | `npm run fixtures:spm71` | Creates or refreshes SPM-71's four test accounts (Leon Koh and Ivy Lim, Event Coordinators; Owen Teo, Venue Staff; Zara Ong, Attendee; all `password123`), deletes and recreates every notification they hold, and resets SPM-71's 4 events ("SPM71 …", Nov 2027) without reseeding - only those accounts and events whose `seedKey` starts with `spm71_` are touched. The accounts are the story's own so the unread counts the cases quote never move with other testers' work. No pinned reference numbers. Run it before and after any case that marks or opens a notification. The accounts and events, without the notifications or arrangements, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm82` | Adds or resets SPM-82's test room, SPM82 Hold Room (SPM82-HOLD, 60 minutes of setup and turnaround), and its 8 events ("SPM82 …") with their venue bookings, without reseeding. Holds already past their expiry are created pending, as real ones would be, and the app expires them (and notifies Daniel Tan) the next time bookings are read. Three things are relative to when it runs, because they are about time passing: SPM82 Short Notice Meetup starts 3 days later and SPM82 Closing Soon Forum's hold expires 12 hours later (the script prints both). Run it before and after any case that changes data. The venue and events, without bookings, are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm35` | Adds or resets SPM-35's 7 test events ("SPM35 …", Apr–May 2027), all organised by Rachel Ng and assigned to Daniel Tan, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm35_`, with their change requests. One in each status a case needs (Approved, Planning with an approved booking and reserved projectors, Confirmed, Postponed, Under review, Cancelled), and SPM35 Requests Showcase with five pending change requests. Run it before and after any case that sends a change request. The events (without bookings, equipment or change requests) are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm84` | Creates or refreshes SPM-84's four coordinator accounts (Aisha Karim, Benjamin Lau, Clara Tay, and Dennis Ho, deactivated; all `password123`) and resets its 11 events ("SPM84 …"), organised by Rachel Ng, without reseeding - only those accounts and events whose `seedKey` starts with `spm84_` are touched. The accounts are the story's own so the counts on the Coordinators tab never move with other testers' work. Run it before and after any case that assigns or reassigns. The accounts and events are in `prisma/seed.ts` |
+| `npm run fixtures:spm36` | Adds or resets SPM-36's 4 test events ("SPM36 …"), organised by Rachel Ng and assigned to Daniel Tan, with their approved bookings and reserved equipment, without reseeding - only events whose `seedKey` starts with `spm36_` are touched. SPM36 Harbour Awards Night ends YESTERDAY, counted from when it runs, because an ended Confirmed event completes itself after 7 days; the others have fixed dates, one of them over 7 days past so the app completes it. Lee Wei Ming is registered for SPM36 Forgotten Trade Expo. Run it before and after any case that marks an event completed. The events, without bookings or equipment, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm59` | Adds or resets SPM-59's 6 test events ("SPM59 …", Jun–Jul 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm59_`. One request in each status before planning: Draft, Submitted (no coordinator), Under review, Approved, Rejected and Withdrawn (the last four assigned to Daniel Tan). Run it before SPM-59-TC01 and after SPM-59-TC02. The same events are at the end of `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -971,6 +981,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 
 | Gap | Impact | Owner |
 |---|---|---|
+| **SPM-64-TC15's event is completed automatically since SPM-36** | 'SPM64 Started Showcase' ended on 2 Oct 2026 and is still Confirmed, so SPM-36's 7-day rule completes it the first time the app runs - and a completed event has no "Change registration settings", so TC15's steps can't be followed. The fixture needs an end date in the future (it only has to have started). | SPM-64's owner |
+| **SPM-31-TC08's event becomes Completed on 26 Oct 2026** | 'Harbourline Claims Systems Training' (base seed, ended 19 Oct) is completed by SPM-36's 7-day rule from 26 Oct. The attendee is still refused, but the case is about a *Confirmed* event that isn't open for registration, so it needs one that stays Confirmed. | SPM-31's owner |
 | **Other stories' manual test cases assume Confirm ignores the safety check** | Since SPM-88, Confirm needs the Safety Officer's approval (an approved check, normally from Safety approved), and the Readiness tab counts the safety check among what blocks confirmation. These cases confirm, or count blockers, on fixture events that have no approved check, so their expected results are now out of date: **SPM-34** TC01, TC03-TC09 (Kristen); **SPM-33** TC01, TC05, TC07, TC13, TC14 (Kristen; TC07's "Confirm event does not wait for it yet" is no longer shown); **SPM-64** TC16-TC18 (Kristen); **SPM-67** TC05, TC06 (Kayal); **SPM-68** TC12 (Kristen); **SPM-90** TC08-TC10 (Kayal) - refusals now add "the Operational Safety Check has not been submitted yet", and a confirm that used to succeed is refused. **SPM-62** TC08, TC09, TC13 and TC17 (Kristen) quote wording SPM-88 changed (the "Move this event back to Planning?" text, "…needs to be submitted for a safety check again.", and the status-window message). Their fixtures were not changed. | each story's owner |
 | **Closing an approved safety check records who closed it, not who approved it** | A significant change closes the check (SPM-88) by writing `closed` and the closer, time and reason into the decision columns, so the history card shows "Closed after a change…" for that submission rather than the Safety Officer's approval. The approval is still in the status history (Safety review → Safety approved, by the Safety Officer). Keeping both would need separate `closed_*` columns - a migration. | Janelle (SPM-88) |
 | **No question before a venue booking change closes a safety check** | Requesting, withdrawing or releasing a booking while the event is in Safety review or Safety approved closes its check and returns it to Planning (SPM-88), and the Venue tab and request form say so afterwards - but, unlike the edit page and the Equipment tab, do not ask first. | Janelle (SPM-88) |
@@ -1039,6 +1051,50 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-22 — Janelle
+- **SPM-36 (Mark Event as Completed).** The assigned coordinator marks a
+  Confirmed event completed once it has taken place (#71): **Mark as
+  completed** on the Overview, behind "Mark this event as completed?". Not
+  offered - and refused by `PATCH /api/events/[id]` with "This event hasn't
+  ended yet, so it can't be marked completed." - before the event's end; only
+  from Confirmed (the lifecycle's rule); nothing leaves Completed (AC5).
+  - **Automatic completion (AC6):** an event still Confirmed 7 x 24 hours
+    after its end is completed by `completeDueEvents()`
+    (`src/lib/eventCompletionService.ts`). Like SPM-82's hold expiry there is
+    no scheduled job: the event page, the events list, the Assignments screen
+    and the unread-notifications count run it first. It records a status
+    history entry with no user and the reason "Completed automatically 7 days
+    after the event ended".
+  - **Arrangements (AC3, AC4):** completing changes only the status. The
+    bookings and equipment stay on the event, read-only; the organiser sees
+    the venue on the Overview and the equipment on the Equipment tab.
+  - **Attendees keep their completed events:** an attendee could open only
+    Confirmed events, so once an event was completed (now at the latest 7
+    days after it ends) My Registrations led to "This event doesn't exist,
+    or you don't have access to it." `canViewEvent()` now lets an attendee
+    open a Completed event they are registered, waitlisted or marked
+    attended for (#10: attendees "can view events that they register for");
+    not one who withdrew, and Browse Events is unchanged (SPM-36-TC07).
+  - **Not in this story:** notifying anyone (SPM-53).
+  - **Rules:** `src/lib/eventCompletion.ts` (pure), `canMarkEventCompleted()`
+    in `src/lib/permissions.ts`.
+  - **Test data:** `npm run fixtures:spm36` - four SPM36 events; the one to
+    complete ended yesterday, counted from when the script runs, since an
+    ended Confirmed event completes itself after 7 days. The same events are
+    appended to `prisma/seed.ts`.
+  - **Test cases:** `docs/test-cases/SPM-36_Test_Cases.xlsx` (7).
+  - **Other stories:** two existing Confirmed events are completed by the
+    7-day rule - 'SPM64 Started Showcase' at once and 'Harbourline Claims
+    Systems Training' from 26 Oct - which makes SPM-64-TC15 and SPM-31-TC08
+    out of date (Known Gaps). Base-seed Confirmed events are completed 7 days
+    after they end too; cases on them that already depend on dates passing
+    (SPM-39-TC17 to TC21, SPM-48-TC21) are unchanged by this.
+  - **Diagram:** the BPMN timer (`docs/ConnectSphere_BPMN.drawio`) reads
+    "7 days after event end: auto-complete if still Confirmed" - AC6's
+    wording since 18 Oct ("open" is not a status). The status lifecycle
+    diagram already had it right.
+  - Migration: none.
 
 ### 2026-10-22 — Jordan
 - **SPM-59 (Record Request Withdrawal).** The withdrawal itself was built with
