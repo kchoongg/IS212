@@ -417,6 +417,15 @@ describe("Event overview", () => {
   });
 
   describe("the venue the event is in", () => {
+    it("[SPM-36][AC4] SPM-36-TC02: is still named for the organiser once the event is completed", async () => {
+      open("organiser", event({ status: "completed", venueBookings: [{ session: null, venue: { name: "Orchard Gallery", code: "ORC-GAL" } }] }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(valueOf("Status")).toHaveTextContent("Completed");
+      expect(valueOf("Venue")).toHaveTextContent(/^Orchard Gallery \(ORC-GAL\)$/);
+    });
+
     it("[SPM-31][AC1] is named once a booking is approved", async () => {
       open("organiser", event({ venueBookings: [{ session: null, venue: { name: "Hall A", code: "HALL-A" } }] }));
 
@@ -609,6 +618,117 @@ describe("Event overview", () => {
     });
   });
 
+  // SPM-36: the assigned coordinator marks a Confirmed event completed once it
+  // has ended (#71). The page offers the button only when the PATCH route
+  // would accept it.
+  describe("marking the event completed", () => {
+    const PATCH = `PATCH /api/events/${REF}`;
+    const TITLE = "Mark this event as completed?";
+    const BUTTON = "Mark as completed";
+    const ended = (overrides: Record<string, unknown> = {}) =>
+      event({ status: "confirmed", startsAt: "2026-09-30T01:00:00.000Z", endsAt: "2026-09-30T09:00:00.000Z", ...overrides });
+    const openAs = (routes: Record<string, unknown> = {}, eventRow = ended()) =>
+      open("coordinator", eventRow, routes, { id: "c1" });
+    const ask = async () => userEvent.click(await screen.findByRole("button", { name: BUTTON }));
+    const go = () => userEvent.click(within(dialogTitled(TITLE)).getByRole("button", { name: BUTTON, hidden: true }));
+
+    it("[SPM-36][AC1] SPM-36-TC01: is offered to the assigned coordinator once a Confirmed event has ended", async () => {
+      openAs();
+
+      expect(await screen.findByRole("button", { name: BUTTON })).toBeInTheDocument();
+    });
+
+    it("[SPM-36][AC1] SPM-36-TC04: is not offered before the event has ended", async () => {
+      openAs({}, ended({ endsAt: "2099-01-01T09:00:00.000Z" }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+    });
+
+    it.each(["planning", "safety_cleared", "postponed", "completed", "cancelled"])(
+      "[SPM-36][AC2][AC5] is not offered while the event is %s",
+      async (status) => {
+        openAs({}, ended({ status }));
+
+        await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+        expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+      }
+    );
+
+    it.each([
+      ["a coordinator it is not assigned to", "coordinator", { id: "c2" }],
+      ["the Event Coordinator Lead", "ops_manager", {}],
+      ["the organiser who owns it", "organiser", { id: "organiser-id" }],
+    ])("[SPM-36][AC1] SPM-36-TC05: is not offered to %s", async (_who, role, who) => {
+      open(role, ended(), { "GET /api/users": [] }, who);
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("button", { name: BUTTON })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-36][AC3][AC5] SPM-36-TC01: asks first, saying the arrangements stay and the status is final, and sends nothing yet", async () => {
+      const api = openAs({ [PATCH]: {} });
+
+      await ask();
+
+      expect(dialogTitled(TITLE).open).toBe(true);
+      expect(dialogTitled(TITLE)).toHaveTextContent(
+        "Gala Dinner will be marked Completed. Its venue and equipment stay on record, and its status can't be changed after this."
+      );
+      expect(api.sent(PATCH)).toHaveLength(0);
+    });
+
+    it("[SPM-36] words the question for an event with no title", async () => {
+      openAs({}, ended({ title: null }));
+
+      await ask();
+
+      expect(dialogTitled(TITLE)).toHaveTextContent("This event will be marked Completed.");
+    });
+
+    it("[SPM-36][AC1] SPM-36-TC01: marks it completed, says so, and reloads the event", async () => {
+      const api = openAs({ [PATCH]: {} });
+      await ask();
+
+      await go();
+
+      expect(await screen.findByText("Gala Dinner has been marked as completed.")).toBeInTheDocument();
+      expect(api.sent(PATCH).map((c) => c.body)).toEqual([{ status: "completed" }]);
+      await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+      expect(dialogTitled(TITLE).open).toBe(false);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+
+    it("[SPM-36] does nothing when the question is declined", async () => {
+      const api = openAs({ [PATCH]: {} });
+      await ask();
+
+      await userEvent.click(within(dialogTitled(TITLE)).getByRole("button", { name: "Not yet", hidden: true }));
+
+      expect(dialogTitled(TITLE).open).toBe(false);
+      expect(api.sent(PATCH)).toHaveLength(0);
+    });
+
+    it.each([
+      ["the server's reason", reply(400, { error: "This event hasn't ended yet, so it can't be marked completed." }), "This event hasn't ended yet, so it can't be marked completed."],
+      ["a general message when it gives none", reply(500, {}), "Could not mark this event as completed."],
+      ["a general message when its answer has no body", reply(502), "Could not mark this event as completed."],
+      ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
+    ])("[SPM-36][AC1] shows %s when it is refused, and closes the question", async (_case, answer, message) => {
+      const api = openAs({ [PATCH]: answer });
+      await ask();
+
+      await go();
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(message);
+      expect(dialogTitled(TITLE).open).toBe(false);
+      expect(api.sent(EVENT)).toHaveLength(1);
+    });
+  });
+
   describe("when it cannot be loaded", () => {
     it("[SPM-31] explains a 404 without confirming the event exists", async () => {
       open("organiser", reply(404, { error: "Event not found" }));
@@ -764,6 +884,13 @@ describe("Review request", () => {
 
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/events/EVT-000007"));
     expect(screen.queryByRole("heading", { name: "What was requested" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-59][AC4] sends the assigned coordinator to the event page when the request has been withdrawn", async () => {
+    open(event({ status: "withdrawn" }));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/events/EVT-000007"));
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
   });
 
   // SPM-98: Events / <event title> / Review request, in every state.
@@ -2603,3 +2730,41 @@ describe("Event overview - cancelling an event (SPM-37)", () => {
     });
   });
 });
+
+describe("[SPM-59] a withdrawn request on its event page", () => {
+  function openAs(role: string, who: object) {
+    setRoute(`/events/${REF}`, { id: REF });
+    mockApi({ ...signedInAs(role, who), [EVENT]: event({ status: "withdrawn" }), "GET /api/assignments": { coordinators: [] } });
+    render(<EventOverviewPage />);
+  }
+
+  it("[SPM-59][AC5] shows the organiser that it has been withdrawn", async () => {
+    openAs("organiser", { id: "organiser-id" });
+
+    const header = (await screen.findByRole("heading", { level: 1, name: "Gala Dinner" })).closest("header") as HTMLElement;
+    expect(within(header).getByText("Withdrawn")).toBeInTheDocument();
+    const details = (screen.getByRole("heading", { name: "Details" }).closest("div.rounded-lg")) as HTMLElement;
+    expect(details).toHaveTextContent(/Status\s*Withdrawn/i);
+  });
+
+  it("[SPM-59][AC4] offers the assigned coordinator nothing more to do with it", async () => {
+    openAs("coordinator", { id: "c1" });
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByText("This request is waiting for your review")).not.toBeInTheDocument();
+    for (const name of ["Record withdrawal", "Confirm event", "Submit for safety check"]) {
+      expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
+    }
+    for (const name of ["Review request", "Edit event information"]) {
+      expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+    }
+  });
+
+  it("[SPM-59][AC4] offers the Ops Manager no change of coordinator", async () => {
+    openAs("ops_manager", {});
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByRole("heading", { name: "Change coordinator" })).not.toBeInTheDocument();
+  });
+});
+

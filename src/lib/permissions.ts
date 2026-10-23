@@ -23,6 +23,7 @@ import type { Role } from "./roles";
 import { isRole } from "./roles";
 import { canTransition } from "./statuses";
 import { HOLDING_A_PLACE } from "./registrationSettings";
+import { hasEnded } from "./eventCompletion";
 
 /// Every distinct thing a user can try to do. Keep the `domain:verb` shape -
 /// it groups the matrix by the domain that owns the route (DOCUMENTATION.md
@@ -156,6 +157,9 @@ export interface EventAccessFields {
   /// For an attendee: whether they are registered or waitlisted for this
   /// event (SPM-64). Set by the caller, which knows who is asking.
   attendeeHoldsPlace?: boolean;
+  /// For an attendee: whether their registration was marked attended (SPM-65),
+  /// which no longer holds a place. Set by the caller, for a completed event.
+  attendeeAttended?: boolean;
 }
 
 const INTERNAL_ROLES: readonly string[] = [
@@ -220,6 +224,9 @@ export function canViewEvent(actor: Actor, event: EventAccessFields): boolean {
   // cancelled event can still open it, to see that and why it was cancelled.
   if (actor.role === "attendee") {
     if (event.status === "cancelled") return event.attendeeHoldsPlace === true;
+    // SPM-36: and once it is completed, the attendee who registered for it
+    // keeps it - My Registrations still links to it (#10). Not one who withdrew.
+    if (event.status === "completed") return event.attendeeHoldsPlace === true || event.attendeeAttended === true;
     return event.status === "confirmed" && (event.registrationEnabled === true || event.attendeeHoldsPlace === true);
   }
 
@@ -557,6 +564,21 @@ export function canCancelEvent(actor: Actor, event: EventAccessFields): boolean 
 /// checkEventConfirmation() - this only decides who sees the button.
 export function canConfirmEvent(actor: Actor, event: EventAccessFields): boolean {
   return canSetEventStatus(actor, event, "confirmed") && canTransition(event.status, "confirmed");
+}
+
+/// SPM-36 (AC1, AC2): does the event page offer "Mark as completed"? The
+/// assigned coordinator, on a Confirmed event that has ended (#71) - the same
+/// checks the PATCH route makes, so the button never offers a refusal.
+export function canMarkEventCompleted(
+  actor: Actor,
+  event: EventAccessFields & { endsAt: Date | string | null | undefined },
+  now: Date
+): boolean {
+  return (
+    canSetEventStatus(actor, event, "completed") &&
+    canTransition(event.status, "completed") &&
+    hasEnded(event.endsAt, now)
+  );
 }
 
 // ---------------------------------------------------------------------------

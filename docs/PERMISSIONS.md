@@ -205,7 +205,7 @@ organiser is not.
 | Role | Sees |
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
-| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10) — and `cancelled` events they are registered or waitlisted for, with the cancellation reason (SPM-37). Browse Events lists neither of the last two. |
+| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10). A `completed` event stays visible to an attendee who is registered, waitlisted or marked attended for it - not one who withdrew - so My Registrations still opens it (SPM-36). A `cancelled` event stays visible, with its cancellation reason, to an attendee who is registered or waitlisted for it (SPM-37). Browse Events lists only `confirmed` ones. |
 | Coordinator, Ops Manager, Venue Staff, Tech Support, Safety Officer | Every event that has left `draft` |
 | Anyone | Never another organiser's draft |
 
@@ -269,7 +269,7 @@ event, a coordinator must be assigned to it, an Ops Manager needs neither.
 | `safety_review` | Coordinator (assigned), from `planning` only, through `POST /api/events/[id]/safety-check` - not in `STATUS_TRANSITION_ROLES` | Week 7 change #6; SPM-86 |
 | `safety_cleared` ("Safety approved") / back to `planning` | Safety Officer, from `safety_review` only, through `POST /api/events/[id]/safety-decision` - not in `STATUS_TRANSITION_ROLES` | Week 7 change #6; SPM-87 |
 | `confirmed` | Coordinator (assigned) | Step 10 |
-| `completed` | Coordinator (assigned) | Step 14 |
+| `completed` | Coordinator (assigned), from `confirmed` only, once the event has ended (SPM-36, #71). An event still `confirmed` 7 days after it ends is completed by the system (no user) | Step 14 |
 | `postponed` | Coordinator (assigned) | §4 Rescheduling; SPM-27 AC4 |
 | `cancelled` | Coordinator (assigned) only | §4 Cancellation, customer clarification #68 |
 
