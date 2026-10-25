@@ -1055,6 +1055,29 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-26 — Kayalvizhi (SPM-94, Limit Who Sees a Request's Review Outcome)
+- **A request's review outcome is for the people involved in it** (forum #125,
+  correcting SPM-28 and SPM-31). Venue Staff, Technical Support and the Safety
+  Officer see an event only from Approved onwards: a Submitted, Under review,
+  Rejected or Withdrawn request is left out of every list they see
+  (`eventListWhere()`) and is the same 404 as a missing event by its address,
+  on the event and every route under it (`canViewEvent()`).
+- **The rejection reason goes only to the owning organiser, the assigned
+  coordinator and the Event Coordinator Lead** (`canSeeRejectionReason()`).
+  Another coordinator, or another organiser at the same client, sees the event
+  and its Rejected status; `visibleEventFor()` leaves `rejectionReason` out of
+  what they receive, in the list and on the event.
+- The Equipment page now says "This event doesn't exist, or you don't have
+  access to it." for a hidden event, as the Overview does (was "Could not load
+  this event.").
+- Our reading of "relevant authorised internal users" is recorded in
+  `docs/CUSTOMER_CLARIFICATIONS.md`; a follow-up on #125 is still to be posted.
+- SPM-31-TC02 marked Updated; 12 existing tests changed (403 → 404 for those
+  roles on an unapproved event), listed in `docs/test-cases/DECOMMISSIONED.md`.
+- Fixtures: `npm run fixtures:spm94` (`scripts/seed-spm94.ts`), the same events
+  appended to `prisma/seed.ts`. No migration.
+
+
 ### 2026-10-22 — Kayalvizhi (SPM-37, Cancel Event)
 - **The assigned coordinator can cancel an event at any stage that is not
   final** - Under review to Postponed (#68). Under review → Cancelled is new on
