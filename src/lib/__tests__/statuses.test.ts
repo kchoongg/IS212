@@ -338,3 +338,10 @@ describe("[SPM-59] a withdrawn request", () => {
   });
 });
 
+describe("[SPM-32] a change request's status", () => {
+  it("[SPM-32][AC3] reads 'Partly approved' when some fields were approved and others rejected", () => {
+    expect(statusLabel("partially_approved")).toBe("Partly approved");
+    expect(statusTone("partially_approved")).toBe("progress");
+  });
+});
+

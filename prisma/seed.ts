@@ -2245,6 +2245,44 @@ async function main() {
     spm37("spm37_change_closed", "SPM37 Change Closed", "planning", "2027-12-21"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-32 QA fixtures (Process Event Change Request). The SAME events as
+  // scripts/seed-spm32.ts (`npm run fixtures:spm32`) - keep the two in step.
+  //
+  // The events only. Their change requests (and SPM32 Confirmed Client Gala's
+  // approved booking) are created by that script alone, so run it once after a
+  // full reseed. Pushed LAST, after SPM-37, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm32 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    attendance: number, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-32 process event change request test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm32("spm32_partial", "SPM32 Harbour Briefing", "planning", "2027-07-05", 9, 3, 80,
+      { description: "Quarterly briefing for wealth clients." }),
+    spm32("spm32_confirmed", "SPM32 Confirmed Client Gala", "confirmed", "2027-07-12", 18, 4, 100,
+      { description: "Annual gala for key clients." }),
+    spm32("spm32_postponed", "SPM32 Postponed Product Expo", "postponed", "2027-07-26", 10, 6, 200,
+      { description: "Showcase of new savings products." }),
+    spm32("spm32_workshop", "SPM32 Advisers Workshop", "approved", "2027-08-02", 9, 3, 40,
+      { description: "Hands-on session for advisers.", layout: "classroom" }),
+    spm32("spm32_processed", "SPM32 Processed Seminar", "planning", "2027-08-09", 14, 3, 75,
+      { description: "Market outlook seminar." }),
+    spm32("spm32_cancel_reject", "SPM32 Cancellation Request Forum", "planning", "2027-08-16", 9, 4, 50,
+      { description: "Regional client forum." }),
+    spm32("spm32_cancel_approve", "SPM32 Called Off Dinner", "planning", "2027-08-30", 19, 3, 30,
+      { description: "Dinner for the client's board." }),
+    spm32("spm32_postpone", "SPM32 Postponement Request Talk", "planning", "2027-09-06", 15, 2, 45,
+      { description: "A talk on retirement planning." }),
+    spm32("spm32_other", "SPM32 Other Coordinator Forum", "planning", "2027-09-13", 9, 3, 60,
+      { description: "Partner forum.", coordinator: "priya.raj@connectsphere.com" }),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {

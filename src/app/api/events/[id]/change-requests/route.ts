@@ -34,6 +34,8 @@ const EVENT_INCLUDE = {
 } as const;
 
 const REQUESTER = { requester: { select: { fullName: true } } } as const;
+/// SPM-32: and who processed it, for the outcome the list shows.
+const WITH_REVIEWER = { ...REQUESTER, reviewer: { select: { fullName: true } } } as const;
 
 async function loadEvent(id: string) {
   const sequenceNumber = parseEventReference(id);
@@ -145,7 +147,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const rows = await prisma.eventChangeRequest.findMany({
       where: { eventId: event.id },
       orderBy: { requestedAt: "desc" },
-      include: REQUESTER,
+      include: WITH_REVIEWER,
     });
     const current = snapshotOf(event);
     return NextResponse.json(rows.map((row) => describeChangeRequest(row, current)));

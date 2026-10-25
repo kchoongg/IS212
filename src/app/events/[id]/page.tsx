@@ -47,6 +47,7 @@ import {
   canConfirmEvent,
   canFlagForSafetyReview,
   canMarkEventCompleted,
+  canProcessChangeRequests,
   canRecordSafetyDecision,
   canRequestEventChange,
   canRespondToClarification,
@@ -589,6 +590,24 @@ function EventOverview() {
     )
   );
 
+  // SPM-32 (AC1): the assigned coordinator reviews each pending change
+  // request - the decision route's own check.
+  const showChangeRequestReview = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canProcessChangeRequests(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   // SPM-36 (AC1, AC2): the assigned coordinator, on a Confirmed event that
   // has ended - the PATCH route's own checks.
   const showComplete = Boolean(
@@ -1002,7 +1021,15 @@ function EventOverview() {
 
           {/* SPM-35 (AC2): what has been asked for, for the event's organisers,
               its coordinator and the Ops Manager - the only people given a count. */}
-          {(event.changeRequestCount ?? 0) > 0 && <ChangeRequestsCard eventRef={eventReference(event.sequenceNumber)} />}
+          {(event.changeRequestCount ?? 0) > 0 && (
+            <ChangeRequestsCard
+              // Remounts on a status change: cancelling the event closes its
+              // pending requests (SPM-37, SPM-32 AC2), so the card reloads them.
+              key={event.status}
+              eventRef={eventReference(event.sequenceNumber)}
+              reviewable={showChangeRequestReview}
+            />
+          )}
 
           {/* SPM-88 (AC1): every submission and decision, newest first. Staff
               only - the API leaves the history out for an external user. */}

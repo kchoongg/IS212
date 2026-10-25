@@ -1338,10 +1338,19 @@ describe("PATCH /api/events/[id] - status change", () => {
         ]);
       });
 
-      it("[SPM-37][AC5] closes pending change requests without applying them", async () => {
+      it("[SPM-37][AC5] [SPM-32][AC2] approves the organiser's cancellation request, and closes the other pending change requests without applying them", async () => {
         await cancel();
 
         expect(updates("eventChangeRequest")).toEqual([
+          {
+            where: { eventId: ID.event, status: "pending", kind: "cancel" },
+            data: {
+              status: "approved",
+              reviewedBy: ID.otherUser,
+              reviewedAt: NOW,
+              reviewNotes: "Approved: the event was cancelled.",
+            },
+          },
           {
             where: { eventId: ID.event, status: "pending" },
             data: {
