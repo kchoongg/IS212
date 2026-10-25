@@ -41,7 +41,9 @@ describe("GET /api/events", () => {
     expect(eventCompletionSweepOrder()).toBeLessThan(db.event.findMany.mock.invocationCallOrder[0]);
   });
 
-  it.each(["coordinator", "ops_manager", "venue_staff", "tech_support"])(
+  // CHANGED (SPM-94 AC2): Venue Staff and Technical Support are no longer in
+  // this list - they see events from Approved onwards (below).
+  it.each(["coordinator", "ops_manager"])(
     "[SPM-24][AC5] shows %s every event except drafts",
     async (role) => {
       const token = signIn(user(role));
@@ -52,6 +54,62 @@ describe("GET /api/events", () => {
       expect(callArg(db.event.findMany).where).toEqual({ status: { not: "draft" } });
     }
   );
+
+  it.each(["venue_staff", "tech_support", "safety_officer"])(
+    "[SPM-94][AC2][AC6] lists for %s only events from Approved onwards",
+    async (role) => {
+      const token = signIn(user(role));
+      db.event.findMany.mockResolvedValue([]);
+
+      await GET(req("GET", "/api/events", { token }));
+
+      expect(callArg(db.event.findMany).where).toEqual({
+        status: { notIn: ["draft", "submitted", "under_review", "rejected", "withdrawn"] },
+      });
+    }
+  );
+
+  // SPM-94 (AC1, AC3, AC4, AC6): the list carries the same record as the
+  // event itself, so it drops the reason for the same people.
+  it("[SPM-94][AC3][AC6] leaves the rejection reason out of the list for a coordinator not assigned to the event", async () => {
+    const token = signIn(user("coordinator", { id: ID.thirdUser }));
+    const rejected = {
+      id: ID.event, title: "Gala", status: "rejected", organiserId: ID.user, organisationId: ID.org,
+      coordinatorId: ID.otherUser, rejectionReason: "Ballroom closed for renovation",
+    };
+    db.event.findMany.mockResolvedValue([rejected]);
+
+    const [row] = await (await GET(req("GET", "/api/events", { token }))).json();
+
+    expect(row.status).toBe("rejected");
+    expect(row).not.toHaveProperty("rejectionReason");
+  });
+
+  it("[SPM-94][AC4][AC6] leaves it out for another organiser in the same client", async () => {
+    const token = signIn(user("organiser", { id: ID.thirdUser, organisationId: ID.org }));
+    const rejected = {
+      id: ID.event, title: "Gala", status: "rejected", organiserId: ID.user, organisationId: ID.org,
+      coordinatorId: ID.otherUser, rejectionReason: "Ballroom closed for renovation",
+    };
+    db.event.findMany.mockResolvedValue([rejected]);
+
+    const [row] = await (await GET(req("GET", "/api/events", { token }))).json();
+
+    expect(row).not.toHaveProperty("rejectionReason");
+  });
+
+  it("[SPM-94][AC1][AC6] keeps it in the list for the coordinator assigned to the event", async () => {
+    const token = signIn(user("coordinator", { id: ID.otherUser }));
+    const rejected = {
+      id: ID.event, title: "Gala", status: "rejected", organiserId: ID.user, organisationId: ID.org,
+      coordinatorId: ID.otherUser, rejectionReason: "Ballroom closed for renovation",
+    };
+    db.event.findMany.mockResolvedValue([rejected]);
+
+    const [row] = await (await GET(req("GET", "/api/events", { token }))).json();
+
+    expect(row.rejectionReason).toBe("Ballroom closed for renovation");
+  });
 
   it("[SPM-31][AC1] returns the whole record to staff", async () => {
     const token = signIn(user("coordinator"));

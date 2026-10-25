@@ -203,15 +203,15 @@ SPM-93 after forum #128 (see below).
 
 **Classification:** correction. SPM-94's description: "Fix to Review Event Request (SPM-28) and View Event Information (SPM-31). Today every internal role can open any submitted event…". Discussion #125 was answered on 2026-09-28. The Jira record of it starts on 2026-10-06.
 
-**Stories created:** SPM-94 Limit Who Sees a Request's Review Outcome (2026-10-06, Sprint 4, not built).
+**Stories created:** SPM-94 Limit Who Sees a Request's Review Outcome (2026-10-06, Sprint 4; built 2026-10-23).
 
 **Stories reworded:** SPM-53, AC4 (2026-10-18 22:00, KANDASAMY KAYALVIZHI): old "Relevant users … approved or rejected" → new "The Event Organiser who owns the event is notified when the assigned Event Coordinator approves or rejects it, with the reason for a rejection. No other user is notified of the outcome." The comment cites "discussion #125".
 
-**Test cases:** none yet; SPM-94 is not built. SPM-31-TC02's wording will need updating (Pending in DECOMMISSIONED.md).
+**Test cases:** SPM-94-TC01 to TC10 (new, `docs/test-cases/SPM-94_Test_Cases.xlsx`, fixtures `npm run fixtures:spm94`). SPM-31-TC02 Updated (v2 note: Venue Staff see events from Approved on). See DECOMMISSIONED.md.
 
-**Automated tests:** not recorded (none changed).
+**Automated tests:** new [SPM-94] tests in `permissions.test.ts`, `event-detail.test.ts`, `events.test.ts`, `event-equipment.test.ts` and `equipment-pages.test.tsx`. Values changed (403 → 404 for the three roles on an unapproved event, their list filter) in `clarifications.test.ts`, `event-coordinator.test.ts`, `event-detail.test.ts`, `event-equipment.test.ts`, `lists.test.ts`, `events.test.ts` and `permissions.test.ts`; none archived (DECOMMISSIONED.md).
 
-**Design documents:** not recorded.
+**Design documents:** `docs/PERMISSIONS.md` §3 (who can see which event; the rejection reason) and §4.
 
 ---
 
