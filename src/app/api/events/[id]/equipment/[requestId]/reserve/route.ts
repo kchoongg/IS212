@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
-import { canReserveEquipment, canViewEvent, techSupportSeesEquipment } from "@/lib/permissions";
+import { canReserveEquipment, techSupportSeesEquipment } from "@/lib/permissions";
 import { eventAllowsReserving, reserveQuantity, reservingClosedMessage } from "@/lib/equipmentAvailability";
 import { loadSingleLineAvailability } from "@/lib/equipmentAvailabilityService";
 import { reserveClearsStaffNotes } from "@/lib/equipmentFulfilment";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-49 — Reserve Equipment. "As Technical Support Staff, I want to reserve
 // available equipment for an event so that the same limited equipment is not
@@ -51,7 +52,7 @@ export async function POST(
         },
       })
     : null;
-  if (!existing || existing.eventId !== eventId || !canViewEvent(actor, existing.event)) {
+  if (!existing || existing.eventId !== eventId || !(await canViewEventWithHistory(actor, { ...existing.event, id: existing.eventId }))) {
     return hidden();
   }
   if (!canReserveEquipment(actor)) {

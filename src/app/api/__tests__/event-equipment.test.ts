@@ -54,6 +54,22 @@ describe("GET /api/events/[id]/equipment", () => {
     expect((await list(token)).status).toBe(404);
   });
 
+  // SPM-94 (AC2, AC6): an event not yet approved is hidden from Technical
+  // Support and the Safety Officer on every route under it, not only its record.
+  it.each(
+    ["tech_support", "safety_officer"].flatMap((role) =>
+      ["submitted", "under_review", "rejected", "withdrawn"].map((status) => [role, status])
+    )
+  )("[SPM-94][AC2][AC6] is 404 for %s on a %s request, and reads no equipment", async (role, status) => {
+    const token = signIn(user(role, { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status }));
+
+    const res = await list(token);
+
+    expect(res.status).toBe(404);
+    expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
     ["the assigned coordinator", assignedCoordinator],
@@ -108,11 +124,16 @@ describe("GET /api/events/[id]/equipment", () => {
     expect((await list(token)).status).toBe(200);
   });
 
-  it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "completed"])(
+  // CHANGED (SPM-94 AC2): Submitted and Under review left this list - the
+  // event itself is hidden then, so those are the 404s above.
+  it.each(["approved", "postponed", "cancelled", "completed"])(
     "[SPM-47][AC6] is 403 for Technical Support while the event is %s - their part starts with planning",
     async (status) => {
       const token = signIn(user("tech_support", { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event({ status }));
+      // CHANGED (SPM-94 AC2): a cancelled event is theirs to see only if it
+      // was approved first, so this one was (its history has an approval).
+      db.eventStatusHistory.count.mockResolvedValue(1);
 
       const res = await list(token);
 
@@ -120,6 +141,21 @@ describe("GET /api/events/[id]/equipment", () => {
       expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
     }
   );
+
+  // SPM-94 (AC2, AC5): SPM-37 cancels from Under review too. Such a request
+  // was never approved, so it stays hidden from Technical Support - the
+  // status history has no approval in it.
+  it("[SPM-94][AC2][AC5] is 404 for Technical Support on an event cancelled before it was approved", async () => {
+    const token = signIn(user("tech_support", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+    db.eventStatusHistory.count.mockResolvedValue(0);
+
+    const res = await list(token);
+
+    expect(res.status).toBe(404);
+    expect(callArg(db.eventStatusHistory.count)).toEqual({ where: { eventId: ID.event, toStatus: "approved" } });
+    expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/events/[id]/equipment", () => {

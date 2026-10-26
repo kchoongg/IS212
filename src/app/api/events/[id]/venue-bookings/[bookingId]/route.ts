@@ -4,13 +4,14 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { canRequestVenueBooking, canViewEvent } from "@/lib/permissions";
+import { canRequestVenueBooking } from "@/lib/permissions";
 import { eventReference, parseEventReference } from "@/lib/format";
 import { changeVenueBookingSchema } from "@/lib/validation";
 import { ONLY_ASSIGNED_TO_CHANGE, checkBookingChange, releaseNotification } from "@/lib/venueBookingChange";
 import { notifyRole } from "@/lib/notifications";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-67, Withdraw or Release Venue Booking. The assigned Coordinator
 // withdraws a pending request (AC1) or releases an approved booking (AC3),
@@ -68,7 +69,7 @@ export async function PATCH(
               coordinatorId: true,
             },
           });
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     // AC9: the same person who may request a booking for this event.

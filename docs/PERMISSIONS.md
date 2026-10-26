@@ -137,7 +137,7 @@ Three entries are worth explaining:
   opens the Safety Checks page (`/safety-checks`, the events in Safety review);
   SPM-87's decision — approve, reject, request changes — uses the same action.
   Everything else the Safety Officer reads comes through `event:view` and the
-  relationship rules in §3: every event that has left Draft, its full record
+  relationship rules in §3: every event from Approved onwards (SPM-94), its full record
   (§4 narrows only the Attendee's), and its equipment read-only
   (`canViewEquipmentRequests`). They hold no venue, equipment, registration or
   status action, so every "change" rule refuses them without naming them. Not
@@ -206,11 +206,32 @@ organiser is not.
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
 | Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10). A `completed` event stays visible to an attendee who is registered, waitlisted or marked attended for it - not one who withdrew - so My Registrations still opens it (SPM-36). A `cancelled` event stays visible, with its cancellation reason, to an attendee who is registered or waitlisted for it (SPM-37). Browse Events lists only `confirmed` ones. |
-| Coordinator, Ops Manager, Venue Staff, Tech Support, Safety Officer | Every event that has left `draft` |
+| Coordinator, Ops Manager | Every event that has left `draft` |
+| Venue Staff, Tech Support, Safety Officer | Every event from `approved` onwards — never one that is `submitted`, `under_review`, `rejected` or `withdrawn` (SPM-94) |
 | Anyone | Never another organiser's draft |
 
 A draft is private to the organiser who owns it — from ConnectSphere staff as
 well, until it is submitted (SPM-24).
+
+**A request's review outcome is for the people involved in it** (SPM-94,
+forum #125: "It should not automatically be visible to every non-Attendee role
+simply because of their role"). Venue Staff, Technical Support and the Safety
+Officer have no part in a request until it is approved, so a request still in
+review, rejected or withdrawn is hidden from them altogether — in every list
+(`eventListWhere()`) and by its address (404). Postponed and Completed come
+only after approval, so those stay visible. Cancelled does not: SPM-37 cancels
+from Under review too. A cancelled event stays visible to them only if its
+status history has an approval in it — `everApproved`, looked up by
+`canViewEventWithHistory()` (`src/lib/eventVisibility.ts`) on the event and
+every route under it, and by `statusHistory` in `eventListWhere()`.
+
+The **rejection reason** goes only to the organiser who owns the event, the
+coordinator assigned to it and the Event Coordinator Lead
+(`canSeeRejectionReason()`). An unassigned coordinator or a colleague at the
+same client sees the event and its Rejected status, and `visibleEventFor()`
+leaves `rejectionReason` out of the record they receive — the list and the
+event alike. The reason also sits on the event's status history, which no
+route returns.
 
 **An event you may not see returns 404, never 403.** A 403 confirms the record
 exists, which is itself the leak. The same applies to writes: `PATCH` re-checks
@@ -248,8 +269,9 @@ times, attendance, layout and equipment), and status history. The event's own
 `startsAt` / `endsAt` are still shown, and for a multi-session event they span
 all its sessions.
 
-Every other role receives the full record. An organiser's own request is not
-internal information to them.
+Every other role receives the full record, except the rejection reason for
+those who are not involved in the request (§3, SPM-94). An organiser's own
+request is not internal information to them.
 
 ---
 
