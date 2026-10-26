@@ -4,7 +4,7 @@ import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { EVENT_INFORMATION_STATUSES, canConfigureRegistration, canViewEvent } from "@/lib/permissions";
+import { EVENT_INFORMATION_STATUSES, canConfigureRegistration } from "@/lib/permissions";
 import { configureRegistrationSchema } from "@/lib/validation";
 import {
   capacityError,
@@ -17,6 +17,7 @@ import {
   HOLDING_A_PLACE,
 } from "@/lib/registrationSettings";
 import { addReviewReasons } from "@/lib/reviewFlags";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // Configure Event Registration (SPM-64): the assigned coordinator sets up
 // attendee registration for an event. The rules are
@@ -43,7 +44,7 @@ async function coordinatorsEvent(
   const sequenceNumber = parseEventReference(id);
   const event = sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
   // An event the user may not see is 404, never 403 - a 403 would confirm it exists.
-  if (!event || !canViewEvent(actor, event)) return { refusal: hidden() };
+  if (!event || !(await canViewEventWithHistory(actor, event))) return { refusal: hidden() };
   if (!canConfigureRegistration(actor, event)) {
     return { refusal: forbidden("Only the coordinator assigned to this event can change its registration settings") };
   }

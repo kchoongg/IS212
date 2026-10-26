@@ -4,7 +4,8 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { canProcessChangeRequests, canViewEvent } from "@/lib/permissions";
+import { canProcessChangeRequests } from "@/lib/permissions";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 import { changeRequestDecisionSchema } from "@/lib/validation";
 import { statusLabel } from "@/lib/statuses";
 import { applyEventInformation, type EventForChange } from "@/lib/applyEventInformation";
@@ -64,7 +65,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
             where: { sequenceNumber },
             include: { facilityRequirements: { select: { facilityId: true, facility: { select: { name: true } } } } },
           });
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     const request = await prisma.eventChangeRequest.findUnique({ where: { id: requestId }, include: WITH_PEOPLE });

@@ -421,7 +421,8 @@ describe("GET /api/events/[id]", () => {
   // seats that layout holds, not only the room's name.
   it("[SPM-31][AC1] loads each approved booking's layout and the capacity of every layout the room has", async () => {
     const token = signIn(user("safety_officer"));
-    db.event.findUnique.mockResolvedValue(event());
+    // CHANGED (SPM-94 AC2): Planning - the Safety Officer sees no request under review.
+    db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
 
     const res = await get(token);
 
@@ -449,7 +450,11 @@ describe("GET /api/events/[id]", () => {
 
   it("[SPM-85][AC3] gives the Safety Officer the whole record and the latest safety check, like other staff", async () => {
     const token = signIn(user("safety_officer"));
-    db.event.findUnique.mockResolvedValue(event({ expectedAttendance: 200, accessibilityNotes: "Step-free" }));
+    // CHANGED (SPM-94 AC2): Planning, not Under review - the Safety Officer
+    // sees an event only from Approved onwards.
+    db.event.findUnique.mockResolvedValue(
+      event({ status: "planning", expectedAttendance: 200, accessibilityNotes: "Step-free" })
+    );
 
     const body = await (await get(token)).json();
 
@@ -467,6 +472,120 @@ describe("GET /api/events/[id]", () => {
     expect(body.coordinator).toEqual({ fullName: "Daniel Tan" });
     expect(body.coordinatorId).toBe(ID.otherUser);
   });
+});
+
+// SPM-94 (Limit Who Sees a Request's Review Outcome; forum #125). AC6: "The
+// same rules apply to the information the system returns, not only to what
+// the screens show." CONTRACT: see the SPM-94 block in
+// src/lib/__tests__/permissions.test.ts - the route answers through
+// canViewEvent() and visibleEventFor(), so a hidden event is the same 404 as
+// one that does not exist, and the reason is left out of the record.
+describe("GET /api/events/[id] - who sees a request's review outcome (SPM-94)", () => {
+  const REASON = "The requested ballroom is closed for renovation in November 2027.";
+  const rejected = () => event({ status: "rejected", rejectionReason: REASON });
+
+  beforeEach(() => {
+    db.registration.groupBy.mockResolvedValue([]);
+  });
+
+  it.each([
+    ["the organiser who owns it", () => organiser()],
+    ["the coordinator assigned to it", () => coordinator()],
+    ["the Event Coordinator Lead", () => user("ops_manager", { id: ID.thirdUser })],
+  ])("[SPM-94][AC1][AC6] gives %s the rejection reason", async (_who, who) => {
+    const token = signIn(who());
+    db.event.findUnique.mockResolvedValue(rejected());
+
+    const body = await (await get(token)).json();
+
+    expect(body.rejectionReason).toBe(REASON);
+  });
+
+  it.each([
+    ["a coordinator not assigned to it", () => user("coordinator", { id: ID.thirdUser })],
+    ["another organiser in the same client", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
+  ])("[SPM-94][AC3][AC4][AC6] gives %s the event and its status, without the reason", async (_who, who) => {
+    const token = signIn(who());
+    db.event.findUnique.mockResolvedValue(rejected());
+
+    const res = await get(token);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.status).toBe("rejected");
+    expect(body).not.toHaveProperty("rejectionReason");
+  });
+
+  it.each(
+    ["venue_staff", "tech_support", "safety_officer"].flatMap((role) =>
+      ["submitted", "under_review", "rejected", "withdrawn"].map((status) => [role, status])
+    )
+  )("[SPM-94][AC2][AC5][AC6] is the same 404 as a missing event for %s on a %s request", async (role, status) => {
+    const token = signIn(user(role, { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(
+      event({ status, coordinatorId: status === "submitted" ? null : ID.otherUser, rejectionReason: status === "rejected" ? REASON : null })
+    );
+
+    const res = await get(token);
+
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "Event not found" });
+  });
+
+  // CHANGED after review of PR #86: SPM-37 cancels from Under review too, so a
+  // cancelled event is shown to these three only if its status history has an
+  // approval (src/lib/eventVisibility.ts).
+  it.each(["venue_staff", "tech_support", "safety_officer"])(
+    "[SPM-94][AC2][AC5] is the same 404 as a missing event for %s on a request cancelled before approval",
+    async (role) => {
+      const token = signIn(user(role, { id: ID.thirdUser }));
+      db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+      db.eventStatusHistory.count.mockResolvedValue(0);
+
+      const res = await get(token);
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "Event not found" });
+      expect(callArg(db.eventStatusHistory.count)).toEqual({ where: { eventId: ID.event, toStatus: "approved" } });
+    }
+  );
+
+  it.each(["venue_staff", "tech_support", "safety_officer"])(
+    "[SPM-94][AC2] gives %s an event cancelled after it was approved",
+    async (role) => {
+      const token = signIn(user(role, { id: ID.thirdUser }));
+      db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+      db.eventStatusHistory.count.mockResolvedValue(1);
+
+      const res = await get(token);
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).status).toBe("cancelled");
+    }
+  );
+
+  it("[SPM-94][AC2] reads no status history for a coordinator, or for an event that is not cancelled", async () => {
+    db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+    expect((await get(signIn(coordinator()))).status).toBe(200);
+
+    db.event.findUnique.mockResolvedValue(event({ status: "approved" }));
+    expect((await get(signIn(user("venue_staff", { id: ID.thirdUser })))).status).toBe(200);
+
+    expect(db.eventStatusHistory.count).not.toHaveBeenCalled();
+  });
+
+  it.each(["venue_staff", "tech_support", "safety_officer"])(
+    "[SPM-94][AC2] gives %s an approved event",
+    async (role) => {
+      const token = signIn(user(role, { id: ID.thirdUser }));
+      db.event.findUnique.mockResolvedValue(event({ status: "approved" }));
+
+      const res = await get(token);
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).status).toBe("approved");
+    }
+  );
 });
 
 // SPM-29 (AC3): "The open clarification is shown on the event to the Event
@@ -546,9 +665,6 @@ describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
   it.each([
     ["a coordinator it is not assigned to", () => user("coordinator", { id: ID.thirdUser })],
     ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
-    ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
-    ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
-    ["the Safety Officer", () => user("safety_officer", { id: ID.thirdUser })],
   ])("[SPM-29][AC3] keeps it from %s, without looking it up", async (_who, actor) => {
     db.event.findUnique.mockResolvedValue(event());
 
@@ -556,6 +672,21 @@ describe("GET /api/events/[id] - the open clarification (SPM-29)", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).not.toHaveProperty("openClarification");
+    expect(db.clarificationRequest.findFirst).not.toHaveBeenCalled();
+  });
+
+  // CHANGED (SPM-94 AC2): a request under review is hidden from these three
+  // altogether - not found, and the clarification is never looked up.
+  it.each([
+    ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
+    ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
+    ["the Safety Officer", () => user("safety_officer", { id: ID.thirdUser })],
+  ])("[SPM-29][AC3] [SPM-94][AC2] keeps it from %s, who cannot see the request at all", async (_who, actor) => {
+    db.event.findUnique.mockResolvedValue(event());
+
+    const res = await get(signIn(actor()));
+
+    expect(res.status).toBe(404);
     expect(db.clarificationRequest.findFirst).not.toHaveBeenCalled();
   });
 
@@ -2153,7 +2284,6 @@ describe("PATCH /api/events/[id] - answering a clarification (SPM-26)", () => {
     ["an organiser at the same client", () => user("organiser", { id: ID.thirdUser, organisationId: ID.org })],
     ["the assigned coordinator", coordinator],
     ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
-    ["Venue Staff", () => user("venue_staff", { id: ID.thirdUser })],
   ])("[SPM-26][AC2] refuses %s with 403", async (_who, actor) => {
     const token = givenResponding({ actor: actor() });
 
@@ -2161,6 +2291,17 @@ describe("PATCH /api/events/[id] - answering a clarification (SPM-26)", () => {
 
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: CLARIFICATION_RESPOND_FORBIDDEN });
+    nothingWritten();
+  });
+
+  // CHANGED (SPM-94 AC2): Venue Staff cannot see a request under review, so
+  // it is a 404 for them, as for another client.
+  it("[SPM-26][AC2] [SPM-94][AC2] is 404 for Venue Staff, who cannot see a request under review", async () => {
+    const token = givenResponding({ actor: user("venue_staff", { id: ID.thirdUser }) });
+
+    const res = await patch(token, { title: "Not mine to change" });
+
+    expect(res.status).toBe(404);
     nothingWritten();
   });
 

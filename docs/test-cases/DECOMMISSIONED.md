@@ -14,7 +14,7 @@ with the stories' current acceptance criteria in Jira, starting from the
 ([docs/regression/Sprint-3_Regression.xlsx](../regression/Sprint-3_Regression.xlsx)),
 where the team listed the cases a later story had changed.
 
-Totals: 17 manual test cases Retired, 109 Updated; 2 automated test files archived.
+Totals: 17 manual test cases Retired, 110 Updated; 2 automated test files archived.
 
 ## Manual test cases
 
@@ -36,6 +36,7 @@ Totals: 17 manual test cases Retired, 109 Updated; 2 automated test files archiv
 | SPM-30 | SPM-30-TC04 (manual, Updated) | SPM-30 (its ACs unchanged) → SPM-84 AC1 "The role previously shown as 'Event Operations Manager' is shown as 'Event Coordinator Lead' everywhere it appears…" | Wording only: the case names the role, which is now shown as the Event Coordinator Lead; the AC it checks still holds. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #5 | 2026-10-20 |
 | SPM-30 | SPM-30-TC15 (manual, Updated) | SPM-30 AC6 (unchanged) → SPM-84 AC1 "The role previously shown as 'Event Operations Manager' is shown as 'Event Coordinator Lead' everywhere it appears…", and SPM-84 AC5 (SPM-30's 'Assigned' tab is now 'Active events') | Wording only: the role is shown under its new name and the tab it opens was renamed; reassigning works as before. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #5 | 2026-10-20 |
 | SPM-30 | SPM-30-TC17 (manual, Updated) | SPM-30 AC4 and AC6 (unchanged) → SPM-84 AC5 (SPM-30's 'Assigned' tab is now 'Active events') | Wording only: the tab it opens was renamed; completed, cancelled and rejected events are still on no tab, so the AC it checks still holds. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #5 | 2026-10-20 |
+| SPM-31 | SPM-31-TC02 (manual, Updated) | SPM-31 AC1 (unchanged) → SPM-94 AC2 "Venue Staff, Technical Support Staff and the Safety Officer cannot open an event request that has not been approved… They see an event from Approved onwards…" (built 2026-10-23) | Wording only: its expected result says internal staff view "any non-draft event"; Venue Staff now see an event from Approved onwards. Its event is in Planning, so the steps and result still hold. | Same case, kept: "v2" note at the top of its sheet says what to read differently | #125 | 2026-10-23 |
 | SPM-33 | SPM-33-TC01 (manual, Updated) | SPM-33 AC6 "The Operational Safety Check is displayed as a required item…" (added 2026-10-02) and AC11 (unchanged) → SPM-88 AC8 "Given the event has not been approved by the Safety Officer, when the Coordinator attempts to confirm it, then confirmation is refused…" (moved from SPM-34 to SPM-88 on 2026-10-02; built in SPM-88, merged 2026-10-16) | Values and a precondition only: the AC it checks still holds, but confirmation now also needs an approved safety check. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #6 | 2026-10-19 |
 | SPM-33 | SPM-33-TC02 (manual, Updated) | SPM-33 AC6 "The Operational Safety Check is displayed as a required item…" (added 2026-10-02) and AC11 (unchanged) → SPM-88 AC8 "Given the event has not been approved by the Safety Officer, when the Coordinator attempts to confirm it, then confirmation is refused…" (moved from SPM-34 to SPM-88 on 2026-10-02; built in SPM-88, merged 2026-10-16) | Values and a precondition only: the AC it checks still holds, but confirmation now also needs an approved safety check. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #6 | 2026-10-19 |
 | SPM-33 | SPM-33-TC03 (manual, Updated) | SPM-33 AC6 "The Operational Safety Check is displayed as a required item…" (added 2026-10-02) and AC11 (unchanged) → SPM-88 AC8 "Given the event has not been approved by the Safety Officer, when the Coordinator attempts to confirm it, then confirmation is refused…" (moved from SPM-34 to SPM-88 on 2026-10-02; built in SPM-88, merged 2026-10-16) | Values and a precondition only: the AC it checks still holds, but confirmation now also needs an approved safety check. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #6 | 2026-10-19 |
@@ -170,6 +171,13 @@ assert, so the value was updated in the change's PR:
 |---|---|---|
 | `src/app/api/__tests__/event-coordinator.test.ts` | "Only the Event Operations Manager can assign coordinators" → "Only the Event Coordinator Lead can assign coordinators" | SPM-84 AC1 (#129), 2026-10-20 |
 | `src/app/__tests__/list-pages.test.tsx` (Assignments refusal) | "Assigning coordinators is the Event Operations Manager's role." → "…the Event Coordinator Lead's role." | SPM-84 AC1 (#129), 2026-10-20 |
+| `src/app/api/__tests__/clarifications.test.ts`, `event-coordinator.test.ts`, `event-detail.test.ts` (SPM-26, SPM-29, SPM-30) | Venue Staff, Technical Support or the Safety Officer acting on a Submitted or Under review event: 403 (or 200 without the clarification) → 404, the event being hidden from them; the role refusals themselves are still asserted for the roles that can see the event | SPM-94 AC2 (#125), 2026-10-23 |
+| `src/app/api/__tests__/event-detail.test.ts` (SPM-31, SPM-85) | the Safety Officer's event: Under review → Planning | SPM-94 AC2 (#125), 2026-10-23 |
+| `src/app/api/__tests__/event-equipment.test.ts` (SPM-47) | "is 403 for Technical Support while the event is …": Submitted and Under review dropped (now 404, in the [SPM-94] test) | SPM-94 AC2 (#125), 2026-10-23 |
+| `src/app/api/__tests__/lists.test.ts` (SPM-50), `events.test.ts` (SPM-24) | Technical Support's / Venue Staff's event filter `{ status: { not: "draft" } }` → `{ status: { notIn: ["draft", "submitted", "under_review", "rejected", "withdrawn"] } }` | SPM-94 AC2 (#125), 2026-10-23 |
+| `src/lib/__tests__/permissions.test.ts` (SPM-4, SPM-22, SPM-85) | internal staff see every non-draft event → coordinators and the Lead do, the other three from Approved on; `visibleEventFor` returns the record unchanged → without `rejectionReason` for those who may not see it | SPM-94 AC1, AC2 (#125), 2026-10-23 |
+| `src/app/__tests__/equipment-pages.test.tsx` (SPM-47) | "says so when the event fails to load": a 404 → a 500 (a 404 now shows the not-found message) | SPM-94 AC5 (#125), 2026-10-23 |
+| `src/app/api/__tests__/event-equipment.test.ts` (SPM-47), `events.test.ts`, `lists.test.ts` (SPM-50), `permissions.test.ts` | a cancelled event counted as "from Approved onwards" for Venue Staff, Technical Support and the Safety Officer → only when its status history has an approval (SPM-37 cancels from Under review too): the SPM-47 "403 while the event is cancelled" case now has an approval in its history, and their list filter checks `statusHistory` for a cancelled event | SPM-94 AC2 (#125), corrected after review of PR #86, 2026-10-26 |
 | `src/app/__tests__/list-pages.test.tsx`, `src/app/api/__tests__/lists.test.ts` (SPM-30 Assignments) | the "Assigned" tab and the API's `assigned` list → the "Active events" tab and `active`, which also holds active events with no coordinator | SPM-84 AC5 (Week 7 #5), 2026-10-20 |
 
 ## Pending: changes not built yet
@@ -178,9 +186,7 @@ These changes are agreed in Jira but their stories are not built, so the cases
 below still match the app and stay **Active** until the story's PR. Retire or
 update them in that PR.
 
-| Change | Story | Cases to revisit when it merges |
-|---|---|---|
-| #125, who sees a review outcome | SPM-94 (Sprint 4) | SPM-31-TC02 expects internal staff to view "any non-draft event"; its own event is in Planning, so it still passes once Venue Staff only see events from Approved on, but its expected result needs rewording. No current case opens an unapproved event as Venue Staff, Technical Support or the Safety Officer. |
+None. The last, #125 (SPM-94), was built on 2026-10-23: SPM-31-TC02 is Updated above.
 
 ## Gaps: current acceptance criteria with no active test case
 
