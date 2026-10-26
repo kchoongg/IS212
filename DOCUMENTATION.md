@@ -1077,6 +1077,11 @@ what changed, why, and the migration name if there is one.
   `docs/CUSTOMER_CLARIFICATIONS.md`; a follow-up on #125 is still to be posted.
 - SPM-31-TC02 marked Updated; 12 existing tests changed (403 → 404 for those
   roles on an unapproved event), listed in `docs/test-cases/DECOMMISSIONED.md`.
+- **Corrected after review of PR #86:** an event cancelled before it was
+  approved stays hidden from those three roles. The first version assumed
+  Cancelled always followed approval, but SPM-37 cancels from Under review.
+  New test case SPM-94-TC11 checks it (passed 2026-10-26), with two cancelled
+  fixture events.
 - Fixtures: `npm run fixtures:spm94` (`scripts/seed-spm94.ts`), the same events
   appended to `prisma/seed.ts`. No migration.
 
