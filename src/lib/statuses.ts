@@ -137,6 +137,15 @@ export function isTerminalEventStatus(status: string): boolean {
   return TERMINAL_EVENT_STATUSES.includes(status);
 }
 
+/// "completed, cancelled, rejected or withdrawn" - every final status, for the
+/// messages that refuse an action on a closed event. Built from the list, so a
+/// final status added later is named in all of them (SPM-59 review: three
+/// messages had been left saying "completed, cancelled or rejected").
+export const CLOSED_EVENT_STATUSES_PHRASE = (() => {
+  const words = TERMINAL_EVENT_STATUSES.map((status) => statusLabel(status).toLowerCase());
+  return `${words.slice(0, -1).join(", ")} or ${words[words.length - 1]}`;
+})();
+
 /// Statuses a request is in before the coordinator has approved it. Venue and
 /// equipment arrangements wait for approval (SPM-54, decided 2026-10-02): the
 /// first of them is what moves an Approved event into Planning.
@@ -151,7 +160,9 @@ export function isBeforeApproval(status: string): boolean {
 const EVENT_TRANSITIONS: Record<string, readonly string[]> = {
   draft: ["submitted"],
   submitted: ["under_review"],
-  under_review: ["approved", "rejected", "withdrawn"],
+  // SPM-37 (AC1): cancelled at any stage that has an assigned coordinator
+  // (#68; confirmed 2026-10-22), so from Under review too.
+  under_review: ["approved", "rejected", "withdrawn", "cancelled"],
   approved: ["planning", "cancelled"],
   planning: ["confirmed", "postponed", "cancelled", "safety_review"],
   // SPM-86: the Safety Officer's decision (SPM-87) or a significant change

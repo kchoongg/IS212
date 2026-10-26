@@ -1,0 +1,314 @@
+{
+  "story_key": "SPM-37",
+  "story_title": "As the assigned Event Coordinator, I want to cancel an event at any stage so it no longer holds arrangements it doesn't need.",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-21",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given an event has not yet been Completed, when the assigned Coordinator cancels it, then the event status changes to Cancelled."
+    },
+    {
+      "id": "AC2",
+      "text": "Only the assigned Event Coordinator can cancel the event."
+    },
+    {
+      "id": "AC3",
+      "text": "Cancelling an event releases all of its venue bookings, at every venue, and its equipment reservations so they become available for other events."
+    },
+    {
+      "id": "AC4",
+      "text": "Pending venue booking requests for the event are withdrawn and no longer appear for Venue Staff to review."
+    },
+    {
+      "id": "AC5",
+      "text": "Pending change requests for the event are closed without being applied."
+    },
+    {
+      "id": "AC6",
+      "text": "A pending Operational Safety Check for the event is closed and no longer appears for the Safety Officer to review."
+    },
+    {
+      "id": "AC7",
+      "text": "Registration for the event is closed, and the event is no longer shown to Attendees as open for registration."
+    },
+    {
+      "id": "AC8",
+      "text": "A reason for cancellation can be recorded."
+    },
+    {
+      "id": "AC9",
+      "text": "A cancelled event's status cannot be changed to any other status."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-37-TC01",
+      "title": "The assigned Coordinator cancels a Planning event with a reason, which releases its approved booking, withdraws its pending request at a second venue and releases its equipment",
+      "linked_ac": ["AC1", "AC3", "AC4", "AC8"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` before this case. Do not run it again afterwards: go straight on to SPM-37-TC02, and reset after that one.\n'SPM37 Harbour Summit' (2 Nov 2027, 09:00–12:00) is in Planning, coordinated by Daniel Tan. It has an Approved booking for SPM37 Hall, a Pending request for SPM37 Studio, 2 × SPM37 Projector Reserved and 1 × SPM37 Lectern Mic Requested. Registration is off.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Harbour Summit'",
+        "Click 'Cancel event'",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Cancel event' in the dialog",
+        "Click the 'Venue' tab",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvent: SPM37 Harbour Summit | When: 2 Nov 2027, 09:00–12:00\nBookings: SPM37 Hall (SPM37-HAL), Approved | SPM37 Studio (SPM37-STU), Pending\nEquipment: 2 × SPM37 Projector, Reserved | 1 × SPM37 Lectern Mic, Requested\nReason: The client has called off the summit after losing its keynote sponsor.",
+      "expected_result": "Step 2: The Overview shows the 'Planning' badge, and the header has a 'Cancel event' button.\nStep 3: A dialog 'Cancel this event?' reads 'SPM37 Harbour Summit will be marked Cancelled. This can't be undone.' Under 'Cancelling will:' it lists, in this order: 'Release SPM37 Hall (SPM37-HAL) on 2 Nov 2027, 09:00–12:00', 'Withdraw the request for SPM37 Studio (SPM37-STU) on 2 Nov 2027, 09:00–12:00', 'Release 2 × SPM37 Projector' and 'Cancel the request for 1 × SPM37 Lectern Mic'. It has an empty 'Reason (optional)' box and the buttons 'Cancel event' and 'Keep event'.\nStep 5: The dialog closes. A green alert reads 'The event has been cancelled. Its venue bookings and equipment have been released.' The badge reads 'Cancelled'. A red alert 'This event was cancelled' reads 'The client has called off the summit after losing its keynote sponsor.' The header no longer has 'Cancel event'.\nStep 6: The 'Booking requests' card lists 'SPM37 Hall (SPM37-HAL)' with a grey 'Released' badge and the line 'Reason for release: Event cancelled: The client has called off the summit after losing its keynote sponsor.', and 'SPM37 Studio (SPM37-STU)' with a grey 'Withdrawn' badge and the line 'Reason for withdrawal: Event cancelled: The client has called off the summit after losing its keynote sponsor.' Neither row has a 'Release booking' or 'Withdraw request' button. A blue alert reads 'A venue cannot be requested for a completed, cancelled or rejected event.'\nStep 7: A blue alert reads 'This event is cancelled — equipment requirements can no longer be changed.' The 'SPM37 Projector' and 'SPM37 Lectern Mic' lines both have the 'Cancelled' badge."
+    },
+    {
+      "id": "SPM-37-TC02",
+      "title": "A cancelled event's pending venue request leaves Venue Staff's Booking Requests list, while another event's stays on it, and Venue Staff are told its approved booking was released",
+      "linked_ac": ["AC4", "AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-37-TC01 has just been run ('SPM37 Harbour Summit' is now Cancelled, and its SPM37 Studio request Withdrawn).\nBefore TC01, the fixtures put the Harbour Summit's SPM37 Studio request (2 Nov 2027) on the Booking Requests list, beside a Pending SPM37 Studio request for 'SPM37 Guarded Event' (14 Dec 2027).\nStill logged in as Daniel Tan.\nRun `npm run fixtures:spm37` after this case.",
+      "steps": [
+        "Log out",
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Search the page for 'SPM37' (Ctrl+F)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Venue Staff: Marcus Wong\nReleased by the cancellation: SPM37 Harbour Summit, SPM37 Hall (SPM37-HAL), 2 Nov 2027, 09:00–12:00\nWithdrawn by the cancellation: SPM37 Harbour Summit, SPM37 Studio (SPM37-STU), 2 Nov 2027, 09:00–12:00\nStill pending: SPM37 Guarded Event, SPM37 Studio (SPM37-STU), 14 Dec 2027, 09:00–12:00",
+      "expected_result": "Step 4: Exactly one card matches: 'SPM37 Guarded Event', 'SPM37 Studio (SPM37-STU)', with the 'Pending' badge, 'Requested' '14 Dec 2027, 09:00–12:00', and its 'Approve' and 'Reject with a reason' buttons. No card for 'SPM37 Harbour Summit' is on the page.\nStep 5: The Notifications list has a new notification titled 'Venue booking released' for 'SPM37 Harbour Summit', reading 'Daniel Tan released SPM37 Hall (SPM37-HAL) for <reference> SPM37 Harbour Summit on 2 Nov 2027, 09:00–12:00. Reason: Event cancelled: The client has called off the summit after losing its keynote sponsor.' There is no notification about the withdrawn SPM37 Studio request."
+    },
+    {
+      "id": "SPM-37-TC03",
+      "title": "Cancelling an event frees its venue and its reserved equipment for another event on the same dates",
+      "linked_ac": ["AC3", "AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` before this case, and again after it.\nSPM37 Projector has 2 in total and none out of service.\n'SPM37 Blocking Expo' (16 Nov 2027, 09:00–12:00, Planning, Daniel Tan) has an Approved booking for SPM37 Hall and both SPM37 Projectors Reserved.\n'SPM37 Rival Forum' (16 Nov 2027, 09:00–12:00, Planning, Daniel Tan) has no venue booking and a request for 2 × SPM37 Projector, not yet reserved.\nLogged out.",
+      "steps": [
+        "Log in as vikram.nair@connectsphere.com / password123",
+        "Click 'Equipment Requests' in the sidebar and open the equipment request for 'SPM37 Rival Forum'",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar, open 'SPM37 Rival Forum' and click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM37 Hall (SPM37-HAL)'",
+        "Click 'Submit request'",
+        "Click 'All Events' in the sidebar and open 'SPM37 Blocking Expo'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog",
+        "Click 'All Events' in the sidebar, open 'SPM37 Rival Forum' and click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM37 Hall (SPM37-HAL)'",
+        "Click 'Submit request'",
+        "Log out",
+        "Log in as vikram.nair@connectsphere.com / password123",
+        "Click 'Equipment Requests' in the sidebar and open the equipment request for 'SPM37 Rival Forum'"
+      ],
+      "test_data": "Technical Support: Vikram Nair | Coordinator: Daniel Tan\nVenue: SPM37 Hall (SPM37-HAL), no setup or turnaround\nEquipment: SPM37 Projector, 2 in total\nCancelled event: SPM37 Blocking Expo, 16 Nov 2027, 09:00–12:00\nOther event: SPM37 Rival Forum, 16 Nov 2027, 09:00–12:00",
+      "expected_result": "Step 2: The 'SPM37 Projector' line reads '2 total − 0 out of service − 2 reserved elsewhere = 0 available for these dates' and 'Held by SPM37 Blocking Expo (2 units) until 17 Nov.'\nStep 6: The 'Request a venue booking' form opens for SPM37 Hall, with 'Date' 16 Nov 2027, 'Start time' 09:00 and 'End time' 12:00.\nStep 7: The request is not sent. A red alert reads 'SPM37 Hall is already booked for <reference> SPM37 Blocking Expo on 16 Nov 2027, 09:00–12:00.'\nStep 9: The dialog 'Cancel this event?' lists 'Release SPM37 Hall (SPM37-HAL) on 16 Nov 2027, 09:00–12:00' and 'Release 2 × SPM37 Projector'.\nStep 10: The badge reads 'Cancelled'.\nStep 13: A green alert reads 'Booking request sent to Venue Staff.' The cancelled event's booking no longer blocks the Hall.\nStep 16: The 'SPM37 Projector' line reads '2 total − 0 out of service − 0 reserved elsewhere = 2 available for these dates', with no 'Held by' line."
+    },
+    {
+      "id": "SPM-37-TC04",
+      "title": "Cancelling an event in Safety review closes its pending safety check, so the Safety Officer no longer sees it to review",
+      "linked_ac": ["AC6", "AC1"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` before this case, and again after it.\n'SPM37 Safety Pending' (18 Nov 2027, 09:00–12:00, Daniel Tan) is in Safety review, with an Approved booking for SPM37 Hall and a pending Operational Safety Check that Daniel Tan submitted.\nLogged out.",
+      "steps": [
+        "Log in as hana.yusof@connectsphere.com / password123",
+        "Click 'Safety Checks' in the sidebar",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Safety Pending'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog",
+        "Log out",
+        "Log in as hana.yusof@connectsphere.com / password123",
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM37 Safety Pending'"
+      ],
+      "test_data": "Safety Officer: Hana Yusof | Coordinator: Daniel Tan\nEvent: SPM37 Safety Pending | When: 18 Nov 2027, 09:00–12:00 | Status: Safety review",
+      "expected_result": "Step 2: 'SPM37 Safety Pending' is listed, submitted by Daniel Tan.\nStep 5: The badge reads 'Safety review'.\nStep 6: The dialog 'Cancel this event?' lists 'Release SPM37 Hall (SPM37-HAL) on 18 Nov 2027, 09:00–12:00' and 'Close the pending safety check'.\nStep 7: The badge reads 'Cancelled'.\nStep 10: 'SPM37 Safety Pending' is not listed.\nStep 11: The Overview shows the 'Cancelled' badge, and the header has no 'Record safety decision' button."
+    },
+    {
+      "id": "SPM-37-TC05",
+      "title": "Cancelling an event closes its pending change request without applying the date it proposed",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` before this case, and again after it.\n'SPM37 Change Pending' (23 Nov 2027, 09:00–12:00, Confirmed, Daniel Tan; organiser Rachel Ng) has one pending change request from Rachel Ng that proposes moving it to 30 Nov 2027, 09:00–12:00. No screen lists change requests yet (SPM-35 and SPM-32), so the fixture creates it.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Change Pending'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog",
+        "Log out",
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM37 Change Pending'"
+      ],
+      "test_data": "Coordinator: Daniel Tan | Organiser: Rachel Ng\nEvent: SPM37 Change Pending | When: 23 Nov 2027, 09:00–12:00\nPending change request: move to 30 Nov 2027, 09:00–12:00",
+      "expected_result": "Step 2: The badge reads 'Confirmed', and the 'When' row reads '23 Nov 2027, 09:00–12:00'.\nStep 3: The dialog 'Cancel this event?' lists 'Close 1 pending change request'.\nStep 4: The badge reads 'Cancelled'. The 'When' row still reads '23 Nov 2027, 09:00–12:00'.\nStep 7: The organiser sees the 'Cancelled' badge, and the 'When' row reads '23 Nov 2027, 09:00–12:00'."
+    },
+    {
+      "id": "SPM-37-TC06",
+      "title": "Cancelling a Confirmed event with open registration takes it off Browse Events, and a registered attendee keeps the registration, can no longer withdraw, and can open the event to see why it was cancelled",
+      "linked_ac": ["AC7", "AC8"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` before this case, and again after it.\n'SPM37 Open Workshop' (25 Nov 2027, 09:00–12:00, Confirmed, Daniel Tan) has registration on, 40 places, open from 1 Oct 2026, 09:00 to 24 Nov 2027, 17:00. Lee Wei Ming is registered; nobody is on the waiting list. Anita Devi is not registered.\nLogged out.",
+      "steps": [
+        "Log in as anita.devi@example.com / password123",
+        "Click 'Browse Events' in the sidebar",
+        "Log out",
+        "Log in as lee.wei.ming@example.com / password123",
+        "Click 'My Registrations' in the sidebar",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Open Workshop'",
+        "Click 'Cancel event'",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Cancel event' in the dialog",
+        "Log out",
+        "Log in as anita.devi@example.com / password123",
+        "Click 'Browse Events' in the sidebar",
+        "Log out",
+        "Log in as lee.wei.ming@example.com / password123",
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM37 Open Workshop' row"
+      ],
+      "test_data": "Attendees: Anita Devi (not registered), Lee Wei Ming (registered) | Coordinator: Daniel Tan\nEvent: SPM37 Open Workshop | When: 25 Nov 2027, 09:00–12:00\nRegistration: 40 places, open 1 Oct 2026, 09:00 – 24 Nov 2027, 17:00\nReason: The trainer is unavailable and no replacement could be found.",
+      "expected_result": "Step 2: 'SPM37 Open Workshop' is listed with the 'Open' badge.\nStep 5: The 'SPM37 Open Workshop' row has the 'Registered' badge and a 'Withdraw' button.\nStep 9: The dialog 'Cancel this event?' lists 'Close registration: 1 registered, 0 on the waiting list'.\nStep 11: The badge reads 'Cancelled'.\nStep 14: 'SPM37 Open Workshop' is not listed.\nStep 17: The 'SPM37 Open Workshop' row is still listed with the 'Registered' badge, and it has no 'Withdraw' button.\nStep 18: The event opens with the 'Cancelled' badge. A red alert 'This event was cancelled' reads 'The trainer is unavailable and no replacement could be found.' There is no 'Register' or 'Withdraw' button."
+    },
+    {
+      "id": "SPM-37-TC07",
+      "title": "Keep event leaves an Approved event as it was, and cancelling it with no reason and nothing to release records that no reason was given",
+      "linked_ac": ["AC8", "AC1"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` before this case, and again after it.\n'SPM37 Quiet Approval' (30 Nov 2027, 09:00–12:00, Daniel Tan) is Approved, with no venue booking, no equipment and registration off.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Quiet Approval'",
+        "Click 'Cancel event'",
+        "Click 'Keep event'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog, leaving 'Reason (optional)' empty"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvent: SPM37 Quiet Approval | When: 30 Nov 2027, 09:00–12:00 | Status: Approved\nReason: (left empty)",
+      "expected_result": "Step 2: The badge reads 'Approved', and the header has a 'Cancel event' button.\nStep 3: The dialog 'Cancel this event?' reads 'SPM37 Quiet Approval will be marked Cancelled. This can't be undone.' and 'This event has no venue bookings, equipment or registration to release.'\nStep 4: The dialog closes. The badge still reads 'Approved', and no alert is shown.\nStep 6: The dialog closes. A green alert reads 'The event has been cancelled. Its venue bookings and equipment have been released.' The badge reads 'Cancelled'. A red alert 'This event was cancelled' reads 'No reason was recorded.'"
+    },
+    {
+      "id": "SPM-37-TC08",
+      "title": "An event can be cancelled from the earliest stage it has an assigned Coordinator, Under review, and from Postponed",
+      "linked_ac": ["AC1"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` before this case, and again after it.\n'SPM37 Early Call' (2 Dec 2027, 09:00–12:00) is Under review, assigned to Daniel Tan.\n'SPM37 On Hold' (7 Dec 2027, 09:00–12:00, Daniel Tan) is Postponed.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Review Queue' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM37 Early Call'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog",
+        "Click 'Review Queue' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM37 On Hold'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nUnder review: SPM37 Early Call, 2 Dec 2027, 09:00–12:00\nPostponed: SPM37 On Hold, 7 Dec 2027, 09:00–12:00",
+      "expected_result": "Step 2: 'SPM37 Early Call' is listed.\nStep 3: The badge reads 'Under review', the alert 'This request is waiting for your review' is shown, and the header has a 'Cancel event' button.\nStep 5: The badge reads 'Cancelled', and the alert 'This request is waiting for your review' is gone.\nStep 6: 'SPM37 Early Call' is not listed.\nStep 7: The badge reads 'Postponed', and the header has a 'Cancel event' button.\nStep 9: The badge reads 'Cancelled'."
+    },
+    {
+      "id": "SPM-37-TC09",
+      "title": "A Completed or Rejected event offers its assigned Coordinator no Cancel event button",
+      "linked_ac": ["AC1"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` once before this case (it changes nothing).\n'SPM37 Wrapped Up' (5 Oct 2026, 09:00–12:00, Daniel Tan) is Completed.\n'SPM37 Turned Down' (9 Dec 2027, 09:00–12:00, Daniel Tan) is Rejected.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Wrapped Up'",
+        "Click 'All Events' in the sidebar and open 'SPM37 Turned Down'"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nCompleted: SPM37 Wrapped Up, 5 Oct 2026\nRejected: SPM37 Turned Down, 9 Dec 2027",
+      "expected_result": "Step 2: The badge reads 'Completed', and the header has no 'Cancel event' button.\nStep 3: The badge reads 'Rejected', and the header has no 'Cancel event' button."
+    },
+    {
+      "id": "SPM-37-TC10",
+      "title": "Another Coordinator, the Event Coordinator Lead and the event's Organiser cannot cancel an event, while its assigned Coordinator can",
+      "linked_ac": ["AC2"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` once before this case (it changes nothing).\n'SPM37 Guarded Event' (14 Dec 2027, 09:00–12:00) is in Planning, coordinated by Daniel Tan, organised by Rachel Ng.\nLogged out.",
+      "steps": [
+        "Log in as priya.raj@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Guarded Event'",
+        "Log out",
+        "Log in as grace.lim@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Guarded Event'",
+        "Log out",
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM37 Guarded Event'",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Guarded Event'"
+      ],
+      "test_data": "Other Coordinator: Priya Raj | Event Coordinator Lead: Grace Lim | Organiser: Rachel Ng | Assigned Coordinator: Daniel Tan\nEvent: SPM37 Guarded Event | When: 14 Dec 2027, 09:00–12:00 | Status: Planning",
+      "expected_result": "Step 2: The badge reads 'Planning', and the header has no 'Cancel event' button.\nStep 5: The 'Change coordinator' card is shown, and the header has no 'Cancel event' button.\nStep 8: The badge reads 'Planning', and the header has no 'Cancel event' button.\nStep 11: The header has a 'Cancel event' button."
+    },
+    {
+      "id": "SPM-37-TC11",
+      "title": "A cancelled event offers no action that would change its status or its arrangements",
+      "linked_ac": ["AC9"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm37` once before this case (it changes nothing).\n'SPM37 Already Cancelled' (16 Dec 2027, 09:00–12:00, Daniel Tan) is Cancelled with the reason 'The client's product launch was called off.' Its SPM37 Hall booking is Released and its 1 × SPM37 Projector line Cancelled.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Already Cancelled'",
+        "Click the 'Venue' tab",
+        "Click the 'Equipment' tab",
+        "Log out",
+        "Log in as grace.lim@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Already Cancelled'"
+      ],
+      "test_data": "Coordinator: Daniel Tan | Event Coordinator Lead: Grace Lim\nEvent: SPM37 Already Cancelled | When: 16 Dec 2027, 09:00–12:00\nReason: The client's product launch was called off.",
+      "expected_result": "Step 2: The badge reads 'Cancelled'. A red alert 'This event was cancelled' reads 'The client's product launch was called off.' The header has none of 'Cancel event', 'Confirm event', 'Submit for safety check', 'Edit event information' or 'Record withdrawal'.\nStep 3: 'SPM37 Hall (SPM37-HAL)' has the 'Released' badge and the line 'Reason for release: Event cancelled: The client's product launch was called off.', with no button. A blue alert reads 'A venue cannot be requested for a completed, cancelled or rejected event.'\nStep 4: A blue alert reads 'This event is cancelled — equipment requirements can no longer be changed.' The 'SPM37 Projector' line has the 'Cancelled' badge, and there is no way to add, change or remove equipment.\nStep 7: The badge reads 'Cancelled', and no 'Change coordinator' card is shown."
+    },
+    {
+      "id": "SPM-37-TC12",
+      "title": "After an event is cancelled, its pending change request shows as closed on the change request screen and can no longer be approved or rejected",
+      "linked_ac": ["AC5"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "BLOCKED until Process Event Change Request (SPM-32) is built: there is no screen yet that lists an event's change requests. Until then, record each run as 'Blocked' with Remarks 'SPM-32 not built'. When SPM-32 is merged, replace step 5 and its expected result with SPM-32's real navigation and labels, and mark this case Updated.\nRun `npm run fixtures:spm37` before this case, and again after it.\n'SPM37 Change Closed' (21 Dec 2027, 09:00–12:00, Planning, Daniel Tan; organiser Rachel Ng) has one pending change request from Rachel Ng that proposes moving it to 28 Dec 2027, 09:00–12:00.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM37 Change Closed'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog",
+        "Open the event's change requests on the Process Event Change Request screen (SPM-32)"
+      ],
+      "test_data": "Coordinator: Daniel Tan | Organiser: Rachel Ng\nEvent: SPM37 Change Closed | When: 21 Dec 2027, 09:00–12:00\nPending change request: move to 28 Dec 2027, 09:00–12:00",
+      "expected_result": "Step 3: The dialog 'Cancel this event?' lists 'Close 1 pending change request'.\nStep 4: The badge reads 'Cancelled', and the 'When' row still reads '21 Dec 2027, 09:00–12:00'.\nStep 5: The change request proposing 28 Dec 2027, 09:00–12:00 is shown as 'Withdrawn' with the note 'Closed because the event was cancelled.' It has no 'Approve' or 'Reject' button, and it is not among the change requests waiting for a decision."
+    }
+  ],
+  "open_questions": [
+    "Written 2026-10-21 before any SPM-37 code (test-first, kayalvizhi24). Every label, dialog, message and badge quoted in the cases that is not already on screen is DECIDED below and is what the developer builds to; check each case against the built screens and run this skill again once the code is written.",
+    "DECIDED 2026-10-21 (AC1, which stages): 'not yet Completed' and customer clarification #68 ('any stage') are read as every status that has an assigned Coordinator and is not final: Under review, Approved, Planning, Safety review, Safety approved, Confirmed and Postponed. This adds Under review -> Cancelled to the lifecycle (canTransition() in src/lib/statuses.ts and docs/ConnectSphere_Status_Lifecycle.drawio): today Under review can only go to Approved, Rejected or Withdrawn (TC08). Draft and Submitted have no assigned Coordinator, so nobody can cancel them; Completed, Rejected, Withdrawn and Cancelled are final (TC09, TC11). Confirmed 2026-10-22 (kayalvizhi24): Under review can be cancelled.",
+    "DECIDED 2026-10-21 (AC1, AC8 wording): the Overview header gets a 'Cancel event' button for the assigned Coordinator only. It opens a ConfirmDialog (UI_DESIGN.md §7.4 'Event cancelled with live bookings' and §7.5, which require it to name the consequences): title 'Cancel this event?', text '<event title> will be marked Cancelled. This can't be undone.', then 'Cancelling will:' and one line per consequence, in this order: 'Release <venue (code)> on <date, times>' for each Approved booking; 'Withdraw the request for <venue (code)> on <date, times>' for each Pending request; 'Release <reserved> × <equipment>' for each Reserved or Partially fulfilled line; 'Cancel the request for <requested> × <equipment>' for each line not yet reserved; 'Close 1 pending change request' (or 'Close <n> pending change requests'); 'Close the pending safety check'; 'Close registration: <n> registered, <n> on the waiting list' when registration is on. With none of these it reads 'This event has no venue bookings, equipment or registration to release.' Then a 'Reason (optional)' box (up to 2,000 characters, as SPM-67) and the buttons 'Cancel event' and 'Keep event'.",
+    "DECIDED 2026-10-21 (AC1, AC8, after cancelling): a green alert 'The event has been cancelled. Its venue bookings and equipment have been released.' (shown even when there was nothing to release, TC07), the 'Cancelled' badge, and on the Overview, for every role that can still open the event, a red alert titled 'This event was cancelled' with the reason, or 'No reason was recorded.' when it was left empty - as the rejected event's alert does. The reason is stored in Event.cancellationReason and the status history row (the route already does this).",
+    "DECIDED 2026-10-21 (AC3, AC4): cancelling uses SPM-67's statuses - an Approved booking becomes 'released' and a Pending request 'withdrawn' - with cancelledBy/cancelledAt set and cancellationReason 'Event cancelled: <reason>', or 'Event cancelled.' with no reason, shown on the Venue tab as 'Reason for release: …' / 'Reason for withdrawal: …'. Every equipment line that is not already cancelled becomes 'cancelled' (shown 'Cancelled'), whatever was reserved. All in one transaction with the status change. Rejected, expired, withdrawn and released bookings are left as they are.",
+    "DECIDED 2026-10-21 (AC3, temporary filter): src/lib/equipmentAvailability.ts has a TEMPORARY filter (RELEASED_EVENT_STATUSES) that already ignores reservations of cancelled events 'until SPM-37/38'. Built 2026-10-22: 'cancelled' stays in that list although SPM-37 now cancels the lines itself, because events cancelled before SPM-37 (the seeded ones included) still have Reserved lines and the shared database is never reseeded; 'postponed' stays until SPM-38. TC03 passes either way, which is why it checks what another event sees rather than how.",
+    "DECIDED 2026-10-21 (AC5): pending change requests become 'withdrawn' - the only closed status EventChangeRequest has besides approved and rejected, which would read as a decision - with reviewedBy/reviewedAt set and reviewNotes 'Closed because the event was cancelled.' Nothing they propose is applied. No screen shows change requests yet (Request Event Change SPM-35, Process Event Change Request SPM-32), so TC05 can only see the dialog line and the unchanged date; the closed status is checked by the automated tests. Confirmed 2026-10-22 (kayalvizhi24): 'withdrawn', no new status.",
+    "DECIDED 2026-10-21 (AC5, kayalvizhi24): TC12 checks the closed change request on SPM-32's screen, and is Blocked until SPM-32 is built: each run is recorded as 'Blocked' with Remarks 'SPM-32 not built' (docs/test-cases/README.md), and SPM-37 is not closed while TC12's latest result is Blocked. TC05 can be run now. Its step 5 is a placeholder: when SPM-32 is merged, write in SPM-32's real navigation, labels and status wording, and mark the case Updated.",
+    "DECIDED 2026-10-21 (AC6): the pending safety check is closed the way SPM-88 closes one (closeSafetyCheck() in src/lib/safetyCheckClose.ts): status 'closed', decidedBy the Coordinator, decisionNote 'Event cancelled'. An approved check (Safety approved) is closed too, so no approval stays live on a cancelled event; the dialog line is only for a pending one. The event leaves the Safety Officer's Safety Checks list because that list shows Safety review only.",
+    "DECIDED 2026-10-21 (AC7): 'registration is closed' means nobody can register (the register route already refuses anything not Confirmed) and the event leaves Browse Events (attendees see Confirmed events only). The registrations themselves are kept unchanged, as SPM-52 decided for a cancelled event ('its history must not change'), and Withdraw is not offered (WITHDRAW_REFUSALS.cancelled already exists). The registration settings (registrationEnabled etc.) are not changed. Customer forum: 'detailed handling of registration withdrawal arising specifically from event changes or cancellation is not required' for Release 1.",
+    "DECIDED 2026-10-21 (AC7, AC8, kayalvizhi24): an attendee who holds a place (Registered or on the waiting list) in a cancelled event can still open it, from My Registrations, and sees the 'Cancelled' badge and the red 'This event was cancelled' alert with the reason, with no Register or Withdraw button (TC06). Until now attendees could only open Confirmed events, so they got 'This event doesn't exist, or you don't have access to it.' canViewEvent() and eventListWhere() both change for attendees, kept in step, and cancellationReason joins ATTENDEE_EVENT_FIELDS (SPM-53 gives attendees the reason in their cancellation notification, so it is not internal). Browse Events still lists only events the attendee can register for: it already leaves out events whose registration is turned off, and now leaves out any that are not Confirmed too. An attendee who withdrew, or never registered, still cannot open it.",
+    "DECIDED 2026-10-21 (notifications, kayalvizhi24): the briefing (§6 'An event is rescheduled, postponed, or cancelled'; Notification System '... or cancellation') asks for cancellation notifications, and Receive Event Notifications (SPM-53, To Do) owns them: 'The Event Organiser who owns the event is notified when it is ... Cancelled. Attendees whose registration is Registered are notified when it is ... Cancelled ... the notification includes the recorded reason.' SPM-53 also says a feature's own notifications live in that feature's story, including 'booking released SPM-67'. So SPM-37 sends only SPM-67's existing 'Venue booking released' notification to every active Venue Staff user, once for each Approved booking the cancellation releases, with the booking's reason ('Event cancelled: <reason>'), as releaseNotification() in src/lib/venueBookingChange.ts words it (TC02). A withdrawn pending request sends nothing, as in SPM-67. The Organiser and attendee notifications are left to SPM-53, which should hook into the cancellation code once it is built. Technical Support and the Safety Officer are not notified: no story asks for it (SPM-88 does not notify on a closed check either).",
+    "DECIDED 2026-10-21 (AC9): nothing moves out of Cancelled - canTransition() already has no entry for it, and the server keeps refusing any status change with 'This event is Cancelled and can't be moved to <status>.' (checked by automated tests, since the screen offers no button to try). Every action that is already refused on a closed event stays refused: venue requests, withdraw/release, equipment changes, information edits, coordinator assignment, safety submission and decision.",
+    "DECIDED 2026-10-21 (AC2): only the assigned Coordinator sees 'Cancel event' (canSetEventStatus + canTransition, the pattern of canWithdrawEvent()). Another Coordinator, the Event Coordinator Lead, the Organiser and every other role do not (TC10), and the server refuses them with 403 'Your role cannot move an event to \"cancelled\"' (automated tests). Venue Staff, Technical Support, the Safety Officer and Attendees have no route to the button at all, so no manual case is written for them.",
+    "DECIDED 2026-10-21 (races, automated only): no AC covers two people acting at once - e.g. Venue Staff approving a request while the Coordinator cancels. The cancellation reads and writes the arrangements in one transaction; the approve route already refuses a request that is no longer pending. No manual case.",
+    "Fixtures (to write with the code, as scripts/seed-spm37.ts, `npm run fixtures:spm37`, and the same events appended to prisma/seed.ts): two test rooms, SPM37 Hall (SPM37-HAL) and SPM37 Studio (SPM37-STU), Orchard Hub, max 60, theatre 60, open 07:00-22:00, no setup or turnaround; two test items, SPM37 Projector (2 in total) and SPM37 Lectern Mic (2 in total), kept in storage. Every event 09:00-12:00, 30 attendees, theatre, organiser Rachel Ng, coordinator Daniel Tan, seed keys 'spm37_…': SPM37 Harbour Summit (2 Nov 2027, Planning; Hall Approved, Studio Pending; 2 Projector Reserved, 1 Lectern Mic Requested); SPM37 Blocking Expo (16 Nov 2027, Planning; Hall Approved; 2 Projector Reserved); SPM37 Rival Forum (16 Nov 2027, Planning; 2 Projector Requested); SPM37 Safety Pending (18 Nov 2027, Safety review; Hall Approved; pending safety check by Daniel Tan); SPM37 Change Pending (23 Nov 2027, Confirmed; pending change request by Rachel Ng to 30 Nov 2027); SPM37 Change Closed (21 Dec 2027, Planning; pending change request by Rachel Ng to 28 Dec 2027); SPM37 Open Workshop (25 Nov 2027, Confirmed; registration on, 40 places, 1 Oct 2026 09:00 - 24 Nov 2027 17:00; Lee Wei Ming registered); SPM37 Quiet Approval (30 Nov 2027, Approved); SPM37 Early Call (2 Dec 2027, Under review); SPM37 On Hold (7 Dec 2027, Postponed); SPM37 Turned Down (9 Dec 2027, Rejected); SPM37 Wrapped Up (5 Oct 2026, Completed); SPM37 Guarded Event (14 Dec 2027, Planning; Studio Pending); SPM37 Already Cancelled (16 Dec 2027, Cancelled with reason; Hall Released; 1 Projector Cancelled). Dates avoid September, which the app writes as 'Sept'. The registration window closes on 24 Nov 2027, so TC06 must be re-dated after that."
+  ],
+  "code_references": []
+}

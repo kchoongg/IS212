@@ -23,6 +23,7 @@ import type { Role } from "./roles";
 import { isRole } from "./roles";
 import { canTransition } from "./statuses";
 import { HOLDING_A_PLACE } from "./registrationSettings";
+import { hasEnded } from "./eventCompletion";
 
 /// Every distinct thing a user can try to do. Keep the `domain:verb` shape -
 /// it groups the matrix by the domain that owns the route (DOCUMENTATION.md
@@ -156,6 +157,9 @@ export interface EventAccessFields {
   /// For an attendee: whether they are registered or waitlisted for this
   /// event (SPM-64). Set by the caller, which knows who is asking.
   attendeeHoldsPlace?: boolean;
+  /// For an attendee: whether their registration was marked attended (SPM-65),
+  /// which no longer holds a place. Set by the caller, for a completed event.
+  attendeeAttended?: boolean;
 }
 
 const INTERNAL_ROLES: readonly string[] = [
@@ -216,7 +220,13 @@ export function canViewEvent(actor: Actor, event: EventAccessFields): boolean {
   // (briefing §4 "Attendee Registration": register for *confirmed* events) -
   // or, once registration is turned off, if they already hold a place in it
   // (SPM-64; #10: attendees "can view events that they register for").
+  // SPM-37 (decided 2026-10-21): and an attendee who holds a place in a
+  // cancelled event can still open it, to see that and why it was cancelled.
   if (actor.role === "attendee") {
+    if (event.status === "cancelled") return event.attendeeHoldsPlace === true;
+    // SPM-36: and once it is completed, the attendee who registered for it
+    // keeps it - My Registrations still links to it (#10). Not one who withdrew.
+    if (event.status === "completed") return event.attendeeHoldsPlace === true || event.attendeeAttended === true;
     return event.status === "confirmed" && (event.registrationEnabled === true || event.attendeeHoldsPlace === true);
   }
 
@@ -243,11 +253,12 @@ export function eventListWhere(actor: Actor): Record<string, unknown> {
   }
 
   if (actor.role === "attendee") {
+    const holdsPlace = { registrations: { some: { attendeeId: actor.id, status: { in: HOLDING_A_PLACE } } } };
     return {
-      status: "confirmed",
       OR: [
-        { registrationEnabled: true },
-        { registrations: { some: { attendeeId: actor.id, status: { in: HOLDING_A_PLACE } } } },
+        { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
+        // SPM-37: as canViewEvent(). Browse Events leaves these out itself.
+        { status: "cancelled", ...holdsPlace },
       ],
     };
   }
@@ -540,12 +551,34 @@ export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolea
   return canSetEventStatus(actor, event, "withdrawn") && canTransition(event.status, "withdrawn");
 }
 
+/// SPM-37: does the event page offer this user "Cancel event"? The assigned
+/// coordinator only (AC2), on an event the lifecycle lets into Cancelled - any
+/// stage that is not final (AC1). The same two checks the PATCH route makes.
+export function canCancelEvent(actor: Actor, event: EventAccessFields): boolean {
+  return canSetEventStatus(actor, event, "cancelled") && canTransition(event.status, "cancelled");
+}
+
 /// SPM-34 (AC4). Whether this actor may even attempt to confirm: the assigned
 /// coordinator, on an event the lifecycle allows into Confirmed. Whether the
 /// arrangements are ready is a separate question, answered by
 /// checkEventConfirmation() - this only decides who sees the button.
 export function canConfirmEvent(actor: Actor, event: EventAccessFields): boolean {
   return canSetEventStatus(actor, event, "confirmed") && canTransition(event.status, "confirmed");
+}
+
+/// SPM-36 (AC1, AC2): does the event page offer "Mark as completed"? The
+/// assigned coordinator, on a Confirmed event that has ended (#71) - the same
+/// checks the PATCH route makes, so the button never offers a refusal.
+export function canMarkEventCompleted(
+  actor: Actor,
+  event: EventAccessFields & { endsAt: Date | string | null | undefined },
+  now: Date
+): boolean {
+  return (
+    canSetEventStatus(actor, event, "completed") &&
+    canTransition(event.status, "completed") &&
+    hasEnded(event.endsAt, now)
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -626,6 +659,16 @@ export function canSeeClarification(actor: Actor, event: EventAccessFields): boo
   return actor.role === "organiser" && canViewEvent(actor, event);
 }
 
+/// SPM-26: the organiser who raised the request answers a clarification by
+/// updating and resubmitting it, while it is Under review - the same person
+/// who could edit it as a draft (SPM-24); colleagues at the client only see
+/// it (decided 2026-10-21). That a clarification is open is checked
+/// separately, so a refusal can say which rule was broken.
+export function canRespondToClarification(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "event:edit_draft")) return false;
+  return ownsEvent(actor, event) && REVIEWABLE_STATUSES.includes(event.status);
+}
+
 // ---------------------------------------------------------------------------
 // BEGIN PLANNING (SPM-54)
 // ---------------------------------------------------------------------------
@@ -676,6 +719,9 @@ export const ATTENDEE_EVENT_FIELDS = [
   // and their own registration for the event, if any.
   "registrationState",
   "myRegistration",
+  // SPM-37: why it was cancelled, for an attendee who holds a place in it -
+  // the reason SPM-53 also sends them. NULL on any event that is not cancelled.
+  "cancellationReason",
 ] as const;
 
 /// Narrow an event record to the fields this actor may see. Returns a new

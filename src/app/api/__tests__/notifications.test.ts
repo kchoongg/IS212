@@ -12,7 +12,7 @@ import { GET as unreadCount } from "@/app/api/notifications/unread-count/route";
 import { PATCH as markOne } from "@/app/api/notifications/[id]/route";
 import { POST as markAll } from "@/app/api/notifications/read-all/route";
 import { ROLES } from "@/lib/roles";
-import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
+import { callArg, db, eventCompletionSweepOrder, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const NOTE = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
@@ -120,6 +120,15 @@ describe("GET /api/notifications/unread-count", () => {
     await get(signIn(user("coordinator")));
 
     expect(holdExpirySweepOrder()).toBeLessThan(db.notification.count.mock.invocationCallOrder[0]);
+  });
+
+  // SPM-36 (AC6): and where events 7 days past their end are completed.
+  it("[SPM-36][AC6] completes events 7 days past their end on every page", async () => {
+    db.notification.count.mockResolvedValue(0);
+
+    await get(signIn(user("attendee")));
+
+    expect(eventCompletionSweepOrder()).toBeLessThan(db.notification.count.mock.invocationCallOrder[0]);
   });
 
   it("[SPM-71][AC3] AC3: counts the caller's own unread notifications", async () => {

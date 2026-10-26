@@ -1,0 +1,187 @@
+{
+  "story_key": "SPM-36",
+  "story_title": "Mark Event as Completed",
+  "created_by": "Janelle",
+  "creation_date": "2026-10-22",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given an event is Confirmed, when the assigned Coordinator marks it as completed, then the event status changes to Completed."
+    },
+    {
+      "id": "AC2",
+      "text": "An event can only be marked Completed from a Confirmed status."
+    },
+    {
+      "id": "AC3",
+      "text": "Completed venue and equipment arrangements remain associated with the event as a record of what took place."
+    },
+    {
+      "id": "AC4",
+      "text": "The Event Organiser can view the completed event and its final arrangements."
+    },
+    {
+      "id": "AC5",
+      "text": "A completed event's status cannot be changed to any other status."
+    },
+    {
+      "id": "AC6",
+      "text": "If an event is still Confirmed 7 days after its end date without being manually marked Completed, the system automatically transitions it to Completed."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-36-TC01",
+      "title": "The assigned Event Coordinator marks a Confirmed event that ended yesterday as completed, and it shows as Completed",
+      "linked_ac": [
+        "AC1",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm36 just before this case. 'SPM36 Harbour Awards Night' is Confirmed, organised by Rachel Ng (Meridian Financial Group), coordinator Daniel Tan, and ended yesterday evening (19:00-22:00) - the script sets it to yesterday on every run. It has an approved booking for Orchard Gallery (ORC-GAL) and two reserved equipment lines. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). Go straight on to SPM-36-TC02 and SPM-36-TC03, then run npm run fixtures:spm36 again.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM36 Harbour Awards Night'",
+        "Click 'Mark as completed'",
+        "Click 'Mark as completed' in the dialog",
+        "Click 'All Events' in the sidebar"
+      ],
+      "test_data": "Event: SPM36 Harbour Awards Night | Coordinator: Daniel Tan",
+      "expected_result": "Step 1: The event's Overview shows the status 'Confirmed' and a 'Mark as completed' button.\nStep 2: A dialog 'Mark this event as completed?' appears, saying 'SPM36 Harbour Awards Night will be marked Completed. Its venue and equipment stay on record, and its status can't be changed after this.', with 'Mark as completed' and 'Not yet'.\nStep 3: The dialog closes, the message 'SPM36 Harbour Awards Night has been marked as completed.' appears, the status changes to 'Completed', the 'Mark as completed' button is gone, and the Venue row still reads 'Orchard Gallery (ORC-GAL)'.\nStep 4: 'SPM36 Harbour Awards Night' is listed with the status 'Completed'."
+    },
+    {
+      "id": "SPM-36-TC02",
+      "title": "The Event Organiser can view a completed event with its venue and equipment still on record",
+      "linked_ac": [
+        "AC4",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-36-TC01 has just been run ('SPM36 Harbour Awards Night' is Completed). Logged in as Rachel Ng (rachel.ng@meridianfina.com / password123), the organiser.",
+      "steps": [
+        "Click 'My Events' in the sidebar",
+        "Open 'SPM36 Harbour Awards Night'",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Organiser: Rachel Ng | Event: SPM36 Harbour Awards Night",
+      "expected_result": "Step 1: 'SPM36 Harbour Awards Night' is listed with the status 'Completed'.\nStep 2: The Overview shows the status 'Completed', the coordinator Daniel Tan, and the Venue row 'Orchard Gallery (ORC-GAL)'. There is no 'Request a change' button.\nStep 3: Both equipment lines are still listed - Handheld Wireless Mic, quantity 2, and Audio Mixing Desk, quantity 1, each with the status 'Reserved' - and none of them can be edited."
+    },
+    {
+      "id": "SPM-36-TC03",
+      "title": "Once completed, an event offers no way to change its status or its arrangements",
+      "linked_ac": [
+        "AC5",
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-36-TC02 has just been run ('SPM36 Harbour Awards Night' is Completed). Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123), its coordinator. Run npm run fixtures:spm36 after this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM36 Harbour Awards Night'",
+        "Click the 'Equipment' tab",
+        "Log out, then log in as grace.lim@connectsphere.com / password123 (Event Coordinator Lead)",
+        "Click 'All Events' in the sidebar and open 'SPM36 Harbour Awards Night'"
+      ],
+      "test_data": "Event: SPM36 Harbour Awards Night (Completed)",
+      "expected_result": "Step 1: The status is 'Completed', and none of 'Mark as completed', 'Confirm event', 'Edit event information' or 'Submit for safety check' is offered.\nStep 2: The message 'This event is completed — equipment requirements can no longer be changed.' is shown, and the two equipment lines are listed with no controls to add, edit or remove them.\nStep 4: The status is 'Completed' and there is no 'Change coordinator' card."
+    },
+    {
+      "id": "SPM-36-TC04",
+      "title": "Mark as completed is not offered for an event that has not ended, or one that is not Confirmed",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm36 has been run. 'SPM36 Riverside Product Launch' is Confirmed and takes place on 18 Nov 2027, 09:00-13:00. 'SPM36 Overdue Planning Forum' is still in Planning although its date (5 Oct 2026) has passed. Both are Daniel Tan's. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123). Nothing is changed in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM36 Riverside Product Launch'",
+        "Click 'All Events' in the sidebar and open 'SPM36 Overdue Planning Forum'"
+      ],
+      "test_data": "Not ended: SPM36 Riverside Product Launch (Confirmed, 18 Nov 2027) | Not Confirmed: SPM36 Overdue Planning Forum (Planning, 5 Oct 2026)",
+      "expected_result": "Step 1: The status is 'Confirmed' and there is no 'Mark as completed' button.\nStep 2: The status is 'Planning' and there is no 'Mark as completed' button."
+    },
+    {
+      "id": "SPM-36-TC05",
+      "title": "Only the assigned Event Coordinator is offered Mark as completed - not another coordinator, the Event Coordinator Lead or the organiser",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm36 just before this case, so 'SPM36 Harbour Awards Night' is Confirmed, ended yesterday, and is assigned to Daniel Tan. Nothing is changed in this case.",
+      "steps": [
+        "Log in as priya.raj@connectsphere.com / password123 (an Event Coordinator not assigned to it)",
+        "Click 'All Events' in the sidebar and open 'SPM36 Harbour Awards Night'",
+        "Log out, then log in as grace.lim@connectsphere.com / password123 (Event Coordinator Lead)",
+        "Click 'All Events' in the sidebar and open 'SPM36 Harbour Awards Night'",
+        "Log out, then log in as rachel.ng@meridianfina.com / password123 (the organiser)",
+        "Click 'My Events' in the sidebar and open 'SPM36 Harbour Awards Night'"
+      ],
+      "test_data": "Not assigned: Priya Raj | Lead: Grace Lim | Organiser: Rachel Ng",
+      "expected_result": "Step 2: The status is 'Confirmed' and there is no 'Mark as completed' button.\nStep 4: The status is 'Confirmed' and there is no 'Mark as completed' button.\nStep 6: The status is 'Confirmed' and there is no 'Mark as completed' button."
+    },
+    {
+      "id": "SPM-36-TC06",
+      "title": "A Confirmed event 7 days past its end is completed automatically, while one that was never confirmed is left alone",
+      "linked_ac": [
+        "AC6",
+        "AC2",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm36 just before this case. It recreates 'SPM36 Forgotten Trade Expo' as Confirmed, although it ended on 1 Oct 2026 at 17:00 - more than 7 days ago - with an approved booking for Marina Auditorium (MAR-AUD). 'SPM36 Overdue Planning Forum' is in Planning and ended on 5 Oct 2026. Logged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open 'SPM36 Forgotten Trade Expo'",
+        "Click 'All Events' in the sidebar and open 'SPM36 Overdue Planning Forum'"
+      ],
+      "test_data": "Auto-completed: SPM36 Forgotten Trade Expo (ended 1 Oct 2026) | Left alone: SPM36 Overdue Planning Forum (Planning)",
+      "expected_result": "Step 1: 'SPM36 Forgotten Trade Expo' is listed with the status 'Completed', without anyone having marked it.\nStep 2: The Overview shows the status 'Completed', no 'Mark as completed' button, and the Venue row still reads 'Marina Auditorium (MAR-AUD)'.\nStep 3: The status is still 'Planning'."
+    },
+    {
+      "id": "SPM-36-TC07",
+      "title": "An attendee who registered for an event can still open it from My Registrations after it is completed",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Code",
+      "preconditions": "SPM-36-TC06 has just been run ('SPM36 Forgotten Trade Expo' has been completed automatically). The fixture registered Lee Wei Ming (an Attendee) for it on 15 Sept 2026.",
+      "steps": [
+        "Log out, then log in as lee.wei.ming@example.com / password123 (Attendee)",
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM36 Forgotten Trade Expo' row"
+      ],
+      "test_data": "Attendee: Lee Wei Ming | Event: SPM36 Forgotten Trade Expo (Completed)",
+      "expected_result": "Step 2: 'SPM36 Forgotten Trade Expo' is listed.\nStep 3: The event's page opens - not 'This event doesn't exist, or you don't have access to it.' - with the status 'Completed', the badge 'Registered' and 'You registered on 15 Sept 2026.', and no 'Register' or 'Withdraw' button."
+    }
+  ],
+  "open_questions": [
+    "RESOLVED 2026-10-22 (agreed by the team, all recommendations followed): An event can be marked completed only once its end time has passed (#71: 'After the event has taken place'). Before then the button is not shown, and the server refuses with \"This event hasn't ended yet, so it can't be marked completed.\"",
+    "RESOLVED 2026-10-22: The automatic completion runs like SPM-82's hold expiry - no scheduled job; the event page, the events list, the Assignments screen and the unread-notifications count (asked for on every page) first complete every Confirmed event whose end was 7 x 24 hours ago or more.",
+    "RESOLVED 2026-10-22: An automatic completion is recorded in the status history with no user and the reason 'Completed automatically 7 days after the event ended'. There is no History page yet, so no case checks it on screen; unit tests cover it.",
+    "RESOLVED 2026-10-22: Nobody is notified when an event is completed - the story does not ask for it, and notifications are SPM-53's.",
+    "RESOLVED 2026-10-22: Completing changes only the status. The approved venue bookings and reserved equipment stay on the event, read-only (AC3); the organiser reads the venue on the Overview's Venue row and the equipment on the Equipment tab (AC4) - an organiser has no Venue tab.",
+    "DECIDED 2026-10-22: Wording - button 'Mark as completed'; dialog 'Mark this event as completed?' / '<title> will be marked Completed. Its venue and equipment stay on record, and its status can't be changed after this.' with 'Mark as completed' and 'Not yet'; success 'SPM36 Harbour Awards Night has been marked as completed.'",
+    "RESOLVED 2026-10-22: SPM36 Harbour Awards Night's date is set by the fixture script to YESTERDAY on every run, because an ended Confirmed event completes itself after 7 days - no fixed date stays right. The cases say 'yesterday' and quote no date for it.",
+    "RESOLVED 2026-10-22: Attendees could open only Confirmed events, so once an event was completed - by hand, or automatically after 7 days (AC6) - an attendee who registered for it got 'This event doesn't exist, or you don't have access to it.' from My Registrations. The customer said attendees 'can view events that they register for' (#10), so a completed event stays visible to an attendee who is registered, on the waiting list or marked attended - not one who withdrew, and not in Browse Events (SPM-36-TC07)."
+  ],
+  "code_references": [
+    "src/lib/eventCompletion.ts",
+    "src/lib/eventCompletionService.ts",
+    "src/lib/permissions.ts",
+    "src/lib/statuses.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/events/route.ts",
+    "src/app/api/assignments/route.ts",
+    "src/app/api/notifications/unread-count/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "scripts/seed-spm36.ts",
+    "src/app/events/[id]/RegisterPanel.tsx"
+  ]
+}

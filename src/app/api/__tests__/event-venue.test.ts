@@ -211,7 +211,7 @@ describe("GET /api/events/[id]/venue-bookings", () => {
 
       const body = await (await get(token)).json();
 
-      expect(body.cannotRequest).toBe("A venue cannot be requested for a completed, cancelled or rejected event.");
+      expect(body.cannotRequest).toBe("A venue cannot be requested for a completed, cancelled, rejected or withdrawn event.");
       // SPM-67: nor can its bookings be withdrawn or released.
       expect(body.canChangeBookings).toBe(false);
     }
@@ -415,7 +415,7 @@ describe("POST /api/events/[id]/venue-bookings", () => {
 
     it.each(["completed", "cancelled", "rejected"])("[SPM-42] an event that is %s", async (status) => {
       expect(await refusal(given(event({ status })))).toBe(
-        "A venue cannot be requested for a completed, cancelled or rejected event."
+        "A venue cannot be requested for a completed, cancelled, rejected or withdrawn event."
       );
     });
 

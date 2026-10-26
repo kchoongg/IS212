@@ -15,6 +15,7 @@ import {
   canUpdateEventInformation,
   canReviewEvent,
   canRequestClarification,
+  canRespondToClarification,
   canSeeClarification,
   canCheckEquipmentAvailability,
   canReserveEquipment,
@@ -30,6 +31,7 @@ import {
   techSupportSeesEquipment,
   TECH_SUPPORT_EQUIPMENT_STATUSES,
   canWithdrawEvent,
+  canCancelEvent,
   canViewEvent,
   canRequestEventChange,
   canViewChangeRequests,
@@ -267,6 +269,19 @@ describe("canViewEvent", () => {
   // SPM-64 (#10: attendees "can view events that they register for"):
   // turning registration off must not hide the event from the people already
   // holding a place. Manual case SPM-64-TC22.
+  // SPM-36: an event is completed by its coordinator or 7 days after it ends;
+  // the attendee who registered for it keeps it (#10). Not everyone else.
+  it.each([
+    ["registered or on the waiting list", { attendeeHoldsPlace: true }],
+    ["marked attended", { attendeeAttended: true }],
+  ])("[SPM-36][AC6] [SPM-51][AC1] keeps showing a completed event to an attendee who %s", (_who, flags) => {
+    expect(canViewEvent(attendee, event({ status: "completed", registrationEnabled: false, ...flags }))).toBe(true);
+  });
+
+  it("[SPM-36][AC6] [SPM-51][AC1] hides a completed event from an attendee who never registered or withdrew", () => {
+    expect(canViewEvent(attendee, event({ status: "completed", registrationEnabled: true }))).toBe(false);
+  });
+
   it("[SPM-4][AC3] [SPM-51][AC1] keeps showing a confirmed event to an attendee who holds a place after registration is turned off", () => {
     expect(
       canViewEvent(attendee, event({ status: "confirmed", registrationEnabled: false, attendeeHoldsPlace: true }))
@@ -284,6 +299,28 @@ describe("canViewEvent", () => {
       canViewEvent(attendee, event({ status: "planning", registrationEnabled: false, attendeeHoldsPlace: true }))
     ).toBe(false);
   });
+
+  // SPM-37 (decided 2026-10-21): an attendee who holds a place can still open a
+  // cancelled event, from My Registrations, to see that and why it was cancelled.
+  it.each([true, false])(
+    "[SPM-37][AC7] shows a cancelled event to an attendee who holds a place in it (registration enabled: %s)",
+    (registrationEnabled) => {
+      expect(canViewEvent(attendee, event({ status: "cancelled", registrationEnabled, attendeeHoldsPlace: true }))).toBe(true);
+    }
+  );
+
+  it("[SPM-37][AC7] hides a cancelled event from an attendee who holds no place in it", () => {
+    expect(canViewEvent(attendee, event({ status: "cancelled", registrationEnabled: true, attendeeHoldsPlace: false }))).toBe(false);
+    expect(canViewEvent(attendee, event({ status: "cancelled", registrationEnabled: true }))).toBe(false);
+  });
+
+  // "completed" is SPM-36's: an attendee holding a place still sees it.
+  it.each(["rejected", "withdrawn", "postponed"])(
+    "[SPM-37][AC7] still hides a %s event from an attendee who holds a place",
+    (status) => {
+      expect(canViewEvent(attendee, event({ status, registrationEnabled: true, attendeeHoldsPlace: true }))).toBe(false);
+    }
+  );
 
   it("[SPM-4][AC3] shows internal staff every event that has left draft", () => {
     for (const staff of [coordinator, opsManager, venueStaff, techSupport]) {
@@ -318,12 +355,14 @@ describe("eventListWhere", () => {
   });
 
   // CHANGED (SPM-64, #10): plus the confirmed events they hold a place in.
-  it("[SPM-4][AC3] [SPM-51][AC1] gives an attendee confirmed events open for registration, or that they hold a place in", () => {
+  // CHANGED (SPM-37, decided 2026-10-21): plus the cancelled events they hold a
+  // place in, in step with canViewEvent(). Browse Events leaves those out itself.
+  it("[SPM-4][AC3] [SPM-51][AC1] [SPM-37][AC7] gives an attendee confirmed events open for registration, or confirmed or cancelled events they hold a place in", () => {
+    const holdsPlace = { registrations: { some: { attendeeId: "attendee-1", status: { in: ["registered", "waitlisted"] } } } };
     expect(eventListWhere(attendee)).toEqual({
-      status: "confirmed",
       OR: [
-        { registrationEnabled: true },
-        { registrations: { some: { attendeeId: "attendee-1", status: { in: ["registered", "waitlisted"] } } } },
+        { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
+        { status: "cancelled", ...holdsPlace },
       ],
     });
   });
@@ -493,6 +532,37 @@ describe("canSeeClarification (SPM-29)", () => {
   ])("[SPM-29][AC3] hides it from %s", (_who, who) => {
     expect(canSeeClarification(who, assigned)).toBe(false);
   });
+});
+
+// SPM-26: the organiser who raised the request answers the clarification by
+// updating and resubmitting it, while it is Under review - the same person
+// who could edit it as a draft (SPM-24). Whether a clarification is open is
+// checked separately, so the refusal can say which rule was broken.
+describe("canRespondToClarification (SPM-26)", () => {
+  const underReview = event({ status: "under_review", coordinatorId: "coordinator-1" });
+
+  it("[SPM-26][AC2][AC3] lets the organiser who raised it respond", () => {
+    expect(canRespondToClarification(organiserA, underReview)).toBe(true);
+  });
+
+  it.each([
+    ["an organiser at the same client", colleagueA],
+    ["an organiser at another client", organiserB],
+    ["the assigned coordinator", coordinator],
+    ["the Ops Manager", opsManager],
+    ["Venue Staff", venueStaff],
+    ["Technical Support", techSupport],
+    ["an attendee", attendee],
+  ])("[SPM-26][AC2] stops %s", (_who, who) => {
+    expect(canRespondToClarification(who, underReview)).toBe(false);
+  });
+
+  it.each(["draft", "submitted", "approved", "planning", "rejected", "withdrawn"])(
+    "[SPM-26][AC4] stops the organiser once the event is %s",
+    (status) => {
+      expect(canRespondToClarification(organiserA, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  );
 });
 
 describe("canCheckEquipmentAvailability (SPM-48)", () => {
@@ -720,6 +790,31 @@ describe("canWithdrawEvent", () => {
   });
 });
 
+// SPM-37: whether the event page offers "Cancel event" - the same two checks
+// the PATCH route makes, as canWithdrawEvent above.
+describe("canCancelEvent", () => {
+  // AC1, #68 "any stage": every status with an assigned coordinator that is not final.
+  const CANCELLABLE = ["under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "postponed"];
+
+  it.each(CANCELLABLE)("[SPM-37][AC1] offers it to the assigned coordinator while the event is %s", (status) => {
+    expect(canCancelEvent(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(true);
+  });
+
+  it.each(["draft", "submitted", "completed", "rejected", "withdrawn", "cancelled"])(
+    "[SPM-37][AC1][AC9] does not offer it while the event is %s",
+    (status) => {
+      expect(canCancelEvent(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  );
+
+  it("[SPM-37][AC2] does not offer it to anyone but the assigned coordinator", () => {
+    const planning = event({ status: "planning", coordinatorId: "coordinator-1" });
+    for (const actor of [organiserA, colleagueA, organiserB, otherCoordinator, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canCancelEvent(actor, planning), actor.id).toBe(false);
+    }
+  });
+});
+
 describe("visibleEventFor", () => {
   const full = {
     id: "e1",
@@ -761,7 +856,6 @@ describe("visibleEventFor", () => {
       "specialRequirements",
       "accessibilityNotes",
       "rejectionReason",
-      "cancellationReason",
       "equipmentRequests",
       "facilityRequirements",
       // The organiser's personal name is withheld even though the client's
@@ -776,6 +870,14 @@ describe("visibleEventFor", () => {
   // records it. Asserted here so the exception cannot be dropped or widened by
   // accident - nothing exercised it before, which is how it drifted from §4 in
   // the first place (SPM-22 TC17).
+  // CHANGED (SPM-37, decided 2026-10-21): an attendee holding a place in a
+  // cancelled event sees why it was cancelled - the reason SPM-53 also sends
+  // them. Was in the withheld list above.
+  it("[SPM-37][AC8] shows an attendee the cancellation reason", () => {
+    const visible = visibleEventFor(attendee, { ...full, status: "cancelled", cancellationReason: "Trainer unavailable" });
+    expect(visible.cancellationReason).toBe("Trainer unavailable");
+  });
+
   it("[SPM-22][AC5] shows an attendee the client's company name, but not the organiser's own", () => {
     const visible = visibleEventFor(attendee, full);
     expect(visible.organisation).toEqual({ name: "Tanjong Legal Chambers" });

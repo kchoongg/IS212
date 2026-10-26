@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 vi.mock("@/lib/prisma");
 
 import { GET, POST } from "@/app/api/events/route";
-import { callArg, db, ID, req, signIn, user } from "@/test/kit";
+import { callArg, db, eventCompletionSweepOrder, ID, req, signIn, user } from "@/test/kit";
 
 const HOUR = 60 * 60 * 1000;
 
@@ -30,6 +30,15 @@ describe("GET /api/events", () => {
     expect(callArg(db.event.findMany).where).toEqual({
       OR: [{ organiserId: organiser.id }, { organisationId: organiser.organisationId, status: { not: "draft" } }],
     });
+  });
+
+  it("[SPM-36][AC6] completes events 7 days past their end before listing", async () => {
+    const token = signIn(user("organiser"));
+    db.event.findMany.mockResolvedValue([]);
+
+    await GET(req("GET", "/api/events", { token }));
+
+    expect(eventCompletionSweepOrder()).toBeLessThan(db.event.findMany.mock.invocationCallOrder[0]);
   });
 
   it.each(["coordinator", "ops_manager", "venue_staff", "tech_support"])(
@@ -79,11 +88,12 @@ describe("GET /api/events", () => {
 
     const res = await GET(req("GET", "/api/events", { token }));
 
+    // CHANGED (SPM-37): plus the cancelled events they hold a place in.
+    const holdsPlace = { registrations: { some: { attendeeId: ID.user, status: { in: ["registered", "waitlisted"] } } } };
     expect(callArg(db.event.findMany).where).toEqual({
-      status: "confirmed",
       OR: [
-        { registrationEnabled: true },
-        { registrations: { some: { attendeeId: ID.user, status: { in: ["registered", "waitlisted"] } } } },
+        { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
+        { status: "cancelled", ...holdsPlace },
       ],
     });
     expect(await res.json()).toEqual([

@@ -86,8 +86,8 @@ cite.
 | ID | Screen | Route | Purpose |
 | --- | --- | --- | --- |
 | S-07 | My events | `/events` | All my events; drafts visibly separated from submitted. |
-| S-08 | Event request form | `/events/new`, `/events/[id]/edit` | Create/edit a request. Save draft or submit. |
-| S-09 | Clarification response | `/events/[id]` → Discussion tab | Answer a coordinator's question. |
+| S-08 | Event request form | `/events/new`, `/events/[id]/edit` | Create/edit a request. Save draft or submit. Also **Update request** (SPM-26): the same form on a request Under review with an open clarification, for the organiser who raised it - see §6.2. |
+| S-09 | Clarification response | `/events/[id]` → Discussion tab | Answer a coordinator's question. Built differently (SPM-26): the clarification is an amber **Clarification requested** banner on S-06 with an **Update request** link (the organiser who raised the request only), and the answer is S-08's Update request mode. The Discussion tab is not built. |
 | S-10 | Change request form | `/events/[id]/change-request` | Built (SPM-35): "Request a change", from the event header's **Request a change** (the organiser who owns the event, while it is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed). "What do you need?" - **Change the event's details** (Edit event information's fields, filled in, plus **Equipment changes**), **Postpone the event** or **Cancel the event** ("Your coordinator decides whether to … the event. It stays <status> until then."). **Reason for the change** is required. **Send change request** shows "Change request sent to your coordinator." / "Nothing about the event changes until your coordinator processes the request." Anyone else, or another status: "You can't request a change to this event". The requests appear on the event's Overview in a **Change requests** card: kind, status, **Important** where it applies ("Affects existing arrangements: …"), who and when, the reason, a Field / Current / Proposed table and "Equipment: …". |
 | S-11 | Registration list (own event) | `/events/[id]/attendees` (Attendees tab) | Who registered for my event (SPM-65). Above the table: "3 of 3 places taken · 1 on the waiting list" (no limit when capacity isn't set). Columns Attendee (with "Added by <name>" for a manually added attendee), Contact (email, phone), Status (Registered, Waiting list, Withdrawn, Attended) and Registered (date, plus "Withdrew …"), oldest first. Re-reads every 15 seconds while in view. When registration is not enabled it says so instead of showing an empty list. Only the organiser who raised the event and the assigned coordinator: anyone else, including another organiser at the same client and a coordinator not assigned to the event, has no Attendees tab, and typing its address shows "Not authorised". |
 
@@ -291,7 +291,8 @@ only because managing it requires seeing it, not as a separate viewing right.
                                                |
                               coordinator asks clarification
                                                v
-                                   /events/[id] Discussion -> reply
+               /events/[id] "Update request" -> /events/[id]/edit -> resubmit
+                          (stays Under review; clarification answered)
                                                v
                                     notification: approved
                                                v
@@ -429,6 +430,8 @@ it is added to the list first.
   user came from. Long forms show the submit in a sticky footer.
 - **Draft-first.** Where a draft exists (S-08), the form has two submits: "Save
   draft" (no validation beyond title) and "Submit request" (full validation).
+  The exception is S-08's Update request mode (SPM-26), which has one:
+  "Resubmit request" (full validation, as Submit).
 
 ### 6.2 S-08 Event request form
 
@@ -468,6 +471,29 @@ session starts.
 Conditional fields (capacity, open/close dates) are hidden until the checkbox is
 ticked rather than disabled — a disabled field the user cannot explain is worse
 than no field.
+
+**Update request mode (SPM-26).** When the coordinator has asked for
+clarification (S-13), the event page's amber **Clarification requested** banner
+gives the organiser who raised the request an **Update request** link to
+`/events/[id]/edit`. The same form opens with:
+
+- title and breadcrumb **Update request**, and the **Under review** badge;
+- the clarification at the top, as on the event page (what needs clarifying, the
+  message, "Asked by <coordinator> on <date, time>");
+- every field above, filled in from the request - any of them can be changed,
+  not only the ones the coordinator named;
+- one **Resubmit request** button (busy: "Resubmitting…"), checked as Submit is,
+  and **Cancel** back to the event. No Save draft.
+
+Resubmitting saves the changes and marks the clarification answered in one step;
+the request stays Under review. The event page then says "Your updated request
+has been sent to <coordinator>. It stays Under review." and the banner is gone.
+Anyone else - including another organiser at the same client, who still sees the
+banner but no link - or a request with no open clarification gets "Could not
+open this request" with "Only the organiser who raised this request can update
+it." or "This request has no open clarification to answer, so it can't be
+changed here." A cleared Expected attendance or Preferred layout is saved as
+empty (on a draft too), and an empty required field is refused as on Submit.
 
 **Draft completeness.** A draft may be missing anything. Leaving draft may not:
 `PATCH /api/events/[id]` refuses a submission unless title, category, starts at,
@@ -554,7 +580,7 @@ getting right.
 | Registration not open or closed | S-06 "Your registration" | No Register button (hidden, not disabled): "Registration opens 1 Nov 2027, 09:00." or "Registration closed on 30 Sept 2026, 17:00." With no dates: "Registration dates haven't been set for this event." (SPM-51). |
 | Already registered | S-06 "Your registration" | Register replaced by the status badge and "You registered on <date>." or "You're on the waiting list." (SPM-51). A Registered one also has **Withdraw** (SPM-52): "Withdraw from <event title>?" — "Your place is released and can be taken by someone else. To attend, you would have to register again, and the event may be full by then." — "Keep my place" / "Withdraw"; afterwards "You have withdrawn from this event." and Register is offered again. Waiting list, Attended and Withdrawn have no Withdraw (leaving the waiting list is SPM-66), and neither does any registration once the event is cancelled, completed or past its end. |
 | Significant change proposed | S-10, S-17 | Amber warning listing exactly which arrangements will need re-checking (venue, equipment, registrations). |
-| Event cancelled with live bookings | S-06 cancel | `ConfirmDialog` listing the bookings and reservations that will be released. |
+| Event cancelled with live bookings | S-06 cancel | Built (SPM-37): **Cancel event** in the header, for the assigned coordinator at any stage that is not final. `ConfirmDialog` "Cancel this event?" — "<event> will be marked Cancelled. This can't be undone." and, under "Cancelling will:", one line per booking released or request withdrawn, equipment released or request cancelled, pending change request and safety check closed, and "Close registration: <n> registered, <n> on the waiting list" (or "This event has no venue bookings, equipment or registration to release."), then "Reason (optional)" and **Cancel event** / **Keep event**. Afterwards "The event has been cancelled. Its venue bookings and equipment have been released.", and the event shows a red "This event was cancelled" alert with the reason, or "No reason was recorded." |
 | Rejecting without a reason | S-13, S-22 | Submit blocked; reason field errors. The server enforces this too. |
 | Session expired | any | Redirect to `/login?next=<path>` with an info alert: "Your session expired. Log in to continue." The intended destination is preserved. |
 | Not authorised for a record | any | 403 page: "You don't have access to this event." No detail about the record — that would leak it. |
@@ -600,7 +626,7 @@ Non-negotiable, and cheap when done from the start:
 | User Authorisation and Authentication | S-01, S-02, plus role-gated nav (§4.2) and tabs (§4.3) |
 | Event Request Creation | S-08 |
 | Draft Event Requests | S-07, S-08 |
-| Event Review and Approval | S-12, S-13 |
+| Event Review and Approval | S-12, S-13, S-08 Update request mode (answering a clarification) |
 | Coordinator Assignment | S-28 |
 | Event Status Management | S-06 (badge and History tab), §5.2 |
 | Event Information Management | S-08 edit mode, S-06 |
@@ -642,6 +668,7 @@ This document specifies the whole first release. What is built so far:
 | S-07 My events, drafts separated | `src/app/events/page.tsx` |
 | S-08 Event request form, draft and submit | `src/app/events/new/page.tsx` |
 | S-08 Sessions section (multi-session events) | `src/components/SessionFields.tsx`, `src/lib/eventSessions.ts` |
+| S-08 Update request mode and S-06's "Update request" link: the organiser answers a clarification and resubmits (SPM-26) | `src/app/events/[id]/edit/page.tsx`, `src/app/events/[id]/page.tsx`, `src/app/api/events/[id]/route.ts` |
 | Facility and accessibility requirements as rows (§6.2) | `src/app/api/facilities/route.ts`, `createEventSchema.facilityIds` |
 | Equipment requests from the organiser's form (§6.2) | `createEventSchema.equipment`, `src/app/api/events/route.ts` |
 | S-14 Venue search and filters (SPM-40) | `src/app/venues/search/page.tsx`, `src/lib/venueSearch.ts`, `src/app/api/venues/search/route.ts` |
@@ -650,6 +677,7 @@ This document specifies the whole first release. What is built so far:
 | Edit event information - the assigned coordinator, after approval (SPM-62): live "These changes affect existing arrangements" warning, "Move this event back to Planning?" on a Confirmed event, and what the save flagged | `src/app/events/[id]/update/page.tsx`, `src/lib/eventChangeImpact.ts` |
 | Resolve safety check outcome (SPM-88): the Safety check history card, the "Flag arrangements for review" button and dialog, the safety wording of "Move this event back to Planning?" on the edit page and the Equipment tab, and "The safety check was closed" on the Venue tab and booking request form | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyFlagDialog.tsx`, `src/app/events/[id]/update/page.tsx`, `src/app/events/[id]/equipment/page.tsx`, `src/app/events/[id]/venue/page.tsx`, `src/app/events/[id]/booking/new/page.tsx`, `src/lib/safetyResolution.ts` |
 | Record safety decision - the Safety Officer, on an event in Safety review (SPM-87): button and dialog (Approve / Request changes / Reject, with a required reason for the last two), the decision on the "Safety check" row, each venue's opening hours and unavailable periods on the Venue bookings card, a "Safety approved" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/app/events/[id]/SafetyDecisionDialog.tsx`, `src/lib/safetyDecision.ts` |
+| Mark as completed - the assigned coordinator, on a Confirmed event that has ended (SPM-36): button and "Mark this event as completed?" dialog on the Overview ("<title> will be marked Completed. Its venue and equipment stay on record, and its status can't be changed after this.", **Mark as completed** / **Not yet**), then "<title> has been marked as completed.". Not offered before the event ends, on any other status, or to anyone else. An event still Confirmed 7 days after it ends is completed automatically | `src/app/events/[id]/page.tsx`, `src/lib/eventCompletion.ts`, `src/lib/eventCompletionService.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
 | S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |

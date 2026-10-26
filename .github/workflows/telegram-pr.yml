@@ -18,14 +18,17 @@ jobs:
           AUTHOR: ${{ github.event.pull_request.user.login }}
           ACTION: ${{ github.event.action }}
           MERGED: ${{ github.event.pull_request.merged }}
+          MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
         run: |
-          STATUS="$ACTION"
-          if [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then STATUS="merged"; fi
+          HEADLINE="PR ${ACTION} by ${AUTHOR}"
+          if [ "$ACTION" = "closed" ] && [ "$MERGED" = "true" ]; then
+            HEADLINE="PR by ${AUTHOR} merged by ${MERGED_BY}"
+          fi
           # Only send a topic id when one is set; an empty one is rejected in some chats.
           THREAD_ARG=()
           if [ -n "$THREAD_ID" ]; then THREAD_ARG=(--data-urlencode "message_thread_id=${THREAD_ID}"); fi
           curl -sS --fail-with-body -X POST "https://api.telegram.org/bot${TOKEN}/sendMessage" \
             --data-urlencode "chat_id=${CHAT_ID}" \
             "${THREAD_ARG[@]}" \
-            --data-urlencode "text=PR ${STATUS} by ${AUTHOR}: ${TITLE}
+            --data-urlencode "text=${HEADLINE}: ${TITLE}
           ${URL}"
