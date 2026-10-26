@@ -532,6 +532,48 @@ describe("GET /api/events/[id] - who sees a request's review outcome (SPM-94)", 
     expect(await res.json()).toEqual({ error: "Event not found" });
   });
 
+  // CHANGED after review of PR #86: SPM-37 cancels from Under review too, so a
+  // cancelled event is shown to these three only if its status history has an
+  // approval (src/lib/eventVisibility.ts).
+  it.each(["venue_staff", "tech_support", "safety_officer"])(
+    "[SPM-94][AC2][AC5] is the same 404 as a missing event for %s on a request cancelled before approval",
+    async (role) => {
+      const token = signIn(user(role, { id: ID.thirdUser }));
+      db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+      db.eventStatusHistory.count.mockResolvedValue(0);
+
+      const res = await get(token);
+
+      expect(res.status).toBe(404);
+      expect(await res.json()).toEqual({ error: "Event not found" });
+      expect(callArg(db.eventStatusHistory.count)).toEqual({ where: { eventId: ID.event, toStatus: "approved" } });
+    }
+  );
+
+  it.each(["venue_staff", "tech_support", "safety_officer"])(
+    "[SPM-94][AC2] gives %s an event cancelled after it was approved",
+    async (role) => {
+      const token = signIn(user(role, { id: ID.thirdUser }));
+      db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+      db.eventStatusHistory.count.mockResolvedValue(1);
+
+      const res = await get(token);
+
+      expect(res.status).toBe(200);
+      expect((await res.json()).status).toBe("cancelled");
+    }
+  );
+
+  it("[SPM-94][AC2] reads no status history for a coordinator, or for an event that is not cancelled", async () => {
+    db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+    expect((await get(signIn(coordinator()))).status).toBe(200);
+
+    db.event.findUnique.mockResolvedValue(event({ status: "approved" }));
+    expect((await get(signIn(user("venue_staff", { id: ID.thirdUser })))).status).toBe(200);
+
+    expect(db.eventStatusHistory.count).not.toHaveBeenCalled();
+  });
+
   it.each(["venue_staff", "tech_support", "safety_officer"])(
     "[SPM-94][AC2] gives %s an approved event",
     async (role) => {

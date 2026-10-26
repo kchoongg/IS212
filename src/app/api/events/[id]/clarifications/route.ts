@@ -4,7 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { REVIEWABLE_STATUSES, canRequestClarification, canViewEvent } from "@/lib/permissions";
+import { REVIEWABLE_STATUSES, canRequestClarification } from "@/lib/permissions";
 import {
   CLARIFICATION_ALREADY_OPEN,
   CLARIFICATION_FORBIDDEN_MESSAGE,
@@ -14,6 +14,7 @@ import {
   decodeFields,
   encodeFields,
 } from "@/lib/clarification";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /// A refusal decided inside the transaction, turned into a 400 outside it.
 class AlreadyOpen extends Error {}
@@ -41,7 +42,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const sequenceNumber = parseEventReference(id);
     const event = sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canRequestClarification(actor, event)) {

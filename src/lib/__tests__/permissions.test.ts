@@ -18,6 +18,7 @@ import {
   canRespondToClarification,
   canSeeClarification,
   canSeeRejectionReason,
+  needsApprovalHistory,
   canCheckEquipmentAvailability,
   canReserveEquipment,
   canUpdateEquipmentFulfilment,
@@ -1147,13 +1148,17 @@ describe("[SPM-35] Request Event Change", () => {
 //     { status: { notIn: ["draft", "submitted", "under_review", "rejected", "withdrawn"] } }.
 // Decided here, not in the story (change the test if the team wants otherwise):
 //   - the function name, and that visibleEventFor() is where the reason is dropped
-//   - Cancelled, Postponed and Completed count as "from Approved onwards": each
-//     is reachable only after approval (canTransition in src/lib/statuses.ts)
+//   - Postponed and Completed count as "from Approved onwards": each is
+//     reachable only after approval (canTransition in src/lib/statuses.ts).
+//     Cancelled counts only when the status history has an approval: SPM-37
+//     cancels from Under review too (CHANGED after review of PR #86).
 describe("SPM-94: who sees a request's review outcome", () => {
   const safetyOfficer = actor("safety_officer");
   const rejected = event({ status: "rejected", coordinatorId: "coordinator-1" });
   const BEFORE_APPROVAL = ["submitted", "under_review", "rejected", "withdrawn"];
-  const FROM_APPROVAL = ["approved", "planning", "safety_review", "safety_cleared", "confirmed", "postponed", "completed", "cancelled"];
+  // Cancelled is not here: SPM-37 cancels from Under review too, so whether a
+  // cancelled event was approved comes from its status history (below).
+  const FROM_APPROVAL = ["approved", "planning", "safety_review", "safety_cleared", "confirmed", "postponed", "completed"];
   const LATE_STAFF = [venueStaff, techSupport, safetyOfficer];
 
   it("[SPM-94][AC1] shows the rejection reason to the owning organiser, the assigned coordinator and the Event Coordinator Lead", () => {
@@ -1194,10 +1199,42 @@ describe("SPM-94: who sees a request's review outcome", () => {
     }
   });
 
-  it("[SPM-94][AC2] filters their event lists the same way", () => {
+  it("[SPM-94][AC2] shows them a cancelled event only if it was approved before it was cancelled", () => {
+    for (const someone of LATE_STAFF) {
+      const cancelled = (everApproved?: boolean) => event({ status: "cancelled", coordinatorId: "coordinator-1", everApproved });
+      expect(canViewEvent(someone, cancelled(true)), `${someone.role} approved, then cancelled`).toBe(true);
+      // SPM-37: cancelled straight from Under review - never approved.
+      expect(canViewEvent(someone, cancelled(false)), `${someone.role} cancelled in review`).toBe(false);
+      // Not looked up is never approved: a route that forgets the history hides, never leaks.
+      expect(canViewEvent(someone, cancelled()), `${someone.role} history unknown`).toBe(false);
+    }
+  });
+
+  it("[SPM-94][AC2] still shows coordinators and the Lead a cancelled event, approved or not", () => {
+    for (const someone of [coordinator, opsManager]) {
+      expect(canViewEvent(someone, event({ status: "cancelled", coordinatorId: "coordinator-1" })), someone.role).toBe(true);
+    }
+  });
+
+  it("[SPM-94][AC2] asks for the status history only for a cancelled event seen by those three roles", () => {
+    for (const someone of LATE_STAFF) {
+      expect(needsApprovalHistory(someone, event({ status: "cancelled" })), someone.role).toBe(true);
+      for (const status of [...FROM_APPROVAL, ...BEFORE_APPROVAL]) {
+        expect(needsApprovalHistory(someone, event({ status })), `${someone.role} ${status}`).toBe(false);
+      }
+    }
+    for (const someone of [coordinator, opsManager, organiserA, attendee]) {
+      expect(needsApprovalHistory(someone, event({ status: "cancelled" })), someone.role).toBe(false);
+    }
+  });
+
+  it("[SPM-94][AC2] filters their event lists the same way, a cancelled event by its status history", () => {
     for (const someone of LATE_STAFF) {
       expect(eventListWhere(someone), someone.role).toEqual({
-        status: { notIn: ["draft", ...BEFORE_APPROVAL] },
+        OR: [
+          { status: { notIn: ["draft", ...BEFORE_APPROVAL, "cancelled"] } },
+          { status: "cancelled", statusHistory: { some: { toStatus: "approved" } } },
+        ],
       });
     }
   });

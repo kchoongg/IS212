@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { canSetEventStatus, canViewEvent } from "@/lib/permissions";
+import { canSetEventStatus } from "@/lib/permissions";
 import { canTransition, transitionError } from "@/lib/statuses";
 import { cancellationConsequences } from "@/lib/eventCancellation";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /**
  * SPM-37 — what cancelling this event would let go, for the Cancel event
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const event =
       sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
     // An event the user cannot see is 404 before any role check.
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canSetEventStatus(actor, event, "cancelled")) {

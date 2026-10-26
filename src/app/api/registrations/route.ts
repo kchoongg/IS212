@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { can, canViewEvent } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { createRegistrationSchema } from "@/lib/validation";
 import { REGISTRATION_REFUSALS, SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { ZodError } from "zod";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /// SPM-51 AC6: the signed-in attendee's own registrations, newest first, for
 /// My Registrations (S-27). Withdrawn ones are included, with their status.
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
     // either - registering would otherwise confirm that a hidden event
     // exists. The business rules below (confirmed, in window, seats left)
     // still apply on top of this.
-    if (!canViewEvent(actor, event)) {
+    if (!(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     // CHANGED (SPM-51): eligibility is registrationState()

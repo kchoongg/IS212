@@ -13,6 +13,9 @@
  * Re-run before each pass through docs/test-cases/SPM-94_Test_Cases.xlsx, and
  * after SPM-94-TC10, which approves the Approval Flow Briefing.
  *
+ * Two events are cancelled (TC11): one straight from Under review, one after
+ * approval. Only their status history tells them apart, as in the app.
+ *
  * Event numbers are not pinned: the cases find each event by its title. Needs
  * the base seed's users. prisma/seed.ts creates the same events - keep the two
  * in step.
@@ -24,6 +27,7 @@ const prisma = new PrismaClient();
 
 const KEY_PREFIX = "spm94_";
 const REJECTION_REASON = "The requested ballroom is closed for renovation in November 2027.";
+const CANCELLATION_REASON = "The client called the event off.";
 
 /** Singapore has no daylight saving: always UTC+8. */
 function sgt(isoDate: string, hour: number): Date {
@@ -35,7 +39,7 @@ function addDays(d: Date, n: number): Date {
   return new Date(d.getTime() + n * 86_400_000);
 }
 
-type Status = "submitted" | "under_review" | "rejected" | "withdrawn" | "approved" | "confirmed";
+type Status = "submitted" | "under_review" | "rejected" | "withdrawn" | "approved" | "confirmed" | "cancelled";
 
 type Fixture = {
   key: string;
@@ -43,6 +47,9 @@ type Fixture = {
   status: Status;
   date: string;
   testCases: string;
+  /// Overrides CHAIN[status]: a cancelled event's history says whether it was
+  /// approved first (SPM-37 cancels from Under review too).
+  chain?: string[];
 };
 
 /// One event per status the story turns on. Only the Approval Flow Briefing
@@ -62,6 +69,13 @@ const FIXTURES: Fixture[] = [
     testCases: "TC06-TC09" },
   { key: "spm94_approval_flow", title: "SPM94 Meridian Approval Flow Briefing", status: "under_review", date: "2027-11-11",
     testCases: "TC10" },
+  // Cancelled straight from Under review (SPM-37): never approved, so hidden
+  // from Venue Staff, Technical Support and the Safety Officer.
+  { key: "spm94_cancelled_in_review", title: "SPM94 Meridian Cancelled Review Dinner", status: "cancelled", date: "2027-11-12",
+    chain: ["submitted", "under_review", "cancelled"], testCases: "TC11" },
+  // Cancelled after it was approved: theirs to see.
+  { key: "spm94_cancelled_after_approval", title: "SPM94 Meridian Cancelled Approved Expo", status: "cancelled", date: "2027-11-15",
+    chain: ["submitted", "under_review", "approved", "cancelled"], testCases: "TC11" },
 ];
 
 const CHAIN: Record<Status, string[]> = {
@@ -71,6 +85,7 @@ const CHAIN: Record<Status, string[]> = {
   withdrawn: ["submitted", "under_review", "withdrawn"],
   approved: ["submitted", "under_review", "approved"],
   confirmed: ["submitted", "under_review", "approved", "planning", "confirmed"],
+  cancelled: ["submitted", "under_review", "approved", "cancelled"],
 };
 
 async function main() {
@@ -96,7 +111,7 @@ async function main() {
   for (const f of FIXTURES) {
     const startsAt = sgt(f.date, 9);
     const endsAt = new Date(startsAt.getTime() + 4 * 3_600_000);
-    const chain = CHAIN[f.status];
+    const chain = f.chain ?? CHAIN[f.status];
     const historyStart = addDays(startsAt, -40);
     const confirmed = f.status === "confirmed";
 
@@ -116,6 +131,7 @@ async function main() {
         expectedAttendance: 80,
         preferredLayout: "theatre",
         rejectionReason: f.status === "rejected" ? REJECTION_REASON : null,
+        cancellationReason: f.status === "cancelled" ? CANCELLATION_REASON : null,
         // The Open Forum is what an Attendee may see (AC7).
         registrationEnabled: confirmed,
         registrationCapacity: confirmed ? 100 : null,

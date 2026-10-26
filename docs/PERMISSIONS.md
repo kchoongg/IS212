@@ -218,8 +218,12 @@ forum #125: "It should not automatically be visible to every non-Attendee role
 simply because of their role"). Venue Staff, Technical Support and the Safety
 Officer have no part in a request until it is approved, so a request still in
 review, rejected or withdrawn is hidden from them altogether — in every list
-(`eventListWhere()`) and by its address (404). Postponed, Completed and
-Cancelled come only after approval, so those stay visible.
+(`eventListWhere()`) and by its address (404). Postponed and Completed come
+only after approval, so those stay visible. Cancelled does not: SPM-37 cancels
+from Under review too. A cancelled event stays visible to them only if its
+status history has an approval in it — `everApproved`, looked up by
+`canViewEventWithHistory()` (`src/lib/eventVisibility.ts`) on the event and
+every route under it, and by `statusHistory` in `eventListWhere()`.
 
 The **rejection reason** goes only to the organiser who owns the event, the
 coordinator assigned to it and the Event Coordinator Lead

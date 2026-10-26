@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { canCheckEquipmentAvailability, canViewEvent, techSupportSeesEquipment } from "@/lib/permissions";
+import { canCheckEquipmentAvailability, techSupportSeesEquipment } from "@/lib/permissions";
 import { loadEventAvailability } from "@/lib/equipmentAvailabilityService";
 import { parseEventReference } from "@/lib/format";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-48 — Check Equipment Availability. For each equipment line an event has
 // requested, whether enough suitable stock is free for the event's dates. Shown
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
   const sequenceNumber = parseEventReference(id);
   const event = sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
-  if (!event || !canViewEvent(actor, event)) {
+  if (!event || !(await canViewEventWithHistory(actor, event))) {
     return hidden();
   }
   if (!canCheckEquipmentAvailability(actor)) {

@@ -131,6 +131,9 @@ describe("GET /api/events/[id]/equipment", () => {
     async (status) => {
       const token = signIn(user("tech_support", { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event({ status }));
+      // CHANGED (SPM-94 AC2): a cancelled event is theirs to see only if it
+      // was approved first, so this one was (its history has an approval).
+      db.eventStatusHistory.count.mockResolvedValue(1);
 
       const res = await list(token);
 
@@ -138,6 +141,21 @@ describe("GET /api/events/[id]/equipment", () => {
       expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
     }
   );
+
+  // SPM-94 (AC2, AC5): SPM-37 cancels from Under review too. Such a request
+  // was never approved, so it stays hidden from Technical Support - the
+  // status history has no approval in it.
+  it("[SPM-94][AC2][AC5] is 404 for Technical Support on an event cancelled before it was approved", async () => {
+    const token = signIn(user("tech_support", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+    db.eventStatusHistory.count.mockResolvedValue(0);
+
+    const res = await list(token);
+
+    expect(res.status).toBe(404);
+    expect(callArg(db.eventStatusHistory.count)).toEqual({ where: { eventId: ID.event, toStatus: "approved" } });
+    expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/events/[id]/equipment", () => {

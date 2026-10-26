@@ -35,7 +35,7 @@
   ],
   "open_questions": [
     "DECIDED 2026-10-26 (by us; customer not yet asked again): 'relevant authorised internal users' (#125) means the assigned Event Coordinator and the Event Coordinator Lead for the outcome and reason; Venue Staff, Technical Support Staff and the Safety Officer see events from Approved onwards. Consistent with #66 (staff see what their responsibilities need), #81 (same-client organisers may view) and #136 (the Lead views active events' status). Recorded in docs/CUSTOMER_CLARIFICATIONS.md; if the customer rules otherwise, that wins.",
-    "DECIDED 2026-10-23: 'From Approved onwards' means Approved, Planning, Safety review, Safety approved, Confirmed, Postponed, Completed and Cancelled. Cancelled is reachable only after approval, so a cancelled event stays visible to Venue Staff, Technical Support and the Safety Officer.",
+    "DECIDED 2026-10-23, CORRECTED 2026-10-27: 'From Approved onwards' means Approved, Planning, Safety review, Safety approved, Confirmed, Postponed and Completed, each reachable only after approval - and Cancelled only when the event was approved before it was cancelled. SPM-37 cancels from Under review too, so a cancelled event's status history decides; one cancelled while still in review stays hidden from Venue Staff, Technical Support and the Safety Officer (TC11). The first version of this note said Cancelled always came after approval, which was wrong (found in review of PR #86).",
     "DECIDED 2026-10-23: The not-found state is the one the event page already shows for an event that does not exist: heading 'Event', error box 'Could not load this' with 'This event doesn't exist, or you don't have access to it.' and 'Retry'. The event's other pages use the same message; the Equipment page today says 'Could not load this event.' for a hidden event and is to use the same wording (TC08).",
     "DECIDED 2026-10-23: The lists that hold events for Venue Staff, Technical Support and the Safety Officer are the Dashboard, All Events (/events: in the sidebar for the Safety Officer, reachable by address for the other two) and Safety Checks. Booking Requests and Equipment Requests list only events with arrangements, which cannot exist before approval, so no case is written for them.",
     "DECIDED 2026-10-23: AC6 (the information the system returns) is checked by the automated route tests: the event list and the event record leave out the rejection reason for an unassigned coordinator and a colleague organiser, and Venue Staff, Technical Support and the Safety Officer get not found for an unapproved event, on the event and every route under it. TC04-TC08 link AC6 because the event page shows the rejection box whenever the record it receives carries a reason.",
@@ -276,6 +276,30 @@
       ],
       "test_data": "Event: SPM94 Meridian Approval Flow Briefing (Under review, organiser Rachel Ng, coordinator Daniel Tan)\nEvent Organiser: rachel.ng@meridianfina.com\nVenue Staff: marcus.wong@connectsphere.com\nEvent Coordinator (assigned): daniel.tan@connectsphere.com\nPassword: password123",
       "expected_result": "Step 2: SPM94 Meridian Approval Flow Briefing is listed with the status 'Under review'.\nStep 6: While the request is Under review, the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 9: The Review Queue lists SPM94 Meridian Approval Flow Briefing.\nStep 10: The Review request page opens for the event.\nStep 12: A dialog 'Approve this request?' appears.\nStep 13: A success box titled 'Request approved' says '“SPM94 Meridian Approval Flow Briefing” is now Approved. Planning can start.'\nStep 16: The event page opens with the title SPM94 Meridian Approval Flow Briefing and the status 'Approved'. No rejection reason is shown."
+    },
+    {
+      "id": "SPM-94-TC11",
+      "title": "A Safety Officer sees an event cancelled after approval, but not one cancelled while still Under review",
+      "linked_ac": [
+        "AC2",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Note the Reference shown for each of SPM94 Meridian Cancelled Review Dinner and SPM94 Meridian Cancelled Approved Expo",
+        "Log out",
+        "Log in as hana.yusof@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Choose 'Cancelled' in 'Filter by status'",
+        "Click the 'SPM94 Meridian Cancelled Approved Expo' row",
+        "Type /events/<reference of SPM94 Meridian Cancelled Review Dinner from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter"
+      ],
+      "test_data": "Event Organiser (to note the references): rachel.ng@meridianfina.com\nSafety Officer: hana.yusof@connectsphere.com\nPassword: password123\nSPM94 Meridian Cancelled Review Dinner: cancelled while Under review, never approved\nSPM94 Meridian Cancelled Approved Expo: approved, then cancelled",
+      "expected_result": "Step 2: The My events list shows SPM94 Meridian Cancelled Review Dinner and SPM94 Meridian Cancelled Approved Expo, both with the status 'Cancelled'.\nStep 7: The All events list shows SPM94 Meridian Cancelled Approved Expo with the status 'Cancelled'. SPM94 Meridian Cancelled Review Dinner is not listed.\nStep 8: The event page opens with the title SPM94 Meridian Cancelled Approved Expo and the status 'Cancelled'.\nStep 9: SPM94 Meridian Cancelled Review Dinner was never approved, so the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown."
     }
   ]
 }

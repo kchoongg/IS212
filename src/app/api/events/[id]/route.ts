@@ -14,7 +14,6 @@ import {
   canSeeClarification,
   canSetEventStatus,
   canViewChangeRequests,
-  canViewEvent,
   canViewRegistrationList,
   visibleEventFor,
   type Actor,
@@ -45,6 +44,7 @@ import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -178,7 +178,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     (await prisma.registration.count({
       where: { eventId: event.id, attendeeId: actor.id, status: "attended" },
     })) > 0;
-  if (!canViewEvent(actor, { ...event, attendeeHoldsPlace, attendeeAttended })) {
+  if (!(await canViewEventWithHistory(actor, { ...event, attendeeHoldsPlace, attendeeAttended }))) {
     return hidden();
   }
 
@@ -328,7 +328,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // ADDED: an event the user cannot see cannot be reached through PATCH
     // either. Without this, an id guessed from a 404 could still be written
     // to - the read and the write have to answer the same question.
-    if (!canViewEvent(actor, event)) {
+    if (!(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
 

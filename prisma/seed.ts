@@ -2270,6 +2270,11 @@ async function main() {
     spm94("spm94_confirmed", "SPM94 Meridian Open Forum", "confirmed", "2027-11-10",
       { regEnabled: true, regCapacity: 100 }),
     spm94("spm94_approval_flow", "SPM94 Meridian Approval Flow Briefing", "under_review", "2027-11-11"),
+    // TC11: cancelled straight from Under review (SPM-37), and after approval.
+    spm94("spm94_cancelled_in_review", "SPM94 Meridian Cancelled Review Dinner", "cancelled", "2027-11-12",
+      { chain: ["submitted", "under_review", "cancelled"], cancellationReason: "The client called the event off." }),
+    spm94("spm94_cancelled_after_approval", "SPM94 Meridian Cancelled Approved Expo", "cancelled", "2027-11-15",
+      { chain: ["submitted", "under_review", "approved", "cancelled"], cancellationReason: "The client called the event off." }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

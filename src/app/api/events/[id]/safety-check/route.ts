@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { eventReference, parseEventReference } from "@/lib/format";
-import { canViewEvent, isAssignedCoordinator } from "@/lib/permissions";
+import { isAssignedCoordinator } from "@/lib/permissions";
 import { notifyRole } from "@/lib/notifications";
 import { SAFETY_CHECK_PENDING_MESSAGE, checkSafetySubmission } from "@/lib/safetyCheck";
 import { transitionError } from "@/lib/statuses";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /**
  * SPM-86 — submit an event for an Operational Safety Check.
@@ -35,7 +36,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
     // Same order as every other event route: an event the user cannot see is
     // 404 before any role check, so its existence is never confirmed.
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!isAssignedCoordinator(actor, event)) {

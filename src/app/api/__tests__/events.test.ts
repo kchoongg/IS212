@@ -63,8 +63,12 @@ describe("GET /api/events", () => {
 
       await GET(req("GET", "/api/events", { token }));
 
+      // A cancelled event only if it was approved first (SPM-37 cancels from Under review too).
       expect(callArg(db.event.findMany).where).toEqual({
-        status: { notIn: ["draft", "submitted", "under_review", "rejected", "withdrawn"] },
+        OR: [
+          { status: { notIn: ["draft", "submitted", "under_review", "rejected", "withdrawn", "cancelled"] } },
+          { status: "cancelled", statusHistory: { some: { toStatus: "approved" } } },
+        ],
       });
     }
   );
