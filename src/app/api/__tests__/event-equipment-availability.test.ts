@@ -556,6 +556,15 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "reserved", staffNotes: null });
   });
 
+  it("[SPM-69][AC1] clears the release reason when a released line is reserved again", async () => {
+    const token = given(requestRow({ status: "released", quantityReserved: 4, staffNotes: "Client is bringing their own" }));
+
+    const res = await post(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "reserved", quantityReserved: 4, staffNotes: null });
+  });
+
   it("[SPM-50][AC4] keeps Technical Support's notes on any other line it reserves", async () => {
     const token = given(requestRow({ status: "under_review", staffNotes: "Deliver to the loading bay" }));
 

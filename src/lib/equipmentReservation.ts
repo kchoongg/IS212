@@ -10,13 +10,16 @@
 //    partly fulfilled, or sent back by the Coordinator with units still
 //    reserved (AC7, holdsStock() in equipmentAvailability.ts).
 //  * Releasing marks the line "released" and keeps quantityReserved as the
-//    record of what it held (AC8); availability stops counting it (AC4).
+//    record of what it held (AC8); availability stops counting it (AC4). It
+//    needs a reason, saved as Technical Support's notes and sent to the
+//    Coordinator (team decision).
 //  * Adjusting never goes above what is free for the event's dates (AC3), nor
 //    above what the event requested - Technical Support matches the
 //    Coordinator's requirement, it does not add to it (team decision).
 //  * The line's status follows the new quantity, as reserving sets it (AC5).
 
 import { holdsStock } from "@/lib/equipmentAvailability";
+import { STAFF_NOTES_MAX_LENGTH } from "@/lib/equipmentFulfilment";
 import type { NotificationContent } from "@/lib/notifications";
 
 export const RESERVATION_NOTIFICATION_TYPES = {
@@ -66,18 +69,38 @@ export interface RequirementChange {
   technicalRequirements?: string;
 }
 
-/// AC7: whether the Coordinator's change sends this line back to Technical
-/// Support as Requested - only a line holding stock, and only when the save
-/// actually changes something.
-export function sendsBackForReview(
+/// The fields to add to the Coordinator's change when it sends the line back
+/// to Technical Support as Requested; {} when it doesn't.
+///  * AC7: a line holding stock goes back when anything about it changes. Its
+///    reservation is left as it is, so what is reserved still shows and holds.
+///  * A released line goes back when its quantity changes - the event needs
+///    the equipment after all - as a fresh request: nothing reserved, and the
+///    reason it was released no longer applies.
+export function sendBackChanges(
   existing: AdjustableLine & { technicalRequirements: string | null },
   change: RequirementChange
-): boolean {
-  if (!holdsStock(existing.status, existing.quantityReserved)) return false;
+): { status?: "requested"; quantityReserved?: null; staffNotes?: null } {
   const quantityChanged = change.quantityRequested !== undefined && change.quantityRequested !== existing.quantityRequested;
+  if (existing.status === "released") {
+    return quantityChanged ? { status: "requested", quantityReserved: null, staffNotes: null } : {};
+  }
+  if (!holdsStock(existing.status, existing.quantityReserved)) return {};
   const requirementsChanged =
     change.technicalRequirements !== undefined && change.technicalRequirements !== (existing.technicalRequirements ?? "");
-  return quantityChanged || requirementsChanged;
+  return quantityChanged || requirementsChanged ? { status: "requested" } : {};
+}
+
+/// Why this release reason is refused, or null if it is fine. A reason is
+/// required: the Coordinator is told why (AC6), to decide whether to remove
+/// the requirement or ask for the equipment again. Same cap as Technical
+/// Support's notes, where it is saved.
+export function checkReleaseReason(reason: string): string | null {
+  const trimmed = reason.trim();
+  if (trimmed.length === 0) return "Give a reason for releasing this reservation.";
+  if (trimmed.length > STAFF_NOTES_MAX_LENGTH) {
+    return `The reason must be ${STAFF_NOTES_MAX_LENGTH} characters or fewer.`;
+  }
+  return null;
 }
 
 interface ReservationRef {
@@ -88,12 +111,13 @@ interface ReservationRef {
 
 const titleOf = (title: string | null) => title ?? "Untitled event";
 
-/// AC6: what the assigned Coordinator is told when a reservation is released.
-export function releasedNotification(ref: ReservationRef & { quantity: number }): NotificationContent {
+/// AC6: what the assigned Coordinator is told when a reservation is released,
+/// and why.
+export function releasedNotification(ref: ReservationRef & { quantity: number; reason: string }): NotificationContent {
   return {
     type: RESERVATION_NOTIFICATION_TYPES.released,
     title: "Equipment reservation released",
-    body: `Technical Support released the ${ref.quantity} ${ref.equipmentName} reserved for ${titleOf(ref.eventTitle)}.`,
+    body: `Technical Support released the ${ref.quantity} ${ref.equipmentName} reserved for ${titleOf(ref.eventTitle)}. Reason: ${ref.reason}`,
     eventId: ref.eventId,
   };
 }

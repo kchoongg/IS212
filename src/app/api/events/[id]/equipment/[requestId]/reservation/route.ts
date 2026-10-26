@@ -11,10 +11,11 @@ import {
   adjustedStatus,
   checkAdjustment,
   checkRelease,
+  checkReleaseReason,
   releasedNotification,
 } from "@/lib/equipmentReservation";
 import { notifyUser } from "@/lib/notifications";
-import { adjustReservationSchema } from "@/lib/validation";
+import { adjustReservationSchema, releaseReservationSchema } from "@/lib/validation";
 
 // SPM-69 — Release or Adjust Equipment Reservation. Technical Support changes
 // a reservation already made with Reserve (SPM-49): PATCH sets a new quantity
@@ -145,15 +146,21 @@ export async function DELETE(req: NextRequest, context: Context) {
     const access = await checkAccess(req, id, requestId);
     if (access.refused) return access.refused;
 
+    // A request with no body is a missing reason, not a server error.
+    const { reason } = releaseReservationSchema.parse(await req.json().catch(() => ({})));
+    const reasonRefusal = checkReleaseReason(reason);
+    if (reasonRefusal) return NextResponse.json({ error: reasonRefusal }, { status: 400 });
+
     const updated = await prisma.$transaction(async (tx) => {
       const line = await lockAndLoad(tx, access.equipmentId, requestId);
       const refusal = checkRelease(line.requestStatus, line.quantityReserved);
       if (refusal) throw new RouteError(400, refusal);
 
       // quantityReserved is kept: it is the record of what this line held (AC8).
+      // The reason goes in Technical Support's notes, which both screens show.
       const saved = await tx.equipmentRequest.update({
         where: { id: requestId },
-        data: { status: "released", reviewedBy: access.actorId, reviewedAt: new Date() },
+        data: { status: "released", staffNotes: reason.trim(), reviewedBy: access.actorId, reviewedAt: new Date() },
         include: LINE_INCLUDE,
       });
       if (access.event.coordinatorId) {
@@ -166,6 +173,7 @@ export async function DELETE(req: NextRequest, context: Context) {
             equipmentName: line.equipmentName,
             // v8 ignore next -- checkRelease() passed, so there is a quantity reserved
             quantity: line.quantityReserved ?? 0,
+            reason: reason.trim(),
           })
         );
       }

@@ -1031,6 +1031,21 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-26 — Kristen (SPM-69, release reason and reopening a released line)
+- **Releasing needs a reason** (`DELETE .../reservation` with `{ reason }`,
+  required, up to 500 characters - `checkReleaseReason()`). It is saved as
+  Technical Support's notes, so both screens show it, and is sent in the
+  Coordinator's notification. Reserving a released line again clears it, as
+  reserving clears a "Cannot be provided" reason (`reserveClearsStaffNotes()`).
+- **The Coordinator can reopen a released line by changing its quantity:** it
+  goes back to Technical Support as a fresh request - Requested, nothing
+  reserved, the reason cleared (`sendBackChanges()`, replacing
+  `sendsBackForReview()`). Changing only its technical requirements leaves it
+  released.
+- Tests written first; manual cases SPM-69-TC01 to TC03 updated or added (the
+  workbook had not been run, so it was rebuilt; the later cases moved up one
+  number).
+
 ### 2026-10-22 — Kristen (SPM-69, Release or Adjust Equipment Reservation)
 - **Technical Support can release a reservation or change its quantity.**
   New route `PATCH` / `DELETE /api/events/[id]/equipment/[requestId]/reservation`

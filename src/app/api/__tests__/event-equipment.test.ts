@@ -620,13 +620,38 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
 
     it.each([
       ["never reserved", { status: "requested", quantityReserved: null }],
-      ["released", { status: "released", quantityReserved: 4 }],
       ["marked as cannot be provided", { status: "unavailable", quantityReserved: null }],
     ])("[SPM-69][AC7] leaves the status of a line that was %s alone", async (_case, overrides) => {
       const token = givenRequest(assignedCoordinator(), reservedRow(overrides));
       db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
 
       await update(token, { quantityRequested: 6 });
+
+      expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
+    });
+
+    it("[SPM-69][AC7] sends a released line back to Technical Support as a fresh request when its quantity changes", async () => {
+      const token = givenRequest(
+        assignedCoordinator(),
+        reservedRow({ status: "released", quantityReserved: 4, staffNotes: "Client is bringing their own" })
+      );
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 2 });
+
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({
+        quantityRequested: 2,
+        status: "requested",
+        quantityReserved: null,
+        staffNotes: null,
+      });
+    });
+
+    it("[SPM-69][AC7] leaves a released line released when only its technical requirements change", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow({ status: "released", quantityReserved: 4 }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 4, technicalRequirements: "VGA" });
 
       expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
     });

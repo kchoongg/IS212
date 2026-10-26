@@ -72,6 +72,13 @@ export const adjustReservationSchema = z.object({
 });
 export type AdjustReservationInput = z.infer<typeof adjustReservationSchema>;
 
+// Releasing one. The reason's rules (required, 500 characters) are in
+// checkReleaseReason(), shared with the screen.
+export const releaseReservationSchema = z.object({
+  reason: z.string(),
+});
+export type ReleaseReservationInput = z.infer<typeof releaseReservationSchema>;
+
 // ---- Recording units out of service (SPM-48 AC7 / SPM-55) ----
 
 // How many units of an item are unavailable, damaged or under maintenance - one

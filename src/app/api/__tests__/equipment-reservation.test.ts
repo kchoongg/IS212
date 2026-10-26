@@ -102,8 +102,13 @@ function adjust(token: string | undefined, body: unknown, reference = REF) {
   );
 }
 
-function release(token?: string, reference = REF) {
-  return DELETE(req("DELETE", PATH.replace(REF, reference), { token }), params({ id: reference, requestId: ID.request }));
+const REASON = "Client is bringing their own";
+
+function release(token?: string, reference = REF, body: unknown = { reason: REASON }) {
+  return DELETE(
+    req("DELETE", PATH.replace(REF, reference), { token, body }),
+    params({ id: reference, requestId: ID.request })
+  );
 }
 
 describe.each([
@@ -341,10 +346,39 @@ describe("DELETE /api/events/[id]/equipment/[requestId]/reservation", () => {
     const write = callArg(db.equipmentRequest.update);
     expect(write).toMatchObject({
       where: { id: ID.request },
-      data: { status: "released", reviewedBy: ID.user, reviewedAt: NOW },
+      data: { status: "released", staffNotes: REASON, reviewedBy: ID.user, reviewedAt: NOW },
     });
     expect(write.data).not.toHaveProperty("quantityReserved");
     expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-69][AC1] saves the reason without the spaces around it", async () => {
+    await release(given(requestRow()), REF, { reason: `  ${REASON}  ` });
+
+    expect(callArg(db.equipmentRequest.update).data).toMatchObject({ staffNotes: REASON });
+  });
+
+  it.each([
+    ["an empty reason", { reason: "  " }, "Give a reason for releasing this reservation."],
+    ["a reason over 500 characters", { reason: "x".repeat(501) }, "The reason must be 500 characters or fewer."],
+  ])("[SPM-69][AC1] refuses %s and releases nothing", async (_case, body, message) => {
+    const res = await release(given(requestRow()), REF, body);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: message });
+    expect(db.$transaction).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["no reason at all", {}],
+    // A string is sent as it is - here, an empty body that is not JSON.
+    ["an empty body", ""],
+  ])("[SPM-69][AC1] rejects a release with %s", async (_case, body) => {
+    const res = await release(given(requestRow()), REF, body);
+
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Validation failed");
+    expect(db.$transaction).not.toHaveBeenCalled();
   });
 
   it("[SPM-69][AC1] releases a partly fulfilled reservation too", async () => {
@@ -381,7 +415,7 @@ describe("DELETE /api/events/[id]/equipment/[requestId]/reservation", () => {
       recipientId: ID.otherUser,
       type: "equipment_reservation_released",
       title: "Equipment reservation released",
-      body: "Technical Support released the 4 Projector reserved for Gala Dinner.",
+      body: "Technical Support released the 4 Projector reserved for Gala Dinner. Reason: Client is bringing their own",
       eventId: ID.event,
     });
   });

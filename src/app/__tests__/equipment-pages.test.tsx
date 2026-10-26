@@ -1548,7 +1548,17 @@ describe("Equipment request (availability and reserve)", () => {
     });
 
     describe("releasing", () => {
-      it("[SPM-69][AC1][AC4] asks first, saying what is freed and that the Coordinator is told", async () => {
+      const REASON = "Client is bringing their own";
+      const reasonField = () => within(releaseDialog()).getByLabelText(/^Reason for releasing/);
+
+      /// Opens the dialog on the line, gives a reason and confirms.
+      async function releaseWith(reason = REASON) {
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+        set(reasonField(), reason);
+        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Release", hidden: true }));
+      }
+
+      it("[SPM-69][AC1][AC4] asks first, saying what is freed and that the Coordinator is told, and asks why", async () => {
         const api = open([reservedLine()]);
 
         await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
@@ -1557,6 +1567,7 @@ describe("Equipment request (availability and reserve)", () => {
         expect(releaseDialog()).toHaveTextContent(
           "This frees the 4 Projector reserved for Gala Dinner for other events. The event's Coordinator is told."
         );
+        expect(reasonField()).toHaveValue("");
         expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(0);
       });
 
@@ -1568,26 +1579,41 @@ describe("Equipment request (availability and reserve)", () => {
         expect(releaseDialog()).toHaveTextContent("This frees the 4 Projector reserved for this event for other events.");
       });
 
-      it("[SPM-69][AC1] releases once confirmed, confirms it, and reloads every line", async () => {
+      it("[SPM-69][AC1] releases once confirmed with a reason, confirms it, and reloads every line", async () => {
         const api = open([reservedLine()], { [`DELETE ${reservation("r1")}`]: { id: "r1", status: "released" } });
-        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
 
-        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Release", hidden: true }));
+        await releaseWith();
 
         expect(await screen.findByText("Reservation released.")).toBeInTheDocument();
-        expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(1);
+        expect(api.sent(`DELETE ${reservation("r1")}`)[0].body).toEqual({ reason: REASON });
         await waitFor(() => expect(api.sent(AVAILABILITY)).toHaveLength(2));
         expect(releaseDialog().open).toBe(false);
       });
 
-      it("[SPM-69][AC1] keeps the reservation when the question is cancelled", async () => {
+      it.each([
+        ["no reason", "  ", "Give a reason for releasing this reservation."],
+        ["a reason over 500 characters", "x".repeat(501), "The reason must be 500 characters or fewer."],
+      ])("[SPM-69][AC1] refuses %s in the dialog, sending nothing", async (_case, reason, message) => {
+        const api = open([reservedLine()]);
+
+        await releaseWith(reason);
+
+        expect(within(releaseDialog()).getByText(message)).toBeInTheDocument();
+        expect(releaseDialog().open).toBe(true);
+        expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(0);
+      });
+
+      it("[SPM-69][AC1] keeps the reservation when the question is cancelled, and starts afresh next time", async () => {
         const api = open([reservedLine()]);
         await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+        set(reasonField(), REASON);
 
         await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Cancel", hidden: true }));
 
         expect(releaseDialog().open).toBe(false);
         expect(api.sent(`DELETE ${reservation("r1")}`)).toHaveLength(0);
+        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
+        expect(reasonField()).toHaveValue("");
       });
 
       it.each([
@@ -1596,18 +1622,16 @@ describe("Equipment request (availability and reserve)", () => {
         ["a network failure", () => Promise.reject(new Error("offline")), "Could not release this reservation."],
       ])("[SPM-69][AC1] shows %s against the line", async (_case, answer, message) => {
         open([reservedLine()], { [`DELETE ${reservation("r1")}`]: answer });
-        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
 
-        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Release", hidden: true }));
+        await releaseWith();
 
         expect(await within(await lineRow()).findByText(message)).toBeInTheDocument();
       });
 
       it("[SPM-22][AC4] sends the user to log in when their session expires mid-release", async () => {
         open([reservedLine()], { [`DELETE ${reservation("r1")}`]: reply(401, {}) });
-        await userEvent.click(within(await lineRow()).getByRole("button", { name: "Release" }));
 
-        await userEvent.click(within(releaseDialog()).getByRole("button", { name: "Release", hidden: true }));
+        await releaseWith();
 
         await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
       });

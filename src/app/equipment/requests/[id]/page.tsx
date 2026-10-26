@@ -25,7 +25,7 @@ import {
   holdsStock,
   reservingClosedMessage,
 } from "@/lib/equipmentAvailability";
-import { checkAdjustment } from "@/lib/equipmentReservation";
+import { checkAdjustment, checkReleaseReason } from "@/lib/equipmentReservation";
 import {
   type FulfilmentRefusal,
   checkFulfilmentUpdate,
@@ -154,6 +154,9 @@ export default function EquipmentRequestDetailPage() {
   const [savingAdjust, setSavingAdjust] = useState(false);
   const [releasing, setReleasing] = useState<Line | null>(null);
   const [releaseBusy, setReleaseBusy] = useState(false);
+  // Why it is being released - required, and sent to the Coordinator.
+  const [releaseReason, setReleaseReason] = useState("");
+  const [releaseError, setReleaseError] = useState<string | null>(null);
 
   const path = `/equipment/requests/${eventId}`;
 
@@ -294,15 +297,28 @@ export default function EquipmentRequestDetailPage() {
     }
   }
 
+  function startRelease(line: Line) {
+    setReleasing(line);
+    setReleaseReason("");
+    setReleaseError(null);
+  }
+
   async function confirmRelease() {
     // v8 ignore next -- the dialog only opens, and so can only confirm, with a line chosen
     if (!releasing) return;
     const { requestId } = releasing;
+    // Same rule the route enforces; the dialog stays open to fix it.
+    const refusal = checkReleaseReason(releaseReason);
+    if (refusal) {
+      setReleaseError(refusal);
+      return;
+    }
     setReleaseBusy(true);
     clearLineMessages(requestId);
     try {
       const res = await authedFetch(`/api/events/${eventId}/equipment/${requestId}/reservation`, {
         method: "DELETE",
+        body: JSON.stringify({ reason: releaseReason.trim() }),
       });
       if (res.status === 401) {
         router.push(loginUrlFor(path));
@@ -472,7 +488,7 @@ export default function EquipmentRequestDetailPage() {
                     setAdjustError(null);
                   }}
                   onSaveAdjust={() => saveAdjust(line)}
-                  onRelease={() => setReleasing(line)}
+                  onRelease={() => startRelease(line)}
                 />
               ))}
             </ul>
@@ -489,10 +505,26 @@ export default function EquipmentRequestDetailPage() {
         onCancel={() => setReleasing(null)}
       >
         {releasing && (
-          <p>
-            This frees the {releasing.quantityReserved} {releasing.equipmentName} reserved for{" "}
-            {event?.title ?? "this event"} for other events. The event&apos;s Coordinator is told.
-          </p>
+          <div className="space-y-3">
+            <p>
+              This frees the {releasing.quantityReserved} {releasing.equipmentName} reserved for{" "}
+              {event?.title ?? "this event"} for other events. The event&apos;s Coordinator is told.
+            </p>
+            <Field
+              label="Reason for releasing"
+              required
+              hint="Shown to the event's Coordinator, and saved as your technical notes."
+              error={releaseError}
+            >
+              <Textarea
+                value={releaseReason}
+                onChange={(e) => {
+                  setReleaseReason(e.target.value);
+                  setReleaseError(null);
+                }}
+              />
+            </Field>
+          </div>
         )}
       </ConfirmDialog>
     </div>

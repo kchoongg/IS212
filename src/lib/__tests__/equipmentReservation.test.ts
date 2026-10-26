@@ -5,19 +5,24 @@ import {
   adjustedStatus,
   checkAdjustment,
   checkRelease,
+  checkReleaseReason,
   releasedNotification,
-  sendsBackForReview,
+  sendBackChanges,
 } from "../equipmentReservation";
 
 // CONTRACT (SPM-69, written before the code) - src/lib/equipmentReservation.ts:
 //   checkRelease(status, quantityReserved)              -> refusal message | null
 //   checkAdjustment(line, quantity, available | null)   -> refusal message | null
 //   adjustedStatus(quantity, quantityRequested)         -> "reserved" | "partially_fulfilled"
-//   sendsBackForReview(existing, change)                -> boolean (AC7)
+//   sendBackChanges(existing, change)                   -> the fields to write when the Coordinator's
+//                                                          change sends a line back (AC7); {} when it doesn't
+//   checkReleaseReason(reason)                          -> refusal message | null
 //   releasedNotification / adjustedNotification         -> NotificationContent for the Coordinator (AC6)
 // Decided here, not in the story (change the test if the team wants otherwise):
 //   - a reservation can never be more than the quantity requested
 //   - the wording of every refusal and notification
+//   - a release needs a reason (up to 500 characters), saved as Technical Support's notes
+//   - changing the quantity of a released line sends it back as a fresh request
 
 describe("checkRelease", () => {
   it.each([
@@ -103,49 +108,94 @@ describe("adjustedStatus", () => {
   });
 });
 
-describe("sendsBackForReview", () => {
+describe("sendBackChanges", () => {
   const held = { status: "reserved", quantityReserved: 4, quantityRequested: 4, technicalRequirements: "HDMI" };
+  const released = { ...held, status: "released" };
+  const BACK = { status: "requested" };
 
-  it("[SPM-69][AC7] sends a reserved line back when its quantity changes", () => {
-    expect(sendsBackForReview(held, { quantityRequested: 6 })).toBe(true);
+  it("[SPM-69][AC7] sends a reserved line back when its quantity changes, keeping what is reserved", () => {
+    expect(sendBackChanges(held, { quantityRequested: 6 })).toEqual(BACK);
   });
 
   it("[SPM-69][AC7] sends a reserved line back when its technical requirements change", () => {
-    expect(sendsBackForReview(held, { technicalRequirements: "VGA" })).toBe(true);
+    expect(sendBackChanges(held, { technicalRequirements: "VGA" })).toEqual(BACK);
   });
 
   it("[SPM-69][AC7] sends a reserved line back when technical requirements are added where there were none", () => {
-    expect(sendsBackForReview({ ...held, technicalRequirements: null }, { technicalRequirements: "VGA" })).toBe(true);
+    expect(sendBackChanges({ ...held, technicalRequirements: null }, { technicalRequirements: "VGA" })).toEqual(BACK);
   });
 
   it("[SPM-69][AC7] treats clearing requirements that were never set as no change", () => {
-    expect(sendsBackForReview({ ...held, technicalRequirements: null }, { technicalRequirements: "" })).toBe(false);
+    expect(sendBackChanges({ ...held, technicalRequirements: null }, { technicalRequirements: "" })).toEqual({});
   });
 
   it("[SPM-69][AC7] sends a partly fulfilled line back too", () => {
-    expect(sendsBackForReview({ ...held, status: "partially_fulfilled", quantityReserved: 2 }, { quantityRequested: 2 })).toBe(true);
+    expect(sendBackChanges({ ...held, status: "partially_fulfilled", quantityReserved: 2 }, { quantityRequested: 2 })).toEqual(BACK);
   });
 
   it("[SPM-69][AC7] does not send it back when the save changes nothing", () => {
-    expect(sendsBackForReview(held, { quantityRequested: 4, technicalRequirements: "HDMI" })).toBe(false);
+    expect(sendBackChanges(held, { quantityRequested: 4, technicalRequirements: "HDMI" })).toEqual({});
   });
 
-  it.each(["requested", "under_review", "unavailable", "released"])(
+  it("[SPM-69][AC7] sends a released line back as a fresh request when its quantity changes, clearing what it held and why", () => {
+    expect(sendBackChanges(released, { quantityRequested: 2 })).toEqual({
+      status: "requested",
+      quantityReserved: null,
+      staffNotes: null,
+    });
+  });
+
+  it("[SPM-69][AC7] leaves a released line released when only its technical requirements change", () => {
+    expect(sendBackChanges(released, { quantityRequested: 4, technicalRequirements: "VGA" })).toEqual({});
+  });
+
+  it.each(["requested", "under_review", "unavailable"])(
     "[SPM-69][AC7] leaves a %s line that holds nothing as it is",
     (status) => {
-      expect(sendsBackForReview({ ...held, status, quantityReserved: status === "released" ? 4 : null }, { quantityRequested: 6 })).toBe(false);
+      expect(sendBackChanges({ ...held, status, quantityReserved: null }, { quantityRequested: 6 })).toEqual({});
     }
   );
 });
 
+describe("checkReleaseReason", () => {
+  it("[SPM-69][AC1] accepts a reason", () => {
+    expect(checkReleaseReason("Client is bringing their own")).toBeNull();
+  });
+
+  it.each([
+    ["empty", ""],
+    ["only spaces", "   "],
+  ])("[SPM-69][AC1] refuses a reason that is %s", (_case, reason) => {
+    expect(checkReleaseReason(reason)).toBe("Give a reason for releasing this reservation.");
+  });
+
+  it("[SPM-69][AC1] accepts a reason of exactly 500 characters", () => {
+    expect(checkReleaseReason("x".repeat(500))).toBeNull();
+  });
+
+  it("[SPM-69][AC1] refuses a reason of 501 characters", () => {
+    expect(checkReleaseReason("x".repeat(501))).toBe("The reason must be 500 characters or fewer.");
+  });
+
+  it("[SPM-69][AC1] measures the reason without the spaces around it", () => {
+    expect(checkReleaseReason(`  ${"x".repeat(500)}  `)).toBeNull();
+  });
+});
+
 describe("notifications to the assigned Coordinator", () => {
-  it("[SPM-69][AC6] says what was released, for which event", () => {
+  it("[SPM-69][AC6] says what was released, for which event, and why", () => {
     expect(
-      releasedNotification({ eventId: "event-id", eventTitle: "Gala Dinner", equipmentName: "Projector", quantity: 4 })
+      releasedNotification({
+        eventId: "event-id",
+        eventTitle: "Gala Dinner",
+        equipmentName: "Projector",
+        quantity: 4,
+        reason: "Client is bringing their own",
+      })
     ).toEqual({
       type: RESERVATION_NOTIFICATION_TYPES.released,
       title: "Equipment reservation released",
-      body: "Technical Support released the 4 Projector reserved for Gala Dinner.",
+      body: "Technical Support released the 4 Projector reserved for Gala Dinner. Reason: Client is bringing their own",
       eventId: "event-id",
     });
   });
@@ -163,7 +213,7 @@ describe("notifications to the assigned Coordinator", () => {
 
   it("[SPM-69][AC6] names an untitled event sensibly", () => {
     expect(
-      releasedNotification({ eventId: "event-id", eventTitle: null, equipmentName: "Projector", quantity: 1 }).body
-    ).toBe("Technical Support released the 1 Projector reserved for Untitled event.");
+      releasedNotification({ eventId: "event-id", eventTitle: null, equipmentName: "Projector", quantity: 1, reason: "Not needed" }).body
+    ).toBe("Technical Support released the 1 Projector reserved for Untitled event. Reason: Not needed");
   });
 });
