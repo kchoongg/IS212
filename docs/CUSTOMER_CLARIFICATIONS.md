@@ -61,6 +61,14 @@ answers (#2, #5, #19, #87, #90, #113, #114) are cited in `src/lib/equipmentAvail
 | **#103** | 2026-09-07 | Withdrawal is requested outside the system and recorded by the coordinator; it must stay distinguishable from draft/submitted/approved/rejected. |
 | **#74** | 2026-08-25 | Multi-session events may differ per session in venue, equipment and attendance. |
 
+## Registration and waiting list
+
+| # | Date | The ruling |
+|---|---|---|
+| **#26** | 2026-08-25 | The waiting list is **first in, first out**, and the coordinator may **override** the order. |
+| **#44** | 2026-08-25 | An attendee offered a place has **3 days** to accept it. |
+| **#116** | 2026-09-07 | No fixed rule stops offers before the event; the 3-day window applies once an offer is made. The team may propose a cut-off close to the event, consistent with the registration period and capacity (our rule is below). |
+
 ## Users and access
 
 | # | Date | The ruling |
@@ -102,3 +110,8 @@ differently later, that ruling wins.
 | With several venues per event (Week 7 Change #3), may a second venue be requested for only part of the event's time? | **No.** Every request still covers the event's (or session's) whole time, and may be wider. Change #3 describes spaces used "at the same time"; a room needed for part of the day is a session, which is booked for its own times. | 2026-10-10 |
 | With several venues per event (Week 7 Change #3), does each room have its own facility and accessibility requirements? SPM-90 AC3 says "recorded for that space", but AC1 records only purpose, attendance and layout. | **No** — the event's facility and accessibility requirements apply to every room it books, as they do to every session. Each room is judged on its own attendance and layout. Change #3, the briefings and the discussion board ask for nothing per room; per-room facilities would be a new story. | 2026-10-13 |
 | #125 says a review outcome is for "the responsible Event Organiser and relevant authorised internal users". Which internal users? | **The assigned Event Coordinator and the Event Coordinator Lead** see the outcome and the rejection reason. Other coordinators and other organisers at the same client (#81) see the status only. Venue Staff, Technical Support and the Safety Officer see an event from Approved onwards, when their part begins (#66: what their responsibilities need) - an event cancelled before it was approved (SPM-37 cancels from Under review) stays hidden from them. The Lead overseeing active events (#136) fits. Built in SPM-94; a follow-up on #125 is still to be posted. | 2026-10-26 |
+| When does a place come free for the waiting list (#26)? | **When registered plus under offer is below the capacity.** It goes to the earliest to join whenever that happens: an attendee withdraws, someone holding an offer leaves, an offer is declined or lapses, the capacity is raised, or registration is turned back on. Lapsed offers end like SPM-82's holds, with no scheduled job. Built in SPM-66. | 2026-10-23 |
+| What happens to an attendee who declines an offer or lets the 3 days (#44) pass? | **They leave the list (Withdrawn) and the place goes to the next.** They may join again, at the back. Built in SPM-66. | 2026-10-23 |
+| #116 lets us choose a cut-off close to the event. What is it? | **The event's start.** An outstanding offer ends when the event starts (so an offer made less than 3 days before the start ends at the start) and the attendee keeps their position; no offer is made after the start, nor while the event isn't Confirmed. Offers continue after registration closes, until the start. Built in SPM-66 (AC10). | 2026-10-23 |
+| What does the coordinator's override (#26) do? | **It moves a place already under offer** (the offer made last) to a chosen waiting attendee, for a fresh 3 days. The one it was offered to keeps their position, and both are notified. Never beyond the capacity: with no place under offer there is nothing to give. Built in SPM-66 (AC9). | 2026-10-23 |
+| May a newcomer register for an event while others are waiting? | **No.** While anyone is waiting, a newcomer joins the list instead of registering past them, and a place under offer is held for its attendee (AC8). Built in SPM-66. | 2026-10-23 |

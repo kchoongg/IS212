@@ -990,7 +990,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 
 | Gap | Impact | Owner |
 |---|---|---|
-| **Three registration cases quote the waiting list wording SPM-66 replaced** | Wording only - what they check still holds. **SPM-51-TC05** step 2: the full event's card now shows 'Join waiting list' with the optional Dietary and Accessibility requirements (not 'Joining the waiting list isn't available yet.'), still with no 'Register'. **SPM-51-TC11** step 2 and **SPM-52-TC07** step 2: the card reads 'You're number 1 on the waiting list.' (not 'You're on the waiting list.') with a 'Leave waiting list' button, still no 'Withdraw'; My Registrations also shows 'Number 1 in the queue' under the badge. Mark them Updated with a v2 note (`docs/test-cases/README.md`). | SPM-51 and SPM-52's owner (Sammi) |
 | **SPM-64-TC15's event is completed automatically since SPM-36** | 'SPM64 Started Showcase' ended on 2 Oct 2026 and is still Confirmed, so SPM-36's 7-day rule completes it the first time the app runs - and a completed event has no "Change registration settings", so TC15's steps can't be followed. The fixture needs an end date in the future (it only has to have started). | SPM-64's owner |
 | **SPM-31-TC08's event becomes Completed on 26 Oct 2026** | 'Harbourline Claims Systems Training' (base seed, ended 19 Oct) is completed by SPM-36's 7-day rule from 26 Oct. The attendee is still refused, but the case is about a *Confirmed* event that isn't open for registration, so it needs one that stays Confirmed. | SPM-31's owner |
 | **Other stories' manual test cases assume Confirm ignores the safety check** | Since SPM-88, Confirm needs the Safety Officer's approval (an approved check, normally from Safety approved), and the Readiness tab counts the safety check among what blocks confirmation. These cases confirm, or count blockers, on fixture events that have no approved check, so their expected results are now out of date: **SPM-34** TC01, TC03-TC09 (Kristen); **SPM-33** TC01, TC05, TC07, TC13, TC14 (Kristen; TC07's "Confirm event does not wait for it yet" is no longer shown); **SPM-64** TC16-TC18 (Kristen); **SPM-67** TC05, TC06 (Kayal); **SPM-68** TC12 (Kristen); **SPM-90** TC08-TC10 (Kayal) - refusals now add "the Operational Safety Check has not been submitted yet", and a confirm that used to succeed is refused. **SPM-62** TC08, TC09, TC13 and TC17 (Kristen) quote wording SPM-88 changed (the "Move this event back to Planning?" text, "…needs to be submitted for a safety check again.", and the status-window message). Their fixtures were not changed. | each story's owner |
@@ -1181,7 +1180,8 @@ what changed, why, and the migration name if there is one.
     CHANGED). Closes the Known Gaps "A full event offers the waiting list but
     nobody can join it" and "Raising registration capacity promotes nobody
     from the waiting list". Three manual cases quote the old wording -
-    SPM-51-TC05, SPM-51-TC11, SPM-52-TC07 - now a Known Gap for their owner.
+    SPM-51-TC05, SPM-51-TC11, SPM-52-TC07 - and are marked Updated with a v2
+    note (`docs/test-cases/DECOMMISSIONED.md`).
   - **Migration:** `20261023120000_add_waiting_list_offers` - four nullable
     columns on `registrations` (`waitlisted_at`, `offered_at`,
     `offer_expires_at`, `offer_ended_reason`) and an index; no data changes.
