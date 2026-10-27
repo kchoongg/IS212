@@ -23,9 +23,10 @@ import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { eventTabItemsFor } from "@/lib/eventTabs";
 import { eventCrumbs } from "@/lib/breadcrumbs";
-import { eventReference, formatDateTimeRange, orEmpty } from "@/lib/format";
+import { eventReference, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { SAFETY_HELD_STATUSES, backToPlanningWarning } from "@/lib/safetyResolution";
+import { DECISION_CLOSED_MESSAGE, acceptChanges, eventAllowsDecision } from "@/lib/equipmentSuggestion";
 import { EventGlance } from "../EventGlance";
 
 // S-16. "As an Event Coordinator, I want to record the equipment required for
@@ -43,6 +44,11 @@ import { EventGlance } from "../EventGlance";
 // want to see what's been recorded against the event they raised. Only the
 // owning Organiser, the assigned Coordinator (who manages it), and Technical
 // Support (AC6) can reach this screen.
+//
+// SPM-77: an alternative Technical Support suggested for a requirement shows on
+// it, for everyone who can see the requirement (AC3). The assigned Coordinator
+// accepts it - asked first, since it changes the requirement - or declines it
+// (AC5, AC6), while the event is in Planning. PATCH .../suggestion.
 
 interface EventSessionInfo {
   id: string;
@@ -82,6 +88,17 @@ interface EquipmentRequestRow {
   staffNotes: string | null;
   equipment: { id: string; name: string; category: string | null };
   session: EventSessionInfo | null;
+  /// SPM-77: the alternative waiting for the Coordinator's decision - at most one.
+  suggestions?: SuggestionInfo[];
+}
+
+interface SuggestionInfo {
+  id: string;
+  quantity: number;
+  note: string;
+  suggestedAt: string;
+  equipment: { id: string; name: string };
+  suggester: { fullName: string };
 }
 
 interface EquipmentItem {
@@ -154,6 +171,11 @@ export default function EventEquipmentPage() {
   const [pendingPlanning, setPendingPlanning] = useState<
     { kind: "add" } | { kind: "save"; row: EquipmentRequestRow } | null
   >(null);
+  /// SPM-77: the requirement whose suggestion "Accept this alternative?" is
+  /// asking about, the one being decided, and what the last decision did.
+  const [confirmAccept, setConfirmAccept] = useState<EquipmentRequestRow | null>(null);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
 
   /// The server says when a write began planning; reflect it without a reload.
   function notePlanningStarted(body: { planningStarted?: boolean }) {
@@ -417,6 +439,40 @@ export default function EventEquipmentPage() {
     }
   }
 
+  /// SPM-77: accept or decline the suggestion on a requirement, then re-read
+  /// the list - accepting can change the requirement or add one.
+  async function decide(row: EquipmentRequestRow, decision: "accept" | "decline") {
+    setDecidingId(row.id);
+    setDecisionNotice(null);
+    setRowError((current) => ({ ...current, [row.id]: "" }));
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/equipment/${row.id}/suggestion`, {
+        method: "PATCH",
+        body: JSON.stringify({ decision }),
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor(`/events/${eventId}/equipment`));
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setRowError((current) => ({ ...current, [row.id]: body?.error ?? "Could not record your decision." }));
+        return;
+      }
+      setDecisionNotice(
+        decision === "accept"
+          ? "Alternative accepted. Technical Support will reserve it."
+          : "Suggestion declined. The original requirement is unchanged."
+      );
+      await load();
+    } catch {
+      setRowError((current) => ({ ...current, [row.id]: "Could not reach the server." }));
+    } finally {
+      setDecidingId(null);
+      setConfirmAccept(null);
+    }
+  }
+
   /// Carries out the add or save the question was about, once answered.
   function runPending() {
     const pending = pendingPlanning;
@@ -477,7 +533,9 @@ export default function EventEquipmentPage() {
 
       {/* Main content + "Event at a glance" sidebar, matching the hub layout
           in design/mockups/OrganiserEventDetail.dc.html. */}
-      <div className="grid grid-cols-1 gap-5 md:grid-cols-[minmax(0,1fr)_320px] md:items-start">
+      {/* The app's sidebar takes ~270px beside this page, so the summary
+          column waits for xl; below that it sits under the list. */}
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-start">
         <div className="flex flex-col gap-4">
           {locked && (
             <Alert variant="info">
@@ -492,6 +550,8 @@ export default function EventEquipmentPage() {
               are being worked on.
             </Alert>
           )}
+
+          {decisionNotice && <Alert variant="success">{decisionNotice}</Alert>}
 
           {(confirmationReverted || safetyCheckClosed) && (
             <Alert
@@ -541,6 +601,7 @@ export default function EventEquipmentPage() {
                   {rows.map((row) => {
                     const draft = draftFor(row);
                     const dirty = isDirty(row);
+                    const suggestion = row.suggestions?.[0];
                     return (
                       <div key={row.id} className="p-4">
                         <div className="flex flex-wrap items-start justify-between gap-2">
@@ -578,6 +639,38 @@ export default function EventEquipmentPage() {
                           </p>
                         )}
 
+                        {suggestion && (
+                          <div className="mt-3 rounded-md border border-line bg-surface-2 p-3 text-sm">
+                            <p className="font-medium text-ink">
+                              Suggested alternative: {suggestion.quantity} × {suggestion.equipment.name}
+                            </p>
+                            <p className="mt-1 text-ink-2">Note: {suggestion.note}</p>
+                            <p className="mt-1 text-xs text-ink-3">
+                              Suggested by {suggestion.suggester.fullName}, {formatDateTime(suggestion.suggestedAt)}
+                            </p>
+                            {/* AC9: the decision is the assigned Coordinator's. */}
+                            {isCoordinator && !notPermitted && event && (
+                              eventAllowsDecision(event.status) ? (
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                  <Button size="sm" onClick={() => setConfirmAccept(row)} disabled={decidingId === row.id}>
+                                    Accept
+                                  </Button>
+                                  <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => void decide(row, "decline")}
+                                    disabled={decidingId === row.id}
+                                  >
+                                    Decline
+                                  </Button>
+                                </div>
+                              ) : (
+                                <p className="mt-2 text-xs text-ink-3">{DECISION_CLOSED_MESSAGE}</p>
+                              )
+                            )}
+                          </div>
+                        )}
+
                         {rowError[row.id] && (
                           <Alert variant="error" className="mt-3">
                             {rowError[row.id]}
@@ -590,10 +683,10 @@ export default function EventEquipmentPage() {
                               e.preventDefault();
                               void saveRow(row);
                             }}
-                            className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start"
+                            className="mt-3 flex flex-wrap items-start gap-3"
                             noValidate
                           >
-                            <Field label="Quantity" className="sm:w-28">
+                            <Field label="Quantity" className="w-28">
                               <Input
                                 type="number"
                                 min={1}
@@ -606,14 +699,14 @@ export default function EventEquipmentPage() {
                             <Field
                               label="Technical requirements"
                               hint="Anything our technical team should know — connections, positioning, timing."
-                              className="flex-1"
+                              className="min-w-[12rem] flex-1"
                             >
                               <Input
                                 value={draft.technicalRequirements}
                                 onChange={(e) => setDraft(row, { technicalRequirements: e.target.value })}
                               />
                             </Field>
-                            <div className="flex gap-2 sm:pt-7">
+                            <div className="flex gap-2 pt-7">
                               {dirty && (
                                 <Button
                                   type="submit"
@@ -638,12 +731,12 @@ export default function EventEquipmentPage() {
                           // Read-only viewer (Organiser, Technical Support): plain
                           // text, not a disabled input — there's nothing here to
                           // interact with, so it shouldn't look like a form.
-                          <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start">
-                            <div className="sm:w-28">
+                          <div className="mt-3 flex flex-wrap items-start gap-3">
+                            <div className="w-28">
                               <p className="text-sm font-medium text-ink">Quantity</p>
                               <p className="mt-1.5 text-ink">{row.quantityRequested}</p>
                             </div>
-                            <div className="flex-1">
+                            <div className="min-w-[12rem] flex-1">
                               <p className="text-sm font-medium text-ink">Technical requirements</p>
                               <p className="mt-1.5 text-ink">{orEmpty(row.technicalRequirements)}</p>
                             </div>
@@ -666,10 +759,10 @@ export default function EventEquipmentPage() {
                   e.preventDefault();
                   void addRow();
                 }}
-                className="flex flex-col gap-4 sm:flex-row sm:items-start"
+                className="flex flex-wrap items-start gap-4"
                 noValidate
               >
-                <Field label="Equipment" className="flex-1">
+                <Field label="Equipment" className="min-w-[14rem] flex-1">
                   <Select
                     placeholder={catalogue === null ? "Loading…" : "Choose an item"}
                     options={equipmentOptions}
@@ -682,7 +775,7 @@ export default function EventEquipmentPage() {
                     otherwise, the same "don't offer a choice that never
                     applies" rule the rest of this form already follows. */}
                 {event && event.sessions.length > 0 && (
-                  <Field label="Session" className="sm:w-56">
+                  <Field label="Session" className="w-56">
                     <Select
                       options={[
                         { value: "", label: "Whole event" },
@@ -713,7 +806,7 @@ export default function EventEquipmentPage() {
                     />
                   </Field>
                 )}
-                <Field label="Quantity" className="sm:w-28">
+                <Field label="Quantity" className="w-28">
                   <Input
                     type="number"
                     min={1}
@@ -728,7 +821,7 @@ export default function EventEquipmentPage() {
                 <Field
                   label="Technical requirements"
                   hint="Anything our technical team should know — connections, positioning, timing."
-                  className="flex-1"
+                  className="min-w-[14rem] flex-1"
                 >
                   <Input
                     value={newRow.technicalRequirements}
@@ -737,7 +830,7 @@ export default function EventEquipmentPage() {
                     }
                   />
                 </Field>
-                <div className="sm:pt-7">
+                <div className="pt-7">
                   <Button
                     type="submit"
                     variant="secondary"
@@ -783,6 +876,18 @@ export default function EventEquipmentPage() {
         )}
       </ConfirmDialog>
 
+      <ConfirmDialog
+        open={confirmAccept !== null}
+        title="Accept this alternative?"
+        confirmLabel="Accept"
+        confirmVariant="primary"
+        loading={decidingId !== null}
+        onConfirm={() => confirmAccept && void decide(confirmAccept, "accept")}
+        onCancel={() => setConfirmAccept(null)}
+      >
+        {confirmAccept?.suggestions?.[0] && acceptSummary(confirmAccept, confirmAccept.suggestions[0])}
+      </ConfirmDialog>
+
       <BeginPlanningDialog
         open={pendingPlanning !== null && willBeginPlanning}
         onConfirm={runPending}
@@ -801,4 +906,18 @@ export default function EventEquipmentPage() {
       </ConfirmDialog>
     </div>
   );
+}
+
+/// SPM-77 (AC5, AC8): what accepting will do to this requirement, by the same
+/// rule the route applies (acceptChanges).
+function acceptSummary(row: EquipmentRequestRow, suggestion: SuggestionInfo): string {
+  const alternative = `${suggestion.quantity} ${suggestion.equipment.name}`;
+  const plan = acceptChanges(
+    { status: row.status, quantityReserved: row.quantityReserved },
+    { equipmentId: suggestion.equipment.id, quantity: suggestion.quantity }
+  );
+  if (plan.add) {
+    return `The ${row.quantityReserved} ${row.equipment.name} already reserved stay reserved, and ${alternative} is added as its own item for Technical Support to reserve.`;
+  }
+  return `This requirement changes from ${row.quantityRequested} ${row.equipment.name} to ${alternative}, for Technical Support to reserve.`;
 }

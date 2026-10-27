@@ -59,6 +59,21 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       // until something actually creates an EventSession (SPM-25, schema
       // only so far).
       session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
+      // SPM-77 (AC3): the alternative Technical Support suggested that is
+      // waiting for the Coordinator's decision, if any (at most one).
+      suggestions: {
+        where: { status: "pending" },
+        orderBy: { suggestedAt: "desc" },
+        take: 1,
+        select: {
+          id: true,
+          quantity: true,
+          note: true,
+          suggestedAt: true,
+          equipment: { select: { id: true, name: true } },
+          suggester: { select: { fullName: true } },
+        },
+      },
     },
     orderBy: { requestedAt: "asc" },
   });

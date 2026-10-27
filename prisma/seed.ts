@@ -61,6 +61,7 @@ async function main() {
   // Reverse dependency order so foreign keys never block a delete.
   await prisma.notification.deleteMany();
   await prisma.registration.deleteMany();
+  await prisma.equipmentSuggestion.deleteMany();
   await prisma.equipmentRequest.deleteMany();
   await prisma.venueUnavailability.deleteMany();
   await prisma.venueBooking.deleteMany();
@@ -2301,6 +2302,29 @@ async function main() {
     spm69("spm69_confirmed", "SPM69 Confirmed Gala", "2028-07-11", 18, 4, "Budi Santoso", "confirmed"),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-77 QA fixtures (Suggest Alternative Equipment). The SAME events as
+  // scripts/seed-spm77.ts (`npm run fixtures:spm77`) - keep the two in step.
+  // Their equipment lines and suggestions are created further down
+  // (spm77Requests). Pushed after SPM-69, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm77 = (key: string, title: string, date: string, organiser: string, status = "planning"): EventSeed => ({
+    ...fixture(key, title, date, 9, 4, organiser, { status }),
+    purpose: "SPM-77 suggest alternative equipment test event",
+    category: "meeting",
+  });
+  eventData.push(
+    spm77("spm77_record", "SPM77 Ring Light Showcase", "2028-08-01", "James Koh"),
+    spm77("spm77_short", "SPM77 Stage Shortfall Talk", "2028-08-08", "Melissa Yap"),
+    spm77("spm77_rival", "SPM77 Stage Rival Fair", "2028-08-08", "Kelvin Loh"),
+    spm77("spm77_accept", "SPM77 Accept Gala", "2028-08-15", "Rachel Ng"),
+    spm77("spm77_partial", "SPM77 Partial Forum", "2028-08-22", "Evelyn Chen"),
+    spm77("spm77_decline", "SPM77 Decline Seminar", "2028-08-29", "Samuel Ong"),
+    spm77("spm77_keep", "SPM77 Keep Reserved Expo", "2028-09-05", "Faridah Aziz"),
+    spm77("spm77_confirmed", "SPM77 Confirmed Dinner", "2028-09-12", "Budi Santoso", "confirmed"),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -3187,6 +3211,59 @@ async function main() {
         requestedAt: day(ev.days - 27),
         reviewedBy: reserved ? users["kenji.sato@connectsphere.com"] : undefined,
         reviewedAt: reserved ? day(ev.days - 25) : undefined,
+      },
+    });
+  }
+
+  // SPM-77 fixtures, the same as scripts/seed-spm77.ts.
+  // [eventKey, equipment, requested, reserved|null, status, Technical Support notes,
+  //  pending suggestion: [equipment, quantity, note] | null]
+  const ringLightShort = "Only 2 ring lights are in stock.";
+  const spm77Requests: [string, string, number, number | null, string, string | null, [string, number, string] | null][] = [
+    ["spm77_record", "Ring Light", 4, null, "unavailable", ringLightShort, null],
+    ["spm77_short", "Ring Light", 3, null, "unavailable", ringLightShort, null],
+    ["spm77_rival", "Portable Stage", 4, 4, "reserved", null, null],
+    ["spm77_accept", "Ring Light", 4, null, "unavailable", ringLightShort,
+      ["Podium Light", 3, "Three podium lights light the stage as evenly."]],
+    ["spm77_partial", "Ring Light", 3, 2, "partially_fulfilled", null,
+      ["Podium Light", 1, "One podium light makes up the third ring light."]],
+    ["spm77_decline", "Ring Light", 4, null, "unavailable", ringLightShort,
+      ["Portable Stage", 2, "Raise the speakers instead of lighting them."]],
+    ["spm77_keep", "Ring Light", 3, 2, "partially_fulfilled", null, null],
+    ["spm77_keep", "Podium Light", 2, null, "requested", null, null],
+    ["spm77_confirmed", "Ring Light", 4, null, "unavailable", ringLightShort, null],
+    ["spm77_confirmed", "Podium Light", 6, null, "unavailable", "Only 4 podium lights are in stock.",
+      ["Portable Stage", 2, "Two stages for the head table instead."]],
+  ];
+  for (const [eventKey, eqName, requested, reserved, status, notes, suggestion] of spm77Requests) {
+    const ev = events[eventKey];
+    const reviewed = status !== "requested";
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: ev.id,
+        equipmentId: equip[eqName],
+        quantityRequested: requested,
+        quantityReserved: reserved ?? undefined,
+        staffNotes: notes ?? undefined,
+        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
+        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(ev.days - 27),
+        reviewedBy: reviewed ? users["vikram.nair@connectsphere.com"] : undefined,
+        reviewedAt: reviewed ? day(ev.days - 25) : undefined,
+        suggestions: suggestion
+          ? {
+              create: {
+                equipmentId: equip[suggestion[0]],
+                quantity: suggestion[1],
+                note: suggestion[2],
+                status: "pending",
+                suggestedBy: users["vikram.nair@connectsphere.com"],
+                suggestedAt: day(ev.days - 24),
+              },
+            }
+          : undefined,
       },
     });
   }

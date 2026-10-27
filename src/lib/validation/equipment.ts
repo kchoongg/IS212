@@ -79,6 +79,30 @@ export const releaseReservationSchema = z.object({
 });
 export type ReleaseReservationInput = z.infer<typeof releaseReservationSchema>;
 
+// ---- Suggesting an alternative (SPM-77) ----
+
+// The note's rules (required, 500 characters) and everything that depends on
+// the line - its status, the item, what is free - are in
+// src/lib/equipmentSuggestion.ts, shared with the screen.
+export const suggestAlternativeSchema = z.object({
+  equipmentId: z.string().uuid(),
+  quantity: z.number().int().positive(),
+  note: z.string(),
+});
+export type SuggestAlternativeInput = z.infer<typeof suggestAlternativeSchema>;
+
+// The availability check before recording it (AC2): query-string values.
+export const alternativeAvailabilityQuerySchema = z.object({
+  equipmentId: z.string().uuid(),
+  quantity: z.coerce.number().int().positive(),
+});
+
+// The Coordinator's answer to it.
+export const decideSuggestionSchema = z.object({
+  decision: z.enum(["accept", "decline"]),
+});
+export type DecideSuggestionInput = z.infer<typeof decideSuggestionSchema>;
+
 // ---- Recording units out of service (SPM-48 AC7 / SPM-55) ----
 
 // How many units of an item are unavailable, damaged or under maintenance - one

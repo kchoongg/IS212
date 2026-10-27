@@ -1106,6 +1106,8 @@ describe("PATCH /api/events/[id] - status change", () => {
         reviewReason: null,
         notRequired: false,
         equipment: { name: "Projector" },
+        // SPM-77: the alternative waiting for the Coordinator's decision, if any.
+        suggestions: [],
         ...overrides,
       });
 

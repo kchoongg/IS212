@@ -80,6 +80,10 @@ model User {
   bookingsNotRequired      VenueBooking[]     @relation("BookingNotRequiredBy")
   equipmentNotRequired     EquipmentRequest[] @relation("EquipmentNotRequiredBy")
   registrationsNotRequired Event[]            @relation("EventRegistrationNotRequiredBy")
+  /// Suggest Alternative Equipment (SPM-77): alternatives this user suggested
+  /// (Technical Support) or accepted / declined (the assigned Coordinator).
+  suggestionsMade          EquipmentSuggestion[] @relation("EquipmentSuggester")
+  suggestionsDecided       EquipmentSuggestion[] @relation("EquipmentSuggestionDecider")
 
   @@index([role])
   @@index([organisationId])
@@ -616,6 +620,8 @@ model Equipment {
 
   locationVenue Venue?             @relation("EquipmentLocation", fields: [locationVenueId], references: [id], onDelete: SetNull)
   requests      EquipmentRequest[]
+  /// SPM-77: suggestions that offer this item as the alternative.
+  suggestedIn   EquipmentSuggestion[]
 
   @@map("equipment")
 }
@@ -673,6 +679,8 @@ model EquipmentRequest {
   notRequiredByUser User? @relation("EquipmentNotRequiredBy", fields: [notRequiredBy], references: [id], onDelete: SetNull)
   requester User          @relation("EquipmentRequester", fields: [requestedBy], references: [id])
   reviewer  User?         @relation("EquipmentReviewer", fields: [reviewedBy], references: [id])
+  /// SPM-77: alternatives Technical Support suggested for this requirement.
+  suggestions EquipmentSuggestion[]
 
   // Uniqueness is enforced by two Postgres PARTIAL unique indexes, created
   // directly in migration 20260919100000_add_partial_unique_equipment_request_session
@@ -695,6 +703,41 @@ model EquipmentRequest {
   /// The Coordinator's review list (SPM-68): flagged requests, most recent first.
   @@index([needsReview, flaggedAt])
   @@map("equipment_requests")
+}
+
+/// Suggest Alternative Equipment (SPM-77). Technical Support's suggestion of
+/// another item for a requirement they cannot provide, or can provide only in
+/// part. A suggestion reserves nothing and changes nothing by itself (AC7):
+/// the requirement changes only when the assigned Coordinator accepts it
+/// (src/lib/equipmentSuggestion.ts acceptChanges). Kept after the decision as
+/// the record of what was offered.
+///
+/// At most one pending suggestion per requirement, enforced by a partial
+/// unique index created in migration 20261027120000_add_equipment_suggestions
+/// (not expressible here - see EquipmentRequest's note on partial indexes).
+model EquipmentSuggestion {
+  id          String @id @default(uuid())
+  requestId   String @map("request_id")
+  /// The alternative item.
+  equipmentId String @map("equipment_id")
+  quantity    Int
+  /// Why this alternative, for the Coordinator. Required, up to 500 characters.
+  note        String
+
+  /// pending | accepted | declined
+  status      String    @default("pending")
+  suggestedBy String    @map("suggested_by")
+  suggestedAt DateTime  @default(now()) @map("suggested_at")
+  decidedBy   String?   @map("decided_by")
+  decidedAt   DateTime? @map("decided_at")
+
+  request   EquipmentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  equipment Equipment        @relation(fields: [equipmentId], references: [id])
+  suggester User             @relation("EquipmentSuggester", fields: [suggestedBy], references: [id])
+  decider   User?            @relation("EquipmentSuggestionDecider", fields: [decidedBy], references: [id], onDelete: SetNull)
+
+  @@index([requestId, status])
+  @@map("equipment_suggestions")
 }
 
 // ---------------------------------------------------------------------------

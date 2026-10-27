@@ -70,6 +70,12 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
         notRequiredAt: true,
         notRequiredByUser: BY,
         equipment: { select: { name: true } },
+        // SPM-77: an alternative still waiting for the Coordinator's decision.
+        suggestions: {
+          where: { status: "pending" },
+          take: 1,
+          select: { equipment: { select: { name: true } } },
+        },
       },
     }),
     // SPM-33 AC6: the latest Operational Safety Check (SPM-86). Earlier ones
@@ -107,6 +113,7 @@ export async function loadConfirmationInput(event: EventArrangementFields): Prom
       notRequired: r.notRequired,
       notRequiredBy: r.notRequiredByUser?.fullName ?? null,
       notRequiredAt: r.notRequiredAt,
+      pendingSuggestion: r.suggestions[0]?.equipment.name ?? null,
     })),
     registration: {
       enabled: event.registrationEnabled,

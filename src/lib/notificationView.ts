@@ -3,6 +3,7 @@
 // count all read the same rules. Writing notifications is notifications.ts.
 
 import { RESERVATION_NOTIFICATION_TYPES } from "@/lib/equipmentReservation";
+import { SUGGESTION_NOTIFICATION_TYPE } from "@/lib/equipmentSuggestion";
 
 /// Notification types about a venue booking that needs the coordinator's
 /// review (SPM-39 venue changes, SPM-45 venue unavailability). The arrangement
@@ -17,12 +18,14 @@ const VENUE_REVIEW_TYPES = [
 ];
 
 /// Equipment that needs review (SPM-55 equipment out of service), or whose
-/// reservation Technical Support released or changed (SPM-69). The
-/// arrangement is on the event's Equipment tab.
+/// reservation Technical Support released or changed (SPM-69), or for which
+/// they suggested an alternative (SPM-77). The arrangement is on the event's
+/// Equipment tab, where the Coordinator decides on a suggestion.
 const EQUIPMENT_REVIEW_TYPES = [
   "equipment_unavailable",
   RESERVATION_NOTIFICATION_TYPES.released,
   RESERVATION_NOTIFICATION_TYPES.adjusted,
+  SUGGESTION_NOTIFICATION_TYPE,
 ];
 
 /// Where selecting a notification goes (AC5): the arrangement it is about when

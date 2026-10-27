@@ -23,6 +23,10 @@ describe("notificationHref", () => {
     }
   );
 
+  it("[SPM-77][AC4] opens the event's Equipment tab for a suggested alternative - it is decided on that tab", () => {
+    expect(notificationHref("equipment_alternative_suggested", "EVT-000071")).toBe("/events/EVT-000071/equipment");
+  });
+
   it.each(["coordinator_assigned", "coordinator_unassigned", "event_submitted", "safety_check_submitted"])(
     "[SPM-71][AC5] opens the event's Overview for %s",
     (type) => {

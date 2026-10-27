@@ -5,6 +5,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { HOLDS_STOCK_WHERE } from "@/lib/equipmentAvailability";
+import type { AvailabilityResult } from "@/lib/equipmentAvailability";
 import {
   assembleLines,
   type AvailabilityLine,
@@ -54,6 +55,53 @@ export interface LineReview {
   staffNotes: string | null;
   reviewedByName: string | null;
   reviewedAt: Date | null;
+  /// SPM-77 (AC3): the alternative Technical Support suggested that is waiting
+  /// for the Coordinator's decision, if any.
+  pendingSuggestion: PendingSuggestion | null;
+}
+
+export interface PendingSuggestion {
+  id: string;
+  equipmentName: string;
+  quantity: number;
+  note: string;
+  suggestedByName: string;
+  suggestedAt: Date;
+}
+
+/// The fields of another request that holds stock, as checked against a line.
+const OTHER_REQUEST_SELECT = {
+  id: true,
+  equipmentId: true,
+  status: true,
+  quantityReserved: true,
+  sessionId: true,
+  session: { select: { label: true, startsAt: true, endsAt: true } },
+  event: {
+    select: {
+      title: true,
+      status: true,
+      startsAt: true,
+      endsAt: true,
+      venueBookings: { select: { venueId: true, sessionId: true, status: true } },
+    },
+  },
+} satisfies Prisma.EquipmentRequestSelect;
+
+type OtherRequestRow = Prisma.EquipmentRequestGetPayload<{ select: typeof OTHER_REQUEST_SELECT }>;
+
+function toOtherRequest(o: OtherRequestRow): OtherRequest {
+  return {
+    requestId: o.id,
+    equipmentId: o.equipmentId,
+    eventTitle: heldByLabel(o.event.title, o.session?.label ?? null),
+    requestStatus: o.status,
+    quantityReserved: o.quantityReserved,
+    eventStatus: o.event.status,
+    startsAt: o.session?.startsAt ?? o.event.startsAt,
+    endsAt: o.session?.endsAt ?? o.event.endsAt,
+    venueId: venueFor(o.event.venueBookings, o.sessionId),
+  };
 }
 
 export interface ReviewedEventAvailability extends EventAvailability {
@@ -84,6 +132,19 @@ export async function loadEventAvailability(eventId: string): Promise<ReviewedEv
           staffNotes: true,
           reviewedAt: true,
           reviewer: { select: { fullName: true } },
+          // SPM-77: at most one is pending (a partial unique index).
+          suggestions: {
+            where: { status: "pending" },
+            take: 1,
+            select: {
+              id: true,
+              quantity: true,
+              note: true,
+              suggestedAt: true,
+              equipment: { select: { name: true } },
+              suggester: { select: { fullName: true } },
+            },
+          },
           sessionId: true,
           session: { select: { label: true, startsAt: true, endsAt: true } },
           equipment: {
@@ -122,49 +183,36 @@ export async function loadEventAvailability(eventId: string): Promise<ReviewedEv
           equipmentId: { in: equipmentIds },
           ...HOLDS_STOCK_WHERE,
         },
-        select: {
-          id: true,
-          equipmentId: true,
-          status: true,
-          quantityReserved: true,
-          sessionId: true,
-          session: { select: { label: true, startsAt: true, endsAt: true } },
-          event: {
-            select: {
-              title: true,
-              status: true,
-              startsAt: true,
-              endsAt: true,
-              venueBookings: { select: { venueId: true, sessionId: true, status: true } },
-            },
-          },
-        },
+        select: OTHER_REQUEST_SELECT,
       })
     : [];
 
-  const others: OtherRequest[] = otherRows.map((o) => ({
-    requestId: o.id,
-    equipmentId: o.equipmentId,
-    eventTitle: heldByLabel(o.event.title, o.session?.label ?? null),
-    requestStatus: o.status,
-    quantityReserved: o.quantityReserved,
-    eventStatus: o.event.status,
-    startsAt: o.session?.startsAt ?? o.event.startsAt,
-    endsAt: o.session?.endsAt ?? o.event.endsAt,
-    venueId: venueFor(o.event.venueBookings, o.sessionId),
-  }));
+  const others = otherRows.map(toOtherRequest);
 
   const availability = assembleLines(requested, others);
   const reviews = new Map<string, LineReview>(
-    event.equipmentRequests.map((r) => [
-      r.id,
-      {
-        technicalRequirements: r.technicalRequirements,
-        staffNotes: r.staffNotes,
-        reviewedByName: r.reviewer?.fullName ?? null,
-        reviewedAt: r.reviewedAt,
-      },
-    ])
+    event.equipmentRequests.map((r) => {
+      const pending = r.suggestions[0];
+      return [
+        r.id,
+        {
+          technicalRequirements: r.technicalRequirements,
+          staffNotes: r.staffNotes,
+          reviewedByName: r.reviewer?.fullName ?? null,
+          reviewedAt: r.reviewedAt,
+          pendingSuggestion: pending
+            ? {
+                id: pending.id,
+                equipmentName: pending.equipment.name,
+                quantity: pending.quantity,
+                note: pending.note,
+                suggestedByName: pending.suggester.fullName,
+                suggestedAt: pending.suggestedAt,
+              }
+            : null,
+        },
+      ];
+    })
   );
   return {
     ...availability,
@@ -231,17 +279,32 @@ export async function loadSingleLineAvailability(db: Db, requestId: string): Pro
       id: { not: request.id },
       ...HOLDS_STOCK_WHERE,
     },
+    select: OTHER_REQUEST_SELECT,
+  });
+  const others = otherRows.map(toOtherRequest);
+
+  return assembleLines([line], others).lines[0];
+}
+
+/// SPM-77 (AC2): whether `quantity` of another item - a suggested alternative
+/// - would be free for this requirement's dates, at its venue, by the same
+/// rules as the line itself. Read with `db`, so the suggestion route can
+/// re-check inside its transaction. Null when the requirement does not exist;
+/// `alternative` null when the item is not in the catalogue.
+export async function loadAlternativeAvailability(
+  db: Db,
+  requestId: string,
+  equipmentId: string,
+  quantity: number
+): Promise<AlternativeAvailability | null> {
+  const request = await db.equipmentRequest.findUnique({
+    where: { id: requestId },
     select: {
       id: true,
-      equipmentId: true,
-      status: true,
-      quantityReserved: true,
       sessionId: true,
       session: { select: { label: true, startsAt: true, endsAt: true } },
       event: {
         select: {
-          title: true,
-          status: true,
           startsAt: true,
           endsAt: true,
           venueBookings: { select: { venueId: true, sessionId: true, status: true } },
@@ -249,17 +312,48 @@ export async function loadSingleLineAvailability(db: Db, requestId: string): Pro
       },
     },
   });
-  const others: OtherRequest[] = otherRows.map((o) => ({
-    requestId: o.id,
-    equipmentId: o.equipmentId,
-    eventTitle: heldByLabel(o.event.title, o.session?.label ?? null),
-    requestStatus: o.status,
-    quantityReserved: o.quantityReserved,
-    eventStatus: o.event.status,
-    startsAt: o.session?.startsAt ?? o.event.startsAt,
-    endsAt: o.session?.endsAt ?? o.event.endsAt,
-    venueId: venueFor(o.event.venueBookings, o.sessionId),
-  }));
+  if (!request) return null;
 
-  return assembleLines([line], others).lines[0];
+  const alternative = await db.equipment.findUnique({
+    where: { id: equipmentId },
+    select: {
+      id: true,
+      name: true,
+      totalQuantity: true,
+      quantityInMaintenance: true,
+      isActive: true,
+      locationVenueId: true,
+    },
+  });
+  if (!alternative) return { alternative: null, result: null };
+
+  // The alternative is not requested by this line, so nothing of it is the
+  // line's own: every hold on it counts, this event's other lines included.
+  const otherRows = await db.equipmentRequest.findMany({
+    where: { equipmentId: alternative.id, ...HOLDS_STOCK_WHERE },
+    select: OTHER_REQUEST_SELECT,
+  });
+
+  const line: RequestedLine = {
+    requestId: request.id,
+    quantityRequested: quantity,
+    requestStatus: "requested",
+    quantityReserved: null,
+    equipment: alternative,
+    sessionId: request.sessionId,
+    sessionLabel: request.session?.label ?? null,
+    startsAt: request.session?.startsAt ?? request.event.startsAt,
+    endsAt: request.session?.endsAt ?? request.event.endsAt,
+    venueId: venueFor(request.event.venueBookings, request.sessionId),
+  };
+  return {
+    alternative: { id: alternative.id, name: alternative.name, isActive: alternative.isActive },
+    result: assembleLines([line], otherRows.map(toOtherRequest)).lines[0].result,
+  };
+}
+
+export interface AlternativeAvailability {
+  alternative: { id: string; name: string; isActive: boolean } | null;
+  /// NULL when the item is unknown or the event has no dates yet.
+  result: AvailabilityResult | null;
 }

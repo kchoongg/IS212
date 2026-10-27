@@ -41,6 +41,8 @@ interface Arrangement {
   status: string | null;
   state: string;
   missing: string;
+  /// SPM-77: a suggested alternative waits for the Coordinator's decision.
+  awaitingDecision?: boolean;
   /// SPM-90: what a venue booking's space is for; null or absent otherwise.
   purpose?: string | null;
   /// Why it is flagged for review, in words. "" when it is not flagged.
@@ -461,6 +463,17 @@ export default function EventReadinessPage() {
                                     event&apos;s requirements.
                                   </p>
                                 </div>
+                              )}
+                              {/* SPM-77: decided where the dialog says what accepting does. */}
+                              {arrangement.awaitingDecision && (
+                                <p className="mt-1 text-sm">
+                                  <Link
+                                    href={`/events/${eventId}/equipment`}
+                                    className="font-medium text-ink underline underline-offset-2"
+                                  >
+                                    Decide on the Equipment tab
+                                  </Link>
+                                </p>
                               )}
                               {reviewHref && (
                                 <p className="mt-1 text-sm">

@@ -1054,6 +1054,44 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-27 — Kristen (SPM-77, Suggest Alternative Equipment)
+- **Technical Support can suggest an alternative** for a line marked Cannot be
+  provided or Partially fulfilled: another catalogue item, a quantity and a
+  required note (`POST /api/events/[id]/equipment/[requestId]/suggestion`).
+  The form shows the item's availability for the event's dates first
+  (`GET .../suggestion/availability`, `loadAlternativeAvailability()`), and an
+  alternative that falls short cannot be recorded. One suggestion waits per
+  line at a time. Recording one reserves nothing and changes nothing on the
+  line (AC7). The assigned Coordinator is notified
+  (`equipment_alternative_suggested`, linking to the Equipment tab).
+- **The assigned Coordinator accepts or declines it** on the Equipment tab
+  (`PATCH .../suggestion`). Accepting replaces a Cannot-be-provided line with
+  the alternative, back to Requested for Technical Support to reserve; on a
+  partly fulfilled line it keeps what is reserved and adds the alternative as
+  its own line (AC8, team decision). Declining leaves the line as it was.
+  Recording, accepting and declining happen in Planning only. Rules in
+  `src/lib/equipmentSuggestion.ts`.
+- **A waiting suggestion keeps the event in Planning:** "Submit for safety
+  check" is refused, naming the item and the alternative, until the
+  Coordinator accepts or declines it (`checkSafetySubmission()`), so a
+  suggestion is never stranded outside the window it can be decided in.
+  The Readiness tab shows the same item as Outstanding ("… has a suggested
+  alternative (…) waiting for your decision"), with a "Decide on the
+  Equipment tab" link: the rule is in `arrangementsFor()`, which the
+  safety-check refusal and Confirm read too. It cannot be marked as not
+  required while it waits, and one already marked so shows as Outstanding
+  until the suggestion is decided.
+  Technical Support is not notified of the decision, as they are not notified
+  of any other change to a requirement.
+- New table `equipment_suggestions` (`EquipmentSuggestion`), with a partial
+  unique index allowing one pending suggestion per line. Migration:
+  `20261027120000_add_equipment_suggestions`.
+- Tests written first: `equipmentSuggestion.test.ts`,
+  `equipment-suggestion.test.ts`, and additions to the equipment route,
+  availability, notification and equipment page tests. Manual cases:
+  `docs/test-cases/SPM-77_Test_Cases.xlsx` (10), fixtures
+  `npm run fixtures:spm77`.
+
 ### 2026-10-26 — Kristen (SPM-69, release reason and reopening a released line)
 - **Releasing needs a reason** (`DELETE .../reservation` with `{ reason }`,
   required, up to 500 characters - `checkReleaseReason()`). It is saved as

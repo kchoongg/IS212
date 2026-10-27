@@ -66,14 +66,31 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       }),
       prisma.equipmentRequest.findMany({
         where: { eventId: event.id },
-        select: { sessionId: true, status: true, needsReview: true, reviewReason: true, notRequired: true, equipment: { select: { name: true } } },
+        select: {
+          sessionId: true,
+          status: true,
+          needsReview: true,
+          reviewReason: true,
+          notRequired: true,
+          equipment: { select: { name: true } },
+          // SPM-77: an alternative still waiting for the Coordinator's decision.
+          suggestions: {
+            where: { status: "pending" },
+            take: 1,
+            select: { equipment: { select: { name: true } } },
+          },
+        },
       }),
     ]);
 
     const readiness = checkSafetySubmission({
       sessions,
       bookings: bookings.map((b) => ({ ...b, venueName: b.venue.name })),
-      equipment: equipment.map((e) => ({ ...e, equipmentName: e.equipment.name })),
+      equipment: equipment.map((e) => ({
+        ...e,
+        equipmentName: e.equipment.name,
+        pendingSuggestion: e.suggestions[0]?.equipment.name ?? null,
+      })),
     });
     if (!readiness.ok) {
       return NextResponse.json({ error: readiness.error, outstanding: readiness.outstanding }, { status: 400 });

@@ -83,6 +83,8 @@ describe("GET /api/events/[id]/equipment/availability", () => {
       sessionId: null,
       session: null,
       equipment: projector(),
+      // SPM-77: the alternative waiting for a decision, if any.
+      suggestions: [],
       ...overrides,
     };
   }
@@ -169,6 +171,56 @@ describe("GET /api/events/[id]/equipment/availability", () => {
       reviewedByName: "Tessa Lim",
       reviewedAt: "2027-02-01T02:00:00.000Z",
     });
+  });
+
+  it("[SPM-77][AC3] shows Technical Support the alternative a line is waiting on a decision about", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(
+      eventRow({
+        equipmentRequests: [
+          line({
+            status: "unavailable",
+            suggestions: [
+              {
+                id: "suggestion-id",
+                quantity: 2,
+                note: "Two LED screens instead.",
+                suggestedAt: new Date("2027-02-02T02:00:00.000Z"),
+                equipment: { id: "screen-id", name: "LED Screen" },
+                suggester: { fullName: "Tessa Lim" },
+              },
+            ],
+          }),
+        ],
+      })
+    );
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+
+    const body = await (await check(token)).json();
+
+    expect(body.lines[0].pendingSuggestion).toEqual({
+      id: "suggestion-id",
+      equipmentName: "LED Screen",
+      quantity: 2,
+      note: "Two LED screens instead.",
+      suggestedByName: "Tessa Lim",
+      suggestedAt: "2027-02-02T02:00:00.000Z",
+    });
+    const read = db.event.findUnique.mock.calls.map(([args]) => args).find((args) => args.select?.equipmentRequests);
+    expect(read.select.equipmentRequests.select.suggestions).toMatchObject({
+      where: { status: "pending" },
+      take: 1,
+    });
+  });
+
+  it("[SPM-77][AC3] shows no suggestion on a line that has none waiting", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(eventRow());
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+
+    const body = await (await check(token)).json();
+
+    expect(body.lines[0].pendingSuggestion).toBeNull();
   });
 
   it("[SPM-50][AC1][AC4] gives no reviewer for a line nobody has reviewed yet", async () => {

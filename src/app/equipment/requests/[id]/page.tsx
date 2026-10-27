@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   Alert,
@@ -32,6 +32,7 @@ import {
   eventAllowsFulfilmentUpdate,
   fulfilmentOptionsFor,
 } from "@/lib/equipmentFulfilment";
+import { canSuggestFor, checkSuggestionNote, suggestedQuantityFor } from "@/lib/equipmentSuggestion";
 import { availabilityStatusKey, statusLabel } from "@/lib/statuses";
 
 // S-25 (detail). SPM-48: for each equipment line an event has requested, is
@@ -53,6 +54,13 @@ import { availabilityStatusKey, statusLabel } from "@/lib/statuses";
 // changed - "Adjust" sets a new quantity, "Release" frees all of it after
 // asking first. PATCH / DELETE .../reservation; the rules are in
 // src/lib/equipmentReservation.ts, shared with the route.
+//
+// SPM-77 (suggest an alternative): a line that cannot be provided, or only in
+// part, can get a suggested alternative - "Suggest alternative" opens a form
+// that shows the alternative's availability for the event's dates before it is
+// recorded (AC2). POST .../suggestion; the rules are in
+// src/lib/equipmentSuggestion.ts. The line then shows the suggestion until the
+// Coordinator decides on it.
 
 interface EventInfo {
   sequenceNumber: number;
@@ -94,6 +102,25 @@ interface Line {
   staffNotes: string | null;
   reviewedByName: string | null;
   reviewedAt: string | null;
+  /// SPM-77: the item this line asks for, and the alternative waiting for the
+  /// Coordinator's decision.
+  equipmentId: string;
+  pendingSuggestion?: PendingSuggestion | null;
+}
+
+interface PendingSuggestion {
+  id: string;
+  equipmentName: string;
+  quantity: number;
+  note: string;
+  suggestedByName: string;
+  suggestedAt: string;
+}
+
+interface CatalogueItem {
+  id: string;
+  name: string;
+  category: string | null;
 }
 
 interface UpdateDraft {
@@ -157,6 +184,10 @@ export default function EquipmentRequestDetailPage() {
   // Why it is being released - required, and sent to the Coordinator.
   const [releaseReason, setReleaseReason] = useState("");
   const [releaseError, setReleaseError] = useState<string | null>(null);
+  // SPM-77: the one line whose Suggest alternative form is open; the form
+  // keeps its own draft. The confirmation shows on the line after the reload.
+  const [suggestingId, setSuggestingId] = useState<string | null>(null);
+  const [suggestNotices, setSuggestNotices] = useState<Record<string, string>>({});
 
   const path = `/equipment/requests/${eventId}`;
 
@@ -489,6 +520,28 @@ export default function EquipmentRequestDetailPage() {
                   }}
                   onSaveAdjust={() => saveAdjust(line)}
                   onRelease={() => startRelease(line)}
+                  canSuggest={isTechSupport && reservingOpen}
+                  suggestNotice={suggestNotices[line.requestId]}
+                  onStartSuggest={() => {
+                    setSuggestingId(line.requestId);
+                    setSuggestNotices((current) => ({ ...current, [line.requestId]: "" }));
+                  }}
+                  suggestForm={
+                    suggestingId === line.requestId ? (
+                      <SuggestAlternativeForm
+                        eventId={eventId}
+                        line={line}
+                        requestedIds={lines.map((l) => l.equipmentId)}
+                        onCancel={() => setSuggestingId(null)}
+                        onSignedOut={() => router.push(loginUrlFor(path))}
+                        onSaved={async () => {
+                          setSuggestingId(null);
+                          setSuggestNotices((current) => ({ ...current, [line.requestId]: "Suggestion sent to the Coordinator." }));
+                          await load();
+                        }}
+                      />
+                    ) : null
+                  }
                 />
               ))}
             </ul>
@@ -570,6 +623,12 @@ interface LineRowProps {
   onCancelAdjust: () => void;
   onSaveAdjust: () => void;
   onRelease: () => void;
+  /// SPM-77: Technical Support may suggest alternatives on this event now.
+  canSuggest: boolean;
+  suggestNotice?: string;
+  onStartSuggest: () => void;
+  /// The open Suggest alternative form for this line; null while closed.
+  suggestForm: ReactNode;
 }
 
 function LineRow({
@@ -596,6 +655,10 @@ function LineRow({
   onCancelAdjust,
   onSaveAdjust,
   onRelease,
+  canSuggest,
+  suggestNotice,
+  onStartSuggest,
+  suggestForm,
 }: Readonly<LineRowProps>) {
   const { result } = line;
   // SPM-69: only a line that holds stock has a reservation to change.
@@ -609,6 +672,7 @@ function LineRow({
   // race, a closed event) goes above the panel.
   const notesError = updateError?.field === "staffNotes" ? updateError.message : null;
   const panelError = updateError && updateError.field !== "staffNotes" ? updateError.message : null;
+  const pending = line.pendingSuggestion ?? null;
 
   return (
     <li className="flex flex-wrap items-start justify-between gap-4 px-4 py-4">
@@ -667,6 +731,21 @@ function LineRow({
           </p>
         )}
         {updateNotice && <p className="text-xs text-tone-success-fg">{updateNotice}</p>}
+
+        {/* SPM-77 (AC3): recorded, and waiting for the Coordinator. */}
+        {pending && (
+          <div className="mt-2 max-w-xl rounded-md border border-line bg-surface-2 px-3 py-2 text-xs text-ink-2">
+            <p className="font-medium text-ink">
+              {`Suggested alternative: ${pending.quantity} × ${pending.equipmentName} — waiting for the Coordinator's decision.`}
+            </p>
+            <p>Note: {pending.note}</p>
+            <p className="text-ink-3">
+              Suggested by {pending.suggestedByName}, {formatDateTime(pending.suggestedAt)}
+            </p>
+          </div>
+        )}
+        {suggestNotice && <p className="text-xs text-tone-success-fg">{suggestNotice}</p>}
+        {suggestForm}
 
         {draft && (
           <form
@@ -788,6 +867,11 @@ function LineRow({
               </Button>
             </>
           )}
+          {canSuggest && canSuggestFor(line.requestStatus) && !pending && !suggestForm && (
+            <Button variant="secondary" size="sm" onClick={onStartSuggest}>
+              Suggest alternative
+            </Button>
+          )}
           {canReserve && canOfferReserve(line) && (
             <Button variant="secondary" size="sm" onClick={onReserve} disabled={reserving}>
               {reserving ? "Reserving…" : "Reserve"}
@@ -796,6 +880,205 @@ function LineRow({
         </div>
       </div>
     </li>
+  );
+}
+
+interface SuggestAlternativeFormProps {
+  eventId: string;
+  line: Line;
+  /// Every item the event already requests - none of them can be suggested.
+  requestedIds: string[];
+  onCancel: () => void;
+  onSaved: () => Promise<void>;
+  onSignedOut: () => void;
+}
+
+/// What the alternative's availability check said, for the item and quantity
+/// it was asked about ("<equipmentId>:<quantity>").
+interface AlternativeCheck {
+  key: string;
+  result: AvailabilityResult | null;
+  failed?: boolean;
+}
+
+interface SuggestErrors {
+  equipmentId?: string;
+  quantity?: string;
+  note?: string;
+  form?: string;
+}
+
+/// SPM-77: the form Technical Support suggests an alternative with (AC1). The
+/// catalogue is read when it opens, and the chosen item's availability for the
+/// event's dates is shown before anything is recorded (AC2).
+function SuggestAlternativeForm({
+  eventId,
+  line,
+  requestedIds,
+  onCancel,
+  onSaved,
+  onSignedOut,
+}: Readonly<SuggestAlternativeFormProps>) {
+  const [catalogue, setCatalogue] = useState<CatalogueItem[] | null>(null);
+  const [catalogueError, setCatalogueError] = useState<string | null>(null);
+  const [equipmentId, setEquipmentId] = useState("");
+  const [quantity, setQuantity] = useState(String(suggestedQuantityFor(line)));
+  const [note, setNote] = useState("");
+  const [check, setCheck] = useState<AlternativeCheck | null>(null);
+  const [errors, setErrors] = useState<SuggestErrors>({});
+  const [saving, setSaving] = useState(false);
+
+  const typed = quantity.trim();
+  const quantityValid = /^\d+$/.test(typed) && Number(typed) >= 1;
+  const checkKey = equipmentId && quantityValid ? `${equipmentId}:${Number(typed)}` : null;
+  // An answer about an earlier choice says nothing about this one.
+  const currentCheck = check?.key === checkKey ? check : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadCatalogue() {
+      try {
+        const res = await authedFetch("/api/equipment");
+        if (!res.ok) throw new Error("catalogue");
+        const items: CatalogueItem[] = await res.json();
+        if (!cancelled) setCatalogue(items);
+      } catch {
+        if (!cancelled) setCatalogueError("Could not load the equipment catalogue.");
+      }
+    }
+    void loadCatalogue();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!checkKey) return;
+    let cancelled = false;
+    async function checkAvailability(key: string) {
+      const [item, count] = key.split(":");
+      try {
+        const res = await authedFetch(
+          `/api/events/${eventId}/equipment/${line.requestId}/suggestion/availability?equipmentId=${encodeURIComponent(item)}&quantity=${count}`
+        );
+        if (!res.ok) throw new Error("availability");
+        const body = await res.json();
+        if (!cancelled) setCheck({ key, result: body.result });
+      } catch {
+        if (!cancelled) setCheck({ key, result: null, failed: true });
+      }
+    }
+    void checkAvailability(checkKey);
+    return () => {
+      cancelled = true;
+    };
+  }, [checkKey, eventId, line.requestId]);
+
+  const options = (catalogue ?? [])
+    .filter((item) => !requestedIds.includes(item.id))
+    .map((item) => ({ value: item.id, label: item.category ? `${item.name} — ${item.category}` : item.name }));
+  const short = currentCheck?.result ? currentCheck.result.available < Number(typed) : false;
+
+  async function save() {
+    const found: SuggestErrors = {};
+    if (!equipmentId) found.equipmentId = "Choose an alternative item.";
+    if (!quantityValid) found.quantity = "Enter a whole number of at least 1.";
+    const noteRefusal = checkSuggestionNote(note);
+    if (noteRefusal) found.note = noteRefusal;
+    setErrors(found);
+    // Falling short is already said under the quantity; the route refuses it too.
+    if (Object.keys(found).length > 0 || short) return;
+
+    setSaving(true);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/equipment/${line.requestId}/suggestion`, {
+        method: "POST",
+        body: JSON.stringify({ equipmentId, quantity: Number(typed), note: note.trim() }),
+      });
+      if (res.status === 401) {
+        onSignedOut();
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setErrors({ form: body?.error ?? "Could not record this suggestion." });
+        return;
+      }
+      await onSaved();
+    } catch {
+      setErrors({ form: "Could not reach the server." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      aria-label="Suggest alternative"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void save();
+      }}
+      className="mt-2 flex max-w-xl flex-col gap-3 rounded-md border border-line bg-surface-2 p-3"
+      noValidate
+    >
+      {errors.form && <Alert variant="error">{errors.form}</Alert>}
+      {catalogueError && <Alert variant="error">{catalogueError}</Alert>}
+      <Field label="Alternative item" required error={errors.equipmentId}>
+        <Select
+          placeholder="Choose an item"
+          options={options}
+          value={equipmentId}
+          disabled={catalogue === null}
+          onChange={(e) => setEquipmentId(e.target.value)}
+        />
+      </Field>
+      <Field label="Quantity" required hint="Starts from what this line is still missing." error={errors.quantity}>
+        <Input
+          type="number"
+          min={1}
+          step={1}
+          inputMode="numeric"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+        />
+      </Field>
+      {checkKey && <AlternativeAvailabilityNote check={currentCheck} quantity={Number(typed)} />}
+      <Field
+        label="Note for the Coordinator"
+        required
+        hint="Why this alternative would meet the requirement."
+        error={errors.note}
+      >
+        <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
+      </Field>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" loading={saving} loadingText="Recording…">
+          Record suggestion
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/// AC2: whether the alternative is free for the event's dates, said before it
+/// is recorded.
+function AlternativeAvailabilityNote({ check, quantity }: Readonly<{ check: AlternativeCheck | null; quantity: number }>) {
+  if (!check) return <p className="text-xs text-ink-3">Checking availability…</p>;
+  if (check.failed) return <p className="text-xs text-tone-danger-fg">Could not check availability.</p>;
+  if (!check.result) return <p className="text-xs text-ink-3">Cannot be checked yet — the event has no dates.</p>;
+  if (check.result.available < quantity) {
+    return (
+      <p className="text-xs text-tone-warning-fg">Only {check.result.available} available for this event&apos;s dates.</p>
+    );
+  }
+  return (
+    <p className="text-xs text-tone-success-fg">
+      {check.result.available} available for these dates — enough for this suggestion.
+    </p>
   );
 }
 
