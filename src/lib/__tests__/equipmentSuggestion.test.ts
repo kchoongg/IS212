@@ -52,6 +52,14 @@ describe("suggestedQuantityFor", () => {
   it("[SPM-77][AC1] starts from what is still missing on a partly fulfilled line", () => {
     expect(suggestedQuantityFor({ requestStatus: "partially_fulfilled", quantityRequested: 4, quantityReserved: 3 })).toBe(1);
   });
+
+  it("[SPM-77][AC1] starts from the whole quantity on a partly fulfilled line with no quantity recorded", () => {
+    expect(suggestedQuantityFor({ requestStatus: "partially_fulfilled", quantityRequested: 4, quantityReserved: null })).toBe(4);
+  });
+
+  it("[SPM-77][AC1] never starts below 1, even if more is reserved than was requested", () => {
+    expect(suggestedQuantityFor({ requestStatus: "partially_fulfilled", quantityRequested: 2, quantityReserved: 3 })).toBe(1);
+  });
 });
 
 describe("checkSuggestion", () => {
