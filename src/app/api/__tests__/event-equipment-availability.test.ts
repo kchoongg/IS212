@@ -17,6 +17,15 @@ const ENDS = new Date("2027-03-04T09:00:00.000Z");
 
 const techSupport = () => user("tech_support", { id: ID.user });
 
+/// Which request rows hold stock (SPM-69): reserved or partly fulfilled, or
+/// sent back to Technical Support with units still reserved (AC7).
+const HOLDS_STOCK = {
+  OR: [
+    { status: { in: ["reserved", "partially_fulfilled"] } },
+    { status: { in: ["requested", "under_review"] }, quantityReserved: { gt: 0 } },
+  ],
+};
+
 function projector(overrides = {}) {
   return {
     id: ID.equipment,
@@ -209,7 +218,9 @@ describe("GET /api/events/[id]/equipment/availability", () => {
     });
   });
 
-  it("[SPM-48][AC4] only asks for requests that actually hold stock", async () => {
+  // CHANGED (SPM-69): a released reservation holds nothing (AC4); a reserved
+  // line the Coordinator sent back to Technical Support still does (AC7).
+  it("[SPM-48][AC4][SPM-69][AC7] only asks for requests that actually hold stock", async () => {
     const token = signIn(techSupport());
     db.event.findUnique.mockResolvedValue(eventRow());
     db.equipmentRequest.findMany.mockResolvedValue([]);
@@ -218,8 +229,28 @@ describe("GET /api/events/[id]/equipment/availability", () => {
 
     expect(callArg(db.equipmentRequest.findMany).where).toEqual({
       equipmentId: { in: [ID.equipment] },
-      status: { in: ["reserved", "partially_fulfilled"] },
+      ...HOLDS_STOCK,
     });
+  });
+
+  it("[SPM-69][AC4] frees a released reservation's units for an overlapping event", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(eventRow());
+    db.equipmentRequest.findMany.mockResolvedValue([otherHold({ status: "released", quantityReserved: 7 })]);
+
+    const body = await (await check(token)).json();
+
+    expect(body.lines[0].result).toMatchObject({ status: "available", reservedElsewhere: 0, available: 10 });
+  });
+
+  it("[SPM-69][AC7] keeps counting another event's reservation that went back to Technical Support for review", async () => {
+    const token = signIn(techSupport());
+    db.event.findUnique.mockResolvedValue(eventRow());
+    db.equipmentRequest.findMany.mockResolvedValue([otherHold({ status: "requested", quantityReserved: 7 })]);
+
+    const body = await (await check(token)).json();
+
+    expect(body.lines[0].result).toMatchObject({ status: "partial", reservedElsewhere: 7, available: 3 });
   });
 
   it("[SPM-48][AC4] ignores a hold belonging to a cancelled event", async () => {
@@ -525,6 +556,15 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "reserved", staffNotes: null });
   });
 
+  it("[SPM-69][AC1] clears the release reason when a released line is reserved again", async () => {
+    const token = given(requestRow({ status: "released", quantityReserved: 4, staffNotes: "Client is bringing their own" }));
+
+    const res = await post(token);
+
+    expect(res.status).toBe(200);
+    expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "reserved", quantityReserved: 4, staffNotes: null });
+  });
+
   it("[SPM-50][AC4] keeps Technical Support's notes on any other line it reserves", async () => {
     const token = given(requestRow({ status: "under_review", staffNotes: "Deliver to the loading bay" }));
 
@@ -548,7 +588,7 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     expect(callArg(db.equipmentRequest.findMany).where).toEqual({
       equipmentId: ID.equipment,
       id: { not: ID.request },
-      status: { in: ["reserved", "partially_fulfilled"] },
+      ...HOLDS_STOCK,
     });
     expect(callArg(db.equipmentRequest.update).data).toMatchObject({ quantityReserved: 4, status: "reserved" });
   });

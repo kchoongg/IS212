@@ -1028,9 +1028,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Nothing marks an attendee as added by the organiser yet** | SPM-65 added `registrations.added_by_id` and the Attendees tab shows "Added by <name>" when it is set (AC4), but no screen adds an attendee on someone's behalf, so only `npm run fixtures:spm65` sets it. *Manually Add Attendee* must set it to the organiser or coordinator who adds the attendee. | Manually Add Attendee |
 | **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
-| **Changing a quantity after review doesn't send the line back for re-checking** | If the Coordinator edits a line Technical Support has reviewed or reserved, it keeps its status (e.g. "Reserved" with the old quantity held). Decided 2026-10-05: **SPM-69** sends it back to Technical Support as Requested, showing what was reserved (Jira reworded; SPM-75 to match). SPM-62 only moves a Confirmed event back to Planning when its equipment changes. | SPM-69 |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
-| **Equipment availability's postponed filter is temporary** | Only `EquipmentRequest.status IN (reserved, partially_fulfilled)` counts against stock, and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). "cancelled" stays on purpose: SPM-37 now cancels the lines, but events cancelled before it still have Reserved ones. "postponed" stands in for SPM-38 (Postpone Event) releasing the reservations — remove it once SPM-38 does. | equipment |
+| **Equipment availability's postponed filter is temporary** | Only reserved and partially fulfilled requests count against stock (plus, since SPM-69, a requirement sent back to Technical Support that still has units reserved - `holdsStock()`), and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). "cancelled" stays on purpose: SPM-37 now cancels the lines, but events cancelled before it still have Reserved ones. "postponed" stands in for SPM-38 (Postpone Event) releasing the reservations — remove it once SPM-38 does. | equipment |
+| **A cancellation's closed change request can't be seen yet** | SPM-37 closes an event's pending change requests as Withdrawn, but no screen lists change requests until Process Event Change Request (SPM-32). SPM-37-TC12 is Blocked until then. | SPM-32 |
 | **SPM-31's test cases describe the old Registration card** | SPM-31's attendee case says the Registration card "shows Capacity '150' and the registration window". Since SPM-64 the card shows "Registration: Enabled", then Capacity, Opens and Closes (no "Window" row). | SPM-31's owner |
 | **Submitting for a safety check doesn't check registration setup** | SPM-86's `submitForSafetyCheck` rule (`src/lib/safetyCheck.ts`) calls `arrangementsFor()` without the optional `registration` input that SPM-64 added, so an event whose registration is enabled but incomplete can be submitted for its safety check, while Confirm Event refuses it. Found when merging main (SPM-86) into SPM-64, 2026-10-10; SPM-86's rule was not changed. Its owner decides whether to pass the event's registration setup there too. | SPM-86's owner |
 | **Which booking registration capacity is measured against may change with SPM-81** | SPM-64 lets the coordinator pick one of an event's active bookings when it has several (Week 7 change #3), and stores it in `Event.registrationVenueBookingId`. If **SPM-81 (Request More Than One Venue for an Event)** decides capacity should come from several rooms together (e.g. a main hall plus breakout rooms), that rule and `measuredBooking()` need revisiting. | SPM-81 |
@@ -1055,6 +1055,21 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-26 — Kristen (SPM-69, release reason and reopening a released line)
+- **Releasing needs a reason** (`DELETE .../reservation` with `{ reason }`,
+  required, up to 500 characters - `checkReleaseReason()`). It is saved as
+  Technical Support's notes, so both screens show it, and is sent in the
+  Coordinator's notification. Reserving a released line again clears it, as
+  reserving clears a "Cannot be provided" reason (`reserveClearsStaffNotes()`).
+- **The Coordinator can reopen a released line by changing its quantity:** it
+  goes back to Technical Support as a fresh request - Requested, nothing
+  reserved, the reason cleared (`sendBackChanges()`, replacing
+  `sendsBackForReview()`). Changing only its technical requirements leaves it
+  released.
+- Tests written first; manual cases SPM-69-TC01 to TC03 updated or added (the
+  workbook had not been run, so it was rebuilt; the later cases moved up one
+  number).
 
 ### 2026-10-26 — Kayalvizhi (SPM-94, Limit Who Sees a Request's Review Outcome)
 - **A request's review outcome is for the people involved in it** (forum #125,
@@ -1125,6 +1140,30 @@ what changed, why, and the migration name if there is one.
     database on 2026-10-25. Run `git pull && npx prisma generate`.
   - **Test data:** `npm run fixtures:spm32`;
     `docs/test-cases/SPM-32_Test_Cases.xlsx` (12 cases).
+### 2026-10-22 — Kristen (SPM-69, Release or Adjust Equipment Reservation)
+- **Technical Support can release a reservation or change its quantity.**
+  New route `PATCH` / `DELETE /api/events/[id]/equipment/[requestId]/reservation`
+  (rules in `src/lib/equipmentReservation.ts`). An increase can't go above
+  what is free for the event's dates, nor above the quantity requested;
+  the line's status follows the new quantity (Reserved / Partially
+  fulfilled). Planning only, with the same equipment-row lock as Reserve.
+  The assigned Coordinator is notified (`equipment_reservation_released` /
+  `equipment_reservation_adjusted`, linking to the Equipment tab).
+- **A released reservation stays on the record:** status `released`, with
+  `quantityReserved` kept as what it held. It holds no stock. The Equipment
+  request page says "Released — N were reserved." and the Coordinator's tab
+  says "N released". Reserve is offered on it again.
+- **A Coordinator's change to a reserved requirement goes back to Technical
+  Support as Requested** (closes the Known Gap about quantities changed after
+  review). It keeps its reserved units, which still count against
+  availability (`holdsStock()` / `HOLDS_STOCK_WHERE` in
+  `src/lib/equipmentAvailability.ts`), and is not flagged.
+- Tests written first: `equipmentReservation.test.ts`,
+  `equipment-reservation.test.ts`, and additions to the availability,
+  equipment route and equipment page tests. Three existing expectations
+  changed on purpose: a requested or under-review line with units reserved now
+  holds stock. Manual cases: `docs/test-cases/SPM-69_Test_Cases.xlsx` (10),
+  fixtures `npm run fixtures:spm69`.
 
 ### 2026-10-22 — Kayalvizhi (SPM-37, Cancel Event)
 - **The assigned coordinator can cancel an event at any stage that is not
