@@ -1,0 +1,390 @@
+{
+  "story_key": "SPM-38",
+  "story_title": "As an Event Coordinator, I want to postpone an event with no new date yet so arrangements aren't wasted while a date is pending.",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-26",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given an event has no confirmed new date, when the assigned Coordinator postpones it, then the event status changes to Postponed."
+    },
+    {
+      "id": "AC2",
+      "text": "Only the assigned Event Coordinator can postpone the event; an Event Organiser asks for a postponement through Request Event Change or outside the system, and the Coordinator records it."
+    },
+    {
+      "id": "AC3",
+      "text": "Postponing releases all of the event's existing venue bookings, at every venue, and its equipment arrangements, which become available for other events; the event record itself is retained."
+    },
+    {
+      "id": "AC4",
+      "text": "A pending Operational Safety Check for the event is closed, and an existing safety approval no longer applies; the event must be submitted for a safety check again once new arrangements are made."
+    },
+    {
+      "id": "AC5",
+      "text": "A reason for postponement can be recorded."
+    },
+    {
+      "id": "AC6",
+      "text": "Providing a new date for a postponed event is handled as a rescheduling request through Request Event Change, with affected arrangements reviewed before new arrangements are made."
+    },
+    {
+      "id": "AC7",
+      "text": "Given a rescheduling request for a postponed event is approved (see: Process Event Change Request, SPM-32), when the new date is saved, then the event moves from Postponed to Approved, and the Coordinator's next venue or equipment action begins planning again (see: Begin Event Planning, SPM-54)."
+    },
+    {
+      "id": "AC8",
+      "text": "A postponed event without a confirmed new date is not displayed as an upcoming event to Attendees."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-38-TC01",
+      "title": "The assigned Coordinator postpones a Planning event with a reason, which releases its approved booking, withdraws its pending request at a second venue and releases its equipment, and keeps the event",
+      "linked_ac": [
+        "AC1",
+        "AC3",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case. Do not run it again afterwards: go straight on to SPM-38-TC02, and reset after that one.\n'SPM38 Lantern Gala' (12 Jan 2028, 09:00–12:00) is in Planning, coordinated by Daniel Tan. It has an Approved booking for SPM38 Hall, a Pending request for SPM38 Studio, 2 × SPM38 Projector Reserved and 1 × SPM38 Lectern Mic Requested. Registration is off.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Lantern Gala'",
+        "Click 'Postpone event'",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Postpone event' in the dialog",
+        "Click the 'Venue' tab",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvent: SPM38 Lantern Gala | When: 12 Jan 2028, 09:00–12:00\nBookings: SPM38 Hall (SPM38-HAL), Approved | SPM38 Studio (SPM38-STU), Pending\nEquipment: 2 × SPM38 Projector, Reserved | 1 × SPM38 Lectern Mic, Requested\nReason: The client is waiting on board approval before choosing a new date.",
+      "expected_result": "Step 2: The Overview shows the 'Planning' badge, and the header has 'Postpone event' and 'Cancel event' buttons.\nStep 3: A dialog 'Postpone this event?' reads 'SPM38 Lantern Gala will be marked Postponed. Its new date is set later, through a change request.' Under 'Postponing will:' it lists, in this order: 'Release SPM38 Hall (SPM38-HAL) on 12 Jan 2028, 09:00–12:00', 'Withdraw the request for SPM38 Studio (SPM38-STU) on 12 Jan 2028, 09:00–12:00', 'Release 2 × SPM38 Projector' and 'Cancel the request for 1 × SPM38 Lectern Mic'. It has an empty 'Reason (optional)' box and the buttons 'Postpone event' and 'Keep event'.\nStep 5: The dialog closes. A green alert reads 'The event has been postponed. Its venue bookings and equipment have been released.' The badge reads 'Postponed'. An amber alert 'This event is postponed' reads 'The client is waiting on board approval before choosing a new date.' The 'When' row still reads '12 Jan 2028, 09:00–12:00'. The header no longer has 'Postpone event', and still has 'Cancel event'.\nStep 6: The 'Booking requests' card lists 'SPM38 Hall (SPM38-HAL)' with a grey 'Released' badge and the line 'Reason for release: Event postponed: The client is waiting on board approval before choosing a new date.', and 'SPM38 Studio (SPM38-STU)' with a grey 'Withdrawn' badge and the line 'Reason for withdrawal: Event postponed: The client is waiting on board approval before choosing a new date.' Neither row has a 'Release booking' or 'Withdraw request' button. A blue alert reads 'A venue cannot be requested while the event is postponed. Its new date comes through a change request first.'\nStep 7: A blue alert reads 'This event is postponed — equipment requirements can't be changed until it has a new date.' The 'SPM38 Projector' and 'SPM38 Lectern Mic' lines both have the 'Cancelled' badge."
+    },
+    {
+      "id": "SPM-38-TC02",
+      "title": "A postponed event's pending venue request leaves Venue Staff's Booking Requests list, while another event's stays on it, and Venue Staff are told its approved booking was released",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-38-TC01 has just been run ('SPM38 Lantern Gala' is now Postponed, and its SPM38 Studio request Withdrawn).\nBefore TC01, the fixtures put the Lantern Gala's SPM38 Studio request (12 Jan 2028) on the Booking Requests list, beside a Pending SPM38 Studio request for 'SPM38 Guarded Forum' (9 Feb 2028).\nStill logged in as Daniel Tan.\nRun `npm run fixtures:spm38` after this case.",
+      "steps": [
+        "Log out",
+        "Log in as marcus.wong@connectsphere.com / password123",
+        "Click 'Booking Requests' in the sidebar",
+        "Search the page for 'SPM38' (Ctrl+F)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Venue Staff: Marcus Wong\nReleased by the postponement: SPM38 Lantern Gala, SPM38 Hall (SPM38-HAL), 12 Jan 2028, 09:00–12:00\nWithdrawn by the postponement: SPM38 Lantern Gala, SPM38 Studio (SPM38-STU), 12 Jan 2028, 09:00–12:00\nStill pending: SPM38 Guarded Forum, SPM38 Studio (SPM38-STU), 9 Feb 2028, 09:00–12:00",
+      "expected_result": "Step 4: Exactly one card matches: 'SPM38 Guarded Forum', 'SPM38 Studio (SPM38-STU)', with the 'Pending' badge, 'Requested' '9 Feb 2028, 09:00–12:00', and its 'Approve' and 'Reject with a reason' buttons. No card for 'SPM38 Lantern Gala' is on the page.\nStep 5: The Notifications list has a new notification titled 'Venue booking released' for 'SPM38 Lantern Gala', reading 'Daniel Tan released SPM38 Hall (SPM38-HAL) for <reference> SPM38 Lantern Gala on 12 Jan 2028, 09:00–12:00. Reason: Event postponed: The client is waiting on board approval before choosing a new date.' There is no notification about the withdrawn SPM38 Studio request."
+    },
+    {
+      "id": "SPM-38-TC03",
+      "title": "Postponing an event frees its venue and its reserved equipment for another event on the same date",
+      "linked_ac": [
+        "AC3",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case, and again after it.\nSPM38 Projector has 2 in total and none out of service.\n'SPM38 Riverside Expo' (19 Jan 2028, 09:00–12:00, Planning, Daniel Tan) has an Approved booking for SPM38 Hall and both SPM38 Projectors Reserved.\n'SPM38 Rival Seminar' (19 Jan 2028, 09:00–12:00, Planning, Daniel Tan) has no venue booking and a request for 2 × SPM38 Projector, not yet reserved.\nLogged out.",
+      "steps": [
+        "Log in as vikram.nair@connectsphere.com / password123",
+        "Click 'Equipment Requests' in the sidebar and open the equipment request for 'SPM38 Rival Seminar'",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar, open 'SPM38 Rival Seminar' and click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM38 Hall (SPM38-HAL)'",
+        "Click 'Submit request'",
+        "Click 'All Events' in the sidebar and open 'SPM38 Riverside Expo'",
+        "Click 'Postpone event'",
+        "Click 'Postpone event' in the dialog",
+        "Click 'All Events' in the sidebar, open 'SPM38 Rival Seminar' and click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM38 Hall (SPM38-HAL)'",
+        "Click 'Submit request'",
+        "Log out",
+        "Log in as vikram.nair@connectsphere.com / password123",
+        "Click 'Equipment Requests' in the sidebar and open the equipment request for 'SPM38 Rival Seminar'"
+      ],
+      "test_data": "Technical Support: Vikram Nair | Coordinator: Daniel Tan\nVenue: SPM38 Hall (SPM38-HAL), no setup or turnaround\nEquipment: SPM38 Projector, 2 in total\nPostponed event: SPM38 Riverside Expo, 19 Jan 2028, 09:00–12:00\nOther event: SPM38 Rival Seminar, 19 Jan 2028, 09:00–12:00",
+      "expected_result": "Step 2: The 'SPM38 Projector' line reads '2 total − 0 out of service − 2 reserved elsewhere = 0 available for these dates' and 'Held by SPM38 Riverside Expo (2 units) until 20 Jan.'\nStep 6: The 'Request a venue booking' form opens for SPM38 Hall, with 'Date' 19 Jan 2028, 'Start time' 09:00 and 'End time' 12:00.\nStep 7: The request is not sent. A red alert reads 'SPM38 Hall is already booked for <reference> SPM38 Riverside Expo on 19 Jan 2028, 09:00–12:00.'\nStep 9: The dialog 'Postpone this event?' lists 'Release SPM38 Hall (SPM38-HAL) on 19 Jan 2028, 09:00–12:00' and 'Release 2 × SPM38 Projector'.\nStep 10: The badge reads 'Postponed'.\nStep 13: A green alert reads 'Booking request sent to Venue Staff.' The postponed event's booking no longer blocks the Hall.\nStep 16: The 'SPM38 Projector' line reads '2 total − 0 out of service − 0 reserved elsewhere = 2 available for these dates', with no 'Held by' line."
+    },
+    {
+      "id": "SPM-38-TC04",
+      "title": "Postponing an event in Safety review closes its pending safety check, so the Safety Officer no longer sees it to review",
+      "linked_ac": [
+        "AC4",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case, and again after it.\n'SPM38 Safety Pending' (21 Jan 2028, 09:00–12:00, Daniel Tan) is in Safety review, with an Approved booking for SPM38 Hall and a pending Operational Safety Check that Daniel Tan submitted.\nLogged out.",
+      "steps": [
+        "Log in as hana.yusof@connectsphere.com / password123",
+        "Click 'Safety Checks' in the sidebar",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Safety Pending'",
+        "Click 'Postpone event'",
+        "Click 'Postpone event' in the dialog",
+        "Log out",
+        "Log in as hana.yusof@connectsphere.com / password123",
+        "Click 'Safety Checks' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM38 Safety Pending'"
+      ],
+      "test_data": "Safety Officer: Hana Yusof | Coordinator: Daniel Tan\nEvent: SPM38 Safety Pending | When: 21 Jan 2028, 09:00–12:00 | Status: Safety review",
+      "expected_result": "Step 2: 'SPM38 Safety Pending' is listed, submitted by Daniel Tan.\nStep 5: The badge reads 'Safety review', and the header has a 'Postpone event' button.\nStep 6: The dialog 'Postpone this event?' lists 'Release SPM38 Hall (SPM38-HAL) on 21 Jan 2028, 09:00–12:00' and 'Close the pending safety check'.\nStep 7: The badge reads 'Postponed'.\nStep 10: 'SPM38 Safety Pending' is not listed.\nStep 11: The Overview shows the 'Postponed' badge, and the header has no 'Record safety decision' button."
+    },
+    {
+      "id": "SPM-38-TC05",
+      "title": "Postponing a Safety approved event withdraws its safety approval, so the Readiness tab shows the safety check as Not submitted",
+      "linked_ac": [
+        "AC4",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case, and again after it.\n'SPM38 Safety Cleared' (26 Jan 2028, 09:00–12:00, Daniel Tan) is Safety approved, with an Approved booking for SPM38 Hall and an Operational Safety Check that Hana Yusof approved.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Safety Cleared'",
+        "Click the 'Readiness' tab",
+        "Click the 'Overview' tab",
+        "Click 'Postpone event'",
+        "Click 'Postpone event' in the dialog",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvent: SPM38 Safety Cleared | When: 26 Jan 2028, 09:00–12:00 | Status: Safety approved\nSafety check: approved by Hana Yusof",
+      "expected_result": "Step 2: The badge reads 'Safety approved', and the header has 'Confirm event' and 'Postpone event' buttons.\nStep 3: Under 'Safety check', 'Safety check status' has the 'Approved' badge.\nStep 5: The dialog 'Postpone this event?' lists 'Release SPM38 Hall (SPM38-HAL) on 26 Jan 2028, 09:00–12:00' and 'Close the safety approval'.\nStep 6: The badge reads 'Postponed', and the header has no 'Confirm event' button.\nStep 7: Under 'Safety check', 'Safety check status' has the 'Not submitted' badge."
+    },
+    {
+      "id": "SPM-38-TC06",
+      "title": "Postponing an event records the organiser's pending postponement request as closed, and leaves their pending change of details for the Coordinator to decide",
+      "linked_ac": [
+        "AC2",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case, and again after it.\n'SPM38 Client Asks' (28 Jan 2028, 09:00–12:00, Confirmed, Daniel Tan; organiser Rachel Ng) has two pending change requests from Rachel Ng: a Postponement with the reason 'Our keynote speaker has withdrawn; we will confirm a new date once we have a replacement.', and a Change of details proposing an expected attendance of 45 instead of 30.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Client Asks'",
+        "Click 'Postpone event'",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Postpone event' in the dialog",
+        "Log out",
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM38 Client Asks'"
+      ],
+      "test_data": "Coordinator: Daniel Tan | Organiser: Rachel Ng\nEvent: SPM38 Client Asks | When: 28 Jan 2028, 09:00–12:00 | Status: Confirmed\nPending: Postponement | Change of details (Expected attendance 30 → 45)\nReason: Postponed at the client's request: the keynote speaker has withdrawn.",
+      "expected_result": "Step 2: The badge reads 'Confirmed'. The 'Change requests' card lists a 'Postponement' and a 'Change of details', both with the 'Pending' badge.\nStep 3: The dialog 'Postpone this event?' lists 'Close the pending postponement request'. It has no line about the change of details.\nStep 5: The badge reads 'Postponed'. In the 'Change requests' card the 'Postponement' has the 'Withdrawn' badge, and the 'Change of details' still has the 'Pending' badge with 'Expected attendance' proposed as 45.\nStep 8: The organiser sees the 'Postponed' badge and the amber alert 'This event is postponed' reading 'Postponed at the client's request: the keynote speaker has withdrawn.' The 'Change requests' card shows the 'Postponement' as 'Withdrawn' and the 'Change of details' as 'Pending'."
+    },
+    {
+      "id": "SPM-38-TC07",
+      "title": "Postponing a Confirmed event with open registration takes it off Browse Events, and a registered attendee keeps the registration and can open the event to see that it is postponed and why",
+      "linked_ac": [
+        "AC8",
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case, and again after it.\n'SPM38 Open Workshop' (2 Feb 2028, 09:00–12:00, Confirmed, Daniel Tan) has registration on, 40 places, open from 1 Oct 2026, 09:00 to 1 Feb 2028, 17:00. Lee Wei Ming is registered; nobody is on the waiting list. Anita Devi is not registered.\nLogged out.",
+      "steps": [
+        "Log in as anita.devi@example.com / password123",
+        "Click 'Browse Events' in the sidebar",
+        "Log out",
+        "Log in as lee.wei.ming@example.com / password123",
+        "Click 'My Registrations' in the sidebar",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Open Workshop'",
+        "Click 'Postpone event'",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Postpone event' in the dialog",
+        "Log out",
+        "Log in as anita.devi@example.com / password123",
+        "Click 'Browse Events' in the sidebar",
+        "Log out",
+        "Log in as lee.wei.ming@example.com / password123",
+        "Click 'My Registrations' in the sidebar",
+        "Click the 'SPM38 Open Workshop' row"
+      ],
+      "test_data": "Attendees: Anita Devi (not registered), Lee Wei Ming (registered) | Coordinator: Daniel Tan\nEvent: SPM38 Open Workshop | When: 2 Feb 2028, 09:00–12:00\nRegistration: 40 places, open 1 Oct 2026, 09:00 – 1 Feb 2028, 17:00\nReason: The trainer is unwell; a new date will follow.",
+      "expected_result": "Step 2: 'SPM38 Open Workshop' is listed with the 'Open' badge.\nStep 5: The 'SPM38 Open Workshop' row has the 'Registered' badge and a 'Withdraw' button.\nStep 9: The dialog 'Postpone this event?' lists 'Pause registration until the event is confirmed again: 1 registered, 0 on the waiting list'.\nStep 11: The badge reads 'Postponed'.\nStep 14: 'SPM38 Open Workshop' is not listed.\nStep 17: The 'SPM38 Open Workshop' row is still listed with the 'Registered' badge and a 'Withdraw' button.\nStep 18: The event opens with the 'Postponed' badge. An amber alert 'This event is postponed' reads 'The trainer is unwell; a new date will follow.' There is no 'Register' button."
+    },
+    {
+      "id": "SPM-38-TC08",
+      "title": "Keep event leaves an Approved event as it was, and postponing it with no reason and nothing to release records that no reason was given and lists it under the Postponed filter",
+      "linked_ac": [
+        "AC5",
+        "AC1"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case, and again after it.\n'SPM38 Quiet Approval' (4 Feb 2028, 09:00–12:00, Daniel Tan) is Approved, with no venue booking, no equipment and registration off.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Quiet Approval'",
+        "Click 'Postpone event'",
+        "Click 'Keep event'",
+        "Click 'Postpone event'",
+        "Click 'Postpone event' in the dialog, leaving 'Reason (optional)' empty",
+        "Click 'All Events' in the sidebar",
+        "Choose 'Postponed' in 'Filter by status'"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvent: SPM38 Quiet Approval | When: 4 Feb 2028, 09:00–12:00 | Status: Approved\nReason: (left empty)",
+      "expected_result": "Step 2: The badge reads 'Approved', and the header has a 'Postpone event' button.\nStep 3: The dialog 'Postpone this event?' reads 'SPM38 Quiet Approval will be marked Postponed. Its new date is set later, through a change request.' and 'This event has no venue bookings, equipment or registration to release.'\nStep 4: The dialog closes. The badge still reads 'Approved', and no alert is shown.\nStep 6: The dialog closes. A green alert reads 'The event has been postponed. Its venue bookings and equipment have been released.' The badge reads 'Postponed'. An amber alert 'This event is postponed' reads 'No reason was recorded.'\nStep 8: 'SPM38 Quiet Approval' is listed with the 'Postponed' badge, and every event listed has the 'Postponed' badge."
+    },
+    {
+      "id": "SPM-38-TC09",
+      "title": "An Under review, Completed or Cancelled event offers its assigned Coordinator no Postpone event button",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` once before this case (it changes nothing).\n'SPM38 Early Review' (11 Feb 2028, 09:00–12:00) is Under review, assigned to Daniel Tan.\n'SPM38 Wrapped Up' (6 Oct 2026, 09:00–12:00, Daniel Tan) is Completed.\n'SPM38 Called Off' (14 Feb 2028, 09:00–12:00, Daniel Tan) is Cancelled.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Early Review'",
+        "Click 'All Events' in the sidebar and open 'SPM38 Wrapped Up'",
+        "Click 'All Events' in the sidebar and open 'SPM38 Called Off'"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nUnder review: SPM38 Early Review, 11 Feb 2028\nCompleted: SPM38 Wrapped Up, 6 Oct 2026\nCancelled: SPM38 Called Off, 14 Feb 2028",
+      "expected_result": "Step 2: The badge reads 'Under review'. The header has a 'Cancel event' button and no 'Postpone event' button.\nStep 3: The badge reads 'Completed', and the header has no 'Postpone event' button.\nStep 4: The badge reads 'Cancelled', and the header has no 'Postpone event' button."
+    },
+    {
+      "id": "SPM-38-TC10",
+      "title": "A postponed event cannot be postponed again, and offers no way to request a venue, change its equipment or edit its information until it has a new date",
+      "linked_ac": [
+        "AC6",
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` once before this case (it changes nothing).\n'SPM38 On Hold' (16 Feb 2028, 09:00–12:00, Daniel Tan) is Postponed with the reason 'Waiting on the client's revised budget.' Its SPM38 Hall booking is Released and its 1 × SPM38 Projector line Cancelled.\nLogged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 On Hold'",
+        "Click the 'Venue' tab",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvent: SPM38 On Hold | When: 16 Feb 2028, 09:00–12:00 | Status: Postponed\nReason: Waiting on the client's revised budget.",
+      "expected_result": "Step 2: The badge reads 'Postponed'. An amber alert 'This event is postponed' reads 'Waiting on the client's revised budget.' The header has a 'Cancel event' button, and none of 'Postpone event', 'Edit event information', 'Confirm event' or 'Submit for safety check'.\nStep 3: 'SPM38 Hall (SPM38-HAL)' has the 'Released' badge and the line 'Reason for release: Event postponed: Waiting on the client's revised budget.', with no button. A blue alert reads 'A venue cannot be requested while the event is postponed. Its new date comes through a change request first.' No 'Request booking' button is on the page.\nStep 4: A blue alert reads 'This event is postponed — equipment requirements can't be changed until it has a new date.' The 'SPM38 Projector' line has the 'Cancelled' badge, and there is no way to add, change or remove equipment."
+    },
+    {
+      "id": "SPM-38-TC11",
+      "title": "Another Coordinator, the Event Coordinator Lead and the event's Organiser cannot postpone an event, the Organiser is offered Request a change instead, and its assigned Coordinator can postpone it",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` once before this case (it changes nothing).\n'SPM38 Guarded Forum' (9 Feb 2028, 09:00–12:00) is in Planning, coordinated by Daniel Tan, organised by Rachel Ng.\nLogged out.",
+      "steps": [
+        "Log in as priya.raj@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Guarded Forum'",
+        "Log out",
+        "Log in as grace.lim@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Guarded Forum'",
+        "Log out",
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM38 Guarded Forum'",
+        "Click 'Request a change'",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar and open 'SPM38 Guarded Forum'"
+      ],
+      "test_data": "Other Coordinator: Priya Raj | Event Coordinator Lead: Grace Lim | Organiser: Rachel Ng | Assigned Coordinator: Daniel Tan\nEvent: SPM38 Guarded Forum | When: 9 Feb 2028, 09:00–12:00 | Status: Planning",
+      "expected_result": "Step 2: The badge reads 'Planning', and the header has no 'Postpone event' button.\nStep 5: The 'Change coordinator' card is shown, and the header has no 'Postpone event' button.\nStep 8: The badge reads 'Planning'. The header has a 'Request a change' button and no 'Postpone event' button.\nStep 9: The 'Request a change' page opens, and 'What do you need?' offers 'Postpone the event'.\nStep 12: The header has a 'Postpone event' button."
+    },
+    {
+      "id": "SPM-38-TC12",
+      "title": "The Organiser asks for a new date for a postponed event through Request a change, and the event stays Postponed until the Coordinator processes it",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run `npm run fixtures:spm38` before this case. Do not run it again afterwards: go straight on to SPM-38-TC13, and reset after that one. If TC13 is Blocked, run `npm run fixtures:spm38` after this case instead.\n'SPM38 New Date Wanted' (23 Feb 2028, 09:00–12:00, Daniel Tan; organiser Rachel Ng) is Postponed with the reason 'Venue renovation at the client's office.' It has no venue booking, no equipment and no change requests.\nLogged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM38 New Date Wanted'",
+        "Click 'Request a change'",
+        "Choose 'Change the event's details' under 'What do you need?'",
+        "Set 'Starts at' to 15 Mar 2028, 09:00 and 'Ends at' to 15 Mar 2028, 12:00",
+        "Type the reason in 'Reason for the change'",
+        "Click 'Send change request'",
+        "Click 'Back to event'",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com / password123",
+        "Click 'Change Requests' in the sidebar"
+      ],
+      "test_data": "Organiser: Rachel Ng | Coordinator: Daniel Tan\nEvent: SPM38 New Date Wanted | When: 23 Feb 2028, 09:00–12:00 | Status: Postponed\nNew date: Starts at 15 Mar 2028, 09:00 | Ends at 15 Mar 2028, 12:00\nReason for the change: The renovation finishes in early March; please reschedule to 15 March.",
+      "expected_result": "Step 2: The badge reads 'Postponed', and the header has a 'Request a change' button.\nStep 3: The 'Request a change' page opens with 'What do you need?' offering 'Change the event's details', 'Postpone the event' and 'Cancel the event'.\nStep 7: A green alert 'Change request sent to your coordinator.' reads 'Nothing about the event changes until your coordinator processes the request.'\nStep 8: The badge still reads 'Postponed', and the 'When' row still reads '23 Feb 2028, 09:00–12:00'. The 'Change requests' card lists a 'Change of details' with the 'Pending' badge, proposing 'Starts at' 15 Mar 2028, 09:00 and 'Ends at' 15 Mar 2028, 12:00.\nStep 11: The request for 'SPM38 New Date Wanted' is listed as a 'Change of details' with the 'Pending' badge, requested by Rachel Ng."
+    },
+    {
+      "id": "SPM-38-TC13",
+      "title": "Approving a new date for a postponed event moves it to Approved, its safety check must be submitted again, and the Coordinator's first venue request begins planning again",
+      "linked_ac": [
+        "AC7",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "BLOCKED until Process Event Change Request (SPM-32) is merged: main has no screen to approve a change request. Until then, record each run as 'Blocked' with Remarks 'SPM-32 not merged'. Steps 3–5 use the labels on SPM-32's branch; when SPM-32 is merged, check them against the built screen and mark this case Updated if they differ.\nSPM-38-TC12 has just been run ('SPM38 New Date Wanted' is Postponed, with Rachel Ng's pending Change of details to 15 Mar 2028, 09:00–12:00).\nStill logged in as Daniel Tan, on the Change Requests page.\nRun `npm run fixtures:spm38` after this case.",
+      "steps": [
+        "Click 'Review' on the request for 'SPM38 New Date Wanted'",
+        "Click 'Approve all'",
+        "Click 'Save decision'",
+        "Click 'All Events' in the sidebar and open 'SPM38 New Date Wanted'",
+        "Click the 'Readiness' tab",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on 'SPM38 Hall (SPM38-HAL)'",
+        "Click 'Submit request'",
+        "Click 'Continue' in the dialog",
+        "Click 'All Events' in the sidebar and open 'SPM38 New Date Wanted'"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nEvent: SPM38 New Date Wanted | Old date: 23 Feb 2028, 09:00–12:00 | New date: 15 Mar 2028, 09:00–12:00\nVenue: SPM38 Hall (SPM38-HAL)",
+      "expected_result": "Step 1: The 'Review change request' page opens. A blue alert reads 'This event is Postponed. Approving its new date moves it to Approved, ready for planning again.'\nStep 3: A green alert 'Change request processed.' reads 'The event has moved from Postponed to Approved.'\nStep 4: The badge reads 'Approved', the 'When' row reads '15 Mar 2028, 09:00–12:00', and the amber 'This event is postponed' alert is gone. The header has a 'Postpone event' button.\nStep 5: Under 'Safety check', 'Safety check status' has the 'Not submitted' badge.\nStep 6: The Venue tab has no 'postponed' alert, and 'SPM38 Hall (SPM38-HAL)' has a 'Request booking' button.\nStep 7: The 'Request a venue booking' form opens for SPM38 Hall, with 'Date' 15 Mar 2028, 'Start time' 09:00 and 'End time' 12:00.\nStep 8: A dialog 'Begin planning?' reads 'This is the first venue or equipment action for this event, so it will move from Approved to Planning.'\nStep 9: A green alert reads 'Booking request sent to Venue Staff.'\nStep 10: The badge reads 'Planning'."
+    }
+  ],
+  "open_questions": [
+    "Written 2026-10-26 before any SPM-38 code (test-first, kayalvizhi24); built 2026-10-27 to the wording DECIDED below, and each case checked against the built screens. TC13 still quotes SPM-32's unmerged screen.",
+    "DECIDED 2026-10-26 (AC1, AC4, which stages, kayalvizhi24): an event can be postponed from Approved, Planning, Safety review, Safety approved and Confirmed - every stage after approval that is not final. Today canTransition() (src/lib/statuses.ts) allows Postponed from Planning and Confirmed only; Safety review was ruled out on 2026-10-09. That is reversed, because AC4's 'pending Operational Safety Check is closed' can only happen from Safety review (TC04). The lifecycle diagram (docs/ConnectSphere_Status_Lifecycle.drawio) gains Approved, Safety review and Safety approved -> Postponed. Not from Under review: nothing is arranged before approval, and the organiser can withdraw instead (TC09). Not from Draft or Submitted (no assigned Coordinator), Completed, Rejected, Withdrawn or Cancelled (final), nor from Postponed itself (TC10).",
+    "DECIDED 2026-10-26 (AC1, AC5 wording): the Overview header gets a 'Postpone event' button (secondary, before 'Cancel event') for the assigned Coordinator only. It opens a ConfirmDialog in the style of SPM-37's: title 'Postpone this event?', text '<event title> will be marked Postponed. Its new date is set later, through a change request.', then 'Postponing will:' with one line per consequence in this order: 'Release <venue (code)> on <date, times>' for each Approved booking; 'Withdraw the request for <venue (code)> on <date, times>' for each Pending request; 'Release <reserved> × <equipment>' for each Reserved or Partially fulfilled line; 'Cancel the request for <requested> × <equipment>' for each line not yet reserved; 'Close the pending postponement request' (or 'Close <n> pending postponement requests'); 'Close the pending safety check' or 'Close the safety approval'; 'Pause registration until the event is confirmed again: <n> registered, <n> on the waiting list' when registration is on. With none of these it reads 'This event has no venue bookings, equipment or registration to release.' Then 'Reason (optional)' (up to 2,000 characters) and the buttons 'Postpone event' and 'Keep event'.",
+    "DECIDED 2026-10-26 (AC1, AC5, after postponing): a green alert 'The event has been postponed. Its venue bookings and equipment have been released.' (shown even when there was nothing to release, TC08), the 'Postponed' badge, and on the Overview, for every role that can open the event, an amber alert titled 'This event is postponed' with the reason, or 'No reason was recorded.' when it was left empty. CHANGED 2026-10-27 (build, kayalvizhi24): no new column - the reason is kept in the status history row of the move to Postponed (the route already wrote it there), and GET /api/events/[id] adds it as postponementReason only while the event is Postponed, read from the latest such row. So no migration on the shared database, and a resumed event shows no alert (TC13).",
+    "DECIDED 2026-10-26 (AC3): postponing uses SPM-67's statuses as Cancel Event does - an Approved booking becomes 'released' and a Pending request 'withdrawn', with cancelledBy/cancelledAt set and cancellationReason 'Event postponed: <reason>', or 'Event postponed.' with no reason, shown on the Venue tab as 'Reason for release: …' / 'Reason for withdrawal: …'. Venue Staff get SPM-67's 'Venue booking released' notification for each released booking (TC02); a withdrawn request sends nothing. Every equipment line not already cancelled becomes 'cancelled', reserved or not, so Technical Support's queue holds nothing for an event with no date; the Coordinator asks for equipment again after it is rescheduled. All in one transaction with the status change. The event record, its details, sessions and status history are kept (AC3, 'the event record itself is retained').",
+    "DECIDED 2026-10-26 (AC3, temporary filter): src/lib/equipmentAvailability.ts has RELEASED_EVENT_STATUSES, which ignores reservations of postponed events 'until SPM-38 releases its requests itself'. 'postponed' is removed from it once SPM-38 cancels the lines, unless an event postponed before SPM-38 still holds Reserved lines in the shared database - check before removing it, as SPM-37 did for 'cancelled'. TC03 checks what another event sees, so it passes either way. DOCUMENTATION.md's Known Gaps rows 'Postponing an event does not release its bookings' and 'Equipment availability's postponed filter is temporary' are deleted or updated when this ships.",
+    "DECIDED 2026-10-26 (AC6): while an event is Postponed, nothing new is arranged until it has a new date: requesting a venue is refused with 'A venue cannot be requested while the event is postponed. Its new date comes through a change request first.', and the Equipment tab shows 'This event is postponed — equipment requirements can't be changed until it has a new date.' with no way to add, change or remove equipment (TC10). Today neither route refuses a Postponed event. Edit event information is already refused while Postponed (SPM-62). The new date comes only through Request a change (SPM-35, already allows Postponed) and its approval (SPM-32).",
+    "DECIDED 2026-10-26 (AC2, change requests, kayalvizhi24): postponing closes the event's pending Postponement requests - this is the Coordinator 'recording' the organiser's request - as 'withdrawn' (the closed status SPM-37 uses) with reviewNotes 'Closed because the event was postponed.' Pending Change of details and Cancellation requests are left Pending, to be decided once there is a new date (TC06). Cross-story: SPM-32's branch tells the Coordinator 'Postponing an event isn't available yet (Postpone Event, SPM-38), so a postponement request can only be rejected for now.' (POSTPONEMENT_NOT_YET). Whichever of SPM-32 and SPM-38 merges second should change it to point at 'Postpone event' on the Overview, as SPM-32 already does for cancellation ('To approve it, cancel the event: use Cancel event on its Overview.').",
+    "DECIDED 2026-10-26 (AC4): a pending or approved safety check is closed the way SPM-37 and SPM-88 close one (closeSafetyCheck() in src/lib/safetyCheckClose.ts): status 'closed', decidedBy the Coordinator, decisionNote 'Event postponed'. The Readiness tab then shows 'Not submitted' (a closed check already reads that way), and the event leaves the Safety Officer's Safety Checks list. After it is rescheduled, the Coordinator submits it for a safety check again once the new arrangements are made, through the existing 'Submit for safety check' (TC13 checks 'Not submitted' after the resume).",
+    "DECIDED 2026-10-26 (AC8, attendees, kayalvizhi24): Browse Events already lists Confirmed events only, so a postponed event leaves it (TC07). Registrations are kept unchanged, and the registration settings are left as they are, so registration reopens if the event is confirmed again. Nobody can register while it is Postponed (the register route refuses anything not Confirmed). An attendee who holds a place (Registered or on the waiting list) can still open the postponed event from My Registrations, as for a cancelled one: canViewEvent() and eventListWhere() change for attendees, kept in step, and postponementReason joins ATTENDEE_EVENT_FIELDS. They see the 'Postponed' badge and the amber alert with the reason, with no 'Register' button. Unlike a cancelled event, the attendee can still withdraw (withdrawRefusal() already allows it, since Postponed is not final) - they may not want to wait for the new date.",
+    "DECIDED 2026-10-26 (AC1, filter): the All Events / My Events 'Filter by status' gains 'Postponed' (ALL_STATUSES in src/app/events/page.tsx), closing the DOCUMENTATION.md Known Gap '\"Filter by status\" has no Postponed option', which names SPM-38 (TC08).",
+    "DECIDED 2026-10-26 (AC7, kayalvizhi24): the move from Postponed to Approved, the RESCHEDULE_NOTE and the 'The event has moved from Postponed to Approved.' message are SPM-32's code, on its unmerged branch (src/lib/changeRequestDecision.ts, POST /api/events/[id]/change-requests/[requestId]/decision). SPM-38 does not build them again. TC13 is Blocked until SPM-32 is merged: each run is recorded as 'Blocked' with Remarks 'SPM-32 not merged' (docs/test-cases/README.md), and SPM-38 is not closed while TC13's latest result is Blocked. SPM-38's part of AC7 is that a resumed event can be planned again: its Venue and Equipment tabs open up once it leaves Postponed, and the existing single way into Planning (beginPlanningIfApproved(), SPM-54) applies. The 'Begin planning?' dialog's wording 'the first venue or equipment action for this event' is now literally true, because postponing cancelled every equipment line.",
+    "DECIDED 2026-10-26 (notifications): the briefing asks for notifications when an event is postponed, and Receive Event Notifications (SPM-53, which this story blocks) owns the organiser's and attendees'. SPM-38 sends only SPM-67's existing 'Venue booking released' notification to Venue Staff (TC02). Technical Support and the Safety Officer are not notified, as for Cancel Event.",
+    "DECIDED 2026-10-26 (AC2, server): only the assigned Coordinator sees 'Postpone event' (canSetEventStatus + canTransition, as canCancelEvent()). Another Coordinator, the Event Coordinator Lead, the Organiser and every other role do not (TC11), and the server refuses them with 403 'Your role cannot move an event to \"postponed\"' (automated tests). Venue Staff, Technical Support, the Safety Officer and Attendees have no route to the button, so no manual case is written for them.",
+    "DECIDED 2026-10-26 (races, automated only): no AC covers two people acting at once, e.g. Venue Staff approving a request while the Coordinator postpones. The postponement reads and writes the arrangements in one transaction with the status change; the approve route already refuses a request that is no longer pending. No manual case.",
+    "Fixtures (to write with the code, as scripts/seed-spm38.ts, `npm run fixtures:spm38`, and the same events appended to prisma/seed.ts after its last block): two test rooms, SPM38 Hall (SPM38-HAL) and SPM38 Studio (SPM38-STU), Orchard Hub, max 60, theatre 60, open 07:00-22:00, no setup or turnaround; two test items, SPM38 Projector (2 in total) and SPM38 Lectern Mic (2 in total). Every event 09:00-12:00, 30 attendees, theatre, organiser Rachel Ng, coordinator Daniel Tan, seed keys 'spm38_…': SPM38 Lantern Gala (12 Jan 2028, Planning; Hall Approved, Studio Pending; 2 Projector Reserved, 1 Lectern Mic Requested); SPM38 Riverside Expo (19 Jan 2028, Planning; Hall Approved; 2 Projector Reserved); SPM38 Rival Seminar (19 Jan 2028, Planning; 2 Projector Requested); SPM38 Safety Pending (21 Jan 2028, Safety review; Hall Approved; pending safety check by Daniel Tan); SPM38 Safety Cleared (26 Jan 2028, Safety approved; Hall Approved; safety check approved by Hana Yusof); SPM38 Client Asks (28 Jan 2028, Confirmed; pending Postponement request and pending Change of details (attendance 30 -> 45), both by Rachel Ng); SPM38 Open Workshop (2 Feb 2028, Confirmed; registration on, 40 places, 1 Oct 2026 09:00 - 1 Feb 2028 17:00; Lee Wei Ming registered); SPM38 Quiet Approval (4 Feb 2028, Approved); SPM38 Guarded Forum (9 Feb 2028, Planning; Studio Pending); SPM38 Early Review (11 Feb 2028, Under review); SPM38 Called Off (14 Feb 2028, Cancelled); SPM38 On Hold (16 Feb 2028, Postponed with reason 'Waiting on the client's revised budget.'; Hall Released with 'Event postponed: Waiting on the client's revised budget.'; 1 Projector Cancelled); SPM38 New Date Wanted (23 Feb 2028, Postponed with reason 'Venue renovation at the client's office.'); SPM38 Wrapped Up (6 Oct 2026, Completed). Dates avoid September, which the app writes as 'Sept'. SPM38 Open Workshop's registration closes on 1 Feb 2028, so TC07 must be re-dated after that."
+  ],
+  "code_references": [
+    "src/lib/eventPostponement.ts",
+    "src/lib/eventCancellation.ts",
+    "src/lib/statuses.ts",
+    "src/lib/permissions.ts",
+    "src/lib/venueBookingRequest.ts",
+    "src/lib/equipmentAvailability.ts",
+    "src/app/api/events/[id]/route.ts",
+    "src/app/api/events/[id]/postponement/route.ts",
+    "src/app/api/events/[id]/venue-bookings/route.ts",
+    "src/app/api/events/[id]/equipment/route.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/route.ts",
+    "src/app/events/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/app/events/page.tsx",
+    "scripts/seed-spm38.ts"
+  ]
+}

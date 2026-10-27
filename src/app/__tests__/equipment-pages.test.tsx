@@ -838,6 +838,19 @@ describe("Event equipment tab", () => {
       expect(screen.queryByRole("group", { name: "Add equipment" })).not.toBeInTheDocument();
     });
 
+    it("[SPM-38][AC6] shows a postponed event read-only until it has a new date, even to its coordinator", async () => {
+      open("coordinator", { [EVENT]: event({ status: "postponed" }) });
+
+      await itemRow("Projector");
+
+      expect(
+        screen.getByText("This event is postponed — equipment requirements can't be changed until it has a new date.")
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/equipment\s+requirements can no longer be changed/)).not.toBeInTheDocument();
+      expect(screen.queryByRole("spinbutton")).not.toBeInTheDocument();
+      expect(screen.queryByRole("group", { name: "Add equipment" })).not.toBeInTheDocument();
+    });
+
     it("[SPM-30][AC4] tells a coordinator who is not assigned why they cannot see the equipment", async () => {
       open("coordinator", { [LIST]: reply(403, { error: "forbidden" }) });
 

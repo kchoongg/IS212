@@ -67,9 +67,9 @@ function describeBooking(b: CancellationBooking): string {
   return `${formatVenue(b.venue.name, b.venue.code)}${session} on ${formatDateTimeRange(b.startsAt, b.endsAt)}`;
 }
 
-/// What cancelling will let go, one line each, in the dialog's order: bookings
-/// first and registration last. Empty when there is nothing.
-export function cancellationConsequences(input: CancellationInput): string[] {
+/// The bookings and equipment lines of the dialog, in its order. Shared with
+/// Postpone Event (SPM-38), which lets go of the same arrangements.
+export function arrangementConsequences(input: Pick<CancellationInput, "bookings" | "equipment">): string[] {
   const lines: string[] = [];
 
   for (const b of input.bookings.filter((b) => b.status === "approved")) lines.push(`Release ${describeBooking(b)}`);
@@ -84,6 +84,13 @@ export function cancellationConsequences(input: CancellationInput): string[] {
   for (const e of live.filter((e) => !HOLDING_STOCK.includes(e.status))) {
     lines.push(`Cancel the request for ${e.quantityRequested} × ${e.equipment.name}`);
   }
+  return lines;
+}
+
+/// What cancelling will let go, one line each, in the dialog's order: bookings
+/// first and registration last. Empty when there is nothing.
+export function cancellationConsequences(input: CancellationInput): string[] {
+  const lines = arrangementConsequences(input);
 
   const changes = input.pendingChangeRequests;
   if (changes > 0) lines.push(`Close ${changes} pending change request${changes === 1 ? "" : "s"}`);

@@ -17,9 +17,9 @@
 //         count against availability, by quantityReserved.
 //  * SPM-37 / SPM-38: cancelling or postponing releases equipment. Requests
 //         belonging to cancelled / postponed / rejected / draft events are
-//         ignored here (see RELEASED_EVENT_STATUSES): SPM-37 now cancels a
-//         cancelled event's lines itself, but events cancelled before it still
-//         have Reserved ones.
+//         ignored here (see RELEASED_EVENT_STATUSES): SPM-37 and SPM-38 now
+//         cancel the lines themselves, but events cancelled or postponed
+//         before them still have Reserved ones.
 
 import { EQUIPMENT_LOAD_WINDOW_MS } from "@/lib/eventSessions";
 
@@ -96,7 +96,8 @@ export const COMMITTING_REQUEST_STATUSES = ["reserved", "partially_fulfilled"];
 /// "cancelled" stays although SPM-37 now cancels the lines when an event is
 /// cancelled: events cancelled before SPM-37, the seeded ones included, still
 /// have Reserved lines, and the shared database is never reseeded.
-/// "postponed" is TEMPORARY until SPM-38 releases its requests itself.
+/// "postponed" stays for the same reason: SPM-38 cancels a postponed event's
+/// lines, but events postponed before it (the seeded ones too) still hold some.
 export const RELEASED_EVENT_STATUSES = ["cancelled", "postponed", "rejected", "draft"];
 
 /// Does this request hold stock, and how many units?
