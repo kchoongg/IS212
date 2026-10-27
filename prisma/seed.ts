@@ -2277,6 +2277,30 @@ async function main() {
       { chain: ["submitted", "under_review", "approved", "cancelled"], cancellationReason: "The client called the event off." }),
   );
 
+  // -----------------------------------------------------------------
+  // SPM-69 QA fixtures (Release or Adjust Equipment Reservation). The SAME
+  // events as scripts/seed-spm69.ts (`npm run fixtures:spm69`) - keep the two
+  // in step. Their equipment lines are created further down (spm69Requests).
+  // Pushed after SPM-94, so no earlier event's EVT- reference number shifts.
+  // Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm69 = (key: string, title: string, date: string, startHour: number, durationHours: number,
+    organiser: string, status = "planning"): EventSeed => ({
+    ...fixture(key, title, date, startHour, durationHours, organiser, { status }),
+    purpose: "SPM-69 release or adjust equipment reservation test event",
+    category: "meeting",
+  });
+  eventData.push(
+    spm69("spm69_release", "SPM69 Release Rehearsal", "2028-06-13", 9, 4, "Rachel Ng"),
+    spm69("spm69_overlap", "SPM69 Overlap Seminar", "2028-06-13", 14, 3, "James Koh"),
+    spm69("spm69_reduce", "SPM69 Reduce Workshop", "2028-06-20", 9, 4, "Melissa Yap"),
+    spm69("spm69_neighbour", "SPM69 Neighbour Briefing", "2028-06-20", 14, 2, "Kelvin Loh"),
+    spm69("spm69_increase", "SPM69 Increase Forum", "2028-06-27", 9, 4, "Evelyn Chen"),
+    spm69("spm69_rival", "SPM69 Rival Launch", "2028-06-27", 14, 2, "Samuel Ong"),
+    spm69("spm69_change", "SPM69 Coordinator Change Expo", "2028-07-04", 9, 6, "Faridah Aziz"),
+    spm69("spm69_confirmed", "SPM69 Confirmed Gala", "2028-07-11", 18, 4, "Budi Santoso", "confirmed"),
+  );
+
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
 
   for (const e of eventData) {
@@ -3134,6 +3158,38 @@ async function main() {
       createdBy: users["marcus.wong@connectsphere.com"],
     },
   });
+
+  // SPM-69 fixtures, the same as scripts/seed-spm69.ts: one line per event.
+  // [eventKey, equipment, requested, reserved|null, status, technical requirements]
+  const spm69Requests: [string, string, number, number | null, string, string | null][] = [
+    ["spm69_release", "Wireless Presenter", 3, 3, "reserved", null],
+    ["spm69_overlap", "Wireless Presenter", 3, null, "requested", null],
+    ["spm69_reduce", "Confidence Monitor", 4, 4, "reserved", null],
+    ["spm69_neighbour", "Confidence Monitor", 2, null, "requested", null],
+    ["spm69_increase", "Wireless Presenter", 4, 2, "partially_fulfilled", null],
+    ["spm69_rival", "Wireless Presenter", 1, 1, "reserved", null],
+    ["spm69_change", "Confidence Monitor", 2, 2, "reserved", "HDMI from the lectern"],
+    ["spm69_confirmed", "Mobile Charging Cart", 1, 1, "reserved", null],
+  ];
+  for (const [eventKey, eqName, requested, reserved, status, requirements] of spm69Requests) {
+    const ev = events[eventKey];
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: ev.id,
+        equipmentId: equip[eqName],
+        quantityRequested: requested,
+        quantityReserved: reserved ?? undefined,
+        technicalRequirements: requirements ?? undefined,
+        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
+        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(ev.days - 27),
+        reviewedBy: reserved ? users["kenji.sato@connectsphere.com"] : undefined,
+        reviewedAt: reserved ? day(ev.days - 25) : undefined,
+      },
+    });
+  }
 
   // -------------------------------------------------------------------
   // REGISTRATIONS

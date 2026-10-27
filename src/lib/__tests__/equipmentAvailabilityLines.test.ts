@@ -64,11 +64,14 @@ describe("assembleLines", () => {
     expect(lines[0].result?.status).toBe("available");
   });
 
-  it("[SPM-48][AC4] ignores requests that do not hold stock or whose event is released", () => {
+  // CHANGED (SPM-69): an under-review line with units still reserved now holds
+  // them (AC7), so the one here was never reserved; a released one holds none (AC4).
+  it("[SPM-48][AC4][SPM-69] ignores requests that do not hold stock or whose event is released", () => {
     const { lines } = assembleLines(
       [line()],
       [
-        other({ requestStatus: "under_review" }),
+        other({ requestStatus: "under_review", quantityReserved: null }),
+        other({ requestStatus: "released" }),
         other({ eventStatus: "cancelled" }),
         other({ eventStatus: "postponed" }),
       ]

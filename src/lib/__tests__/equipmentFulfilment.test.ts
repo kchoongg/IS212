@@ -135,6 +135,10 @@ describe("reserveClearsStaffNotes", () => {
     expect(reserveClearsStaffNotes("unavailable")).toBe(true);
   });
 
+  it("[SPM-69][AC1] clears the release reason when a released line is reserved again", () => {
+    expect(reserveClearsStaffNotes("released")).toBe(true);
+  });
+
   it("[SPM-50][AC4] keeps notes on a line reserved from any other status", () => {
     for (const status of ["requested", "under_review", "partially_fulfilled"]) {
       expect(reserveClearsStaffNotes(status)).toBe(false);

@@ -127,8 +127,48 @@ describe("which requests hold stock", () => {
     expect(committedQuantity({ ...base, status: "partially_fulfilled", quantityReserved: 2 })).toBe(2);
   });
 
-  it.each(["requested", "under_review", "unavailable", "cancelled"])("[SPM-48][AC4] ignores a %s request", (status) => {
+  // CHANGED (SPM-69 AC7): a requested / under-review line can now hold stock -
+  // one the Coordinator changed after it was reserved keeps its units until
+  // Technical Support reviews it again. One that was never reserved holds none.
+  it.each(["requested", "under_review", "unavailable", "cancelled"])(
+    "[SPM-48][AC4] ignores a %s request with nothing reserved",
+    (status) => {
+      expect(committedQuantity({ ...base, status, quantityReserved: null })).toBe(0);
+    }
+  );
+
+  it.each(["unavailable", "cancelled"])("[SPM-48][AC4] ignores a %s request whatever quantity it records", (status) => {
     expect(committedQuantity({ ...base, status })).toBe(0);
+  });
+
+  it.each(["requested", "under_review"])(
+    "[SPM-69][AC7] keeps counting the units of a reserved line sent back to Technical Support as %s",
+    (status) => {
+      expect(committedQuantity({ ...base, status })).toBe(2);
+    }
+  );
+
+  it("[SPM-69][AC4] frees the units of a released reservation, though its quantity stays on record", () => {
+    expect(committedQuantity({ ...base, status: "released" })).toBe(0);
+  });
+
+  it("[SPM-69][AC4] frees units for an overlapping event once a reservation is reduced", () => {
+    const before = check({
+      start: "2026-10-12T10:00",
+      end: "2026-10-12T16:00",
+      total: 4,
+      requested: 3,
+      commitments: [commitment("Gala Dinner", "2026-10-12T09:00", "2026-10-12T17:00", 3)],
+    });
+    const after = check({
+      start: "2026-10-12T10:00",
+      end: "2026-10-12T16:00",
+      total: 4,
+      requested: 3,
+      commitments: [commitment("Gala Dinner", "2026-10-12T09:00", "2026-10-12T17:00", 1)],
+    });
+    expect(before.available).toBe(1);
+    expect(after).toMatchObject({ status: "available", available: 3 });
   });
 
   it.each(["cancelled", "postponed", "rejected", "draft"])("[SPM-48][AC4] ignores requests of a %s event", (eventStatus) => {
