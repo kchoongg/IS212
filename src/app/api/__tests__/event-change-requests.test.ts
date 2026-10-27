@@ -175,8 +175,8 @@ describe("[SPM-35] POST /api/events/[id]/change-requests", () => {
       requestedBy: "Rachel Ng",
       important: false,
       rows: [
-        { field: "title", label: "Event name", current: "SPM35 Harbour Townhall", proposed: "SPM35 Harbour Townhall and Awards" },
-        { field: "description", label: "Description", current: "Leadership update and Q&A.", proposed: "Leadership update, Q&A and the staff awards." },
+        { field: "title", label: "Event name", current: "SPM35 Harbour Townhall", proposed: "SPM35 Harbour Townhall and Awards", outcome: null, outcomeReason: null },
+        { field: "description", label: "Description", current: "Leadership update and Q&A.", proposed: "Leadership update, Q&A and the staff awards.", outcome: null, outcomeReason: null },
       ],
     });
   });
@@ -214,7 +214,7 @@ describe("[SPM-35] POST /api/events/[id]/change-requests", () => {
 
     expect(callArg(db.facility.findMany)).toEqual({ where: { id: { in: [ID.facility, ID.equipment] } }, select: { id: true, name: true } });
     expect((await res.json()).rows).toEqual([
-      { field: "facilityIds", label: "Facilities and accessibility needs", current: "Raised stage", proposed: "Raised stage, Step-free access" },
+      { field: "facilityIds", label: "Facilities and accessibility needs", current: "Raised stage", proposed: "Raised stage, Step-free access", outcome: null, outcomeReason: null },
     ]);
   });
 
@@ -358,14 +358,14 @@ describe("[SPM-35][AC2] GET /api/events/[id]/change-requests", () => {
     expect(callArg(db.eventChangeRequest.findMany)).toEqual({
       where: { eventId: ID.event },
       orderBy: { requestedAt: "desc" },
-      include: { requester: { select: { fullName: true } } },
+      include: { requester: { select: { fullName: true } }, reviewer: { select: { fullName: true } } },
     });
     expect(await res.json()).toEqual([
       expect.objectContaining({
         id: ID.request,
         important: true,
         affects: ["Expected attendance"],
-        rows: [{ field: "expectedAttendance", label: "Expected attendance", current: "80", proposed: "120" }],
+        rows: [{ field: "expectedAttendance", label: "Expected attendance", current: "80", proposed: "120", outcome: null, outcomeReason: null }],
       }),
     ]);
   });

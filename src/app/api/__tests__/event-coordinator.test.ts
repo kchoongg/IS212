@@ -74,7 +74,22 @@ describe("PUT /api/events/[id]/coordinator", () => {
     expect(db.event.update).not.toHaveBeenCalled();
   });
 
-  it.each(["coordinator", "venue_staff", "tech_support"])("[SPM-30][AC1] is 403 for %s", async (role) => {
+  // CHANGED (SPM-94 AC2): Venue Staff and Technical Support cannot see a
+  // submitted request at all, so for them it is the 404 below, not a 403.
+  it.each(["venue_staff", "tech_support"])(
+    "[SPM-30][AC1] [SPM-94][AC2] is 404 for %s, who cannot see a submitted request",
+    async (role) => {
+      const token = signIn(user(role, { id: ID.user }), daniel());
+      db.event.findUnique.mockResolvedValue(unassigned());
+
+      const res = await assign(token, { coordinatorId: ID.otherUser });
+
+      expect(res.status).toBe(404);
+      expect(db.event.update).not.toHaveBeenCalled();
+    }
+  );
+
+  it.each(["coordinator"])("[SPM-30][AC1] is 403 for %s", async (role) => {
     const token = signIn(user(role, { id: ID.user }), daniel());
     db.event.findUnique.mockResolvedValue(unassigned());
 
@@ -269,6 +284,17 @@ describe("PUT /api/events/[id]/coordinator", () => {
 
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "This person is already the assigned coordinator." });
+  });
+
+  it("[SPM-59][AC4] a withdrawn request can no longer be given another coordinator", async () => {
+    const token = signIn(opsManager(), daniel(), priya());
+    db.event.findUnique.mockResolvedValue(assignedToDaniel({ status: "withdrawn" }));
+
+    const res = await assign(token, { coordinatorId: ID.thirdUser });
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "This event is Withdrawn and its coordinator can no longer be changed." });
+    expect(db.event.update).not.toHaveBeenCalled();
   });
 
   describe("who can be chosen", () => {

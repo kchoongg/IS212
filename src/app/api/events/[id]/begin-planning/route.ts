@@ -2,8 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { canSetEventStatus, canViewEvent } from "@/lib/permissions";
+import { canSetEventStatus } from "@/lib/permissions";
 import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /**
  * SPM-54 — begin planning an Approved event.
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
     // Same order as every other event route: an event the user cannot see is
     // 404 before any role check, so its existence is never confirmed.
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canSetEventStatus(actor, event, "planning")) {

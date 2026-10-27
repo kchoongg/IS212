@@ -99,9 +99,9 @@ export function fulfilmentChanges(
 
 /// Whether reserving a line clears Technical Support's notes. A line marked
 /// Unavailable carries the reason it couldn't be provided ("both units out for
-/// repair"); once stock frees up and it is reserved, that reason is no longer
-/// true and would contradict the "Reserved" status the Coordinator sees. Notes
-/// on any other line are kept.
+/// repair"), and a released one the reason it was released (SPM-69); once it
+/// is reserved, that reason is no longer true and would contradict the
+/// "Reserved" status the Coordinator sees. Notes on any other line are kept.
 export function reserveClearsStaffNotes(previousStatus: string): boolean {
-  return previousStatus === "unavailable";
+  return previousStatus === "unavailable" || previousStatus === "released";
 }

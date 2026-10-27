@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { can, canViewEvent } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { parseEventReference } from "@/lib/format";
 import { venueSearchQuerySchema } from "@/lib/validation";
 import { parseWallClock, searchVenues, type VenueSearchFilters } from "@/lib/venueSearch";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-40, Search and Filter Suitable Venues. Every active venue, narrowed to
 // the ones matching EVERY filter given (AC7) - the rules are in
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
     const sequenceNumber = parseEventReference(query.event);
     const event =
       sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     eventId = event.id;

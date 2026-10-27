@@ -373,10 +373,11 @@ Proposed changes. NOT applied to the event until approved. Raised by the organis
 | `proposedAttendance` | Int |  |  |
 | `otherChanges` | String |  |  |
 | `isSignificant` | Boolean |  | The request is Important (SPM-35 AC4): it changes the date and time, expected attendance, venue requirements or equipment, which existing arrangements depend on. Defaults to `false`. |
-| `status` | String |  | pending \| approved \| rejected \| withdrawn Defaults to `"pending"`. |
-| `reviewedBy` | String |  |  |
-| `reviewedAt` | DateTime |  |  |
-| `reviewNotes` | String |  |  |
+| `decisions` | Json |  | SPM-32 (AC3): the coordinator's outcome for each item of a change of details, keyed by field name (`REQUESTABLE_FIELDS`, plus `"equipment"` for the equipment change): `{ "<field>": { outcome: "approved" \| "rejected", reason } }`. A rejected item has a reason. NULL until the request is processed, and for postponement and cancellation requests, whose rejection reason is `reviewNotes`. |
+| `status` | String |  | pending \| approved \| rejected \| partially_approved (SPM-32: some items approved, others rejected) \| withdrawn (closed when the event was cancelled, SPM-37). A cancellation request is approved when the event is cancelled. Defaults to `"pending"`. |
+| `reviewedBy` | String |  | SPM-32: the coordinator who processed it. |
+| `reviewedAt` | DateTime |  | When it was processed. |
+| `reviewNotes` | String |  | SPM-32: the reason for rejecting a postponement or cancellation request; "Approved: the event was cancelled." on a cancellation request approved by cancelling the event. |
 
 **Relations:** `event` &rarr; Event, `requester` &rarr; User, `reviewer` &rarr; User
 

@@ -1,8 +1,8 @@
 # Change trail
 
 Every change to the requirements after the Week 4 baseline: the six Week 7
-Customer Changes, and the three forum answers that changed what we build
-(#125, #128, #129). For each: how we classified it, which stories it created,
+Customer Changes, and the four forum answers that changed what we build
+(#103, #125, #128, #129). For each: how we classified it, which stories it created,
 reopened or reworded, the acceptance criteria before and after, and what it did
 to test cases, automated tests and design documents.
 
@@ -30,6 +30,7 @@ comment of 2026-10-02 22:18 explains.
 | [4](#week-7-change-4--tentative-venue-holds-expire) | Tentative venue holds expire | New requirement | SPM-82 | none |
 | [5](#week-7-change-5--addition-of-event-coordinator-lead-role) | Event Coordinator Lead role | New requirement, then a rename (see #129) | SPM-83, SPM-84 | SPM-53, SPM-58, SPM-74 |
 | [6](#week-7-change-6--operational-feasibility-check) | Operational feasibility (safety) check | New requirement | SPM-85, SPM-86, SPM-87, SPM-88 | SPM-33, SPM-34, SPM-37, SPM-38 |
+| [#103](#forum-103--record-request-withdrawal) | Record request withdrawal | Clarification | SPM-59 | none |
 | [#125](#forum-125--who-sees-a-review-outcome) | Who sees a review outcome | Correction | SPM-94 | SPM-53 |
 | [#128](#forum-128--15-minute-booking-unit-week-7-clarification) | 15 minutes as the booking unit | Clarification that corrects earlier rulings (#108, #123) | SPM-93 | SPM-45, SPM-67, SPM-68, SPM-80, SPM-81, SPM-82 |
 | [#129](#forum-129--event-coordinator-lead-is-the-renamed-operations-manager) | Lead = renamed Operations Manager | Clarification, recorded as a change request (rename) | none (SPM-83 folded into SPM-84) | SPM-58, SPM-74, SPM-83, SPM-84 |
@@ -182,19 +183,35 @@ SPM-93 after forum #128 (see below).
 
 ---
 
+## Forum #103 – Record request withdrawal
+
+**Classification:** clarification. Discussion #103 (2026-09-07): "An Event Organiser may request the Event Coordinator, outside the system, to withdraw a submitted event request while it is under review. The Event Coordinator will process and record the withdrawal in the system. The withdrawn request should remain distinguishable from draft, submitted, approved, rejected, or other request states." Recorded in `docs/CUSTOMER_CLARIFICATIONS.md` (#103).
+
+**Stories created:** SPM-59 Record Request Withdrawal (Sprint 4, estimate 2: "Small and well understood: one action and a new Withdrawn status."). Its creation date is not recorded here. The withdrawal itself was first built under SPM-27 (2026-10-02, "withdrawal per clarification #103": the assigned coordinator's Record withdrawal while the request is Under review); SPM-59 (PR #80, 2026-10-22) checked it against its own ACs and closed two gaps: Withdrawn in the status filter, and closed-event messages that name withdrawn events.
+
+**Stories reworded:** not recorded.
+
+**Test cases:** SPM-59-TC01 to TC06 (`docs/test-cases/SPM-59_Test_Cases.xlsx`, 2026-10-22). SPM-59 also changed the messages that refuse an action on a closed event to name withdrawn events ("…completed, cancelled, rejected or withdrawn event", built from `TERMINAL_EVENT_STATUSES`). Three cases quote them and are marked Updated (Forum #103): SPM-42-TC13; SPM-43-TC06; SPM-54-TC13 ([DECOMMISSIONED.md](test-cases/DECOMMISSIONED.md)).
+
+**Automated tests:** SPM-59's are the [SPM-59] tests in `src/lib/__tests__/statuses.test.ts`, `venueBookingRequest.test.ts`, `src/app/api/__tests__/event-detail.test.ts`, `event-coordinator.test.ts`, `src/app/__tests__/event-pages.test.tsx` and `list-pages.test.tsx`. Existing tests that quoted the old closed-event messages now expect the new wording (`event-venue`, `event-venue-pages`, `venueBookingRequest`, `event-equipment`, `equipment-pages`, `venue-booking-review`, `venueBookingReview`). None archived.
+
+**Design documents:** none changed. The Withdrawn status and its Under review → Withdrawn move were already in `docs/PERMISSIONS.md` and the status lifecycle (SPM-27). PR #80 changed `DOCUMENTATION.md` only.
+
+---
+
 ## Forum #125 – Who sees a review outcome
 
 **Classification:** correction. SPM-94's description: "Fix to Review Event Request (SPM-28) and View Event Information (SPM-31). Today every internal role can open any submitted event…". Discussion #125 was answered on 2026-09-28. The Jira record of it starts on 2026-10-06.
 
-**Stories created:** SPM-94 Limit Who Sees a Request's Review Outcome (2026-10-06, Sprint 4, not built).
+**Stories created:** SPM-94 Limit Who Sees a Request's Review Outcome (2026-10-06, Sprint 4; built 2026-10-23).
 
 **Stories reworded:** SPM-53, AC4 (2026-10-18 22:00, KANDASAMY KAYALVIZHI): old "Relevant users … approved or rejected" → new "The Event Organiser who owns the event is notified when the assigned Event Coordinator approves or rejects it, with the reason for a rejection. No other user is notified of the outcome." The comment cites "discussion #125".
 
-**Test cases:** none yet; SPM-94 is not built. SPM-31-TC02's wording will need updating (Pending in DECOMMISSIONED.md).
+**Test cases:** SPM-94-TC01 to TC11 (new; TC11, an event cancelled before approval, added after review of PR #86; `docs/test-cases/SPM-94_Test_Cases.xlsx`, fixtures `npm run fixtures:spm94`). SPM-31-TC02 Updated (v2 note: Venue Staff see events from Approved on). See DECOMMISSIONED.md.
 
-**Automated tests:** not recorded (none changed).
+**Automated tests:** new [SPM-94] tests in `permissions.test.ts`, `event-detail.test.ts`, `events.test.ts`, `event-equipment.test.ts` and `equipment-pages.test.tsx`. Values changed (403 → 404 for the three roles on an unapproved event, their list filter) in `clarifications.test.ts`, `event-coordinator.test.ts`, `event-detail.test.ts`, `event-equipment.test.ts`, `lists.test.ts`, `events.test.ts` and `permissions.test.ts`; none archived (DECOMMISSIONED.md).
 
-**Design documents:** not recorded.
+**Design documents:** `docs/PERMISSIONS.md` §3 (who can see which event; the rejection reason) and §4.
 
 ---
 

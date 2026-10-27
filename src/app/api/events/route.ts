@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, unauthenticated } from "@/lib/apiAuth";
+import { completeDueEvents } from "@/lib/eventCompletionService";
 import { can, eventListWhere, visibleEventsFor } from "@/lib/permissions";
 import { SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
 import { createEventSchema } from "@/lib/validation";
@@ -22,6 +23,8 @@ export async function GET(req: NextRequest) {
   // attendee sees only confirmed events open for registration, and internal
   // staff see everything except drafts.
   const isAttendee = actor.role === "attendee";
+  // SPM-36 (AC6): an event 7 days past its end is listed as Completed.
+  await completeDueEvents();
   const events = await prisma.event.findMany({
     where: eventListWhere(actor),
     orderBy: { createdAt: "desc" },

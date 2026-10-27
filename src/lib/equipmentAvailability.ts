@@ -15,10 +15,11 @@
 //         event's own end date (the day the kit comes back).
 //  * SCHEMA_REFERENCE.md: only `reserved` and `partially_fulfilled` requests
 //         count against availability, by quantityReserved.
-//  * SPM-37 / SPM-38: cancelling or postponing releases equipment. Until those
-//         stories cascade that onto the request rows, requests belonging to
-//         cancelled / postponed / rejected / draft events are ignored here
-//         (TEMPORARY - see COMMITTING_EVENT_STATUSES).
+//  * SPM-37 / SPM-38: cancelling or postponing releases equipment. Requests
+//         belonging to cancelled / postponed / rejected / draft events are
+//         ignored here (see RELEASED_EVENT_STATUSES): SPM-37 now cancels a
+//         cancelled event's lines itself, but events cancelled before it still
+//         have Reserved ones.
 
 import { EQUIPMENT_LOAD_WINDOW_MS } from "@/lib/eventSessions";
 
@@ -92,8 +93,33 @@ export function transferLeadFor(
 }
 
 export const COMMITTING_REQUEST_STATUSES = ["reserved", "partially_fulfilled"];
-/// TEMPORARY: SPM-37/38 should release these requests themselves. Revisit then.
+/// SPM-69 AC7: a reserved line the Coordinator changes goes back to Technical
+/// Support as Requested, but its reservation is not changed - it keeps its
+/// units until Technical Support reviews it again. Such a line is in one of
+/// these statuses with a quantity still reserved. A line that was never
+/// reserved has none; marking it Unavailable clears it (equipmentFulfilment.ts).
+export const RECHECK_REQUEST_STATUSES = ["requested", "under_review"];
+/// "cancelled" stays although SPM-37 now cancels the lines when an event is
+/// cancelled: events cancelled before SPM-37, the seeded ones included, still
+/// have Reserved lines, and the shared database is never reseeded.
+/// "postponed" is TEMPORARY until SPM-38 releases its requests itself.
 export const RELEASED_EVENT_STATUSES = ["cancelled", "postponed", "rejected", "draft"];
+
+/// Whether a request line holds stock, whatever its event's status. A
+/// released reservation (SPM-69) keeps its quantity on record but holds none.
+export function holdsStock(status: string, quantityReserved: number | null): boolean {
+  if (COMMITTING_REQUEST_STATUSES.includes(status)) return true;
+  return RECHECK_REQUEST_STATUSES.includes(status) && (quantityReserved ?? 0) > 0;
+}
+
+/// holdsStock() as a Prisma `where` fragment, for the queries that load
+/// other events' holds.
+export const HOLDS_STOCK_WHERE = {
+  OR: [
+    { status: { in: COMMITTING_REQUEST_STATUSES } },
+    { status: { in: RECHECK_REQUEST_STATUSES }, quantityReserved: { gt: 0 } },
+  ],
+};
 
 /// Does this request hold stock, and how many units?
 export function committedQuantity(request: {
@@ -101,7 +127,7 @@ export function committedQuantity(request: {
   quantityReserved: number | null;
   eventStatus: string;
 }): number {
-  if (!COMMITTING_REQUEST_STATUSES.includes(request.status)) return 0;
+  if (!holdsStock(request.status, request.quantityReserved)) return 0;
   if (RELEASED_EVENT_STATUSES.includes(request.eventStatus)) return 0;
   return Math.max(0, request.quantityReserved ?? 0);
 }

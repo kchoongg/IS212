@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { canManageEquipmentRequests, canViewEquipmentRequests, canViewEvent } from "@/lib/permissions";
+import { canManageEquipmentRequests, canViewEquipmentRequests } from "@/lib/permissions";
 import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
-import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { parseEventReference } from "@/lib/format";
 import { ZodError } from "zod";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // CHANGED (SPM-31): `id` here is the event's reference (e.g. "EVT-000123"),
 // not its underlying UUID - see eventReference()/parseEventReference() in
@@ -42,7 +43,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   }
 
   const event = await resolveEvent(id);
-  if (!event || !canViewEvent(actor, event)) {
+  if (!event || !(await canViewEventWithHistory(actor, event))) {
     return hidden();
   }
   if (!canViewEquipmentRequests(actor, event)) {
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
 
     const event = await resolveEvent(id);
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     // Only the Coordinator assigned to this event records equipment
@@ -88,7 +89,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     if (isTerminalEventStatus(event.status)) {
       return NextResponse.json(
-        { error: "Cannot record equipment for a completed, cancelled, or rejected event" },
+        { error: `Cannot record equipment for a ${CLOSED_EVENT_STATUSES_PHRASE} event` },
         { status: 400 }
       );
     }

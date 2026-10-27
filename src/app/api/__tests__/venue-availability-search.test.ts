@@ -523,5 +523,17 @@ describe("GET /api/venues/search", () => {
       expect(await res.json()).toEqual({ error: "Event not found" });
       expect(db.venue.findMany).not.toHaveBeenCalled();
     });
+
+    it("[SPM-40] searches for an event the user may see", async () => {
+      const token = given([venue("Atrium")]);
+      db.event.findUnique.mockResolvedValue({
+        id: ID.event, status: "under_review", organiserId: "organiser-id", organisationId: ID.org, coordinatorId: ID.user,
+      });
+
+      const res = await get(token, "event=EVT-000007");
+
+      expect(res.status).toBe(200);
+      expect(db.venue.findMany).toHaveBeenCalled();
+    });
   });
 });

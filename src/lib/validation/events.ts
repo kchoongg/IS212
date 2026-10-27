@@ -335,6 +335,21 @@ export const createChangeRequestSchema = z
   .strict();
 export type CreateChangeRequestInput = z.infer<typeof createChangeRequestSchema>;
 
+// SPM-32: the assigned coordinator's decision on a change request. A change of
+// details is decided item by item (`decisions`, keyed by field or "equipment");
+// a postponement or cancellation request as a whole (`outcome`, `reason`).
+// Which items a request has, and the reason a rejection needs, are checked
+// against the request in the route (checkDecisions(), src/lib/changeRequestDecision.ts).
+const decisionOutcome = z.enum(["approved", "rejected"]);
+export const changeRequestDecisionSchema = z
+  .object({
+    decisions: z.record(z.object({ outcome: decisionOutcome, reason: z.string().nullable().optional() }).strict()).optional(),
+    outcome: decisionOutcome.optional(),
+    reason: z.string().optional(),
+  })
+  .strict();
+export type ChangeRequestDecisionInput = z.infer<typeof changeRequestDecisionSchema>;
+
 // SPM-30: assign or reassign an event's coordinator. The route checks the
 // person is an active Event Coordinator; this only checks the shape.
 export const assignCoordinatorSchema = z.object({

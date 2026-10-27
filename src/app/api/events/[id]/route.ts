@@ -3,8 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
 import { placeCounts, positionOnWaitingList, sweepWaitingList } from "@/lib/waitingListService";
 import { seatsHeld } from "@/lib/waitingList";
+import { completeDueEvents } from "@/lib/eventCompletionService";
+import { NOT_ENDED_MESSAGE, hasEnded } from "@/lib/eventCompletion";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { parseEventReference } from "@/lib/format";
+import { eventReference, parseEventReference } from "@/lib/format";
 import {
   REVIEWABLE_STATUSES,
   REVIEW_OUTCOMES,
@@ -14,7 +16,6 @@ import {
   canSeeClarification,
   canSetEventStatus,
   canViewChangeRequests,
-  canViewEvent,
   canViewRegistrationList,
   visibleEventFor,
   type Actor,
@@ -27,6 +28,14 @@ import {
 } from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
+import {
+  CANCELLATION_REQUEST_APPROVED_NOTE,
+  CHANGE_REQUEST_CLOSED_NOTE,
+  SAFETY_CHECK_CLOSED_NOTE,
+  arrangementCancellationNote,
+} from "@/lib/eventCancellation";
+import { releaseNotification } from "@/lib/venueBookingChange";
+import { closeSafetyCheck } from "@/lib/safetyCheckClose";
 import { isExternalRole } from "@/lib/roles";
 import { dayIndex, dayStart } from "@/lib/equipmentAvailability";
 import { canTransition, transitionError } from "@/lib/statuses";
@@ -38,6 +47,7 @@ import { deriveEventFromSessions, equipmentWindow } from "@/lib/eventSessions";
 import { writeSessions, SESSION_SELECT } from "@/lib/sessionWrites";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   const { id } = await context.params;
@@ -51,6 +61,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   // parseEventReference() in src/lib/format.ts. A segment that doesn't parse
   // gets the same refusal as one that parses but matches nothing.
   const sequenceNumber = parseEventReference(id);
+  // SPM-36 (AC6): an event 7 days past its end is never read as Confirmed.
+  if (sequenceNumber !== null) await completeDueEvents();
   // SPM-66 (AC7, AC10): offers whose time is up end before anything is read.
   if (sequenceNumber !== null) await sweepWaitingList();
   const event =
@@ -164,7 +176,14 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     (await prisma.registration.count({
       where: { eventId: event.id, attendeeId: actor.id, status: { in: HOLDING_A_PLACE } },
     })) > 0;
-  if (!canViewEvent(actor, { ...event, attendeeHoldsPlace })) {
+  // SPM-36: a completed event stays visible to the attendee who attended it.
+  const attendeeAttended =
+    actor.role === "attendee" &&
+    event.status === "completed" &&
+    (await prisma.registration.count({
+      where: { eventId: event.id, attendeeId: actor.id, status: "attended" },
+    })) > 0;
+  if (!(await canViewEventWithHistory(actor, { ...event, attendeeHoldsPlace, attendeeAttended }))) {
     return hidden();
   }
 
@@ -320,7 +339,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
     // ADDED: an event the user cannot see cannot be reached through PATCH
     // either. Without this, an id guessed from a 404 could still be written
     // to - the read and the write have to answer the same question.
-    if (!canViewEvent(actor, event)) {
+    if (!(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
 
@@ -390,6 +409,12 @@ async function handleStatusChange(
     return NextResponse.json({ error: transitionError(event.status, data.status) }, { status: 400 });
   }
 
+  // ADDED (SPM-36, #71): an event is marked completed only after it has taken
+  // place. Confirmed-only is the lifecycle's rule, checked just above.
+  if (data.status === "completed" && !hasEnded(event.endsAt, new Date())) {
+    return NextResponse.json({ error: NOT_ENDED_MESSAGE }, { status: 400 });
+  }
+
   // ADDED: a draft may be incomplete, but anything past draft may not.
   // The SQL design enforced this with a CHECK constraint; Prisma has no
   // equivalent, so the rule moves here - the one place status leaves draft.
@@ -448,6 +473,9 @@ async function handleStatusChange(
     );
   }
 
+  // SPM-37 (AC8): the reason is optional; one of only spaces is none.
+  const cancellationReason = data.status === "cancelled" ? data.reason?.trim() || null : null;
+
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const e = await tx.event.update({
       where: { id },
@@ -455,7 +483,7 @@ async function handleStatusChange(
         status: data.status,
         // Keep the decision record on the event itself as well as in history.
         ...(data.status === "rejected" ? { rejectionReason: data.reason?.trim() } : {}),
-        ...(data.status === "cancelled" ? { cancellationReason: data.reason } : {}),
+        ...(data.status === "cancelled" ? { cancellationReason } : {}),
         ...(data.status === "submitted" ? { submittedAt: new Date() } : {}),
         ...(data.status === "confirmed" ? { confirmedAt: new Date() } : {}),
       },
@@ -467,12 +495,18 @@ async function handleStatusChange(
         fromStatus: event.status,
         toStatus: data.status,
         changedBy: actor.id,
-        reason: data.reason,
+        reason: data.status === "cancelled" ? (cancellationReason ?? undefined) : data.reason,
       },
     });
 
+    // SPM-37: everything the event holds is let go with it (AC3-AC6).
+    if (data.status === "cancelled") {
+      await releaseForCancellation(tx, e, actor, cancellationReason);
+    }
+
     // SPM-26: once the review is over, nobody will answer an open
     // clarification, so it is closed (not answered - no response is set).
+    // That includes an Under review event being cancelled (SPM-37).
     if (REVIEWABLE_STATUSES.includes(event.status)) {
       await tx.clarificationRequest.updateMany({
         where: { eventId: id, status: "open" },
@@ -503,6 +537,92 @@ async function handleStatusChange(
 /// A refusal decided inside the resubmit's transaction (SPM-26), turned into
 /// a 400 outside it.
 class ResubmitRefused extends Error {}
+
+/**
+ * SPM-37: what a cancellation lets go, in the status change's transaction
+ * (src/lib/eventCancellation.ts says what each becomes). Registrations are
+ * left as they are (AC7, SPM-52).
+ */
+async function releaseForCancellation(
+  tx: Prisma.TransactionClient,
+  event: { id: string; sequenceNumber: number; title: string | null },
+  actor: Actor,
+  reason: string | null
+) {
+  const now = new Date();
+  const note = arrangementCancellationNote(reason);
+
+  // Read before they change: Venue Staff are told of each released booking.
+  const released = await tx.venueBooking.findMany({
+    where: { eventId: event.id, status: "approved" },
+    select: {
+      startsAt: true,
+      endsAt: true,
+      venue: { select: { name: true, code: true } },
+      session: { select: { label: true } },
+    },
+    orderBy: { startsAt: "asc" },
+  });
+
+  // AC3, AC4: SPM-67's statuses - released frees the room, withdrawn takes the
+  // request off Venue Staff's Booking Requests list.
+  const taken = { cancelledBy: actor.id, cancelledAt: now, cancellationReason: note };
+  await tx.venueBooking.updateMany({
+    where: { eventId: event.id, status: "approved" },
+    data: { status: "released", ...taken },
+  });
+  await tx.venueBooking.updateMany({
+    where: { eventId: event.id, status: "pending" },
+    data: { status: "withdrawn", ...taken },
+  });
+
+  // AC3: every line, reserved or not - nothing stays committed or queued.
+  await tx.equipmentRequest.updateMany({
+    where: { eventId: event.id, status: { not: "cancelled" } },
+    data: { status: "cancelled" },
+  });
+
+  // SPM-32: the organiser asked for this cancellation - cancelling carries out
+  // their request, so it is approved rather than closed.
+  await tx.eventChangeRequest.updateMany({
+    where: { eventId: event.id, status: "pending", kind: "cancel" },
+    data: { status: "approved", reviewedBy: actor.id, reviewedAt: now, reviewNotes: CANCELLATION_REQUEST_APPROVED_NOTE },
+  });
+
+  // AC5: closed, not decided - nothing they propose reaches the event.
+  await tx.eventChangeRequest.updateMany({
+    where: { eventId: event.id, status: "pending" },
+    data: { status: "withdrawn", reviewedBy: actor.id, reviewedAt: now, reviewNotes: CHANGE_REQUEST_CLOSED_NOTE },
+  });
+
+  // AC6: a pending check leaves the Safety Officer's list with the status
+  // change; an approved one must not stay live either.
+  await closeSafetyCheck(tx, event.id, actor.id, SAFETY_CHECK_CLOSED_NOTE, now);
+
+  // As SPM-67 AC7 (decided 2026-10-21): Venue Staff had set these rooms aside.
+  if (released.length > 0) {
+    const coordinator = await tx.user.findUnique({ where: { id: actor.id }, select: { fullName: true } });
+    for (const booking of released) {
+      await notifyRole(
+        tx,
+        "venue_staff",
+        releaseNotification({
+          // v8 ignore next -- the actor was looked up to sign them in, so their row exists
+          coordinatorName: coordinator?.fullName ?? "The assigned Coordinator",
+          venueName: booking.venue.name,
+          venueCode: booking.venue.code,
+          eventId: event.id,
+          eventReference: eventReference(event.sequenceNumber),
+          eventTitle: event.title,
+          sessionLabel: booking.session?.label ?? null,
+          startsAt: booking.startsAt,
+          endsAt: booking.endsAt,
+          reason: note,
+        })
+      );
+    }
+  }
+}
 
 /**
  * SPM-24: save changes to a draft's own fields. Restricted to the owning

@@ -430,7 +430,17 @@ model EventChangeRequest {
   /// src/lib/eventChangeImpact.ts) - what existing arrangements depend on.
   isSignificant Boolean @default(false) @map("is_significant")
 
-  /// pending | approved | rejected | withdrawn
+  /// SPM-32 (AC3): the coordinator's outcome for each field of a change of
+  /// details, keyed by field name (REQUESTABLE_FIELDS, plus "equipment" for
+  /// the equipment change): { "<field>": { outcome: "approved" | "rejected",
+  /// reason: string | null } }. A reason is required for a rejected field.
+  /// NULL until the request is processed, and for postponement and
+  /// cancellation requests, whose rejection reason is reviewNotes.
+  decisions Json?
+
+  /// pending | approved | rejected | partially_approved (SPM-32: some fields
+  /// approved, others rejected) | withdrawn (closed when the event was
+  /// cancelled, SPM-37)
   status      String    @default("pending")
   reviewedBy  String?   @map("reviewed_by")
   reviewedAt  DateTime? @map("reviewed_at")

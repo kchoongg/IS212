@@ -54,6 +54,22 @@ describe("GET /api/events/[id]/equipment", () => {
     expect((await list(token)).status).toBe(404);
   });
 
+  // SPM-94 (AC2, AC6): an event not yet approved is hidden from Technical
+  // Support and the Safety Officer on every route under it, not only its record.
+  it.each(
+    ["tech_support", "safety_officer"].flatMap((role) =>
+      ["submitted", "under_review", "rejected", "withdrawn"].map((status) => [role, status])
+    )
+  )("[SPM-94][AC2][AC6] is 404 for %s on a %s request, and reads no equipment", async (role, status) => {
+    const token = signIn(user(role, { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status }));
+
+    const res = await list(token);
+
+    expect(res.status).toBe(404);
+    expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
     ["the assigned coordinator", assignedCoordinator],
@@ -69,6 +85,20 @@ describe("GET /api/events/[id]/equipment", () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual(rows);
     expect(callArg(db.equipmentRequest.findMany).where).toEqual({ eventId: ID.event });
+  });
+
+  // SPM-36 (AC3, AC4): completing an event leaves its equipment on it as the
+  // record of what took place, and the organiser can still read it.
+  it("[SPM-36][AC3][AC4] SPM-36-TC02: lists a completed event's equipment for the organiser who owns it", async () => {
+    const token = signIn(owner());
+    const rows = [{ id: ID.request, quantityRequested: 2, status: "reserved", equipment: { id: ID.equipment, name: "Handheld Wireless Mic" } }];
+    db.event.findUnique.mockResolvedValue(event({ status: "completed" }));
+    db.equipmentRequest.findMany.mockResolvedValue(rows);
+
+    const res = await list(token);
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual(rows);
   });
 
   it.each([
@@ -94,11 +124,16 @@ describe("GET /api/events/[id]/equipment", () => {
     expect((await list(token)).status).toBe(200);
   });
 
-  it.each(["submitted", "under_review", "approved", "postponed", "cancelled", "completed"])(
+  // CHANGED (SPM-94 AC2): Submitted and Under review left this list - the
+  // event itself is hidden then, so those are the 404s above.
+  it.each(["approved", "postponed", "cancelled", "completed"])(
     "[SPM-47][AC6] is 403 for Technical Support while the event is %s - their part starts with planning",
     async (status) => {
       const token = signIn(user("tech_support", { id: ID.thirdUser }));
       db.event.findUnique.mockResolvedValue(event({ status }));
+      // CHANGED (SPM-94 AC2): a cancelled event is theirs to see only if it
+      // was approved first, so this one was (its history has an approval).
+      db.eventStatusHistory.count.mockResolvedValue(1);
 
       const res = await list(token);
 
@@ -106,6 +141,21 @@ describe("GET /api/events/[id]/equipment", () => {
       expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
     }
   );
+
+  // SPM-94 (AC2, AC5): SPM-37 cancels from Under review too. Such a request
+  // was never approved, so it stays hidden from Technical Support - the
+  // status history has no approval in it.
+  it("[SPM-94][AC2][AC5] is 404 for Technical Support on an event cancelled before it was approved", async () => {
+    const token = signIn(user("tech_support", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "cancelled" }));
+    db.eventStatusHistory.count.mockResolvedValue(0);
+
+    const res = await list(token);
+
+    expect(res.status).toBe(404);
+    expect(callArg(db.eventStatusHistory.count)).toEqual({ where: { eventId: ID.event, toStatus: "approved" } });
+    expect(db.equipmentRequest.findMany).not.toHaveBeenCalled();
+  });
 });
 
 describe("POST /api/events/[id]/equipment", () => {
@@ -188,7 +238,7 @@ describe("POST /api/events/[id]/equipment", () => {
     const res = await add(token, valid);
 
     expect(res.status).toBe(400);
-    expect(await res.json()).toEqual({ error: "Cannot record equipment for a completed, cancelled, or rejected event" });
+    expect(await res.json()).toEqual({ error: "Cannot record equipment for a completed, cancelled, rejected or withdrawn event" });
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
@@ -457,7 +507,7 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
 
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({
-        error: "Cannot update equipment for a completed, cancelled, or rejected event",
+        error: "Cannot update equipment for a completed, cancelled, rejected or withdrawn event",
       });
       expect(db.equipmentRequest.update).not.toHaveBeenCalled();
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
@@ -568,6 +618,92 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     expect(callArg(db.equipmentRequest.update)).toMatchObject({
       where: { id: ID.request },
       data: { quantityRequested: 6, technicalRequirements: "VGA" },
+    });
+  });
+
+  describe("a change to a requirement that already has a reservation (SPM-69 AC7)", () => {
+    const reservedRow = (overrides = {}) =>
+      requestRow({}, { status: "reserved", quantityRequested: 4, quantityReserved: 4, technicalRequirements: "HDMI", ...overrides });
+
+    it.each([
+      ["its quantity", { quantityRequested: 6 }],
+      ["its technical requirements", { technicalRequirements: "VGA" }],
+    ])("[SPM-69][AC7] sends the line back to Technical Support as Requested when %s changes", async (_what, body) => {
+      const token = givenRequest(assignedCoordinator(), reservedRow());
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      const res = await update(token, body);
+
+      expect(res.status).toBe(200);
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "requested" });
+    });
+
+    it("[SPM-69][AC7] does the same for a partly fulfilled line", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow({ status: "partially_fulfilled", quantityReserved: 2 }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 3 });
+
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "requested" });
+    });
+
+    it("[SPM-69][AC7] keeps the quantity already reserved, and does not flag the line", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow());
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 6 });
+
+      const { data } = callArg(db.equipmentRequest.update);
+      expect(data).not.toHaveProperty("quantityReserved");
+      expect(data).not.toHaveProperty("needsReview");
+      expect(data).not.toHaveProperty("reviewReason");
+    });
+
+    it("[SPM-69][AC7] leaves the status alone when the save changes nothing", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow());
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 4, technicalRequirements: "HDMI" });
+
+      expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
+    });
+
+    it.each([
+      ["never reserved", { status: "requested", quantityReserved: null }],
+      ["marked as cannot be provided", { status: "unavailable", quantityReserved: null }],
+    ])("[SPM-69][AC7] leaves the status of a line that was %s alone", async (_case, overrides) => {
+      const token = givenRequest(assignedCoordinator(), reservedRow(overrides));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 6 });
+
+      expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
+    });
+
+    it("[SPM-69][AC7] sends a released line back to Technical Support as a fresh request when its quantity changes", async () => {
+      const token = givenRequest(
+        assignedCoordinator(),
+        reservedRow({ status: "released", quantityReserved: 4, staffNotes: "Client is bringing their own" })
+      );
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 2 });
+
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({
+        quantityRequested: 2,
+        status: "requested",
+        quantityReserved: null,
+        staffNotes: null,
+      });
+    });
+
+    it("[SPM-69][AC7] leaves a released line released when only its technical requirements change", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow({ status: "released", quantityReserved: 4 }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 4, technicalRequirements: "VGA" });
+
+      expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
     });
   });
 

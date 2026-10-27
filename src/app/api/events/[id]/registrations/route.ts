@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { canViewEvent, canViewRegistrationList, isAssignedCoordinator } from "@/lib/permissions";
+import { canViewRegistrationList, isAssignedCoordinator } from "@/lib/permissions";
 import { registrationCounts } from "@/lib/registrationEligibility";
 import { hasStarted, waitingOrder } from "@/lib/waitingList";
 import { sweepWaitingList } from "@/lib/waitingListService";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // View Registration List (SPM-65): who has registered for an event, for the
 // Organiser responsible for it and the Coordinator assigned to it (AC1, AC8,
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     const sequenceNumber = parseEventReference(id);
     const event = sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
     // An event the user may not see is 404, never 403 - a 403 would confirm it exists.
-    if (!event || !canViewEvent(actor, event)) return hidden();
+    if (!event || !(await canViewEventWithHistory(actor, event))) return hidden();
     if (!canViewRegistrationList(actor, event)) {
       return forbidden("Only the event's organiser and its assigned coordinator can view its registrations");
     }

@@ -9,7 +9,7 @@ import { GET as queue } from "@/app/api/queue/route";
 import { GET as facilities } from "@/app/api/facilities/route";
 import { GET as equipmentRequests } from "@/app/api/equipment/requests/route";
 import { ROLES } from "@/lib/roles";
-import { callArg, db, req, signIn, user } from "@/test/kit";
+import { callArg, db, eventCompletionSweepOrder, req, signIn, user } from "@/test/kit";
 
 const rolesExcept = (...allowed: string[]) => ROLES.filter((role) => !allowed.includes(role));
 
@@ -23,6 +23,15 @@ describe("GET /api/assignments", () => {
 
     expect(res.status).toBe(403);
     expect(db.event.findMany).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-36][AC6] completes events 7 days past their end before listing the active ones", async () => {
+    db.event.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([]);
+
+    await assignments(req("GET", "/api/assignments", { token: signIn(user("ops_manager")) }));
+
+    expect(eventCompletionSweepOrder()).toBeLessThan(db.event.findMany.mock.invocationCallOrder[0]);
   });
 
   // CHANGED (SPM-84): `assigned` became `active` - every active event, with or
@@ -168,7 +177,13 @@ describe("GET /api/equipment/requests", () => {
 
     expect(callArg(db.event.findMany).where).toEqual({
       AND: [
-        { status: { not: "draft" } },
+        // CHANGED (SPM-94 AC2): Technical Support's own event scope.
+        {
+          OR: [
+            { status: { notIn: ["draft", "submitted", "under_review", "rejected", "withdrawn", "cancelled"] } },
+            { status: "cancelled", statusHistory: { some: { toStatus: "approved" } } },
+          ],
+        },
         // Technical Support sees an event's equipment once planning has begun.
         // SPM-86: and while the Safety Officer checks it.
         { status: { in: ["planning", "safety_review", "safety_cleared", "confirmed"] } },

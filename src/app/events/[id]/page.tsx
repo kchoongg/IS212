@@ -11,10 +11,12 @@ import {
   CardHeader,
   ConfirmDialog,
   DetailList,
+  Field,
   PageHeader,
   SkeletonRows,
   StatusBadge,
   Tabs,
+  Textarea,
 } from "@/components/ui";
 import { AssignCoordinator, type AssignResult, type CoordinatorOption } from "@/components/AssignCoordinator";
 import { RegistrationCard, type RegistrationEvent } from "./RegistrationCard";
@@ -32,6 +34,7 @@ import { SafetyDecisionDialog } from "./SafetyDecisionDialog";
 import { SafetyFlagDialog, type SafetyFlagChoice } from "./SafetyFlagDialog";
 import { ChangeRequestsCard } from "./ChangeRequestsCard";
 import { canRequestChangeIn } from "@/lib/eventChangeRequest";
+import { completedMessage } from "@/lib/eventCompletion";
 import { ClarificationDetails, type OpenClarification } from "./ClarificationDetails";
 import { canFlagAfterReturn, safetyFlaggedMessage, safetyHistoryLine } from "@/lib/safetyResolution";
 import {
@@ -39,9 +42,12 @@ import {
   EVENT_INFORMATION_STATUSES,
   can,
   canAssignCoordinator,
+  canCancelEvent,
   canConfigureRegistration,
   canConfirmEvent,
   canFlagForSafetyReview,
+  canMarkEventCompleted,
+  canProcessChangeRequests,
   canRecordSafetyDecision,
   canRequestEventChange,
   canRespondToClarification,
@@ -50,6 +56,7 @@ import {
   canUpdateEventInformation,
   canWithdrawEvent,
 } from "@/lib/permissions";
+import { EVENT_CANCELLED_MESSAGE, NOTHING_TO_RELEASE, NO_CANCELLATION_REASON } from "@/lib/eventCancellation";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -133,6 +140,9 @@ interface EventDetail extends RegistrationEvent {
   facilityRequirements?: FacilityRequirement[];
   // SPM-28: shown as a banner on a rejected event. Absent for an Attendee.
   rejectionReason?: string | null;
+  // SPM-37: shown as a banner on a cancelled event, to every role that can
+  // open it - an Attendee holding a place included.
+  cancellationReason?: string | null;
   // SPM-29: sent only to the organiser and the assigned coordinator.
   openClarification?: OpenClarification | null;
   // Present for an Attendee too - which company is running the event is
@@ -247,6 +257,10 @@ function EventOverview() {
   // asks, and shows what it says back.
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
+  // SPM-36: the assigned coordinator marking the event completed once it has
+  // taken place.
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [completing, setCompleting] = useState(false);
   // SPM-86: the assigned coordinator submitting the event for an Operational
   // Safety Check. As with Confirm, the server decides whether the
   // arrangements are ready and the page shows what it says back.
@@ -258,6 +272,13 @@ function EventOverview() {
   // SPM-88 (AC3): the assigned coordinator flagging what a returned check concerns.
   const [flagOpen, setFlagOpen] = useState(false);
   const [flagging, setFlagging] = useState(false);
+  // SPM-37: the assigned coordinator cancelling the event. The dialog lists
+  // what the server will let go (GET .../cancellation); null while it loads.
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [consequences, setConsequences] = useState<string[] | null>(null);
+  const [consequencesFailed, setConsequencesFailed] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   /// `whenGone` is called instead of showing "doesn't exist" when the event
@@ -355,6 +376,45 @@ function EventOverview() {
     }
   }
 
+  async function askToCancel() {
+    setCancelReason("");
+    setConsequences(null);
+    setConsequencesFailed(false);
+    setCancelOpen(true);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/cancellation`);
+      if (!res.ok) throw new Error();
+      setConsequences((await res.json()).consequences);
+    } catch {
+      // The server lets everything go either way, so cancelling is still offered.
+      setConsequencesFailed(true);
+    }
+  }
+
+  async function cancelEvent() {
+    setCancelling(true);
+    setActionError(null);
+    setNotice(null);
+    const reason = cancelReason.trim();
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify(reason ? { status: "cancelled", reason } : { status: "cancelled" }),
+      });
+      if (!res.ok) {
+        setActionError((await res.json()).error ?? "Could not cancel this event.");
+        return;
+      }
+      setNotice(EVENT_CANCELLED_MESSAGE);
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setCancelling(false);
+      setCancelOpen(false);
+    }
+  }
+
   async function confirmEvent() {
     setConfirming(true);
     setActionError(null);
@@ -378,6 +438,29 @@ function EventOverview() {
     } finally {
       setConfirming(false);
       setConfirmOpen(false);
+    }
+  }
+
+  async function markCompleted() {
+    setCompleting(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: "completed" }),
+      });
+      if (!res.ok) {
+        setActionError((await res.json().catch(() => ({}))).error ?? "Could not mark this event as completed.");
+        return;
+      }
+      setNotice(completedMessage(event?.title));
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setCompleting(false);
+      setCompleteOpen(false);
     }
   }
 
@@ -507,6 +590,44 @@ function EventOverview() {
     )
   );
 
+  // SPM-32 (AC1): the assigned coordinator reviews each pending change
+  // request - the decision route's own check.
+  const showChangeRequestReview = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canProcessChangeRequests(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-36 (AC1, AC2): the assigned coordinator, on a Confirmed event that
+  // has ended - the PATCH route's own checks.
+  const showComplete = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canMarkEventCompleted(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+        endsAt: event.endsAt,
+      },
+      new Date()
+    )
+  );
+
   // SPM-86 (AC1, AC7): the assigned coordinator, while the event is in
   // Planning. Readiness is the server's call, as for Confirm.
   // SPM-87 (AC11, AC12): the Safety Officer, while the event is in Safety review.
@@ -551,6 +672,23 @@ function EventOverview() {
     event.organiserId !== undefined &&
     event.coordinatorId !== undefined &&
     canSubmitForSafetyCheck(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
+  // SPM-37 (AC1, AC2): the assigned coordinator, at any stage that is not final.
+  const showCancel = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canCancelEvent(
       { id: user.id, role: user.role, organisationId: null },
       {
         organiserId: event.organiserId,
@@ -687,6 +825,9 @@ function EventOverview() {
             {showConfirm && (
               <Button onClick={() => setConfirmOpen(true)}>Confirm event</Button>
             )}
+            {showComplete && (
+              <Button onClick={() => setCompleteOpen(true)}>Mark as completed</Button>
+            )}
             {showEditInformation && (
               <ButtonLink href={`/events/${eventId}/update`} variant="secondary">
                 Edit event information
@@ -701,6 +842,11 @@ function EventOverview() {
               <ButtonLink href={`/events/${eventId}/change-request`} variant="secondary">
                 Request a change
               </ButtonLink>
+            )}
+            {showCancel && (
+              <Button variant="secondary" onClick={() => void askToCancel()}>
+                Cancel event
+              </Button>
             )}
           </>
         }
@@ -739,6 +885,14 @@ function EventOverview() {
           {event.status === "rejected" && event.rejectionReason && (
             <Alert variant="error" title="This request was rejected">
               {event.rejectionReason}
+            </Alert>
+          )}
+
+          {/* SPM-37 (AC8): why it was cancelled stays on the event record, for
+              everyone who can still open it. */}
+          {event.status === "cancelled" && (
+            <Alert variant="error" title="This event was cancelled">
+              {event.cancellationReason || NO_CANCELLATION_REASON}
             </Alert>
           )}
 
@@ -867,7 +1021,15 @@ function EventOverview() {
 
           {/* SPM-35 (AC2): what has been asked for, for the event's organisers,
               its coordinator and the Ops Manager - the only people given a count. */}
-          {(event.changeRequestCount ?? 0) > 0 && <ChangeRequestsCard eventRef={eventReference(event.sequenceNumber)} />}
+          {(event.changeRequestCount ?? 0) > 0 && (
+            <ChangeRequestsCard
+              // Remounts on a status change: cancelling the event closes its
+              // pending requests (SPM-37, SPM-32 AC2), so the card reloads them.
+              key={event.status}
+              eventRef={eventReference(event.sequenceNumber)}
+              reviewable={showChangeRequestReview}
+            />
+          )}
 
           {/* SPM-88 (AC1): every submission and decision, newest first. Staff
               only - the API leaves the history out for an external user. */}
@@ -1001,6 +1163,43 @@ function EventOverview() {
         To go ahead later, the organiser submits a new request.
       </ConfirmDialog>
 
+      {/* SPM-37: names every arrangement it lets go (UI_DESIGN.md §7.5). */}
+      <ConfirmDialog
+        open={cancelOpen}
+        title="Cancel this event?"
+        confirmLabel="Cancel event"
+        cancelLabel="Keep event"
+        loading={cancelling}
+        onConfirm={() => void cancelEvent()}
+        onCancel={() => setCancelOpen(false)}
+      >
+        <div className="flex flex-col gap-3">
+          <p>
+            {event?.title || "This event"} will be marked Cancelled. This can&apos;t be undone.
+          </p>
+          {consequencesFailed ? (
+            <p>Could not load what cancelling will release.</p>
+          ) : consequences === null ? (
+            <SkeletonRows rows={2} />
+          ) : consequences.length === 0 ? (
+            <p>{NOTHING_TO_RELEASE}</p>
+          ) : (
+            <div>
+              <p>Cancelling will:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {/* Two sessions can hold the same item, so a line is not unique. */}
+                {consequences.map((line, i) => (
+                  <li key={`${i}-${line}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Field label="Reason (optional)">
+            <Textarea value={cancelReason} maxLength={2000} onChange={(e) => setCancelReason(e.target.value)} />
+          </Field>
+        </div>
+      </ConfirmDialog>
+
       <ConfirmDialog
         open={confirmOpen}
         title="Confirm this event?"
@@ -1013,6 +1212,19 @@ function EventOverview() {
         {event?.title || "This event"} will be marked Confirmed, and the organiser will be
         able to see the venue and equipment arranged for it. Anything still outstanding will
         be listed instead.
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={completeOpen}
+        title="Mark this event as completed?"
+        confirmLabel="Mark as completed"
+        cancelLabel="Not yet"
+        loading={completing}
+        onConfirm={() => void markCompleted()}
+        onCancel={() => setCompleteOpen(false)}
+      >
+        {event?.title || "This event"} will be marked Completed. Its venue and equipment stay on
+        record, and its status can&apos;t be changed after this.
       </ConfirmDialog>
 
       <ConfirmDialog

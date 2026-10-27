@@ -7,8 +7,10 @@ import {
   Button,
   Card,
   CardHeader,
+  ConfirmDialog,
   DataState,
   Field,
+  Input,
   PageHeader,
   Select,
   StatusBadge,
@@ -17,7 +19,13 @@ import {
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
 import { formatDate, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
-import { eventAllowsReserving, reservingClosedMessage } from "@/lib/equipmentAvailability";
+import {
+  RECHECK_REQUEST_STATUSES,
+  eventAllowsReserving,
+  holdsStock,
+  reservingClosedMessage,
+} from "@/lib/equipmentAvailability";
+import { checkAdjustment, checkReleaseReason } from "@/lib/equipmentReservation";
 import {
   type FulfilmentRefusal,
   checkFulfilmentUpdate,
@@ -40,6 +48,11 @@ import { availabilityStatusKey, statusLabel } from "@/lib/statuses";
 // "Update" panel per line to set the fulfilment status and record technical
 // notes (AC2-AC4). The rules are in src/lib/equipmentFulfilment.ts, shared
 // with PATCH .../fulfilment.
+//
+// SPM-69 (release or adjust): a line that holds stock can have its reservation
+// changed - "Adjust" sets a new quantity, "Release" frees all of it after
+// asking first. PATCH / DELETE .../reservation; the rules are in
+// src/lib/equipmentReservation.ts, shared with the route.
 
 interface EventInfo {
   sequenceNumber: number;
@@ -88,6 +101,14 @@ interface UpdateDraft {
   staffNotes: string;
 }
 
+interface AdjustDraft {
+  requestId: string;
+  /// As typed - checked as a whole number on save.
+  quantity: string;
+}
+
+const WHOLE_NUMBER_MESSAGE = "Enter a whole number of at least 1. To free all of it, use Release.";
+
 interface Availability {
   lines: Line[];
   allAvailable: boolean;
@@ -125,6 +146,17 @@ export default function EquipmentRequestDetailPage() {
   const [updateError, setUpdateError] = useState<FulfilmentRefusal | null>(null);
   const [savingUpdate, setSavingUpdate] = useState(false);
   const [updateNotices, setUpdateNotices] = useState<Record<string, string>>({});
+  // SPM-69: the one line whose Adjust form is open, and the line Release is
+  // asking about. Their outcomes go in reserveNotices / reserveErrors, which
+  // are about the line's reservation too.
+  const [adjusting, setAdjusting] = useState<AdjustDraft | null>(null);
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [savingAdjust, setSavingAdjust] = useState(false);
+  const [releasing, setReleasing] = useState<Line | null>(null);
+  const [releaseBusy, setReleaseBusy] = useState(false);
+  // Why it is being released - required, and sent to the Coordinator.
+  const [releaseReason, setReleaseReason] = useState("");
+  const [releaseError, setReleaseError] = useState<string | null>(null);
 
   const path = `/equipment/requests/${eventId}`;
 
@@ -204,6 +236,106 @@ export default function EquipmentRequestDetailPage() {
       setReserveErrors((current) => ({ ...current, [requestId]: "Could not reserve this item." }));
     } finally {
       setReservingId(null);
+    }
+  }
+
+  function clearLineMessages(requestId: string) {
+    setReserveErrors((current) => ({ ...current, [requestId]: "" }));
+    setReserveNotices((current) => ({ ...current, [requestId]: "" }));
+  }
+
+  function startAdjust(line: Line) {
+    // v8 ignore next -- Adjust is only offered on a line holding stock, which always has a quantity reserved
+    setAdjusting({ requestId: line.requestId, quantity: String(line.quantityReserved ?? "") });
+    setAdjustError(null);
+    clearLineMessages(line.requestId);
+  }
+
+  async function saveAdjust(line: Line) {
+    // v8 ignore next -- only the open Adjust form can save, so a draft is always set
+    if (!adjusting) return;
+    const typed = adjusting.quantity.trim();
+    const quantity = Number(typed);
+    // Same rules the route enforces, checked here first.
+    const refusal =
+      !/^\d+$/.test(typed) || quantity < 1
+        ? WHOLE_NUMBER_MESSAGE
+        : checkAdjustment(
+            { status: line.requestStatus, quantityRequested: line.quantityRequested, quantityReserved: line.quantityReserved },
+            quantity,
+            line.result?.available ?? null
+          );
+    if (refusal) {
+      setAdjustError(refusal);
+      return;
+    }
+
+    setSavingAdjust(true);
+    setAdjustError(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/equipment/${line.requestId}/reservation`, {
+        method: "PATCH",
+        body: JSON.stringify({ quantity }),
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor(path));
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setAdjustError(body?.error ?? "Could not change this reservation.");
+        return;
+      }
+      setAdjusting(null);
+      setReserveNotices((current) => ({ ...current, [line.requestId]: `Reservation changed: ${quantity} reserved.` }));
+      // A change frees or takes units, which every other line's availability shows.
+      await load();
+    } catch {
+      setAdjustError("Could not reach the server.");
+    } finally {
+      setSavingAdjust(false);
+    }
+  }
+
+  function startRelease(line: Line) {
+    setReleasing(line);
+    setReleaseReason("");
+    setReleaseError(null);
+  }
+
+  async function confirmRelease() {
+    // v8 ignore next -- the dialog only opens, and so can only confirm, with a line chosen
+    if (!releasing) return;
+    const { requestId } = releasing;
+    // Same rule the route enforces; the dialog stays open to fix it.
+    const refusal = checkReleaseReason(releaseReason);
+    if (refusal) {
+      setReleaseError(refusal);
+      return;
+    }
+    setReleaseBusy(true);
+    clearLineMessages(requestId);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/equipment/${requestId}/reservation`, {
+        method: "DELETE",
+        body: JSON.stringify({ reason: releaseReason.trim() }),
+      });
+      if (res.status === 401) {
+        router.push(loginUrlFor(path));
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setReserveErrors((current) => ({ ...current, [requestId]: body?.error ?? "Could not release this reservation." }));
+        return;
+      }
+      setReserveNotices((current) => ({ ...current, [requestId]: "Reservation released." }));
+      await load();
+    } catch {
+      setReserveErrors((current) => ({ ...current, [requestId]: "Could not release this reservation." }));
+    } finally {
+      setReleaseBusy(false);
+      setReleasing(null);
     }
   }
 
@@ -343,12 +475,58 @@ export default function EquipmentRequestDetailPage() {
                   }}
                   onCancelUpdate={cancelUpdate}
                   onSaveUpdate={() => saveUpdate(line)}
+                  adjustDraft={adjusting?.requestId === line.requestId ? adjusting.quantity : null}
+                  adjustError={adjusting?.requestId === line.requestId ? adjustError : null}
+                  savingAdjust={savingAdjust}
+                  onStartAdjust={() => startAdjust(line)}
+                  onChangeAdjust={(quantity) => {
+                    setAdjusting({ requestId: line.requestId, quantity });
+                    setAdjustError(null);
+                  }}
+                  onCancelAdjust={() => {
+                    setAdjusting(null);
+                    setAdjustError(null);
+                  }}
+                  onSaveAdjust={() => saveAdjust(line)}
+                  onRelease={() => startRelease(line)}
                 />
               ))}
             </ul>
           )}
         </DataState>
       </Card>
+
+      <ConfirmDialog
+        open={releasing !== null}
+        title="Release this reservation?"
+        confirmLabel="Release"
+        loading={releaseBusy}
+        onConfirm={confirmRelease}
+        onCancel={() => setReleasing(null)}
+      >
+        {releasing && (
+          <div className="space-y-3">
+            <p>
+              This frees the {releasing.quantityReserved} {releasing.equipmentName} reserved for{" "}
+              {event?.title ?? "this event"} for other events. The event&apos;s Coordinator is told.
+            </p>
+            <Field
+              label="Reason for releasing"
+              required
+              hint="Shown to the event's Coordinator, and saved as your technical notes."
+              error={releaseError}
+            >
+              <Textarea
+                value={releaseReason}
+                onChange={(e) => {
+                  setReleaseReason(e.target.value);
+                  setReleaseError(null);
+                }}
+              />
+            </Field>
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }
@@ -383,6 +561,15 @@ interface LineRowProps {
   onChangeDraft: (draft: UpdateDraft) => void;
   onCancelUpdate: () => void;
   onSaveUpdate: () => void;
+  /// SPM-69: the quantity typed in this line's Adjust form; null while closed.
+  adjustDraft: string | null;
+  adjustError: string | null;
+  savingAdjust: boolean;
+  onStartAdjust: () => void;
+  onChangeAdjust: (quantity: string) => void;
+  onCancelAdjust: () => void;
+  onSaveAdjust: () => void;
+  onRelease: () => void;
 }
 
 function LineRow({
@@ -401,8 +588,22 @@ function LineRow({
   onChangeDraft,
   onCancelUpdate,
   onSaveUpdate,
+  adjustDraft,
+  adjustError,
+  savingAdjust,
+  onStartAdjust,
+  onChangeAdjust,
+  onCancelAdjust,
+  onSaveAdjust,
+  onRelease,
 }: Readonly<LineRowProps>) {
   const { result } = line;
+  // SPM-69: only a line that holds stock has a reservation to change.
+  const holding = holdsStock(line.requestStatus, line.quantityReserved);
+  const released = line.requestStatus === "released";
+  // AC7: the Coordinator changed a reserved requirement - it is back here as
+  // Requested, still holding what was reserved.
+  const sentBack = holding && RECHECK_REQUEST_STATUSES.includes(line.requestStatus);
   const statusOptions = fulfilmentOptionsFor(line.requestStatus);
   // Errors about the notes go under the notes field; anything else (a lost
   // race, a closed event) goes above the panel.
@@ -446,6 +647,16 @@ function LineRow({
           </>
         ) : (
           <p className="text-xs text-ink-3">Cannot be checked yet — the event has no dates.</p>
+        )}
+
+        {sentBack && (
+          <p className="text-xs text-tone-warning-fg">
+            The Coordinator changed this requirement — {line.quantityReserved} still reserved. Review it again.
+          </p>
+        )}
+        {/* AC8: kept on the record, and told apart from an active reservation. */}
+        {released && line.quantityReserved != null && (
+          <p className="text-xs text-ink-3">Released — {line.quantityReserved} were reserved.</p>
         )}
 
         <LineDetail label="Technical requirements" value={line.technicalRequirements} />
@@ -498,6 +709,41 @@ function LineRow({
             </div>
           </form>
         )}
+
+        {adjustDraft !== null && (
+          <form
+            aria-label="Adjust reservation"
+            onSubmit={(e) => {
+              e.preventDefault();
+              onSaveAdjust();
+            }}
+            className="mt-2 flex max-w-xs flex-col gap-3 rounded-md border border-line bg-surface-2 p-3"
+            noValidate
+          >
+            <Field
+              label="Reserved quantity"
+              hint={`Up to ${line.quantityRequested} requested. Fewer frees units for other events.`}
+              error={adjustError}
+            >
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                inputMode="numeric"
+                value={adjustDraft}
+                onChange={(e) => onChangeAdjust(e.target.value)}
+              />
+            </Field>
+            <div className="flex gap-2">
+              <Button type="submit" size="sm" loading={savingAdjust} loadingText="Saving…">
+                Save
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={onCancelAdjust} disabled={savingAdjust}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
       </div>
 
       <div className="flex shrink-0 flex-col items-end gap-2">
@@ -509,7 +755,8 @@ function LineRow({
             <NumberBox value={line.quantityRequested} />
           </Column>
           <Column label="Reserved">
-            <NumberBox value={line.quantityReserved} />
+            {/* A released line holds nothing; what it held is said above. */}
+            <NumberBox value={released ? null : line.quantityReserved} />
           </Column>
           {/* SPM-50: the line's own fulfilment status - what Technical Support
               has decided - kept apart from Availability, which is worked out
@@ -530,6 +777,16 @@ function LineRow({
             <Button variant="secondary" size="sm" onClick={onStartUpdate}>
               Update
             </Button>
+          )}
+          {canReserve && holding && adjustDraft === null && (
+            <>
+              <Button variant="secondary" size="sm" onClick={onStartAdjust}>
+                Adjust
+              </Button>
+              <Button variant="secondary" size="sm" onClick={onRelease}>
+                Release
+              </Button>
+            </>
           )}
           {canReserve && canOfferReserve(line) && (
             <Button variant="secondary" size="sm" onClick={onReserve} disabled={reserving}>

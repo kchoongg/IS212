@@ -8,10 +8,10 @@ import {
   EVENT_INFORMATION_EDIT_STATUSES,
   EVENT_INFORMATION_STATUS_MESSAGE,
   canUpdateEventInformation,
-  canViewEvent,
-} from "@/lib/permissions";
+  } from "@/lib/permissions";
 import { updateEventInformationSchema, type UpdateEventInformationInput } from "@/lib/validation";
 import { applyEventInformation, mergedEventInfo, type EventForChange } from "@/lib/applyEventInformation";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // Update Event Information (SPM-62): the assigned coordinator changes an
 // event's permitted information after approval. The rules for what a change
@@ -43,7 +43,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
             include: { facilityRequirements: { select: { facilityId: true } }, sessions: { select: { id: true } } },
           });
     // An event the user may not see is 404, never 403 - a 403 would confirm it exists.
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canUpdateEventInformation(actor, event)) {

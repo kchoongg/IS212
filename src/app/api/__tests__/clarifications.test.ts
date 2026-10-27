@@ -105,13 +105,23 @@ describe("POST /api/events/[id]/clarifications - who may ask", () => {
     ["a coordinator who is not assigned", () => user("coordinator", { id: ID.thirdUser })],
     ["the organiser who raised it", () => user("organiser", { id: ID.otherUser })],
     ["the Ops Manager", () => user("ops_manager", { id: ID.thirdUser })],
-    ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
-    ["the Safety Officer", () => user("safety_officer", { id: ID.thirdUser })],
   ])("[SPM-29] is 403 for %s", async (_who, actor) => {
     const res = await post(given({ actor: actor() }));
 
     expect(res.status).toBe(403);
     expect(await res.json()).toEqual({ error: CLARIFICATION_FORBIDDEN_MESSAGE });
+    nothingWritten();
+  });
+
+  // CHANGED (SPM-94 AC2): a request under review is hidden from Technical
+  // Support and the Safety Officer, so it is a 404 for them, not a 403.
+  it.each([
+    ["Technical Support", () => user("tech_support", { id: ID.thirdUser })],
+    ["the Safety Officer", () => user("safety_officer", { id: ID.thirdUser })],
+  ])("[SPM-29] [SPM-94][AC2][AC5] is 404 for %s, who cannot see a request under review", async (_who, actor) => {
+    const res = await post(given({ actor: actor() }));
+
+    expect(res.status).toBe(404);
     nothingWritten();
   });
 });

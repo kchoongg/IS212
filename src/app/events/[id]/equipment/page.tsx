@@ -194,6 +194,9 @@ export default function EventEquipmentPage() {
         router.push(loginUrlFor(`/events/${eventId}/equipment`));
         return;
       }
+      // SPM-94 (AC5): an event the user may not see reads as one that does
+      // not exist, word for word as on its Overview.
+      if (eventRes.status === 404) throw new Error("This event doesn't exist, or you don't have access to it.");
       if (!eventRes.ok) throw new Error("Could not load this event.");
       if (requestsRes.status === 403) {
         setEvent(await eventRes.json());
@@ -556,8 +559,12 @@ export default function EventEquipmentPage() {
                           </div>
                           <div className="flex items-center gap-2">
                             <StatusBadge status={row.status} />
+                            {/* SPM-69 AC8: a released reservation stays on the
+                                record, worded apart from one still held. */}
                             {row.quantityReserved != null && (
-                              <span className="text-xs text-ink-3">{row.quantityReserved} reserved</span>
+                              <span className="text-xs text-ink-3">
+                                {row.quantityReserved} {row.status === "released" ? "released" : "reserved"}
+                              </span>
                             )}
                           </div>
                         </div>
