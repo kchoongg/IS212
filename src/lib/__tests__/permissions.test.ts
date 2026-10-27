@@ -35,6 +35,7 @@ import {
   canWithdrawEvent,
   canCancelEvent,
   canViewEvent,
+  canProcessChangeRequests,
   canRequestEventChange,
   canViewChangeRequests,
   eventListWhere,
@@ -1126,6 +1127,17 @@ describe("[SPM-35] Request Event Change", () => {
     const open = event({ status: "confirmed", coordinatorId: "coordinator-1", registrationEnabled: true });
     for (const someone of [organiserB, otherCoordinator, venueStaff, techSupport, attendee]) {
       expect(canViewChangeRequests(someone, open), someone.id).toBe(false);
+    }
+  });
+});
+
+describe("[SPM-32] Process Event Change Request", () => {
+  it("[SPM-32][AC1][AC2] only the coordinator assigned to the event processes its change requests", () => {
+    const planning = event({ status: "planning", coordinatorId: "coordinator-1" });
+
+    expect(canProcessChangeRequests(coordinator, planning)).toBe(true);
+    for (const someone of [otherCoordinator, opsManager, organiserA, colleagueA, venueStaff, techSupport, attendee]) {
+      expect(canProcessChangeRequests(someone, planning), someone.id).toBe(false);
     }
   });
 });

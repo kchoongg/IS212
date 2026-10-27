@@ -519,11 +519,15 @@ allowed to see.
 - **No admin screen for staff accounts.** The four internal roles can no longer
   be self-registered, which is right, but nothing in the app creates them
   either — `npx prisma db seed` is the only path today.
-- **Event Change Requests can be raised but not processed.** Since SPM-35 the
+- **Event Change Requests: a postponement request can't be approved yet.** Since SPM-35 the
   organiser who owns an event asks for new details, a postponement or a
   cancellation (`POST /api/events/[id]/change-requests`, `canRequestEventChange()`:
   `event:request_change` and ownership - not a colleague from the same company -
   while the event is Approved, Planning, Safety review, Safety approved,
   Confirmed or Postponed). The event's organisers, its assigned coordinator and
   the Ops Manager see them (`canViewChangeRequests()`); the coordinator's pending
-  ones are `GET /api/change-requests`. Approving or rejecting one is SPM-32.
+  ones are `GET /api/change-requests`. Since SPM-32 only the assigned coordinator
+  processes one (`canProcessChangeRequests()`, `POST
+  /api/events/[id]/change-requests/[requestId]/decision`) - not another
+  coordinator, the Event Coordinator Lead or the Ops Manager. A postponement
+  request can only be rejected until Postpone Event (SPM-38) is built.

@@ -26,6 +26,9 @@ export const NO_CANCELLATION_REASON = "No reason was recorded.";
 export const NOTHING_TO_RELEASE = "This event has no venue bookings, equipment or registration to release.";
 /// EventChangeRequest.reviewNotes on a change request the cancellation closed (AC5).
 export const CHANGE_REQUEST_CLOSED_NOTE = "Closed because the event was cancelled.";
+/// SPM-32: reviewNotes on the organiser's cancellation request that cancelling
+/// the event carries out - approved, not closed.
+export const CANCELLATION_REQUEST_APPROVED_NOTE = "Approved: the event was cancelled.";
 /// SafetyCheck.decisionNote on a check the cancellation closed (AC6).
 export const SAFETY_CHECK_CLOSED_NOTE = "Event cancelled";
 
@@ -54,7 +57,10 @@ export interface CancellationEquipment {
 export interface CancellationInput {
   bookings: CancellationBooking[];
   equipment: CancellationEquipment[];
+  /// Pending change requests other than a cancellation request - closed.
   pendingChangeRequests: number;
+  /// SPM-32: pending cancellation requests - approved by the cancellation.
+  pendingCancellationRequests?: number;
   safetyCheckPending: boolean;
   registration: { enabled: boolean; registered: number; waitlisted: number };
 }
@@ -85,6 +91,8 @@ export function cancellationConsequences(input: CancellationInput): string[] {
     lines.push(`Cancel the request for ${e.quantityRequested} × ${e.equipment.name}`);
   }
 
+  const asked = input.pendingCancellationRequests ?? 0;
+  if (asked > 0) lines.push(`Approve ${asked} cancellation request${asked === 1 ? "" : "s"}`);
   const changes = input.pendingChangeRequests;
   if (changes > 0) lines.push(`Close ${changes} pending change request${changes === 1 ? "" : "s"}`);
   if (input.safetyCheckPending) lines.push("Close the pending safety check");

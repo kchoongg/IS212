@@ -196,8 +196,13 @@ describe("[SPM-35] a stored request, described for the screens", () => {
       requestedBy: "Rachel Ng",
       important: true,
       affects: ["Expected attendance"],
-      rows: [{ field: "expectedAttendance", label: "Expected attendance", current: "100", proposed: "150" }],
+      rows: [{ field: "expectedAttendance", label: "Expected attendance", current: "100", proposed: "150", outcome: null, outcomeReason: null }],
       equipmentChanges: null,
+      equipmentOutcome: null,
+      equipmentOutcomeReason: null,
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewNotes: null,
     });
   });
 
@@ -241,9 +246,9 @@ describe("[SPM-35] a stored request, described for the screens", () => {
     );
 
     expect(described.rows).toEqual([
-      { field: "startsAt", label: "Starts at", current: "12 Apr 2027, 09:00", proposed: "12 Apr 2027, 14:00" },
-      { field: "endsAt", label: "Ends at", current: "12 Apr 2027, 12:00", proposed: "12 Apr 2027, 17:00" },
-      { field: "expectedAttendance", label: "Expected attendance", current: "80", proposed: "180" },
+      { field: "startsAt", label: "Starts at", current: "12 Apr 2027, 09:00", proposed: "12 Apr 2027, 14:00", outcome: null, outcomeReason: null },
+      { field: "endsAt", label: "Ends at", current: "12 Apr 2027, 12:00", proposed: "12 Apr 2027, 17:00", outcome: null, outcomeReason: null },
+      { field: "expectedAttendance", label: "Expected attendance", current: "80", proposed: "180", outcome: null, outcomeReason: null },
     ]);
     expect(described).toMatchObject({ important: true, affects: ["Date and time", "Expected attendance"] });
   });
@@ -251,7 +256,7 @@ describe("[SPM-35] a stored request, described for the screens", () => {
   it("shows a request made before SPM-35 that only asked for more places", () => {
     const described = describeChangeRequest(row({ changes: null, proposedAttendance: 180 }), snapshot());
 
-    expect(described.rows).toEqual([{ field: "expectedAttendance", label: "Expected attendance", current: "80", proposed: "180" }]);
+    expect(described.rows).toEqual([{ field: "expectedAttendance", label: "Expected attendance", current: "80", proposed: "180", outcome: null, outcomeReason: null }]);
   });
 
   it("shows a request made before SPM-35 that only moved the time", () => {
@@ -265,6 +270,45 @@ describe("[SPM-35] a stored request, described for the screens", () => {
 
   it("labels a kind of request it does not know in words", () => {
     expect(describeChangeRequest(row({ kind: "split_event", changes: null }), snapshot()).kindLabel).toBe("Split event");
+  });
+
+  it("[SPM-32][AC3] gives each field's outcome, the equipment's, and who processed it and when", () => {
+    const described = describeChangeRequest(
+      row({
+        status: "partially_approved",
+        changes: [
+          { field: "title", current: "A", proposed: "B" },
+          { field: "expectedAttendance", current: 100, proposed: 150 },
+        ],
+        equipmentChanges: "A lectern",
+        decisions: {
+          title: { outcome: "rejected", reason: "Printed already." },
+          expectedAttendance: { outcome: "approved", reason: null },
+          equipment: { outcome: "rejected", reason: "None free." },
+        },
+        reviewer: { fullName: "Daniel Tan" },
+        reviewedAt: new Date("2026-10-25T03:00:00.000Z"),
+      }),
+      snapshot()
+    );
+
+    expect(described.rows.map((r) => [r.field, r.outcome, r.outcomeReason])).toEqual([
+      ["title", "rejected", "Printed already."],
+      ["expectedAttendance", "approved", null],
+    ]);
+    expect(described).toMatchObject({
+      equipmentOutcome: "rejected",
+      equipmentOutcomeReason: "None free.",
+      reviewedBy: "Daniel Tan",
+      reviewedAt: "2026-10-25T03:00:00.000Z",
+    });
+  });
+
+  it("[SPM-32] gives a postponement or cancellation's request-level note", () => {
+    expect(describeChangeRequest(row({ kind: "cancel", changes: null, status: "rejected", reviewNotes: "Paid for already." }), snapshot())).toMatchObject({
+      reviewNotes: "Paid for already.",
+      rows: [],
+    });
   });
 
   it("names a requester whose account is gone as 'Unknown'", () => {

@@ -160,6 +160,16 @@ describe("cancellationConsequences", () => {
     expect(cancellationConsequences(input({ pendingChangeRequests: count }))).toEqual([text]);
   });
 
+  it.each([
+    [1, "Approve 1 cancellation request"],
+    [2, "Approve 2 cancellation requests"],
+  ])("[SPM-32][AC2] approves %i pending cancellation request(s), before closing the rest", (count, text) => {
+    expect(cancellationConsequences(input({ pendingCancellationRequests: count, pendingChangeRequests: 1 }))).toEqual([
+      text,
+      "Close 1 pending change request",
+    ]);
+  });
+
   it("[SPM-37][AC6] closes the pending safety check", () => {
     expect(cancellationConsequences(input({ safetyCheckPending: true }))).toEqual(["Close the pending safety check"]);
   });

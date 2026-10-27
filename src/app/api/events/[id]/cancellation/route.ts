@@ -40,7 +40,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return NextResponse.json({ error: transitionError(event.status, "cancelled") }, { status: 400 });
     }
 
-    const [bookings, equipment, pendingChangeRequests, pendingChecks, registrations] = await Promise.all([
+    const [bookings, equipment, pendingRequests, pendingCancellations, pendingChecks, registrations] = await Promise.all([
       prisma.venueBooking.findMany({
         where: { eventId: event.id, status: { in: ["approved", "pending"] } },
         select: {
@@ -58,6 +58,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         orderBy: { requestedAt: "asc" },
       }),
       prisma.eventChangeRequest.count({ where: { eventId: event.id, status: "pending" } }),
+      // SPM-32: the organiser's own cancellation request is approved, not closed.
+      prisma.eventChangeRequest.count({ where: { eventId: event.id, status: "pending", kind: "cancel" } }),
       prisma.safetyCheck.count({ where: { eventId: event.id, status: "pending" } }),
       prisma.registration.groupBy({ by: ["status"], where: { eventId: event.id }, _count: { _all: true } }),
     ]);
@@ -67,7 +69,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       consequences: cancellationConsequences({
         bookings,
         equipment,
-        pendingChangeRequests,
+        pendingChangeRequests: pendingRequests - pendingCancellations,
+        pendingCancellationRequests: pendingCancellations,
         safetyCheckPending: pendingChecks > 0,
         registration: {
           enabled: event.registrationEnabled,

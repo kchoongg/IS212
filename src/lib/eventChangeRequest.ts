@@ -234,6 +234,15 @@ export function showValue(field: RequestableField, value: FieldValue): string {
   return String(value);
 }
 
+/// SPM-32: the equipment change's key among a request's decisions.
+export const EQUIPMENT_ITEM = "equipment";
+
+/// SPM-32 (AC3): one item's outcome, as EventChangeRequest.decisions stores it.
+export interface StoredDecision {
+  outcome: "approved" | "rejected";
+  reason: string | null;
+}
+
 /// A row of event_change_requests as the routes load it.
 export interface StoredChangeRequest {
   id: string;
@@ -248,6 +257,11 @@ export interface StoredChangeRequest {
   proposedStartsAt: Date | null;
   proposedEndsAt: Date | null;
   proposedAttendance: number | null;
+  /// SPM-32: how it was processed. Absent on a row loaded without them.
+  decisions?: unknown;
+  reviewNotes?: string | null;
+  reviewedAt?: Date | null;
+  reviewer?: { fullName: string } | null;
 }
 
 export interface DescribedChangeRequest {
@@ -261,8 +275,25 @@ export interface DescribedChangeRequest {
   important: boolean;
   /// The labels of what makes it Important ("Date and time", ...).
   affects: string[];
-  rows: { field: RequestableField; label: string; current: string; proposed: string }[];
+  /// SPM-32 (AC3): each row's outcome once processed, with the reason for a
+  /// rejection; null while pending.
+  rows: {
+    field: RequestableField;
+    label: string;
+    current: string;
+    proposed: string;
+    outcome: StoredDecision["outcome"] | null;
+    outcomeReason: string | null;
+  }[];
   equipmentChanges: string | null;
+  equipmentOutcome: StoredDecision["outcome"] | null;
+  equipmentOutcomeReason: string | null;
+  /// SPM-32: who processed it and when - or SPM-37, which closes a request
+  /// when the event is cancelled - and the request-level note: the reason for
+  /// rejecting a postponement or cancellation request, or why it was closed.
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
 }
 
 /// A request made before SPM-35 has only a proposed start, end and attendance;
@@ -277,12 +308,19 @@ function legacyChanges(row: StoredChangeRequest, event: EventSnapshot): FieldCha
   return changes;
 }
 
+/// The fields a request changes - none for a postponement or cancellation.
+/// SPM-32 decides and applies these.
+export function requestChanges(row: StoredChangeRequest, event: EventSnapshot): FieldChange[] {
+  if (row.kind !== "change") return [];
+  return Array.isArray(row.changes) ? (row.changes as FieldChange[]) : legacyChanges(row, event);
+}
+
 /// AC2, AC4: a stored request, ready for the Change requests card and the
 /// coordinator's Change Requests page.
 export function describeChangeRequest(row: StoredChangeRequest, event: EventSnapshot): DescribedChangeRequest {
   const kind = row.kind as ChangeRequestKind;
-  const changes: FieldChange[] =
-    kind !== "change" ? [] : Array.isArray(row.changes) ? (row.changes as FieldChange[]) : legacyChanges(row, event);
+  const changes = requestChanges(row, event);
+  const decisions = (row.decisions ?? {}) as Record<string, StoredDecision | undefined>;
   return {
     id: row.id,
     kind: row.kind,
@@ -298,7 +336,14 @@ export function describeChangeRequest(row: StoredChangeRequest, event: EventSnap
       label: FIELD_LABELS[change.field],
       current: showValue(change.field, change.current),
       proposed: showValue(change.field, change.proposed),
+      outcome: decisions[change.field]?.outcome ?? null,
+      outcomeReason: decisions[change.field]?.reason ?? null,
     })),
     equipmentChanges: row.equipmentChanges,
+    equipmentOutcome: decisions[EQUIPMENT_ITEM]?.outcome ?? null,
+    equipmentOutcomeReason: decisions[EQUIPMENT_ITEM]?.reason ?? null,
+    reviewedBy: row.reviewer?.fullName ?? null,
+    reviewedAt: row.reviewedAt ? row.reviewedAt.toISOString() : null,
+    reviewNotes: row.reviewNotes ?? null,
   };
 }

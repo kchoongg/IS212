@@ -27,6 +27,7 @@ import {
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import {
+  CANCELLATION_REQUEST_APPROVED_NOTE,
   CHANGE_REQUEST_CLOSED_NOTE,
   SAFETY_CHECK_CLOSED_NOTE,
   arrangementCancellationNote,
@@ -569,6 +570,13 @@ async function releaseForCancellation(
   await tx.equipmentRequest.updateMany({
     where: { eventId: event.id, status: { not: "cancelled" } },
     data: { status: "cancelled" },
+  });
+
+  // SPM-32: the organiser asked for this cancellation - cancelling carries out
+  // their request, so it is approved rather than closed.
+  await tx.eventChangeRequest.updateMany({
+    where: { eventId: event.id, status: "pending", kind: "cancel" },
+    data: { status: "approved", reviewedBy: actor.id, reviewedAt: now, reviewNotes: CANCELLATION_REQUEST_APPROVED_NOTE },
   });
 
   // AC5: closed, not decided - nothing they propose reaches the event.

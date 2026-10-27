@@ -76,7 +76,11 @@ function ChangeRequestsScreen() {
           description="When an organiser asks to change one of your events, the request appears here."
         />
       ) : (
-        <ChangeRequestList requests={requests} />
+        // SPM-32: every request here is on the coordinator's own events.
+        <ChangeRequestList
+          requests={requests}
+          reviewHref={(request) => `/events/${request.event?.reference}/change-requests/${request.id}`}
+        />
       )}
     </div>
   );

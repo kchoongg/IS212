@@ -345,6 +345,12 @@ export function canViewChangeRequests(actor: Actor, event: EventAccessFields): b
   return isAssignedCoordinator(actor, event);
 }
 
+/// SPM-32 (AC1, AC2): the coordinator assigned to the event processes its
+/// change requests - not another coordinator or the Event Coordinator Lead.
+export function canProcessChangeRequests(actor: Actor, event: EventAccessFields): boolean {
+  return isAssignedCoordinator(actor, event);
+}
+
 /// SPM-62: an event's information can be updated after approval, while it is
 /// being planned, and once confirmed - the window in which arrangements exist
 /// or are being made. Not while it is still a request (Under review, SPM-28),
