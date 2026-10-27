@@ -8,6 +8,7 @@ import { POSTPONED_EQUIPMENT_MESSAGE } from "@/lib/eventPostponement";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
+import { sendBackChanges } from "@/lib/equipmentReservation";
 import { ZodError } from "zod";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
@@ -87,12 +88,20 @@ export async function PATCH(
     // SPM-54: saving a change on an Approved event begins planning, in the same
     // transaction as the change.
     // SPM-62: on a Confirmed event it moves the event back to Planning instead.
+    //
+    // SPM-69 AC7: a change to a line that already has a reservation sends it
+    // back to Technical Support as Requested. Its reservation is left exactly
+    // as it was - quantityReserved still shows, and still holds, what was
+    // reserved - and it is not flagged; Technical Support reviews it again.
+    // A released line whose quantity changes goes back too, as a fresh request.
+    const backToTechnicalSupport = sendBackChanges(existing, data);
     const { updated, planningStarted, confirmationReverted, safetyCheckClosed } = await prisma.$transaction(async (tx) => {
       const updated = await tx.equipmentRequest.update({
         where: { id: requestId },
         data: {
           quantityRequested: data.quantityRequested,
           technicalRequirements: data.technicalRequirements,
+          ...backToTechnicalSupport,
         },
         include: {
           equipment: { select: { id: true, name: true, category: true } },

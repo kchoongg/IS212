@@ -6,8 +6,9 @@
 //   an Approved booking      -> released  (AC3; Venue Staff are told, as SPM-67)
 //   a Pending request        -> withdrawn (AC3)
 //   every equipment line     -> cancelled (AC3; reserved or not)
-//   a pending Postponement request -> withdrawn (AC2: the Coordinator has
-//                               recorded it); other change requests stay Pending
+//   a pending Postponement request -> approved (AC2: the Coordinator has
+//                               carried it out, as SPM-32 does for a cancellation);
+//                               other change requests stay Pending
 //   a pending or approved safety check -> closed (AC4)
 //
 // The event record is kept (AC3), and so are its registrations (AC8): an
@@ -29,8 +30,9 @@ export const POSTPONED_TITLE = "This event is postponed";
 export const NO_POSTPONEMENT_REASON = "No reason was recorded.";
 /// The dialog, when postponing lets go of nothing.
 export const NOTHING_TO_RELEASE = "This event has no venue bookings, equipment or registration to release.";
-/// EventChangeRequest.reviewNotes on a postponement request it carried out (AC2).
-export const POSTPONEMENT_REQUEST_CLOSED_NOTE = "Closed because the event was postponed.";
+/// EventChangeRequest.reviewNotes on a postponement request it carried out (AC2),
+/// as CANCELLATION_REQUEST_APPROVED_NOTE (SPM-32).
+export const POSTPONEMENT_REQUEST_APPROVED_NOTE = "Approved: the event was postponed.";
 /// SafetyCheck.decisionNote on a check the postponement closed (AC4).
 export const SAFETY_CHECK_POSTPONED_NOTE = "Event postponed";
 
@@ -66,8 +68,8 @@ export function postponementConsequences(input: PostponementInput): string[] {
   const lines = arrangementConsequences(input);
 
   const requests = input.pendingPostponementRequests;
-  if (requests === 1) lines.push("Close the pending postponement request");
-  if (requests > 1) lines.push(`Close ${requests} pending postponement requests`);
+  // As SPM-32's "Approve 1 cancellation request" in the Cancel event dialog.
+  if (requests > 0) lines.push(`Approve ${requests} postponement request${requests === 1 ? "" : "s"}`);
 
   if (input.safetyCheck === "pending") lines.push("Close the pending safety check");
   if (input.safetyCheck === "approved") lines.push("Close the safety approval");

@@ -326,8 +326,8 @@ Planning, Safety review, Safety approved and Confirmed may move to `postponed`
 (decided 2026-10-26). It lets go of the same arrangements as a cancellation, in
 the same transaction (`releaseHeldArrangements()` in
 `src/app/api/events/[id]/route.ts`, the rules in `src/lib/eventPostponement.ts`),
-with "Event postponed: <reason>" on the bookings, but closes only the event's
-pending Postponement requests. Registrations are kept, and an attendee holding a
+with "Event postponed: <reason>" on the bookings, but of its change requests approves only the
+pending Postponement ones (as SPM-32 does for a cancellation). Registrations are kept, and an attendee holding a
 place can still open it. While `postponed` nothing new is arranged: a venue
 request or an equipment change is refused (400). It leaves `postponed` for
 `approved` when a change request giving it a new date is approved (SPM-32), or
@@ -431,6 +431,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/equipment/requests` | `canCheckEquipmentAvailability()` — Technical Support (SPM-48 queue); Planning, Safety review (SPM-86) and Confirmed events only |
 | `GET /api/events/[id]/equipment/availability` | `canViewEvent()` → 404, then `canCheckEquipmentAvailability()` → 403, then 404 unless the event is Planning or Confirmed — Technical Support (SPM-48) |
 | `POST /api/events/[id]/equipment/[requestId]/reserve` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403, then 404 unless Planning or Confirmed; reserving only in Planning — Technical Support (SPM-49) |
+| `PATCH`, `DELETE /api/events/[id]/equipment/[requestId]/reservation` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403 "Only Technical Support Staff can change equipment reservations", then 404 unless Planning or Confirmed; adjusting (PATCH) and releasing (DELETE, with a required `reason`) only in Planning — Technical Support (SPM-69) |
 | `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | `canViewEvent()` → 404, then `canUpdateEquipmentFulfilment()` (`equipment_request:review`) → 403 — Technical Support; 404 unless Planning or Confirmed, updating only in Planning (SPM-50) |
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event, then `registrationState()` → 400 unless the event is eligible (SPM-51) |
@@ -488,7 +489,7 @@ allowed to see.
   equipment action then begins planning again, so `PLANNING_FROM_STATUSES`
   stays `approved` alone. Customer answer #69 backs this — postponing without a
   date releases the bookings (SPM-38, built). The move itself is made by
-  approving a change request with a new date (SPM-32, not merged yet), not by
+  approving a change request with a new date (SPM-32), not by
   the status PATCH, which still allows `approved` from `under_review` only.
 - **`under_review` via the status PATCH.** `STATUS_TRANSITION_ROLES` still
   lets the Ops Manager set `under_review` directly, which would leave an event
@@ -530,11 +531,15 @@ allowed to see.
 - **No admin screen for staff accounts.** The four internal roles can no longer
   be self-registered, which is right, but nothing in the app creates them
   either — `npx prisma db seed` is the only path today.
-- **Event Change Requests can be raised but not processed.** Since SPM-35 the
+- **Event Change Requests: a postponement request can't be approved yet.** Since SPM-35 the
   organiser who owns an event asks for new details, a postponement or a
   cancellation (`POST /api/events/[id]/change-requests`, `canRequestEventChange()`:
   `event:request_change` and ownership - not a colleague from the same company -
   while the event is Approved, Planning, Safety review, Safety approved,
   Confirmed or Postponed). The event's organisers, its assigned coordinator and
   the Ops Manager see them (`canViewChangeRequests()`); the coordinator's pending
-  ones are `GET /api/change-requests`. Approving or rejecting one is SPM-32.
+  ones are `GET /api/change-requests`. Since SPM-32 only the assigned coordinator
+  processes one (`canProcessChangeRequests()`, `POST
+  /api/events/[id]/change-requests/[requestId]/decision`) - not another
+  coordinator, the Event Coordinator Lead or the Ops Manager. A postponement
+  request can only be rejected until Postpone Event (SPM-38) is built.

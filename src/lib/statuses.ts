@@ -36,6 +36,9 @@ const STATUS_META: Record<string, StatusMeta> = {
 
   // --- Venue booking (approved/rejected shared with events) ---
   pending: { label: "Pending", tone: "warning" },
+  // SPM-32: a change request whose fields were decided differently - some
+  // approved, some rejected. A step forward, like Approved.
+  partially_approved: { label: "Partly approved", tone: "progress" },
   // SPM-67: taken back by the Coordinator - a withdrawn request ("withdrawn",
   // below with Registration, reads the same) or a released booking. Grey, as
   // neither holds the room any more.

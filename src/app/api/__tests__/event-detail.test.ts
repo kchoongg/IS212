@@ -1516,10 +1516,19 @@ describe("PATCH /api/events/[id] - status change", () => {
         ]);
       });
 
-      it("[SPM-37][AC5] closes pending change requests without applying them", async () => {
+      it("[SPM-37][AC5] [SPM-32][AC2] approves the organiser's cancellation request, and closes the other pending change requests without applying them", async () => {
         await cancel();
 
         expect(updates("eventChangeRequest")).toEqual([
+          {
+            where: { eventId: ID.event, status: "pending", kind: "cancel" },
+            data: {
+              status: "approved",
+              reviewedBy: ID.otherUser,
+              reviewedAt: NOW,
+              reviewNotes: "Approved: the event was cancelled.",
+            },
+          },
           {
             where: { eventId: ID.event, status: "pending" },
             data: {
@@ -1699,17 +1708,18 @@ describe("PATCH /api/events/[id] - status change", () => {
         ]);
       });
 
-      it("[SPM-38][AC2] closes the pending postponement requests only, as carried out", async () => {
+      // As SPM-32 approves a cancellation request when the event is cancelled.
+      it("[SPM-38][AC2] approves the pending postponement requests it carries out, and leaves the others pending", async () => {
         await postpone({}, { status: "confirmed" });
 
         expect(updates("eventChangeRequest")).toEqual([
           {
-            where: { kind: "postpone", eventId: ID.event, status: "pending" },
+            where: { eventId: ID.event, status: "pending", kind: "postpone" },
             data: {
-              status: "withdrawn",
+              status: "approved",
               reviewedBy: ID.otherUser,
               reviewedAt: NOW,
-              reviewNotes: "Closed because the event was postponed.",
+              reviewNotes: "Approved: the event was postponed.",
             },
           },
         ]);

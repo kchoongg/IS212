@@ -67,9 +67,9 @@ describe("postponementConsequences", () => {
   });
 
   it.each([
-    [1, "Close the pending postponement request"],
-    [2, "Close 2 pending postponement requests"],
-  ])("[SPM-38][AC2] closes %i pending postponement request(s)", (count, text) => {
+    [1, "Approve 1 postponement request"],
+    [2, "Approve 2 postponement requests"],
+  ])("[SPM-38][AC2] approves %i pending postponement request(s)", (count, text) => {
     expect(postponementConsequences({ ...nothing, pendingPostponementRequests: count })).toEqual([text]);
   });
 

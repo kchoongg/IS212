@@ -16,6 +16,13 @@ describe("notificationHref", () => {
     expect(notificationHref("equipment_unavailable", "EVT-000071")).toBe("/events/EVT-000071/equipment");
   });
 
+  it.each(["equipment_reservation_released", "equipment_reservation_adjusted"])(
+    "[SPM-69][AC6] opens the event's Equipment tab for %s - the reservation is on that tab",
+    (type) => {
+      expect(notificationHref(type, "EVT-000071")).toBe("/events/EVT-000071/equipment");
+    }
+  );
+
   it.each(["coordinator_assigned", "coordinator_unassigned", "event_submitted", "safety_check_submitted"])(
     "[SPM-71][AC5] opens the event's Overview for %s",
     (type) => {

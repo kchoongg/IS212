@@ -148,7 +148,7 @@ describe("GET /api/events/[id]/postponement", () => {
       "Withdraw the request for SPM38 Studio (SPM38-STU) on 12 Jan 2028, 09:00–12:00",
       "Release 2 × SPM38 Projector",
       "Cancel the request for 1 × SPM38 Lectern Mic",
-      "Close the pending postponement request",
+      "Approve 1 postponement request",
       "Close the pending safety check",
       "Pause registration until the event is confirmed again: 12 registered, 3 on the waiting list",
     ]);

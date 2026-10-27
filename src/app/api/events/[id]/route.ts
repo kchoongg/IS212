@@ -27,12 +27,13 @@ import {
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
 import { notifyRole } from "@/lib/notifications";
 import {
+  CANCELLATION_REQUEST_APPROVED_NOTE,
   CHANGE_REQUEST_CLOSED_NOTE,
   SAFETY_CHECK_CLOSED_NOTE,
   arrangementCancellationNote,
 } from "@/lib/eventCancellation";
 import {
-  POSTPONEMENT_REQUEST_CLOSED_NOTE,
+  POSTPONEMENT_REQUEST_APPROVED_NOTE,
   SAFETY_CHECK_POSTPONED_NOTE,
   arrangementPostponementNote,
 } from "@/lib/eventPostponement";
@@ -518,21 +519,20 @@ async function handleStatusChange(
       await releaseHeldArrangements(tx, e, actor, {
         note: arrangementCancellationNote(cancellationReason),
         safetyNote: SAFETY_CHECK_CLOSED_NOTE,
-        // AC5: closed, not decided - nothing they propose reaches the event.
-        changeRequests: {},
-        changeRequestNote: CHANGE_REQUEST_CLOSED_NOTE,
+        carriedOut: { kind: "cancel", note: CANCELLATION_REQUEST_APPROVED_NOTE },
+        closeOthers: CHANGE_REQUEST_CLOSED_NOTE,
       });
     }
 
-    // SPM-38: the same arrangements are let go (AC3, AC4). Of its change
-    // requests only a postponement is closed - the Coordinator has just carried
-    // it out (AC2); any other waits to be decided once there is a new date.
+    // SPM-38: the same arrangements are let go (AC3, AC4). A pending
+    // postponement request is approved - the Coordinator has just carried it
+    // out (AC2); any other waits to be decided once there is a new date.
     if (data.status === "postponed") {
       await releaseHeldArrangements(tx, e, actor, {
         note: arrangementPostponementNote(postponementReason),
         safetyNote: SAFETY_CHECK_POSTPONED_NOTE,
-        changeRequests: { kind: "postpone" },
-        changeRequestNote: POSTPONEMENT_REQUEST_CLOSED_NOTE,
+        carriedOut: { kind: "postpone", note: POSTPONEMENT_REQUEST_APPROVED_NOTE },
+        closeOthers: null,
       });
     }
 
@@ -575,7 +575,7 @@ class ResubmitRefused extends Error {}
  * (src/lib/eventCancellation.ts says what each becomes). Registrations are
  * left as they are (AC7, SPM-52).
  * SPM-38: and a postponement, which lets go of the same arrangements
- * (src/lib/eventPostponement.ts) but closes only its postponement requests.
+ * (src/lib/eventPostponement.ts) but leaves its other change requests pending.
  */
 async function releaseHeldArrangements(
   tx: Prisma.TransactionClient,
@@ -585,9 +585,11 @@ async function releaseHeldArrangements(
     /// The reason stored on each released or withdrawn booking.
     note: string;
     safetyNote: string;
-    /// Which pending change requests to close, beyond the event and status.
-    changeRequests: Prisma.EventChangeRequestWhereInput;
-    changeRequestNote: string;
+    /// The organiser's pending request this carries out, approved with this note.
+    carriedOut: { kind: "cancel" | "postpone"; note: string };
+    /// The note on every other pending change request, closed unapplied; null
+    /// leaves them pending.
+    closeOthers: string | null;
   }
 ) {
   const now = new Date();
@@ -623,10 +625,21 @@ async function releaseHeldArrangements(
     data: { status: "cancelled" },
   });
 
+  // SPM-32: the organiser asked for this - cancelling or postponing carries
+  // out their request, so it is approved rather than closed (SPM-38 AC2).
   await tx.eventChangeRequest.updateMany({
-    where: { ...how.changeRequests, eventId: event.id, status: "pending" },
-    data: { status: "withdrawn", reviewedBy: actor.id, reviewedAt: now, reviewNotes: how.changeRequestNote },
+    where: { eventId: event.id, status: "pending", kind: how.carriedOut.kind },
+    data: { status: "approved", reviewedBy: actor.id, reviewedAt: now, reviewNotes: how.carriedOut.note },
   });
+
+  // SPM-37 AC5: closed, not decided - nothing they propose reaches the event.
+  // A postponement leaves them pending, to be decided once there is a new date.
+  if (how.closeOthers) {
+    await tx.eventChangeRequest.updateMany({
+      where: { eventId: event.id, status: "pending" },
+      data: { status: "withdrawn", reviewedBy: actor.id, reviewedAt: now, reviewNotes: how.closeOthers },
+    });
+  }
 
   // AC6: a pending check leaves the Safety Officer's list with the status
   // change; an approved one must not stay live either.

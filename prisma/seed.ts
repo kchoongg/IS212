@@ -2278,6 +2278,68 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-69 QA fixtures (Release or Adjust Equipment Reservation). The SAME
+  // events as scripts/seed-spm69.ts (`npm run fixtures:spm69`) - keep the two
+  // in step. Their equipment lines are created further down (spm69Requests).
+  // Pushed after SPM-94, so no earlier event's EVT- reference number shifts.
+  // Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm69 = (key: string, title: string, date: string, startHour: number, durationHours: number,
+    organiser: string, status = "planning"): EventSeed => ({
+    ...fixture(key, title, date, startHour, durationHours, organiser, { status }),
+    purpose: "SPM-69 release or adjust equipment reservation test event",
+    category: "meeting",
+  });
+  eventData.push(
+    spm69("spm69_release", "SPM69 Release Rehearsal", "2028-06-13", 9, 4, "Rachel Ng"),
+    spm69("spm69_overlap", "SPM69 Overlap Seminar", "2028-06-13", 14, 3, "James Koh"),
+    spm69("spm69_reduce", "SPM69 Reduce Workshop", "2028-06-20", 9, 4, "Melissa Yap"),
+    spm69("spm69_neighbour", "SPM69 Neighbour Briefing", "2028-06-20", 14, 2, "Kelvin Loh"),
+    spm69("spm69_increase", "SPM69 Increase Forum", "2028-06-27", 9, 4, "Evelyn Chen"),
+    spm69("spm69_rival", "SPM69 Rival Launch", "2028-06-27", 14, 2, "Samuel Ong"),
+    spm69("spm69_change", "SPM69 Coordinator Change Expo", "2028-07-04", 9, 6, "Faridah Aziz"),
+    spm69("spm69_confirmed", "SPM69 Confirmed Gala", "2028-07-11", 18, 4, "Budi Santoso", "confirmed"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-32 QA fixtures (Process Event Change Request). The SAME events as
+  // scripts/seed-spm32.ts (`npm run fixtures:spm32`) - keep the two in step.
+  //
+  // The events only. Their change requests (and SPM32 Confirmed Client Gala's
+  // approved booking) are created by that script alone, so run it once after a
+  // full reseed. Pushed after SPM-69, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER the SPM-38 block below.
+  // -----------------------------------------------------------------
+  const spm32 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    attendance: number, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-32 process event change request test event", category: "meeting",
+    days: daysUntil(date), startHour, durationHours, attendance, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm32("spm32_partial", "SPM32 Harbour Briefing", "planning", "2027-07-05", 9, 3, 80,
+      { description: "Quarterly briefing for wealth clients." }),
+    spm32("spm32_confirmed", "SPM32 Confirmed Client Gala", "confirmed", "2027-07-12", 18, 4, 100,
+      { description: "Annual gala for key clients." }),
+    spm32("spm32_postponed", "SPM32 Postponed Product Expo", "postponed", "2027-07-26", 10, 6, 200,
+      { description: "Showcase of new savings products." }),
+    spm32("spm32_workshop", "SPM32 Advisers Workshop", "approved", "2027-08-02", 9, 3, 40,
+      { description: "Hands-on session for advisers.", layout: "classroom" }),
+    spm32("spm32_processed", "SPM32 Processed Seminar", "planning", "2027-08-09", 14, 3, 75,
+      { description: "Market outlook seminar." }),
+    spm32("spm32_cancel_reject", "SPM32 Cancellation Request Forum", "planning", "2027-08-16", 9, 4, 50,
+      { description: "Regional client forum." }),
+    spm32("spm32_cancel_approve", "SPM32 Called Off Dinner", "planning", "2027-08-30", 19, 3, 30,
+      { description: "Dinner for the client's board." }),
+    spm32("spm32_postpone", "SPM32 Postponement Request Talk", "planning", "2027-09-06", 15, 2, 45,
+      { description: "A talk on retirement planning." }),
+    spm32("spm32_other", "SPM32 Other Coordinator Forum", "planning", "2027-09-13", 9, 3, 60,
+      { description: "Partner forum.", coordinator: "priya.raj@connectsphere.com" }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-38 QA fixtures (Postpone Event). The SAME events as
   // scripts/seed-spm38.ts (`npm run fixtures:spm38`) - keep the two in step.
   //
@@ -2285,7 +2347,7 @@ async function main() {
   // (SPM38 Projector, SPM38 Lectern Mic), bookings, equipment lines, safety
   // checks, change requests and registration are created by that script alone,
   // so run it once after a full reseed. A postponed event's reason is its
-  // status history's (historyReasons). Pushed LAST, after SPM-94, so no
+  // status history's (historyReasons). Pushed LAST, after SPM-32, so no
   // earlier event's EVT- reference number shifts. Add new events AFTER this
   // block.
   // -----------------------------------------------------------------
@@ -3174,6 +3236,38 @@ async function main() {
       createdBy: users["marcus.wong@connectsphere.com"],
     },
   });
+
+  // SPM-69 fixtures, the same as scripts/seed-spm69.ts: one line per event.
+  // [eventKey, equipment, requested, reserved|null, status, technical requirements]
+  const spm69Requests: [string, string, number, number | null, string, string | null][] = [
+    ["spm69_release", "Wireless Presenter", 3, 3, "reserved", null],
+    ["spm69_overlap", "Wireless Presenter", 3, null, "requested", null],
+    ["spm69_reduce", "Confidence Monitor", 4, 4, "reserved", null],
+    ["spm69_neighbour", "Confidence Monitor", 2, null, "requested", null],
+    ["spm69_increase", "Wireless Presenter", 4, 2, "partially_fulfilled", null],
+    ["spm69_rival", "Wireless Presenter", 1, 1, "reserved", null],
+    ["spm69_change", "Confidence Monitor", 2, 2, "reserved", "HDMI from the lectern"],
+    ["spm69_confirmed", "Mobile Charging Cart", 1, 1, "reserved", null],
+  ];
+  for (const [eventKey, eqName, requested, reserved, status, requirements] of spm69Requests) {
+    const ev = events[eventKey];
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: ev.id,
+        equipmentId: equip[eqName],
+        quantityRequested: requested,
+        quantityReserved: reserved ?? undefined,
+        technicalRequirements: requirements ?? undefined,
+        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
+        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(ev.days - 27),
+        reviewedBy: reserved ? users["kenji.sato@connectsphere.com"] : undefined,
+        reviewedAt: reserved ? day(ev.days - 25) : undefined,
+      },
+    });
+  }
 
   // -------------------------------------------------------------------
   // REGISTRATIONS

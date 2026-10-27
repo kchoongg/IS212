@@ -341,6 +341,13 @@ describe("[SPM-59] a withdrawn request", () => {
   });
 });
 
+describe("[SPM-32] a change request's status", () => {
+  it("[SPM-32][AC3] reads 'Partly approved' when some fields were approved and others rejected", () => {
+    expect(statusLabel("partially_approved")).toBe("Partly approved");
+    expect(statusTone("partially_approved")).toBe("progress");
+  });
+});
+
 describe("Postponed (SPM-38)", () => {
   it("[SPM-38][AC1][AC4] can be entered from every stage after approval that is not final", () => {
     for (const from of ["approved", "planning", "safety_review", "safety_cleared", "confirmed"]) {

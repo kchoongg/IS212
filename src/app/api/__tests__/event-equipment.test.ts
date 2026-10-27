@@ -640,6 +640,92 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     });
   });
 
+  describe("a change to a requirement that already has a reservation (SPM-69 AC7)", () => {
+    const reservedRow = (overrides = {}) =>
+      requestRow({}, { status: "reserved", quantityRequested: 4, quantityReserved: 4, technicalRequirements: "HDMI", ...overrides });
+
+    it.each([
+      ["its quantity", { quantityRequested: 6 }],
+      ["its technical requirements", { technicalRequirements: "VGA" }],
+    ])("[SPM-69][AC7] sends the line back to Technical Support as Requested when %s changes", async (_what, body) => {
+      const token = givenRequest(assignedCoordinator(), reservedRow());
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      const res = await update(token, body);
+
+      expect(res.status).toBe(200);
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "requested" });
+    });
+
+    it("[SPM-69][AC7] does the same for a partly fulfilled line", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow({ status: "partially_fulfilled", quantityReserved: 2 }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 3 });
+
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({ status: "requested" });
+    });
+
+    it("[SPM-69][AC7] keeps the quantity already reserved, and does not flag the line", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow());
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 6 });
+
+      const { data } = callArg(db.equipmentRequest.update);
+      expect(data).not.toHaveProperty("quantityReserved");
+      expect(data).not.toHaveProperty("needsReview");
+      expect(data).not.toHaveProperty("reviewReason");
+    });
+
+    it("[SPM-69][AC7] leaves the status alone when the save changes nothing", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow());
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 4, technicalRequirements: "HDMI" });
+
+      expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
+    });
+
+    it.each([
+      ["never reserved", { status: "requested", quantityReserved: null }],
+      ["marked as cannot be provided", { status: "unavailable", quantityReserved: null }],
+    ])("[SPM-69][AC7] leaves the status of a line that was %s alone", async (_case, overrides) => {
+      const token = givenRequest(assignedCoordinator(), reservedRow(overrides));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 6 });
+
+      expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
+    });
+
+    it("[SPM-69][AC7] sends a released line back to Technical Support as a fresh request when its quantity changes", async () => {
+      const token = givenRequest(
+        assignedCoordinator(),
+        reservedRow({ status: "released", quantityReserved: 4, staffNotes: "Client is bringing their own" })
+      );
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 2 });
+
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({
+        quantityRequested: 2,
+        status: "requested",
+        quantityReserved: null,
+        staffNotes: null,
+      });
+    });
+
+    it("[SPM-69][AC7] leaves a released line released when only its technical requirements change", async () => {
+      const token = givenRequest(assignedCoordinator(), reservedRow({ status: "released", quantityReserved: 4 }));
+      db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+
+      await update(token, { quantityRequested: 4, technicalRequirements: "VGA" });
+
+      expect(callArg(db.equipmentRequest.update).data).not.toHaveProperty("status");
+    });
+  });
+
   it("[SPM-47][AC7] PATCH rejects a body with nothing to update", async () => {
     const token = givenRequest();
 
