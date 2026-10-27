@@ -4,7 +4,7 @@
 
 import type { Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { COMMITTING_REQUEST_STATUSES } from "@/lib/equipmentAvailability";
+import { HOLDS_STOCK_WHERE } from "@/lib/equipmentAvailability";
 import {
   assembleLines,
   type AvailabilityLine,
@@ -120,7 +120,7 @@ export async function loadEventAvailability(eventId: string): Promise<ReviewedEv
     ? await prisma.equipmentRequest.findMany({
         where: {
           equipmentId: { in: equipmentIds },
-          status: { in: COMMITTING_REQUEST_STATUSES },
+          ...HOLDS_STOCK_WHERE,
         },
         select: {
           id: true,
@@ -229,7 +229,7 @@ export async function loadSingleLineAvailability(db: Db, requestId: string): Pro
     where: {
       equipmentId: request.equipment.id,
       id: { not: request.id },
-      status: { in: COMMITTING_REQUEST_STATUSES },
+      ...HOLDS_STOCK_WHERE,
     },
     select: {
       id: true,
