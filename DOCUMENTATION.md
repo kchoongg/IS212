@@ -168,6 +168,7 @@ IS212/
 │   ├── seed-spm36.ts            # `npm run fixtures:spm36` — SPM-36 events to complete, no reseed
 │   ├── seed-spm59.ts            # `npm run fixtures:spm59` — SPM-59 requests in every pre-planning status, no reseed
 │   ├── seed-spm26.ts            # `npm run fixtures:spm26` — SPM-26 events with an open and an answered clarification, no reseed
+│   ├── seed-spm94.ts            # `npm run fixtures:spm94` — SPM-94 requests in each status, for who sees the review outcome, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -707,12 +708,13 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 | **After submission the organiser who owns the event asks for a change; nothing changes until the coordinator processes it** — new details (SPM-62's fields, equipment in free text) or that the event be postponed or cancelled, with a required reason, while it is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed. Each field is recorded with its current and proposed value; a request touching the date and time, attendance, venue requirements or equipment is Important | `canRequestEventChange()`, `canRequestChangeIn()`, `fieldChanges()`, `importantFor()` (`src/lib/eventChangeRequest.ts`), `POST /api/events/[id]/change-requests` | ✅ done (SPM-35); processing is SPM-32 |
 | An organiser sees their own events plus their client organisation's, never another client's | `eventListWhere()`, `canViewEvent()` | ✅ done |
 | An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
+| **A request's review outcome is for the people involved in it** (#125) — Venue Staff, Technical Support and the Safety Officer see an event only from Approved onwards: a Submitted, Under review, Rejected or Withdrawn request, or one cancelled before it was approved (its status history has no approval), is missing from their lists and a 404 by its address. The rejection reason goes only to the owning organiser, the assigned coordinator and the Event Coordinator Lead; another coordinator or a colleague at the same client sees the Rejected status without it, in the list and on the event | `canViewEvent()`, `canViewEventWithHistory()`, `eventListWhere()`, `canSeeRejectionReason()`, `visibleEventFor()` | ✅ done (SPM-94) |
 | Only the role the briefing gives a step may perform it: organiser submits, Ops Manager assigns, assigned coordinator approves/confirms, Venue Staff decide bookings, Technical Support decides equipment | `canSetEventStatus()`, `can()` | ✅ done |
 | Catalogue writes belong to their owner — venues to Venue Staff, equipment to Technical Support | `api/venues` POST, `api/equipment` POST | ✅ done |
 | **Only the Event Coordinator Lead (the Event Operations Manager until SPM-84) assigns or reassigns a coordinator** (clarifications #94, #101). Assigning moves a submitted event to Under review in the same action; reassignment works on live events only, never completed, cancelled or rejected ones | `canAssignCoordinator()`, `PUT /api/events/[id]/coordinator` | ✅ done (SPM-30) |
 | **The Event Coordinator Lead oversees every coordinator's workload** - each Event Coordinator with their number of active events (zero included; a deactivated one only while they still hold one), and every active event (not Draft, Rejected, Withdrawn, Cancelled or Completed) with its coordinator, filterable by coordinator and status. No other role can see it | `coordinatorWorkload()`, `filterActiveEvents()`, `ACTIVE_EVENT_STATUSES` (`src/lib/coordinatorAssignments.ts`), `GET /api/assignments` | ✅ done (SPM-84) |
 | **A coordinator manages only the events assigned to them** — an event with no coordinator yet is managed by nobody (the old "any coordinator may pick it up" rule was removed, 2026-09-28) | `isAssignedCoordinator()` | ✅ done (SPM-30) |
-| **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (internal staff see all non-draft events) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
+| **Only the assigned coordinator reviews a request, and only while it is Under review** — another coordinator can still *view* the event (coordinators and the Lead see all non-draft events; SPM-94) but gets "You can't review this request" | `canReviewEvent()`, `api/queue` GET | ✅ done (SPM-28) |
 | **An event begins planning with the assigned coordinator's first venue or equipment action, and only from Approved** — pressing Search on Find a venue, submitting a booking request, or adding, saving or removing an equipment requirement. Nothing else moves an event to Planning; the general status PATCH refuses it | `beginPlanningIfApproved()` (`src/lib/beginPlanning.ts`), `canBeginPlanning()`, `POST /api/events/[id]/begin-planning` | ✅ done (SPM-54) |
 | **Only the assigned coordinator updates an event's information after submission, and only while it is Approved, Planning, Safety review, Safety approved (SPM-88) or Confirmed** — the organiser asks through a change request instead (SPM-35, clarification #102). Organiser, coordinator, status, equipment (Equipment tab), sessions and registration settings (SPM-64) are not editable there | `canUpdateEventInformation()`, `EVENT_INFORMATION_EDIT_STATUSES`, `updateEventInformationSchema` (strict), `PATCH /api/events/[id]/information` | ✅ done (SPM-62) |
 | **An important change flags the arrangements it affects and never changes them** — date or time flags the venue bookings, equipment and registrations; attendance or venue requirements flag the venue bookings only. Flags merge into what is already there (SPM-39's reasons included) | `src/lib/eventChangeImpact.ts`, `src/lib/applyEventInformation.ts` | ✅ done (SPM-62) |
@@ -843,6 +845,7 @@ traceability the module asks for.
 | `npm run fixtures:spm84` | Creates or refreshes SPM-84's four coordinator accounts (Aisha Karim, Benjamin Lau, Clara Tay, and Dennis Ho, deactivated; all `password123`) and resets its 11 events ("SPM84 …"), organised by Rachel Ng, without reseeding - only those accounts and events whose `seedKey` starts with `spm84_` are touched. The accounts are the story's own so the counts on the Coordinators tab never move with other testers' work. Run it before and after any case that assigns or reassigns. The accounts and events are in `prisma/seed.ts` |
 | `npm run fixtures:spm36` | Adds or resets SPM-36's 4 test events ("SPM36 …"), organised by Rachel Ng and assigned to Daniel Tan, with their approved bookings and reserved equipment, without reseeding - only events whose `seedKey` starts with `spm36_` are touched. SPM36 Harbour Awards Night ends YESTERDAY, counted from when it runs, because an ended Confirmed event completes itself after 7 days; the others have fixed dates, one of them over 7 days past so the app completes it. Lee Wei Ming is registered for SPM36 Forgotten Trade Expo. Run it before and after any case that marks an event completed. The events, without bookings or equipment, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm59` | Adds or resets SPM-59's 6 test events ("SPM59 …", Jun–Jul 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm59_`. One request in each status before planning: Draft, Submitted (no coordinator), Under review, Approved, Rejected and Withdrawn (the last four assigned to Daniel Tan). Run it before SPM-59-TC01 and after SPM-59-TC02. The same events are at the end of `prisma/seed.ts` |
+| `npm run fixtures:spm94` | Adds or resets SPM-94's 9 test events ("SPM94 Meridian …", Nov 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm94_`. One request per status the story turns on: Submitted (no coordinator), Under review, Rejected (with a reason), Withdrawn, Approved and Confirmed with registration open, plus a second Under review request that SPM-94-TC10 approves, and two Cancelled ones for TC11 - one cancelled straight from Under review, one after approval (the rest assigned to Daniel Tan). Run it before the cases and after TC10. The same events are at the end of `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -1065,6 +1068,36 @@ what changed, why, and the migration name if there is one.
 - Tests written first; manual cases SPM-69-TC01 to TC03 updated or added (the
   workbook had not been run, so it was rebuilt; the later cases moved up one
   number).
+
+### 2026-10-26 — Kayalvizhi (SPM-94, Limit Who Sees a Request's Review Outcome)
+- **A request's review outcome is for the people involved in it** (forum #125,
+  correcting SPM-28 and SPM-31). Venue Staff, Technical Support and the Safety
+  Officer see an event only from Approved onwards: a Submitted, Under review,
+  Rejected or Withdrawn request, or one cancelled before it was approved
+  (SPM-37 cancels from Under review), is left out of every list they see
+  (`eventListWhere()`) and is the same 404 as a missing event by its address,
+  on the event and every route under it (`canViewEventWithHistory()` in
+  `src/lib/eventVisibility.ts`: a cancelled event's status history says
+  whether it was approved). No migration.
+- **The rejection reason goes only to the owning organiser, the assigned
+  coordinator and the Event Coordinator Lead** (`canSeeRejectionReason()`).
+  Another coordinator, or another organiser at the same client, sees the event
+  and its Rejected status; `visibleEventFor()` leaves `rejectionReason` out of
+  what they receive, in the list and on the event.
+- The Equipment page now says "This event doesn't exist, or you don't have
+  access to it." for a hidden event, as the Overview does (was "Could not load
+  this event.").
+- Our reading of "relevant authorised internal users" is recorded in
+  `docs/CUSTOMER_CLARIFICATIONS.md`; a follow-up on #125 is still to be posted.
+- SPM-31-TC02 marked Updated; 12 existing tests changed (403 → 404 for those
+  roles on an unapproved event), listed in `docs/test-cases/DECOMMISSIONED.md`.
+- **Corrected after review of PR #86:** an event cancelled before it was
+  approved stays hidden from those three roles. The first version assumed
+  Cancelled always followed approval, but SPM-37 cancels from Under review.
+  New test case SPM-94-TC11 checks it (passed 2026-10-26), with two cancelled
+  fixture events.
+- Fixtures: `npm run fixtures:spm94` (`scripts/seed-spm94.ts`), the same events
+  appended to `prisma/seed.ts`. No migration.
 
 ### 2026-10-22 — Kristen (SPM-69, Release or Adjust Equipment Reservation)
 - **Technical Support can release a reservation or change its quantity.**
@@ -2292,8 +2325,8 @@ cases, traceable to stories, with full coverage or a stated reason.
     changes) should use the same action. Every other role is refused the page
     and the API (403) - that is what "other roles cannot perform Safety Officer
     actions" means until SPM-87.
-  - **What they read:** every event that has left Draft (like the rest of the
-    staff), its Overview and its Equipment tab, read-only. They hold no venue,
+  - **What they read:** every event from Approved onwards (SPM-94, as for
+    Venue Staff and Technical Support), its Overview and its Equipment tab, read-only. They hold no venue,
     equipment, registration or status action, so every existing "change" rule
     refuses them without naming them, and no Attendees tab and no
     `registration:view_list` - attendee details are personal.

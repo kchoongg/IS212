@@ -867,10 +867,22 @@ describe("Event equipment tab", () => {
   });
 
   describe("when it cannot be loaded", () => {
+    // CHANGED (SPM-94 AC5): a 500, not a 404 - a 404 is the not-found state below.
     it("[SPM-47] says so when the event fails to load", async () => {
-      open("coordinator", { [EVENT]: reply(404, {}) });
+      open("coordinator", { [EVENT]: reply(500, {}) });
 
       expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this event.");
+    });
+
+    // SPM-94 (AC5, SPM-94-TC08): an event the user may not see reads exactly
+    // like one that does not exist, as on the event's Overview.
+    it("[SPM-94][AC5] shows the same not-found state as the Overview when the event is hidden or missing", async () => {
+      open("tech_support", { [EVENT]: reply(404, {}), [LIST]: reply(404, {}) });
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "This event doesn't exist, or you don't have access to it."
+      );
+      expect(screen.queryByText("Could not load this event.")).not.toBeInTheDocument();
     });
 
     it("[SPM-47] says so when the equipment list fails to load, and Retry loads again", async () => {

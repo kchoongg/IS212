@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
-import { canUpdateEquipmentFulfilment, canViewEvent, techSupportSeesEquipment } from "@/lib/permissions";
+import { canUpdateEquipmentFulfilment, techSupportSeesEquipment } from "@/lib/permissions";
 import { updateEquipmentFulfilmentSchema } from "@/lib/validation";
 import {
   checkFulfilmentUpdate,
@@ -10,6 +10,7 @@ import {
   fulfilmentUpdateClosedMessage,
 } from "@/lib/equipmentFulfilment";
 import { ZodError } from "zod";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-50 — Review and Update Equipment Request. Technical Support sets one
 // line's fulfilment status and records technical notes (staffNotes) against
@@ -41,7 +42,7 @@ export async function PATCH(
           },
         })
       : null;
-    if (!existing || existing.eventId !== eventId || !canViewEvent(actor, existing.event)) {
+    if (!existing || existing.eventId !== eventId || !(await canViewEventWithHistory(actor, { ...existing.event, id: existing.eventId }))) {
       return hidden();
     }
     if (!canUpdateEquipmentFulfilment(actor)) {

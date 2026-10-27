@@ -1,0 +1,305 @@
+{
+  "story_key": "SPM-94",
+  "story_title": "SPM-94: As the Event Organiser who raised a request, I want its approval or rejection outcome and the reason to be seen only by the people involved in it so that my request is not exposed to staff who have no part in the event.",
+  "created_by": "kayalvizhi24",
+  "creation_date": "2026-10-23",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The rejection reason is shown only to the Event Organiser responsible for the event, the Event Coordinator assigned to it, and the Event Coordinator Lead."
+    },
+    {
+      "id": "AC2",
+      "text": "Venue Staff, Technical Support Staff and the Safety Officer cannot open an event request that has not been approved (Submitted, Under review, Rejected or Withdrawn), and such requests do not appear in any list they can see. They see an event from Approved onwards, when their part of the work can begin."
+    },
+    {
+      "id": "AC3",
+      "text": "Event Coordinators not assigned to the event can see its status but not the rejection reason."
+    },
+    {
+      "id": "AC4",
+      "text": "Other Event Organisers in the same client organisation can see the event's status, as today, but not the rejection reason."
+    },
+    {
+      "id": "AC5",
+      "text": "Given a user may not see an event, when they open it directly, then they see the same \"not found\" state as for an event that does not exist, so the request's existence and outcome are not revealed."
+    },
+    {
+      "id": "AC6",
+      "text": "The same rules apply to the information the system returns, not only to what the screens show."
+    },
+    {
+      "id": "AC7",
+      "text": "Attendees continue to see only Confirmed events open for registration, and never an outcome or reason."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-26 (by us; customer not yet asked again): 'relevant authorised internal users' (#125) means the assigned Event Coordinator and the Event Coordinator Lead for the outcome and reason; Venue Staff, Technical Support Staff and the Safety Officer see events from Approved onwards. Consistent with #66 (staff see what their responsibilities need), #81 (same-client organisers may view) and #136 (the Lead views active events' status). Recorded in docs/CUSTOMER_CLARIFICATIONS.md; if the customer rules otherwise, that wins.",
+    "DECIDED 2026-10-23, CORRECTED 2026-10-26: 'From Approved onwards' means Approved, Planning, Safety review, Safety approved, Confirmed, Postponed and Completed, each reachable only after approval - and Cancelled only when the event was approved before it was cancelled. SPM-37 cancels from Under review too, so a cancelled event's status history decides; one cancelled while still in review stays hidden from Venue Staff, Technical Support and the Safety Officer (TC11). The first version of this note said Cancelled always came after approval, which was wrong (found in review of PR #86).",
+    "DECIDED 2026-10-23: The not-found state is the one the event page already shows for an event that does not exist: heading 'Event', error box 'Could not load this' with 'This event doesn't exist, or you don't have access to it.' and 'Retry'. The event's other pages use the same message; the Equipment page today says 'Could not load this event.' for a hidden event and is to use the same wording (TC08).",
+    "DECIDED 2026-10-23: The lists that hold events for Venue Staff, Technical Support and the Safety Officer are the Dashboard, All Events (/events: in the sidebar for the Safety Officer, reachable by address for the other two) and Safety Checks. Booking Requests and Equipment Requests list only events with arrangements, which cannot exist before approval, so no case is written for them.",
+    "DECIDED 2026-10-23: AC6 (the information the system returns) is checked by the automated route tests: the event list and the event record leave out the rejection reason for an unassigned coordinator and a colleague organiser, and Venue Staff, Technical Support and the Safety Officer get not found for an unapproved event, on the event and every route under it. TC04-TC08 link AC6 because the event page shows the rejection box whenever the record it receives carries a reason.",
+    "DECIDED 2026-10-23: The event's status history keeps the reason in its own column. It is not shown or returned anywhere today, and stays that way.",
+    "DECIDED 2026-10-23: SPM-31-TC02 ('internal staff view any non-draft event') is marked Updated with a v2 note in this story's PR (docs/test-cases/DECOMMISSIONED.md). Its event is in Planning, so it still passes.",
+    "RESOLVED 2026-10-23: Notifying the outcome belongs to SPM-53 (AC4 reworded for #125), not this story. No case here."
+  ],
+  "code_references": [],
+  "test_cases": [
+    {
+      "id": "SPM-94-TC01",
+      "title": "The Event Organiser who raised a rejected request sees its rejection reason",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Choose 'Rejected' in 'Filter by status'",
+        "Click the 'SPM94 Meridian Rejected Gala' row"
+      ],
+      "test_data": "Event Organiser (owner): rachel.ng@meridianfina.com\nPassword: password123\nEvent: SPM94 Meridian Rejected Gala (Rejected, organiser Rachel Ng, coordinator Daniel Tan)\nRejection reason: The requested ballroom is closed for renovation in November 2027.",
+      "expected_result": "Step 2: The My events list opens.\nStep 3: SPM94 Meridian Rejected Gala is listed with the status 'Rejected'.\nStep 4: The event page opens with the status 'Rejected', and an error box titled 'This request was rejected' shows the reason 'The requested ballroom is closed for renovation in November 2027.'"
+    },
+    {
+      "id": "SPM-94-TC02",
+      "title": "The Event Coordinator assigned to a rejected request sees its rejection reason",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Choose 'Rejected' in 'Filter by status'",
+        "Click the 'SPM94 Meridian Rejected Gala' row"
+      ],
+      "test_data": "Event Coordinator (assigned): daniel.tan@connectsphere.com\nPassword: password123\nEvent: SPM94 Meridian Rejected Gala (Rejected, organiser Rachel Ng, coordinator Daniel Tan)\nRejection reason: The requested ballroom is closed for renovation in November 2027.",
+      "expected_result": "Step 2: The All events list opens.\nStep 3: SPM94 Meridian Rejected Gala is listed with the status 'Rejected'.\nStep 4: The event page opens with the status 'Rejected', and an error box titled 'This request was rejected' shows the reason 'The requested ballroom is closed for renovation in November 2027.'"
+    },
+    {
+      "id": "SPM-94-TC03",
+      "title": "The Event Coordinator Lead sees the rejection reason of a request they are not assigned to",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as grace.lim@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Choose 'Rejected' in 'Filter by status'",
+        "Click the 'SPM94 Meridian Rejected Gala' row"
+      ],
+      "test_data": "Event Coordinator Lead: grace.lim@connectsphere.com\nPassword: password123\nEvent: SPM94 Meridian Rejected Gala (Rejected, organiser Rachel Ng, coordinator Daniel Tan)\nRejection reason: The requested ballroom is closed for renovation in November 2027.",
+      "expected_result": "Step 2: The All events list opens.\nStep 3: SPM94 Meridian Rejected Gala is listed with the status 'Rejected'.\nStep 4: The event page opens with the status 'Rejected', and an error box titled 'This request was rejected' shows the reason 'The requested ballroom is closed for renovation in November 2027.'"
+    },
+    {
+      "id": "SPM-94-TC04",
+      "title": "An Event Coordinator not assigned to a rejected request sees its Rejected status but not the reason",
+      "linked_ac": [
+        "AC3",
+        "AC1",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as priya.raj@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Choose 'Rejected' in 'Filter by status'",
+        "Click the 'SPM94 Meridian Rejected Gala' row"
+      ],
+      "test_data": "Event Coordinator (not assigned): priya.raj@connectsphere.com\nPassword: password123\nEvent: SPM94 Meridian Rejected Gala (Rejected, organiser Rachel Ng, coordinator Daniel Tan)\nRejection reason: The requested ballroom is closed for renovation in November 2027.",
+      "expected_result": "Step 2: The All events list opens.\nStep 3: SPM94 Meridian Rejected Gala is listed with the status 'Rejected'.\nStep 4: The event page opens with the title SPM94 Meridian Rejected Gala and the status 'Rejected'. No 'This request was rejected' box is shown, and the reason 'The requested ballroom is closed for renovation in November 2027.' does not appear anywhere on the page."
+    },
+    {
+      "id": "SPM-94-TC05",
+      "title": "Another Event Organiser in the same client organisation sees a rejected request's status but not the reason",
+      "linked_ac": [
+        "AC4",
+        "AC1",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as james.koh@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Choose 'Rejected' in 'Filter by status'",
+        "Click the 'SPM94 Meridian Rejected Gala' row"
+      ],
+      "test_data": "Event Organiser (same client, Meridian Financial Group, not the owner): james.koh@meridianfina.com\nPassword: password123\nEvent: SPM94 Meridian Rejected Gala (Rejected, organiser Rachel Ng, coordinator Daniel Tan)\nRejection reason: The requested ballroom is closed for renovation in November 2027.",
+      "expected_result": "Step 2: The My events list opens.\nStep 3: SPM94 Meridian Rejected Gala is listed with the status 'Rejected'.\nStep 4: The event page opens with the title SPM94 Meridian Rejected Gala and the status 'Rejected'. No 'This request was rejected' box is shown, and the reason 'The requested ballroom is closed for renovation in November 2027.' does not appear anywhere on the page."
+    },
+    {
+      "id": "SPM-94-TC06",
+      "title": "A Safety Officer sees no event request that has not been approved, in All Events or by its address",
+      "linked_ac": [
+        "AC2",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Note the Reference shown for each of SPM94 Meridian Submitted Townhall, SPM94 Meridian Review Seminar, SPM94 Meridian Rejected Gala and SPM94 Meridian Withdrawn Workshop",
+        "Log out",
+        "Log in as hana.yusof@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Click the 'SPM94 Meridian Approved Launch' row",
+        "Type /events/<reference of SPM94 Meridian Submitted Townhall from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Review Seminar from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Rejected Gala from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Withdrawn Workshop from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/EVT-999999 after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-999999) and press Enter"
+      ],
+      "test_data": "Event Organiser (to note the references): rachel.ng@meridianfina.com\nSafety Officer: hana.yusof@connectsphere.com\nPassword: password123\nHidden events: SPM94 Meridian Submitted Townhall (Submitted), SPM94 Meridian Review Seminar (Under review), SPM94 Meridian Rejected Gala (Rejected), SPM94 Meridian Withdrawn Workshop (Withdrawn)\nVisible events: SPM94 Meridian Approved Launch (Approved), SPM94 Meridian Open Forum (Confirmed)\nReference that does not exist: EVT-999999",
+      "expected_result": "Step 2: The My events list shows SPM94 Meridian Submitted Townhall 'Submitted', SPM94 Meridian Review Seminar 'Under review', SPM94 Meridian Rejected Gala 'Rejected' and SPM94 Meridian Withdrawn Workshop 'Withdrawn'.\nStep 6: The All events list lists SPM94 Meridian Approved Launch with the status 'Approved' and SPM94 Meridian Open Forum with 'Confirmed'. SPM94 Meridian Submitted Townhall, SPM94 Meridian Review Seminar, SPM94 Meridian Rejected Gala and SPM94 Meridian Withdrawn Workshop are not listed.\nStep 7: The event page opens with the title SPM94 Meridian Approved Launch and the status 'Approved'.\nStep 8: SPM94 Meridian Submitted Townhall: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 9: SPM94 Meridian Review Seminar: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 10: SPM94 Meridian Rejected Gala: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 11: SPM94 Meridian Withdrawn Workshop: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 12: An event that does not exist shows exactly the same state as the four events above: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown."
+    },
+    {
+      "id": "SPM-94-TC07",
+      "title": "Venue Staff see no event request that has not been approved, on the Dashboard, in All Events or by its address",
+      "linked_ac": [
+        "AC2",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Note the Reference shown for each of SPM94 Meridian Submitted Townhall, SPM94 Meridian Review Seminar, SPM94 Meridian Rejected Gala and SPM94 Meridian Withdrawn Workshop",
+        "Log out",
+        "Log in as marcus.wong@connectsphere.com with password123",
+        "Type /events after the site address in the browser address bar (e.g. http://localhost:3000/events) and press Enter",
+        "Click the 'SPM94 Meridian Approved Launch' row",
+        "Type /events/<reference of SPM94 Meridian Submitted Townhall from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Review Seminar from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Rejected Gala from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Withdrawn Workshop from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/EVT-999999 after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-999999) and press Enter"
+      ],
+      "test_data": "Event Organiser (to note the references): rachel.ng@meridianfina.com\nVenue Staff: marcus.wong@connectsphere.com\nPassword: password123\nHidden events: SPM94 Meridian Submitted Townhall (Submitted), SPM94 Meridian Review Seminar (Under review), SPM94 Meridian Rejected Gala (Rejected), SPM94 Meridian Withdrawn Workshop (Withdrawn)\nVisible events: SPM94 Meridian Approved Launch (Approved), SPM94 Meridian Open Forum (Confirmed)\nReference that does not exist: EVT-999999",
+      "expected_result": "Step 2: The My events list shows SPM94 Meridian Submitted Townhall 'Submitted', SPM94 Meridian Review Seminar 'Under review', SPM94 Meridian Rejected Gala 'Rejected' and SPM94 Meridian Withdrawn Workshop 'Withdrawn'.\nStep 5: The Dashboard opens. Its 'Upcoming events' section includes SPM94 Meridian Approved Launch and SPM94 Meridian Open Forum, and none of SPM94 Meridian Submitted Townhall, SPM94 Meridian Review Seminar, SPM94 Meridian Rejected Gala or SPM94 Meridian Withdrawn Workshop.\nStep 6: The All events list lists SPM94 Meridian Approved Launch with the status 'Approved' and SPM94 Meridian Open Forum with 'Confirmed'. SPM94 Meridian Submitted Townhall, SPM94 Meridian Review Seminar, SPM94 Meridian Rejected Gala and SPM94 Meridian Withdrawn Workshop are not listed.\nStep 7: The event page opens with the title SPM94 Meridian Approved Launch and the status 'Approved'.\nStep 8: SPM94 Meridian Submitted Townhall: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 9: SPM94 Meridian Review Seminar: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 10: SPM94 Meridian Rejected Gala: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 11: SPM94 Meridian Withdrawn Workshop: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 12: An event that does not exist shows exactly the same state as the four events above: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown."
+    },
+    {
+      "id": "SPM-94-TC08",
+      "title": "Technical Support Staff see no event request that has not been approved, in All Events, by its address or on its Equipment page",
+      "linked_ac": [
+        "AC2",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Note the Reference shown for each of SPM94 Meridian Submitted Townhall, SPM94 Meridian Review Seminar, SPM94 Meridian Rejected Gala and SPM94 Meridian Withdrawn Workshop",
+        "Log out",
+        "Log in as kenji.sato@connectsphere.com with password123",
+        "Type /events after the site address in the browser address bar (e.g. http://localhost:3000/events) and press Enter",
+        "Click the 'SPM94 Meridian Approved Launch' row",
+        "Type /events/<reference of SPM94 Meridian Submitted Townhall from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Review Seminar from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Rejected Gala from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Withdrawn Workshop from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Type /events/EVT-999999 after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-999999) and press Enter",
+        "Type /events/<reference of SPM94 Meridian Rejected Gala from step 3>/equipment after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123/equipment) and press Enter"
+      ],
+      "test_data": "Event Organiser (to note the references): rachel.ng@meridianfina.com\nTechnical Support Staff: kenji.sato@connectsphere.com\nPassword: password123\nHidden events: SPM94 Meridian Submitted Townhall (Submitted), SPM94 Meridian Review Seminar (Under review), SPM94 Meridian Rejected Gala (Rejected), SPM94 Meridian Withdrawn Workshop (Withdrawn)\nVisible events: SPM94 Meridian Approved Launch (Approved), SPM94 Meridian Open Forum (Confirmed)\nReference that does not exist: EVT-999999",
+      "expected_result": "Step 2: The My events list shows SPM94 Meridian Submitted Townhall 'Submitted', SPM94 Meridian Review Seminar 'Under review', SPM94 Meridian Rejected Gala 'Rejected' and SPM94 Meridian Withdrawn Workshop 'Withdrawn'.\nStep 6: The All events list lists SPM94 Meridian Approved Launch with the status 'Approved' and SPM94 Meridian Open Forum with 'Confirmed'. SPM94 Meridian Submitted Townhall, SPM94 Meridian Review Seminar, SPM94 Meridian Rejected Gala and SPM94 Meridian Withdrawn Workshop are not listed.\nStep 7: The event page opens with the title SPM94 Meridian Approved Launch and the status 'Approved'.\nStep 8: SPM94 Meridian Submitted Townhall: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 9: SPM94 Meridian Review Seminar: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 10: SPM94 Meridian Rejected Gala: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 11: SPM94 Meridian Withdrawn Workshop: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 12: An event that does not exist shows exactly the same state as the four events above: the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 13: The Equipment page of the rejected event shows an error box saying 'This event doesn't exist, or you don't have access to it.' No event title, status or rejection reason is shown."
+    },
+    {
+      "id": "SPM-94-TC09",
+      "title": "An Attendee sees only the Confirmed event open for registration, with no review outcome or reason",
+      "linked_ac": [
+        "AC7",
+        "AC5"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Note the Reference shown for SPM94 Meridian Rejected Gala",
+        "Log out",
+        "Log in as lee.wei.ming@example.com with password123",
+        "Click 'Browse Events' in the sidebar",
+        "Click the 'SPM94 Meridian Open Forum' row",
+        "Type /events/<reference of SPM94 Meridian Rejected Gala from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter"
+      ],
+      "test_data": "Event Organiser (to note the reference): rachel.ng@meridianfina.com\nAttendee: lee.wei.ming@example.com\nPassword: password123\nEvents: SPM94 Meridian Open Forum (Confirmed, registration on), SPM94 Meridian Rejected Gala (Rejected)",
+      "expected_result": "Step 2: SPM94 Meridian Rejected Gala is listed with the status 'Rejected'.\nStep 6: The Browse Events list includes SPM94 Meridian Open Forum. No other SPM94 Meridian event is listed (not the Submitted Townhall, Review Seminar, Rejected Gala, Withdrawn Workshop or Approved Launch).\nStep 7: The event page for SPM94 Meridian Open Forum opens. No 'This request was rejected' box, approval or rejection outcome, or rejection reason is shown.\nStep 8: The page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown."
+    },
+    {
+      "id": "SPM-94-TC10",
+      "title": "Venue Staff cannot open an event request while it is Under review, and can open it once it is approved",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Run it again after this case: approving the Approval Flow Briefing cannot be undone from the app. Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Note the Reference shown for SPM94 Meridian Approval Flow Briefing",
+        "Log out",
+        "Log in as marcus.wong@connectsphere.com with password123",
+        "Type /events/<reference of SPM94 Meridian Approval Flow Briefing from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter",
+        "Log out",
+        "Log in as daniel.tan@connectsphere.com with password123",
+        "Click 'Review Queue' in the sidebar",
+        "Click 'SPM94 Meridian Approval Flow Briefing'",
+        "Select 'Approve — planning can start'",
+        "Click 'Approve request'",
+        "Click 'Approve'",
+        "Log out",
+        "Log in as marcus.wong@connectsphere.com with password123",
+        "Type /events/<reference of SPM94 Meridian Approval Flow Briefing from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter"
+      ],
+      "test_data": "Event: SPM94 Meridian Approval Flow Briefing (Under review, organiser Rachel Ng, coordinator Daniel Tan)\nEvent Organiser: rachel.ng@meridianfina.com\nVenue Staff: marcus.wong@connectsphere.com\nEvent Coordinator (assigned): daniel.tan@connectsphere.com\nPassword: password123",
+      "expected_result": "Step 2: SPM94 Meridian Approval Flow Briefing is listed with the status 'Under review'.\nStep 6: While the request is Under review, the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown.\nStep 9: The Review Queue lists SPM94 Meridian Approval Flow Briefing.\nStep 10: The Review request page opens for the event.\nStep 12: A dialog 'Approve this request?' appears.\nStep 13: A success box titled 'Request approved' says '“SPM94 Meridian Approval Flow Briefing” is now Approved. Planning can start.'\nStep 16: The event page opens with the title SPM94 Meridian Approval Flow Briefing and the status 'Approved'. No rejection reason is shown."
+    },
+    {
+      "id": "SPM-94-TC11",
+      "title": "A Safety Officer sees an event cancelled after approval, but not one cancelled while still Under review",
+      "linked_ac": [
+        "AC2",
+        "AC5"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm94 has been run (it recreates the SPM94 events without reseeding). Logged out.",
+      "steps": [
+        "Log in as rachel.ng@meridianfina.com with password123",
+        "Click 'My Events' in the sidebar",
+        "Note the Reference shown for each of SPM94 Meridian Cancelled Review Dinner and SPM94 Meridian Cancelled Approved Expo",
+        "Log out",
+        "Log in as hana.yusof@connectsphere.com with password123",
+        "Click 'All Events' in the sidebar",
+        "Choose 'Cancelled' in 'Filter by status'",
+        "Click the 'SPM94 Meridian Cancelled Approved Expo' row",
+        "Type /events/<reference of SPM94 Meridian Cancelled Review Dinner from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/events/EVT-000123) and press Enter"
+      ],
+      "test_data": "Event Organiser (to note the references): rachel.ng@meridianfina.com\nSafety Officer: hana.yusof@connectsphere.com\nPassword: password123\nSPM94 Meridian Cancelled Review Dinner: cancelled while Under review, never approved\nSPM94 Meridian Cancelled Approved Expo: approved, then cancelled",
+      "expected_result": "Step 2: The My events list shows SPM94 Meridian Cancelled Review Dinner and SPM94 Meridian Cancelled Approved Expo, both with the status 'Cancelled'.\nStep 7: The All events list shows SPM94 Meridian Cancelled Approved Expo with the status 'Cancelled'. SPM94 Meridian Cancelled Review Dinner is not listed.\nStep 8: The event page opens with the title SPM94 Meridian Cancelled Approved Expo and the status 'Cancelled'.\nStep 9: SPM94 Meridian Cancelled Review Dinner was never approved, so the page heading reads 'Event' and an error box titled 'Could not load this' says 'This event doesn't exist, or you don't have access to it.', with a 'Retry' button. No event title, status or rejection reason is shown."
+    }
+  ]
+}

@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { canFlagForSafetyReview, canViewEvent } from "@/lib/permissions";
+import { canFlagForSafetyReview } from "@/lib/permissions";
 import { addReviewReasons } from "@/lib/reviewFlags";
 import {
   FLAGGABLE_BOOKING_STATUSES,
@@ -16,6 +16,7 @@ import {
   canFlagAfterReturn,
   safetyFlagsSchema,
 } from "@/lib/safetyResolution";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /**
  * SPM-88 (AC3) - after the Safety Officer requests changes or rejects the
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const sequenceNumber = parseEventReference(id);
     const event = sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canFlagForSafetyReview(actor, event)) {

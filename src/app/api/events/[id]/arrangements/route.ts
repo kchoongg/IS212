@@ -8,7 +8,6 @@ import {
   ARRANGEMENT_MARKING_STATUSES,
   canMarkArrangements,
   canViewArrangements,
-  canViewEvent,
   canViewRegistrationList,
   type Actor,
 } from "@/lib/permissions";
@@ -16,6 +15,7 @@ import { markArrangementSchema } from "@/lib/validation";
 import { isTerminalEventStatus } from "@/lib/statuses";
 import { arrangementsFor, blockingArrangements } from "@/lib/eventConfirmation";
 import { loadConfirmationInput } from "@/lib/eventArrangements";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-33, Track Outstanding Arrangements. GET is the event's Readiness list:
 // every venue booking, equipment line and (where enabled) the registration
@@ -79,7 +79,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       return forbidden("Event readiness is for Event Coordinators");
     }
     const event = await loadEvent(id);
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
 
@@ -97,7 +97,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       return unauthenticated();
     }
     const event = await loadEvent(id);
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canMarkArrangements(actor, event)) {

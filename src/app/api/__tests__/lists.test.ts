@@ -177,7 +177,13 @@ describe("GET /api/equipment/requests", () => {
 
     expect(callArg(db.event.findMany).where).toEqual({
       AND: [
-        { status: { not: "draft" } },
+        // CHANGED (SPM-94 AC2): Technical Support's own event scope.
+        {
+          OR: [
+            { status: { notIn: ["draft", "submitted", "under_review", "rejected", "withdrawn", "cancelled"] } },
+            { status: "cancelled", statusHistory: { some: { toStatus: "approved" } } },
+          ],
+        },
         // Technical Support sees an event's equipment once planning has begun.
         // SPM-86: and while the Safety Officer checks it.
         { status: { in: ["planning", "safety_review", "safety_cleared", "confirmed"] } },

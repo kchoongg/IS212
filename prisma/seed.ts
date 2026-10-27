@@ -2246,10 +2246,42 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-94 QA fixtures (Limit Who Sees a Request's Review Outcome). The SAME
+  // events as scripts/seed-spm94.ts (`npm run fixtures:spm94`) - keep the two
+  // in step. One per status the story turns on, all Rachel Ng's, so James Koh
+  // is her colleague (AC4) and Priya Raj the unassigned coordinator (AC3).
+  // Pushed LAST, after SPM-37, so no earlier event's EVT- reference number
+  // shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm94 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng",
+    coordinator: status === "submitted" ? undefined : "daniel.tan@connectsphere.com",
+    purpose: "SPM-94 review outcome visibility test event", category: "conference",
+    days: daysUntil(date), startHour: 9, durationHours: 4, attendance: 80, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm94("spm94_rejected", "SPM94 Meridian Rejected Gala", "rejected", "2027-11-03",
+      { rejectionReason: "The requested ballroom is closed for renovation in November 2027." }),
+    spm94("spm94_submitted", "SPM94 Meridian Submitted Townhall", "submitted", "2027-11-04"),
+    spm94("spm94_under_review", "SPM94 Meridian Review Seminar", "under_review", "2027-11-05"),
+    spm94("spm94_withdrawn", "SPM94 Meridian Withdrawn Workshop", "withdrawn", "2027-11-08",
+      { chain: ["submitted", "under_review", "withdrawn"] }),
+    spm94("spm94_approved", "SPM94 Meridian Approved Launch", "approved", "2027-11-09"),
+    spm94("spm94_confirmed", "SPM94 Meridian Open Forum", "confirmed", "2027-11-10",
+      { regEnabled: true, regCapacity: 100 }),
+    spm94("spm94_approval_flow", "SPM94 Meridian Approval Flow Briefing", "under_review", "2027-11-11"),
+    // TC11: cancelled straight from Under review (SPM-37), and after approval.
+    spm94("spm94_cancelled_in_review", "SPM94 Meridian Cancelled Review Dinner", "cancelled", "2027-11-12",
+      { chain: ["submitted", "under_review", "cancelled"], cancellationReason: "The client called the event off." }),
+    spm94("spm94_cancelled_after_approval", "SPM94 Meridian Cancelled Approved Expo", "cancelled", "2027-11-15",
+      { chain: ["submitted", "under_review", "approved", "cancelled"], cancellationReason: "The client called the event off." }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-69 QA fixtures (Release or Adjust Equipment Reservation). The SAME
   // events as scripts/seed-spm69.ts (`npm run fixtures:spm69`) - keep the two
   // in step. Their equipment lines are created further down (spm69Requests).
-  // Pushed after SPM-37, so no earlier event's EVT- reference number shifts.
+  // Pushed after SPM-94, so no earlier event's EVT- reference number shifts.
   // Add new events AFTER this block.
   // -----------------------------------------------------------------
   const spm69 = (key: string, title: string, date: string, startHour: number, durationHours: number,

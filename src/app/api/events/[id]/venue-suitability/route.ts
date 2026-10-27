@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
-import { can, canViewEvent } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { parseEventReference } from "@/lib/format";
 import {
   SPACE_ATTENDANCE_ERROR,
@@ -10,6 +10,7 @@ import {
   parseSpaceAttendance,
   type EventNeeds,
 } from "@/lib/venueSuitability";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-41. Every active venue, judged against this event's attendance, layout,
 // facilities and accessibility requirements. Read-only: it books nothing.
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         });
   // Same rule as GET /api/events/[id]: an event the user may not see is 404,
   // not 403, so its existence is not confirmed.
-  if (!event || !canViewEvent(actor, event)) {
+  if (!event || !(await canViewEventWithHistory(actor, event))) {
     return hidden();
   }
 

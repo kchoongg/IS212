@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
-import { canManageEquipmentRequests, canViewEvent } from "@/lib/permissions";
+import { canManageEquipmentRequests } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
 import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
@@ -9,6 +9,7 @@ import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { sendBackChanges } from "@/lib/equipmentReservation";
 import { ZodError } from "zod";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // PATCH/DELETE one EquipmentRequest row within S-16 — SPM-47 AC6:
 // "Equipment requirements can be updated during planning where authorised."
@@ -51,7 +52,7 @@ export async function PATCH(
 
     const eventId = await resolveEventId(id);
     const existing = eventId ? await loadRequest(eventId, requestId) : null;
-    if (!existing || !canViewEvent(actor, existing.event)) {
+    if (!existing || !(await canViewEventWithHistory(actor, existing.event))) {
       return hidden();
     }
     if (!canManageEquipmentRequests(actor, existing.event)) {
@@ -141,7 +142,7 @@ export async function DELETE(
 
   const eventId = await resolveEventId(id);
   const existing = eventId ? await loadRequest(eventId, requestId) : null;
-  if (!existing || !canViewEvent(actor, existing.event)) {
+  if (!existing || !(await canViewEventWithHistory(actor, existing.event))) {
     return hidden();
   }
   if (!canManageEquipmentRequests(actor, existing.event)) {

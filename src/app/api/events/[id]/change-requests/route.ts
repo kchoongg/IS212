@@ -4,7 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
-import { canRequestEventChange, canViewChangeRequests, canViewEvent } from "@/lib/permissions";
+import { canRequestEventChange, canViewChangeRequests } from "@/lib/permissions";
 import { createChangeRequestSchema } from "@/lib/validation";
 import {
   CHANGE_REQUEST_OWNER_MESSAGE,
@@ -18,6 +18,7 @@ import {
   importantFor,
   snapshotOf,
 } from "@/lib/eventChangeRequest";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // Request Event Change (SPM-35): the organiser who owns an event asks for a
 // change to it, and the event's people see what was asked. The rules are
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     const event = await loadEvent(id);
     // An event the user may not see is 404, never 403 - a 403 would confirm it exists.
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canRequestEventChange(actor, event)) {
@@ -135,7 +136,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     }
 
     const event = await loadEvent(id);
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canViewChangeRequests(actor, event)) {

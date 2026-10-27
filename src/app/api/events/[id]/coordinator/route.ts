@@ -3,12 +3,13 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import { statusLabel } from "@/lib/statuses";
-import { ASSIGNABLE_STATUSES, can, canAssignCoordinator, canViewEvent } from "@/lib/permissions";
+import { ASSIGNABLE_STATUSES, can, canAssignCoordinator } from "@/lib/permissions";
 import { assignCoordinatorSchema } from "@/lib/validation";
 import { notifyUser } from "@/lib/notifications";
 import { LEAD_ONLY_MESSAGE } from "@/lib/coordinatorAssignments";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /**
  * SPM-30 — assign or reassign an event's Event Coordinator.
@@ -47,7 +48,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
           });
     // Same order as every other event route: an event the user cannot see is
     // 404 before any role check, so its existence is never confirmed.
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!can(actor.role, "event:assign_coordinator")) {

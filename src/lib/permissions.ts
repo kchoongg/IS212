@@ -160,6 +160,11 @@ export interface EventAccessFields {
   /// For an attendee: whether their registration was marked attended (SPM-65),
   /// which no longer holds a place. Set by the caller, for a completed event.
   attendeeAttended?: boolean;
+  /// For a cancelled event: whether it was ever approved, from its status
+  /// history (SPM-94). Set by withApprovalHistory() in
+  /// src/lib/eventVisibility.ts; left unset, a cancelled event counts as
+  /// never approved.
+  everApproved?: boolean;
 }
 
 const INTERNAL_ROLES: readonly string[] = [
@@ -167,10 +172,23 @@ const INTERNAL_ROLES: readonly string[] = [
   "ops_manager",
   "venue_staff",
   "tech_support",
-  // SPM-85: every event that has left Draft, as for the rest of the staff -
-  // access follows the role, not a particular event (clarification #66).
+  // SPM-85: access follows the role, not a particular event (clarification
+  // #66) - from Approved onwards, as for Venue Staff and Technical Support
+  // (SPM-94, FROM_APPROVAL_ROLES below).
   "safety_officer",
 ];
+
+/// SPM-94 (forum #125): the staff whose part of the work starts once a request
+/// is approved - bookings, equipment, the safety check. A request still in
+/// review, or turned down, is none of their business: they see an event from
+/// Approved onwards.
+const FROM_APPROVAL_ROLES: readonly string[] = ["venue_staff", "tech_support", "safety_officer"];
+
+/// The statuses before approval, Draft aside. Postponed and Completed are
+/// reachable only after approval (canTransition()). Cancelled is not: SPM-37
+/// cancels from Under review too, so a cancelled event counts as approved only
+/// when its status history says so (everApproved).
+const BEFORE_APPROVAL_STATUSES: readonly string[] = ["submitted", "under_review", "rejected", "withdrawn"];
 
 // ---------------------------------------------------------------------------
 // RELATIONSHIP TO AN EVENT
@@ -230,7 +248,31 @@ export function canViewEvent(actor: Actor, event: EventAccessFields): boolean {
     return event.status === "confirmed" && (event.registrationEnabled === true || event.attendeeHoldsPlace === true);
   }
 
+  // SPM-94 (AC2): Venue Staff, Technical Support and the Safety Officer only
+  // once the request is approved.
+  if (FROM_APPROVAL_ROLES.includes(actor.role)) {
+    if (event.status === "cancelled") return event.everApproved === true;
+    return !BEFORE_APPROVAL_STATUSES.includes(event.status);
+  }
+
   return INTERNAL_ROLES.includes(actor.role);
+}
+
+/// SPM-94 (AC2): whether canViewEvent() needs `everApproved` for this pair -
+/// a cancelled event, seen by a role that sees events from Approved onwards.
+/// For anyone else, or any other status, the answer does not depend on it.
+export function needsApprovalHistory(actor: Actor, event: EventAccessFields): boolean {
+  return event.status === "cancelled" && FROM_APPROVAL_ROLES.includes(actor.role);
+}
+
+/// SPM-94 (AC1, forum #125): a request's rejection reason is for the people
+/// involved in it - the organiser who raised it, the coordinator assigned to
+/// it and the Event Coordinator Lead. Everyone else who may see the event
+/// (another coordinator, a colleague at the same client) sees its status only.
+export function canSeeRejectionReason(actor: Actor, event: EventAccessFields): boolean {
+  if (!canViewEvent(actor, event)) return false;
+  if (actor.role === "organiser") return ownsEvent(actor, event);
+  return isAssignedCoordinator(actor, event) || actor.role === "ops_manager";
 }
 
 /// The same rule as canViewEvent(), expressed as a Prisma `where` clause so a
@@ -259,6 +301,16 @@ export function eventListWhere(actor: Actor): Record<string, unknown> {
         { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
         // SPM-37: as canViewEvent(). Browse Events leaves these out itself.
         { status: "cancelled", ...holdsPlace },
+      ],
+    };
+  }
+
+  if (FROM_APPROVAL_ROLES.includes(actor.role)) {
+    return {
+      OR: [
+        { status: { notIn: ["draft", ...BEFORE_APPROVAL_STATUSES, "cancelled"] } },
+        // Cancelled after approval only - not straight from Under review (SPM-37).
+        { status: "cancelled", statusHistory: { some: { toStatus: "approved" } } },
       ],
     };
   }
@@ -730,7 +782,16 @@ export function visibleEventFor<T extends Record<string, unknown>>(
   actor: Actor,
   event: T
 ): Partial<T> {
-  if (actor.role !== "attendee") return event;
+  if (actor.role !== "attendee") {
+    // SPM-94 (AC1, AC6): the rejection reason goes only to those
+    // canSeeRejectionReason() names - withheld here, not just hidden on screen.
+    if (!("rejectionReason" in event) || canSeeRejectionReason(actor, event as unknown as EventAccessFields)) {
+      return event;
+    }
+    const withoutReason: Partial<T> = { ...event };
+    delete withoutReason.rejectionReason;
+    return withoutReason;
+  }
 
   const visible: Partial<T> = {};
   for (const field of ATTENDEE_EVENT_FIELDS) {

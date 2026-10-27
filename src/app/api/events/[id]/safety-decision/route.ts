@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { eventReference, parseEventReference } from "@/lib/format";
-import { can, canViewEvent } from "@/lib/permissions";
+import { can } from "@/lib/permissions";
 import { notifyUser } from "@/lib/notifications";
 import {
   DECISION_HISTORY_REASON,
@@ -12,6 +12,7 @@ import {
   safetyDecisionSchema,
   statusAfterDecision,
 } from "@/lib/safetyDecision";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 /**
  * SPM-87 — the Safety Officer records their decision on an event's
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const sequenceNumber = parseEventReference(id);
     const event =
       sequenceNumber === null ? null : await prisma.event.findUnique({ where: { sequenceNumber } });
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!can(actor.role, "event:safety_check")) {

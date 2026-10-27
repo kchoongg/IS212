@@ -6,7 +6,6 @@ import {
   can,
   canBeginPlanning,
   canRequestVenueBooking,
-  canViewEvent,
   canViewRegistrationList,
 } from "@/lib/permissions";
 import { eventReference, parseEventReference } from "@/lib/format";
@@ -19,6 +18,7 @@ import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { canChangeBookingsOf } from "@/lib/venueBookingChange";
 import { defaultHoldExpiry } from "@/lib/holdExpiry";
 import { expireDueHolds } from "@/lib/holdExpiryService";
+import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-42, Request Venue Booking. GET is what the Venue tab needs to offer a
 // request: the event's sessions, its existing requests, and whether this user
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     return forbidden("Venue bookings are for ConnectSphere staff");
   }
   const event = await loadEvent(id);
-  if (!event || !canViewEvent(actor, event)) {
+  if (!event || !(await canViewEventWithHistory(actor, event))) {
     return hidden();
   }
 
@@ -129,7 +129,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return unauthenticated();
     }
     const event = await loadEvent(id);
-    if (!event || !canViewEvent(actor, event)) {
+    if (!event || !(await canViewEventWithHistory(actor, event))) {
       return hidden();
     }
     if (!canRequestVenueBooking(actor, event)) {
