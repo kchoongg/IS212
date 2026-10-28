@@ -45,6 +45,10 @@ function row(overrides: Record<string, unknown> = {}) {
     status: "registered",
     registeredAt: REGISTERED_AT,
     withdrawnAt: null,
+    // SPM-66: never on the waiting list, nothing offered.
+    waitlistedAt: null,
+    offeredAt: null,
+    offerExpiresAt: null,
     attendee: { fullName: "Marcus Yeo", email: "marcus@example.com", phone: "+65 9123 4567" },
     addedBy: null,
     ...overrides,
@@ -154,6 +158,10 @@ describe("what the list shows", () => {
         status: "registered",
         registeredAt: REGISTERED_AT.toISOString(),
         withdrawnAt: null,
+        // SPM-66: not on the waiting list, nothing offered.
+        waitingListPosition: null,
+        offeredAt: null,
+        offerExpiresAt: null,
         attendee: { name: "Marcus Yeo", email: "marcus@example.com", phone: "+65 9123 4567" },
         addedBy: null,
       },

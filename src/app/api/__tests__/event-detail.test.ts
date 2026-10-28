@@ -360,19 +360,27 @@ describe("GET /api/events/[id]", () => {
       id: ID.registration,
       status: "waitlisted",
       registeredAt: new Date("2026-10-05T02:00:00Z"),
+      offerExpiresAt: null,
     });
+    db.registration.findMany.mockResolvedValue([
+      { id: "ahead", waitlistedAt: new Date("2026-10-04T02:00:00Z"), registeredAt: new Date("2026-10-04T02:00:00Z") },
+      { id: ID.registration, waitlistedAt: new Date("2026-10-05T02:00:00Z"), registeredAt: new Date("2026-10-05T02:00:00Z") },
+    ]);
 
     const body = await (await get(token)).json();
 
+    // CHANGED (SPM-66, AC3): with any offer standing and their place in the queue.
     expect(body.myRegistration).toEqual({
       id: ID.registration,
       status: "waitlisted",
       registeredAt: "2026-10-05T02:00:00.000Z",
+      offerExpiresAt: null,
+      waitingListPosition: 2,
     });
     // SPM-52: with its id, for Withdraw.
     expect(callArg(db.registration.findUnique)).toEqual({
       where: { eventId_attendeeId: { eventId: ID.event, attendeeId: ID.thirdUser } },
-      select: { id: true, status: true, registeredAt: true },
+      select: { id: true, status: true, registeredAt: true, offerExpiresAt: true },
     });
   });
 

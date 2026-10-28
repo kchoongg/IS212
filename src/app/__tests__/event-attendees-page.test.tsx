@@ -343,3 +343,96 @@ describe("Attendees tab (SPM-65)", () => {
     });
   });
 });
+
+// SPM-66: positions and offers on the waiting list, and the assigned
+// coordinator's "Offer place" (AC9).
+describe("SPM-66 the waiting list", () => {
+  const OFFER = `POST /api/events/${REF}/waiting-list/offers`;
+  const first = registration("Aisha Rahman", {
+    status: "waitlisted",
+    waitingListPosition: 1,
+    offeredAt: "2099-10-23T02:00:00.000Z",
+    offerExpiresAt: "2099-10-26T02:00:00.000Z",
+  });
+  const second = registration("Dev Nair", { status: "waitlisted", waitingListPosition: 2, offerExpiresAt: null });
+  const coordinatorView = (overrides: Record<string, unknown> = {}, rows = [marcus, first, second]) =>
+    payload(rows, { canOfferPlaces: true, ...overrides });
+  const dialog = () =>
+    screen.getByRole("heading", { hidden: true, name: "Offer the place to Dev Nair?" }).closest("dialog") as HTMLElement;
+
+  it("[SPM-66][AC3] SPM-66-TC08: shows each waiting attendee's position, and the place under offer", async () => {
+    open({ [LIST]: payload([marcus, first, second]) });
+
+    expect(await rowOf("Aisha Rahman")).toHaveTextContent(`Place offered until ${formatDateTime("2099-10-26T02:00:00.000Z")}`);
+    expect(await rowOf("Dev Nair")).toHaveTextContent("Number 2 in the queue");
+    expect(await rowOf("Marcus Yeo")).not.toHaveTextContent("queue");
+  });
+
+  it("[SPM-66][AC9] SPM-66-TC08: offers the assigned coordinator 'Offer place' on each attendee still waiting", async () => {
+    open({ [LIST]: coordinatorView() }, "coordinator");
+
+    expect(within(await rowOf("Dev Nair")).getByRole("button", { name: "Offer place" })).toBeInTheDocument();
+    expect(within(await rowOf("Aisha Rahman")).queryByRole("button", { name: "Offer place" })).not.toBeInTheDocument();
+    expect(within(await rowOf("Marcus Yeo")).queryByRole("button", { name: "Offer place" })).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ["to the organiser", { canOfferPlaces: false }, [marcus, first, second]],
+    ["while no place is under offer", {}, [marcus, second]],
+  ])("[SPM-66][AC9] SPM-66-TC09: offers nothing %s", async (_case, overrides, rows) => {
+    open({ [LIST]: coordinatorView(overrides, rows) }, "coordinator");
+
+    await rowOf("Dev Nair");
+    expect(screen.queryByRole("button", { name: "Offer place" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-66][AC9] SPM-66-TC08: asks first, naming whose offer moves, then moves it and says so", async () => {
+    const api = open({ [LIST]: coordinatorView(), [OFFER]: { offered: { id: "Dev Nair" } } }, "coordinator");
+
+    await userEvent.click(within(await rowOf("Dev Nair")).getByRole("button", { name: "Offer place" }));
+    expect(dialog()).toHaveTextContent(
+      "The place now offered to Aisha Rahman moves to Dev Nair, who has 3 days to accept it. Aisha Rahman stays on the waiting list in the same position, and both are notified."
+    );
+    expect(api.sent(OFFER)).toHaveLength(0);
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Offer place" }));
+
+    expect(await screen.findByText("Dev Nair has been offered the place.")).toBeInTheDocument();
+    expect(api.sent(OFFER)[0].body).toEqual({ registrationId: "Dev Nair" });
+  });
+
+  it("[SPM-66][AC9] names the offer made last when several places are under offer, as the server moves it", async () => {
+    const later = registration("Mei Ling", {
+      status: "waitlisted",
+      waitingListPosition: 2,
+      offeredAt: "2099-10-24T02:00:00.000Z",
+      offerExpiresAt: "2099-10-27T02:00:00.000Z",
+    });
+    open({ [LIST]: coordinatorView({}, [first, later, registration("Dev Nair", { status: "waitlisted", waitingListPosition: 3, offerExpiresAt: null })]) }, "coordinator");
+
+    await userEvent.click(within(await rowOf("Dev Nair")).getByRole("button", { name: "Offer place" }));
+
+    expect(dialog()).toHaveTextContent("The place now offered to Mei Ling moves to Dev Nair");
+  });
+
+  it("[SPM-66][AC9] does nothing when the coordinator says not now", async () => {
+    const api = open({ [LIST]: coordinatorView(), [OFFER]: {} }, "coordinator");
+
+    await userEvent.click(within(await rowOf("Dev Nair")).getByRole("button", { name: "Offer place" }));
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Not now" }));
+
+    expect(api.sent(OFFER)).toHaveLength(0);
+  });
+
+  it.each([
+    ["the server's reason", reply(400, { error: "There is no place on offer to give to someone else." }), "There is no place on offer to give to someone else."],
+    ["a general message when it gives none", reply(500), "Could not offer the place."],
+    ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server. Check your connection and try again."],
+  ])("[SPM-66][AC9] shows %s when offering fails", async (_case, answer, message) => {
+    open({ [LIST]: coordinatorView(), [OFFER]: answer }, "coordinator");
+
+    await userEvent.click(within(await rowOf("Dev Nair")).getByRole("button", { name: "Offer place" }));
+    await userEvent.click(within(dialog()).getByRole("button", { hidden: true, name: "Offer place" }));
+
+    expect(await screen.findByText(message)).toBeInTheDocument();
+  });
+});

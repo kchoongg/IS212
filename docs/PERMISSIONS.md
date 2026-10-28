@@ -436,7 +436,10 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event, then `registrationState()` → 400 unless the event is eligible (SPM-51) |
 | `GET /api/registrations` | `registration:create` → 403 "Registrations belong to an Attendee account."; the signed-in attendee's own registrations only (SPM-51) |
-| `PATCH /api/registrations/[id]` | `registration:create` → 403 "Only an Attendee can withdraw a registration", then 404 unless the registration is the caller's own (never 403, which would confirm it exists), then 400 unless it is `registered` and the event is not cancelled, completed or past its end (SPM-52) |
+| `PATCH /api/registrations/[id]` | `registration:create` → 403 "Only an Attendee can withdraw a registration", then 404 unless the registration is the caller's own (never 403, which would confirm it exists), then 400 unless it is `registered` and the event is not cancelled, completed or past its end (SPM-52). SPM-66: a `waitlisted` one leaves the waiting list under the same event rules; a seat given back, or an offer held by someone leaving, is offered to the next attendee waiting |
+| `POST /api/events/[id]/waiting-list` | SPM-66 (AC1, AC2): `registration:create` → 403 "Only an Attendee can join a waiting list", then `canViewEvent()` → 404, then 400 unless the event is full with registration open and the attendee is not already registered or waiting |
+| `POST /api/registrations/[id]/offer` | SPM-66 (AC6, AC7): `registration:create` → 403, then 404 unless the registration is the caller's own, then 400 unless a place is under offer to them and it hasn't ended (3 days, or the event's start) |
+| `POST /api/events/[id]/waiting-list/offers` | SPM-66 (AC9): `canViewEvent()` → 404, then the **assigned coordinator** only → 403 "Only the event's assigned coordinator can offer a place out of turn.", then 400 unless the event is Confirmed and not started, the chosen attendee is waiting with no offer, and a place is under offer to give |
 
 **Status codes.** 401 not signed in · 403 signed in, not allowed · 404 not
 allowed *and* must not learn the record exists.
