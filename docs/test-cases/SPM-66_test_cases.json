@@ -64,7 +64,7 @@
         "Click 'My Registrations' in the sidebar"
       ],
       "test_data": "Attendee: Siew Ling Goh | Event: SPM66 Harbour Summit (2 of 2 places taken, 2 waiting) | Dietary requirements: Vegetarian",
-      "expected_result": "Step 2: The 'Your registration' card says 'This event is full. You can join the waiting list instead.' above 'Dietary requirements', 'Accessibility requirements' and a 'Join waiting list' button. There is no 'Register' button.\nStep 4: 'You're on the waiting list.' appears, and the card now shows the badge 'Waiting list', 'You're number 3 on the waiting list.' and a 'Leave waiting list' button.\nStep 5: 'SPM66 Harbour Summit' is listed with the status 'Waiting list' and 'Number 3 in the queue'."
+      "expected_result": "Step 2: The 'Your registration' card shows 'Dietary requirements' and 'Accessibility requirements', then 'This event is full. You can join the waiting list instead.' and a 'Join waiting list' button. There is no 'Register' button.\nStep 4: 'You're on the waiting list.' appears, and the card now shows the badge 'Waiting list', 'You're number 3 on the waiting list.' and a 'Leave waiting list' button.\nStep 5: 'SPM66 Harbour Summit' is listed with the status 'Waiting list' and 'Number 3 in the queue'."
     },
     {
       "id": "SPM-66-TC02",
