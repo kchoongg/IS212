@@ -400,12 +400,12 @@ describe("[SPM-32] Review change request", () => {
       expect(screen.getByRole("button", { name: "Reject request" })).toBeInTheDocument();
     });
 
-    it("[AC2] says a postponement can only be rejected for now", async () => {
+    it("[AC2] [SPM-38][AC2] says a postponement is approved by postponing the event", async () => {
       open({ [LIST]: [{ ...cancel, kind: "postpone", kindLabel: "Postponement" }] });
       await heading();
 
       expect(
-        screen.getByText("Postponing an event isn't available yet (Postpone Event, SPM-38), so a postponement request can only be rejected for now.")
+        screen.getByText("To approve it, postpone the event: use Postpone event on its Overview.")
       ).toBeInTheDocument();
       expect(screen.queryByRole("radio")).not.toBeInTheDocument();
     });
