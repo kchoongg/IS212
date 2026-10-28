@@ -176,6 +176,17 @@ describe("GET /api/events/[id]/venue-bookings", () => {
     expect(body).toMatchObject({ cannotRequest: null, willBeginPlanning: true });
   });
 
+  it("[SPM-38][AC6] tells the assigned coordinator a postponed event needs its new date first", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "postponed" }));
+    db.venueBooking.findMany.mockResolvedValue([]);
+
+    const body = await (await get(token)).json();
+
+    expect(body.cannotRequest).toBe("A venue cannot be requested while the event is postponed. Its new date comes through a change request first.");
+    expect(body.willBeginPlanning).toBe(false);
+  });
+
   it.each(["submitted", "under_review"])(
     "[SPM-54][AC3] tells the assigned coordinator a %s event must be approved first",
     async (status) => {
@@ -411,6 +422,10 @@ describe("POST /api/events/[id]/venue-bookings", () => {
       expect(await refusal(given(event({ status })))).toBe(
         "A venue can be requested once this request has been approved."
       );
+    });
+
+    it("[SPM-38][AC6] an event that is postponed", async () => {
+      expect(await refusal(given(event({ status: "postponed" })))).toBe("A venue cannot be requested while the event is postponed. Its new date comes through a change request first.");
     });
 
     it.each(["completed", "cancelled", "rejected"])("[SPM-42] an event that is %s", async (status) => {

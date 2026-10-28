@@ -63,6 +63,8 @@ type Fixture = {
   booking?: { venueCode: string };
   equipment?: { name: string; quantity: number };
   registered?: Who;
+  /// SPM-38: the registration was withdrawn, on this date.
+  withdrewOn?: string;
 };
 
 const FIXTURES: Fixture[] = [
@@ -79,11 +81,12 @@ const FIXTURES: Fixture[] = [
   { key: "spm71_showcase", title: "SPM71 Reassigned Showcase", status: "planning", coordinator: "ivy",
     date: "2027-11-22", startHour: 10, durationHours: 6, attendance: 80, layout: "theatre",
     equipment: { name: "Stage Riser Section", quantity: 4 } },
-  // AC6: Zara registered while it was Confirmed; it is now Postponed, which
-  // an attendee cannot see.
+  // AC6: Zara registered while it was Confirmed; it is now Postponed, and she
+  // has since withdrawn, so she cannot see it. (Since SPM-38 an attendee who
+  // still holds a place can open a postponed event.)
   { key: "spm71_supper", title: "SPM71 Postponed Supper Club", status: "postponed", coordinator: "leon",
     date: "2027-11-29", startHour: 19, durationHours: 3, attendance: 40, layout: "banquet",
-    registered: "zara" },
+    registered: "zara", withdrewOn: "2026-10-08" },
 ];
 
 type Note = { to: Who; type: string; title: string; body: string; event: string; at: Date; read?: boolean };
@@ -246,7 +249,13 @@ async function main() {
     }
     if (f.registered) {
       await prisma.registration.create({
-        data: { eventId: created.id, attendeeId: ids[f.registered], status: "registered", registeredAt: sgt("2026-10-01", 12) },
+        data: {
+          eventId: created.id,
+          attendeeId: ids[f.registered],
+          status: f.withdrewOn ? "withdrawn" : "registered",
+          registeredAt: sgt("2026-10-01", 12),
+          withdrawnAt: f.withdrewOn ? sgt(f.withdrewOn, 12) : undefined,
+        },
       });
     }
     console.log(`  EVT-${String(created.sequenceNumber).padStart(6, "0")}  ${f.title.padEnd(30)} ${f.status}`);
