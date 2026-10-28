@@ -9,7 +9,9 @@ import { authedFetch } from "@/lib/session";
 // Overview, newest first. The page shows this only when the event says it has
 // some (changeRequestCount), so most events never ask for them.
 
-export function ChangeRequestsCard({ eventRef }: { eventRef: string }) {
+/// `reviewable` (SPM-32): the viewer is the event's assigned coordinator, who
+/// gets a Review link on each pending request.
+export function ChangeRequestsCard({ eventRef, reviewable = false }: { eventRef: string; reviewable?: boolean }) {
   const [requests, setRequests] = useState<ListedChangeRequest[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +50,10 @@ export function ChangeRequestsCard({ eventRef }: { eventRef: string }) {
         ) : requests === null ? (
           <SkeletonRows rows={2} />
         ) : (
-          <ChangeRequestList requests={requests} />
+          <ChangeRequestList
+            requests={requests}
+            reviewHref={reviewable ? (request) => `/events/${eventRef}/change-requests/${request.id}` : undefined}
+          />
         )}
       </CardBody>
     </Card>

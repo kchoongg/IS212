@@ -12,6 +12,7 @@ import { eventReference, parseEventReference } from "@/lib/format";
 import { createVenueBookingSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { CLOSED_EVENT_MESSAGE, NOT_APPROVED_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
+import { POSTPONED_VENUE_MESSAGE } from "@/lib/eventPostponement";
 import { PLANNING_REASONS, beginPlanningIfApproved } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
@@ -94,7 +95,10 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       ? CLOSED_EVENT_MESSAGE
       : isBeforeApproval(event.status)
         ? NOT_APPROVED_MESSAGE
-        : null;
+        : // SPM-38 (AC6): not until it has a new date.
+          event.status === "postponed"
+          ? POSTPONED_VENUE_MESSAGE
+          : null;
 
   return NextResponse.json({
     // SPM-90 (AC2): the attendance and layout a request starts on.

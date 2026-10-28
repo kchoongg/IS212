@@ -1,0 +1,280 @@
+{
+  "story_key": "SPM-32",
+  "story_title": "Process Event Change Request",
+  "created_by": "TAN JORDAN",
+  "creation_date": "2026-10-25",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "The Event Coordinator can view pending change requests for the events assigned to them."
+    },
+    {
+      "id": "AC2",
+      "text": "The Coordinator can approve or reject the requested change."
+    },
+    {
+      "id": "AC3",
+      "text": "A change request covering multiple fields can be partially approved — individual fields may be accepted while others are rejected, each updating or leaving unchanged accordingly. The Event Organiser who raised the request can see each field's outcome (approved or rejected), and the Coordinator's reason for each rejected field, on the change request, and is notified of the outcome (see: Receive Event Notifications, SPM-53)."
+    },
+    {
+      "id": "AC4",
+      "text": "Given a change is approved, when the approval is saved, then the event information is updated and the change is applied with the same rules as a direct edit by the Coordinator (see: Update Event Information, SPM-62)."
+    },
+    {
+      "id": "AC5",
+      "text": "Given the event is Postponed and the approved change gives it a new date, when the approval is saved, then the new date is applied and the event moves to Approved (see: Postpone Event, SPM-38)."
+    },
+    {
+      "id": "AC6",
+      "text": "Rejected changes leave the existing event information unchanged."
+    },
+    {
+      "id": "AC7",
+      "text": "A change request that has been approved or rejected can no longer be processed again."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-32-TC01",
+      "title": "The coordinator's Change Requests page lists the pending requests on their own events, each with a Review link, and not processed requests or another coordinator's",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm32 has been run. Daniel Tan is the coordinator of every 'SPM32 …' event except 'SPM32 Other Coordinator Forum' (Priya Raj). 'SPM32 Processed Seminar' has only a request that was already processed. Logged in as daniel.tan@connectsphere.com / password123. Nothing is saved in this case.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar"
+      ],
+      "test_data": "Coordinator: Daniel Tan\nPending, his: SPM32 Harbour Briefing, SPM32 Confirmed Client Gala, SPM32 Postponed Product Expo, SPM32 Advisers Workshop, SPM32 Cancellation Request Forum, SPM32 Called Off Dinner, SPM32 Postponement Request Talk\nNot his: SPM32 Other Coordinator Forum (Priya Raj)\nProcessed: SPM32 Processed Seminar",
+      "expected_result": "Step 1: The 'Change Requests' page lists a pending request for each of the seven events of the test data, each with the badge 'Pending' and a 'Review' link. 'SPM32 Processed Seminar' and 'SPM32 Other Coordinator Forum' are not listed."
+    },
+    {
+      "id": "SPM-32-TC02",
+      "title": "Only the assigned coordinator is offered Review on a pending change request - not another coordinator or the organiser who raised it",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm32 has been run. 'SPM32 Harbour Briefing' (coordinator Daniel Tan, organiser Rachel Ng) has a pending change request. Nothing is saved in this case.",
+      "steps": [
+        "Log in as priya.raj@connectsphere.com / password123",
+        "Click 'Change Requests' in the sidebar",
+        "Click 'All Events' in the sidebar and open 'SPM32 Harbour Briefing'",
+        "Log out, then log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM32 Harbour Briefing'"
+      ],
+      "test_data": "Event: SPM32 Harbour Briefing (coordinator Daniel Tan)\nOther coordinator: Priya Raj\nOrganiser: Rachel Ng",
+      "expected_result": "Step 2: The page lists the request for 'SPM32 Other Coordinator Forum' and none of Daniel Tan's SPM32 events.\nStep 3: The event opens with no 'Change requests' card: only the event's organisers, its assigned coordinator and the Ops Manager see its change requests (SPM-35).\nStep 5: The 'Change requests' card lists the request as 'Pending' with no 'Review' link."
+    },
+    {
+      "id": "SPM-32-TC03",
+      "title": "The assigned coordinator approves some fields of a change request and rejects another with a reason, and only the approved fields change on the event",
+      "linked_ac": [
+        "AC2",
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm32 before this case. 'SPM32 Harbour Briefing' (Planning, 80 people) has a pending change request from Rachel Ng for three fields. Logged in as daniel.tan@connectsphere.com / password123. SPM-32-TC04 continues from this case, so go straight to it and run npm run fixtures:spm32 after it.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM32 Harbour Briefing'",
+        "For 'Event name', choose 'Reject' and enter the reason",
+        "For 'Expected attendance' and 'Description', choose 'Approve'",
+        "Click 'Save decision'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM32 Harbour Briefing\nEvent name: SPM32 Harbour Briefing -> SPM32 Harbour Briefing and Lunch (reject; reason: The invitations have already gone out under the current name.)\nExpected attendance: 80 -> 110 (approve)\nDescription: Quarterly briefing for wealth clients. -> Quarterly briefing with a networking lunch. (approve)",
+      "expected_result": "Step 2: The 'Review change request' page shows the request's reason 'More clients have confirmed and we are adding lunch.' and one row per field - Event name, Description, Expected attendance - each with its current and proposed value and the choices 'Approve' and 'Reject', with 'Approve all', 'Reject all' and 'Save decision'.\nStep 3: A 'Reason for rejecting' box appears under Event name.\nStep 5: A green alert 'Change request processed.' is shown with the badge 'Partly approved', and each field's outcome: Event name 'Rejected', Expected attendance and Description 'Approved'.\nStep 6: The event's title is still 'SPM32 Harbour Briefing'. Expected attendance reads 110 and the description 'Quarterly briefing with a networking lunch.'"
+    },
+    {
+      "id": "SPM-32-TC04",
+      "title": "The organiser who raised a partly approved request sees each field's outcome and the reason for the rejected one",
+      "linked_ac": [
+        "AC3",
+        "AC7"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-32-TC03 has just been run (the request on 'SPM32 Harbour Briefing' partly approved by Daniel Tan) and the fixtures have NOT been reset since. Run npm run fixtures:spm32 after this case.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Log out, then log in as rachel.ng@meridianfina.com / password123",
+        "Click 'My Events' in the sidebar and open 'SPM32 Harbour Briefing'"
+      ],
+      "test_data": "Organiser: Rachel Ng\nEvent: SPM32 Harbour Briefing, request partly approved in SPM-32-TC03",
+      "expected_result": "Step 1: The request for 'SPM32 Harbour Briefing' is no longer listed.\nStep 3: The 'Change requests' card lists the request with the badge 'Partly approved' and 'Processed by Daniel Tan on' today's date. Its table has an Outcome column: Event name 'Rejected: The invitations have already gone out under the current name.', Expected attendance 'Approved', Description 'Approved'. There is no 'Review' link."
+    },
+    {
+      "id": "SPM-32-TC05",
+      "title": "A decision is not saved while a change is left undecided or a rejected change has no reason",
+      "linked_ac": [
+        "AC3",
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm32 has been run. 'SPM32 Advisers Workshop' has a pending change request for Preferred room layout and Anything else about the space. Logged in as daniel.tan@connectsphere.com / password123. Nothing is saved in this case.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM32 Advisers Workshop'",
+        "For 'Preferred room layout', choose 'Reject' and leave 'Reason for rejecting' empty",
+        "Click 'Save decision'",
+        "Enter a reason for 'Preferred room layout' and click 'Save decision' without deciding 'Anything else about the space'",
+        "Click 'Change Requests' in the sidebar"
+      ],
+      "test_data": "Event: SPM32 Advisers Workshop\nReason: The room booked can't be set up in a U shape.",
+      "expected_result": "Step 4: 'Give a reason for rejecting Preferred room layout.' appears under it and nothing is saved.\nStep 5: 'Approve or reject every change before saving.' is shown and nothing is saved.\nStep 6: The request for 'SPM32 Advisers Workshop' is still listed as 'Pending'."
+    },
+    {
+      "id": "SPM-32-TC06",
+      "title": "Rejecting every change of a request leaves the event's information exactly as it was",
+      "linked_ac": [
+        "AC2",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm32 before and after this case (it saves a decision). 'SPM32 Advisers Workshop' (Approved, Classroom, no special requirements) has a pending change request for Preferred room layout (Classroom -> U shape) and Anything else about the space. Logged in as daniel.tan@connectsphere.com / password123.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM32 Advisers Workshop'",
+        "Click 'Reject all'",
+        "Enter a reason for each of the two changes",
+        "Click 'Save decision'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM32 Advisers Workshop\nPreferred room layout reason: The room booked can't be set up in a U shape.\nAnything else about the space reason: Whiteboards are not available in that room.",
+      "expected_result": "Step 3: Both changes are set to 'Reject' and each shows a 'Reason for rejecting' box.\nStep 5: 'Change request processed.' is shown with the badge 'Rejected'.\nStep 6: The event still shows 'Approved', and its Details show Preferred room layout 'Classroom' - unchanged. The 'Change requests' card shows the request as 'Rejected', with each reason in its Outcome column."
+    },
+    {
+      "id": "SPM-32-TC07",
+      "title": "Approving a new date for a Confirmed event applies it with Edit event information's rules: the coordinator is asked first, the event goes back to Planning and its booking is flagged for review",
+      "linked_ac": [
+        "AC4",
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm32 before and after this case (it saves a decision). 'SPM32 Confirmed Client Gala' is Confirmed, 12 Jul 2027, 18:00–22:00, with an approved booking at Orchard Seminar Room (ORC-SEM), and a pending change request moving it to 19 Jul 2027, 18:00–22:00. Logged in as daniel.tan@connectsphere.com / password123.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM32 Confirmed Client Gala'",
+        "Click 'Approve all'",
+        "Click 'Save decision'",
+        "Click 'Save and move to Planning' in the dialog",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM32 Confirmed Client Gala\nStarts at: 12 Jul 2027, 18:00 -> 19 Jul 2027, 18:00\nEnds at: 12 Jul 2027, 22:00 -> 19 Jul 2027, 22:00",
+      "expected_result": "Step 4: A dialog 'Move this event back to Planning?' reads 'SPM32 Confirmed Client Gala is Confirmed. Saving these changes moves it back to Planning, where it needs a new safety check before it can be confirmed again.' Nothing is saved yet.\nStep 5: 'Change request processed.' is shown with the badge 'Approved', and an amber 'Flagged for review' alert lists 'Venue booking: Orchard Seminar Room (ORC-SEM) – the date or time changed'.\nStep 6: The event shows 'Planning' and When '19 Jul 2027, 18:00–22:00'."
+    },
+    {
+      "id": "SPM-32-TC08",
+      "title": "Approving a new date for a Postponed event applies it and moves the event to Approved",
+      "linked_ac": [
+        "AC5",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm32 before this case. 'SPM32 Postponed Product Expo' is Postponed, 26 Jul 2027, 10:00–16:00, with a pending change request moving it to 23 Aug 2027, 10:00–16:00. Logged in as daniel.tan@connectsphere.com / password123. SPM-32-TC09 continues from this case, so go straight to it and run npm run fixtures:spm32 after it.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM32 Postponed Product Expo'",
+        "Click 'Approve all'",
+        "Click 'Save decision'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM32 Postponed Product Expo (Postponed)\nStarts at: 26 Jul 2027, 10:00 -> 23 Aug 2027, 10:00\nEnds at: 26 Jul 2027, 16:00 -> 23 Aug 2027, 16:00",
+      "expected_result": "Step 2: The page notes 'This event is Postponed. Approving its new date moves it to Approved, ready for planning again.'\nStep 4: 'Change request processed.' is shown with the badge 'Approved' and 'The event has moved from Postponed to Approved.'\nStep 5: The event shows 'Approved' and When '23 Aug 2027, 10:00–16:00'."
+    },
+    {
+      "id": "SPM-32-TC09",
+      "title": "A change request that has been processed opens read-only and cannot be decided again",
+      "linked_ac": [
+        "AC7"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-32-TC08 has just been run (the request on 'SPM32 Postponed Product Expo' approved) and the fixtures have NOT been reset since. Still on the result of that 'Review change request' page as Daniel Tan. Run npm run fixtures:spm32 after this case.",
+      "steps": [
+        "Reload the page (F5)",
+        "Click 'Change Requests' in the sidebar"
+      ],
+      "test_data": "Event: SPM32 Postponed Product Expo, request approved in SPM-32-TC08",
+      "expected_result": "Step 1: The 'Review change request' page shows 'This change request has already been processed.' with the badge 'Approved' and each field's outcome, and no 'Approve', 'Reject' or 'Save decision'.\nStep 2: The request for 'SPM32 Postponed Product Expo' is not listed."
+    },
+    {
+      "id": "SPM-32-TC10",
+      "title": "The coordinator rejects an organiser's cancellation request with a reason, and the event is not cancelled",
+      "linked_ac": [
+        "AC2",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm32 before and after this case (it saves a decision). 'SPM32 Cancellation Request Forum' (Planning) has a pending cancellation request from Rachel Ng. Logged in as daniel.tan@connectsphere.com / password123.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM32 Cancellation Request Forum'",
+        "Click 'Reject request' with 'Reason for rejecting' left empty",
+        "Enter the reason and click 'Reject request'",
+        "Click 'Back to event'"
+      ],
+      "test_data": "Event: SPM32 Cancellation Request Forum\nReason for rejecting: The venue and speakers are already paid for; let's discuss a smaller format.",
+      "expected_result": "Step 2: The page shows the 'Cancellation' request, its reason 'The client has withdrawn its budget.', and 'To approve it, cancel the event: use Cancel event on its Overview.', with 'Reason for rejecting' and 'Reject request'.\nStep 3: 'Give a reason for rejecting this request.' appears and nothing is saved.\nStep 4: 'Change request processed.' is shown with the badge 'Rejected'.\nStep 5: The event still shows 'Planning'. The 'Change requests' card lists the 'Cancellation' request as 'Rejected' with 'Reason for rejecting: The venue and speakers are already paid for; let's discuss a smaller format.'"
+    },
+    {
+      "id": "SPM-32-TC11",
+      "title": "Cancelling an event that has a pending cancellation request marks that request Approved",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm32 before and after this case (it cancels an event). 'SPM32 Called Off Dinner' (Planning) has a pending cancellation request from Rachel Ng and no other change request. Logged in as daniel.tan@connectsphere.com / password123.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM32 Called Off Dinner'",
+        "Click 'Cancel event'",
+        "Click 'Cancel event' in the dialog"
+      ],
+      "test_data": "Event: SPM32 Called Off Dinner (Planning)",
+      "expected_result": "Step 2: The dialog 'Cancel this event?' lists 'Approve 1 cancellation request'.\nStep 3: The status badge reads 'Cancelled'. The 'Change requests' card lists the 'Cancellation' request as 'Approved' with 'Processed by Daniel Tan on' today's date."
+    },
+    {
+      "id": "SPM-32-TC12",
+      "title": "A postponement request can only be rejected until postponing an event is built",
+      "linked_ac": [
+        "AC2"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "npm run fixtures:spm32 has been run. 'SPM32 Postponement Request Talk' (Planning) has a pending postponement request. Logged in as daniel.tan@connectsphere.com / password123. Nothing is saved in this case.",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM32 Postponement Request Talk'"
+      ],
+      "test_data": "Event: SPM32 Postponement Request Talk",
+      "expected_result": "Step 2: The page shows the 'Postponement' request and 'Postponing an event isn't available yet (Postpone Event, SPM-38), so a postponement request can only be rejected for now.', with 'Reason for rejecting' and 'Reject request' and no way to approve it."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-25: the coordinator reviews a request on 'Review change request' at /events/<reference>/change-requests/<request> (UI_DESIGN.md S-17), reached by a 'Review' link on each pending request on the Change Requests page and on the event's Change requests card - shown only to the event's assigned coordinator.",
+    "DECIDED 2026-10-25: a change of details is decided item by item - each changed field, and the equipment change if there is one - with 'Approve' / 'Reject' for each, 'Approve all' and 'Reject all' to set them all, and 'Save decision'. A rejected item needs a 'Reason for rejecting' ('Give a reason for rejecting <field>.'). Every item must be decided ('Approve or reject every change before saving.').",
+    "DECIDED 2026-10-25: the request's status after a decision is 'Approved' (all items approved), 'Rejected' (all rejected) or 'Partly approved' (status value partially_approved). The page then shows 'Change request processed.' with each item's outcome. The Change requests card (organiser and coordinator) adds an Outcome column - 'Approved' or 'Rejected: <reason>' - and 'Processed by <name> on <date, time>'.",
+    "DECIDED 2026-10-25: approved fields are applied with Update Event Information's rules (applyEventInformation, SPM-62): important changes flag arrangements, a Confirmed (or Safety review / Safety approved) event goes back to Planning, and the coordinator is asked first with SPM-62's own dialog ('Move this event back to Planning?', 'Save and move to Planning' / 'Keep editing'). Arrangements flagged are listed under 'Flagged for review', as on Edit event information.",
+    "DECIDED 2026-10-25: an approved equipment change is recorded but not applied - it is free text - and the result says 'Update the Equipment tab to match the approved equipment change.'",
+    "DECIDED 2026-10-25 (AC5): for a Postponed event, the approved fields are applied and, if Starts at or Ends at is among them, the event moves to Approved (status history 'Rescheduled: change request approved'); the page notes it first and says 'The event has moved from Postponed to Approved.' afterwards. Other approved fields on a Postponed event are applied and it stays Postponed.",
+    "DECIDED 2026-10-25: approving is refused once the event is closed ('This event is <status>, so its changes can no longer be approved.'); rejecting is still allowed. The approved fields together must still make sense: an end before the start is refused ('With these decisions the event would end before it starts. Decide Starts at and Ends at together.'), as is a start before registration closes (SPM-62's message).",
+    "DECIDED 2026-10-25 (user, 2026-10-25): postponement and cancellation requests are processed by Postpone Event (SPM-38) and Cancel Event (SPM-37). Here they can be rejected with a reason ('Reject request'). A cancellation request is approved by cancelling the event: Cancel event now marks a pending cancellation request Approved (its dialog lists 'Approve 1 cancellation request') and closes other pending requests as before. A postponement request can only be rejected until SPM-38 is built.",
+    "DECIDED 2026-10-25 (AC7): the decision is saved only if the request is still Pending (checked in the database, so two coordinators' saves at once decide it once); otherwise 'This change request has already been processed.' A processed request opens read-only and leaves the Change Requests page.",
+    "DECIDED 2026-10-25: proposed values are applied as the request stored them, even if the event changed since. Requests made before SPM-35 (proposed start, end or attendance only) are decided the same way.",
+    "RESOLVED 2026-10-25: notifying the organiser of the outcome (AC3's 'is notified of the outcome') belongs to Receive Event Notifications (SPM-53, In Progress), per the 2026-09-18 and 2026-10-18 comments. SPM-32 writes no notifications; no case for it.",
+    "RESOLVED 2026-10-25: identifying and flagging affected arrangements and reverting a Confirmed event are SPM-62's rules, reused here (comment 2026-10-04), so TC07 checks them only as the effect of an approval."
+  ],
+  "code_references": []
+}

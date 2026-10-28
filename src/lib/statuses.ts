@@ -36,6 +36,9 @@ const STATUS_META: Record<string, StatusMeta> = {
 
   // --- Venue booking (approved/rejected shared with events) ---
   pending: { label: "Pending", tone: "warning" },
+  // SPM-32: a change request whose fields were decided differently - some
+  // approved, some rejected. A step forward, like Approved.
+  partially_approved: { label: "Partly approved", tone: "progress" },
   // SPM-67: taken back by the Coordinator - a withdrawn request ("withdrawn",
   // below with Registration, reads the same) or a released booking. Grey, as
   // neither holds the room any more.
@@ -163,17 +166,22 @@ const EVENT_TRANSITIONS: Record<string, readonly string[]> = {
   // SPM-37 (AC1): cancelled at any stage that has an assigned coordinator
   // (#68; confirmed 2026-10-22), so from Under review too.
   under_review: ["approved", "rejected", "withdrawn", "cancelled"],
-  approved: ["planning", "cancelled"],
+  // SPM-38 (decided 2026-10-26): postponed at any stage after approval that is
+  // not final - not from Under review, where nothing is arranged yet.
+  approved: ["planning", "postponed", "cancelled"],
   planning: ["confirmed", "postponed", "cancelled", "safety_review"],
   // SPM-86: the Safety Officer's decision (SPM-87) or a significant change
   // (SPM-88) returns the event to Planning. Otherwise it can only be
-  // cancelled - not postponed, nor confirmed until approved and back in
+  // cancelled or postponed - not confirmed until approved and back in
   // Planning (decided 2026-10-09).
   // SPM-87: approving moves it on to Safety approved (AC7).
-  safety_review: ["planning", "cancelled", "safety_cleared"],
+  // SPM-38 (AC4, decided 2026-10-26): postponing closes the pending check, so
+  // it is allowed from here after all (it was ruled out on 2026-10-09).
+  safety_review: ["planning", "postponed", "cancelled", "safety_cleared"],
   // SPM-87: the Coordinator confirms a safety-approved event; a significant
-  // change returns it to Planning (SPM-88); it can still be cancelled.
-  safety_cleared: ["confirmed", "planning", "cancelled"],
+  // change returns it to Planning (SPM-88); it can still be cancelled, or
+  // postponed (SPM-38), which closes the approval.
+  safety_cleared: ["confirmed", "planning", "postponed", "cancelled"],
   confirmed: ["completed", "postponed", "cancelled"],
   // Resuming goes back through Approved, so Planning is only ever entered
   // from Approved.

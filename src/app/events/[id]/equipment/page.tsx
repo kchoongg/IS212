@@ -25,6 +25,7 @@ import { eventTabItemsFor } from "@/lib/eventTabs";
 import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventReference, formatDateTime, formatDateTimeRange, orEmpty } from "@/lib/format";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { POSTPONED_EQUIPMENT_MESSAGE } from "@/lib/eventPostponement";
 import { SAFETY_HELD_STATUSES, backToPlanningWarning } from "@/lib/safetyResolution";
 import { DECISION_CLOSED_MESSAGE, acceptChanges, eventAllowsDecision } from "@/lib/equipmentSuggestion";
 import { EventGlance } from "../EventGlance";
@@ -280,7 +281,9 @@ export default function EventEquipmentPage() {
   // SPM-54: recording equipment waits for approval - the first requirement
   // recorded for an Approved event is what begins planning.
   const awaitingApproval = event ? isBeforeApproval(event.status) : false;
-  const canEdit = isCoordinator && !locked && !awaitingApproval && !notPermitted;
+  // SPM-38 (AC6): nothing changes until a postponed event has a new date.
+  const postponed = event?.status === "postponed";
+  const canEdit = isCoordinator && !locked && !awaitingApproval && !postponed && !notPermitted;
   // The next add, save or removal would move the event to Planning, so the
   // coordinator is asked first (canEdit already means "the assigned one").
   const willBeginPlanning = canEdit && event?.status === "approved";
@@ -543,6 +546,7 @@ export default function EventEquipmentPage() {
               requirements can no longer be changed.
             </Alert>
           )}
+          {postponed && <Alert variant="info">{POSTPONED_EQUIPMENT_MESSAGE}</Alert>}
 
           {planningStarted && (
             <Alert variant="success" title="Planning has started">

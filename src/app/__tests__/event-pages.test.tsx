@@ -2731,6 +2731,224 @@ describe("Event overview - cancelling an event (SPM-37)", () => {
   });
 });
 
+// SPM-38 - Postpone Event. The Overview's "Postpone event" button, its dialog
+// (GET /api/events/[id]/postponement lists what it lets go) and the amber
+// "This event is postponed" alert, as Cancel Event's above.
+describe("Event overview - postponing an event (SPM-38)", () => {
+  const PATCH = `PATCH /api/events/${REF}`;
+  const PREVIEW = `GET /api/events/${REF}/postponement`;
+  const TITLE = "Postpone this event?";
+  const DONE = "The event has been postponed. Its venue bookings and equipment have been released.";
+  const CONSEQUENCES = [
+    "Release SPM38 Hall (SPM38-HAL) on 12 Jan 2028, 09:00–12:00",
+    "Withdraw the request for SPM38 Studio (SPM38-STU) on 12 Jan 2028, 09:00–12:00",
+    "Release 2 × SPM38 Projector",
+  ];
+
+  function open(role: string, eventRow: unknown, routes: Record<string, unknown> = {}, who = {}) {
+    setRoute(`/events/${REF}`, { id: REF });
+    const api = mockApi({
+      ...signedInAs(role, who),
+      [EVENT]: eventRow,
+      [PREVIEW]: { consequences: CONSEQUENCES },
+      [PATCH]: {},
+      "GET /api/assignments": { coordinators: [] },
+      ...routes,
+    });
+    render(<EventOverviewPage />);
+    return api;
+  }
+  const openAsAssigned = (eventRow: unknown = event(), routes: Record<string, unknown> = {}) =>
+    open("coordinator", eventRow, routes, { id: "c1" });
+  const ask = async () => userEvent.click(await screen.findByRole("button", { name: "Postpone event" }));
+  const dialog = () => dialogTitled(TITLE);
+  const go = () => userEvent.click(within(dialog()).getByRole("button", { name: "Postpone event", hidden: true }));
+
+  it.each(["approved", "planning", "safety_review", "safety_cleared", "confirmed"])(
+    "[SPM-38][AC1] is offered to the assigned coordinator while the event is %s",
+    async (status) => {
+      openAsAssigned(event({ status }));
+
+      expect(await screen.findByRole("button", { name: "Postpone event" })).toBeInTheDocument();
+    }
+  );
+
+  it.each(["submitted", "under_review", "postponed", "completed", "rejected", "withdrawn", "cancelled"])(
+    "[SPM-38][AC1] is not offered while the event is %s",
+    async (status) => {
+      openAsAssigned(event({ status }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByRole("button", { name: "Postpone event" })).not.toBeInTheDocument();
+    }
+  );
+
+  it.each([
+    ["a coordinator it is not assigned to", "coordinator", { id: "c2" }],
+    ["the Event Coordinator Lead", "ops_manager", {}],
+    ["the organiser who owns it", "organiser", { id: "organiser-id" }],
+    ["Venue Staff", "venue_staff", {}],
+  ])("[SPM-38][AC2] is not offered to %s", async (_who, role, who) => {
+    open(role, event(), {}, who);
+
+    await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+    expect(screen.queryByRole("button", { name: "Postpone event" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-38][AC3] asks first, naming the event and everything it will release, and sends nothing yet", async () => {
+    const api = openAsAssigned();
+
+    await ask();
+
+    expect(dialog().open).toBe(true);
+    expect(dialog()).toHaveTextContent("Gala Dinner will be marked Postponed. Its new date is set later, through a change request.");
+    expect(dialog()).toHaveTextContent("Postponing will:");
+    const listed = await within(dialog()).findAllByRole("listitem", { hidden: true });
+    expect(listed.map((li) => li.textContent)).toEqual(CONSEQUENCES);
+    expect(api.sent(PREVIEW)).toHaveLength(1);
+    expect(api.sent(PATCH)).toHaveLength(0);
+  });
+
+  it("[SPM-38][AC1] says when the event has nothing to release", async () => {
+    openAsAssigned(event({ status: "approved" }), { [PREVIEW]: { consequences: [] } });
+
+    await ask();
+
+    expect(
+      await within(dialog()).findByText("This event has no venue bookings, equipment or registration to release.")
+    ).toBeInTheDocument();
+    expect(dialog()).not.toHaveTextContent("Postponing will:");
+  });
+
+  it("[SPM-38] still offers to postpone when what it releases cannot be loaded", async () => {
+    openAsAssigned(event(), { [PREVIEW]: reply(500, {}) });
+
+    await ask();
+
+    expect(await within(dialog()).findByText("Could not load what postponing will release.")).toBeInTheDocument();
+    expect(within(dialog()).getByRole("button", { name: "Postpone event", hidden: true })).toBeEnabled();
+  });
+
+  it("[SPM-38][AC1][AC5] postpones with the reason typed, says so, and reloads the event", async () => {
+    const api = openAsAssigned();
+    await ask();
+
+    fireEvent.change(within(dialog()).getByLabelText("Reason (optional)"), {
+      target: { value: "The client is waiting on board approval." },
+    });
+    await go();
+
+    expect(await screen.findByText(DONE)).toBeInTheDocument();
+    expect(api.sent(PATCH).map((c) => c.body)).toEqual([
+      { status: "postponed", reason: "The client is waiting on board approval." },
+    ]);
+    await waitFor(() => expect(api.sent(EVENT)).toHaveLength(2));
+    expect(dialog().open).toBe(false);
+  });
+
+  it("[SPM-38][AC5] sends no reason when it is left empty, and limits it to 2,000 characters", async () => {
+    const api = openAsAssigned();
+    await ask();
+
+    expect(within(dialog()).getByLabelText("Reason (optional)")).toHaveAttribute("maxLength", "2000");
+    await go();
+
+    await screen.findByText(DONE);
+    expect(api.sent(PATCH).map((c) => c.body)).toEqual([{ status: "postponed" }]);
+  });
+
+  it("[SPM-38][AC1] does nothing when the coordinator keeps the event", async () => {
+    const api = openAsAssigned();
+    await ask();
+
+    await userEvent.click(within(dialog()).getByRole("button", { name: "Keep event", hidden: true }));
+
+    expect(dialog().open).toBe(false);
+    expect(api.sent(PATCH)).toHaveLength(0);
+    expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+  });
+
+  it.each([
+    [
+      "the server's reason",
+      reply(400, { error: "This event is Completed and can't be moved to Postponed." }),
+      "This event is Completed and can't be moved to Postponed.",
+    ],
+    ["a general message when it gives none", reply(500, {}), "Could not postpone this event."],
+    [
+      "a network failure",
+      () => Promise.reject(new Error("offline")),
+      "Could not reach the server. Check your connection and try again.",
+    ],
+  ])("[SPM-38][AC1] shows %s when postponing is refused, and closes the question", async (_case, answer, message) => {
+    const api = openAsAssigned(event(), { [PATCH]: answer });
+    await ask();
+
+    await go();
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(message);
+    expect(dialog().open).toBe(false);
+    expect(screen.queryByText(DONE)).not.toBeInTheDocument();
+    expect(api.sent(EVENT)).toHaveLength(1);
+  });
+
+  describe("a postponed event (AC5, AC8)", () => {
+    const banner = async () =>
+      (await screen.findByText("This event is postponed")).closest("[role=alert]") as HTMLElement;
+
+    it.each([
+      ["coordinator", { id: "c1" }],
+      ["organiser", { id: "organiser-id" }],
+      ["ops_manager", {}],
+    ])("[SPM-38][AC5] shows %s why it was postponed", async (role, who) => {
+      open(role, event({ status: "postponed", postponementReason: "Waiting on the client's revised budget." }), {}, who);
+
+      expect(await banner()).toHaveTextContent("Waiting on the client's revised budget.");
+    });
+
+    it("[SPM-38][AC5][AC8] shows a registered attendee why it was postponed, with no Register", async () => {
+      open("attendee", {
+        ...publicEvent(),
+        status: "postponed",
+        postponementReason: "The trainer is unwell; a new date will follow.",
+        registrationState: { kind: "not_confirmed" },
+        myRegistration: { id: "registration-id", status: "registered", registeredAt: "2026-10-05T02:00:00.000Z" },
+      });
+
+      expect(await banner()).toHaveTextContent("The trainer is unwell; a new date will follow.");
+      expect(screen.queryByRole("button", { name: "Register" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-38][AC5] says when no reason was recorded", async () => {
+      openAsAssigned(event({ status: "postponed", postponementReason: null }));
+
+      expect(await banner()).toHaveTextContent("No reason was recorded.");
+    });
+
+    it("[SPM-38][AC1][AC6] still offers Cancel event, but not Postpone event or Edit event information", async () => {
+      openAsAssigned(event({ status: "postponed", postponementReason: null }));
+
+      await banner();
+
+      expect(screen.getByRole("button", { name: "Cancel event" })).toBeInTheDocument();
+      for (const name of ["Postpone event", "Confirm event", "Submit for safety check", "Edit event information"]) {
+        expect(screen.queryByRole("button", { name }), name).not.toBeInTheDocument();
+        expect(screen.queryByRole("link", { name }), name).not.toBeInTheDocument();
+      }
+    });
+
+    it.each(["approved", "planning"])("[SPM-38][AC7] shows no postponement alert on an event that is %s", async (status) => {
+      openAsAssigned(event({ status }));
+
+      await screen.findByRole("heading", { level: 1, name: "Gala Dinner" });
+
+      expect(screen.queryByText("This event is postponed")).not.toBeInTheDocument();
+    });
+  });
+});
+
 describe("[SPM-59] a withdrawn request on its event page", () => {
   function openAs(role: string, who: object) {
     setRoute(`/events/${REF}`, { id: REF });

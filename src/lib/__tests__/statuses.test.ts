@@ -71,12 +71,11 @@ describe("Safety approved (SPM-87)", () => {
     expect(statusTone("safety_cleared")).toBe("progress");
   });
 
-  it("[SPM-87][AC7] is entered only from Safety review, and cannot be postponed or reviewed again", () => {
+  it("[SPM-87][AC7] is entered only from Safety review, and cannot be reviewed again", () => {
     for (const from of ["planning", "approved", "confirmed", "under_review"]) {
       expect(canTransition(from, "safety_cleared"), from).toBe(false);
     }
     expect(canTransition("safety_cleared", "safety_review")).toBe(false);
-    expect(canTransition("safety_cleared", "postponed")).toBe(false);
   });
 });
 
@@ -86,9 +85,8 @@ describe("Safety review (SPM-86)", () => {
     expect(statusTone("safety_review")).toBe("info");
   });
 
-  it("[SPM-86][AC3] cannot be confirmed straight from Safety review, nor postponed", () => {
+  it("[SPM-86][AC3] cannot be confirmed straight from Safety review", () => {
     expect(canTransition("safety_review", "confirmed")).toBe(false);
-    expect(canTransition("safety_review", "postponed")).toBe(false);
   });
 
   it("[SPM-86][AC3] is entered from Planning only", () => {
@@ -157,6 +155,9 @@ describe("canTransition", () => {
     // (#68; decided 2026-10-21, docs/test-cases/SPM-37_test_cases.json).
     ["under_review", "cancelled"],
     ["approved", "planning"],
+    // SPM-38 (decided 2026-10-26): postponed at any stage after approval that
+    // is not final, Safety review and Safety approved included.
+    ["approved", "postponed"],
     ["approved", "cancelled"],
     ["planning", "confirmed"],
     ["planning", "postponed"],
@@ -166,11 +167,13 @@ describe("canTransition", () => {
     // otherwise it can only be cancelled (decided 2026-10-09).
     ["planning", "safety_review"],
     ["safety_review", "planning"],
+    ["safety_review", "postponed"],
     ["safety_review", "cancelled"],
     // SPM-87: the Safety Officer approves (AC7), or rejects / requests changes (AC8).
     ["safety_review", "safety_cleared"],
     ["safety_cleared", "confirmed"],
     ["safety_cleared", "planning"],
+    ["safety_cleared", "postponed"],
     ["safety_cleared", "cancelled"],
     ["confirmed", "completed"],
     ["confirmed", "postponed"],
@@ -338,3 +341,23 @@ describe("[SPM-59] a withdrawn request", () => {
   });
 });
 
+describe("[SPM-32] a change request's status", () => {
+  it("[SPM-32][AC3] reads 'Partly approved' when some fields were approved and others rejected", () => {
+    expect(statusLabel("partially_approved")).toBe("Partly approved");
+    expect(statusTone("partially_approved")).toBe("progress");
+  });
+});
+
+describe("Postponed (SPM-38)", () => {
+  it("[SPM-38][AC1][AC4] can be entered from every stage after approval that is not final", () => {
+    for (const from of ["approved", "planning", "safety_review", "safety_cleared", "confirmed"]) {
+      expect(canTransition(from, "postponed"), from).toBe(true);
+    }
+  });
+
+  it("[SPM-38][AC1] cannot be entered before approval, from a final status, or from Postponed itself", () => {
+    for (const from of ["draft", "submitted", "under_review", "completed", "rejected", "withdrawn", "cancelled", "postponed"]) {
+      expect(canTransition(from, "postponed"), from).toBe(false);
+    }
+  });
+});

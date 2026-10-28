@@ -302,3 +302,35 @@ describe("SPM-52 an attendee withdraws from My Registrations", () => {
     expect(await screen.findByText("You have withdrawn from the event.")).toBeInTheDocument();
   });
 });
+
+// SPM-66 (AC3, AC5): a waiting registration says where it is in the queue, or
+// that a place is offered and until when.
+describe("SPM-66 a registration on the waiting list", () => {
+  it("[SPM-66][AC3] SPM-66-TC03: shows its position in the queue", async () => {
+    open([{ ...registration("w", "waitlisted", "SPM66 Harbour Summit", 66, "2099-12-01"), waitingListPosition: 2, offerExpiresAt: null }]);
+
+    expect(await screen.findByRole("table")).toBeInTheDocument();
+    expect(rowOf("SPM66 Harbour Summit")).toHaveTextContent("Number 2 in the queue");
+    expect(within(rowOf("SPM66 Harbour Summit")).queryByRole("button", { name: "Withdraw" })).not.toBeInTheDocument();
+  });
+
+  it("[SPM-66][AC3] says it is queued when no position was sent", async () => {
+    open([{ ...registration("w", "waitlisted", "SPM66 Harbour Summit", 66, "2099-12-01"), waitingListPosition: null }]);
+
+    await screen.findByRole("table");
+    expect(rowOf("SPM66 Harbour Summit")).toHaveTextContent("In the queue");
+  });
+
+  it("[SPM-66][AC5] SPM-66-TC04: shows a place offered, and until when", async () => {
+    open([
+      {
+        ...registration("w", "waitlisted", "SPM66 Harbour Summit", 66, "2099-12-01"),
+        waitingListPosition: 1,
+        offerExpiresAt: "2099-10-26T02:00:00.000Z",
+      },
+    ]);
+
+    await screen.findByRole("table");
+    expect(rowOf("SPM66 Harbour Summit")).toHaveTextContent("Place offered - accept by 26 Oct 2099, 10:00");
+  });
+});

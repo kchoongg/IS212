@@ -110,7 +110,9 @@ describe("PATCH /api/registrations/[id]", () => {
     expect(db.registration.deleteMany).not.toHaveBeenCalled();
   });
 
-  it.each(["waitlisted", "withdrawn", "attended"])(
+  // CHANGED (SPM-66, AC4): a waitlisted attendee now leaves the waiting list
+  // through this route - see waiting-list.test.ts.
+  it.each(["withdrawn", "attended"])(
     "[SPM-52][AC1] refuses to withdraw a %s registration, changing nothing",
     async (status) => {
       db.registration.findUnique.mockResolvedValue(registration({ status }));

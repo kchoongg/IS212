@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Alert, Button, EmptyState, PageHeader, SkeletonRows, StatusBadge, Table, Tabs } from "@/components/ui";
+import { Alert, Button, ConfirmDialog, EmptyState, PageHeader, SkeletonRows, StatusBadge, Table, Tabs } from "@/components/ui";
 import type { Column } from "@/components/ui";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
@@ -11,6 +11,7 @@ import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventTabsFor } from "@/lib/roles";
 import { eventReference, formatDateTime } from "@/lib/format";
 import type { RegistrationCounts } from "@/lib/registrationEligibility";
+import { offerStands } from "@/lib/waitingList";
 
 // S-11, the Attendees tab (SPM-65, View Registration List): who has registered
 // for this event, for the Organiser responsible for it and the Coordinator
@@ -22,6 +23,10 @@ import type { RegistrationCounts } from "@/lib/registrationEligibility";
 // AC6: the list is read again every 15 seconds while the tab is open and in
 // view, and as soon as it comes back into view, so registrations, withdrawals
 // and waiting-list changes appear without a reload.
+//
+// SPM-66: each waiting attendee's position, and any place under offer to
+// them. The assigned coordinator can give a place under offer to a chosen
+// waiting attendee instead (AC9, "Offer place").
 
 /// How often the list is read again while in view (AC6, decided 2026-10-15).
 const REFRESH_MS = 15_000;
@@ -34,6 +39,11 @@ interface Registration {
   attendee: { name: string; email: string; phone: string | null };
   /// AC4: who added it on the Organiser's behalf; null if self-registered.
   addedBy: { name: string } | null;
+  /// SPM-66 (AC3): position on the waiting list, counting from 1.
+  waitingListPosition?: number | null;
+  /// SPM-66: when the place under offer to them was offered, and until when.
+  offeredAt?: string | null;
+  offerExpiresAt?: string | null;
 }
 
 interface RegistrationList {
@@ -42,6 +52,14 @@ interface RegistrationList {
   registrationCapacity: number | null;
   counts: RegistrationCounts;
   registrations: Registration[];
+  /// SPM-66 (AC9): the assigned coordinator, while places can be offered.
+  canOfferPlaces?: boolean;
+}
+
+/// SPM-66: "Number 2 in the queue", or the place under offer and until when.
+function waitingLine(r: Registration): string {
+  if (offerStands(r.offerExpiresAt, new Date())) return `Place offered until ${formatDateTime(r.offerExpiresAt as string)}`;
+  return `Number ${r.waitingListPosition ?? "-"} in the queue`;
 }
 
 /// AC5: active registrations against the capacity, and the waiting list.
@@ -73,7 +91,16 @@ const COLUMNS: Column<Registration>[] = [
       </div>
     ),
   },
-  { key: "status", header: "Status", render: (r) => <StatusBadge status={r.status} /> },
+  {
+    key: "status",
+    header: "Status",
+    render: (r) => (
+      <div className="flex flex-col items-start gap-1">
+        <StatusBadge status={r.status} />
+        {r.status === "waitlisted" && <span className="text-xs text-ink-3">{waitingLine(r)}</span>}
+      </div>
+    ),
+  },
   {
     key: "registeredAt",
     header: "Registered",
@@ -99,6 +126,11 @@ export default function EventAttendeesPage() {
   /// Whether a list is on screen, so a failed background refresh leaves it
   /// there instead of replacing it with an error.
   const shown = useRef(false);
+  // SPM-66 (AC9): the waiting attendee the coordinator is giving a place to.
+  const [offering, setOffering] = useState<Registration | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Registrations are personal: the same roles that are shown the tab
   // (roles.ts). The server checks the event relationship.
@@ -155,9 +187,60 @@ export default function EventAttendeesPage() {
     };
   }, [state, canView, refused, load, router, loginUrl]);
 
+  /// SPM-66 (AC9): give the place under offer to the chosen attendee.
+  async function offerPlace() {
+    // v8 ignore next -- the dialog only opens with an attendee chosen
+    if (!offering) return;
+    setSaving(true);
+    setActionError(null);
+    setNotice(null);
+    try {
+      const res = await authedFetch(`/api/events/${eventId}/waiting-list/offers`, {
+        method: "POST",
+        body: JSON.stringify({ registrationId: offering.id }),
+      });
+      if (!res.ok) {
+        setActionError((await res.json().catch(() => ({}))).error ?? "Could not offer the place.");
+        return;
+      }
+      setNotice(`${offering.attendee.name} has been offered the place.`);
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+      setOffering(null);
+    }
+  }
+
   if (state === "loading" || (state === "authenticated" && !user)) {
     return null;
   }
+
+  // SPM-66 (AC9): the offer that "Offer place" moves - the one made last, as
+  // the server picks it.
+  const holder =
+    data?.registrations
+      .filter((r) => r.status === "waitlisted" && offerStands(r.offerExpiresAt, new Date()))
+      .sort((a, b) => String(b.offeredAt).localeCompare(String(a.offeredAt)))[0] ?? null;
+  const columns: Column<Registration>[] =
+    data?.canOfferPlaces && holder
+      ? [
+          ...COLUMNS,
+          {
+            key: "offer",
+            header: "Offer",
+            hideLabelOnMobile: true,
+            className: "text-right",
+            render: (r) =>
+              r.status === "waitlisted" && !offerStands(r.offerExpiresAt, new Date()) ? (
+                <Button variant="secondary" size="sm" onClick={() => setOffering(r)}>
+                  Offer place
+                </Button>
+              ) : null,
+          },
+        ]
+      : COLUMNS;
 
   const crumbs = eventCrumbs(user?.role, eventId, data?.event.title, { label: "Attendees" });
 
@@ -209,6 +292,8 @@ export default function EventAttendeesPage() {
         <SkeletonRows rows={3} />
       ) : (
         <div className="flex flex-col gap-5">
+          {notice && <Alert variant="success">{notice}</Alert>}
+          {actionError && <Alert variant="error">{actionError}</Alert>}
           {/* AC7: said in words, never an empty list. Registrations made
               before it was turned off are still listed below. */}
           {!data.registrationEnabled && (
@@ -225,7 +310,7 @@ export default function EventAttendeesPage() {
 
           {data.registrations.length > 0 ? (
             <Table
-              columns={COLUMNS}
+              columns={columns}
               rows={data.registrations}
               rowKey={(r) => r.id}
               caption="Registrations for this event"
@@ -237,6 +322,20 @@ export default function EventAttendeesPage() {
           )}
         </div>
       )}
+
+      <ConfirmDialog
+        open={offering !== null}
+        title={`Offer the place to ${offering?.attendee.name ?? "this attendee"}?`}
+        confirmLabel="Offer place"
+        cancelLabel="Not now"
+        loading={saving}
+        onConfirm={() => void offerPlace()}
+        onCancel={() => setOffering(null)}
+      >
+        The place now offered to {holder?.attendee.name ?? "another attendee"} moves to{" "}
+        {offering?.attendee.name ?? "this attendee"}, who has 3 days to accept it.{" "}
+        {holder?.attendee.name ?? "They"} stays on the waiting list in the same position, and both are notified.
+      </ConfirmDialog>
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Alert, Button, DataState, PageHeader, StatusBadge, Table, type Column } from "@/components/ui";
 import { RequirePermission } from "@/components/RequirePermission";
 import { WithdrawRegistrationDialog, type WithdrawTarget } from "@/components/WithdrawRegistrationDialog";
-import { eventReference, formatDateTimeRange } from "@/lib/format";
+import { eventReference, formatDateTime, formatDateTimeRange } from "@/lib/format";
+import { offerStands } from "@/lib/waitingList";
 import { canWithdraw, withdrawWarning } from "@/lib/registrationEligibility";
 import { authedFetch } from "@/lib/session";
 import { loginUrlFor, useCurrentUser } from "@/lib/useCurrentUser";
@@ -18,6 +19,10 @@ interface RegistrationRow {
   id: string;
   status: string;
   registeredAt: string;
+  /// SPM-66: set while a place is under offer to them.
+  offerExpiresAt?: string | null;
+  /// SPM-66 (AC3): their place in the queue.
+  waitingListPosition?: number | null;
   event: {
     sequenceNumber: number;
     title: string | null;
@@ -27,6 +32,14 @@ interface RegistrationRow {
     registrationEnabled: boolean;
     registrationClosesAt: string | null;
   };
+}
+
+/// SPM-66: "Number 2 in the queue", or the offer and until when.
+function waitingLine(row: RegistrationRow): string {
+  if (offerStands(row.offerExpiresAt, new Date())) {
+    return `Place offered - accept by ${formatDateTime(row.offerExpiresAt as string)}`;
+  }
+  return row.waitingListPosition ? `Number ${row.waitingListPosition} in the queue` : "In the queue";
 }
 
 function MyRegistrations() {
@@ -78,7 +91,19 @@ function MyRegistrations() {
       render: (row) => <span className="font-medium">{row.event.title || "Untitled event"}</span>,
     },
     { key: "when", header: "When", render: (row) => formatDateTimeRange(row.event.startsAt, row.event.endsAt) },
-    { key: "status", header: "Status", render: (row) => <StatusBadge status={row.status} /> },
+    {
+      key: "status",
+      header: "Status",
+      render: (row) => (
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge status={row.status} />
+          {/* SPM-66 (AC3, AC5): their place in the queue, or the place offered. */}
+          {row.status === "waitlisted" && (
+            <span className="text-xs text-ink-3">{waitingLine(row)}</span>
+          )}
+        </div>
+      ),
+    },
     {
       key: "actions",
       header: "Actions",

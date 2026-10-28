@@ -34,7 +34,9 @@ import {
   TECH_SUPPORT_EQUIPMENT_STATUSES,
   canWithdrawEvent,
   canCancelEvent,
+  canPostponeEvent,
   canViewEvent,
+  canProcessChangeRequests,
   canRequestEventChange,
   canViewChangeRequests,
   eventListWhere,
@@ -316,8 +318,17 @@ describe("canViewEvent", () => {
     expect(canViewEvent(attendee, event({ status: "cancelled", registrationEnabled: true }))).toBe(false);
   });
 
+  // SPM-38 (AC8, decided 2026-10-26): a postponed event is no longer upcoming,
+  // but an attendee who holds a place can still open it to see why.
+  it("[SPM-38][AC8] shows a postponed event only to an attendee who holds a place in it", () => {
+    expect(canViewEvent(attendee, event({ status: "postponed", registrationEnabled: true, attendeeHoldsPlace: true }))).toBe(true);
+    expect(canViewEvent(attendee, event({ status: "postponed", registrationEnabled: true, attendeeHoldsPlace: false }))).toBe(false);
+    expect(canViewEvent(attendee, event({ status: "postponed", registrationEnabled: true }))).toBe(false);
+  });
+
   // "completed" is SPM-36's: an attendee holding a place still sees it.
-  it.each(["rejected", "withdrawn", "postponed"])(
+  // "postponed" is SPM-38's, above.
+  it.each(["rejected", "withdrawn"])(
     "[SPM-37][AC7] still hides a %s event from an attendee who holds a place",
     (status) => {
       expect(canViewEvent(attendee, event({ status, registrationEnabled: true, attendeeHoldsPlace: true }))).toBe(false);
@@ -361,12 +372,13 @@ describe("eventListWhere", () => {
   // CHANGED (SPM-64, #10): plus the confirmed events they hold a place in.
   // CHANGED (SPM-37, decided 2026-10-21): plus the cancelled events they hold a
   // place in, in step with canViewEvent(). Browse Events leaves those out itself.
-  it("[SPM-4][AC3] [SPM-51][AC1] [SPM-37][AC7] gives an attendee confirmed events open for registration, or confirmed or cancelled events they hold a place in", () => {
+  // CHANGED (SPM-38, decided 2026-10-26): and the postponed ones they hold a place in.
+  it("[SPM-4][AC3] [SPM-51][AC1] [SPM-37][AC7] [SPM-38][AC8] gives an attendee confirmed events open for registration, or confirmed, cancelled or postponed events they hold a place in", () => {
     const holdsPlace = { registrations: { some: { attendeeId: "attendee-1", status: { in: ["registered", "waitlisted"] } } } };
     expect(eventListWhere(attendee)).toEqual({
       OR: [
         { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
-        { status: "cancelled", ...holdsPlace },
+        { status: { in: ["cancelled", "postponed"] }, ...holdsPlace },
       ],
     });
   });
@@ -796,6 +808,30 @@ describe("canWithdrawEvent", () => {
 
 // SPM-37: whether the event page offers "Cancel event" - the same two checks
 // the PATCH route makes, as canWithdrawEvent above.
+describe("canPostponeEvent", () => {
+  // AC1, decided 2026-10-26: every stage after approval that is not final.
+  it.each(["approved", "planning", "safety_review", "safety_cleared", "confirmed"])(
+    "[SPM-38][AC1] offers it to the assigned coordinator while the event is %s",
+    (status) => {
+      expect(canPostponeEvent(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(true);
+    }
+  );
+
+  it.each(["draft", "submitted", "under_review", "postponed", "completed", "rejected", "withdrawn", "cancelled"])(
+    "[SPM-38][AC1] does not offer it while the event is %s",
+    (status) => {
+      expect(canPostponeEvent(coordinator, event({ status, coordinatorId: "coordinator-1" }))).toBe(false);
+    }
+  );
+
+  it("[SPM-38][AC2] does not offer it to anyone but the assigned coordinator", () => {
+    const planning = event({ status: "planning", coordinatorId: "coordinator-1" });
+    for (const actor of [organiserA, colleagueA, organiserB, otherCoordinator, opsManager, venueStaff, techSupport, attendee]) {
+      expect(canPostponeEvent(actor, planning), actor.id).toBe(false);
+    }
+  });
+});
+
 describe("canCancelEvent", () => {
   // AC1, #68 "any stage": every status with an assigned coordinator that is not final.
   const CANCELLABLE = ["under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "postponed"];
@@ -880,6 +916,11 @@ describe("visibleEventFor", () => {
   it("[SPM-37][AC8] shows an attendee the cancellation reason", () => {
     const visible = visibleEventFor(attendee, { ...full, status: "cancelled", cancellationReason: "Trainer unavailable" });
     expect(visible.cancellationReason).toBe("Trainer unavailable");
+  });
+
+  it("[SPM-38][AC5][AC8] shows an attendee the postponement reason", () => {
+    const visible = visibleEventFor(attendee, { ...full, status: "postponed", postponementReason: "Trainer unwell" });
+    expect(visible.postponementReason).toBe("Trainer unwell");
   });
 
   it("[SPM-22][AC5] shows an attendee the client's company name, but not the organiser's own", () => {
@@ -1126,6 +1167,17 @@ describe("[SPM-35] Request Event Change", () => {
     const open = event({ status: "confirmed", coordinatorId: "coordinator-1", registrationEnabled: true });
     for (const someone of [organiserB, otherCoordinator, venueStaff, techSupport, attendee]) {
       expect(canViewChangeRequests(someone, open), someone.id).toBe(false);
+    }
+  });
+});
+
+describe("[SPM-32] Process Event Change Request", () => {
+  it("[SPM-32][AC1][AC2] only the coordinator assigned to the event processes its change requests", () => {
+    const planning = event({ status: "planning", coordinatorId: "coordinator-1" });
+
+    expect(canProcessChangeRequests(coordinator, planning)).toBe(true);
+    for (const someone of [otherCoordinator, opsManager, organiserA, colleagueA, venueStaff, techSupport, attendee]) {
+      expect(canProcessChangeRequests(someone, planning), someone.id).toBe(false);
     }
   });
 });

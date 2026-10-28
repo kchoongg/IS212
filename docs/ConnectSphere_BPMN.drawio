@@ -170,10 +170,10 @@
           <mxGeometry height="64" width="170" x="7845" y="3763" as="geometry" />
         </mxCell>
         <mxCell id="t_register" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Register /&#xa;withdraw" vertex="1">
-          <mxGeometry height="64" width="150" x="8065" y="3763" as="geometry" />
+          <mxGeometry height="46" width="150" x="8130" y="3730" as="geometry" />
         </mxCell>
-        <mxCell id="ev_registered" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;verticalLabelPosition=bottom;verticalAlign=top;" value="Registered" vertex="1">
-          <mxGeometry height="48" width="48" x="8275" y="3771" as="geometry" />
+        <mxCell id="ev_registered" parent="1" style="ellipse;html=1;fillColor=#ffffff;strokeColor=#8B1E1E;strokeWidth=3;fontSize=11.5;fontStyle=1;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" value="Registered" vertex="1">
+          <mxGeometry height="44" width="44" x="8620" y="3731" as="geometry" />
         </mxCell>
         <mxCell id="t_prepvenue" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=12.5;" value="Prepare venue for&#xa;event day" vertex="1">
           <mxGeometry height="64" width="160" x="8110" y="3448" as="geometry" />
@@ -547,7 +547,7 @@
             </Array>
           </mxGeometry>
         </mxCell>
-        <mxCell id="f_view_register" edge="1" parent="1" source="t_view" target="t_register" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
+        <mxCell id="f_view_register" edge="1" parent="1" source="t_view" target="g_full" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="f_register_end" edge="1" parent="1" source="t_register" target="ev_registered" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
@@ -781,6 +781,44 @@
         </mxCell>
         <mxCell id="xf_f2" edge="1" parent="1" source="xt_holdexp" target="xe_hold" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11.5;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;exitPerimeter=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;entryPerimeter=0;" value="">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="g_full" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=top;verticalAlign=bottom;" value="Event full?" vertex="1">
+          <mxGeometry height="50" width="50" x="8045" y="3770" as="geometry" />
+        </mxCell>
+        <mxCell id="t_join_wait" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=11.5;" value="Join waiting list&#xa;(first in, first out;&#xa;coordinator may override)" vertex="1">
+          <mxGeometry height="46" width="150" x="8130" y="3800" as="geometry" />
+        </mxCell>
+        <mxCell id="t_offer" parent="1" style="rounded=1;arcSize=18;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#555555;fontSize=11.5;" value="Place offered: accept&#xa;within 3 days (offer&#xa;ends if event starts)" vertex="1">
+          <mxGeometry height="46" width="160" x="8305" y="3800" as="geometry" />
+        </mxCell>
+        <mxCell id="g_accept" parent="1" style="rhombus;html=1;fillColor=#FFF7E8;strokeColor=#B0562A;fontSize=11;fontColor=#8B5A2B;labelBackgroundColor=none;verticalLabelPosition=top;verticalAlign=bottom;" value="Accepted?" vertex="1">
+          <mxGeometry height="44" width="44" x="8500" y="3801" as="geometry" />
+        </mxCell>
+        <mxCell id="f_full_no" edge="1" parent="1" source="g_full" target="t_register" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="no">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_full_yes" edge="1" parent="1" source="g_full" target="t_join_wait" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_join_offer" edge="1" parent="1" source="t_join_wait" target="t_offer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_offer_gw" edge="1" parent="1" source="t_offer" target="g_accept" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_accept_yes" edge="1" parent="1" source="g_accept" target="ev_registered" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" value="yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f_accept_no" edge="1" parent="1" source="g_accept" target="t_offer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#555555;strokeWidth=1.6;fontSize=11;fontColor=#555555;jettySize=auto;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="8522" y="3859" />
+              <mxPoint x="8385" y="3859" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lbl_accept_no" parent="1" style="text;html=1;fontSize=10.5;fontColor=#555555;align=left;verticalAlign=middle;whiteSpace=wrap;" value="declined, or 3 days pass:&#xa;offered to the next on the list" vertex="1">
+          <mxGeometry height="26" width="180" x="8550" y="3842" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>

@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { createRegistrationSchema } from "@/lib/validation";
-import { REGISTRATION_REFUSALS, SEAT_TAKING, registrationState } from "@/lib/registrationEligibility";
+import { REGISTRATION_REFUSALS, registrationState } from "@/lib/registrationEligibility";
+import { seatsHeld } from "@/lib/waitingList";
+import { placeCounts, positionOnWaitingList, sweepWaitingList } from "@/lib/waitingListService";
 import { ZodError } from "zod";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
@@ -20,13 +22,18 @@ export async function GET(req: NextRequest) {
       return forbidden("Registrations belong to an Attendee account.");
     }
 
+    // SPM-66 (AC7, AC10): offers whose time is up end before they are listed.
+    await sweepWaitingList();
     const registrations = await prisma.registration.findMany({
       where: { attendeeId: actor.id },
       orderBy: { registeredAt: "desc" },
       select: {
         id: true,
+        eventId: true,
         status: true,
         registeredAt: true,
+        // SPM-66: a place offered to them, until when.
+        offerExpiresAt: true,
         event: {
           select: {
             sequenceNumber: true,
@@ -41,7 +48,14 @@ export async function GET(req: NextRequest) {
         },
       },
     });
-    return NextResponse.json(registrations);
+    // SPM-66 (AC3): where each waiting one is in its event's queue.
+    const withPositions = await Promise.all(
+      registrations.map(async ({ eventId, ...r }) => ({
+        ...r,
+        waitingListPosition: r.status === "waitlisted" ? await positionOnWaitingList(prisma, eventId, r.id) : null,
+      }))
+    );
+    return NextResponse.json(withPositions);
   } catch (err) {
     console.error(err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
@@ -102,12 +116,13 @@ export async function POST(req: NextRequest) {
     // event makes the second wait for the first and then count its place, as
     // the venue booking and equipment reserve routes do.
     const registration = await prisma.$transaction(async (tx) => {
+      // CHANGED (SPM-66, AC8): a place under offer is held, and while anyone
+      // is waiting a newcomer joins the list behind them rather than
+      // registering past them (seatsHeld()).
       if (event.registrationCapacity != null) {
         await tx.$queryRaw`SELECT id FROM events WHERE id = ${data.eventId} FOR UPDATE`;
-        const taken = await tx.registration.count({
-          where: { eventId: data.eventId, status: { in: SEAT_TAKING } },
-        });
-        if (registrationState(event, taken, now).kind === "full") {
+        const counts = await placeCounts(tx, data.eventId, now);
+        if (registrationState(event, seatsHeld(event.registrationCapacity, counts), now).kind === "full") {
           throw new Error("EVENT_FULL");
         }
       }

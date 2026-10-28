@@ -5,6 +5,7 @@ import { canManageEquipmentRequests, canViewEquipmentRequests } from "@/lib/perm
 import { addEquipmentRequestSchema } from "@/lib/validation";
 import { equipmentWindowFor } from "@/lib/equipment";
 import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { POSTPONED_EQUIPMENT_MESSAGE } from "@/lib/eventPostponement";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
@@ -114,6 +115,10 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         { error: "Equipment can be recorded once this request has been approved" },
         { status: 400 }
       );
+    }
+    // SPM-38 (AC6): nothing new is arranged until the event has a new date.
+    if (event.status === "postponed") {
+      return NextResponse.json({ error: POSTPONED_EQUIPMENT_MESSAGE }, { status: 400 });
     }
 
     // ADDED (SPM-47, multi-session events): a session, if given, has to

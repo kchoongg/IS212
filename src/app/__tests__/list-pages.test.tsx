@@ -2025,6 +2025,18 @@ describe("Safety review across the lists (SPM-86)", () => {
   });
 });
 
+describe("[SPM-38] the Postponed status filter", () => {
+  it.each(["coordinator", "ops_manager"])("[SPM-38][AC1] offers %s a Postponed status filter", async (role) => {
+    mockApi({ ...signedInAs(role), "GET /api/events": [] });
+
+    render(<EventsPage />);
+
+    await screen.findByText("No events yet");
+    const options = within(screen.getByLabelText("Filter by status")).getAllByRole("option").map((o) => o.textContent);
+    expect(options).toContain("Postponed");
+  });
+});
+
 // SPM-87: an approved event shows as "Safety approved" (AC7), and has its own
 // list after "Safety review" on the organiser's and coordinator's Dashboard.
 describe("Safety approved across the lists (SPM-87)", () => {

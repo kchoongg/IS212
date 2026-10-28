@@ -68,6 +68,7 @@ function given(
     bookings?: object[];
     equipment?: object[];
     changeRequests?: number;
+    cancellationRequests?: number;
     safetyChecks?: number;
     registrations?: { status: string; _count: { _all: number } }[];
   } = {}
@@ -76,13 +77,24 @@ function given(
   db.event.findUnique.mockResolvedValue(row);
   db.venueBooking.findMany.mockResolvedValue(held.bookings ?? []);
   db.equipmentRequest.findMany.mockResolvedValue(held.equipment ?? []);
-  db.eventChangeRequest.count.mockResolvedValue(held.changeRequests ?? 0);
+  // All pending requests, and (SPM-32) the cancellation requests among them.
+  db.eventChangeRequest.count.mockImplementation(async ({ where }: { where: { kind?: string } }) =>
+    where.kind === "cancel" ? (held.cancellationRequests ?? 0) : (held.changeRequests ?? 0) + (held.cancellationRequests ?? 0)
+  );
   db.safetyCheck.count.mockResolvedValue(held.safetyChecks ?? 0);
   db.registration.groupBy.mockResolvedValue(held.registrations ?? []);
   return token;
 }
 
 describe("GET /api/events/[id]/cancellation", () => {
+  it("[SPM-32][AC2] lists the organiser's cancellation request as approved, apart from the other pending requests", async () => {
+    const token = given(event(), assignedCoordinator(), { changeRequests: 2, cancellationRequests: 1 });
+
+    const res = await preview(token);
+
+    expect((await res.json()).consequences).toEqual(["Approve 1 cancellation request", "Close 2 pending change requests"]);
+  });
+
   it("[SPM-37][AC2] is 401 without a session", async () => {
     expect((await preview()).status).toBe(401);
   });

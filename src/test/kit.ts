@@ -130,6 +130,15 @@ export function holdExpirySweepOrder(): number | null {
   return index < 0 ? null : db.$queryRaw.mock.invocationCallOrder[index];
 }
 
+/// When sweepWaitingList() (SPM-66) ran its first UPDATE, as a call order, or
+/// null if it never did. A route that reads registrations runs it first, so an
+/// offer whose time is up is never read as standing.
+export function waitingListSweepOrder(): number | null {
+  const calls = db.$queryRaw.mock.calls as unknown[][];
+  const index = calls.findIndex(([sql]) => Array.isArray(sql) && (sql as string[]).join("").includes("offer_ended_reason = 'event_started'"));
+  return index < 0 ? null : db.$queryRaw.mock.invocationCallOrder[index];
+}
+
 /// When completeDueEvents() (SPM-36) ran its UPDATE, as a call order, or null
 /// if it never did. A route that reads events runs it first, so an event 7
 /// days past its end is never read as Confirmed.

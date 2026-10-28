@@ -205,7 +205,7 @@ organiser is not.
 | Role | Sees |
 | --- | --- |
 | Organiser | Their own events including drafts, plus **non-draft** events of their own client organisation |
-| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10). A `completed` event stays visible to an attendee who is registered, waitlisted or marked attended for it - not one who withdrew - so My Registrations still opens it (SPM-36). A `cancelled` event stays visible, with its cancellation reason, to an attendee who is registered or waitlisted for it (SPM-37). Browse Events lists only `confirmed` ones. |
+| Attendee | Only events that are `confirmed` **and** have registration enabled — or, once registration is turned off, `confirmed` events they are registered or waitlisted for (SPM-64, #10). A `completed` event stays visible to an attendee who is registered, waitlisted or marked attended for it - not one who withdrew - so My Registrations still opens it (SPM-36). A `cancelled` event stays visible, with its cancellation reason, to an attendee who is registered or waitlisted for it (SPM-37), and so does a `postponed` one, with its postponement reason (SPM-38). Browse Events lists only `confirmed` ones. |
 | Coordinator, Ops Manager | Every event that has left `draft` |
 | Venue Staff, Tech Support, Safety Officer | Every event from `approved` onwards — never one that is `submitted`, `under_review`, `rejected` or `withdrawn` (SPM-94) |
 | Anyone | Never another organiser's draft |
@@ -309,7 +309,7 @@ acts on it; the Ops Manager assigns coordinators and does not cancel either.
 **Cancel Event (SPM-37, built 2026-10-22).** Any stage that has an assigned
 coordinator and is not final - Under review to Postponed - may move to
 `cancelled` (#68 "any stage"; `canCancelEvent()` decides who sees the button).
-In the status change's own transaction (`releaseForCancellation()` in
+In the status change's own transaction (`releaseHeldArrangements()` in
 `src/app/api/events/[id]/route.ts`, the rules in `src/lib/eventCancellation.ts`):
 Approved bookings become `released` and Pending requests `withdrawn` (SPM-67's
 statuses, with "Event cancelled: <reason>"), and Venue Staff get SPM-67's
@@ -319,6 +319,19 @@ unapplied; a pending or approved safety check is closed. Registrations are kept
 as they are (SPM-52), and an attendee holding a place can still open the
 cancelled event to see why (below). Nothing moves out of `cancelled`.
 Notifying the Organiser and attendees of the cancellation is SPM-53's.
+
+**Postpone Event (SPM-38, built 2026-10-27).** The assigned coordinator alone
+(`canPostponeEvent()`); an Organiser asks through a change request. Approved,
+Planning, Safety review, Safety approved and Confirmed may move to `postponed`
+(decided 2026-10-26). It lets go of the same arrangements as a cancellation, in
+the same transaction (`releaseHeldArrangements()` in
+`src/app/api/events/[id]/route.ts`, the rules in `src/lib/eventPostponement.ts`),
+with "Event postponed: <reason>" on the bookings, but of its change requests approves only the
+pending Postponement ones (as SPM-32 does for a cancellation). Registrations are kept, and an attendee holding a
+place can still open it. While `postponed` nothing new is arranged: a venue
+request or an equipment change is refused (400). It leaves `postponed` for
+`approved` when a change request giving it a new date is approved (SPM-32), or
+for `cancelled`.
 
 **Planning is entered one way only** (SPM-54, decided 2026-10-02). There is no
 "begin planning" button and the status PATCH refuses a move to `planning`. An
@@ -388,6 +401,7 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/events/[id]` (safety check) | `safetyCheck` (the latest Operational Safety Check: who submitted it and when, and the decision) and `safetyHistory` (every check, newest first, SPM-88) are added for internal users only - never for the organiser or an attendee (SPM-86; SPM-88 keeps safety details internal) |
 | `PATCH /api/events/[id]` (status) | `canViewEvent()` → 404, then `canSetEventStatus()` → 403. `safety_review` is refused (400): it is entered only through `POST /api/events/[id]/safety-check` (SPM-86) |
 | `GET /api/events/[id]/cancellation` | `canViewEvent()` → 404, then `canSetEventStatus(…, "cancelled")` → 403 "Only the assigned Coordinator can cancel this event.", then `canTransition()` → 400. Read-only: what the Cancel event dialog lists (SPM-37) |
+| `GET /api/events/[id]/postponement` | `canViewEvent()` → 404, then `canSetEventStatus(…, "postponed")` → 403 "Only the assigned Coordinator can postpone this event.", then `canTransition()` → 400. Read-only: what the Postpone event dialog lists (SPM-38) |
 | `PATCH /api/events/[id]` (draft edit) | `canEditEventContent()` — owning organiser, draft only |
 | `PATCH /api/events/[id]` (answering a clarification, SPM-26) | The draft edit's payload on a request Under review: `canViewEvent()` → 404, then `canRespondToClarification()` → 403 (`event:edit_draft` and ownership - the organiser who raised it, not a colleague from the same company), then an open clarification → 400. Saves the changes and marks the clarification answered in one transaction, under a row lock; the status is not changed |
 | `PATCH /api/events/[id]/registration` | `canViewEvent()` → 404, then `canConfigureRegistration()` → 403 (the assigned coordinator only), then `EVENT_INFORMATION_STATUSES` → 400 (Approved, Planning or Confirmed) (SPM-64) |
@@ -425,7 +439,10 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event, then `registrationState()` → 400 unless the event is eligible (SPM-51) |
 | `GET /api/registrations` | `registration:create` → 403 "Registrations belong to an Attendee account."; the signed-in attendee's own registrations only (SPM-51) |
-| `PATCH /api/registrations/[id]` | `registration:create` → 403 "Only an Attendee can withdraw a registration", then 404 unless the registration is the caller's own (never 403, which would confirm it exists), then 400 unless it is `registered` and the event is not cancelled, completed or past its end (SPM-52) |
+| `PATCH /api/registrations/[id]` | `registration:create` → 403 "Only an Attendee can withdraw a registration", then 404 unless the registration is the caller's own (never 403, which would confirm it exists), then 400 unless it is `registered` and the event is not cancelled, completed or past its end (SPM-52). SPM-66: a `waitlisted` one leaves the waiting list under the same event rules; a seat given back, or an offer held by someone leaving, is offered to the next attendee waiting |
+| `POST /api/events/[id]/waiting-list` | SPM-66 (AC1, AC2): `registration:create` → 403 "Only an Attendee can join a waiting list", then `canViewEvent()` → 404, then 400 unless the event is full with registration open and the attendee is not already registered or waiting |
+| `POST /api/registrations/[id]/offer` | SPM-66 (AC6, AC7): `registration:create` → 403, then 404 unless the registration is the caller's own, then 400 unless a place is under offer to them and it hasn't ended (3 days, or the event's start) |
+| `POST /api/events/[id]/waiting-list/offers` | SPM-66 (AC9): `canViewEvent()` → 404, then the **assigned coordinator** only → 403 "Only the event's assigned coordinator can offer a place out of turn.", then 400 unless the event is Confirmed and not started, the chosen attendee is waiting with no offer, and a place is under offer to give |
 
 **Status codes.** 401 not signed in · 403 signed in, not allowed · 404 not
 allowed *and* must not learn the record exists.
@@ -473,15 +490,13 @@ allowed to see.
   are legal is enforced for approve/reject (from `under_review`, SPM-28) and
   for planning (from `approved`, SPM-54) only. `approved → confirmed` in one
   step is still possible for a coordinator.
-- **Resuming a postponed event** (decided 2026-10-02, not built). It goes
-  `postponed` → `approved`, not straight to `planning`: the coordinator's next
-  venue or equipment action then begins planning again, so
-  `PLANNING_FROM_STATUSES` stays `approved` alone. Customer answer #69 backs
-  this — postponing without a date releases the bookings. SPM-38 (Postpone
-  Event) needs its own resume action, because a move to `approved` is
-  otherwise allowed only from `under_review` (`REVIEWABLE_STATUSES`), and has
-  to decide the case where the new date is already known (#69: a rescheduling
-  request, arrangements reviewed rather than released).
+- **Resuming a postponed event** (decided 2026-10-02). It goes `postponed` →
+  `approved`, not straight to `planning`: the coordinator's next venue or
+  equipment action then begins planning again, so `PLANNING_FROM_STATUSES`
+  stays `approved` alone. Customer answer #69 backs this — postponing without a
+  date releases the bookings (SPM-38, built). The move itself is made by
+  approving a change request with a new date (SPM-32), not by
+  the status PATCH, which still allows `approved` from `under_review` only.
 - **`under_review` via the status PATCH.** `STATUS_TRANSITION_ROLES` still
   lets the Ops Manager set `under_review` directly, which would leave an event
   under review with no coordinator. The UI never does this (it assigns through
@@ -522,11 +537,15 @@ allowed to see.
 - **No admin screen for staff accounts.** The four internal roles can no longer
   be self-registered, which is right, but nothing in the app creates them
   either — `npx prisma db seed` is the only path today.
-- **Event Change Requests can be raised but not processed.** Since SPM-35 the
+- **Event Change Requests: a postponement request can't be approved yet.** Since SPM-35 the
   organiser who owns an event asks for new details, a postponement or a
   cancellation (`POST /api/events/[id]/change-requests`, `canRequestEventChange()`:
   `event:request_change` and ownership - not a colleague from the same company -
   while the event is Approved, Planning, Safety review, Safety approved,
   Confirmed or Postponed). The event's organisers, its assigned coordinator and
   the Ops Manager see them (`canViewChangeRequests()`); the coordinator's pending
-  ones are `GET /api/change-requests`. Approving or rejecting one is SPM-32.
+  ones are `GET /api/change-requests`. Since SPM-32 only the assigned coordinator
+  processes one (`canProcessChangeRequests()`, `POST
+  /api/events/[id]/change-requests/[requestId]/decision`) - not another
+  coordinator, the Event Coordinator Lead or the Ops Manager. A postponement
+  request can only be rejected until Postpone Event (SPM-38) is built.

@@ -274,6 +274,16 @@ describe("POST /api/events/[id]/equipment", () => {
     expect(db.equipmentRequest.create).not.toHaveBeenCalled();
   });
 
+  it("[SPM-38][AC6] refuses a postponed event until it has a new date", async () => {
+    const token = givenAssignedCoordinator({ status: "postponed" });
+
+    const res = await add(token, valid);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "This event is postponed — equipment requirements can't be changed until it has a new date." });
+    expect(db.equipmentRequest.create).not.toHaveBeenCalled();
+  });
+
   it("[SPM-54][AC1] begins planning when it is the first arrangement on an approved event", async () => {
     const token = givenAssignedCoordinator({ status: "approved" });
     db.event.updateMany.mockResolvedValue({ count: 1 });
@@ -540,6 +550,15 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
 
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({ error: "Equipment can be recorded once this request has been approved" });
+      expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+      expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-38][AC6] is refused while the event is postponed", async () => {
+      const res = await call(givenRequest(assignedCoordinator(), requestRow({ status: "postponed" })));
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "This event is postponed — equipment requirements can't be changed until it has a new date." });
       expect(db.equipmentRequest.update).not.toHaveBeenCalled();
       expect(db.equipmentRequest.delete).not.toHaveBeenCalled();
     });

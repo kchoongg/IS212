@@ -169,6 +169,8 @@ IS212/
 │   ├── seed-spm59.ts            # `npm run fixtures:spm59` — SPM-59 requests in every pre-planning status, no reseed
 │   ├── seed-spm26.ts            # `npm run fixtures:spm26` — SPM-26 events with an open and an answered clarification, no reseed
 │   ├── seed-spm94.ts            # `npm run fixtures:spm94` — SPM-94 requests in each status, for who sees the review outcome, no reseed
+│   ├── seed-spm32.ts            # `npm run fixtures:spm32` — SPM-32 events with a change request to process, no reseed
+│   ├── seed-spm66.ts            # `npm run fixtures:spm66` — SPM-66 attendee accounts, events, waiting lists and offers, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
 │
@@ -671,7 +673,8 @@ defend under questioning.
 | Draft completeness before submitting | `api/events/[id]` PATCH | ✅ done |
 | Reason required when rejecting — blank or spaces-only is refused, and the reason is saved trimmed | `api/events/[id]` PATCH, `isBlankReason()` | ✅ done (trim added SPM-28) |
 | **Approve and reject only from Under review** — a request is decided once; approving or rejecting an event in any other status is refused (400) | `REVIEW_OUTCOMES` / `REVIEWABLE_STATUSES`, `api/events/[id]` PATCH | ✅ done (SPM-28) |
-| **An attendee can register only for an eligible event** — Confirmed, registration enabled, both registration dates set and now between them (opening and closing moments included), and a seat left (registered and attended take one; no capacity means no limit). No duplicate registration; a withdrawn attendee may register again. A full event offers the waiting list, joining it is not built | `registrationState()` in `src/lib/registrationEligibility.ts`, `POST /api/registrations` | ✅ done (SPM-51; was "confirmed, in window, no duplicate, seats left") |
+| **An attendee can register only for an eligible event** — Confirmed, registration enabled, both registration dates set and now between them (opening and closing moments included), and a seat left (registered and attended take one; no capacity means no limit). No duplicate registration; a withdrawn attendee may register again. A full event offers its waiting list (SPM-66): a place under offer is held, and while anyone waits a newcomer joins the list rather than registering past them | `registrationState()` in `src/lib/registrationEligibility.ts`, `seatsHeld()` in `src/lib/waitingList.ts`, `POST /api/registrations` | ✅ done (SPM-51; was "confirmed, in window, no duplicate, seats left") |
+| **A full event's waiting list is first in, first out, with a 3-day offer** (#26, #44) - a free place (registered + under offer < capacity) goes to the earliest to join whenever one comes free (a withdrawal, a declined or lapsed offer, someone leaving with an offer, a raised capacity); the attendee has 3 days, or until the event starts, to accept. Declining or letting it lapse leaves the list; the event starting ends the offer but keeps the position, and no offer is made after the start (#116). The assigned coordinator can move a place under offer to a chosen waiting attendee (never beyond capacity). Offers end with no scheduled job, on reading events and registrations and on the unread count | `src/lib/waitingList.ts` (pure), `offerFreePlaces()`, `sweepWaitingList()` (`src/lib/waitingListService.ts`), `POST /api/events/[id]/waiting-list`, `POST /api/registrations/[id]/offer`, `POST /api/events/[id]/waiting-list/offers` | ✅ done (SPM-66) |
 | **Registration capacity is capped by the booked room's capacity in its layout** (#112), never the room's maximum. Measured against the event's only pending or approved booking, or the one the coordinator chooses when there are several (Week 7 change #3); no booking, or one with no layout, means no capacity can be set | `measuredBooking()`, `capacityError()` in `src/lib/registrationSettings.ts`; `PATCH /api/events/[id]/registration` | ✅ done (SPM-64) |
 | **The registration period is separate from the event date** (#30): it closes after it opens, and no later than the event starts (exactly at the start is allowed). It can be extended or reopened (#42, #127) until the event starts, and not after | `periodErrors()`, `startedError()` | ✅ done (SPM-64) |
 | **Lowering registration capacity below the attendees holding a place, or turning registration off while anyone holds one, flags the registrations and never changes them** (codes `registration_capacity_lowered`, `registration_disabled`) | `registrationReviewReasons()`, `addReviewReasons()`, `HOLDING_A_PLACE` | ✅ done (SPM-64) |
@@ -705,7 +708,8 @@ and documented in [`docs/PERMISSIONS.md`](./docs/PERMISSIONS.md).
 |---|---|---|
 | Draft privacy — only the owning organiser may view, edit, or change the status of their own draft; every other role gets a 404, never a glimpse that it exists | `api/events` GET, `api/events/[id]` GET + PATCH | ✅ done |
 | A draft's content is only editable while it's still a draft — once submitted, further edits go through `EventChangeRequest` | `api/events/[id]` PATCH | ✅ done |
-| **After submission the organiser who owns the event asks for a change; nothing changes until the coordinator processes it** — new details (SPM-62's fields, equipment in free text) or that the event be postponed or cancelled, with a required reason, while it is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed. Each field is recorded with its current and proposed value; a request touching the date and time, attendance, venue requirements or equipment is Important | `canRequestEventChange()`, `canRequestChangeIn()`, `fieldChanges()`, `importantFor()` (`src/lib/eventChangeRequest.ts`), `POST /api/events/[id]/change-requests` | ✅ done (SPM-35); processing is SPM-32 |
+| **After submission the organiser who owns the event asks for a change; nothing changes until the coordinator processes it** — new details (SPM-62's fields, equipment in free text) or that the event be postponed or cancelled, with a required reason, while it is Approved, Planning, Safety review, Safety approved, Confirmed or Postponed. Each field is recorded with its current and proposed value; a request touching the date and time, attendance, venue requirements or equipment is Important | `canRequestEventChange()`, `canRequestChangeIn()`, `fieldChanges()`, `importantFor()` (`src/lib/eventChangeRequest.ts`), `POST /api/events/[id]/change-requests` | ✅ done (SPM-35) |
+| **Only the event's assigned coordinator processes its change requests, once** — each change is approved or rejected on its own, a rejection needs a reason, and only the approved fields are applied, through Update Event Information's rules (a Confirmed event goes back to Planning, affected arrangements are flagged). A Postponed event whose new date is approved moves to Approved. A postponement or cancellation request can only be rejected here; cancelling or postponing the event approves it (SPM-37, SPM-38) | `canProcessChangeRequests()`, `checkDecisions()`, `approvedPayload()` (`src/lib/changeRequestDecision.ts`), `POST /api/events/[id]/change-requests/[requestId]/decision` | ✅ done (SPM-32, SPM-38) |
 | An organiser sees their own events plus their client organisation's, never another client's | `eventListWhere()`, `canViewEvent()` | ✅ done |
 | An attendee sees only confirmed, registerable events — and only the public fields of them | `canViewEvent()`, `visibleEventFor()` | ✅ done |
 | **A request's review outcome is for the people involved in it** (#125) — Venue Staff, Technical Support and the Safety Officer see an event only from Approved onwards: a Submitted, Under review, Rejected or Withdrawn request, or one cancelled before it was approved (its status history has no approval), is missing from their lists and a 404 by its address. The rejection reason goes only to the owning organiser, the assigned coordinator and the Event Coordinator Lead; another coordinator or a colleague at the same client sees the Rejected status without it, in the list and on the event | `canViewEvent()`, `canViewEventWithHistory()`, `eventListWhere()`, `canSeeRejectionReason()`, `visibleEventFor()` | ✅ done (SPM-94) |
@@ -846,6 +850,8 @@ traceability the module asks for.
 | `npm run fixtures:spm36` | Adds or resets SPM-36's 4 test events ("SPM36 …"), organised by Rachel Ng and assigned to Daniel Tan, with their approved bookings and reserved equipment, without reseeding - only events whose `seedKey` starts with `spm36_` are touched. SPM36 Harbour Awards Night ends YESTERDAY, counted from when it runs, because an ended Confirmed event completes itself after 7 days; the others have fixed dates, one of them over 7 days past so the app completes it. Lee Wei Ming is registered for SPM36 Forgotten Trade Expo. Run it before and after any case that marks an event completed. The events, without bookings or equipment, are at the end of `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm59` | Adds or resets SPM-59's 6 test events ("SPM59 …", Jun–Jul 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm59_`. One request in each status before planning: Draft, Submitted (no coordinator), Under review, Approved, Rejected and Withdrawn (the last four assigned to Daniel Tan). Run it before SPM-59-TC01 and after SPM-59-TC02. The same events are at the end of `prisma/seed.ts` |
 | `npm run fixtures:spm94` | Adds or resets SPM-94's 9 test events ("SPM94 Meridian …", Nov 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm94_`. One request per status the story turns on: Submitted (no coordinator), Under review, Rejected (with a reason), Withdrawn, Approved and Confirmed with registration open, plus a second Under review request that SPM-94-TC10 approves, and two Cancelled ones for TC11 - one cancelled straight from Under review, one after approval (the rest assigned to Daniel Tan). Run it before the cases and after TC10. The same events are at the end of `prisma/seed.ts` |
+| `npm run fixtures:spm32` | Adds or resets SPM-32's 9 test events ("SPM32 …", Jul–Aug 2027), all organised by Rachel Ng and assigned to Daniel Tan except SPM32 Other Coordinator Forum (Priya Raj), without reseeding — deletes and recreates only events whose `seedKey` starts with `spm32_`, each with one change request: details on a Planning, a Confirmed (with an approved booking), a Postponed and an Approved event, a processed one, two cancellation requests and a postponement request. No pinned reference numbers. Needs the migration `add_change_request_decisions`. Run it before and after any case that processes a request (TC03 to TC11). The events (without bookings or change requests) are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm66` | Creates or refreshes SPM-66's five attendee accounts (Hana Quek, Ravi Nathan, Siew Ling Goh, Tomas Reyes, Uma Pillay; all `password123`; their notifications cleared) and resets its 7 events ("SPM66 …"), organised by Rachel Ng and assigned to Daniel Tan, each with 2 places, its registrations, waiting list and offers - only those accounts and events whose `seedKey` starts with `spm66_` are touched. Offers are made relative to when it runs: a standing one ends 3 days later, and SPM66 Lapsed Offer Talk's ended an hour before, so the app offers that place on at the next page load. Run it before and after any case that joins, leaves, accepts, declines or offers. Needs migration `20261023120000_add_waiting_list_offers`. The accounts and events (without registrations) are in `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
 | `npx prisma generate` | Regenerate the Prisma client after a schema change |
@@ -990,10 +996,9 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Closing an approved safety check records who closed it, not who approved it** | A significant change closes the check (SPM-88) by writing `closed` and the closer, time and reason into the decision columns, so the history card shows "Closed after a change…" for that submission rather than the Safety Officer's approval. The approval is still in the status history (Safety review → Safety approved, by the Safety Officer). Keeping both would need separate `closed_*` columns - a migration. | Janelle (SPM-88) |
 | **No question before a venue booking change closes a safety check** | Requesting, withdrawing or releasing a booking while the event is in Safety review or Safety approved closes its check and returns it to Planning (SPM-88), and the Venue tab and request form say so afterwards - but, unlike the edit page and the Equipment tab, do not ask first. | Janelle (SPM-88) |
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
-| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Safety review / Safety approved → Planning likewise happens only when a significant change closes the safety check (SPM-88). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Nothing postpones or resumes an event yet — for **SPM-38 (Postpone Event)** to build: (1) a resume action of its own, since a move to Approved is otherwise allowed only from Under review; (2) what happens when the new date is already known — #69 calls that a rescheduling request where arrangements are reviewed rather than released, so Approved may understate it; (3) the "Begin planning?" dialog says "the first venue or equipment action for this event", which is not literally true for a resumed event that kept its equipment list; (4) such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
+| **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Safety review / Safety approved → Planning likewise happens only when a significant change closes the safety check (SPM-88). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Since SPM-38 the assigned coordinator postpones an event (Approved to Confirmed), which releases everything it holds; it is resumed only by approving a new date through a change request (SPM-32). A postponed event has no equipment lines left, so the "Begin planning?" dialog's "the first venue or equipment action for this event" is true for it. Such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Two booking requests submitted at the same moment can both pass the clash check** | `POST /api/events/[id]/venue-bookings` (SPM-42) checks and writes without a lock, so two holds on one room for overlapping times can exist. Approval is not affected: `PATCH /api/venue-bookings/[id]` (SPM-43) locks the venue row and re-checks, so only one of them can be approved and the other then shows as a Conflict on `/bookings`. | venues |
 | **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
-| **Postponing an event does not release its bookings** | Cancelling does since SPM-37. Releasing every booking when the event is postponed without a date (#69) belongs to SPM-38; until then the coordinator releases them one at a time from the Venue tab (SPM-67). Venue Staff still have no list of what they have already decided. | SPM-38 |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **A flag stays after what raised it is undone** | Changing or ending an unavailable period (SPM-45), or lowering a venue's setup or turnaround time again (SPM-80, SPM-80-TC04), does not clear the flags it raised. The coordinator keeps the booking on the Flagged Arrangements page (`/flagged`), which offers Keep once it fits again. Decided 2026-10-20 for SPM-80: clearing a flag stays the coordinator's decision (SPM-68). | Kristen (SPM-68) |
 | **SPM-34-TC07 is out of date after SPM-33** | Its message now names the venue ("Orchard Seminar Room for this event is still awaiting a decision from Venue Staff"). | SPM-34's owner |
@@ -1005,11 +1010,8 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Facility / accessibility requirements are per event, not per session** | `event_facility_requirements` has no session column, so "the venue must have a hearing loop" applies to every session. A session's own venue needs are its layout and attendance. Per-session facilities would need a new table. The same holds for each of an event's rooms (SPM-90, decided 2026-10-13): a breakout room is judged on its own attendance and layout, but must still have every facility the event requires. | events / venues |
 | **Few route-level tests against a real database** | `npm run verify:permissions` (47 checks) and `npm run verify:login` (29 checks) cover authentication and authorisation end to end. Since 2026-10-19 `npm run test:integration` covers, on a real Postgres: booking requests at the same moment (SPM-44), approval booking the room (SPM-43), an expired hold freeing the room and not being approvable (SPM-82), equipment reservations reducing what is left and the last unit reserved at the same moment (SPM-48/49), and the registration capacity, including the last place taken at the same moment (SPM-51, SPM-111). Everything else is unit tested against a mocked database; see `docs/TESTING.md`. | unclaimed |
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
-| **"Filter by status" has no Postponed option** | Found with SPM-59 (2026-10-22): the My Events / All Events filter (`ALL_STATUSES`, `src/app/events/page.tsx`) lists every status but `postponed`, so a postponed event cannot be filtered on. SPM-59 added Withdrawn only, as the one its ACs need. One line to add, with a test. | SPM-38 (Postpone Event) |
-| **A change request can be made but not yet processed** | Since SPM-35 the organiser can ask for new details, a postponement or a cancellation, and the coordinator sees the request (Change Requests, and the event's Change requests card) - but nothing approves, rejects or applies it. That is **SPM-32** (Process Event Change Request), with Postpone Event and Cancel Event; the proposed values are stored in Update Event Information's payload shape for it. Until then a request stays Pending, and the coordinator acts on it by hand (Edit event information, or the status change). Nobody is told of a new request either: **SPM-53**. | SPM-32 |
 | **Two test cases quote the coordinator's sidebar from before SPM-68 and SPM-35** | SPM-22-TC02 ("The sidebar reads exactly: Dashboard, Review Queue, All Events, Venues, Equipment, Notifications") and SPM-43-TC11 ("The sidebar has Dashboard, Review Queue, All Events, Venues, Equipment and Notifications"). Since SPM-68 the coordinator's sidebar also has Flagged Arrangements, and since SPM-35 Change Requests, after it: Dashboard, Review Queue, Flagged Arrangements, Change Requests, All Events, Venues, Equipment, Notifications. Changed by design; the two cases need the new list. | SPM-22's and SPM-43's owners |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
-| **An organiser cannot call off their own event** | Cancellation is the coordinator's alone (customer clarification, 2026-09-18), and Event Change Requests — the route an organiser would use to *ask* for one — has no endpoint yet. Until it does, an organiser who wants to cancel has no in-app path at all. | events |
 | **The coordinator is not told a clarification was answered** | Since SPM-26 the organiser answers by updating and resubmitting the request, and the clarification is marked answered. The review page then simply stops showing it and offers "Ask the organiser for clarification" again; nothing says it was answered, when, or what changed (no AC asks for it). Notifying the coordinator is **SPM-53**'s. The organiser stores no reply message (`responseMessage` stays empty, decided 2026-10-21). | SPM-53 |
 | **Nobody is notified of a clarification request** | SPM-29 writes no `Notification`; the organiser sees the request only by opening the event. Telling them is **SPM-53**'s (the "notification" AC was moved there on 2026-09-18). | SPM-53 |
 | **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
@@ -1020,20 +1022,17 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Find a venue gives no feedback when a search returns the same results** | Pressing Search with unchanged filters reloads an identical list and nothing says a search ran. Found while testing SPM-54; raised as **SPM-79** (Show Venue Search Feedback), in the backlog. | venues |
 | **Other stories' test cases are out of date after SPM-54** | SPM-40-TC15 needs "Click 'Search'" and "Click 'Continue'" before its "Planning has started" message. SPM-42-TC08/TC09 book for an Approved event, so their first "Submit request" now shows the "Begin planning?" dialog. SPM-21 and SPM-30 quote the coordinator Dashboard's "Awaiting your review" list, which now holds Under review events only and at most five. Any case that books a venue or changes equipment on an Under review event is now blocked. | each story's owner |
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
-| **A full event offers the waiting list but nobody can join it** | SPM-51 shows "This event is full. You can join the waiting list instead." and "Joining the waiting list isn't available yet." Joining, the 3-day offer window (#44) and FIFO with manual override (#26) are *Join and Respond to Waiting List*. When it lands, replace that second line with its Join button in `src/app/events/[id]/RegisterPanel.tsx`. | Join and Respond to Waiting List |
 | **An attendee can withdraw up to the event's end** | SPM-52's acceptance criteria set no cut-off. Withdrawing is refused once the event is cancelled, completed or past its end, so its history doesn't change; before that a Registered attendee can withdraw, even after registration has closed or while the event is running. If the team wants an earlier cut-off (when registration closes, or when the event starts), it goes in `withdrawRefusal()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
 | **Every coordinator sees the registration counts, not only the assigned one** | `registration:view_list` is per role, so any coordinator who can open the event sees "Places taken" and "Withdrawn". SPM-52's AC5 says "relevant" coordinators; whether that means the assigned one only is not decided. | SPM-52 (Sammi) |
 | **Nothing marks an attendee as added by the organiser yet** | SPM-65 added `registrations.added_by_id` and the Attendees tab shows "Added by <name>" when it is set (AC4), but no screen adds an attendee on someone's behalf, so only `npm run fixtures:spm65` sets it. *Manually Add Attendee* must set it to the organiser or coordinator who adds the attendee. | Manually Add Attendee |
 | **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
-| **Equipment availability's postponed filter is temporary** | Only reserved and partially fulfilled requests count against stock (plus, since SPM-69, a requirement sent back to Technical Support that still has units reserved - `holdsStock()`), and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). "cancelled" stays on purpose: SPM-37 now cancels the lines, but events cancelled before it still have Reserved ones. "postponed" stands in for SPM-38 (Postpone Event) releasing the reservations — remove it once SPM-38 does. | equipment |
-| **A cancellation's closed change request can't be seen yet** | SPM-37 closes an event's pending change requests as Withdrawn, but no screen lists change requests until Process Event Change Request (SPM-32). SPM-37-TC12 is Blocked until then. | SPM-32 |
+| **Equipment availability still filters out cancelled and postponed events** | Only reserved and partially fulfilled requests count against stock (plus, since SPM-69, a requirement sent back to Technical Support that still has units reserved - `holdsStock()`), and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). SPM-37 and SPM-38 now cancel the lines themselves, but events cancelled or postponed before them (the seeded ones too) still have Reserved lines, and the shared database is never reseeded. Remove "cancelled" and "postponed" once no such line is left. | equipment |
 | **SPM-31's test cases describe the old Registration card** | SPM-31's attendee case says the Registration card "shows Capacity '150' and the registration window". Since SPM-64 the card shows "Registration: Enabled", then Capacity, Opens and Closes (no "Window" row). | SPM-31's owner |
 | **Submitting for a safety check doesn't check registration setup** | SPM-86's `submitForSafetyCheck` rule (`src/lib/safetyCheck.ts`) calls `arrangementsFor()` without the optional `registration` input that SPM-64 added, so an event whose registration is enabled but incomplete can be submitted for its safety check, while Confirm Event refuses it. Found when merging main (SPM-86) into SPM-64, 2026-10-10; SPM-86's rule was not changed. Its owner decides whether to pass the event's registration setup there too. | SPM-86's owner |
 | **Which booking registration capacity is measured against may change with SPM-81** | SPM-64 lets the coordinator pick one of an event's active bookings when it has several (Week 7 change #3), and stores it in `Event.registrationVenueBookingId`. If **SPM-81 (Request More Than One Venue for an Event)** decides capacity should come from several rooms together (e.g. a main hall plus breakout rooms), that rule and `measuredBooking()` need revisiting. | SPM-81 |
 | **Registration capacity is per event, not per session** | A multi-session event's sessions may have their own attendance limits (#74), but SPM-64 sets one `registrationCapacity` for the whole event, measured against one chosen booking. Per-session capacity would need a column on `EventSession` and per-session sign-up. | events / registrations |
-| **Raising registration capacity promotes nobody from the waiting list** | SPM-64 only stores the new number. Offering freed places to waitlisted attendees (FIFO with manual override, a 3-day acceptance window: #26, #44) belongs to the attendee-side waiting list story. | registrations |
 | **A registration capacity change doesn't trigger a new safety check** | The Operational Safety Check (Week 7 change #6) considers attendance against the venue's capacity and layout, but it isn't built. When it is, decide whether a capacity raised after safety approval sends the event back for review. | events |
 | **Equipment transfer/prep time is a flat 2h with no location UI** | `Equipment.locationVenueId` (SPM-48) lets an item be pinned to a venue — no transfer time is added for an event there — but nothing in the app sets it; only `prisma/seed.ts`'s fixtures do. The 2h figure itself, and "before the event only, nothing added after" (SPM-48 open question, not yet asked at a customer Q&A), are both team assumptions. | equipment |
 
@@ -1114,6 +1113,51 @@ what changed, why, and the migration name if there is one.
   `docs/test-cases/SPM-77_Test_Cases.xlsx` (10), fixtures
   `npm run fixtures:spm77`.
 
+### 2026-10-27 — Kayalvizhi (SPM-38, Postpone Event)
+- **The assigned coordinator can postpone an event with no new date yet**, from
+  Approved, Planning, Safety review, Safety approved or Confirmed. Approved,
+  Safety review and Safety approved → Postponed are new on the lifecycle
+  (`src/lib/statuses.ts`; Safety review was ruled out on 2026-10-09 and is
+  allowed again, decided 2026-10-26, so a pending check can be closed).
+  **Postpone event** on the Overview opens a dialog listing what will be let go
+  (`GET /api/events/[id]/postponement`), with an optional reason.
+- **Postponing lets go of the same arrangements as cancelling**, in one
+  transaction (PATCH `/api/events/[id]`, rules in `src/lib/eventPostponement.ts`;
+  `releaseForCancellation()` is now `releaseHeldArrangements()`, shared by
+  both): Approved bookings → `released`, Pending requests → `withdrawn`
+  ("Event postponed: …"), every equipment line → `cancelled`, a pending or
+  approved safety check → `closed`. Venue Staff get SPM-67's "Venue booking
+  released" notification. A pending **Postponement** change request is approved
+  ("Approved: the event was postponed."), as SPM-32 approves a cancellation
+  request when the event is cancelled; other change requests stay Pending.
+  Registrations are kept.
+- **The reason is read from the status history**, not a new column: the event
+  route adds `postponementReason` while the event is Postponed, and the
+  Overview shows it in an amber "This event is postponed" alert ("No reason was
+  recorded." without one). No migration.
+- **Nothing new is arranged while Postponed** - requesting a venue and adding,
+  changing or removing equipment are refused until it has a new date (through
+  Request a change, SPM-35, and its approval, SPM-32).
+- **An attendee holding a place can still open a postponed event** and sees the
+  reason (`canViewEvent()`, `eventListWhere()`, `ATTENDEE_EVENT_FIELDS`);
+  Browse Events leaves it out. They can still withdraw.
+- **SPM-32's review page now points to Postpone event**: approving a
+  postponement request there says "To approve it, postpone the event: use
+  Postpone event on its Overview." (`APPROVE_POSTPONEMENT`, was
+  `POSTPONEMENT_NOT_YET`), as it does for a cancellation.
+- **Other stories' cases this changes** (`docs/test-cases/DECOMMISSIONED.md`):
+  SPM-32-TC12 is Updated for that message. SPM-71-TC08 is Updated: its
+  attendee held a place in a postponed event, which she can now open, so
+  `scripts/seed-spm71.ts` gives her a withdrawn registration instead - run
+  `npm run fixtures:spm71` once.
+- "Filter by status" gains **Postponed**. Known Gaps closed: "Postponing an
+  event does not release its bookings", '"Filter by status" has no Postponed
+  option' and "A postponement request can only be rejected"; the postponed
+  equipment filter row is reworded (kept, for events postponed before SPM-38).
+- Fixtures: `npm run fixtures:spm38` (`scripts/seed-spm38.ts`), the same events
+  appended to `prisma/seed.ts`. Test cases: `docs/test-cases/SPM-38_test_cases.json`
+  (TC06 updated: the request reads Approved).
+
 ### 2026-10-26 — Kristen (SPM-69, release reason and reopening a released line)
 - **Releasing needs a reason** (`DELETE .../reservation` with `{ reason }`,
   required, up to 500 characters - `checkReleaseReason()`). It is saved as
@@ -1158,6 +1202,99 @@ what changed, why, and the migration name if there is one.
   fixture events.
 - Fixtures: `npm run fixtures:spm94` (`scripts/seed-spm94.ts`), the same events
   appended to `prisma/seed.ts`. No migration.
+
+### 2026-10-25 — Jordan
+- **SPM-32 (Process Event Change Request).** The coordinator assigned to an
+  event now processes the organiser's change requests (SPM-35), once each.
+  - **Review** on each pending request (Change Requests page, and the event's
+    Change requests card) opens **Review change request** (S-17,
+    `/events/[id]/change-requests/[requestId]`). Only the assigned coordinator
+    gets it (`canProcessChangeRequests()`); another coordinator, the organiser
+    and the Ops Manager don't (AC1).
+  - **A change of details** is decided item by item: Approve or Reject each
+    field, and the equipment change, with **Approve all** / **Reject all**. A
+    rejection needs a reason ("Give a reason for rejecting <field>."), and
+    nothing is saved until every item is decided (AC3). The request becomes
+    Approved, Rejected or the new **Partly approved** (`partially_approved`).
+  - **Only the approved fields are applied** (AC4, AC6), through SPM-62's
+    `applyEventInformation()`: a Confirmed event asks first and goes back to
+    Planning, its safety check closes, affected arrangements are flagged. An
+    approved equipment change is not applied: the page says to update the
+    Equipment tab. A Postponed event whose new date is approved moves to
+    **Approved** (AC5, history "Rescheduled: change request approved").
+  - **A cancellation or postponement request** can only be rejected here,
+    with a reason (AC2). Cancelling the event (SPM-37) now approves its
+    pending cancellation requests ("Approved: the event was cancelled.",
+    listed in the Cancel dialog) and withdraws the rest. Approving a
+    postponement waits for SPM-38.
+  - **The outcome** shows on the card for everyone who sees it: an Outcome
+    column per field ("Rejected: <reason>"), "Processed by <name> on <date>",
+    and the reason for rejecting a whole request (AC7). A processed request
+    opens read-only ("This change request has already been processed."), and
+    the route claims a pending request in the same update, so two coordinators
+    can't both process it.
+  - New: `src/lib/changeRequestDecision.ts`, `POST
+    /api/events/[id]/change-requests/[requestId]/decision`. The list `GET`
+    includes the reviewer's name.
+  - **Migration `20261025120000_add_change_request_decisions`:** adds
+    `decisions` (JSONB, each item's outcome and reason) to
+    `event_change_requests`. Adds a column only; applied to the shared
+    database on 2026-10-25. Run `git pull && npx prisma generate`.
+  - **Test data:** `npm run fixtures:spm32`;
+    `docs/test-cases/SPM-32_Test_Cases.xlsx` (12 cases).
+
+### 2026-10-23 — Janelle
+- **SPM-66 (Join and Respond to Waiting List).** A full event's "Your
+  registration" card offers **Join waiting list** in place of Register (AC1),
+  never to someone already registered or waiting (AC2). A waiting attendee
+  sees "You're number 3 on the waiting list." and can **Leave waiting list**
+  (AC3, AC4); positions are counted, so everyone behind moves up.
+  - **Offers (AC5-AC8, #26, #44):** a free place (registered + under offer
+    below the capacity) goes to the earliest to join, who is notified and has
+    3 days to **Accept place** (registered, off the list) or **Decline** (off
+    the list, place to the next). An offer not answered in 3 days ends the
+    same way. A place under offer is held, and while anyone waits a newcomer
+    joins the list instead of registering past them. Places come free when an
+    attendee withdraws, someone holding an offer leaves or declines, an offer
+    lapses, the capacity is raised or registration is turned back on.
+  - **The event starting (AC10, #116):** ends an outstanding offer - the
+    attendee keeps their position - and no offer is made after it. An offer
+    made less than 3 days before the start ends at the start.
+  - **Override (AC9, #26):** on the Attendees tab the assigned coordinator
+    has **Offer place** on each attendee still waiting while a place is under
+    offer; it moves that offer (the one made last) to them for a fresh 3 days,
+    and the one it was offered to keeps their position. Both are notified.
+  - **No scheduled job:** like SPM-82's holds, `sweepWaitingList()` ends
+    offers whose time is up before events and registrations are read, and on
+    the unread-notifications count every page asks for.
+  - **Routes:** `POST /api/events/[id]/waiting-list` (join),
+    `POST /api/registrations/[id]/offer` (accept / decline),
+    `POST /api/events/[id]/waiting-list/offers` (override);
+    `PATCH /api/registrations/[id]` also takes an attendee off the list.
+  - **Rules:** `src/lib/waitingList.ts` (pure), `src/lib/waitingListService.ts`.
+  - **Changed in other people's code:** SPM-51's register route counts places
+    under offer and the waiting list; SPM-52's withdraw route offers the seat
+    given back; SPM-64's settings route offers a raised capacity; SPM-65's
+    list gives positions and offers; the event route's attendee view and
+    My Registrations give the position and offer. Their tests that asserted
+    exact shapes, or "a waitlisted registration can't be withdrawn" and
+    "Joining the waiting list isn't available yet.", are updated (marked
+    CHANGED). Closes the Known Gaps "A full event offers the waiting list but
+    nobody can join it" and "Raising registration capacity promotes nobody
+    from the waiting list". Three manual cases quote the old wording -
+    SPM-51-TC05, SPM-51-TC11, SPM-52-TC07 - and are marked Updated with a v2
+    note (`docs/test-cases/DECOMMISSIONED.md`).
+  - **Migration:** `20261023120000_add_waiting_list_offers` - four nullable
+    columns on `registrations` (`waitlisted_at`, `offered_at`,
+    `offer_expires_at`, `offer_ended_reason`) and an index; no data changes.
+    Run `npx prisma generate` after pulling. Apply it with
+    `npx prisma migrate deploy`, never `migrate dev` on the shared database.
+  - **Test data:** `npm run fixtures:spm66` - five attendee accounts of the
+    story's own and seven events; the accounts and events are in
+    `prisma/seed.ts`.
+  - **Test cases:** `docs/test-cases/SPM-66_Test_Cases.xlsx` (10).
+  - **Not in this story:** email, and telling the coordinator when an offer
+    lapses (SPM-53).
 
 ### 2026-10-22 — Kristen (SPM-69, Release or Adjust Equipment Reservation)
 - **Technical Support can release a reservation or change its quantity.**
