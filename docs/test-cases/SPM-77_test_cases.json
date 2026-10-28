@@ -317,6 +317,66 @@
       ],
       "test_data": "Event: SPM77 Partial Forum\nRing Light: 3 requested, 2 reserved (Partially fulfilled)\nWaiting suggestion: 1 × Podium Light",
       "expected_result": "Step 3: The Ring Light row is marked 'Outstanding' and reads 'Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision.', with a 'Decide on the Equipment tab' link and no 'Mark as not required' button.\nStep 4: The Equipment tab of SPM77 Partial Forum opens. The Ring Light row shows 'Suggested alternative: 1 × Podium Light' with 'Accept' and 'Decline' buttons.\nStep 5: 'Suggestion declined. The original requirement is unchanged.' appears, and the Ring Light row no longer shows the suggestion.\nStep 6: The Ring Light row is now marked 'Complete', with no 'Decide on the Equipment tab' link."
+    },
+    {
+      "id": "SPM-77-TC13",
+      "title": "Accepting an alternative for an item the Coordinator had marked not required makes the alternative Outstanding on the Readiness tab, so it still has to be reserved before the event can be confirmed",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Waived Banquet (19 Sep 2028) is in Planning and requests 4 Ring Light, marked 'Cannot be provided'. Daniel Tan, its assigned Coordinator, marked the Ring Light 'Not required' before Technical Support suggested 2 × Podium Light, which is waiting for a decision. Nothing else holds Podium Light (4 in stock) that day.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Waived Banquet event",
+        "Click the 'Readiness' tab",
+        "On the Ring Light row, click 'Decide on the Equipment tab'",
+        "On the Ring Light row, click 'Accept'",
+        "In the dialog, click 'Accept'",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM77 Waived Banquet\nRequirement: 4 Ring Light (Cannot be provided), marked Not required\nSuggestion: 2 × Podium Light (4 in stock)",
+      "expected_result": "Step 3: The Ring Light row is marked 'Outstanding' (not 'Not required') and reads 'Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision.', with a 'Decide on the Equipment tab' link.\nStep 4: The Equipment tab of SPM77 Waived Banquet opens. The Ring Light row shows 'Suggested alternative: 2 × Podium Light' with 'Accept' and 'Decline' buttons.\nStep 5: A dialog 'Accept this alternative?' appears, saying 'This requirement changes from 4 Ring Light to 2 Podium Light, for Technical Support to reserve.'\nStep 6: The dialog closes and 'Alternative accepted. Technical Support will reserve it.' appears above the list. The list shows a Podium Light row with Quantity 2 and the status 'Requested' in place of Ring Light.\nStep 7: The Podium Light row is marked 'Outstanding', not 'Not required'. It reads 'Podium Light for this event is not reserved yet.' and 'Request status: Requested', with a 'Mark as not required' button and no 'Decide on the Equipment tab' link."
+    },
+    {
+      "id": "SPM-77-TC14",
+      "title": "On a multi-session event, the alternative list leaves out only the items already requested for the same session, and an item requested only for another session can be suggested",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Two-Day Summit is in Planning with two sessions: Day 1 (26 Sep 2028) and Day 2 (27 Sep 2028). Day 1 requests 4 Ring Light, marked 'Cannot be provided', and 1 Portable Stage. Day 2 requests 2 Podium Light. Nothing holds Podium Light (4 in stock) on 26 Sep.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Two-Day Summit event",
+        "On the Day 1 Ring Light line, click 'Suggest alternative'",
+        "Open the 'Alternative item' list",
+        "Choose 'Podium Light — Staging'",
+        "In 'Note for the Coordinator', enter 'Podium lights for the Day 1 stage.'",
+        "Click 'Record suggestion'"
+      ],
+      "test_data": "Event: SPM77 Two-Day Summit\nDay 1: 4 Ring Light (Cannot be provided), 1 Portable Stage\nDay 2: 2 Podium Light\nAlternative: Podium Light, quantity 4\nNote: Podium lights for the Day 1 stage.",
+      "expected_result": "Step 2: The request lists three lines: Ring Light and Portable Stage for Day 1, and Podium Light for Day 2. The Ring Light line shows Status 'Cannot be provided' and a 'Suggest alternative' button.\nStep 3: A 'Suggest alternative' form opens on the Ring Light line with 'Quantity' 4.\nStep 4: The list offers 'Podium Light — Staging' (requested only for Day 2). It offers neither Ring Light nor Portable Stage, which Day 1 already requests.\nStep 5: '4 available for these dates — enough for this suggestion.' appears under 'Quantity'.\nStep 7: The form closes. 'Suggestion sent to the Coordinator.' appears on the Ring Light line, which now reads 'Suggested alternative: 4 × Podium Light — waiting for the Coordinator's decision.' The Day 2 Podium Light line is unchanged."
+    },
+    {
+      "id": "SPM-77-TC15",
+      "title": "A Coordinator not assigned to the event sees a waiting suggestion on the Readiness tab without the link to decide it",
+      "linked_ac": [
+        "AC3",
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Accept Gala (15 Aug 2028) is in Planning. Its assigned Coordinator is Daniel Tan; Priya Raj is another Coordinator. Its Ring Light line has a suggestion of 3 × Podium Light waiting for a decision.\nData: run `npm run fixtures:spm77` first (if SPM-77-TC04 has been run since). This case changes nothing.\nLogged in as another Event Coordinator (priya.raj@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Accept Gala event",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM77 Accept Gala\nAssigned Coordinator: Daniel Tan\nOther Coordinator: Priya Raj\nWaiting suggestion: 3 × Podium Light",
+      "expected_result": "Step 3: The Ring Light row is marked 'Outstanding' and says it has a suggested alternative (Podium Light) waiting for a decision. It has no 'Decide on the Equipment tab' link and no 'Mark as not required' button."
     }
   ],
   "open_questions": [

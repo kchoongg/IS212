@@ -3,7 +3,7 @@ import { ZodError } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
 import { canSuggestAlternativeEquipment, techSupportSeesEquipment } from "@/lib/permissions";
-import { loadAlternativeAvailability } from "@/lib/equipmentAvailabilityService";
+import { ALTERNATIVE_REQUEST_SELECT, loadAlternativeAvailability } from "@/lib/equipmentAvailabilityService";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 import { alternativeAvailabilityQuerySchema } from "@/lib/validation";
 
@@ -26,14 +26,22 @@ export async function GET(
       return unauthenticated();
     }
 
+    // Read once: the access check and the availability service both use it.
     const eventId = await resolveEventId(id);
     const existing = eventId
       ? await prisma.equipmentRequest.findUnique({
           where: { id: requestId },
           select: {
+            ...ALTERNATIVE_REQUEST_SELECT,
             eventId: true,
             event: {
-              select: { organiserId: true, organisationId: true, coordinatorId: true, status: true },
+              select: {
+                ...ALTERNATIVE_REQUEST_SELECT.event.select,
+                organiserId: true,
+                organisationId: true,
+                coordinatorId: true,
+                status: true,
+              },
             },
           },
         })
@@ -49,11 +57,7 @@ export async function GET(
     }
 
     const query = alternativeAvailabilityQuerySchema.parse(Object.fromEntries(req.nextUrl.searchParams));
-    const checked = await loadAlternativeAvailability(prisma, requestId, query.equipmentId, query.quantity);
-    // v8 ignore next 3 -- the requirement was read a moment ago; this is a deletion in between
-    if (!checked) {
-      return hidden();
-    }
+    const checked = await loadAlternativeAvailability(prisma, existing, query.equipmentId, query.quantity);
     if (!checked.alternative) {
       return NextResponse.json({ error: "Choose an item from the equipment catalogue." }, { status: 400 });
     }

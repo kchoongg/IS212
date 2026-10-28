@@ -94,6 +94,8 @@ interface Line {
   quantityRequested: number;
   quantityReserved: number | null;
   equipmentName: string;
+  /// Set for a multi-session event's session-specific line.
+  sessionId: string | null;
   sessionLabel: string | null;
   venueChosen: boolean;
   transferMinutes: number;
@@ -531,7 +533,7 @@ export default function EquipmentRequestDetailPage() {
                       <SuggestAlternativeForm
                         eventId={eventId}
                         line={line}
-                        requestedIds={lines.map((l) => l.equipmentId)}
+                        requestedIds={lines.filter((l) => l.sessionId === line.sessionId).map((l) => l.equipmentId)}
                         onCancel={() => setSuggestingId(null)}
                         onSignedOut={() => router.push(loginUrlFor(path))}
                         onSaved={async () => {
@@ -883,10 +885,15 @@ function LineRow({
   );
 }
 
+/// How long the quantity must stay unchanged before its availability is checked.
+const AVAILABILITY_CHECK_DELAY_MS = 300;
+
 interface SuggestAlternativeFormProps {
   eventId: string;
   line: Line;
-  /// Every item the event already requests - none of them can be suggested.
+  /// Every item the event already requests for this line's session (or for
+  /// the whole event) - none of them can be suggested, as the route refuses
+  /// them too. Another session's items can: each session requests its own.
   requestedIds: string[];
   onCancel: () => void;
   onSaved: () => Promise<void>;
@@ -968,9 +975,12 @@ function SuggestAlternativeForm({
         if (!cancelled) setCheck({ key, result: null, failed: true });
       }
     }
-    void checkAvailability(checkKey);
+    // Wait until typing in the quantity box pauses, rather than asking once
+    // per keystroke.
+    const timer = setTimeout(() => void checkAvailability(checkKey), AVAILABILITY_CHECK_DELAY_MS);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [checkKey, eventId, line.requestId]);
 

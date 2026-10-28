@@ -464,8 +464,9 @@ export default function EventReadinessPage() {
                                   </p>
                                 </div>
                               )}
-                              {/* SPM-77: decided where the dialog says what accepting does. */}
-                              {arrangement.awaitingDecision && (
+                              {/* SPM-77: decided where the dialog says what accepting does, and
+                                  only by the assigned Coordinator in Planning (canManage). */}
+                              {data.canManage && arrangement.awaitingDecision && (
                                 <p className="mt-1 text-sm">
                                   <Link
                                     href={`/events/${eventId}/equipment`}

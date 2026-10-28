@@ -2323,6 +2323,9 @@ async function main() {
     spm77("spm77_decline", "SPM77 Decline Seminar", "2028-08-29", "Samuel Ong"),
     spm77("spm77_keep", "SPM77 Keep Reserved Expo", "2028-09-05", "Faridah Aziz"),
     spm77("spm77_confirmed", "SPM77 Confirmed Dinner", "2028-09-12", "Budi Santoso", "confirmed"),
+    spm77("spm77_waived", "SPM77 Waived Banquet", "2028-09-19", "Samuel Ong"),
+    // Two sessions, 09:00-13:00 on 26 and 27 September (created further down).
+    { ...spm77("spm77_sessions", "SPM77 Two-Day Summit", "2028-09-26", "Kelvin Loh"), durationHours: 28 },
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
@@ -3234,6 +3237,8 @@ async function main() {
     ["spm77_confirmed", "Ring Light", 4, null, "unavailable", ringLightShort, null],
     ["spm77_confirmed", "Podium Light", 6, null, "unavailable", "Only 4 podium lights are in stock.",
       ["Portable Stage", 2, "Two stages for the head table instead."]],
+    ["spm77_waived", "Ring Light", 4, null, "unavailable", ringLightShort,
+      ["Podium Light", 2, "Two podium lights cover the head table."]],
   ];
   for (const [eventKey, eqName, requested, reserved, status, notes, suggestion] of spm77Requests) {
     const ev = events[eventKey];
@@ -3266,6 +3271,42 @@ async function main() {
           : undefined,
       },
     });
+  }
+  // SPM77 Waived Banquet's line was marked not required before the suggestion.
+  await prisma.equipmentRequest.updateMany({
+    where: { eventId: events["spm77_waived"].id },
+    data: { notRequired: true, notRequiredBy: users["daniel.tan@connectsphere.com"], notRequiredAt: day(events["spm77_waived"].days - 24) },
+  });
+  // SPM77 Two-Day Summit: Day 1 asks for Ring Lights (none free) and a
+  // Portable Stage, Day 2 for Podium Lights.
+  const spm77Summit = events["spm77_sessions"];
+  const spm77Sessions: [string, string, [string, number, string, string | null][]][] = [
+    ["Day 1", "2028-09-26", [["Ring Light", 4, "unavailable", ringLightShort], ["Portable Stage", 1, "requested", null]]],
+    ["Day 2", "2028-09-27", [["Podium Light", 2, "requested", null]]],
+  ];
+  for (const [label, date, lines] of spm77Sessions) {
+    const startsAt = day(daysUntil(date), 9);
+    const endsAt = day(daysUntil(date), 13);
+    const session = await prisma.eventSession.create({ data: { eventId: spm77Summit.id, label, startsAt, endsAt } });
+    for (const [eqName, requested, status, notes] of lines) {
+      const reviewed = status !== "requested";
+      await prisma.equipmentRequest.create({
+        data: {
+          eventId: spm77Summit.id,
+          sessionId: session.id,
+          equipmentId: equip[eqName],
+          quantityRequested: requested,
+          staffNotes: notes ?? undefined,
+          startsAt: new Date(startsAt.getTime() - 3 * 3_600_000),
+          endsAt: new Date(endsAt.getTime() + 2 * 3_600_000),
+          status,
+          requestedBy: users["daniel.tan@connectsphere.com"],
+          requestedAt: day(spm77Summit.days - 27),
+          reviewedBy: reviewed ? users["vikram.nair@connectsphere.com"] : undefined,
+          reviewedAt: reviewed ? day(spm77Summit.days - 25) : undefined,
+        },
+      });
+    }
   }
 
   // -------------------------------------------------------------------

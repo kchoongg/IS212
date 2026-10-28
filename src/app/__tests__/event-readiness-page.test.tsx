@@ -351,6 +351,27 @@ describe("Event Readiness tab (SPM-33)", () => {
       expect(within(item).queryByRole("button", { name: "Mark as not required" })).not.toBeInTheDocument();
       expect(within(await row("Marina Auditorium")).queryByRole("link", { name: "Decide on the Equipment tab" })).not.toBeInTheDocument();
     });
+
+    // Only coordinators see this tab; canManage is the assigned one, in Planning.
+    it.each([
+      ["a coordinator not assigned to the event", {}],
+      ["the assigned coordinator once the event has left Planning", { event: { sequenceNumber: 7, title: "Gala Dinner", status: "safety_review" } }],
+    ])("[SPM-77][AC9] does not send %s to decide on a waiting suggestion", async (_who, overrides) => {
+      const ringLight = outstanding({
+        kind: "equipment",
+        id: "r4",
+        name: "Ring Light",
+        status: "partially_fulfilled",
+        waivable: false,
+        awaitingDecision: true,
+        missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision",
+      });
+      open([ringLight], { [LIST]: payload([ringLight], { canManage: false, ...overrides }) });
+      const item = await row("Ring Light");
+
+      expect(item).toHaveTextContent("has a suggested alternative (Podium Light) waiting for your decision");
+      expect(within(item).queryByRole("link", { name: "Decide on the Equipment tab" })).not.toBeInTheDocument();
+    });
     // SPM-90 AC5 (written before the code).
     it("[SPM-90][AC5] SPM-90-TC07: shows what each booked space is for, before its booking status", async () => {
       open([

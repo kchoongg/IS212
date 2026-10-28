@@ -1259,6 +1259,7 @@ describe("Equipment request (availability and reserve)", () => {
       quantityRequested: 4,
       quantityReserved: null,
       equipmentName: "Projector",
+      sessionId: null,
       sessionLabel: null,
       venueChosen: true,
       transferMinutes: 120,
@@ -2206,6 +2207,17 @@ describe("Equipment request (availability and reserve)", () => {
       expect(options).toEqual(["Choose an item", "LED Screen — AV", "Lectern"]);
     });
 
+    it("[SPM-77][AC1] offers an item another session requests, but not one this line's session already does", async () => {
+      await openForm({}, [
+        unavailableLine({ sessionId: "day-1", sessionLabel: "Day 1" }),
+        line("r2", { equipmentId: "eq-mic", equipmentName: "Microphone", sessionId: "day-2", sessionLabel: "Day 2", requestStatus: "reserved" }),
+        line("r3", { equipmentId: "eq-lectern", equipmentName: "Lectern", sessionId: "day-1", sessionLabel: "Day 1", requestStatus: "reserved" }),
+      ]);
+
+      const options = within(field("Alternative item")).getAllByRole("option").map((o) => o.textContent);
+      expect(options).toEqual(["Choose an item", "LED Screen — AV", "Microphone — AV"]);
+    });
+
     it("[SPM-77][AC1] starts the quantity from what is still missing", async () => {
       await openForm({}, [unavailableLine({ requestStatus: "partially_fulfilled", quantityRequested: 4, quantityReserved: 3, result: result({ status: "partial", available: 3 }) })]);
 
@@ -2248,10 +2260,38 @@ describe("Equipment request (availability and reserve)", () => {
       expect(await within(form()).findByText("Could not check availability.")).toBeInTheDocument();
     });
 
+    it("[SPM-77][AC2] checks once typing in the quantity pauses, not on every keystroke", async () => {
+      const api = await openForm();
+      set(field("Alternative item"), "eq-screen");
+      set(field("Quantity"), "1");
+      set(field("Quantity"), "12");
+      set(field("Quantity"), "2");
+
+      expect(await within(form()).findByText(/enough for this suggestion/)).toBeInTheDocument();
+      expect(api.sent(CHECK).map((r) => r.url)).toEqual([`${CHECK.slice(4)}?equipmentId=eq-screen&quantity=2`]);
+    });
+
+    it("[SPM-77][AC2] ignores a failed check for an earlier choice", async () => {
+      const answers: ((value: unknown) => void)[] = [];
+      await openForm({ [CHECK]: () => new Promise((resolve) => answers.push(resolve)) });
+      set(field("Alternative item"), "eq-screen");
+      await waitFor(() => expect(answers).toHaveLength(1));
+      set(field("Quantity"), "2");
+      await waitFor(() => expect(answers).toHaveLength(2));
+
+      answers[0](reply(500, {}));
+      answers[1](alternative(5));
+
+      expect(await within(form()).findByText(/enough for this suggestion/)).toBeInTheDocument();
+      expect(within(form()).queryByText("Could not check availability.")).not.toBeInTheDocument();
+    });
+
     it("[SPM-77][AC2] shows only the answer for the item and quantity chosen now", async () => {
       const answers: ((value: unknown) => void)[] = [];
       await openForm({ [CHECK]: () => new Promise((resolve) => answers.push(resolve)) });
-      await fillIn();
+      set(field("Alternative item"), "eq-screen");
+      await waitFor(() => expect(answers).toHaveLength(1));
+      set(field("Quantity"), "2");
       await waitFor(() => expect(answers).toHaveLength(2));
 
       answers[1](alternative(5));

@@ -1054,6 +1054,28 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-28 — Kristen (SPM-77, review fixes)
+- **Accepting clears the line's waiver and flag:** a line the Coordinator had
+  marked not required, or that was flagged for review, becomes the
+  alternative as a plain Requested line, so the event cannot be confirmed
+  before the alternative is reserved (`acceptChanges()`).
+- **Recording and accepting read the line inside their transaction:** POST
+  checks the line's status as it is then, and PATCH accept builds the change
+  from that copy and refuses an alternative that has been retired since
+  ("This equipment has been retired and can no longer be requested").
+  `loadAlternativeAvailability()` now takes the requirement its caller has
+  already read (`ALTERNATIVE_REQUEST_SELECT`), so the availability route
+  reads it once.
+- A unique-index refusal is recognised by Prisma's `P2002` code, not by the
+  error's wording.
+- **Screens:** the alternative list leaves out only the items requested for
+  the line's own session, as the route does; the availability check waits
+  300 ms after typing stops; "Decide on the Equipment tab" on the Readiness
+  tab shows only for the assigned Coordinator in Planning (`canManage`).
+- Manual cases SPM-77-TC13 to TC15 added, with two fixture events
+  (SPM77 Waived Banquet, SPM77 Two-Day Summit) in `npm run fixtures:spm77`
+  and `prisma/seed.ts`.
+
 ### 2026-10-27 — Kristen (SPM-77, Suggest Alternative Equipment)
 - **Technical Support can suggest an alternative** for a line marked Cannot be
   provided or Partially fulfilled: another catalogue item, a quantity and a

@@ -286,34 +286,35 @@ export async function loadSingleLineAvailability(db: Db, requestId: string): Pro
   return assembleLines([line], others).lines[0];
 }
 
+/// What loadAlternativeAvailability() needs of the requirement. The callers
+/// read the requirement anyway (for the access check, or again inside the
+/// suggestion route's transaction), so they select this with it.
+export const ALTERNATIVE_REQUEST_SELECT = {
+  id: true,
+  sessionId: true,
+  session: { select: { label: true, startsAt: true, endsAt: true } },
+  event: {
+    select: {
+      startsAt: true,
+      endsAt: true,
+      venueBookings: { select: { venueId: true, sessionId: true, status: true } },
+    },
+  },
+} satisfies Prisma.EquipmentRequestSelect;
+
+export type AlternativeRequest = Prisma.EquipmentRequestGetPayload<{ select: typeof ALTERNATIVE_REQUEST_SELECT }>;
+
 /// SPM-77 (AC2): whether `quantity` of another item - a suggested alternative
 /// - would be free for this requirement's dates, at its venue, by the same
 /// rules as the line itself. Read with `db`, so the suggestion route can
-/// re-check inside its transaction. Null when the requirement does not exist;
-/// `alternative` null when the item is not in the catalogue.
+/// re-check inside its transaction. `alternative` null when the item is not in
+/// the catalogue.
 export async function loadAlternativeAvailability(
   db: Db,
-  requestId: string,
+  request: AlternativeRequest,
   equipmentId: string,
   quantity: number
-): Promise<AlternativeAvailability | null> {
-  const request = await db.equipmentRequest.findUnique({
-    where: { id: requestId },
-    select: {
-      id: true,
-      sessionId: true,
-      session: { select: { label: true, startsAt: true, endsAt: true } },
-      event: {
-        select: {
-          startsAt: true,
-          endsAt: true,
-          venueBookings: { select: { venueId: true, sessionId: true, status: true } },
-        },
-      },
-    },
-  });
-  if (!request) return null;
-
+): Promise<AlternativeAvailability> {
   const alternative = await db.equipment.findUnique({
     where: { id: equipmentId },
     select: {

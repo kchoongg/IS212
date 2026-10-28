@@ -23,6 +23,7 @@
 //   - see src/lib/__tests__/equipmentSuggestion.test.ts for the rules themselves
 
 import { describe, it, expect, vi } from "vitest";
+import { Prisma } from "@prisma/client";
 
 vi.mock("@/lib/prisma");
 
@@ -37,6 +38,10 @@ const PATH = `/api/events/${REF}/equipment/${ID.request}/suggestion`;
 const SCREEN_ID = "12121212-1212-4212-8212-121212121212";
 const SUGGESTION_ID = "13131313-1313-4313-8313-131313131313";
 const NOTE = "Two LED screens give the same coverage.";
+
+/// What Postgres raises through Prisma when a unique index refuses a write.
+const uniqueViolation = () =>
+  new Prisma.PrismaClientKnownRequestError("Unique constraint failed", { code: "P2002", clientVersion: "test" });
 
 const techSupport = () => user("tech_support", { id: ID.user });
 const coordinator = () => user("coordinator", { id: ID.otherUser });
@@ -224,6 +229,12 @@ describe("GET .../suggestion/availability", () => {
     await check(given());
 
     expect(callArg(db.equipmentRequest.findMany).where).toMatchObject({ equipmentId: SCREEN_ID });
+  });
+
+  it("[SPM-77][AC2] reads the requirement once, for both the access check and the availability", async () => {
+    await check(given());
+
+    expect(db.equipmentRequest.findUnique).toHaveBeenCalledTimes(1);
   });
 
   it("[SPM-77][AC2] says it cannot be checked while the event has no dates", async () => {
@@ -417,9 +428,24 @@ describe("POST .../suggestion (record)", () => {
     expect(db.equipmentSuggestion.create).not.toHaveBeenCalled();
   });
 
+  it("[SPM-77][AC1] refuses when Technical Support reserved the line in full between the access check and the transaction", async () => {
+    const token = given();
+    db.equipmentRequest.findUnique
+      .mockResolvedValueOnce(requestRow())
+      .mockResolvedValueOnce(requestRow({ status: "reserved", quantityReserved: 4 }));
+
+    const res = await record(token);
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({
+      error: "An alternative can only be suggested for an item that cannot be provided or is only partly fulfilled.",
+    });
+    expect(db.equipmentSuggestion.create).not.toHaveBeenCalled();
+  });
+
   it("[SPM-77] answers 409 when another suggestion was recorded at the same moment", async () => {
     const token = given();
-    db.equipmentSuggestion.create.mockRejectedValue(new Error("Unique constraint failed on the fields: (`request_id`)"));
+    db.equipmentSuggestion.create.mockRejectedValue(uniqueViolation());
 
     const res = await record(token);
 
@@ -430,6 +456,13 @@ describe("POST .../suggestion (record)", () => {
   it("[SPM-77] answers 500 when the database fails", async () => {
     const token = given();
     db.equipmentSuggestion.create.mockRejectedValue(new Error("connection lost"));
+
+    expect((await record(token)).status).toBe(500);
+  });
+
+  it("[SPM-77] answers 500, not 409, for another error that merely mentions a unique constraint", async () => {
+    const token = given();
+    db.equipmentSuggestion.create.mockRejectedValue(new Error("Unique constraint check timed out"));
 
     expect((await record(token)).status).toBe(500);
   });
@@ -522,9 +555,78 @@ describe("PATCH .../suggestion (accept or decline)", () => {
           staffNotes: null,
           reviewedBy: null,
           reviewedAt: null,
+          notRequired: false,
+          notRequiredBy: null,
+          notRequiredAt: null,
+          needsReview: false,
+          reviewReason: null,
         },
       });
       expect(db.equipmentRequest.create).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-77][AC5] clears the Coordinator's earlier 'not required' on the line, so the alternative must still be reserved", async () => {
+      await decideOn(
+        asCoordinator({ row: requestRow({ notRequired: true, notRequiredBy: ID.otherUser, notRequiredAt: new Date() }) })
+      );
+
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({
+        notRequired: false,
+        notRequiredBy: null,
+        notRequiredAt: null,
+      });
+    });
+
+    it("[SPM-77][AC5][AC8] works from the line as it is inside the transaction, not as the page loaded it", async () => {
+      const token = asCoordinator({ row: requestRow({ status: "partially_fulfilled", quantityReserved: 3 }) });
+      // Technical Support released the 3 reserved units in between.
+      db.equipmentRequest.findUnique
+        .mockResolvedValueOnce(requestRow({ status: "partially_fulfilled", quantityReserved: 3 }))
+        .mockResolvedValueOnce(requestRow({ status: "unavailable", quantityReserved: null }));
+
+      expect((await decideOn(token)).status).toBe(200);
+
+      expect(callArg(db.equipmentRequest.update).data).toMatchObject({ equipmentId: SCREEN_ID, status: "requested" });
+      expect(db.equipmentRequest.create).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-77][AC5] refuses when the line stopped needing an alternative after the page loaded", async () => {
+      const token = asCoordinator();
+      db.equipmentRequest.findUnique
+        .mockResolvedValueOnce(requestRow())
+        .mockResolvedValueOnce(requestRow({ status: "released", quantityReserved: null }));
+
+      const res = await decideOn(token);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({
+        error: "This item has changed since the alternative was suggested and no longer needs one. Decline the suggestion instead.",
+      });
+      expect(db.equipmentSuggestion.updateMany).not.toHaveBeenCalled();
+      expect(db.equipmentRequest.update).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-77][AC5] refuses when the requirement disappears before the decision is applied", async () => {
+      const token = asCoordinator();
+      db.equipmentRequest.findUnique.mockResolvedValueOnce(requestRow()).mockResolvedValueOnce(null);
+
+      const res = await decideOn(token);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "This request no longer exists." });
+      expect(db.equipmentSuggestion.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("[SPM-77][AC5] refuses an alternative that was retired after it was suggested", async () => {
+      const token = asCoordinator({ item: screenItem({ isActive: false }) });
+
+      const res = await decideOn(token);
+
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ error: "This equipment has been retired and can no longer be requested" });
+      expect(callArg(db.equipment.findUnique).where).toEqual({ id: SCREEN_ID });
+      expect(db.equipmentSuggestion.updateMany).not.toHaveBeenCalled();
+      expect(db.equipmentRequest.update).not.toHaveBeenCalled();
     });
 
     it("[SPM-77][AC5][AC8] keeps a partly fulfilled requirement's reservation and adds the alternative as a new line", async () => {
@@ -559,7 +661,7 @@ describe("PATCH .../suggestion (accept or decline)", () => {
 
     it("[SPM-77][AC5] refuses when the event has meanwhile requested the alternative itself", async () => {
       const token = asCoordinator();
-      db.equipmentRequest.update.mockRejectedValue(new Error("Unique constraint failed on the fields"));
+      db.equipmentRequest.update.mockRejectedValue(uniqueViolation());
 
       const res = await decideOn(token);
 

@@ -122,7 +122,9 @@ export function acceptChanges(
     };
   }
   // A fresh request for the alternative: Technical Support's review of the
-  // item that could not be provided no longer applies.
+  // item that could not be provided no longer applies, and nor does the
+  // Coordinator's "not required" (SPM-33) or a flag (SPM-68) on it - otherwise
+  // the event could be confirmed without the alternative ever being reserved.
   return {
     update: {
       equipmentId: suggestion.equipmentId,
@@ -132,6 +134,11 @@ export function acceptChanges(
       staffNotes: null,
       reviewedBy: null,
       reviewedAt: null,
+      notRequired: false,
+      notRequiredBy: null,
+      notRequiredAt: null,
+      needsReview: false,
+      reviewReason: null,
     },
     add: null,
   };

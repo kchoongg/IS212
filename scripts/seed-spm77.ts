@@ -47,6 +47,10 @@ type Line = {
   notes?: string;
   /// A suggestion already waiting for the Coordinator's decision.
   suggestion?: Suggestion;
+  /// Marked not required by the Coordinator (SPM-33).
+  notRequired?: boolean;
+  /// The session's label, for a multi-session event's session line.
+  session?: string;
 };
 
 type Fixture = {
@@ -55,6 +59,9 @@ type Fixture = {
   status: "planning" | "confirmed";
   organiser: string;
   date: string; // YYYY-MM-DD, Singapore
+  /// A multi-session event's sessions, each 09:00-13:00 on its own date; the
+  /// first is on `date`.
+  sessions?: { label: string; date: string }[];
   lines: Line[];
   testCases: string;
 };
@@ -102,6 +109,22 @@ const FIXTURES: Fixture[] = [
         suggestion: { equipment: "Portable Stage", quantity: 2, note: "Two stages for the head table instead." } },
     ],
     testCases: "TC10" },
+  // Marked not required before Technical Support suggested an alternative, so
+  // accepting must clear it (the alternative still has to be reserved).
+  { key: "spm77_waived", title: "SPM77 Waived Banquet", status: "planning", organiser: "Samuel Ong", date: "2028-09-19",
+    lines: [{ equipment: "Ring Light", requested: 4, status: "unavailable", notes: RING_LIGHT_SHORT, notRequired: true,
+      suggestion: { equipment: "Podium Light", quantity: 2, note: "Two podium lights cover the head table." } }],
+    testCases: "TC13" },
+  // Day 2 requests Podium Lights, Day 1 a Portable Stage: an alternative for
+  // Day 1's Ring Lights can be a Podium Light but not a Portable Stage.
+  { key: "spm77_sessions", title: "SPM77 Two-Day Summit", status: "planning", organiser: "Kelvin Loh", date: "2028-09-26",
+    sessions: [{ label: "Day 1", date: "2028-09-26" }, { label: "Day 2", date: "2028-09-27" }],
+    lines: [
+      { equipment: "Ring Light", requested: 4, status: "unavailable", notes: RING_LIGHT_SHORT, session: "Day 1" },
+      { equipment: "Portable Stage", requested: 1, status: "requested", session: "Day 1" },
+      { equipment: "Podium Light", requested: 2, status: "requested", session: "Day 2" },
+    ],
+    testCases: "TC14" },
 ];
 
 const CHAIN: Record<Fixture["status"], string[]> = {
@@ -156,7 +179,7 @@ async function main() {
   for (const f of FIXTURES) {
     const organiser = organisers.get(f.organiser)!;
     const startsAt = sgt(f.date, 9);
-    const endsAt = sgt(f.date, 13);
+    const endsAt = sgt(f.sessions?.at(-1)?.date ?? f.date, 13);
     const chain = CHAIN[f.status];
     const historyStart = addDays(new Date(), -(chain.length * 5 + 2));
 
@@ -183,27 +206,35 @@ async function main() {
             reason: REASONS[to],
           })),
         },
+        sessions: f.sessions && {
+          create: f.sessions.map((s) => ({ label: s.label, startsAt: sgt(s.date, 9), endsAt: sgt(s.date, 13) })),
+        },
       },
-      select: { id: true, sequenceNumber: true },
+      select: { id: true, sequenceNumber: true, sessions: { select: { id: true, label: true, startsAt: true, endsAt: true } } },
     });
 
     for (const line of f.lines) {
       const reviewed = line.status !== "requested";
+      const session = created.sessions.find((s) => s.label === line.session);
       await prisma.equipmentRequest.create({
         data: {
           eventId: created.id,
+          sessionId: session?.id,
           equipmentId: equipment.get(line.equipment)!,
           quantityRequested: line.requested,
           quantityReserved: line.reserved,
           staffNotes: line.notes,
           // Kit leaves the store early and comes back late (same as prisma/seed.ts).
-          startsAt: new Date(startsAt.getTime() - 3 * 3_600_000),
-          endsAt: new Date(endsAt.getTime() + 2 * 3_600_000),
+          startsAt: new Date((session?.startsAt ?? startsAt).getTime() - 3 * 3_600_000),
+          endsAt: new Date((session?.endsAt ?? endsAt).getTime() + 2 * 3_600_000),
           status: line.status,
           requestedBy: coordinatorId,
           requestedAt: historyStart,
           reviewedBy: reviewed ? techSupportId : undefined,
           reviewedAt: reviewed ? addDays(historyStart, 2) : undefined,
+          notRequired: line.notRequired,
+          notRequiredBy: line.notRequired ? coordinatorId : undefined,
+          notRequiredAt: line.notRequired ? addDays(historyStart, 3) : undefined,
           suggestions: line.suggestion
             ? {
                 create: {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
 import {
@@ -8,7 +9,7 @@ import {
   techSupportSeesEquipment,
 } from "@/lib/permissions";
 import { eventAllowsReserving, reservingClosedMessage } from "@/lib/equipmentAvailability";
-import { loadAlternativeAvailability } from "@/lib/equipmentAvailabilityService";
+import { ALTERNATIVE_REQUEST_SELECT, loadAlternativeAvailability } from "@/lib/equipmentAvailabilityService";
 import {
   DECISION_CLOSED_MESSAGE,
   acceptChanges,
@@ -36,18 +37,15 @@ import { decideSuggestionSchema, suggestAlternativeSchema } from "@/lib/validati
 
 type Context = { params: Promise<{ id: string; requestId: string }> };
 
-const UNIQUE_VIOLATION = "Unique constraint";
-
 async function loadRequest(id: string, requestId: string) {
   const eventId = await resolveEventId(id);
   const existing = eventId
     ? await prisma.equipmentRequest.findUnique({
         where: { id: requestId },
         select: {
+          // Not the line's status or quantities: those are read again inside
+          // each transaction, where they are acted on.
           eventId: true,
-          equipmentId: true,
-          status: true,
-          quantityReserved: true,
           technicalRequirements: true,
           startsAt: true,
           endsAt: true,
@@ -98,17 +96,24 @@ export async function POST(req: NextRequest, context: Context) {
     const note = data.note.trim();
 
     const created = await prisma.$transaction(async (tx) => {
+      // The line as it is now, not as the access check read it: Technical
+      // Support may have reserved it in another tab since, and then it no
+      // longer needs an alternative.
+      const current = await tx.equipmentRequest.findUnique({
+        where: { id: requestId },
+        select: { ...ALTERNATIVE_REQUEST_SELECT, status: true, equipmentId: true },
+      });
+      if (!current) throw new RouteError(400, "This request no longer exists.");
       // AC2 again, at the moment of recording: the form showed it a moment ago.
-      const checked = await loadAlternativeAvailability(tx, requestId, data.equipmentId, data.quantity);
-      if (!checked) throw new RouteError(400, "This request no longer exists.");
+      const checked = await loadAlternativeAvailability(tx, current, data.equipmentId, data.quantity);
 
       const pending = await tx.equipmentSuggestion.findFirst({ where: { requestId, status: "pending" } });
       const alreadyRequested = await tx.equipmentRequest.findFirst({
         where: { eventId: existing.eventId, sessionId: existing.sessionId, equipmentId: data.equipmentId },
       });
       const refusal = checkSuggestion({
-        requestStatus: existing.status,
-        requestEquipmentId: existing.equipmentId,
+        requestStatus: current.status,
+        requestEquipmentId: current.equipmentId,
         hasPending: pending !== null,
         alternative: checked.alternative,
         alreadyRequested: alreadyRequested !== null,
@@ -148,7 +153,7 @@ export async function POST(req: NextRequest, context: Context) {
     return NextResponse.json(created, { status: 201 });
   } catch (err) {
     // The partial unique index: another suggestion was recorded at the same moment.
-    if (err instanceof Error && err.message.includes(UNIQUE_VIOLATION)) {
+    if (isUniqueViolation(err)) {
       return NextResponse.json(
         { error: "This item already has a suggestion waiting for the Coordinator's decision." },
         { status: 409 }
@@ -185,13 +190,27 @@ export async function PATCH(req: NextRequest, context: Context) {
     if (!pending) {
       return NextResponse.json({ error: "There is no suggestion waiting for a decision on this item." }, { status: 400 });
     }
-    if (decision === "accept") {
-      const refusal = checkAcceptance(existing.status);
-      if (refusal) return NextResponse.json({ error: refusal }, { status: 400 });
-    }
 
     const outcome = decision === "accept" ? "accepted" : "declined";
     await prisma.$transaction(async (tx) => {
+      // Accepting is checked against the line and the item as they are now,
+      // inside the transaction: Technical Support may have released or
+      // reserved the line, or retired the item, since the page was loaded.
+      let current: { status: string; quantityReserved: number | null } | null = null;
+      if (decision === "accept") {
+        current = await tx.equipmentRequest.findUnique({
+          where: { id: requestId },
+          select: { status: true, quantityReserved: true },
+        });
+        if (!current) throw new RouteError(400, "This request no longer exists.");
+        const refusal = checkAcceptance(current.status);
+        if (refusal) throw new RouteError(400, refusal);
+        const item = await tx.equipment.findUnique({ where: { id: pending.equipmentId }, select: { isActive: true } });
+        if (!item?.isActive) {
+          throw new RouteError(400, "This equipment has been retired and can no longer be requested");
+        }
+      }
+
       // Only if it is still pending: a decision made in another tab a moment
       // ago must not be applied twice.
       const { count } = await tx.equipmentSuggestion.updateMany({
@@ -199,9 +218,9 @@ export async function PATCH(req: NextRequest, context: Context) {
         data: { status: outcome, decidedBy: actor.id, decidedAt: new Date() },
       });
       if (count === 0) throw new RouteError(409, "This suggestion has already been decided — refresh the page.");
-      if (decision === "decline") return;
+      if (!current) return;
 
-      const plan = acceptChanges(existing, pending);
+      const plan = acceptChanges(current, pending);
       await tx.equipmentRequest.update({ where: { id: requestId }, data: plan.update });
       if (plan.add) {
         await tx.equipmentRequest.create({
@@ -222,7 +241,7 @@ export async function PATCH(req: NextRequest, context: Context) {
     return NextResponse.json({ decision: outcome });
   } catch (err) {
     // The event requested the alternative itself since it was suggested.
-    if (err instanceof Error && err.message.includes(UNIQUE_VIOLATION)) {
+    if (isUniqueViolation(err)) {
       return NextResponse.json(
         { error: "This item is already requested for this event — update the existing row instead" },
         { status: 400 }
@@ -230,6 +249,10 @@ export async function PATCH(req: NextRequest, context: Context) {
     }
     return errorResponse(err);
   }
+}
+
+function isUniqueViolation(err: unknown): boolean {
+  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
 }
 
 function errorResponse(err: unknown) {

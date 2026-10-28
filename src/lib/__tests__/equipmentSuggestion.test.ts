@@ -176,8 +176,23 @@ describe("acceptChanges", () => {
         staffNotes: null,
         reviewedBy: null,
         reviewedAt: null,
+        notRequired: false,
+        notRequiredBy: null,
+        notRequiredAt: null,
+        needsReview: false,
+        reviewReason: null,
       },
       add: null,
+    });
+  });
+
+  it("[SPM-77][AC5] clears a waiver or flag on the line, so the alternative must still be reserved before confirming", () => {
+    expect(acceptChanges({ status: "unavailable", quantityReserved: null }, suggestion).update).toMatchObject({
+      notRequired: false,
+      notRequiredBy: null,
+      notRequiredAt: null,
+      needsReview: false,
+      reviewReason: null,
     });
   });
 
