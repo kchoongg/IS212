@@ -266,9 +266,16 @@ describe("checkVenueBookingRequest", () => {
         error: "A venue cannot be requested for a completed, cancelled, rejected or withdrawn event.",
       });
     }
-    for (const status of ["approved", "planning", "confirmed", "postponed"]) {
+    for (const status of ["approved", "planning", "confirmed"]) {
       expect(checkVenueBookingRequest({ ...base, eventStatus: status }).ok).toBe(true);
     }
+  });
+
+  it("[SPM-38][AC6] a postponed event is refused until it has a new date", () => {
+    expect(checkVenueBookingRequest({ ...base, eventStatus: "postponed" })).toEqual({
+      ok: false,
+      error: "A venue cannot be requested while the event is postponed. Its new date comes through a change request first.",
+    });
   });
 
   it("[SPM-54][AC2] SPM-54-TC10: a request that has not been approved yet is refused", () => {

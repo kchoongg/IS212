@@ -12,6 +12,7 @@
 
 import { formatDateTimeRange } from "@/lib/format";
 import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { POSTPONED_VENUE_MESSAGE } from "@/lib/eventPostponement";
 import { describeVenueConflict, findDuplicateRequest, findVenueConflict } from "@/lib/venueConflict";
 import { type SearchBooking, type SearchableVenue } from "@/lib/venueSearch";
 import {
@@ -140,6 +141,8 @@ export function checkVenueBookingRequest(input: BookingRequestInput): BookingReq
 
   if (isTerminalEventStatus(input.eventStatus)) return refuse(CLOSED_EVENT_MESSAGE);
   if (isBeforeApproval(input.eventStatus)) return refuse(NOT_APPROVED_MESSAGE);
+  // SPM-38 (AC6): nothing new is arranged until the event has a new date.
+  if (input.eventStatus === "postponed") return refuse(POSTPONED_VENUE_MESSAGE);
 
   const timeErrors = checkRequestTimes(input);
   if (timeErrors.startTime) return refuse(timeErrors.startTime, "startTime");

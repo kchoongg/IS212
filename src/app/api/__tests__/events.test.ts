@@ -151,11 +151,12 @@ describe("GET /api/events", () => {
     const res = await GET(req("GET", "/api/events", { token }));
 
     // CHANGED (SPM-37): plus the cancelled events they hold a place in.
+    // CHANGED (SPM-38): and the postponed ones.
     const holdsPlace = { registrations: { some: { attendeeId: ID.user, status: { in: ["registered", "waitlisted"] } } } };
     expect(callArg(db.event.findMany).where).toEqual({
       OR: [
         { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
-        { status: "cancelled", ...holdsPlace },
+        { status: { in: ["cancelled", "postponed"] }, ...holdsPlace },
       ],
     });
     expect(await res.json()).toEqual([
