@@ -124,6 +124,18 @@ describe("AC1 Browse Events lists the events an attendee can register for", () =
     expect(within(table()).queryByText("SPM37 Open Workshop")).not.toBeInTheDocument();
   });
 
+  // SPM-38 (AC8): likewise a postponed one - it is not an upcoming event.
+  it("[SPM-38][AC8] leaves out a postponed event the attendee holds a place in", async () => {
+    open([
+      row(),
+      row({ id: "later", title: "SPM38 Open Workshop", status: "postponed", registrationState: { kind: "not_confirmed" } }),
+    ]);
+
+    await screen.findByRole("table");
+
+    expect(within(table()).queryByText("SPM38 Open Workshop")).not.toBeInTheDocument();
+  });
+
   it("[SPM-51][AC1] opens the event when its row is clicked", async () => {
     open([row()]);
 

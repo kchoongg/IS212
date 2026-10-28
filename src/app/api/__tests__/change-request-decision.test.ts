@@ -10,7 +10,7 @@
 //      400 "Approve or reject every change before saving." / "Give a reason for rejecting <label>." (+ details.fieldErrors);
 //      400 "This event is <status>, so its changes can no longer be approved.";
 //      400 "With these decisions the event would end before it starts. …" / SPM-62's registration message;
-//      400 approving a cancellation ("To approve it, cancel the event …") or a postponement ("Postponing an event isn't available yet …");
+//      400 approving a cancellation ("To approve it, cancel the event …") or a postponement ("To approve it, postpone the event …");
 //      400 "Give a reason for rejecting this request."; 400 "Validation failed";
 //      200 { request, statusReverted, safetyCheckClosed, flagged, rescheduled, equipmentToDo }; 500.
 //   Writes, in one transaction: eventChangeRequest.updateMany({ where: { id, status: "pending" } }) first,
@@ -399,7 +399,7 @@ describe("[SPM-32] POST …/change-requests/[requestId]/decision", () => {
   describe("a postponement or cancellation request", () => {
     it.each([
       ["cancel", "To approve it, cancel the event: use Cancel event on its Overview."],
-      ["postpone", "Postponing an event isn't available yet (Postpone Event, SPM-38), so a postponement request can only be rejected for now."],
+      ["postpone", "To approve it, postpone the event: use Postpone event on its Overview."],
     ])("[AC2] is not approved here: a %s request says how it is carried out", async (kind, error) => {
       const res = await decide({ outcome: "approved" }, { row: request({ kind, changes: null }) });
 

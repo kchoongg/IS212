@@ -231,6 +231,53 @@ describe("GET /api/events/[id]", () => {
     expect(body.registrationState).toEqual({ kind: "not_confirmed" });
   });
 
+  // SPM-38 (AC5, AC8): likewise a postponed event, with the reason read back
+  // from its status history.
+  it("[SPM-38][AC5][AC8] shows a postponed event, with its reason, to an attendee who holds a place in it", async () => {
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "postponed", registrationEnabled: true }));
+    db.registration.count.mockResolvedValue(1);
+    db.eventStatusHistory.findFirst.mockResolvedValue({ reason: "Trainer unwell" });
+
+    const res = await get(token);
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.postponementReason).toBe("Trainer unwell");
+    expect(body.registrationState).toEqual({ kind: "not_confirmed" });
+    expect(callArg(db.eventStatusHistory.findFirst)).toEqual({
+      where: { eventId: ID.event, toStatus: "postponed" },
+      orderBy: { changedAt: "desc" },
+      select: { reason: true },
+    });
+  });
+
+  it("[SPM-38][AC5] sends no postponement reason when none was given", async () => {
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "postponed" }));
+    db.eventStatusHistory.findFirst.mockResolvedValue({ reason: null });
+
+    expect((await (await get(token)).json()).postponementReason).toBeNull();
+  });
+
+  it("[SPM-38][AC5] reads no postponement reason for an event that is not postponed", async () => {
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event({ status: "approved" }));
+
+    const body = await (await get(token)).json();
+
+    expect(body).not.toHaveProperty("postponementReason");
+    expect(db.eventStatusHistory.findFirst).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-38][AC8] is 404 for a postponed event to an attendee who holds no place in it", async () => {
+    const token = signIn(user("attendee", { id: ID.thirdUser }));
+    db.event.findUnique.mockResolvedValue(event({ status: "postponed", registrationEnabled: true }));
+    db.registration.count.mockResolvedValue(0);
+
+    expect((await get(token)).status).toBe(404);
+  });
+
   it("[SPM-37][AC7] is 404 for a cancelled event to an attendee who holds no place in it", async () => {
     const token = signIn(user("attendee", { id: ID.thirdUser }));
     db.event.findUnique.mockResolvedValue(event({ status: "cancelled", registrationEnabled: true }));
@@ -1584,12 +1631,173 @@ describe("PATCH /api/events/[id] - status change", () => {
       });
     });
 
-    it("[SPM-38][AC1] lets the assigned coordinator postpone a confirmed event", async () => {
-      const token = signIn(coordinator());
-      db.event.findUnique.mockResolvedValue(event({ status: "confirmed" }));
-      givenUpdateSucceeds();
+    // SPM-38: postponing lets go of the same arrangements as cancelling, in the
+    // same transaction, but closes only the event's postponement requests.
+    describe("postponing (SPM-38)", () => {
+      const approvedHall = {
+        id: ID.booking,
+        status: "approved",
+        startsAt: new Date("2027-03-04T01:00:00.000Z"),
+        endsAt: new Date("2027-03-04T09:00:00.000Z"),
+        venue: { name: "Hall A", code: "HAL-A" },
+        session: null,
+      };
+      const postpone = async (body: Record<string, unknown> = {}, overrides: Record<string, unknown> = {}) => {
+        vi.useFakeTimers({ now: NOW });
+        const token = signIn(coordinator());
+        db.event.findUnique.mockResolvedValue(event({ status: "planning", ...overrides }));
+        const staff = db.user.findMany.getMockImplementation();
+        givenUpdateSucceeds();
+        if (staff) db.user.findMany.mockImplementation(staff);
+        if (!db.venueBooking.findMany.getMockImplementation()) db.venueBooking.findMany.mockResolvedValue([]);
+        for (const model of ["venueBooking", "equipmentRequest", "eventChangeRequest", "safetyCheck"]) {
+          db[model].updateMany.mockResolvedValue({ count: 1 });
+        }
+        return patch(token, { status: "postponed", ...body });
+      };
+      const updates = (model: string) =>
+        db[model].updateMany.mock.calls.map((c: unknown[]) => c[0] as { where: unknown; data: Record<string, unknown> });
 
-      expect((await patch(token, { status: "postponed" })).status).toBe(200);
+      it("[SPM-38][AC1][AC5] moves the event to Postponed and keeps the reason in its status history", async () => {
+        const res = await postpone({ reason: "Board approval pending" });
+
+        expect(res.status).toBe(200);
+        expect(callArg(db.event.update).data).toEqual({ status: "postponed" });
+        expect(callArg(db.eventStatusHistory.create).data).toMatchObject({
+          eventId: ID.event,
+          fromStatus: "planning",
+          toStatus: "postponed",
+          changedBy: ID.otherUser,
+          reason: "Board approval pending",
+        });
+      });
+
+      it("[SPM-38][AC5] records no reason when it is left empty or only spaces", async () => {
+        await postpone({ reason: "   " });
+
+        expect(callArg(db.eventStatusHistory.create).data.reason).toBeUndefined();
+        expect(updates("venueBooking")[0].data.cancellationReason).toBe("Event postponed.");
+      });
+
+      it("[SPM-38][AC3][AC5] releases approved bookings and withdraws pending requests, carrying the reason", async () => {
+        await postpone({ reason: "Board approval pending" });
+
+        const taken = { cancelledBy: ID.otherUser, cancelledAt: NOW, cancellationReason: "Event postponed: Board approval pending" };
+        expect(updates("venueBooking")).toEqual([
+          { where: { eventId: ID.event, status: "approved" }, data: { status: "released", ...taken } },
+          { where: { eventId: ID.event, status: "pending" }, data: { status: "withdrawn", ...taken } },
+        ]);
+      });
+
+      it("[SPM-38][AC3] tells every active Venue Staff user about each approved booking it releases", async () => {
+        db.venueBooking.findMany.mockResolvedValue([approvedHall]);
+        db.user.findMany.mockResolvedValue([{ id: ID.thirdUser }]);
+
+        await postpone({ reason: "Board approval pending" });
+
+        expect(callArg(db.notification.createMany).data).toEqual([
+          {
+            recipientId: ID.thirdUser,
+            type: "venue_booking_released",
+            title: "Venue booking released",
+            body:
+              "Test coordinator released Hall A (HAL-A) for EVT-000007 Gala Dinner on 4 Mar 2027, 09:00–17:00. " +
+              "Reason: Event postponed: Board approval pending",
+            eventId: ID.event,
+          },
+        ]);
+      });
+
+      it("[SPM-38][AC3] cancels every equipment line not already cancelled, reserved or not", async () => {
+        await postpone();
+
+        expect(updates("equipmentRequest")).toEqual([
+          { where: { eventId: ID.event, status: { not: "cancelled" } }, data: { status: "cancelled" } },
+        ]);
+      });
+
+      // As SPM-32 approves a cancellation request when the event is cancelled.
+      it("[SPM-38][AC2] approves the pending postponement requests it carries out, and leaves the others pending", async () => {
+        await postpone({}, { status: "confirmed" });
+
+        expect(updates("eventChangeRequest")).toEqual([
+          {
+            where: { eventId: ID.event, status: "pending", kind: "postpone" },
+            data: {
+              status: "approved",
+              reviewedBy: ID.otherUser,
+              reviewedAt: NOW,
+              reviewNotes: "Approved: the event was postponed.",
+            },
+          },
+        ]);
+      });
+
+      it.each(["safety_review", "safety_cleared"])(
+        "[SPM-38][AC4] closes the pending or approved safety check of an event in %s",
+        async (status) => {
+          expect((await postpone({}, { status })).status).toBe(200);
+
+          expect(updates("safetyCheck")).toEqual([
+            {
+              where: { eventId: ID.event, status: { in: ["pending", "approved"] } },
+              data: { status: "closed", decidedBy: ID.otherUser, decidedAt: NOW, decisionNote: "Event postponed" },
+            },
+          ]);
+        }
+      );
+
+      it("[SPM-38][AC8] keeps the event's registrations as they are", async () => {
+        await postpone({}, { status: "confirmed", registrationEnabled: true });
+
+        expect(db.registration.updateMany).not.toHaveBeenCalled();
+        expect(db.registration.update).not.toHaveBeenCalled();
+        expect(db.registration.deleteMany).not.toHaveBeenCalled();
+      });
+
+      it("[SPM-38][AC1] does it all in one transaction", async () => {
+        await postpone();
+
+        expect(db.$transaction).toHaveBeenCalledTimes(1);
+      });
+
+      it.each(["approved", "planning", "safety_review", "safety_cleared", "confirmed"])(
+        "[SPM-38][AC1] postpones an event that is %s",
+        async (status) => {
+          expect((await postpone({}, { status })).status).toBe(200);
+        }
+      );
+
+      it.each([
+        ["under_review", "This event is Under review and can't be moved to Postponed."],
+        ["postponed", "This event is Postponed and can't be moved to Postponed."],
+        ["completed", "This event is Completed and can't be moved to Postponed."],
+        ["cancelled", "This event is Cancelled and can't be moved to Postponed."],
+      ])("[SPM-38][AC1] refuses to postpone an event that is %s, and releases nothing", async (status, message) => {
+        const res = await postpone({}, { status });
+
+        expect(res.status).toBe(400);
+        expect((await res.json()).error).toBe(message);
+        expect(db.event.update).not.toHaveBeenCalled();
+        expect(db.venueBooking.updateMany).not.toHaveBeenCalled();
+        expect(db.equipmentRequest.updateMany).not.toHaveBeenCalled();
+      });
+
+      it.each([
+        ["a coordinator it is not assigned to", () => user("coordinator", { id: ID.thirdUser })],
+        ["the Event Coordinator Lead", () => user("ops_manager", { id: ID.thirdUser })],
+      ])("[SPM-38][AC2] refuses %s and releases nothing", async (_who, actor) => {
+        const token = signIn(actor());
+        db.event.findUnique.mockResolvedValue(event({ status: "planning" }));
+
+        const res = await patch(token, { status: "postponed" });
+
+        expect(res.status).toBe(403);
+        expect((await res.json()).error).toBe('Your role cannot move an event to "postponed"');
+        expect(db.event.update).not.toHaveBeenCalled();
+        expect(db.venueBooking.updateMany).not.toHaveBeenCalled();
+        expect(db.safetyCheck.updateMany).not.toHaveBeenCalled();
+      });
     });
 
     it.each([

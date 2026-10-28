@@ -4,6 +4,7 @@ import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/
 import { canManageEquipmentRequests } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
 import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
+import { POSTPONED_EQUIPMENT_MESSAGE } from "@/lib/eventPostponement";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
 import { CLOSE_REASONS } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
@@ -74,6 +75,10 @@ export async function PATCH(
         { error: "Equipment can be recorded once this request has been approved" },
         { status: 400 }
       );
+    }
+    // SPM-38 (AC6): nothing new is arranged until the event has a new date.
+    if (existing.event.status === "postponed") {
+      return NextResponse.json({ error: POSTPONED_EQUIPMENT_MESSAGE }, { status: 400 });
     }
 
     // sessionId is deliberately not editable here, same reasoning as
@@ -159,6 +164,9 @@ export async function DELETE(
       { error: "Equipment can be recorded once this request has been approved" },
       { status: 400 }
     );
+  }
+  if (existing.event.status === "postponed") {
+    return NextResponse.json({ error: POSTPONED_EQUIPMENT_MESSAGE }, { status: 400 });
   }
 
   // SPM-54: removing a row from an Approved event begins planning too, so this

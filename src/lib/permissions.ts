@@ -240,8 +240,10 @@ export function canViewEvent(actor: Actor, event: EventAccessFields): boolean {
   // (SPM-64; #10: attendees "can view events that they register for").
   // SPM-37 (decided 2026-10-21): and an attendee who holds a place in a
   // cancelled event can still open it, to see that and why it was cancelled.
+  // SPM-38 (AC8, decided 2026-10-26): likewise a postponed one - it is not an
+  // upcoming event any more, but their place in it is kept.
   if (actor.role === "attendee") {
-    if (event.status === "cancelled") return event.attendeeHoldsPlace === true;
+    if (event.status === "cancelled" || event.status === "postponed") return event.attendeeHoldsPlace === true;
     // SPM-36: and once it is completed, the attendee who registered for it
     // keeps it - My Registrations still links to it (#10). Not one who withdrew.
     if (event.status === "completed") return event.attendeeHoldsPlace === true || event.attendeeAttended === true;
@@ -299,8 +301,8 @@ export function eventListWhere(actor: Actor): Record<string, unknown> {
     return {
       OR: [
         { status: "confirmed", OR: [{ registrationEnabled: true }, holdsPlace] },
-        // SPM-37: as canViewEvent(). Browse Events leaves these out itself.
-        { status: "cancelled", ...holdsPlace },
+        // SPM-37, SPM-38: as canViewEvent(). Browse Events leaves these out itself.
+        { status: { in: ["cancelled", "postponed"] }, ...holdsPlace },
       ],
     };
   }
@@ -548,8 +550,8 @@ export function canReviewEvent(actor: Actor, event: EventAccessFields): boolean 
 ///   Step 14 complete                     - the assigned coordinator
 ///   §4      cancel                       - the assigned coordinator only
 ///                                          (customer clarification #68)
-///   §4      postpone                     - the coordinator, or the organiser
-///                                          for their own event
+///   §4      postpone                     - the assigned coordinator only
+///                                          (SPM-38 AC2)
 ///   §4      cancel                       - the assigned coordinator ONLY
 ///
 /// Cancellation is deliberately narrower than postponement. Cancelling
@@ -614,6 +616,14 @@ export function canWithdrawEvent(actor: Actor, event: EventAccessFields): boolea
 /// stage that is not final (AC1). The same two checks the PATCH route makes.
 export function canCancelEvent(actor: Actor, event: EventAccessFields): boolean {
   return canSetEventStatus(actor, event, "cancelled") && canTransition(event.status, "cancelled");
+}
+
+/// SPM-38: does the event page offer this user "Postpone event"? The assigned
+/// coordinator only (AC2) - an organiser asks through a change request - on an
+/// event the lifecycle lets into Postponed: any stage after approval that is
+/// not final (AC1). The same two checks the PATCH route makes.
+export function canPostponeEvent(actor: Actor, event: EventAccessFields): boolean {
+  return canSetEventStatus(actor, event, "postponed") && canTransition(event.status, "postponed");
 }
 
 /// SPM-34 (AC4). Whether this actor may even attempt to confirm: the assigned
@@ -780,6 +790,9 @@ export const ATTENDEE_EVENT_FIELDS = [
   // SPM-37: why it was cancelled, for an attendee who holds a place in it -
   // the reason SPM-53 also sends them. NULL on any event that is not cancelled.
   "cancellationReason",
+  // SPM-38 (AC5): why it was postponed, from its status history - added by the
+  // event route only while the event is Postponed.
+  "postponementReason",
 ] as const;
 
 /// Narrow an event record to the fields this actor may see. Returns a new

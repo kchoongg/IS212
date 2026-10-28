@@ -35,8 +35,9 @@ export const NOT_ASSIGNED = "Only the coordinator assigned to this event can pro
 export const UNDECIDED = "Approve or reject every change before saving.";
 export const REQUEST_REASON_REQUIRED = "Give a reason for rejecting this request.";
 export const APPROVE_CANCELLATION = "To approve it, cancel the event: use Cancel event on its Overview.";
-export const POSTPONEMENT_NOT_YET =
-  "Postponing an event isn't available yet (Postpone Event, SPM-38), so a postponement request can only be rejected for now.";
+/// SPM-38: postponing carries out a postponement request, as cancelling does
+/// a cancellation request - it is approved by Postpone event, not here.
+export const APPROVE_POSTPONEMENT = "To approve it, postpone the event: use Postpone event on its Overview.";
 export const EQUIPMENT_TO_DO = "Update the Equipment tab to match the approved equipment change.";
 export const RESCHEDULED = "The event has moved from Postponed to Approved.";
 export const RESCHEDULED_HISTORY = "Rescheduled: change request approved";

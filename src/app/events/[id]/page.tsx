@@ -44,6 +44,7 @@ import {
   canAssignCoordinator,
   canCancelEvent,
   canConfigureRegistration,
+  canPostponeEvent,
   canConfirmEvent,
   canFlagForSafetyReview,
   canMarkEventCompleted,
@@ -57,6 +58,12 @@ import {
   canWithdrawEvent,
 } from "@/lib/permissions";
 import { EVENT_CANCELLED_MESSAGE, NOTHING_TO_RELEASE, NO_CANCELLATION_REASON } from "@/lib/eventCancellation";
+import {
+  EVENT_POSTPONED_MESSAGE,
+  NO_POSTPONEMENT_REASON,
+  POSTPONED_TITLE,
+  postponeDialogText,
+} from "@/lib/eventPostponement";
 
 // S-06 — "the hub" (UI_DESIGN.md §3.1): every role lands here first when they
 // open an event, then moves to a tab (Equipment is S-16 / SPM-47). Every role
@@ -143,6 +150,9 @@ interface EventDetail extends RegistrationEvent {
   // SPM-37: shown as a banner on a cancelled event, to every role that can
   // open it - an Attendee holding a place included.
   cancellationReason?: string | null;
+  // SPM-38: likewise on a postponed event, from its status history. Sent only
+  // while the event is Postponed.
+  postponementReason?: string | null;
   // SPM-29: sent only to the organiser and the assigned coordinator.
   openClarification?: OpenClarification | null;
   // Present for an Attendee too - which company is running the event is
@@ -277,6 +287,11 @@ function EventOverview() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  // SPM-38: and postponing it, with the same list from GET .../postponement.
+  // Only one of the two dialogs is open at a time, so they share the list.
+  const [postponeOpen, setPostponeOpen] = useState(false);
+  const [postponing, setPostponing] = useState(false);
+  const [postponeReason, setPostponeReason] = useState("");
   const [consequences, setConsequences] = useState<string[] | null>(null);
   const [consequencesFailed, setConsequencesFailed] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -376,18 +391,53 @@ function EventOverview() {
     }
   }
 
-  async function askToCancel() {
-    setCancelReason("");
+  /// The consequences listed in the Cancel event or Postpone event dialog.
+  async function loadConsequences(of: "cancellation" | "postponement") {
     setConsequences(null);
     setConsequencesFailed(false);
-    setCancelOpen(true);
     try {
-      const res = await authedFetch(`/api/events/${eventId}/cancellation`);
+      const res = await authedFetch(`/api/events/${eventId}/${of}`);
       if (!res.ok) throw new Error();
       setConsequences((await res.json()).consequences);
     } catch {
-      // The server lets everything go either way, so cancelling is still offered.
+      // The server lets everything go either way, so the action is still offered.
       setConsequencesFailed(true);
+    }
+  }
+
+  async function askToCancel() {
+    setCancelReason("");
+    setCancelOpen(true);
+    await loadConsequences("cancellation");
+  }
+
+  async function askToPostpone() {
+    setPostponeReason("");
+    setPostponeOpen(true);
+    await loadConsequences("postponement");
+  }
+
+  async function postponeEvent() {
+    setPostponing(true);
+    setActionError(null);
+    setNotice(null);
+    const reason = postponeReason.trim();
+    try {
+      const res = await authedFetch(`/api/events/${eventId}`, {
+        method: "PATCH",
+        body: JSON.stringify(reason ? { status: "postponed", reason } : { status: "postponed" }),
+      });
+      if (!res.ok) {
+        setActionError((await res.json()).error ?? "Could not postpone this event.");
+        return;
+      }
+      setNotice(EVENT_POSTPONED_MESSAGE);
+      void load();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
+    } finally {
+      setPostponing(false);
+      setPostponeOpen(false);
     }
   }
 
@@ -699,6 +749,24 @@ function EventOverview() {
     )
   );
 
+  // SPM-38 (AC1, AC2): the assigned coordinator, at any stage after approval
+  // that is not final.
+  const showPostpone = Boolean(
+    user &&
+    event &&
+    event.organiserId !== undefined &&
+    event.coordinatorId !== undefined &&
+    canPostponeEvent(
+      { id: user.id, role: user.role, organisationId: null },
+      {
+        organiserId: event.organiserId,
+        organisationId: event.organisationId ?? null,
+        coordinatorId: event.coordinatorId,
+        status: event.status,
+      }
+    )
+  );
+
   const showAssign = Boolean(
     user &&
     event &&
@@ -843,6 +911,11 @@ function EventOverview() {
                 Request a change
               </ButtonLink>
             )}
+            {showPostpone && (
+              <Button variant="secondary" onClick={() => void askToPostpone()}>
+                Postpone event
+              </Button>
+            )}
             {showCancel && (
               <Button variant="secondary" onClick={() => void askToCancel()}>
                 Cancel event
@@ -893,6 +966,13 @@ function EventOverview() {
           {event.status === "cancelled" && (
             <Alert variant="error" title="This event was cancelled">
               {event.cancellationReason || NO_CANCELLATION_REASON}
+            </Alert>
+          )}
+
+          {/* SPM-38 (AC5): why it was postponed, for everyone who can open it. */}
+          {event.status === "postponed" && (
+            <Alert variant="warning" title={POSTPONED_TITLE}>
+              {event.postponementReason || NO_POSTPONEMENT_REASON}
             </Alert>
           )}
 
@@ -1164,6 +1244,40 @@ function EventOverview() {
       </ConfirmDialog>
 
       {/* SPM-37: names every arrangement it lets go (UI_DESIGN.md §7.5). */}
+      {/* SPM-38: names every arrangement it lets go, as Cancel event does. */}
+      <ConfirmDialog
+        open={postponeOpen}
+        title="Postpone this event?"
+        confirmLabel="Postpone event"
+        cancelLabel="Keep event"
+        loading={postponing}
+        onConfirm={() => void postponeEvent()}
+        onCancel={() => setPostponeOpen(false)}
+      >
+        <div className="flex flex-col gap-3">
+          <p>{postponeDialogText(event?.title)}</p>
+          {consequencesFailed ? (
+            <p>Could not load what postponing will release.</p>
+          ) : consequences === null ? (
+            <SkeletonRows rows={2} />
+          ) : consequences.length === 0 ? (
+            <p>{NOTHING_TO_RELEASE}</p>
+          ) : (
+            <div>
+              <p>Postponing will:</p>
+              <ul className="mt-1 list-disc pl-5">
+                {consequences.map((line, i) => (
+                  <li key={`${i}-${line}`}>{line}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <Field label="Reason (optional)">
+            <Textarea value={postponeReason} maxLength={2000} onChange={(e) => setPostponeReason(e.target.value)} />
+          </Field>
+        </div>
+      </ConfirmDialog>
+
       <ConfirmDialog
         open={cancelOpen}
         title="Cancel this event?"

@@ -20,7 +20,7 @@ import {
   EQUIPMENT_ITEM,
   EQUIPMENT_TO_DO,
   NOT_ASSIGNED,
-  POSTPONEMENT_NOT_YET,
+  APPROVE_POSTPONEMENT,
   PROCESSED_MESSAGE,
   REQUEST_REASON_REQUIRED,
   RESCHEDULED,
@@ -384,7 +384,7 @@ export default function ReviewChangeRequestPage() {
         >
           {asked}
           {formError && <Alert variant="error">{formError}</Alert>}
-          <Alert variant="info">{request.kind === "cancel" ? APPROVE_CANCELLATION : POSTPONEMENT_NOT_YET}</Alert>
+          <Alert variant="info">{request.kind === "cancel" ? APPROVE_CANCELLATION : APPROVE_POSTPONEMENT}</Alert>
           <Field label="Reason for rejecting" error={errors.reason}>
             <Textarea
               name="reason"
