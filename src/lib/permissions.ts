@@ -55,6 +55,9 @@ export const ACTIONS = [
   "equipment_request:review",
   "registration:create",
   "registration:view_list",
+  // SPM-57: add an Attendee account to an event's registration list on the
+  // organiser's behalf (customer clarification #33).
+  "registration:add_attendee",
   "facility:view",
 ] as const;
 
@@ -95,6 +98,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     // §8 only anticipated equipment_request:review, Technical Support's side).
     "equipment_request:manage",
     "registration:view_list",
+    "registration:add_attendee",
     "facility:view",
   ],
   ops_manager: [
@@ -398,6 +402,16 @@ export function canConfigureRegistration(actor: Actor, event: EventAccessFields)
 export function canViewRegistrationList(actor: Actor, event: EventAccessFields): boolean {
   if (!can(actor.role, "registration:view_list")) return false;
   if (actor.role === "organiser") return ownsEvent(actor, event);
+  return isAssignedCoordinator(actor, event);
+}
+
+/// SPM-57: attendees are added to an event's registration list by the
+/// coordinator assigned to it - "the attendee list will have to be provided to
+/// the Event Coordinator for processing" (customer clarification #33). The
+/// organiser sees who was added on their behalf (AC5) but adds no one. When it
+/// may happen is addAttendeeRefusal() (src/lib/manualRegistration.ts).
+export function canAddAttendees(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "registration:add_attendee")) return false;
   return isAssignedCoordinator(actor, event);
 }
 

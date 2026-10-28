@@ -568,6 +568,18 @@ async function main() {
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [],
     })),
+    // SPM-57 fixtures (scripts/seed-spm57.ts, VENUES there - keep in step): a
+    // hall, and a salon small enough to fill by hand (SPM-57-TC07).
+    { code: "SPM57-HAL", name: "SPM57 Hall", description: "SPM-57 test venue: seats 60 in theatre layout",
+      building: "Orchard Hub", floor: "L7", maxCapacity: 60, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM57-SAL", name: "SPM57 Salon", description: "SPM-57 test venue: seats 4 in theatre layout",
+      building: "Orchard Hub", floor: "L7", maxCapacity: 4, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 4], ["classroom", 3]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -2337,6 +2349,33 @@ async function main() {
       { description: "A talk on retirement planning." }),
     spm32("spm32_other", "SPM32 Other Coordinator Forum", "planning", "2027-09-13", 9, 3, 60,
       { description: "Partner forum.", coordinator: "priya.raj@connectsphere.com" }),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-57 QA fixtures (Manually Add Attendee). The SAME events as
+  // scripts/seed-spm57.ts (`npm run fixtures:spm57`) - keep the two in step.
+  //
+  // The events only. Their bookings at the SPM57 rooms, registrations and
+  // exact registration settings are created by that script alone, so run it
+  // once after a full reseed. Pushed LAST, after SPM-32, so no earlier event's
+  // EVT- reference number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm57 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    category: string, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-57 manually add attendee test event", category,
+    days: daysUntil(date), startHour, durationHours, attendance: 20, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm57("spm57_gala", "SPM57 VIP Gala Dinner", "confirmed", "2028-03-07", 18, 4, "networking",
+      { regEnabled: true, regCapacity: 3 }),
+    spm57("spm57_salon", "SPM57 Salon Briefing", "confirmed", "2028-03-14", 9, 3, "seminar",
+      { regEnabled: true, regCapacity: 2 }),
+    spm57("spm57_planning", "SPM57 Planning Workshop", "planning", "2028-03-21", 9, 8, "workshop",
+      { regEnabled: true, regCapacity: 40 }),
+    spm57("spm57_lunch", "SPM57 Invitation Only Lunch", "confirmed", "2028-03-28", 12, 2, "meeting"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

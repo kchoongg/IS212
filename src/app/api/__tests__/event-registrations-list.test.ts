@@ -45,6 +45,8 @@ function row(overrides: Record<string, unknown> = {}) {
     status: "registered",
     registeredAt: REGISTERED_AT,
     withdrawnAt: null,
+    dietaryRequirements: null,
+    accessibilityRequirements: null,
     attendee: { fullName: "Marcus Yeo", email: "marcus@example.com", phone: "+65 9123 4567" },
     addedBy: null,
     ...overrides,
@@ -66,6 +68,8 @@ function given({
   db.event.findUnique.mockResolvedValue(eventRow);
   db.registration.findMany.mockResolvedValue(rows);
   db.registration.groupBy.mockResolvedValue(byStatus);
+  // SPM-57: the venue capacity; see event-registrations-add.test.ts.
+  db.venueBooking.findMany.mockResolvedValue([]);
   return token;
 }
 
@@ -154,6 +158,8 @@ describe("what the list shows", () => {
         status: "registered",
         registeredAt: REGISTERED_AT.toISOString(),
         withdrawnAt: null,
+        dietaryRequirements: null,
+        accessibilityRequirements: null,
         attendee: { name: "Marcus Yeo", email: "marcus@example.com", phone: "+65 9123 4567" },
         addedBy: null,
       },

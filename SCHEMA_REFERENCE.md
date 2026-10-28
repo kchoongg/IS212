@@ -556,7 +556,7 @@ Postgres table `registrations` &middot; `prisma.registration`
 | `withdrawnAt` | DateTime |  | When the attendee withdrew (SPM-52, `PATCH /api/registrations/[id]`). NULL unless `withdrawn`. |
 | `dietaryRequirements` | String |  | The attendee's own needs, not the event's. |
 | `accessibilityRequirements` | String |  |  |
-| `addedById` | String |  | Who added this registration on the attendee's behalf (SPM-65, AC4), shown as "Added by <name>" on the Attendees tab. Set by Manually Add Attendee - nothing writes it yet. NULL = the attendee registered themselves. `ON DELETE SET NULL`. |
+| `addedById` | String |  | Who added this registration on the attendee's behalf (SPM-65, AC4), shown as "Added by <name>" on the Attendees tab. Set by Manually Add Attendee (SPM-57) to the coordinator who added the attendee. NULL = the attendee registered themselves. `ON DELETE SET NULL`. |
 
 **Relations:** `event` &rarr; Event, `attendee` &rarr; User, `addedBy` &rarr; User
 
