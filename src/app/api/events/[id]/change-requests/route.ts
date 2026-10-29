@@ -4,6 +4,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
+import { notifyUser } from "@/lib/notifications";
 import { canRequestEventChange, canViewChangeRequests } from "@/lib/permissions";
 import { createChangeRequestSchema } from "@/lib/validation";
 import {
@@ -26,8 +27,8 @@ import { canViewEventWithHistory } from "@/lib/eventVisibility";
 //
 // A request is only recorded. The event, its status and its arrangements stay
 // exactly as they are (AC5, AC6) until the assigned coordinator processes it -
-// Process Event Change Request (SPM-32), Postpone Event, Cancel Event. Telling
-// the coordinator is Receive Event Notifications (SPM-53).
+// Process Event Change Request (SPM-32), Postpone Event, Cancel Event. The
+// coordinator is told in the same transaction (SPM-53, AC12).
 
 const EVENT_INCLUDE = {
   facilityRequirements: { select: { facilityId: true, facility: { select: { name: true } } } },
@@ -37,6 +38,22 @@ const EVENT_INCLUDE = {
 const REQUESTER = { requester: { select: { fullName: true } } } as const;
 /// SPM-32: and who processed it, for the outcome the list shows.
 const WITH_REVIEWER = { ...REQUESTER, reviewer: { select: { fullName: true } } } as const;
+
+/// Records the request and tells the assigned coordinator (SPM-53, AC12).
+function record(event: { id: string; title: string | null; coordinatorId: string | null }, data: Prisma.EventChangeRequestUncheckedCreateInput) {
+  return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const created = await tx.eventChangeRequest.create({ data, include: REQUESTER });
+    if (event.coordinatorId) {
+      await notifyUser(tx, event.coordinatorId, {
+        type: "change_request_submitted",
+        title: "Change request received",
+        body: `${created.requester.fullName} has sent a change request for "${event.title ?? "Untitled event"}".`,
+        eventId: event.id,
+      });
+    }
+    return created;
+  });
+}
 
 async function loadEvent(id: string) {
   const sequenceNumber = parseEventReference(id);
@@ -68,10 +85,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
 
     // AC5: a request to postpone or cancel is a reason and nothing else.
     if (data.kind !== "change") {
-      const created = await prisma.eventChangeRequest.create({
-        data: { ...base, equipmentChanges: null, isSignificant: false, status: "pending" },
-        include: REQUESTER,
-      });
+      const created = await record(event, { ...base, equipmentChanges: null, isSignificant: false, status: "pending" });
       return NextResponse.json(describeChangeRequest(created, snapshotOf(event)), { status: 201 });
     }
 
@@ -108,16 +122,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       return NextResponse.json({ error: message, details: { fieldErrors: { endsAt: [message] } } }, { status: 400 });
     }
 
-    const created = await prisma.eventChangeRequest.create({
-      data: {
-        ...base,
-        changes: changes as unknown as Prisma.InputJsonValue,
-        equipmentChanges,
-        // AC4: Important - the date and time, attendance, venue requirements or equipment.
-        isSignificant: importantFor(changes, equipmentChanges).length > 0,
-        status: "pending",
-      },
-      include: REQUESTER,
+    const created = await record(event, {
+      ...base,
+      changes: changes as unknown as Prisma.InputJsonValue,
+      equipmentChanges,
+      // AC4: Important - the date and time, attendance, venue requirements or equipment.
+      isSignificant: importantFor(changes, equipmentChanges).length > 0,
+      status: "pending",
     });
     return NextResponse.json(describeChangeRequest(created, current), { status: 201 });
   } catch (err) {

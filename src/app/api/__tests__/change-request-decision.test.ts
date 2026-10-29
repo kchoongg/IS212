@@ -446,3 +446,102 @@ describe("[SPM-32] POST …/change-requests/[requestId]/decision", () => {
     expect(res.status).toBe(500);
   });
 });
+
+// SPM-53 (AC13): the organiser who owns the event hears the outcome, item by
+// item where it was partly approved.
+describe("POST …/change-requests/[requestId]/decision - telling the organiser (SPM-53)", () => {
+  beforeEach(() => {
+    db.venueBooking.findMany.mockResolvedValue([]);
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+    db.registration.count.mockResolvedValue(0);
+    db.registration.findMany.mockResolvedValue([]);
+    db.safetyCheck.updateMany.mockResolvedValue({ count: 0 });
+  });
+
+  /// The outcome notification, among any others the applied change raises.
+  const outcome = () =>
+    db.notification.create.mock.calls
+      .map((c: unknown[]) => (c[0] as { data: { type: string; body: string } }).data)
+      .filter((n: { type: string }) => n.type === "change_request_decided");
+
+  it("[SPM-53][AC13] tells the organiser the outcome of each field of a partly approved request", async () => {
+    const res = await decide({
+      decisions: {
+        title: { outcome: "rejected", reason: "  The invitations have gone out.  " },
+        expectedAttendance: { outcome: "approved" },
+      },
+    });
+
+    expect(res.status).toBe(200);
+    expect(outcome()).toEqual([
+      {
+        recipientId: ID.user,
+        type: "change_request_decided",
+        title: "Change request partially approved",
+        body:
+          'Your change request for "SPM32 Harbour Briefing" was partially approved. ' +
+          "Event name: rejected – The invitations have gone out. Expected attendance: approved.",
+        eventId: ID.event,
+      },
+    ]);
+  });
+
+  it("[SPM-53][AC13] tells the organiser a request was approved in full", async () => {
+    await decide(approveBoth);
+
+    expect(outcome()).toEqual([
+      expect.objectContaining({
+        title: "Change request approved",
+        body: 'Your change request for "SPM32 Harbour Briefing" was approved. Event name: approved. Expected attendance: approved.',
+      }),
+    ]);
+  });
+
+  it("[SPM-53][AC13] tells the organiser a request was rejected, with each reason", async () => {
+    await decide({
+      decisions: { title: { outcome: "rejected", reason: "No." }, expectedAttendance: { outcome: "rejected", reason: "No room." } },
+    });
+
+    expect(outcome()).toEqual([
+      expect.objectContaining({
+        title: "Change request rejected",
+        body: 'Your change request for "SPM32 Harbour Briefing" was rejected. Event name: rejected – No. Expected attendance: rejected – No room.',
+      }),
+    ]);
+  });
+
+  it("[SPM-53][AC13] names the equipment change among the items", async () => {
+    await decide(
+      { decisions: { equipment: { outcome: "approved" } } },
+      { row: request({ changes: [], equipmentChanges: "Two more microphones." }) }
+    );
+
+    expect(outcome()[0].body).toBe('Your change request for "SPM32 Harbour Briefing" was approved. Equipment changes: approved.');
+  });
+
+  it.each([
+    ["cancel", 'Your request to cancel "SPM32 Harbour Briefing" was rejected. Reason: Let\'s discuss a smaller format.'],
+    ["postpone", 'Your request to postpone "SPM32 Harbour Briefing" was rejected. Reason: Let\'s discuss a smaller format.'],
+  ])("[SPM-53][AC13] tells the organiser a %s request was rejected, with the reason", async (kind, body) => {
+    await decide({ outcome: "rejected", reason: "  Let's discuss a smaller format.  " }, { row: request({ kind, changes: null }) });
+
+    expect(outcome()).toEqual([
+      { recipientId: ID.user, type: "change_request_decided", title: "Change request rejected", body, eventId: ID.event },
+    ]);
+  });
+
+  it("[SPM-53][AC13] tells no one when another save decided it first", async () => {
+    const token = signIn(coordinator());
+    db.event.findUnique.mockResolvedValue(event());
+    db.eventChangeRequest.findUnique.mockResolvedValue(request({ kind: "cancel", changes: null }));
+    db.eventChangeRequest.updateMany.mockResolvedValue({ count: 0 });
+
+    const res = await POST(
+      req("POST", PATH, { token, body: { outcome: "rejected", reason: "No." } }),
+      params({ id: REF, requestId: REQUEST_ID })
+    );
+
+    expect(res.status).toBe(409);
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+});

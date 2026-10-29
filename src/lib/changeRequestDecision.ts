@@ -19,6 +19,7 @@ import {
   type RequestableField,
   type StoredDecision,
 } from "@/lib/eventChangeRequest";
+import type { NotificationContent } from "@/lib/notifications";
 import type { UpdateEventInformationInput } from "@/lib/validation";
 
 /// The equipment change's key among the decisions. Not a field: it is free
@@ -136,4 +137,44 @@ export function checkApprovedTimes(event: EventTimes, payload: UpdateEventInform
     if ((closes && closes > startsAt) || (opens && opens >= startsAt)) return REGISTRATION_CLOSES_AFTER_START;
   }
   return null;
+}
+
+const OUTCOME_WORDS: Record<ReturnType<typeof outcomeStatus>, string> = {
+  approved: "approved",
+  rejected: "rejected",
+  partially_approved: "partially approved",
+};
+
+/// SPM-53 (AC13): what the organiser is told once their change request is
+/// decided - the outcome of each item, in the request's own order, with the
+/// reason for each rejected one. A postponement or cancellation request is only
+/// ever rejected here, with its one reason.
+export function changeRequestOutcomeNotification(input: {
+  eventId: string;
+  eventTitle: string | null;
+  kind: string;
+  decisions: Decisions | null;
+  items: readonly string[];
+  reason?: string | null;
+}): NotificationContent {
+  const event = `"${input.eventTitle ?? "Untitled event"}"`;
+  const notification = (status: ReturnType<typeof outcomeStatus>, body: string) => ({
+    type: "change_request_decided",
+    title: `Change request ${OUTCOME_WORDS[status]}`,
+    body,
+    eventId: input.eventId,
+  });
+  if (input.kind !== "change" || !input.decisions) {
+    const asked = input.kind === "cancel" ? "cancel" : "postpone";
+    return notification("rejected", `Your request to ${asked} ${event} was rejected. Reason: ${input.reason}`);
+  }
+  const { decisions } = input;
+  const lines = input.items.map((item) => {
+    const { outcome, reason } = decisions[item];
+    if (outcome === "approved") return `${itemLabel(item)}: approved.`;
+    // The coordinator's reason, closed with a full stop unless it has its own.
+    return `${itemLabel(item)}: rejected – ${reason}${/[.!?]$/.test(reason ?? "") ? "" : "."}`;
+  });
+  const status = outcomeStatus(decisions);
+  return notification(status, `Your change request for ${event} was ${OUTCOME_WORDS[status]}. ${lines.join(" ")}`);
 }
