@@ -1054,6 +1054,9 @@ what changed, why, and the migration name if there is one.
 ---
 
 ### 2026-10-28 — Kristen (SPM-77, review fixes)
+- A waiting suggestion reads "… waiting for the Coordinator's decision" on
+  the Readiness tab and in the safety-check refusal, not "your decision":
+  any coordinator can open the Readiness tab, not only the assigned one.
 - **Accepting clears the line's waiver and flag:** a line the Coordinator had
   marked not required, or that was flagged for review, becomes the
   alternative as a plain Requested line, so the event cannot be confirmed
@@ -1097,7 +1100,7 @@ what changed, why, and the migration name if there is one.
   Coordinator accepts or declines it (`checkSafetySubmission()`), so a
   suggestion is never stranded outside the window it can be decided in.
   The Readiness tab shows the same item as Outstanding ("… has a suggested
-  alternative (…) waiting for your decision"), with a "Decide on the
+  alternative (…) waiting for the Coordinator's decision"), with a "Decide on the
   Equipment tab" link: the rule is in `arrangementsFor()`, which the
   safety-check refusal and Confirm read too. It cannot be marked as not
   required while it waits, and one already marked so shows as Outstanding

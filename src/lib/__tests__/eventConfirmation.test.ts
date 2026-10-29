@@ -1140,7 +1140,7 @@ describe("SPM-82 — an expired tentative hold", () => {
 // (SPM-86) refuses on the same row.
 // ---------------------------------------------------------------------------
 describe("SPM-77 arrangementsFor — a suggested alternative waiting for a decision", () => {
-  const WAITING = "Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision";
+  const WAITING = "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision";
   const ringLight = (over: Record<string, unknown> = {}) => ({
     id: "r1",
     sessionId: null,

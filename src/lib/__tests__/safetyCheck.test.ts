@@ -60,7 +60,7 @@ describe("checkSafetySubmission - ready (AC1)", () => {
 // SPM-77: a suggested alternative still waiting for the Coordinator's decision
 // keeps the event in Planning, where the decision can be made.
 describe("checkSafetySubmission - a suggested alternative waiting for a decision (SPM-77)", () => {
-  const waiting = "Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision";
+  const waiting = "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision";
 
   it("[SPM-77][AC5][AC6] refuses while a partly fulfilled item has one, naming the item and the alternative", () => {
     const result = check({

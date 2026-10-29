@@ -438,7 +438,7 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
     // SPM-77: the decision comes first, and a waiver does not hide it.
     if (item.pendingSuggestion) {
       out.push(
-        arrangement(row, `${subject} has a suggested alternative (${item.pendingSuggestion}) waiting for your decision`, {
+        arrangement(row, `${subject} has a suggested alternative (${item.pendingSuggestion}) waiting for the Coordinator's decision`, {
           flagReason,
           waivable: false,
           awaitingDecision: true,

@@ -338,12 +338,12 @@ describe("Event Readiness tab (SPM-33)", () => {
           status: "partially_fulfilled",
           waivable: false,
           awaitingDecision: true,
-          missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision",
+          missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
         }),
       ]);
       const item = await row("Ring Light");
 
-      expect(item).toHaveTextContent("has a suggested alternative (Podium Light) waiting for your decision");
+      expect(item).toHaveTextContent("has a suggested alternative (Podium Light) waiting for the Coordinator's decision");
       expect(within(item).getByRole("link", { name: "Decide on the Equipment tab" })).toHaveAttribute(
         "href",
         "/events/EVT-000007/equipment"
@@ -364,12 +364,12 @@ describe("Event Readiness tab (SPM-33)", () => {
         status: "partially_fulfilled",
         waivable: false,
         awaitingDecision: true,
-        missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision",
+        missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
       });
       open([ringLight], { [LIST]: payload([ringLight], { canManage: false, ...overrides }) });
       const item = await row("Ring Light");
 
-      expect(item).toHaveTextContent("has a suggested alternative (Podium Light) waiting for your decision");
+      expect(item).toHaveTextContent("has a suggested alternative (Podium Light) waiting for the Coordinator's decision");
       expect(within(item).queryByRole("link", { name: "Decide on the Equipment tab" })).not.toBeInTheDocument();
     });
     // SPM-90 AC5 (written before the code).

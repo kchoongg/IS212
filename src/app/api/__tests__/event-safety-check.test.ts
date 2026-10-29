@@ -243,7 +243,7 @@ describe("POST /api/events/[id]/safety-check", () => {
 
       expect(res.status).toBe(400);
       expect((await res.json()).outstanding).toEqual([
-        "Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision",
+        "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
       ]);
       expect(callArg(db.equipmentRequest.findMany).select.suggestions).toEqual({
         where: { status: "pending" },

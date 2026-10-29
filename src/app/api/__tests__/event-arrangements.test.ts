@@ -253,7 +253,7 @@ describe("GET /api/events/[id]/arrangements", () => {
       state: "outstanding",
       waivable: false,
       awaitingDecision: true,
-      missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision",
+      missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
     });
     expect(callArg(db.equipmentRequest.findMany).select.suggestions).toEqual({
       where: { status: "pending" },
