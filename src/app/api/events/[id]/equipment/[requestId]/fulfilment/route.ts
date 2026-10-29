@@ -5,10 +5,12 @@ import { canUpdateEquipmentFulfilment, techSupportSeesEquipment } from "@/lib/pe
 import { updateEquipmentFulfilmentSchema } from "@/lib/validation";
 import {
   checkFulfilmentUpdate,
+  equipmentStatusNotification,
   eventAllowsFulfilmentUpdate,
   fulfilmentChanges,
   fulfilmentUpdateClosedMessage,
 } from "@/lib/equipmentFulfilment";
+import { notifyUser } from "@/lib/notifications";
 import { ZodError } from "zod";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
@@ -36,8 +38,9 @@ export async function PATCH(
           select: {
             eventId: true,
             status: true,
+            equipment: { select: { name: true } },
             event: {
-              select: { organiserId: true, organisationId: true, coordinatorId: true, status: true },
+              select: { title: true, organiserId: true, organisationId: true, coordinatorId: true, status: true },
             },
           },
         })
@@ -68,13 +71,30 @@ export async function PATCH(
     // a Reserve (SPM-49) or another update landing in between would otherwise
     // be silently overwritten - e.g. "Unavailable" saved over a fresh
     // reservation would leave stock committed to a line that says it is not.
-    const { count } = await prisma.equipmentRequest.updateMany({
-      where: { id: requestId, status: existing.status },
-      data: {
-        ...fulfilmentChanges(data.status, data.staffNotes),
-        reviewedBy: actor.id,
-        reviewedAt: new Date(),
-      },
+    const count = await prisma.$transaction(async (tx) => {
+      const { count } = await tx.equipmentRequest.updateMany({
+        where: { id: requestId, status: existing.status },
+        data: {
+          ...fulfilmentChanges(data.status, data.staffNotes),
+          reviewedBy: actor.id,
+          reviewedAt: new Date(),
+        },
+      });
+      // SPM-53 (AC11): a line newly marked Cannot be provided. The other
+      // hand-picked statuses are not an outcome the Coordinator waits on.
+      if (count > 0 && data.status === "unavailable" && existing.status !== "unavailable" && existing.event.coordinatorId) {
+        await notifyUser(
+          tx,
+          existing.event.coordinatorId,
+          equipmentStatusNotification({
+            eventId: existing.eventId,
+            eventTitle: existing.event.title,
+            equipmentName: existing.equipment.name,
+            status: data.status,
+          })
+        );
+      }
+      return count;
     });
     if (count === 0) {
       return NextResponse.json(

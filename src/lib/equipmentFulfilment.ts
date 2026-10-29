@@ -24,6 +24,8 @@
 // row reads "unavailable, 1 reserved".
 
 import { eventAllowsReserving, reservingClosedMessage } from "@/lib/equipmentAvailability";
+import type { NotificationContent } from "@/lib/notifications";
+import { statusLabel } from "@/lib/statuses";
 
 /// Statuses Technical Support can pick by hand.
 export const HAND_PICKED_STATUSES = ["requested", "under_review", "unavailable"];
@@ -104,4 +106,21 @@ export function fulfilmentChanges(
 /// "Reserved" status the Coordinator sees. Notes on any other line are kept.
 export function reserveClearsStaffNotes(previousStatus: string): boolean {
   return previousStatus === "unavailable" || previousStatus === "released";
+}
+
+/// SPM-53 (AC11): what the assigned Coordinator is told when Technical Support
+/// mark a line Reserved, Partially fulfilled (both by Reserve, SPM-49) or
+/// Cannot be provided (by hand, SPM-50).
+export function equipmentStatusNotification(input: {
+  eventId: string;
+  eventTitle: string | null;
+  equipmentName: string;
+  status: string;
+}): NotificationContent {
+  return {
+    type: "equipment_request_updated",
+    title: `Equipment ${statusLabel(input.status).toLowerCase()}`,
+    body: `${input.equipmentName} for "${input.eventTitle ?? "Untitled event"}" is now ${statusLabel(input.status)}.`,
+    eventId: input.eventId,
+  };
 }
