@@ -2389,6 +2389,21 @@ describe("PATCH /api/events/[id] - answering a clarification (SPM-26)", () => {
     expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
   }
 
+  it("[SPM-53][AC3] notifies the assigned coordinator that the clarification was answered", async () => {
+    const token = givenResponding();
+
+    await patch(token, { description: "Gala for 150 guests" });
+
+    expect(db.notification.create).toHaveBeenCalledOnce();
+    expect(callArg(db.notification.create).data).toEqual({
+      recipientId: ID.otherUser,
+      type: "clarification_answered",
+      title: "Clarification answered",
+      body: 'The organiser has responded to your clarification request on "Gala Dinner".',
+      eventId: ID.event,
+    });
+  });
+
   it("[SPM-26][AC2][AC3] saves the organiser's changes", async () => {
     const token = givenResponding();
 
@@ -2649,5 +2664,59 @@ describe("PATCH /api/events/[id] - answering a clarification (SPM-26)", () => {
 
     expect(db.$queryRaw).not.toHaveBeenCalled();
     expect(db.clarificationRequest.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+// SPM-53: the organiser who owns the event hears each outcome of a status
+// change; a postponement or cancellation also reaches every attendee whose
+// registration is Registered.
+describe("PATCH /api/events/[id] - telling people the outcome (SPM-53)", () => {
+  async function move(to: string, from: Record<string, unknown>, body: Record<string, unknown> = {}) {
+    vi.useFakeTimers({ now: NOW });
+    const token = signIn(coordinator());
+    const row = event(from);
+    db.event.findUnique.mockResolvedValue(row);
+    db.event.update.mockImplementation(async ({ data }: { data: object }) => ({ ...row, ...data }));
+    db.eventSession.findMany.mockResolvedValue([]);
+    db.user.findMany.mockResolvedValue([]);
+    return patch(token, { status: to, ...body });
+  }
+
+  const told = () => db.notification.create.mock.calls.map((c: unknown[]) => (c[0] as { data: unknown }).data);
+
+  it("[SPM-53][AC4] tells only the organiser that the request was approved", async () => {
+    await move("approved", { status: "under_review" });
+
+    expect(told()).toEqual([
+      {
+        recipientId: ID.user,
+        type: "event_approved",
+        title: "Event request approved",
+        body: '"Gala Dinner" has been approved.',
+        eventId: ID.event,
+      },
+    ]);
+    expect(db.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-53][AC4] tells only the organiser that the request was rejected, with the reason", async () => {
+    await move("rejected", { status: "under_review" }, { reason: "  No venue is licensed overnight. " });
+
+    expect(told()).toEqual([
+      {
+        recipientId: ID.user,
+        type: "event_rejected",
+        title: "Event request rejected",
+        body: '"Gala Dinner" has been rejected. Reason: No venue is licensed overnight.',
+        eventId: ID.event,
+      },
+    ]);
+    expect(db.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-53][AC4] tells no one when the decision is refused", async () => {
+    await move("rejected", { status: "under_review" });
+
+    expect(db.notification.create).not.toHaveBeenCalled();
   });
 });

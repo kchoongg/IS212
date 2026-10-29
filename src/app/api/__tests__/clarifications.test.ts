@@ -20,7 +20,8 @@
 //     never writes the event or its status history (AC3);
 //     201 { id, fields: string[], message, requestedAt, requester: { fullName } } - the same
 //       shape as GET /api/events/[id]'s openClarification.
-//   Notifying the organiser is SPM-53's, not this route's.
+//   SPM-53 (AC2): the organiser who owns the event is notified, with the message, in the
+//   same transaction.
 
 import { describe, it, expect, vi } from "vitest";
 import { Prisma } from "@prisma/client";
@@ -262,5 +263,26 @@ describe("POST /api/events/[id]/clarifications - asking", () => {
     expect(db.event.update).not.toHaveBeenCalled();
     expect(db.event.updateMany).not.toHaveBeenCalled();
     expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
+  });
+});
+
+describe("POST /api/events/[id]/clarifications - telling the organiser (SPM-53)", () => {
+  it("[SPM-53][AC2][AC20] notifies the organiser who owns the event, with the message", async () => {
+    await post(given());
+
+    expect(db.notification.create).toHaveBeenCalledOnce();
+    expect(callArg(db.notification.create).data).toEqual({
+      recipientId: ID.otherUser,
+      type: "clarification_requested",
+      title: "Clarification requested",
+      body: 'Your coordinator asked for clarification on "Gala Dinner": Is this a dinner or a conference? Which day?',
+      eventId: ID.event,
+    });
+  });
+
+  it("[SPM-53][AC2] tells no one when the clarification is refused", async () => {
+    await post(given({ open: created }));
+
+    expect(db.notification.create).not.toHaveBeenCalled();
   });
 });

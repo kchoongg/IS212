@@ -27,7 +27,7 @@ import {
   decodeFields,
 } from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
-import { notifyRole } from "@/lib/notifications";
+import { notifyRole, notifyUser } from "@/lib/notifications";
 import {
   CANCELLATION_REQUEST_APPROVED_NOTE,
   CHANGE_REQUEST_CLOSED_NOTE,
@@ -570,10 +570,28 @@ async function handleStatusChange(
       });
     }
 
+    await notifyStatusChange(tx, e);
+
     return e;
   });
 
   return NextResponse.json(updated);
+}
+
+/// SPM-53 (AC4): the organiser who owns the event hears the review outcome -
+/// approved, or rejected with the reason. No one else is told.
+async function notifyStatusChange(
+  tx: Prisma.TransactionClient,
+  event: { id: string; title: string | null; organiserId: string; status: string; rejectionReason: string | null }
+) {
+  const title = event.title ?? "Untitled event";
+  const content = {
+    approved: { title: "Event request approved", body: `"${title}" has been approved.` },
+    rejected: { title: "Event request rejected", body: `"${title}" has been rejected. Reason: ${event.rejectionReason}` },
+  }[event.status];
+  if (!content) return;
+
+  await notifyUser(tx, event.organiserId, { type: `event_${event.status}`, ...content, eventId: event.id });
 }
 
 /// A refusal decided inside the resubmit's transaction (SPM-26), turned into
@@ -830,6 +848,16 @@ async function handleDraftEdit(
         data: { status: "answered", respondedAt: new Date() },
       });
       if (answered.count === 0) throw new ResubmitRefused(CLARIFICATION_NONE_OPEN);
+
+      // SPM-53 (AC3): the coordinator who asked hears that it was answered.
+      if (event.coordinatorId) {
+        await notifyUser(tx, event.coordinatorId, {
+          type: "clarification_answered",
+          title: "Clarification answered",
+          body: `The organiser has responded to your clarification request on "${data.title ?? event.title ?? "Untitled event"}".`,
+          eventId: id,
+        });
+      }
     }
 
     // A field that's being replaced is cleared first and rebuilt from the

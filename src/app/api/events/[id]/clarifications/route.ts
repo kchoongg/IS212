@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
+import { notifyUser } from "@/lib/notifications";
 import { REVIEWABLE_STATUSES, canRequestClarification } from "@/lib/permissions";
 import {
   CLARIFICATION_ALREADY_OPEN,
@@ -29,8 +30,8 @@ class AlreadyOpen extends Error {}
  * The event stays Under review: nothing here writes the event or its status
  * history (AC3). One clarification is open at a time: checked before the
  * create, and held by a partial unique index for two requests at the same
- * moment, which a check alone cannot stop (PR #70 review). Notifying the
- * organiser is SPM-53's.
+ * moment, which a check alone cannot stop (PR #70 review). The organiser
+ * is notified in the same transaction (SPM-53).
  */
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -62,10 +63,18 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const created = await prisma.$transaction(async (tx) => {
       const open = await tx.clarificationRequest.findFirst({ where: { eventId: event.id, status: "open" } });
       if (open) throw new AlreadyOpen();
-      return tx.clarificationRequest.create({
+      const created = await tx.clarificationRequest.create({
         data: { eventId: event.id, requestedBy: actor.id, message: message.trim(), fields: encodeFields(fields) },
         include: { requester: { select: { fullName: true } } },
       });
+      // SPM-53 (AC2): the organiser who owns the event, with the message.
+      await notifyUser(tx, event.organiserId, {
+        type: "clarification_requested",
+        title: "Clarification requested",
+        body: `Your coordinator asked for clarification on "${event.title ?? "Untitled event"}": ${created.message}`,
+        eventId: event.id,
+      });
+      return created;
     });
 
     return NextResponse.json(
