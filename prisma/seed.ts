@@ -2446,6 +2446,7 @@ async function main() {
     spm53("spm53_equipment", "SPM53 Harbour Equipment Fair", "planning", "2028-03-28"),
     spm53("spm53_change_review", "SPM53 Harbour Change Review", "planning", "2028-04-06",
       { description: "Quarterly briefing." }),
+    spm53("spm53_edit", "SPM53 Harbour Edit Forum", "approved", "2028-04-11", { description: "Morning session." }),
     spm53("spm53_confirmed_gala", "SPM53 Harbour Confirmed Gala", "confirmed", "2028-04-18",
       { description: "Gala dinner for key clients.", regEnabled: true, regCapacity: 40 }),
     spm53("spm53_ready", "SPM53 Harbour Ready Launch", "planning", "2028-04-27"),
@@ -2454,6 +2455,7 @@ async function main() {
       { days: -1, startHour: 19, durationHours: 3 }),
     spm53("spm53_postpone", "SPM53 Harbour Postponed Fair", "confirmed", "2028-05-04", { regEnabled: true, regCapacity: 40 }),
     spm53("spm53_cancel", "SPM53 Harbour Cancelled Summit", "confirmed", "2028-05-09", { regEnabled: true, regCapacity: 40 }),
+    spm53("spm53_live", "SPM53 Harbour Live Update", "under_review", "2028-05-11"),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};
