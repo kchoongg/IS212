@@ -204,6 +204,91 @@
       ],
       "test_data": "Coordinator: priya.raj@connectsphere.com (not assigned) | Event: SPM57 VIP Gala Dinner",
       "expected_result": "Step 1: The event opens with no 'Attendees' tab.\nStep 3: The page shows 'Not authorised' and 'You can only view the registrations for events you are responsible for.' There is no 'Add attendee' button."
+    },
+    {
+      "id": "SPM-57-TC10",
+      "title": "A place on offer to someone on the waiting list counts against the venue's capacity, so a VIP can only take it once the offer is declined",
+      "linked_ac": [
+        "AC3",
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm57 just before this case, and again after it (an offer is declined and an attendee is added).\n'SPM57 Held Place Recital' is booked in SPM57 Salon (SPM57-SAL), Theatre layout, which seats 4. Its registration capacity is 4: 3 attendees are registered and the 4th place is on offer to Kavitha Menon from the waiting list (Join and Respond to Waiting List, SPM-66), standing for 3 days from when the fixtures were loaded.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM57 Held Place Recital'",
+        "Click the 'Attendees' tab",
+        "Click 'Add attendee'",
+        "Type lee.wei.ming@example.com in 'Attendee email'",
+        "Click 'Add attendee' in the form",
+        "Log out, then log in as kavitha.menon@example.com / password123 (Kavitha Menon, an Attendee)",
+        "Click 'My Registrations' in the sidebar and click the 'SPM57 Held Place Recital' row",
+        "Click 'Decline'",
+        "Click 'Decline place' in the dialog",
+        "Log out, then log in as daniel.tan@connectsphere.com / password123",
+        "Click 'All Events' in the sidebar, open 'SPM57 Held Place Recital' and click the 'Attendees' tab",
+        "Click 'Add attendee'",
+        "Type lee.wei.ming@example.com in 'Attendee email'",
+        "Click 'Add attendee' in the form"
+      ],
+      "test_data": "Event: SPM57 Held Place Recital (venue capacity 4, 3 registered, 1 place on offer) | Waiting: kavitha.menon@example.com (Kavitha Menon) | VIP: lee.wei.ming@example.com (Lee Wei Ming)",
+      "expected_result": "Step 2: The page reads '3 of 4 places taken · 1 on the waiting list' and 'Venue capacity: 4 · SPM57 Salon (SPM57-SAL), Theatre layout'. Kavitha Menon's row shows 'Waiting list' and 'Place offered until <date and time 3 days after the fixtures were loaded>'.\nStep 5: A red alert in the form reads 'This event has reached its venue capacity: 4 attendees in SPM57 Salon (SPM57-SAL), Theatre layout, counting 1 place on offer to the waiting list. No more attendees can be added.' The form stays open, Lee Wei Ming is not in the table, and the line still reads '3 of 4 places taken · 1 on the waiting list'.\nStep 7: The 'Your registration' card shows 'A place is available for you'.\nStep 8: A dialog 'Decline this place?' says 'The place goes to the next person on the waiting list, and you leave the waiting list.', with 'Keep the offer' and 'Decline place'.\nStep 9: 'You have declined the place.' appears.\nStep 11: The line reads '3 of 4 places taken · 0 on the waiting list', and Kavitha Menon's row shows 'Withdrawn'.\nStep 14: A green alert reads 'Lee Wei Ming has been added to the registration list.' The line reads '4 of 4 places taken · 0 on the waiting list', and Lee Wei Ming's row shows 'Added by Daniel Tan' and 'Registered'."
+    },
+    {
+      "id": "SPM-57-TC11",
+      "title": "Attendees cannot be added to a Confirmed event once it has started",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Test data loaded: npm run fixtures:spm57 has been run.\n'SPM57 Opening Exhibition' is Confirmed with registration turned on and 1 attendee registered. It started on 26 Oct 2026, 10:00 and runs to 31 Dec 2027, 18:00.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).\nNothing is saved in this case.",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM57 Opening Exhibition'",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM57 Opening Exhibition (Confirmed, started 26 Oct 2026)",
+      "expected_result": "Step 2: The page reads '1 of 40 places taken · 0 on the waiting list' and 'Venue capacity: 60 · SPM57 Hall (SPM57-HAL), Theatre layout'. A blue alert reads 'This event has started, so attendees can no longer be added.' There is no 'Add attendee' button."
+    },
+    {
+      "id": "SPM-57-TC12",
+      "title": "While the venue capacity isn't known the coordinator is told why instead of being offered 'Add attendee', until a booking is chosen to measure against",
+      "linked_ac": [
+        "AC3"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm57 before and after this case (it changes the registration settings).\n'SPM57 Two Room Forum' is Confirmed with registration turned on (capacity 20) and has approved bookings in both SPM57 Hall (SPM57-HAL, 60 as a theatre) and SPM57 Salon (SPM57-SAL, 4 as a theatre); neither is chosen to measure registration against.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM57 Two Room Forum'",
+        "Click the 'Attendees' tab",
+        "Click the 'Overview' tab, then 'Change registration settings' on the Registration card",
+        "Choose 'SPM57 Hall (SPM57-HAL) · Theatre · up to 60 · Approved' in 'Capacity measured against'",
+        "Click 'Save registration settings'",
+        "Click the 'Attendees' tab"
+      ],
+      "test_data": "Event: SPM57 Two Room Forum (bookings in SPM57 Hall and SPM57 Salon, neither chosen) | Booking chosen: SPM57 Hall",
+      "expected_result": "Step 2: The page reads '0 of 20 places taken · 0 on the waiting list' and a blue alert reads 'This event's venue capacity isn't known, so attendees can't be added. Choose the venue booking registration is measured against in the Registration settings first.' There is no 'Venue capacity' line and no 'Add attendee' button.\nStep 3: 'Capacity measured against' offers 'Choose a booking', 'SPM57 Hall (SPM57-HAL) · Theatre · up to 60 · Approved' and 'SPM57 Salon (SPM57-SAL) · Theatre · up to 4 · Approved'.\nStep 5: A green alert 'Registration settings saved.' appears and the card shows 'SPM57 Hall (SPM57-HAL), Theatre layout – up to 60' as what the capacity is measured against.\nStep 6: The page reads 'Venue capacity: 60 · SPM57 Hall (SPM57-HAL), Theatre layout', the alert about the venue capacity is gone, and the 'Add attendee' button is shown."
+    },
+    {
+      "id": "SPM-57-TC13",
+      "title": "Re-adding a withdrawn attendee with the requirements left blank does not bring back the requirements they gave before",
+      "linked_ac": [
+        "AC4",
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm57 before and after this case (it changes a registration).\nOn 'SPM57 Returning Guest Brunch' (registration capacity 10), Bryan Chua registered on 2 Oct 2026 with 'Vegetarian' and 'Step-free access' as requirements, and withdrew on 9 Oct 2026, 15:00. 1 other attendee is registered.\nLogged in as Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM57 Returning Guest Brunch'",
+        "Click the 'Attendees' tab",
+        "Click 'Add attendee'",
+        "Type bryan.chua@example.com in 'Attendee email' and leave 'Dietary requirements' and 'Accessibility requirements' empty",
+        "Click 'Add attendee' in the form"
+      ],
+      "test_data": "Event: SPM57 Returning Guest Brunch | Attendee: bryan.chua@example.com (Bryan Chua, withdrawn, gave 'Vegetarian' and 'Step-free access') | Requirements: both left empty",
+      "expected_result": "Step 2: The page reads '1 of 10 places taken · 0 on the waiting list'. Bryan Chua's row shows 'Dietary: Vegetarian' and 'Accessibility: Step-free access' under the name, 'Withdrawn', and 'Withdrew 9 Oct 2026, 15:00'.\nStep 5: A green alert reads 'Bryan Chua has been added to the registration list.' The line reads '2 of 10 places taken · 0 on the waiting list'. Bryan Chua is listed once, with 'Added by Daniel Tan', 'Registered' and today's date and time, and no 'Dietary', 'Accessibility' or 'Withdrew' line."
     }
   ],
   "open_questions": [
@@ -216,7 +301,10 @@
     "DECIDED 2026-10-28: AC4 'recorded the same way'. The same Registration row as self-registration: status Registered, registered now, with the dietary and accessibility requirements, plus 'added by' set to the coordinator (SPM-65 AC4). Someone who had withdrawn is registered again on their existing row, as POST /api/registrations does. The attendee sees it in My Registrations and on the event exactly as a self-registration (TC02), and can withdraw it.",
     "DECIDED 2026-10-28: so the requirements can be checked, the Attendees tab shows 'Dietary: <text>' and 'Accessibility: <text>' under an attendee's name when they gave any, for every registration - self-registered ones too. Nothing showed them before.",
     "RESOLVED 2026-10-28: notifying the attendee that they were added is not in this story's ACs. It is Notify people (SPM-53)'s follow-up, which its own changelog says waits for SPM-57.",
-    "Should the coordinator be able to add an attendee once the event has started or ended while it is still Confirmed? No AC limits it, so nothing does. SPM-64 stops changing the registration period once the event starts."
+    "RESOLVED 2026-10-29: should the coordinator be able to add an attendee once the event has started or ended while it is still Confirmed? No, from the moment it starts (raised in review; to be confirmed by the team): self-registration closes by the start at the latest, and Join and Respond to Waiting List (SPM-66) stops offering places then. Refused with 'This event has started, so attendees can no longer be added.', shown in place of 'Add attendee' (TC11). An event that has ended is refused the same way; it becomes Completed within 7 days, so no fixture can keep one Confirmed and ended, and that is left to the unit tests.",
+    "DECIDED 2026-10-29 (changes the 2026-10-28 capacity entry): since SPM-66 a place on offer to someone on the waiting list is held, so AC3 counts it against the venue capacity with the Registered and Attended seats (placeCounts()). At capacity because of an offer the refusal adds ', counting 1 place on offer to the waiting list' ('places' for more than one) before '. No more attendees can be added.' (TC10).",
+    "DECIDED 2026-10-29 (changes the 2026-10-28 capacity entry): an unknown venue capacity is a reason no attendee can be added, shown in a blue alert in place of 'Add attendee' as for the other reasons, rather than an error after the form is filled in. Reachable with the fixtures now (SPM57 Two Room Forum, TC12).",
+    "DECIDED 2026-10-29 (changes the 2026-10-28 AC4 entry): a requirement left blank when an attendee is added is recorded as none, so re-adding a withdrawn attendee clears what they gave before (TC13). Registering again through Register (SPM-51) still keeps the old values; that is SPM-51's to change."
   ],
   "code_references": [
     "src/app/api/events/[id]/registrations/route.ts",
@@ -233,6 +321,9 @@
     "src/app/registrations/page.tsx",
     "prisma/schema.prisma",
     "scripts/seed-spm57.ts",
-    "prisma/seed.ts"
+    "prisma/seed.ts",
+    "src/lib/waitingList.ts",
+    "src/lib/waitingListService.ts",
+    "src/app/events/[id]/RegistrationCard.tsx"
   ]
 }
