@@ -1053,6 +1053,69 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-28 — Kristen (SPM-77, review fixes)
+- A waiting suggestion reads "… waiting for the Coordinator's decision" on
+  the Readiness tab and in the safety-check refusal, not "your decision":
+  any coordinator can open the Readiness tab, not only the assigned one.
+- **Accepting clears the line's waiver and flag:** a line the Coordinator had
+  marked not required, or that was flagged for review, becomes the
+  alternative as a plain Requested line, so the event cannot be confirmed
+  before the alternative is reserved (`acceptChanges()`).
+- **Recording and accepting read the line inside their transaction:** POST
+  checks the line's status as it is then, and PATCH accept builds the change
+  from that copy and refuses an alternative that has been retired since
+  ("This equipment has been retired and can no longer be requested").
+  `loadAlternativeAvailability()` now takes the requirement its caller has
+  already read (`ALTERNATIVE_REQUEST_SELECT`), so the availability route
+  reads it once.
+- A unique-index refusal is recognised by Prisma's `P2002` code, not by the
+  error's wording.
+- **Screens:** the alternative list leaves out only the items requested for
+  the line's own session, as the route does; the availability check waits
+  300 ms after typing stops; "Decide on the Equipment tab" on the Readiness
+  tab shows only for the assigned Coordinator in Planning (`canManage`).
+- Manual cases SPM-77-TC13 to TC15 added, with two fixture events
+  (SPM77 Waived Banquet, SPM77 Two-Day Summit) in `npm run fixtures:spm77`
+  and `prisma/seed.ts`.
+
+### 2026-10-27 — Kristen (SPM-77, Suggest Alternative Equipment)
+- **Technical Support can suggest an alternative** for a line marked Cannot be
+  provided or Partially fulfilled: another catalogue item, a quantity and a
+  required note (`POST /api/events/[id]/equipment/[requestId]/suggestion`).
+  The form shows the item's availability for the event's dates first
+  (`GET .../suggestion/availability`, `loadAlternativeAvailability()`), and an
+  alternative that falls short cannot be recorded. One suggestion waits per
+  line at a time. Recording one reserves nothing and changes nothing on the
+  line (AC7). The assigned Coordinator is notified
+  (`equipment_alternative_suggested`, linking to the Equipment tab).
+- **The assigned Coordinator accepts or declines it** on the Equipment tab
+  (`PATCH .../suggestion`). Accepting replaces a Cannot-be-provided line with
+  the alternative, back to Requested for Technical Support to reserve; on a
+  partly fulfilled line it keeps what is reserved and adds the alternative as
+  its own line (AC8, team decision). Declining leaves the line as it was.
+  Recording, accepting and declining happen in Planning only. Rules in
+  `src/lib/equipmentSuggestion.ts`.
+- **A waiting suggestion keeps the event in Planning:** "Submit for safety
+  check" is refused, naming the item and the alternative, until the
+  Coordinator accepts or declines it (`checkSafetySubmission()`), so a
+  suggestion is never stranded outside the window it can be decided in.
+  The Readiness tab shows the same item as Outstanding ("… has a suggested
+  alternative (…) waiting for the Coordinator's decision"), with a "Decide on the
+  Equipment tab" link: the rule is in `arrangementsFor()`, which the
+  safety-check refusal and Confirm read too. It cannot be marked as not
+  required while it waits, and one already marked so shows as Outstanding
+  until the suggestion is decided.
+  Technical Support is not notified of the decision, as they are not notified
+  of any other change to a requirement.
+- New table `equipment_suggestions` (`EquipmentSuggestion`), with a partial
+  unique index allowing one pending suggestion per line. Migration:
+  `20261027120000_add_equipment_suggestions`.
+- Tests written first: `equipmentSuggestion.test.ts`,
+  `equipment-suggestion.test.ts`, and additions to the equipment route,
+  availability, notification and equipment page tests. Manual cases:
+  `docs/test-cases/SPM-77_Test_Cases.xlsx` (10), fixtures
+  `npm run fixtures:spm77`.
+
 ### 2026-10-27 — Kayalvizhi (SPM-38, Postpone Event)
 - **The assigned coordinator can postpone an event with no new date yet**, from
   Approved, Planning, Safety review, Safety approved or Confirmed. Approved,

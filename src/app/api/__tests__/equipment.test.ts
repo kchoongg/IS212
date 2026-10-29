@@ -33,6 +33,16 @@ describe("GET /api/equipment", () => {
     }
   );
 
+  // Every equipment picker and the catalogue page list it in this order.
+  it("[SPM-77][AC1] lists the catalogue in alphabetical order of name", async () => {
+    const token = signIn(user("tech_support"));
+    db.equipment.findMany.mockResolvedValue([]);
+
+    await GET(req("GET", "/api/equipment", { token }));
+
+    expect(callArg(db.equipment.findMany).orderBy).toEqual({ name: "asc" });
+  });
+
   it("[SPM-48] includes retired equipment for Technical Support when asked", async () => {
     const token = signIn(user("tech_support"));
     db.equipment.findMany.mockResolvedValue([]);

@@ -79,6 +79,8 @@ interface Arrangement {
   notRequiredAt: string | null;
   blocksConfirmation: boolean;
   note: string;
+  /// SPM-77: a suggested alternative is waiting for the Coordinator's decision.
+  awaitingDecision?: boolean;
 }
 
 const MARKED_AT = "2026-10-08T03:00:00.000Z";
@@ -325,6 +327,51 @@ describe("Event Readiness tab (SPM-33)", () => {
   });
 
   describe("what it lists", () => {
+    // SPM-77: decided on the Equipment tab, so the row points there.
+    it("[SPM-77][AC5][AC6] sends the coordinator to the Equipment tab to decide on a waiting suggestion", async () => {
+      open([
+        auditorium,
+        outstanding({
+          kind: "equipment",
+          id: "r4",
+          name: "Ring Light",
+          status: "partially_fulfilled",
+          waivable: false,
+          awaitingDecision: true,
+          missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
+        }),
+      ]);
+      const item = await row("Ring Light");
+
+      expect(item).toHaveTextContent("has a suggested alternative (Podium Light) waiting for the Coordinator's decision");
+      expect(within(item).getByRole("link", { name: "Decide on the Equipment tab" })).toHaveAttribute(
+        "href",
+        "/events/EVT-000007/equipment"
+      );
+      expect(within(item).queryByRole("button", { name: "Mark as not required" })).not.toBeInTheDocument();
+      expect(within(await row("Marina Auditorium")).queryByRole("link", { name: "Decide on the Equipment tab" })).not.toBeInTheDocument();
+    });
+
+    // Only coordinators see this tab; canManage is the assigned one, in Planning.
+    it.each([
+      ["a coordinator not assigned to the event", {}],
+      ["the assigned coordinator once the event has left Planning", { event: { sequenceNumber: 7, title: "Gala Dinner", status: "safety_review" } }],
+    ])("[SPM-77][AC9] does not send %s to decide on a waiting suggestion", async (_who, overrides) => {
+      const ringLight = outstanding({
+        kind: "equipment",
+        id: "r4",
+        name: "Ring Light",
+        status: "partially_fulfilled",
+        waivable: false,
+        awaitingDecision: true,
+        missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
+      });
+      open([ringLight], { [LIST]: payload([ringLight], { canManage: false, ...overrides }) });
+      const item = await row("Ring Light");
+
+      expect(item).toHaveTextContent("has a suggested alternative (Podium Light) waiting for the Coordinator's decision");
+      expect(within(item).queryByRole("link", { name: "Decide on the Equipment tab" })).not.toBeInTheDocument();
+    });
     // SPM-90 AC5 (written before the code).
     it("[SPM-90][AC5] SPM-90-TC07: shows what each booked space is for, before its booking status", async () => {
       open([

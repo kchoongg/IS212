@@ -25,8 +25,11 @@ export async function GET(req: NextRequest) {
   // (SPM-39). Someone who manages the catalogue can still ask for everything.
   const includeInactive =
     req.nextUrl.searchParams.get("includeInactive") === "true" && can(actor.role, "equipment:manage");
+  // Alphabetical, so every picker built from this list (event request form,
+  // Equipment tab, Suggest alternative) and the catalogue page read the same.
   const items = await prisma.equipment.findMany({
     where: includeInactive ? undefined : { isActive: true },
+    orderBy: { name: "asc" },
   });
   // ADDED (SPM-55 AC6): operational status - how many units are out of
   // service, which kind and why - is internal. The organiser's request form

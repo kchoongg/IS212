@@ -57,6 +57,34 @@ describe("checkSafetySubmission - ready (AC1)", () => {
   });
 });
 
+// SPM-77: a suggested alternative still waiting for the Coordinator's decision
+// keeps the event in Planning, where the decision can be made.
+describe("checkSafetySubmission - a suggested alternative waiting for a decision (SPM-77)", () => {
+  const waiting = "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision";
+
+  it("[SPM-77][AC5][AC6] refuses while a partly fulfilled item has one, naming the item and the alternative", () => {
+    const result = check({
+      bookings: [booking()],
+      equipment: [item(), item({ status: "partially_fulfilled", equipmentName: "Ring Light", pendingSuggestion: "Podium Light" })],
+    });
+
+    expect(result).toEqual({ ok: false, error: `${PREFIX}${waiting}.`, outstanding: [waiting] });
+  });
+
+  it("[SPM-77][AC5][AC6] refuses even when the item was marked as not required - decline the suggestion instead", () => {
+    const result = check({
+      bookings: [booking()],
+      equipment: [item({ status: "unavailable", equipmentName: "Ring Light", notRequired: true, pendingSuggestion: "Podium Light" })],
+    });
+
+    expect(!result.ok && result.outstanding).toEqual([waiting]);
+  });
+
+  it("[SPM-77][AC5][AC6] accepts an item whose suggestion has been decided", () => {
+    expect(check({ bookings: [booking()], equipment: [item({ pendingSuggestion: null })] })).toEqual({ ok: true });
+  });
+});
+
 describe("checkSafetySubmission - refused (AC2)", () => {
   it("[SPM-86][AC2] names a pending venue and an unreserved item, and not the item that is reserved", () => {
     const result = check({

@@ -1,0 +1,407 @@
+{
+  "story_key": "SPM-77",
+  "story_title": "As Technical Support Staff, I want to suggest alternative equipment when a requested item cannot be fully provided so that the Event Coordinator can decide how to meet the requirement",
+  "created_by": "kchoongg",
+  "creation_date": "2026-10-27",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given an equipment requirement is unavailable or only partially fulfilled, when Technical Support Staff review it, then they can record a suggested alternative, including the equipment type, quantity and a note."
+    },
+    {
+      "id": "AC2",
+      "text": "The system shows whether the suggested alternative is available for the event's dates before it is recorded."
+    },
+    {
+      "id": "AC3",
+      "text": "The suggestion is associated with the equipment requirement it relates to and is visible to the assigned Event Coordinator."
+    },
+    {
+      "id": "AC4",
+      "text": "The assigned Event Coordinator is notified when an alternative is suggested."
+    },
+    {
+      "id": "AC5",
+      "text": "The Event Coordinator can accept a suggestion, which updates the equipment requirement to the alternative for Technical Support Staff to reserve."
+    },
+    {
+      "id": "AC6",
+      "text": "The Event Coordinator can decline a suggestion, which leaves the original requirement unchanged."
+    },
+    {
+      "id": "AC7",
+      "text": "A suggestion does not reserve equipment or change the requirement by itself."
+    },
+    {
+      "id": "AC8",
+      "text": "Equipment that is available continues to be reserved for the event even while another requirement is awaiting a decision on an alternative."
+    },
+    {
+      "id": "AC9",
+      "text": "Only Technical Support Staff can record a suggestion, and only the assigned Event Coordinator can accept or decline it."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-77-TC01",
+      "title": "Technical Support sees an alternative's availability for the event's dates, cannot record more than is available, and records a suggestion that then shows on the line",
+      "linked_ac": [
+        "AC1",
+        "AC2",
+        "AC3"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Ring Light Showcase (1 Aug 2028) requests 4 Ring Light, marked 'Cannot be provided' (only 2 are in stock). Nothing else holds Podium Light (4 in stock) that day.\nData: run `npm run fixtures:spm77` first. Go straight on to SPM-77-TC02, and run the script again after it.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Ring Light Showcase event",
+        "On the Ring Light line, click 'Suggest alternative'",
+        "In 'Alternative item', choose 'Podium Light — Staging'",
+        "In 'Note for the Coordinator', enter 'Three podium lights light the stage as evenly.'",
+        "Change 'Quantity' to 5",
+        "Click 'Record suggestion'",
+        "Change 'Quantity' to 3",
+        "Click 'Record suggestion'"
+      ],
+      "test_data": "Event: SPM77 Ring Light Showcase\nLine: Ring Light, 4 requested, Cannot be provided\nAlternative: Podium Light (4 in stock), quantity 5 then 3\nNote: Three podium lights light the stage as evenly.",
+      "expected_result": "Step 2: The Ring Light line shows Status 'Cannot be provided' with 'Technical Support notes: Only 2 ring lights are in stock.' and a 'Suggest alternative' button.\nStep 3: A 'Suggest alternative' form opens on the line with 'Alternative item' (empty, 'Choose an item'), 'Quantity' (4) and 'Note for the Coordinator' (empty). The 'Alternative item' list does not offer Ring Light.\nStep 4: '4 available for these dates — enough for this suggestion.' appears under 'Quantity'.\nStep 6: The message changes to 'Only 4 available for this event's dates.'\nStep 7: Nothing is recorded: the form stays open and the line shows no suggestion.\nStep 8: The message changes back to '4 available for these dates — enough for this suggestion.'\nStep 9: The form closes. 'Suggestion sent to the Coordinator.' appears on the line, which now reads 'Suggested alternative: 3 × Podium Light — waiting for the Coordinator's decision.', 'Note: Three podium lights light the stage as evenly.' and 'Suggested by Vikram Nair' with today's date and time. 'Suggest alternative' is no longer offered on the line. The line still shows Requested 4 and Status 'Cannot be provided'."
+    },
+    {
+      "id": "SPM-77-TC02",
+      "title": "The assigned Coordinator is notified of a suggested alternative and sees it, with its note, on the requirement it is about",
+      "linked_ac": [
+        "AC3",
+        "AC4"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-77-TC01 has just been run (3 Podium Light were suggested for the Ring Light line of SPM77 Ring Light Showcase). Daniel Tan is the event's assigned Coordinator.\nData: run `npm run fixtures:spm77` after this case.",
+      "steps": [
+        "Click 'Log out'",
+        "Log in as the Event Coordinator (daniel.tan@connectsphere.com, password123)",
+        "Click 'Notifications' in the sidebar",
+        "Click the 'Alternative equipment suggested' notification"
+      ],
+      "test_data": "Event: SPM77 Ring Light Showcase\nSuggestion: 3 × Podium Light, 'Three podium lights light the stage as evenly.'",
+      "expected_result": "Step 3: The list shows an unread notification 'Alternative equipment suggested' reading 'Technical Support suggested 3 Podium Light in place of Ring Light for SPM77 Ring Light Showcase. Note: Three podium lights light the stage as evenly.'\nStep 4: The Equipment tab of SPM77 Ring Light Showcase opens. The Ring Light row still shows the status 'Cannot be provided' and Quantity 4, and under it 'Suggested alternative: 3 × Podium Light', 'Note: Three podium lights light the stage as evenly.' and 'Suggested by Vikram Nair' with a date and time, with 'Accept' and 'Decline' buttons."
+    },
+    {
+      "id": "SPM-77-TC03",
+      "title": "The suggestion form refuses an alternative that falls short, a missing note and a quantity of 0, and Cancel records nothing",
+      "linked_ac": [
+        "AC1",
+        "AC2"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "On 8 Aug 2028 SPM77 Stage Shortfall Talk requests 3 Ring Light, marked 'Cannot be provided', and SPM77 Stage Rival Fair has reserved 4 of the 6 Portable Stage, leaving 2 free.\nData: run `npm run fixtures:spm77` first. This case changes nothing.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Stage Shortfall Talk event",
+        "On the Ring Light line, click 'Suggest alternative'",
+        "In 'Alternative item', choose 'Portable Stage — Staging'",
+        "Click 'Record suggestion'",
+        "Change 'Quantity' to 2",
+        "Change 'Quantity' to 0",
+        "In 'Note for the Coordinator', enter 'Raise the speakers instead.'",
+        "Click 'Record suggestion'",
+        "Click 'Cancel'"
+      ],
+      "test_data": "Event: SPM77 Stage Shortfall Talk (Ring Light, 3 requested)\nAlternative: Portable Stage, 2 of 6 free that day\nQuantities: 3 (starting value), 2, 0\nNote: Raise the speakers instead.",
+      "expected_result": "Step 3: The 'Suggest alternative' form opens with 'Quantity' 3.\nStep 4: 'Only 2 available for this event's dates.' appears under 'Quantity'.\nStep 5: 'Add a note for the Coordinator.' appears under 'Note for the Coordinator'. Nothing is recorded: the form stays open and the line shows no suggestion.\nStep 6: The availability message changes to '2 available for these dates — enough for this suggestion.'\nStep 7: The availability message disappears.\nStep 9: 'Enter a whole number of at least 1.' appears under 'Quantity'. Nothing is recorded.\nStep 10: The form closes. The Ring Light line shows no suggestion and 'Suggest alternative' is offered again."
+    },
+    {
+      "id": "SPM-77-TC04",
+      "title": "The Coordinator accepts an alternative for an item that cannot be provided: the requirement becomes the alternative and Technical Support can reserve it",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Accept Gala (15 Aug 2028) requests 4 Ring Light, marked 'Cannot be provided', with a suggestion of 3 × Podium Light waiting for a decision. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Accept Gala event",
+        "Click the 'Equipment' tab",
+        "On the Ring Light row, click 'Accept'",
+        "In the dialog, click 'Cancel'",
+        "On the Ring Light row, click 'Accept' again",
+        "In the dialog, click 'Accept'",
+        "Click 'Log out'",
+        "Log in as Technical Support Staff (vikram.nair@connectsphere.com, password123)",
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Accept Gala event",
+        "On the Podium Light line, click 'Reserve'"
+      ],
+      "test_data": "Event: SPM77 Accept Gala\nRequirement: 4 Ring Light (Cannot be provided)\nSuggestion: 3 × Podium Light (4 in stock)",
+      "expected_result": "Step 3: The Ring Light row shows 'Suggested alternative: 3 × Podium Light' with 'Accept' and 'Decline' buttons.\nStep 4: A dialog 'Accept this alternative?' appears, saying 'This requirement changes from 4 Ring Light to 3 Podium Light, for Technical Support to reserve.'\nStep 5: The dialog closes. The Ring Light row and its suggestion are unchanged.\nStep 7: The dialog closes and 'Alternative accepted. Technical Support will reserve it.' appears above the list. The list now shows a Podium Light row with Quantity 3 and the status 'Requested' in place of Ring Light, with no Technical Support notes and no suggestion. The count still reads '1 item'.\nStep 11: The Podium Light line shows Requested 3, Reserved '—', Status 'Requested' and Availability 'Available', with a 'Reserve' button. There is no Ring Light line.\nStep 12: 'Reservation saved: 3 reserved.' appears on the line, which now shows Reserved 3 and Status 'Reserved'."
+    },
+    {
+      "id": "SPM-77-TC05",
+      "title": "Accepting an alternative for a partly fulfilled item keeps what is already reserved and adds the alternative as its own item",
+      "linked_ac": [
+        "AC5",
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Partial Forum (22 Aug 2028) requests 3 Ring Light, 2 of them reserved (Status 'Partially fulfilled'), with a suggestion of 1 × Podium Light waiting for a decision. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Partial Forum event",
+        "Click the 'Equipment' tab",
+        "On the Ring Light row, click 'Accept'",
+        "In the dialog, click 'Accept'"
+      ],
+      "test_data": "Event: SPM77 Partial Forum\nRequirement: 3 Ring Light, 2 reserved\nSuggestion: 1 × Podium Light",
+      "expected_result": "Step 3: The Ring Light row shows the status 'Partially fulfilled' and '2 reserved', and 'Suggested alternative: 1 × Podium Light'.\nStep 4: A dialog 'Accept this alternative?' appears, saying 'The 2 Ring Light already reserved stay reserved, and 1 Podium Light is added as its own item for Technical Support to reserve.'\nStep 5: 'Alternative accepted. Technical Support will reserve it.' appears. The list shows '2 items': Ring Light with Quantity 2, the status 'Reserved' and '2 reserved', and a new Podium Light row with Quantity 1 and the status 'Requested'. Neither row shows a suggestion."
+    },
+    {
+      "id": "SPM-77-TC06",
+      "title": "The Coordinator declines a suggested alternative and the original requirement stays as it was",
+      "linked_ac": [
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Decline Seminar (29 Aug 2028) requests 4 Ring Light, marked 'Cannot be provided', with a suggestion of 2 × Portable Stage waiting for a decision. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Decline Seminar event",
+        "Click the 'Equipment' tab",
+        "On the Ring Light row, click 'Decline'",
+        "Click 'Log out'",
+        "Log in as Technical Support Staff (vikram.nair@connectsphere.com, password123)",
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Decline Seminar event"
+      ],
+      "test_data": "Event: SPM77 Decline Seminar\nRequirement: 4 Ring Light (Cannot be provided)\nSuggestion: 2 × Portable Stage",
+      "expected_result": "Step 3: The Ring Light row shows 'Suggested alternative: 2 × Portable Stage' with 'Accept' and 'Decline' buttons.\nStep 4: 'Suggestion declined. The original requirement is unchanged.' appears above the list. The Ring Light row no longer shows the suggestion and is otherwise unchanged: Quantity 4, the status 'Cannot be provided' and 'Technical Support notes: Only 2 ring lights are in stock.'\nStep 8: The Ring Light line shows Requested 4 and Status 'Cannot be provided', with no suggestion on it and the 'Suggest alternative' button offered again."
+    },
+    {
+      "id": "SPM-77-TC07",
+      "title": "Recording a suggestion for a partly fulfilled item leaves its reservation as it is, and the event's other equipment can still be reserved while the decision is awaited",
+      "linked_ac": [
+        "AC1",
+        "AC7",
+        "AC8"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Keep Reserved Expo (5 Sep 2028) requests 3 Ring Light, 2 of them reserved (Status 'Partially fulfilled'), and 2 Podium Light, not yet reserved (Status 'Requested').\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Keep Reserved Expo event",
+        "On the Ring Light line, click 'Suggest alternative'",
+        "In 'Alternative item', choose 'Portable Stage — Staging'",
+        "In 'Note for the Coordinator', enter 'One stage riser for the speaker instead.'",
+        "Click 'Record suggestion'",
+        "On the Podium Light line, click 'Reserve'"
+      ],
+      "test_data": "Event: SPM77 Keep Reserved Expo\nRing Light: 3 requested, 2 reserved\nPodium Light: 2 requested\nAlternative: 1 × Portable Stage (6 in stock)\nNote: One stage riser for the speaker instead.",
+      "expected_result": "Step 2: The Ring Light line shows Requested 3, Reserved 2 and Status 'Partially fulfilled', with a 'Suggest alternative' button. The Podium Light line shows Status 'Requested' with a 'Reserve' button and no 'Suggest alternative' button.\nStep 3: The 'Suggest alternative' form opens with 'Quantity' 1 (what the line is still missing). The 'Alternative item' list offers neither Ring Light nor Podium Light.\nStep 4: '6 available for these dates — enough for this suggestion.' appears under 'Quantity'.\nStep 6: 'Suggestion sent to the Coordinator.' appears on the Ring Light line with 'Suggested alternative: 1 × Portable Stage — waiting for the Coordinator's decision.' The line still shows Requested 3, Reserved 2 and Status 'Partially fulfilled'.\nStep 7: 'Reservation saved: 2 reserved.' appears on the Podium Light line, which now shows Reserved 2 and Status 'Reserved'. The Ring Light line still shows its suggestion and Reserved 2."
+    },
+    {
+      "id": "SPM-77-TC08",
+      "title": "Technical Support and the event's Organiser see a suggested alternative but cannot accept or decline it",
+      "linked_ac": [
+        "AC3",
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Accept Gala (organised by Rachel Ng) requests 4 Ring Light with a suggestion of 3 × Podium Light waiting for a decision.\nData: run `npm run fixtures:spm77` first (if SPM-77-TC04 has been run since, the suggestion is gone). This case changes nothing.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Accept Gala event",
+        "Note the event reference at the end of the address in the browser address bar (it starts with EVT-)",
+        "Type /events/<reference from step 3>/equipment after the site address in the browser address bar (e.g. http://localhost:3000/events/<reference>/equipment) and press Enter",
+        "Click 'Log out'",
+        "Log in as the Event Organiser (rachel.ng@meridianfina.com, password123)",
+        "Click 'My Events' in the sidebar",
+        "Open the SPM77 Accept Gala event",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM77 Accept Gala\nSuggestion: 3 × Podium Light\nUsers: Vikram Nair (Technical Support), Rachel Ng (the event's Organiser)",
+      "expected_result": "Step 2: The Ring Light line reads 'Suggested alternative: 3 × Podium Light — waiting for the Coordinator's decision.' with 'Note: Three podium lights light the stage as evenly.' There is no 'Suggest alternative' button, and no 'Accept' or 'Decline' button.\nStep 4: The Equipment requirements page shows the Ring Light row with 'Suggested alternative: 3 × Podium Light' and its note, and no 'Accept' or 'Decline' button.\nStep 9: The Ring Light row shows 'Suggested alternative: 3 × Podium Light' and its note, and no 'Accept' or 'Decline' button."
+    },
+    {
+      "id": "SPM-77-TC09",
+      "title": "The assigned Coordinator cannot record a suggestion, and a Coordinator not assigned to the event cannot accept or decline one",
+      "linked_ac": [
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Accept Gala's assigned Coordinator is Daniel Tan; Priya Raj is another Coordinator. Its Ring Light line has a suggestion waiting for a decision.\nData: run `npm run fixtures:spm77` first (if SPM-77-TC04 has been run since). This case changes nothing.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Accept Gala event",
+        "Click the 'Equipment' tab and note the event reference shown under the page title (it starts with EVT-)",
+        "Type /equipment/requests/<reference from step 3> after the site address in the browser address bar (e.g. http://localhost:3000/equipment/requests/<reference>) and press Enter",
+        "Click 'Log out'",
+        "Log in as another Event Coordinator (priya.raj@connectsphere.com, password123)",
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Accept Gala event",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM77 Accept Gala\nAssigned Coordinator: Daniel Tan\nOther Coordinator: Priya Raj",
+      "expected_result": "Step 3: The Ring Light row shows the suggestion with 'Accept' and 'Decline' buttons.\nStep 4: The Equipment request page says 'Equipment availability is for Technical Support Staff.' and 'Only Technical Support Staff can check equipment availability.' No lines and no 'Suggest alternative' button are shown.\nStep 9: The Equipment tab says 'Only the coordinator assigned to this event can view and manage its equipment requirements.' No requirement, suggestion, 'Accept' or 'Decline' button is shown."
+    },
+    {
+      "id": "SPM-77-TC10",
+      "title": "On a Confirmed event no alternative can be suggested, and a waiting suggestion cannot be accepted or declined",
+      "linked_ac": [
+        "AC1",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Confirmed Dinner (12 Sep 2028) is Confirmed. Its Ring Light line is marked 'Cannot be provided' with no suggestion; its Podium Light line is marked 'Cannot be provided' with a suggestion of 2 × Portable Stage waiting for a decision. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm77` first. This case changes nothing.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Confirmed Dinner event",
+        "Click 'Log out'",
+        "Log in as the Event Coordinator (daniel.tan@connectsphere.com, password123)",
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Confirmed Dinner event",
+        "Click the 'Equipment' tab"
+      ],
+      "test_data": "Event: SPM77 Confirmed Dinner (Confirmed)\nRing Light: Cannot be provided, no suggestion\nPodium Light: Cannot be provided, 2 × Portable Stage suggested",
+      "expected_result": "Step 2: The page says 'This event is confirmed — its equipment is final. A change now goes through a change request.' Neither line has a 'Suggest alternative' button. The Podium Light line reads 'Suggested alternative: 2 × Portable Stage — waiting for the Coordinator's decision.'\nStep 7: The Podium Light row shows 'Suggested alternative: 2 × Portable Stage' and its note, followed by 'A suggestion can be accepted or declined while the event is in planning.' There is no 'Accept' or 'Decline' button."
+    },
+    {
+      "id": "SPM-77-TC11",
+      "title": "An event with a suggested alternative still waiting for the Coordinator's decision cannot be submitted for a safety check, so it stays in Planning where the decision can be made",
+      "linked_ac": [
+        "AC5",
+        "AC6"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Partial Forum (22 Aug 2028) is in Planning and requests 3 Ring Light, 2 of them reserved (Status 'Partially fulfilled'), with a suggestion of 1 × Podium Light waiting for a decision. It has no venue booked. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Partial Forum event",
+        "Click 'Submit for safety check'",
+        "In the dialog, click 'Submit'",
+        "Click the 'Equipment' tab",
+        "On the Ring Light row, click 'Decline'",
+        "Click the 'Overview' tab",
+        "Click 'Submit for safety check'",
+        "In the dialog, click 'Submit'"
+      ],
+      "test_data": "Event: SPM77 Partial Forum (Planning, no venue booked)\nRing Light: 3 requested, 2 reserved\nWaiting suggestion: 1 × Podium Light",
+      "expected_result": "Step 4: The dialog closes and the Overview shows 'This event cannot be submitted for a safety check yet: no venue is booked for this event; Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision.' The event's status is still 'Planning'.\nStep 6: 'Suggestion declined. The original requirement is unchanged.' appears, and the Ring Light row no longer shows the suggestion.\nStep 9: The Overview shows 'This event cannot be submitted for a safety check yet: no venue is booked for this event.' It no longer mentions Ring Light. The event's status is still 'Planning'."
+    },
+    {
+      "id": "SPM-77-TC12",
+      "title": "The Readiness tab shows an item with a suggested alternative waiting for a decision as Outstanding, points to the Equipment tab to decide it, and shows the item as Complete again once it is declined",
+      "linked_ac": [
+        "AC3",
+        "AC5",
+        "AC6"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Partial Forum (22 Aug 2028) is in Planning and requests 3 Ring Light, 2 of them reserved (Status 'Partially fulfilled'), with a suggestion of 1 × Podium Light waiting for a decision. Daniel Tan is its assigned Coordinator.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Partial Forum event",
+        "Click the 'Readiness' tab",
+        "On the Ring Light row, click 'Decide on the Equipment tab'",
+        "On the Ring Light row, click 'Decline'",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM77 Partial Forum\nRing Light: 3 requested, 2 reserved (Partially fulfilled)\nWaiting suggestion: 1 × Podium Light",
+      "expected_result": "Step 3: The Ring Light row is marked 'Outstanding' and reads 'Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision.', with a 'Decide on the Equipment tab' link and no 'Mark as not required' button.\nStep 4: The Equipment tab of SPM77 Partial Forum opens. The Ring Light row shows 'Suggested alternative: 1 × Podium Light' with 'Accept' and 'Decline' buttons.\nStep 5: 'Suggestion declined. The original requirement is unchanged.' appears, and the Ring Light row no longer shows the suggestion.\nStep 6: The Ring Light row is now marked 'Complete', with no 'Decide on the Equipment tab' link."
+    },
+    {
+      "id": "SPM-77-TC13",
+      "title": "Accepting an alternative for an item the Coordinator had marked not required makes the alternative Outstanding on the Readiness tab, so it still has to be reserved before the event can be confirmed",
+      "linked_ac": [
+        "AC5"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Waived Banquet (19 Sep 2028) is in Planning and requests 4 Ring Light, marked 'Cannot be provided'. Daniel Tan, its assigned Coordinator, marked the Ring Light 'Not required' before Technical Support suggested 2 × Podium Light, which is waiting for a decision. Nothing else holds Podium Light (4 in stock) that day.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as the Event Coordinator (daniel.tan@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Waived Banquet event",
+        "Click the 'Readiness' tab",
+        "On the Ring Light row, click 'Decide on the Equipment tab'",
+        "On the Ring Light row, click 'Accept'",
+        "In the dialog, click 'Accept'",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM77 Waived Banquet\nRequirement: 4 Ring Light (Cannot be provided), marked Not required\nSuggestion: 2 × Podium Light (4 in stock)",
+      "expected_result": "Step 3: The Ring Light row is marked 'Outstanding' (not 'Not required') and reads 'Ring Light for this event has a suggested alternative (Podium Light) waiting for your decision.', with a 'Decide on the Equipment tab' link.\nStep 4: The Equipment tab of SPM77 Waived Banquet opens. The Ring Light row shows 'Suggested alternative: 2 × Podium Light' with 'Accept' and 'Decline' buttons.\nStep 5: A dialog 'Accept this alternative?' appears, saying 'This requirement changes from 4 Ring Light to 2 Podium Light, for Technical Support to reserve.'\nStep 6: The dialog closes and 'Alternative accepted. Technical Support will reserve it.' appears above the list. The list shows a Podium Light row with Quantity 2 and the status 'Requested' in place of Ring Light.\nStep 7: The Podium Light row is marked 'Outstanding', not 'Not required'. It reads 'Podium Light for this event is not reserved yet.' and 'Request status: Requested', with a 'Mark as not required' button and no 'Decide on the Equipment tab' link."
+    },
+    {
+      "id": "SPM-77-TC14",
+      "title": "On a multi-session event, the alternative list leaves out only the items already requested for the same session, and an item requested only for another session can be suggested",
+      "linked_ac": [
+        "AC1"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Two-Day Summit is in Planning with two sessions: Day 1 (26 Sep 2028) and Day 2 (27 Sep 2028). Day 1 requests 4 Ring Light, marked 'Cannot be provided', and 1 Portable Stage. Day 2 requests 2 Podium Light. Nothing holds Podium Light (4 in stock) on 26 Sep.\nData: run `npm run fixtures:spm77` before and after this case.\nLogged in as Technical Support Staff (vikram.nair@connectsphere.com, password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for the SPM77 Two-Day Summit event",
+        "On the Day 1 Ring Light line, click 'Suggest alternative'",
+        "Open the 'Alternative item' list",
+        "Choose 'Podium Light — Staging'",
+        "In 'Note for the Coordinator', enter 'Podium lights for the Day 1 stage.'",
+        "Click 'Record suggestion'"
+      ],
+      "test_data": "Event: SPM77 Two-Day Summit\nDay 1: 4 Ring Light (Cannot be provided), 1 Portable Stage\nDay 2: 2 Podium Light\nAlternative: Podium Light, quantity 4\nNote: Podium lights for the Day 1 stage.",
+      "expected_result": "Step 2: The request lists three lines: Ring Light and Portable Stage for Day 1, and Podium Light for Day 2. The Ring Light line shows Status 'Cannot be provided' and a 'Suggest alternative' button.\nStep 3: A 'Suggest alternative' form opens on the Ring Light line with 'Quantity' 4.\nStep 4: The list offers 'Podium Light — Staging' (requested only for Day 2). It offers neither Ring Light nor Portable Stage, which Day 1 already requests.\nStep 5: '4 available for these dates — enough for this suggestion.' appears under 'Quantity'.\nStep 7: The form closes. 'Suggestion sent to the Coordinator.' appears on the Ring Light line, which now reads 'Suggested alternative: 4 × Podium Light — waiting for the Coordinator's decision.' The Day 2 Podium Light line is unchanged."
+    },
+    {
+      "id": "SPM-77-TC15",
+      "title": "A Coordinator not assigned to the event sees a waiting suggestion on the Readiness tab without the link to decide it",
+      "linked_ac": [
+        "AC3",
+        "AC9"
+      ],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM77 Accept Gala (15 Aug 2028) is in Planning. Its assigned Coordinator is Daniel Tan; Priya Raj is another Coordinator. Its Ring Light line has a suggestion of 3 × Podium Light waiting for a decision.\nData: run `npm run fixtures:spm77` first (if SPM-77-TC04 has been run since). This case changes nothing.\nLogged in as another Event Coordinator (priya.raj@connectsphere.com, password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar",
+        "Open the SPM77 Accept Gala event",
+        "Click the 'Readiness' tab"
+      ],
+      "test_data": "Event: SPM77 Accept Gala\nAssigned Coordinator: Daniel Tan\nOther Coordinator: Priya Raj\nWaiting suggestion: 3 × Podium Light",
+      "expected_result": "Step 3: The Ring Light row is marked 'Outstanding' and says it has a suggested alternative (Podium Light) waiting for a decision. It has no 'Decide on the Equipment tab' link and no 'Mark as not required' button."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-27 (kchoongg) - accepting an alternative for a partly fulfilled item keeps what is already reserved: the original line's quantity becomes what was reserved (Status 'Reserved'), and the alternative is added as its own line, 'Requested', for Technical Support to reserve (TC05). An item that cannot be provided at all is simply replaced by the alternative (TC04). Not in the story's wording; chosen to honour AC8.",
+    "DECIDED 2026-10-27 (kchoongg) - an alternative that is not fully available for the event's dates cannot be recorded: the form shows 'Only N available for this event's dates.' and 'Record suggestion' does nothing (TC01, TC03). The story only says availability is shown; refusing means the Coordinator only ever accepts something that can be reserved.",
+    "DECIDED 2026-10-27 (kchoongg) - suggestions are recorded, accepted and declined only while the event is in Planning, the same window as Reserve (SPM-49), Update (SPM-50) and Release/Adjust (SPM-69) (TC10).",
+    "DECIDED 2026-10-27 (kchoongg) - only a line marked 'Cannot be provided' or 'Partially fulfilled' can get a suggestion, one at a time: a second can be suggested only after the Coordinator has decided on the first (TC01, TC07).",
+    "DECIDED 2026-10-27 (kchoongg) - the note is required (AC1 lists it), up to 500 characters like Technical Support's notes. The alternative must be another active catalogue item the event does not already request; the 'Alternative item' list leaves the others out (TC01, TC07).",
+    "DECIDED 2026-10-27 (kchoongg) - wording chosen for this story: button 'Suggest alternative'; form 'Suggest alternative' with 'Alternative item', 'Quantity', 'Note for the Coordinator' and 'Record suggestion'; messages '<n> available for these dates — enough for this suggestion.', 'Only <n> available for this event's dates.', 'Suggestion sent to the Coordinator.', 'Suggested alternative: <n> × <item> — waiting for the Coordinator's decision.'; on the Equipment tab 'Suggested alternative: <n> × <item>', 'Accept', 'Decline', dialog 'Accept this alternative?', 'Alternative accepted. Technical Support will reserve it.', 'Suggestion declined. The original requirement is unchanged.'; notification 'Alternative equipment suggested'.",
+    "DECIDED 2026-10-27 (kchoongg) - the Organiser and the Safety Officer, who can already read an event's equipment, see a waiting suggestion too (read-only, TC08). AC3 names only the Coordinator but does not exclude them.",
+    "RESOLVED 2026-10-27 (kchoongg) - Technical Support is not notified when the Coordinator accepts or declines a suggestion; they see the outcome on the Equipment request page (TC04, TC06). This follows the existing process: Technical Support is not notified when the Coordinator adds, changes or removes an equipment requirement either.",
+    "DECIDED 2026-10-27 (kchoongg) - a suggestion cannot be left waiting when the event leaves Planning: 'Submit for safety check' is refused while any item has a suggested alternative waiting for the Coordinator's decision, even an item marked as not required (TC11). Cancelling or postponing the event is not blocked. The Readiness tab shows such an item as 'Outstanding', with a 'Decide on the Equipment tab' link, so it and the safety-check refusal always agree; it cannot be marked as not required while the suggestion waits, and an item already marked so is shown as Outstanding until the suggestion is decided (TC12)."
+  ],
+  "code_references": [
+    "src/lib/equipmentSuggestion.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/suggestion/route.ts",
+    "src/app/api/events/[id]/equipment/[requestId]/suggestion/availability/route.ts",
+    "src/lib/equipmentAvailabilityService.ts",
+    "src/app/api/events/[id]/equipment/route.ts",
+    "src/app/equipment/requests/[id]/page.tsx",
+    "src/app/events/[id]/equipment/page.tsx",
+    "src/lib/permissions.ts",
+    "src/lib/notificationView.ts",
+    "src/lib/validation/equipment.ts",
+    "prisma/schema.prisma",
+    "scripts/seed-spm77.ts"
+  ]
+}

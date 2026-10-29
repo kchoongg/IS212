@@ -64,6 +64,8 @@ const reservedMic = (overrides: Record<string, unknown> = {}) => ({
   needsReview: false,
   reviewReason: null,
   equipment: { name: "Handheld Wireless Mic" },
+  // SPM-77: the alternative waiting for a decision, if any.
+  suggestions: [],
   ...overrides,
 });
 
@@ -226,6 +228,31 @@ describe("POST /api/events/[id]/safety-check", () => {
   });
 
   describe("refuses, writing nothing", () => {
+    it("[SPM-77][AC5][AC6] while an item has a suggested alternative waiting for the Coordinator's decision", async () => {
+      const res = await post(
+        given(event(), assignedCoordinator(), {
+          equipment: [
+            reservedMic({
+              status: "partially_fulfilled",
+              equipment: { name: "Ring Light" },
+              suggestions: [{ equipment: { name: "Podium Light" } }],
+            }),
+          ],
+        })
+      );
+
+      expect(res.status).toBe(400);
+      expect((await res.json()).outstanding).toEqual([
+        "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
+      ]);
+      expect(callArg(db.equipmentRequest.findMany).select.suggestions).toEqual({
+        where: { status: "pending" },
+        take: 1,
+        select: { equipment: { select: { name: true } } },
+      });
+      expectNothingWritten();
+    });
+
     it("[SPM-86][AC2] SPM-86-TC06: while a venue and an equipment request are outstanding, naming each (AC2)", async () => {
       const res = await post(
         given(event(), assignedCoordinator(), {

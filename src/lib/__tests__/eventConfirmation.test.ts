@@ -1132,3 +1132,68 @@ describe("SPM-82 — an expired tentative hold", () => {
     ]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// SPM-77: a suggested alternative waiting for the Coordinator's decision. The
+// line is outstanding until it is decided - on the Equipment tab, so the
+// Readiness tab neither waives it nor decides it - and Submit for safety check
+// (SPM-86) refuses on the same row.
+// ---------------------------------------------------------------------------
+describe("SPM-77 arrangementsFor — a suggested alternative waiting for a decision", () => {
+  const WAITING = "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision";
+  const ringLight = (over: Record<string, unknown> = {}) => ({
+    id: "r1",
+    sessionId: null,
+    status: "partially_fulfilled",
+    equipmentName: "Ring Light",
+    pendingSuggestion: "Podium Light",
+    ...over,
+  });
+  const row = (over: Record<string, unknown> = {}) =>
+    arrangementsFor(input({ bookings: [approvedVenue], equipment: [ringLight(over)] })).find((a) => a.kind === "equipment")!;
+
+  it("[SPM-77][AC5][AC6] shows a partly fulfilled line as outstanding while a suggestion waits, saying so", () => {
+    expect(row()).toMatchObject({
+      state: "outstanding",
+      required: true,
+      complete: false,
+      missing: WAITING,
+      waivable: false,
+      awaitingDecision: true,
+    });
+  });
+
+  it("[SPM-77][AC5][AC6] names the waiting suggestion rather than 'not reserved yet' on a line that cannot be provided", () => {
+    expect(row({ status: "unavailable" }).missing).toBe(WAITING);
+  });
+
+  it("[SPM-77][AC5][AC6] names it rather than the flag on a flagged line", () => {
+    expect(row({ status: "reserved", needsReview: true, reviewReason: "event_schedule_changed" }).missing).toBe(WAITING);
+  });
+
+  it("[SPM-77][AC5][AC6] keeps a line marked as not required outstanding while a suggestion waits", () => {
+    expect(row({ status: "unavailable", notRequired: true, notRequiredBy: "Daniel Tan", notRequiredAt: new Date() })).toMatchObject({
+      state: "outstanding",
+      waived: false,
+      waivable: false,
+      notRequiredBy: null,
+      notRequiredAt: null,
+      missing: WAITING,
+    });
+  });
+
+  it("[SPM-77][AC6] shows the line as it was once the suggestion is decided", () => {
+    expect(row({ pendingSuggestion: null })).toMatchObject({ state: "complete", missing: "", awaitingDecision: false });
+    expect(row({ status: "unavailable", notRequired: true, pendingSuggestion: null })).toMatchObject({
+      state: "not_required",
+      waived: true,
+    });
+  });
+
+  it("[SPM-77][AC5][AC6] holds Confirm back on the same row", () => {
+    const check = checkEventConfirmation(input({ bookings: [approvedVenue], equipment: [ringLight()] }));
+
+    expect(check.ok).toBe(false);
+    expect(!check.ok && check.error).toContain(WAITING);
+  });
+});
