@@ -1,0 +1,518 @@
+{
+  "story_key": "SPM-53",
+  "story_title": "SPM-53: As a ConnectSphere user, I want to receive notifications about significant events affecting me so that I am aware of important changes and actions required.",
+  "created_by": "Sammi Chua",
+  "creation_date": "2026-10-29",
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "text": "Given an Event Organiser submits an event request, when it is submitted, then every active Event Coordinator Lead is notified, naming the event."
+    },
+    {
+      "id": "AC2",
+      "text": "The Event Organiser who owns the event is notified when the assigned Event Coordinator requests clarification, with the clarification message."
+    },
+    {
+      "id": "AC3",
+      "text": "The assigned Event Coordinator is notified when the Event Organiser responds to an open clarification request."
+    },
+    {
+      "id": "AC4",
+      "text": "The Event Organiser who owns the event is notified when the assigned Event Coordinator approves or rejects it, with the reason for a rejection. No other user is notified of the outcome."
+    },
+    {
+      "id": "AC5",
+      "text": "The Event Organiser who owns the event is notified when an Event Coordinator is assigned, with the Coordinator's name."
+    },
+    {
+      "id": "AC6",
+      "text": "The newly assigned Coordinator is notified of the assignment."
+    },
+    {
+      "id": "AC7",
+      "text": "Given an event is reassigned to a different Coordinator, when the reassignment is saved, then the newly assigned Coordinator and the Event Organiser are notified as for an assignment, and the previously assigned Coordinator is notified that the event is no longer theirs."
+    },
+    {
+      "id": "AC8",
+      "text": "Every active Venue Staff user is notified when a venue booking request is submitted for review."
+    },
+    {
+      "id": "AC9",
+      "text": "The assigned Event Coordinator is notified when Venue Staff approve or reject a venue booking request for the event, with the venue, the requested times and, for a rejection, the reason."
+    },
+    {
+      "id": "AC10",
+      "text": "Every active Technical Support Staff user is notified when the assigned Event Coordinator adds, removes or changes the quantity of an equipment requirement on an event in Planning or Confirmed (the events listed in the Equipment Requests queue, SPM-48)."
+    },
+    {
+      "id": "AC11",
+      "text": "The assigned Event Coordinator is notified when Technical Support Staff mark an equipment requirement Reserved, Partially fulfilled or Cannot be provided."
+    },
+    {
+      "id": "AC12",
+      "text": "The assigned Event Coordinator is notified when the Event Organiser submits a change request."
+    },
+    {
+      "id": "AC13",
+      "text": "The Event Organiser is notified of the outcome of a change request, including the outcome for each field where it is partially approved."
+    },
+    {
+      "id": "AC14",
+      "text": "Given an important change (date and time, expected attendance, venue requirements or equipment) is saved by the assigned Coordinator or applied from an approved change request, when it is saved, then the Event Organiser who owns the event is notified, naming which of these changed. No other user is notified of the change by this criterion."
+    },
+    {
+      "id": "AC15",
+      "text": "The Event Organiser who owns the event is notified when the event moves from Confirmed back to Planning (an important change, SPM-62, or a safety check closed after a change, SPM-88)."
+    },
+    {
+      "id": "AC16",
+      "text": "An Attendee is notified when they are registered for an event, including when the Event Coordinator adds them (SPM-57), and when an event they are registered for is Postponed or Cancelled (see the confirmed, completed, postponed or cancelled criterion below)."
+    },
+    {
+      "id": "AC17",
+      "text": "Attendees whose registration is Registered are notified of the new date and time when an event is rescheduled."
+    },
+    {
+      "id": "AC18",
+      "text": "The Event Organiser who owns the event is notified when it is Confirmed, Completed, Postponed or Cancelled. Attendees whose registration is Registered are notified when it is Postponed or Cancelled. For Postponed and Cancelled, the notification includes the recorded reason."
+    },
+    {
+      "id": "AC19",
+      "text": "Each notification is delivered in the system as it is raised and appears in the recipient's notification list (see: View Notifications, SPM-71)."
+    },
+    {
+      "id": "AC20",
+      "text": "Notifications are associated with the relevant event."
+    }
+  ],
+  "test_cases": [
+    {
+      "id": "SPM-53-TC01",
+      "title": "Submitting an event request notifies every active Event Coordinator Lead, naming the event, and the notification opens it",
+      "linked_ac": ["AC1", "AC19", "AC20"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it submits a draft). 'SPM53 Harbour Draft Summit' is a complete Draft of Rachel Ng's (Meridian Financial Group).\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM53 Harbour Draft Summit'",
+        "Open the draft's 'Edit draft' page",
+        "Click 'Submit request'",
+        "Log out and log in as Event Coordinator Lead Grace Lim (grace.lim@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Click the 'New event request submitted' notification for 'SPM53 Harbour Draft Summit'",
+        "Log out and log in as Event Coordinator Lead Nadia Rahman (nadia.rahman@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Draft Summit\nEvent Coordinator Leads: Grace Lim, Nadia Rahman",
+      "expected_result": "Step 3: The event's page opens with the status badge 'Submitted'.\nStep 5: An unread notification 'New event request submitted' is listed with the message '\"SPM53 Harbour Draft Summit\" has been submitted and needs a coordinator assigned.' and the event 'SPM53 Harbour Draft Summit' with its reference.\nStep 6: The event page for 'SPM53 Harbour Draft Summit' opens, with the status badge 'Submitted'.\nStep 8: Nadia Rahman's list has the same unread 'New event request submitted' notification for 'SPM53 Harbour Draft Summit'."
+    },
+    {
+      "id": "SPM-53-TC02",
+      "title": "The organiser who owns the event is notified when the assigned coordinator asks for clarification, with the message",
+      "linked_ac": ["AC2"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before this case. Do not run it again afterwards: go straight on to SPM-53-TC03, and reset after that one. 'SPM53 Harbour Clarity Forum' is Under review, raised by Rachel Ng and assigned to Daniel Tan, with no clarification open.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar and open 'SPM53 Harbour Clarity Forum'",
+        "Click 'Review request'",
+        "Choose 'Ask the organiser for clarification'",
+        "Tick 'When' under 'What needs clarification'",
+        "Type the message in 'Message to the organiser'",
+        "Click 'Send request'",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Clarity Forum\nMessage to the organiser: Can the forum start at 10:00 instead of 09:00?",
+      "expected_result": "Step 6: The clarification request is sent and the event stays Under review.\nStep 8: An unread notification 'Clarification requested' is listed with the message 'Your coordinator asked for clarification on \"SPM53 Harbour Clarity Forum\": Can the forum start at 10:00 instead of 09:00?' and the event 'SPM53 Harbour Clarity Forum' with its reference."
+    },
+    {
+      "id": "SPM-53-TC03",
+      "title": "The assigned coordinator is notified when the organiser answers the open clarification by resubmitting",
+      "linked_ac": ["AC3"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-53-TC02 has just been run ('SPM53 Harbour Clarity Forum' has an open clarification from Daniel Tan). Run npm run fixtures:spm53 after this case.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM53 Harbour Clarity Forum'",
+        "Click 'Update request' in the 'Clarification requested' banner",
+        "Replace 'Description' with the new description",
+        "Click 'Resubmit request'",
+        "Log out and log in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Clarity Forum\nDescription: The forum can start at 10:00; doors open at 09:30.",
+      "expected_result": "Step 4: The event page opens with a green message 'Your updated request has been sent to Daniel Tan. It stays Under review.'\nStep 6: An unread notification 'Clarification answered' is listed with the message 'The organiser has responded to your clarification request on \"SPM53 Harbour Clarity Forum\".' and the event 'SPM53 Harbour Clarity Forum' with its reference."
+    },
+    {
+      "id": "SPM-53-TC04",
+      "title": "The organiser is notified when the assigned coordinator approves their request",
+      "linked_ac": ["AC4"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it approves a request). 'SPM53 Harbour Approval Day' is Under review, raised by Rachel Ng and assigned to Daniel Tan.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar and open 'SPM53 Harbour Approval Day'",
+        "Click 'Review request'",
+        "Select 'Approve – planning can start'",
+        "Click 'Approve request'",
+        "Click 'Approve' in the dialog",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Approval Day\nOutcome: Approve",
+      "expected_result": "Step 5: A green 'Request approved' alert is shown and the status badge changes to 'Approved'.\nStep 7: An unread notification 'Event request approved' is listed with the message '\"SPM53 Harbour Approval Day\" has been approved.' and the event 'SPM53 Harbour Approval Day' with its reference."
+    },
+    {
+      "id": "SPM-53-TC05",
+      "title": "A rejection notifies only the organiser, with the reason; the Event Coordinator Lead is not told",
+      "linked_ac": ["AC4"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it rejects a request). 'SPM53 Harbour Rejected Brief' is Under review, raised by Rachel Ng and assigned to Daniel Tan.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Review Queue' in the sidebar and open 'SPM53 Harbour Rejected Brief'",
+        "Click 'Review request'",
+        "Select 'Reject this request'",
+        "Type the reason into 'Reason for rejection'",
+        "Click 'Reject request'",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Event Coordinator Lead Grace Lim (grace.lim@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Rejected Brief\nReason for rejection: The brief duplicates the March town hall; please merge the two.",
+      "expected_result": "Step 5: A green 'Request rejected' alert is shown and the status badge changes to 'Rejected'.\nStep 7: An unread notification 'Event request rejected' is listed with the message '\"SPM53 Harbour Rejected Brief\" has been rejected. Reason: The brief duplicates the March town hall; please merge the two.' and the event 'SPM53 Harbour Rejected Brief' with its reference.\nStep 9: Grace Lim's list has no 'Event request rejected' (or 'Event request approved') notification for 'SPM53 Harbour Rejected Brief'."
+    },
+    {
+      "id": "SPM-53-TC06",
+      "title": "Assigning a coordinator notifies the coordinator and tells the organiser the coordinator's name",
+      "linked_ac": ["AC5", "AC6"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before this case. Do not run it again afterwards: go straight on to SPM-53-TC07, and reset after that one. 'SPM53 Harbour Assign Expo' is Submitted by Rachel Ng, with no coordinator.\nLogged in as Event Coordinator Lead Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "On the 'SPM53 Harbour Assign Expo' row, choose 'Daniel Tan' in 'Assign to'",
+        "Click 'Assign'",
+        "Log out and log in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Assign Expo\nAssign to: Daniel Tan",
+      "expected_result": "Step 3: 'SPM53 Harbour Assign Expo' leaves the 'Awaiting assignment' list.\nStep 5: An unread notification 'You have been assigned an event' is listed with the message 'You are now the coordinator for \"SPM53 Harbour Assign Expo\".' and the event 'SPM53 Harbour Assign Expo' with its reference.\nStep 7: An unread notification 'Coordinator assigned' is listed with the message 'Daniel Tan is now the coordinator for \"SPM53 Harbour Assign Expo\".' and the event 'SPM53 Harbour Assign Expo' with its reference."
+    },
+    {
+      "id": "SPM-53-TC07",
+      "title": "Reassigning notifies the new coordinator and the organiser, and tells the previous coordinator the event is no longer theirs",
+      "linked_ac": ["AC7"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "SPM-53-TC06 has just been run ('SPM53 Harbour Assign Expo' is assigned to Daniel Tan). Run npm run fixtures:spm53 after this case.\nLogged in as Event Coordinator Lead Grace Lim (grace.lim@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Assignments' in the sidebar",
+        "Click the 'Active events' tab",
+        "On the 'SPM53 Harbour Assign Expo' row, choose 'Priya Raj' in 'Reassign to'",
+        "Click 'Reassign'",
+        "Click 'Reassign' in the dialog",
+        "Log out and log in as Event Coordinator Priya Raj (priya.raj@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Assign Expo\nFrom: Daniel Tan\nTo: Priya Raj",
+      "expected_result": "Step 5: The message '\"SPM53 Harbour Assign Expo\" has been reassigned from Daniel Tan to Priya Raj.' appears.\nStep 7: An unread notification 'You have been assigned an event' is listed with the message 'You are now the coordinator for \"SPM53 Harbour Assign Expo\".'\nStep 9: An unread notification 'An event has been reassigned' is listed with the message '\"SPM53 Harbour Assign Expo\" has been reassigned to Priya Raj. You are no longer its coordinator.'\nStep 11: An unread notification 'Coordinator assigned' is listed with the message 'Priya Raj is now the coordinator for \"SPM53 Harbour Assign Expo\".', above the 'Coordinator assigned' notification naming Daniel Tan from SPM-53-TC06."
+    },
+    {
+      "id": "SPM-53-TC08",
+      "title": "Sending a venue booking request notifies every active Venue Staff user",
+      "linked_ac": ["AC8"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it sends a booking request). 'SPM53 Harbour Venue Day' (21 Mar 2028, 09:00–12:00) is in Planning, assigned to Daniel Tan, with no venue bookings. SPM53 Hall (SPM53-HAL) is free that day.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Venue Day'",
+        "Click the 'Venue' tab",
+        "Click 'Request booking' on SPM53 Hall",
+        "Leave only 'AM (07:00–12:00)' ticked",
+        "Click 'Submit request'",
+        "Log out and log in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Venue Staff Siti Hassan (siti.hassan@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Venue Day\nVenue: SPM53 Hall (SPM53-HAL), 21 Mar 2028, AM",
+      "expected_result": "Step 5: 'Booking request sent to Venue Staff.' is shown.\nStep 7: An unread notification 'Venue booking request to review' is listed with the message '\"SPM53 Harbour Venue Day\" requests SPM53 Hall (SPM53-HAL) on 21 Mar 2028, 07:00–12:00.' and the event 'SPM53 Harbour Venue Day' with its reference.\nStep 9: Siti Hassan's list has the same unread 'Venue booking request to review' notification."
+    },
+    {
+      "id": "SPM-53-TC09",
+      "title": "The assigned coordinator is notified of a booking approval and a booking rejection, with the venue, times and reason",
+      "linked_ac": ["AC9"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it decides two booking requests). 'SPM53 Harbour Booking Review' (23 Mar 2028, 09:00–12:00) is in Planning, assigned to Daniel Tan, with two Pending requests: SPM53 Hall (SPM53-HAL) and SPM53 Studio (SPM53-STU).\nLogged in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Booking Requests' in the sidebar",
+        "On the 'SPM53 Harbour Booking Review' card for SPM53 Hall, click 'Approve'",
+        "In the dialog, click 'Approve'",
+        "On the 'SPM53 Harbour Booking Review' card for SPM53 Studio, click 'Reject with a reason'",
+        "In 'Reason for rejection', type the reason",
+        "Leave 'Suggest another venue' on 'No venue suggested', then click 'Reject request'",
+        "Log out and log in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Booking Review\nApprove: SPM53 Hall (SPM53-HAL)\nReject: SPM53 Studio (SPM53-STU), reason 'The studio is being repainted that week.'",
+      "expected_result": "Step 3: A green 'Booking approved' message appears.\nStep 6: A green 'Booking request rejected' message appears.\nStep 8: Two unread notifications for 'SPM53 Harbour Booking Review' are listed, newest first: 'Venue booking rejected' with the message 'SPM53 Studio (SPM53-STU) for \"SPM53 Harbour Booking Review\" on 23 Mar 2028, 09:00–12:00 was rejected. Reason: The studio is being repainted that week.', and 'Venue booking approved' with the message 'SPM53 Hall (SPM53-HAL) for \"SPM53 Harbour Booking Review\" on 23 Mar 2028, 09:00–12:00 was approved.'"
+    },
+    {
+      "id": "SPM-53-TC10",
+      "title": "Technical Support are notified when the coordinator adds, changes the quantity of and removes equipment on a Planning event",
+      "linked_ac": ["AC10"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it changes equipment). 'SPM53 Harbour Equipment Fair' is in Planning, assigned to Daniel Tan, with SPM53 Projector × 2 and SPM53 Lectern Mic × 1, both Requested.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Equipment Fair'",
+        "Click the 'Equipment' tab",
+        "In 'Add equipment', choose 'SPM53 Speaker', set 'Quantity' to 1 and click 'Add'",
+        "Change the 'Quantity' on the 'SPM53 Projector' row to 3 and click 'Save' on that row",
+        "Click 'Remove' on the 'SPM53 Lectern Mic' row",
+        "In the confirmation dialog, click 'Remove'",
+        "Log out and log in as Technical Support Kenji Sato (kenji.sato@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Technical Support Aisha Omar (aisha.omar@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Equipment Fair\nAdd: SPM53 Speaker × 1\nChange: SPM53 Projector 2 -> 3\nRemove: SPM53 Lectern Mic",
+      "expected_result": "Step 3: A row for 'SPM53 Speaker' appears with Quantity 1 and status 'Requested'.\nStep 4: The 'Save' button disappears and the row shows Quantity 3.\nStep 6: The 'SPM53 Lectern Mic' row disappears.\nStep 8: Three unread notifications 'Equipment requirement changed' for 'SPM53 Harbour Equipment Fair' are listed, newest first, with the messages 'SPM53 Lectern Mic was removed from \"SPM53 Harbour Equipment Fair\".', 'SPM53 Projector on \"SPM53 Harbour Equipment Fair\" changed from 2 to 3.' and 'SPM53 Speaker × 1 was added to \"SPM53 Harbour Equipment Fair\".'\nStep 10: Aisha Omar's list has the same three notifications."
+    },
+    {
+      "id": "SPM-53-TC11",
+      "title": "The coordinator is notified when Technical Support mark lines Reserved, Partially fulfilled and Cannot be provided",
+      "linked_ac": ["AC11"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it reserves equipment). 'SPM53 Harbour Fulfilment Gala' is in Planning, assigned to Daniel Tan, with three Requested lines: SPM53 Projector × 2 (4 available), SPM53 Lectern Mic × 3 (2 available) and SPM53 Speaker × 1.\nLogged in as Technical Support Vikram Nair (vikram.nair@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Equipment Requests' in the sidebar",
+        "Open the equipment request for 'SPM53 Harbour Fulfilment Gala'",
+        "Click 'Reserve' on the SPM53 Projector line",
+        "Click 'Reserve' on the SPM53 Lectern Mic line",
+        "On the SPM53 Speaker line, click 'Update'",
+        "In 'Fulfilment status', choose 'Cannot be provided'",
+        "In 'Technical notes', enter the notes",
+        "Click 'Save'",
+        "Log out and log in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Fulfilment Gala\nTechnical notes (SPM53 Speaker): Both speakers are booked for another event.",
+      "expected_result": "Step 3: 'Reservation saved: 2 reserved.' appears and the line's status chip shows 'Reserved'.\nStep 4: 'Reservation saved: 2 reserved.' appears and the line's status chip shows 'Partially fulfilled'.\nStep 8: 'Update saved.' appears and the Status chip shows 'Cannot be provided'.\nStep 10: Three unread notifications for 'SPM53 Harbour Fulfilment Gala' are listed, newest first: 'Equipment cannot be provided' ('SPM53 Speaker for \"SPM53 Harbour Fulfilment Gala\" is now Cannot be provided.'), 'Equipment partially fulfilled' ('SPM53 Lectern Mic for \"SPM53 Harbour Fulfilment Gala\" is now Partially fulfilled.') and 'Equipment reserved' ('SPM53 Projector for \"SPM53 Harbour Fulfilment Gala\" is now Reserved.')."
+    },
+    {
+      "id": "SPM-53-TC12",
+      "title": "The assigned coordinator is notified when the organiser sends a change request",
+      "linked_ac": ["AC12"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it sends a change request). 'SPM53 Harbour Change Talk' is Approved, raised by Rachel Ng and assigned to Daniel Tan, with no change requests.\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
+      "steps": [
+        "Click 'My Events' in the sidebar and open 'SPM53 Harbour Change Talk'",
+        "Click 'Request a change'",
+        "Change 'Description' to the new description",
+        "Enter the reason in 'Reason for the change'",
+        "Click 'Send change request'",
+        "Log out and log in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Change Talk\nDescription: Talk and panel on regional markets.\nReason for the change: We have added a panel after the talk.",
+      "expected_result": "Step 5: The change request is sent and listed on the event as Pending.\nStep 7: An unread notification 'Change request received' is listed with the message 'Rachel Ng has sent a change request for \"SPM53 Harbour Change Talk\".' and the event 'SPM53 Harbour Change Talk' with its reference."
+    },
+    {
+      "id": "SPM-53-TC13",
+      "title": "A partly approved change request tells the organiser the outcome of each field, and that the expected attendance changed",
+      "linked_ac": ["AC13", "AC14"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it decides a change request). 'SPM53 Harbour Change Review' (Planning, 30 people) has a pending change request from Rachel Ng for three fields: Event name, Description and Expected attendance.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'Change Requests' in the sidebar",
+        "Click 'Review' on the request for 'SPM53 Harbour Change Review'",
+        "For 'Event name', choose 'Reject' and enter the reason",
+        "For 'Description' and 'Expected attendance', choose 'Approve'",
+        "Click 'Save decision'",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Change Review\nEvent name: SPM53 Harbour Change Review -> SPM53 Harbour Change Review and Lunch (reject; reason: The invitations have already gone out.)\nExpected attendance: 30 -> 45 (approve)\nDescription: Quarterly briefing. -> Quarterly briefing with lunch. (approve)",
+      "expected_result": "Step 5: 'Change request processed.' is shown and the request is Partially approved.\nStep 7: Two unread notifications for 'SPM53 Harbour Change Review' are listed: 'Change request partially approved' with the message 'Your change request for \"SPM53 Harbour Change Review\" was partially approved. Event name: rejected – The invitations have already gone out. Description: approved. Expected attendance: approved.', and 'Event information changed' with the message '\"SPM53 Harbour Change Review\" has changed: Expected attendance.'"
+    },
+    {
+      "id": "SPM-53-TC14",
+      "title": "The organiser is notified, naming the change, when the coordinator changes an event's expected attendance",
+      "linked_ac": ["AC14"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it edits an event). 'SPM53 Harbour Edit Forum' is Approved, raised by Rachel Ng and assigned to Daniel Tan, Expected attendance 30, with no arrangements.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Edit Forum'",
+        "Click 'Edit event information'",
+        "Change 'Expected attendance' to 50",
+        "Click 'Save changes'",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Edit Forum\nExpected attendance: 30 -> 50",
+      "expected_result": "Step 4: The form is replaced by a green alert 'Event information updated.'\nStep 6: An unread notification 'Event information changed' is listed with the message '\"SPM53 Harbour Edit Forum\" has changed: Expected attendance.' and the event 'SPM53 Harbour Edit Forum' with its reference."
+    },
+    {
+      "id": "SPM-53-TC15",
+      "title": "An ordinary edit that changes no important information notifies nobody",
+      "linked_ac": ["AC14"],
+      "type": "Negative",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it edits an event). 'SPM53 Harbour Ordinary Edit' is Approved, raised by Rachel Ng and assigned to Daniel Tan.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Ordinary Edit'",
+        "Click 'Edit event information'",
+        "Change 'Description' to the new description",
+        "Click 'Save changes'",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Ordinary Edit\nDescription: Morning session with a networking break.",
+      "expected_result": "Step 4: The form is replaced by a green alert 'Event information updated.'\nStep 6: There is no notification about 'SPM53 Harbour Ordinary Edit'."
+    },
+    {
+      "id": "SPM-53-TC16",
+      "title": "Rescheduling a Confirmed event tells the organiser it changed and is no longer confirmed, and tells only Registered attendees the new date",
+      "linked_ac": ["AC14", "AC15", "AC17"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it reschedules an event). 'SPM53 Harbour Confirmed Gala' (18 Apr 2028, 09:00–12:00) is Confirmed, raised by Rachel Ng and assigned to Daniel Tan, with an Approved booking at SPM53 Hall and SPM53 Projector × 1 Reserved. Lee Wei Ming is Registered; Anita Devi has withdrawn.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Confirmed Gala'",
+        "Click 'Edit event information'",
+        "Change 'Starts at' to 25 Apr 2028, 09:00",
+        "Change 'Ends at' to 25 Apr 2028, 12:00",
+        "Click 'Save changes'",
+        "Click 'Save and move to Planning'",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Attendee Lee Wei Ming (lee.wei.ming@example.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Attendee Anita Devi (anita.devi@example.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Confirmed Gala\nWas: 18 Apr 2028, 09:00–12:00\nNow: 25 Apr 2028, 09:00–12:00\nRegistered: Lee Wei Ming\nWithdrawn: Anita Devi",
+      "expected_result": "Step 5: The 'Move this event back to Planning?' dialog appears.\nStep 6: A green alert 'Event information updated. The event is back in Planning and needs to be confirmed again.' is shown.\nStep 8: Two unread notifications for 'SPM53 Harbour Confirmed Gala' are listed: 'Event information changed' with the message '\"SPM53 Harbour Confirmed Gala\" has changed: Date and time.', and 'Event no longer confirmed' with the message '\"SPM53 Harbour Confirmed Gala\" has moved back to Planning after a change and is no longer confirmed.'\nStep 10: An unread notification 'Event rescheduled' is listed with the message '\"SPM53 Harbour Confirmed Gala\" has a new date and time: 25 Apr 2028, 09:00–12:00.' and the event 'SPM53 Harbour Confirmed Gala' with its reference.\nStep 12: Anita Devi's list has no notification about 'SPM53 Harbour Confirmed Gala'."
+    },
+    {
+      "id": "SPM-53-TC17",
+      "title": "An attendee who registers for an event is notified that they are registered",
+      "linked_ac": ["AC16"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it registers an attendee). 'SPM53 Harbour Open Day' is Confirmed with registration open (capacity 40, closes 15 Apr 2028, 17:00) and no registrations.\nLogged in as Attendee Chua Mei Ling (chua.mei.ling@example.com / password123).",
+      "steps": [
+        "Click 'Browse Events' in the sidebar",
+        "Click 'SPM53 Harbour Open Day'",
+        "Click 'Register'",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Open Day\nAttendee: Chua Mei Ling",
+      "expected_result": "Step 3: A green alert 'You're registered for this event.' appears, with the status badge 'Registered'.\nStep 4: An unread notification 'Registration confirmed' is listed with the message 'You're registered for \"SPM53 Harbour Open Day\".' and the event 'SPM53 Harbour Open Day' with its reference."
+    },
+    {
+      "id": "SPM-53-TC18",
+      "title": "The organiser is notified when the coordinator confirms their event",
+      "linked_ac": ["AC18"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it confirms an event). 'SPM53 Harbour Ready Launch' is in Planning, raised by Rachel Ng and assigned to Daniel Tan, with an Approved booking at SPM53 Studio and SPM53 Projector × 1 Reserved.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Ready Launch'",
+        "Click 'Confirm event'",
+        "Click 'Confirm event' in the dialog",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Ready Launch",
+      "expected_result": "Step 3: The message 'The event is confirmed. The organiser can now see the arrangements.' is shown and the status badge changes to 'Confirmed'.\nStep 5: An unread notification 'Event confirmed' is listed with the message '\"SPM53 Harbour Ready Launch\" is confirmed.' and the event 'SPM53 Harbour Ready Launch' with its reference."
+    },
+    {
+      "id": "SPM-53-TC19",
+      "title": "The organiser is notified when the coordinator marks their event completed",
+      "linked_ac": ["AC18"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 just before this case, and again after it. 'SPM53 Harbour Finished Dinner' is Confirmed, raised by Rachel Ng and assigned to Daniel Tan, and ended yesterday evening (19:00–22:00) – the script sets it to yesterday on every run.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Finished Dinner'",
+        "Click 'Mark as completed'",
+        "Click 'Mark as completed' in the dialog",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Finished Dinner",
+      "expected_result": "Step 3: The status badge changes to 'Completed'.\nStep 5: An unread notification 'Event completed' is listed with the message '\"SPM53 Harbour Finished Dinner\" has been marked completed.' and the event 'SPM53 Harbour Finished Dinner' with its reference."
+    },
+    {
+      "id": "SPM-53-TC20",
+      "title": "Postponing an event tells the organiser and its Registered attendees, with the reason",
+      "linked_ac": ["AC16", "AC18"],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it postpones an event). 'SPM53 Harbour Postponed Fair' is Confirmed, raised by Rachel Ng and assigned to Daniel Tan, with registration enabled. Lee Wei Ming is Registered; Anita Devi has withdrawn.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Postponed Fair'",
+        "Click 'Postpone event'",
+        "Type the reason in 'Reason (optional)'",
+        "Click 'Postpone event' in the dialog",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Attendee Lee Wei Ming (lee.wei.ming@example.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Attendee Anita Devi (anita.devi@example.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Postponed Fair\nReason: The keynote speaker is unwell.",
+      "expected_result": "Step 4: The status badge changes to 'Postponed'.\nStep 6: An unread notification 'Event postponed' is listed with the message '\"SPM53 Harbour Postponed Fair\" has been postponed. Reason: The keynote speaker is unwell.' and the event 'SPM53 Harbour Postponed Fair' with its reference.\nStep 8: Lee Wei Ming's list has the same unread 'Event postponed' notification, with the reason.\nStep 10: Anita Devi's list has no notification about 'SPM53 Harbour Postponed Fair'."
+    },
+    {
+      "id": "SPM-53-TC21",
+      "title": "Cancelling an event without a reason tells the organiser and its Registered attendees, but not the waiting list",
+      "linked_ac": ["AC16", "AC18"],
+      "type": "Boundary",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case (it cancels an event). 'SPM53 Harbour Cancelled Summit' is Confirmed, raised by Rachel Ng and assigned to Daniel Tan, with registration enabled. Lee Wei Ming is Registered; Anita Devi is on the waiting list.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Cancelled Summit'",
+        "Click 'Cancel event'",
+        "Leave 'Reason (optional)' empty",
+        "Click 'Cancel event' in the dialog",
+        "Log out and log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Attendee Lee Wei Ming (lee.wei.ming@example.com / password123)",
+        "Click 'Notifications' in the sidebar",
+        "Log out and log in as Attendee Anita Devi (anita.devi@example.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Cancelled Summit\nReason: (empty)",
+      "expected_result": "Step 4: The status badge changes to 'Cancelled'.\nStep 6: An unread notification 'Event cancelled' is listed with the message '\"SPM53 Harbour Cancelled Summit\" has been cancelled.' (no reason) and the event 'SPM53 Harbour Cancelled Summit' with its reference.\nStep 8: Lee Wei Ming's list has the same unread 'Event cancelled' notification.\nStep 10: Anita Devi's list has no notification about 'SPM53 Harbour Cancelled Summit'."
+    }
+  ],
+  "open_questions": [
+    "DECIDED 2026-10-29: The wording of each new notification (title, then message): 'Clarification requested' / 'Your coordinator asked for clarification on \"<event>\": <message>'; 'Clarification answered' / 'The organiser has responded to your clarification request on \"<event>\".'; 'Event request approved' / '\"<event>\" has been approved.'; 'Event request rejected' / '\"<event>\" has been rejected. Reason: <reason>'; 'Coordinator assigned' / '<coordinator> is now the coordinator for \"<event>\".'; 'Venue booking request to review' / '\"<event>\" requests <venue (code)> on <date, times>.'; 'Venue booking approved' / '<venue (code)> for \"<event>\" on <date, times> was approved.'; 'Venue booking rejected' / '... was rejected. Reason: <reason>'; 'Equipment requirement changed' / '<item> × <n> was added to \"<event>\".', '<item> on \"<event>\" changed from <a> to <b>.', '<item> was removed from \"<event>\".'; 'Equipment reserved' / 'Equipment partially fulfilled' / 'Equipment cannot be provided' with '<item> for \"<event>\" is now <status>.'; 'Change request received' / '<organiser> has sent a change request for \"<event>\".'; 'Change request approved' / 'rejected' / 'partially approved' with 'Your change request for \"<event>\" was <outcome>.' followed by '<field>: approved.' or '<field>: rejected – <reason>.' for each item (a rejected postponement or cancellation request gives its one reason); 'Event information changed' / '\"<event>\" has changed: <Date and time, Expected attendance, Venue requirements, Equipment requirements>.'; 'Event no longer confirmed' / '\"<event>\" has moved back to Planning after a change and is no longer confirmed.'; 'Registration confirmed' / 'You're registered for \"<event>\".'; 'Event rescheduled' / '\"<event>\" has a new date and time: <date, times>.'; 'Event confirmed' / '\"<event>\" is confirmed.'; 'Event completed' / '\"<event>\" has been marked completed.'; 'Event postponed' / 'Event cancelled' with '\"<event>\" has been postponed.' / 'has been cancelled.' and ' Reason: <reason>' when one was recorded. The two coordinator notifications for an assignment and a reassignment, and the Event Coordinator Lead's 'New event request submitted', are kept as they are.",
+    "DECIDED 2026-10-29: Every new notification is about its event and opens the event's Overview when selected (SPM-71's rule for any type it does not send elsewhere).",
+    "DECIDED 2026-10-29: AC10 is judged on the event's status after the change, so the first equipment requirement on an Approved event, which moves it to Planning (SPM-54), notifies Technical Support. Changing only an equipment line's technical requirements notifies nobody (AC10 names adds, removals and quantity changes).",
+    "DECIDED 2026-10-29: AC17 'rescheduled' is any change to the event's date or time, whether the coordinator saves it (SPM-62) or it is applied from an approved change request (SPM-32, including a Postponed event given its new date).",
+    "DECIDED 2026-10-29: AC16 'registered' includes an attendee who accepts a waiting-list offer (SPM-66), since that registers them. Joining the waiting list is not registering and notifies nobody.",
+    "DECIDED 2026-10-29: AC18 Completed includes an event the 7-day sweep completes (SPM-36 AC6). It has no manual case, since the sweep acts on an event 7 days after it ends; the unit tests cover it.",
+    "DECIDED 2026-10-29: AC15's second route, a safety check closed after a change (SPM-88), moves an event from Safety review or Safety approved to Planning, never from Confirmed, so only an important change to a Confirmed event (SPM-62) raises 'Event no longer confirmed'.",
+    "OPEN 2026-10-29: AC16's 'including when the Event Coordinator adds them (SPM-57)' cannot be built or tested until SPM-57 (Manually Add Attendee, PR #92) is merged. Whoever merges second adds the notification to the coordinator's add, using the 'Registration confirmed' wording."
+  ],
+  "code_references": []
+}
