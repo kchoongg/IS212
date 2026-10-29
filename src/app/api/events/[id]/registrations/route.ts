@@ -159,10 +159,11 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const bookings = await prisma.venueBooking.findMany({ where: { eventId: event.id }, select: BOOKING_FIELDS });
     const venue = venueCapacity(bookings, event.registrationVenueBookingId ?? null);
     const now = new Date();
+    // An unknown venue capacity is one of addAttendeeRefusal()'s reasons, so
+    // `refusal` is set whenever `venue` is null; `!venue` only tells
+    // TypeScript that the capacity is known below.
     const refusal = addAttendeeRefusal(event, venue, now);
-    if (refusal || !venue) {
-      return NextResponse.json({ error: refusal ?? ADD_ATTENDEE_MESSAGES.capacityUnknown }, { status: 400 });
-    }
+    if (refusal || !venue) return NextResponse.json({ error: refusal }, { status: 400 });
 
     const data = addAttendeeSchema.parse(await req.json());
 
