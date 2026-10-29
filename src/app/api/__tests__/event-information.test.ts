@@ -30,7 +30,8 @@
 //     venueBooking.update / equipmentRequest.update({ where: { id }, data: { needsReview: true, reviewReason, flaggedAt } })
 //       - reviewReason merged with what is already stored, SPM-39's venue codes included
 //     eventStatusHistory.create (confirmed -> planning, reason "Event information changed: <labels>")
-//   No notifications: telling the organiser and attendees is Receive Event Notifications (SPM-53).
+//   SPM-53: the organiser is told of an important change (AC14) and of a move back to Planning
+//   (AC15); Registered attendees of a new date and time (AC17).
 // Decided here, not in the story: see docs/test-cases/SPM-62_test_cases.json open_questions.
 import { describe, it, expect, vi } from "vitest";
 
@@ -122,6 +123,8 @@ function given(
   db.event.update.mockImplementation(async ({ data }: { data: object }) => ({ ...row, ...data }));
   db.event.updateMany.mockResolvedValue({ count: 1 });
   db.safetyCheck.updateMany.mockResolvedValue({ count: 1 });
+  // SPM-53 (AC17): who is Registered, told of a new date and time.
+  db.registration.findMany.mockResolvedValue([]);
   return token;
 }
 
@@ -688,5 +691,84 @@ describe("PATCH /api/events/[id]/information - failures", () => {
 
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ error: "Internal server error" });
+  });
+});
+
+describe("PATCH /api/events/[id]/information - telling people (SPM-53)", () => {
+  const told = () => db.notification.create.mock.calls.map((c: unknown[]) => (c[0] as { data: unknown }).data);
+  const changed = (what: string) => ({
+    recipientId: ORGANISER_ID,
+    type: "event_information_changed",
+    title: "Event information changed",
+    body: `"Harbour Leadership Summit" has changed: ${what}.`,
+    eventId: ID.event,
+  });
+
+  it("[SPM-53][AC14] tells the organiser which important information changed", async () => {
+    const token = given({}, { bookings: [], equipment: [], registrations: 0 });
+
+    await save(token, { expectedAttendance: 120, preferredLayout: "classroom" });
+
+    expect(told()).toEqual([changed("Expected attendance, Venue requirements")]);
+  });
+
+  it("[SPM-53][AC14] tells no one of an ordinary edit", async () => {
+    const token = given();
+
+    await save(token, { description: "Keynotes, panels and lunch" });
+
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-53][AC14][AC17] tells only the Registered attendees the new date and time", async () => {
+    const token = given({}, { bookings: [], equipment: [], registrations: 2 });
+    db.registration.findMany.mockResolvedValue([{ attendeeId: "attendee-1" }, { attendeeId: "attendee-2" }]);
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(callArg(db.registration.findMany).where).toEqual({ eventId: ID.event, status: "registered" });
+    expect(told()).toEqual([
+      changed("Date and time"),
+      ...["attendee-1", "attendee-2"].map((recipientId) => ({
+        recipientId,
+        type: "event_rescheduled",
+        title: "Event rescheduled",
+        body: '"Harbour Leadership Summit" has a new date and time: 24 Mar 2027, 09:00–17:00.',
+        eventId: ID.event,
+      })),
+    ]);
+  });
+
+  it("[SPM-53][AC17] tells attendees nothing when the date and time stay the same", async () => {
+    const token = given();
+
+    await save(token, { expectedAttendance: 120 });
+
+    expect(db.registration.findMany).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-53][AC15] tells the organiser that a Confirmed event moved back to Planning", async () => {
+    const token = given({ status: "confirmed" }, { equipment: [], registrations: 0 });
+
+    await save(token, { startsAt: NEW_START, endsAt: NEW_END });
+
+    expect(told()).toEqual([
+      changed("Date and time"),
+      {
+        recipientId: ORGANISER_ID,
+        type: "event_unconfirmed",
+        title: "Event no longer confirmed",
+        body: '"Harbour Leadership Summit" has moved back to Planning after a change and is no longer confirmed.',
+        eventId: ID.event,
+      },
+    ]);
+  });
+
+  it("[SPM-53][AC15] does not say a Confirmed event moved back when the change flagged nothing it rests on", async () => {
+    const token = given({ status: "confirmed" }, { bookings: [], equipment: [], registrations: 0 });
+
+    await save(token, { expectedAttendance: 120 });
+
+    expect(told()).toEqual([changed("Expected attendance")]);
   });
 });

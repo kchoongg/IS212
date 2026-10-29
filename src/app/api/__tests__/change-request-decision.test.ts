@@ -116,6 +116,7 @@ describe("[SPM-32] POST …/change-requests/[requestId]/decision", () => {
     db.venueBooking.findMany.mockResolvedValue([]);
     db.equipmentRequest.findMany.mockResolvedValue([]);
     db.registration.count.mockResolvedValue(0);
+    db.registration.findMany.mockResolvedValue([]);
     db.safetyCheck.updateMany.mockResolvedValue({ count: 0 });
   });
 
@@ -527,6 +528,30 @@ describe("POST …/change-requests/[requestId]/decision - telling the organiser 
 
     expect(outcome()).toEqual([
       { recipientId: ID.user, type: "change_request_decided", title: "Change request rejected", body, eventId: ID.event },
+    ]);
+  });
+
+  it("[SPM-53][AC14][AC17] an approved new date tells the organiser and the Registered attendees", async () => {
+    db.registration.findMany.mockResolvedValue([{ attendeeId: "attendee-1" }]);
+    const row = request({
+      changes: [
+        { field: "startsAt", current: "2027-07-05T01:00:00.000Z", proposed: "2027-07-12T01:00:00.000Z" },
+        { field: "endsAt", current: "2027-07-05T04:00:00.000Z", proposed: "2027-07-12T04:00:00.000Z" },
+      ],
+    });
+
+    await decide({ decisions: { startsAt: { outcome: "approved" }, endsAt: { outcome: "approved" } } }, { row });
+
+    const others = db.notification.create.mock.calls
+      .map((c: unknown[]) => (c[0] as { data: { type: string } }).data)
+      .filter((n: { type: string }) => n.type !== "change_request_decided");
+    expect(others).toEqual([
+      expect.objectContaining({ recipientId: ID.user, type: "event_information_changed", body: '"SPM32 Harbour Briefing" has changed: Date and time.' }),
+      expect.objectContaining({
+        recipientId: "attendee-1",
+        type: "event_rescheduled",
+        body: '"SPM32 Harbour Briefing" has a new date and time: 12 Jul 2027, 09:00–12:00.',
+      }),
     ]);
   });
 

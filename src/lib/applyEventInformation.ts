@@ -8,12 +8,14 @@
 // needs a Prisma transaction, so it is not one of the pure src/lib modules;
 // the decisions themselves are eventChangeImpact's, and tested there.
 //
-// No notifications: telling the organiser and attendees is Receive Event
-// Notifications (SPM-53).
+// SPM-53: the organiser is told what important information changed (AC14)
+// and whether it took a Confirmed event back to Planning (AC15); attendees
+// whose registration is Registered are told a new date and time (AC17).
 
 import type { Prisma } from "@prisma/client";
 import {
   affectedArrangements,
+  CHANGE_LABELS,
   attendeeCount,
   historyReason,
   importantChanges,
@@ -26,6 +28,8 @@ import { addReviewReasons } from "@/lib/reviewFlags";
 import { closeReasonFor } from "@/lib/safetyResolution";
 import { closeSafetyCheckAfterChange } from "@/lib/safetyCheckClose";
 import { HOLDING_A_PLACE } from "@/lib/registrationSettings";
+import { formatDateTimeRange } from "@/lib/format";
+import { notifyImportantChange, notifyUser } from "@/lib/notifications";
 import type { UpdateEventInformationInput } from "@/lib/validation";
 
 /// The event as the caller loaded it: the fields compared and merged here,
@@ -33,6 +37,7 @@ import type { UpdateEventInformationInput } from "@/lib/validation";
 export interface EventForChange {
   id: string;
   title: string | null;
+  organiserId: string;
   status: string;
   startsAt: Date | null;
   endsAt: Date | null;
@@ -195,6 +200,28 @@ export async function applyEventInformation(
   const safetyCheckClosed =
     changes.length > 0 &&
     (await closeSafetyCheckAfterChange(tx, event, actorId, closeReasonFor(changes), statusReverted, now));
+
+  // SPM-53: told in the same transaction as the change, under the event's
+  // title as it now stands (a change request can rename it too).
+  if (changes.length > 0) {
+    const told = { ...event, title: data.title ?? event.title };
+    await notifyImportantChange(tx, told, changes.map((change) => CHANGE_LABELS[change]), statusReverted);
+    if (changes.includes("schedule")) {
+      const { startsAt, endsAt } = mergedEventInfo(event, data);
+      const registered = await tx.registration.findMany({
+        where: { eventId: event.id, status: "registered" },
+        select: { attendeeId: true },
+      });
+      for (const { attendeeId } of registered) {
+        await notifyUser(tx, attendeeId, {
+          type: "event_rescheduled",
+          title: "Event rescheduled",
+          body: `"${told.title ?? "Untitled event"}" has a new date and time: ${formatDateTimeRange(startsAt, endsAt)}.`,
+          eventId: event.id,
+        });
+      }
+    }
+  }
 
   const flagged = [
     ...affected.venueBookings.map(({ id, reasons }) => {
