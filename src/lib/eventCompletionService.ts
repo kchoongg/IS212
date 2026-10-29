@@ -17,12 +17,13 @@ import { AUTO_COMPLETE_REASON, autoCompleteCutoff } from "@/lib/eventCompletion"
 type Db = PrismaClient | Prisma.TransactionClient;
 
 /// Completes every Confirmed event that ended 7 or more days ago, recording
-/// each in the status history with no user. Returns how many it completed.
+/// each in the status history with no user and telling its organiser
+/// (SPM-53, AC18). Returns how many it completed.
 export async function completeDueEvents(db: Db = prisma, now: Date = new Date()): Promise<number> {
-  const completed = (await db.$queryRaw<{ id: string }[]>`
+  const completed = (await db.$queryRaw<{ id: string; title: string | null; organiser_id: string }[]>`
     UPDATE events SET status = 'completed', updated_at = ${now}
     WHERE status = 'confirmed' AND ends_at <= ${autoCompleteCutoff(now)}
-    RETURNING id
+    RETURNING id, title, organiser_id
   `) ?? [];
 
   if (completed.length > 0) {
@@ -34,6 +35,15 @@ export async function completeDueEvents(db: Db = prisma, now: Date = new Date())
         changedBy: null,
         changedAt: now,
         reason: AUTO_COMPLETE_REASON,
+      })),
+    });
+    await db.notification.createMany({
+      data: completed.map(({ id, title, organiser_id }) => ({
+        recipientId: organiser_id,
+        type: "event_completed",
+        title: "Event completed",
+        body: `"${title ?? "Untitled event"}" has been marked completed.`,
+        eventId: id,
       })),
     });
   }

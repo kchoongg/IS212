@@ -570,7 +570,7 @@ async function handleStatusChange(
       });
     }
 
-    await notifyStatusChange(tx, e);
+    await notifyStatusChange(tx, e, cancellationReason ?? postponementReason);
 
     return e;
   });
@@ -578,20 +578,39 @@ async function handleStatusChange(
   return NextResponse.json(updated);
 }
 
-/// SPM-53 (AC4): the organiser who owns the event hears the review outcome -
-/// approved, or rejected with the reason. No one else is told.
+/// SPM-53 (AC4, AC18): the organiser who owns the event hears each outcome -
+/// approved, rejected with the reason, Confirmed, Completed, Postponed and
+/// Cancelled. A postponement or cancellation also reaches every attendee whose
+/// registration is Registered (AC16), with the reason when one was recorded.
+/// No one else is told.
 async function notifyStatusChange(
   tx: Prisma.TransactionClient,
-  event: { id: string; title: string | null; organiserId: string; status: string; rejectionReason: string | null }
+  event: { id: string; title: string | null; organiserId: string; status: string; rejectionReason: string | null },
+  reason: string | null
 ) {
   const title = event.title ?? "Untitled event";
+  const because = reason ? ` Reason: ${reason}` : "";
   const content = {
     approved: { title: "Event request approved", body: `"${title}" has been approved.` },
     rejected: { title: "Event request rejected", body: `"${title}" has been rejected. Reason: ${event.rejectionReason}` },
+    confirmed: { title: "Event confirmed", body: `"${title}" is confirmed.` },
+    completed: { title: "Event completed", body: `"${title}" has been marked completed.` },
+    postponed: { title: "Event postponed", body: `"${title}" has been postponed.${because}` },
+    cancelled: { title: "Event cancelled", body: `"${title}" has been cancelled.${because}` },
   }[event.status];
   if (!content) return;
 
-  await notifyUser(tx, event.organiserId, { type: `event_${event.status}`, ...content, eventId: event.id });
+  const notification = { type: `event_${event.status}`, ...content, eventId: event.id };
+  await notifyUser(tx, event.organiserId, notification);
+  if (event.status === "postponed" || event.status === "cancelled") {
+    const registered = await tx.registration.findMany({
+      where: { eventId: event.id, status: "registered" },
+      select: { attendeeId: true },
+    });
+    for (const { attendeeId } of registered) {
+      await notifyUser(tx, attendeeId, notification);
+    }
+  }
 }
 
 /// A refusal decided inside the resubmit's transaction (SPM-26), turned into

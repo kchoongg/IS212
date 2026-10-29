@@ -6,6 +6,8 @@ import { can } from "@/lib/permissions";
 import { respondToOfferSchema } from "@/lib/validation";
 import { WAITING_LIST_MESSAGES, hasStarted, offerStands } from "@/lib/waitingList";
 import { offerFreePlaces } from "@/lib/waitingListService";
+import { registeredNotice } from "@/lib/registrationEligibility";
+import { notifyUser } from "@/lib/notifications";
 
 // Join and Respond to Waiting List (SPM-66): the attendee answers the place
 // offered to them. Accepting within the window registers them and takes them
@@ -41,7 +43,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       // ended the offer since.
       const current = await tx.registration.findUnique({
         where: { id },
-        include: { event: { select: { startsAt: true } } },
+        include: { event: { select: { startsAt: true, title: true } } },
       });
       if (!current || current.status !== "waitlisted" || !current.offerExpiresAt) {
         throw new Refused(WAITING_LIST_MESSAGES.noOffer);
@@ -51,10 +53,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       }
 
       if (response === "accept") {
-        return tx.registration.update({
+        const accepted = await tx.registration.update({
           where: { id },
           data: { status: "registered", registeredAt: now, offerExpiresAt: null, offerEndedReason: null },
         });
+        // SPM-53 (AC16): accepting the place registers them, so they are told so.
+        await notifyUser(tx, actor.id, registeredNotice({ id: registration.eventId, title: current.event.title }));
+        return accepted;
       }
       const declined = await tx.registration.update({
         where: { id },

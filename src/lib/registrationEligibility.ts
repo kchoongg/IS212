@@ -12,6 +12,7 @@
 // and the screens call it, so the reason a button is missing and the reason a
 // request is refused are the same rule.
 
+import type { NotificationContent } from "@/lib/notifications";
 import { isTerminalEventStatus } from "./statuses";
 
 /// The registration statuses that take a seat. A waitlisted attendee is
@@ -135,4 +136,16 @@ export function registrationCounts(byStatus: { status: string; count: number }[]
   const sum = (statuses: string[]) =>
     byStatus.filter((s) => statuses.includes(s.status)).reduce((total, s) => total + s.count, 0);
   return { taken: sum(SEAT_TAKING), waitlisted: sum(["waitlisted"]), withdrawn: sum(["withdrawn"]) };
+}
+
+/// SPM-53 (AC16): what an attendee is told once they are registered - by
+/// registering (SPM-51) or by accepting a place offered from the waiting list
+/// (SPM-66).
+export function registeredNotice(event: { id: string; title: string | null }): NotificationContent {
+  return {
+    type: "registration_confirmed",
+    title: "Registration confirmed",
+    body: `You're registered for "${event.title ?? "Untitled event"}".`,
+    eventId: event.id,
+  };
 }
