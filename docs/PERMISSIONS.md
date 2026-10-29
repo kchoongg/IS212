@@ -530,7 +530,8 @@ allowed to see.
   `canAddAttendees()`: only the coordinator assigned to the event. The
   organiser sees who was added ("Added by <name>") but adds no one; anyone
   else is refused 403. When it may happen - a Confirmed event with
-  registration on - is `addAttendeeRefusal()` in `src/lib/manualRegistration.ts`.
+  registration on, not yet started, with a known venue capacity - is
+  `addAttendeeRefusal()` in `src/lib/manualRegistration.ts`.
 - **`users.role` has no database constraint.** `registerSchema` guards the
   register route; a direct database write is not guarded.
   - Corrected 2026-09-18: this entry previously read "Zod guards the register

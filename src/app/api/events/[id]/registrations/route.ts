@@ -4,9 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import { canAddAttendees, canViewRegistrationList, isAssignedCoordinator } from "@/lib/permissions";
-import { SEAT_TAKING, registrationCounts } from "@/lib/registrationEligibility";
+import { registrationCounts } from "@/lib/registrationEligibility";
 import { hasStarted, waitingOrder } from "@/lib/waitingList";
-import { sweepWaitingList } from "@/lib/waitingListService";
+import { placeCounts, sweepWaitingList } from "@/lib/waitingListService";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 import { addAttendeeSchema } from "@/lib/validation";
 import {
@@ -89,6 +89,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       prisma.venueBooking.findMany({ where: { eventId: event.id }, select: BOOKING_FIELDS }),
     ]);
     const mayAdd = canAddAttendees(actor, event);
+    const venue = venueCapacity(bookings, event.registrationVenueBookingId ?? null);
 
     // SPM-66 (AC3, AC9): each waiting attendee's position, for the coordinator
     // choosing who to offer a place to.
@@ -110,11 +111,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
       counts: registrationCounts(byStatus.map((s) => ({ status: s.status, count: s._count._all }))),
       // SPM-57 AC3: the room a manual addition is measured against, or null
       // when it isn't known.
-      venueCapacity: venueCapacity(bookings, event.registrationVenueBookingId ?? null),
+      venueCapacity: venue,
       // SPM-57: whether this user may add attendees (the assigned coordinator),
       // and if they may but not now, why. A null reason: they may.
       canAddAttendees: mayAdd,
-      addAttendeesRefusal: mayAdd ? addAttendeeRefusal(event) : null,
+      addAttendeesRefusal: mayAdd ? addAttendeeRefusal(event, venue, new Date()) : null,
       registrations: registrations.map((r) => ({
         id: r.id,
         status: r.status,
@@ -140,8 +141,9 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
 /// SPM-57: add an Attendee account to the registration list. 401, then 404 for
 /// an event the user may not see, then 403 for anyone but the assigned
-/// coordinator, then the event's status and registration (addAttendeeRefusal),
-/// then the form, then the account, then the venue capacity (AC3).
+/// coordinator, then the event's status, registration, start and venue
+/// capacity (addAttendeeRefusal), then the form, then the account, then the
+/// places left in the room (AC3).
 export async function POST(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const actor = await getActor(req);
@@ -154,8 +156,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     if (!canAddAttendees(actor, event)) {
       return forbidden("Only the coordinator assigned to this event can add attendees");
     }
-    const refusal = addAttendeeRefusal(event);
-    if (refusal) return NextResponse.json({ error: refusal }, { status: 400 });
+    const bookings = await prisma.venueBooking.findMany({ where: { eventId: event.id }, select: BOOKING_FIELDS });
+    const venue = venueCapacity(bookings, event.registrationVenueBookingId ?? null);
+    const now = new Date();
+    const refusal = addAttendeeRefusal(event, venue, now);
+    if (refusal || !venue) {
+      return NextResponse.json({ error: refusal ?? ADD_ATTENDEE_MESSAGES.capacityUnknown }, { status: 400 });
+    }
 
     const data = addAttendeeSchema.parse(await req.json());
 
@@ -176,27 +183,25 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const holding = existing && alreadyHoldsPlace(attendee.fullName, existing.status);
     if (holding) return emailError(holding);
 
-    const bookings = await prisma.venueBooking.findMany({ where: { eventId: event.id }, select: BOOKING_FIELDS });
-    const venue = venueCapacity(bookings, event.registrationVenueBookingId ?? null);
-    if (!venue) return NextResponse.json({ error: ADD_ATTENDEE_MESSAGES.capacityUnknown }, { status: 400 });
-
     // AC3, counted under the event's row lock, as POST /api/registrations
     // does (SPM-111): a coordinator adding the last seat and an attendee
-    // taking it at the same moment can't both succeed.
+    // taking it at the same moment can't both succeed. A place under offer to
+    // the waiting list is held (SPM-66 AC8), so it counts as taken.
     const registration = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw`SELECT id FROM events WHERE id = ${event.id} FOR UPDATE`;
-      const taken = await tx.registration.count({ where: { eventId: event.id, status: { in: SEAT_TAKING } } });
-      const full = venueFullError(venue, taken);
+      const full = venueFullError(venue, await placeCounts(tx, event.id, now));
       if (full) throw new VenueFull(full);
 
       // AC4: the row self-registration writes - a withdrawn attendee's own
-      // row registered again - plus who added it (SPM-65 AC4).
+      // row registered again - plus who added it (SPM-65 AC4). A requirement
+      // left blank is cleared (null), so a re-added attendee doesn't keep
+      // what they gave when they registered before.
       const fields = {
         status: "registered",
-        registeredAt: new Date(),
+        registeredAt: now,
         withdrawnAt: null,
-        dietaryRequirements: data.dietaryRequirements,
-        accessibilityRequirements: data.accessibilityRequirements,
+        dietaryRequirements: data.dietaryRequirements ?? null,
+        accessibilityRequirements: data.accessibilityRequirements ?? null,
         addedById: actor.id,
       };
       if (existing) return tx.registration.update({ where: { id: existing.id }, data: fields });

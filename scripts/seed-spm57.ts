@@ -17,7 +17,10 @@
  *
  * No pinned reference numbers: the database numbers each event, and the test
  * cases find them by title, which no other event shares. Registration dates
- * are fixed, so the dates the cases quote never go stale.
+ * are fixed, so the dates the cases quote never go stale - except the place on
+ * offer at SPM57 Held Place Recital (TC10), which SPM-66 lets stand for 3
+ * days, so it is offered when the script runs. SPM57 Opening Exhibition (TC11)
+ * has started and runs to 31 Dec 2027, so it stays Confirmed until then.
  *
  * prisma/seed.ts creates the same rooms and events (same codes, seed keys,
  * titles, dates and people) but not their bookings, registrations or exact
@@ -75,6 +78,10 @@ type Registration = {
   withdrawnAt?: string;
   /** Added by the coordinator on the organiser's behalf (SPM-57), with the requirements recorded. */
   added?: { dietary: string; accessibility: string };
+  /** Requirements the attendee gave when they registered themselves. */
+  requirements?: { dietary: string; accessibility: string };
+  /** A waiting attendee with a place on offer (SPM-66), standing for 3 days from now. */
+  offered?: true;
 };
 
 type Fixture = {
@@ -82,10 +89,16 @@ type Fixture = {
   title: string;
   status: "confirmed" | "planning";
   date: string; // YYYY-MM-DD, Singapore
+  /** The last day, when it isn't `date`. */
+  endDate?: string;
   startHour: number;
   endHour: number;
   category: string;
   venue: (typeof VENUES)[number]["code"];
+  /** A second room, booked for the same time. */
+  alsoBooked?: (typeof VENUES)[number]["code"];
+  /** false: no booking is chosen to measure registration against (SPM-64). */
+  measured?: false;
   registration: { enabled: boolean; capacity?: number; opens?: string; closes?: string };
   registrations: Registration[];
   testCases: string; // which SPM-57 cases use it - for whoever reads the output
@@ -137,6 +150,46 @@ const FIXTURES: Fixture[] = [
     registration: { enabled: false },
     registrations: [],
     testCases: "TC08" },
+  // The salon seats 4: 3 registered and the 4th place on offer to Kavitha
+  // Menon from the waiting list (SPM-66), so it is held. TC10 is refused,
+  // she declines, and the place can then be given to a VIP.
+  { key: "spm57_offer", title: "SPM57 Held Place Recital", status: "confirmed",
+    date: "2028-04-04", startHour: 18, endHour: 21, category: "networking", venue: "SPM57-SAL",
+    registration: { enabled: true, capacity: 4, opens: "2026-09-01 09:00", closes: "2028-04-03 17:00" },
+    registrations: [
+      { email: "marcus.yeo@example.com", status: "registered", registeredAt: "2026-10-01 10:00" },
+      { email: "tom.harris@example.com", status: "registered", registeredAt: "2026-10-02 10:00" },
+      { email: "jocelyn.pang@example.com", status: "registered", registeredAt: "2026-10-03 10:00" },
+      { email: "kavitha.menon@example.com", status: "waitlisted", registeredAt: "2026-10-04 10:00", offered: true },
+    ],
+    testCases: "TC10" },
+  // Confirmed, and started on 26 Oct 2026: nobody can be added any more.
+  { key: "spm57_started", title: "SPM57 Opening Exhibition", status: "confirmed",
+    date: "2026-10-26", endDate: "2027-12-31", startHour: 10, endHour: 18, category: "exhibition", venue: "SPM57-HAL",
+    registration: { enabled: true, capacity: 40, opens: "2026-09-01 09:00", closes: "2026-10-26 10:00" },
+    registrations: [
+      { email: "marcus.yeo@example.com", status: "registered", registeredAt: "2026-10-01 10:00" },
+    ],
+    testCases: "TC11" },
+  // Booked in both rooms with neither chosen, so the venue capacity isn't
+  // known until the coordinator chooses one in the Registration settings.
+  { key: "spm57_two_rooms", title: "SPM57 Two Room Forum", status: "confirmed",
+    date: "2028-04-11", startHour: 9, endHour: 17, category: "conference", venue: "SPM57-HAL", alsoBooked: "SPM57-SAL",
+    measured: false,
+    registration: { enabled: true, capacity: 20, opens: "2026-09-01 09:00", closes: "2028-04-10 17:00" },
+    registrations: [],
+    testCases: "TC12" },
+  // Bryan Chua registered with his requirements and withdrew. TC13 adds him
+  // back with the requirements left blank.
+  { key: "spm57_brunch", title: "SPM57 Returning Guest Brunch", status: "confirmed",
+    date: "2028-04-18", startHour: 10, endHour: 13, category: "networking", venue: "SPM57-HAL",
+    registration: { enabled: true, capacity: 10, opens: "2026-09-01 09:00", closes: "2028-04-17 17:00" },
+    registrations: [
+      { email: "marcus.yeo@example.com", status: "registered", registeredAt: "2026-10-01 10:00" },
+      { email: "bryan.chua@example.com", status: "withdrawn", registeredAt: "2026-10-02 10:00",
+        withdrawnAt: "2026-10-09 15:00", requirements: { dietary: "Vegetarian", accessibility: "Step-free access" } },
+    ],
+    testCases: "TC13" },
 ];
 
 /** Same status chains and reasons as prisma/seed.ts. */
@@ -200,7 +253,9 @@ async function main() {
   const now = new Date();
   for (const f of FIXTURES) {
     const startsAt = sgt(f.date, f.startHour);
-    const endsAt = sgt(f.date, f.endHour);
+    const endsAt = sgt(f.endDate ?? f.date, f.endHour);
+    // SPM-66: 3 days to accept, or until the event starts if sooner.
+    const offerExpiresAt = new Date(Math.min(now.getTime() + 3 * 86_400_000, startsAt.getTime()));
     const chain = CHAIN[f.status];
     // History 5 days a step, ending in the past.
     const historyStart = addDays(now, -(chain.length * 5 + 2));
@@ -237,8 +292,8 @@ async function main() {
           })),
         },
         venueBookings: {
-          create: [{
-            venueId: venueIds.get(f.venue)!,
+          create: [f.venue, ...(f.alsoBooked ? [f.alsoBooked] : [])].map((code) => ({
+            venueId: venueIds.get(code)!,
             layoutName: "theatre",
             startsAt,
             endsAt,
@@ -247,7 +302,7 @@ async function main() {
             requestedAt: addDays(historyStart, 15),
             decidedBy: venueStaff,
             decidedAt: addDays(historyStart, 16),
-          }],
+          })),
         },
         registrations: {
           create: f.registrations.map((r) => ({
@@ -256,15 +311,16 @@ async function main() {
             registeredAt: at(r.registeredAt),
             withdrawnAt: r.withdrawnAt ? at(r.withdrawnAt) : undefined,
             addedById: r.added ? coordinator : undefined,
-            dietaryRequirements: r.added?.dietary,
-            accessibilityRequirements: r.added?.accessibility,
+            dietaryRequirements: (r.added ?? r.requirements)?.dietary,
+            accessibilityRequirements: (r.added ?? r.requirements)?.accessibility,
+            ...(r.offered && { waitlistedAt: at(r.registeredAt), offeredAt: now, offerExpiresAt }),
           })),
         },
       },
       select: { id: true, sequenceNumber: true, venueBookings: { select: { id: true } } },
     });
     // Registration is measured against the event's one booking (SPM-64).
-    if (reg.capacity !== undefined) {
+    if (reg.capacity !== undefined && f.measured !== false) {
       await prisma.event.update({
         where: { id: created.id },
         data: { registrationVenueBookingId: created.venueBookings[0].id },

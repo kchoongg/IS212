@@ -2457,6 +2457,15 @@ async function main() {
     spm57("spm57_planning", "SPM57 Planning Workshop", "planning", "2028-03-21", 9, 8, "workshop",
       { regEnabled: true, regCapacity: 40 }),
     spm57("spm57_lunch", "SPM57 Invitation Only Lunch", "confirmed", "2028-03-28", 12, 2, "meeting"),
+    spm57("spm57_offer", "SPM57 Held Place Recital", "confirmed", "2028-04-04", 18, 3, "networking",
+      { regEnabled: true, regCapacity: 4 }),
+    // Started 26 Oct 2026, runs to 31 Dec 2027, 18:00.
+    spm57("spm57_started", "SPM57 Opening Exhibition", "confirmed", "2026-10-26", 10, 431 * 24 + 8, "exhibition",
+      { regEnabled: true, regCapacity: 40 }),
+    spm57("spm57_two_rooms", "SPM57 Two Room Forum", "confirmed", "2028-04-11", 9, 8, "conference",
+      { regEnabled: true, regCapacity: 20 }),
+    spm57("spm57_brunch", "SPM57 Returning Guest Brunch", "confirmed", "2028-04-18", 10, 3, "networking",
+      { regEnabled: true, regCapacity: 10 }),
   );
 
   const events: Record<string, { id: string; startsAt: Date | null; endsAt: Date | null; days: number }> = {};

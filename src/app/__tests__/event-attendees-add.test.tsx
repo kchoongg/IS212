@@ -90,10 +90,17 @@ describe("[SPM-57] the Attendees tab", () => {
     expect(screen.queryByRole("button", { name: "Add attendee" })).not.toBeInTheDocument();
   });
 
-  it("[SPM-57][AC1] tells the coordinator why not for an event that isn't Confirmed", async () => {
-    open({ [LIST]: payload({ addAttendeesRefusal: "Attendees can only be added to a Confirmed event." }) });
+  it.each([
+    ["isn't Confirmed", "Attendees can only be added to a Confirmed event."],
+    ["has started", "This event has started, so attendees can no longer be added."],
+    [
+      "has no known venue capacity",
+      "This event's venue capacity isn't known, so attendees can't be added. Choose the venue booking registration is measured against in the Registration settings first.",
+    ],
+  ])("[SPM-57][AC1][AC3] tells the coordinator why not for an event that %s, instead of the button", async (_what, reason) => {
+    open({ [LIST]: payload({ addAttendeesRefusal: reason, venueCapacity: null }) });
 
-    expect(await screen.findByText("Attendees can only be added to a Confirmed event.")).toBeInTheDocument();
+    expect(await screen.findByText(reason)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add attendee" })).not.toBeInTheDocument();
   });
 

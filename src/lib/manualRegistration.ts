@@ -7,7 +7,9 @@
 // full, but the overall event/venue capacity must still not be exceeded." So
 // the self-service limits (the registration period and capacity, SPM-51) do
 // not apply, and the limit is the room: the layout capacity of the booking
-// registration is measured against (SPM-64's measuredBooking()).
+// registration is measured against (SPM-64's measuredBooking()). A place under
+// offer to someone on the waiting list (SPM-66) is held, so it counts against
+// the room as a registration does.
 //
 // PURE functions over plain data, like src/lib/registrationSettings.ts: the
 // route (src/app/api/events/[id]/registrations/route.ts) loads the rows and
@@ -20,6 +22,7 @@ import { layoutLabel } from "./venueSuitability";
 export const ADD_ATTENDEE_MESSAGES = {
   notConfirmed: "Attendees can only be added to a Confirmed event.",
   disabled: REGISTRATION_REFUSALS.disabled,
+  started: "This event has started, so attendees can no longer be added.",
   noAccount: "No Attendee account uses this email address. Only people with an Attendee account can be added.",
   capacityUnknown:
     "This event's venue capacity isn't known, so attendees can't be added. Choose the venue booking registration is measured against in the Registration settings first.",
@@ -28,15 +31,26 @@ export const ADD_ATTENDEE_MESSAGES = {
 export interface AddAttendeeEventFields {
   status: string;
   registrationEnabled: boolean;
+  startsAt: Date | string | null;
 }
 
 /// Why attendees can't be added to this event now, or null when they can.
 /// Confirmed only, as for self-registration (SPM-51 AC3): it is the only
 /// status in which an attendee can open an event they hold a place in. The
-/// registration period is deliberately not checked (#33: a list to process).
-export function addAttendeeRefusal(event: AddAttendeeEventFields): string | null {
+/// registration period is deliberately not checked (#33: a list to process),
+/// but nobody is added once the event has started (decided 2026-10-29), as
+/// self-registration closes by then and SPM-66 stops offering places. Without
+/// a known venue capacity (venueCapacity() null) there is no limit to keep to
+/// (AC3), so that is a reason too - shown before the form, not after it.
+export function addAttendeeRefusal(
+  event: AddAttendeeEventFields,
+  venue: VenueCapacity | null,
+  now: Date
+): string | null {
   if (event.status !== "confirmed") return ADD_ATTENDEE_MESSAGES.notConfirmed;
   if (!event.registrationEnabled) return ADD_ATTENDEE_MESSAGES.disabled;
+  if (event.startsAt && new Date(event.startsAt).getTime() <= now.getTime()) return ADD_ATTENDEE_MESSAGES.started;
+  if (!venue) return ADD_ATTENDEE_MESSAGES.capacityUnknown;
   return null;
 }
 
@@ -73,10 +87,16 @@ export function venueCapacityLine(venue: VenueCapacity): string {
 }
 
 /// AC3: refused once the seats taken - self-registered and manually added
-/// together - reach the room's capacity.
-export function venueFullError(venue: VenueCapacity, seatsTaken: number): string | null {
-  if (seatsTaken < venue.capacity) return null;
-  return `This event has reached its venue capacity: ${venue.capacity} attendees in ${venue.venue}, ${venue.layout} layout. No more attendees can be added.`;
+/// together - and the places under offer to the waiting list (SPM-66
+/// placeCounts()) reach the room's capacity: an offer accepted afterwards
+/// would otherwise put one more in the room than it seats.
+export function venueFullError(venue: VenueCapacity, places: { taken: number; underOffer: number }): string | null {
+  if (places.taken + places.underOffer < venue.capacity) return null;
+  const offered =
+    places.underOffer === 0
+      ? ""
+      : `, counting ${places.underOffer} ${places.underOffer === 1 ? "place" : "places"} on offer to the waiting list`;
+  return `This event has reached its venue capacity: ${venue.capacity} attendees in ${venue.venue}, ${venue.layout} layout${offered}. No more attendees can be added.`;
 }
 
 /// An attendee who already holds a place is not added again. Taking someone
