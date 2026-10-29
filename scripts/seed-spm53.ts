@@ -10,15 +10,15 @@
  *     onDelete: Cascade) and recreates them in their starting state. So every
  *     notification a case raised is gone after the next run;
  *   - its two test rooms, SPM53 Hall (SPM53-HAL) and SPM53 Studio (SPM53-STU),
- *     and its three test items, SPM53 Projector (4), SPM53 Lectern Mic (2) and
- *     SPM53 Speaker (2), which it upserts and puts back to their starting
+ *     and its four test items, SPM53 Projector (4), SPM53 Lectern Mic (2),
+ *     SPM53 Speaker (2) and SPM53 Screen (2), which it upserts and puts back to their starting
  *     values with no other bookings or requests, so nobody else's can get in
  *     the way.
  * Nothing else in the database is changed, so it is safe to run while others
  * are testing other stories.
  *
- * Every case raises notifications, so run it again after each case
- * (docs/test-cases/SPM-53_Test_Cases.xlsx says which).
+ * Every case raises notifications, so run it again before and after each case
+ * (docs/test-cases/SPM-53_Test_Cases.xlsx).
  *
  * Dates avoid September on purpose: the app writes it as "Sept", and every
  * other month as its three-letter form. SPM53 Harbour Finished Dinner is the
@@ -36,7 +36,7 @@
  * Vikram Nair, Lee Wei Ming, Anita Devi) to exist.
  */
 
-import { PrismaClient, type Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -76,6 +76,7 @@ const EQUIPMENT = [
   { name: "SPM53 Projector", description: "SPM-53 test item: 4 in total", totalQuantity: 4 },
   { name: "SPM53 Lectern Mic", description: "SPM-53 test item: 2 in total", totalQuantity: 2 },
   { name: "SPM53 Speaker", description: "SPM-53 test item: 2 in total", totalQuantity: 2 },
+  { name: "SPM53 Screen", description: "SPM-53 test item: 2 in total", totalQuantity: 2 },
 ] as const;
 const EQUIPMENT_FIELDS = {
   category: "AV", quantityInMaintenance: 0, outOfServiceReason: null, outOfServiceType: null,
@@ -98,8 +99,6 @@ type Fixture = {
   description?: string;
   bookings?: Booking[];
   equipment?: Line[];
-  /** TC13: a pending change of details from the organiser. */
-  changeRequest?: boolean;
   /** Registration enabled, with these attendees. */
   registration?: { closes: string; attendees: Attendee[] };
   testCases: string;
@@ -114,55 +113,38 @@ const FIXTURES: Fixture[] = [
   { key: "spm53_draft", title: "SPM53 Harbour Draft Summit", status: "draft", date: "2028-03-02",
     coordinator: null, testCases: "TC01" },
   { key: "spm53_clarify", title: "SPM53 Harbour Clarity Forum", status: "under_review", date: "2028-03-07",
-    description: "A morning forum for wealth clients.", testCases: "TC02 TC03" },
-  { key: "spm53_approve", title: "SPM53 Harbour Approval Day", status: "under_review", date: "2028-03-09",
-    testCases: "TC04" },
+    description: "A morning forum for wealth clients.", testCases: "TC02" },
   { key: "spm53_reject", title: "SPM53 Harbour Rejected Brief", status: "under_review", date: "2028-03-14",
-    testCases: "TC05" },
-  { key: "spm53_assign", title: "SPM53 Harbour Assign Expo", status: "submitted", date: "2028-03-16",
-    coordinator: null, testCases: "TC06 TC07" },
-  { key: "spm53_venue", title: "SPM53 Harbour Venue Day", status: "planning", date: "2028-03-21",
-    testCases: "TC08" },
+    testCases: "TC02" },
   { key: "spm53_booking_review", title: "SPM53 Harbour Booking Review", status: "planning", date: "2028-03-23",
-    bookings: [{ venueCode: "SPM53-HAL", status: "pending" }, { venueCode: "SPM53-STU", status: "pending" }],
-    testCases: "TC09" },
+    bookings: [{ venueCode: "SPM53-STU", status: "pending" }], testCases: "TC03" },
   { key: "spm53_equipment", title: "SPM53 Harbour Equipment Fair", status: "planning", date: "2028-03-28",
-    equipment: [{ item: "SPM53 Projector", quantity: 2, status: "requested" }, { item: "SPM53 Lectern Mic", quantity: 1, status: "requested" }],
-    testCases: "TC10" },
-  { key: "spm53_fulfilment", title: "SPM53 Harbour Fulfilment Gala", status: "planning", date: "2028-03-30",
     equipment: [
       { item: "SPM53 Projector", quantity: 2, status: "requested" },
-      { item: "SPM53 Lectern Mic", quantity: 3, status: "requested" },
-      { item: "SPM53 Speaker", quantity: 1, status: "requested" },
+      { item: "SPM53 Lectern Mic", quantity: 1, status: "requested" },
+      { item: "SPM53 Screen", quantity: 1, status: "requested" },
     ],
-    testCases: "TC11" },
-  { key: "spm53_change_talk", title: "SPM53 Harbour Change Talk", status: "approved", date: "2028-04-04",
-    description: "A talk on regional markets.", testCases: "TC12" },
+    testCases: "TC04" },
   { key: "spm53_change_review", title: "SPM53 Harbour Change Review", status: "planning", date: "2028-04-06",
-    description: "Quarterly briefing.", changeRequest: true, testCases: "TC13" },
-  { key: "spm53_edit", title: "SPM53 Harbour Edit Forum", status: "approved", date: "2028-04-11",
-    testCases: "TC14" },
-  { key: "spm53_ordinary_edit", title: "SPM53 Harbour Ordinary Edit", status: "approved", date: "2028-04-13",
-    description: "Morning session.", testCases: "TC15" },
+    description: "Quarterly briefing.", testCases: "TC05" },
   { key: "spm53_confirmed_gala", title: "SPM53 Harbour Confirmed Gala", status: "confirmed", date: "2028-04-18",
+    description: "Gala dinner for key clients.",
     bookings: [{ venueCode: "SPM53-HAL", status: "approved" }],
     equipment: [{ item: "SPM53 Projector", quantity: 1, status: "reserved" }],
     registration: { closes: "2028-04-10", attendees: [{ email: LEE, status: "registered" }, { email: ANITA, status: "withdrawn" }] },
-    testCases: "TC16" },
-  { key: "spm53_open_day", title: "SPM53 Harbour Open Day", status: "confirmed", date: "2028-04-20",
-    registration: { closes: "2028-04-15", attendees: [] }, testCases: "TC17" },
+    testCases: "TC06" },
   { key: "spm53_ready", title: "SPM53 Harbour Ready Launch", status: "planning", date: "2028-04-27",
     bookings: [{ venueCode: "SPM53-STU", status: "approved" }],
     equipment: [{ item: "SPM53 Projector", quantity: 1, status: "reserved" }],
-    testCases: "TC18" },
+    testCases: "TC07" },
   { key: "spm53_finished", title: "SPM53 Harbour Finished Dinner", status: "confirmed", date: yesterdayInSingapore(),
-    start: "19:00", end: "22:00", testCases: "TC19" },
+    start: "19:00", end: "22:00", testCases: "TC07" },
   { key: "spm53_postpone", title: "SPM53 Harbour Postponed Fair", status: "confirmed", date: "2028-05-04",
-    registration: { closes: "2028-05-01", attendees: [{ email: LEE, status: "registered" }, { email: ANITA, status: "withdrawn" }] },
-    testCases: "TC20" },
+    registration: { closes: "2028-05-01", attendees: [{ email: ANITA, status: "withdrawn" }] },
+    testCases: "TC07" },
   { key: "spm53_cancel", title: "SPM53 Harbour Cancelled Summit", status: "confirmed", date: "2028-05-09",
     registration: { closes: "2028-05-05", attendees: [{ email: LEE, status: "registered" }, { email: ANITA, status: "waitlisted" }] },
-    testCases: "TC21" },
+    testCases: "TC07" },
 ];
 
 /** The status history each starting status was reached by, as prisma/seed.ts's CHAIN. */
@@ -316,25 +298,6 @@ async function main() {
           reviewedAt: reserved ? addDays(now, -3) : undefined,
         },
       });
-    }
-
-    // In SPM-35's shape, as scripts/seed-spm32.ts's SPM32 Harbour Briefing.
-    if (f.changeRequest) {
-      const request: Prisma.EventChangeRequestUncheckedCreateInput = {
-        eventId: created.id,
-        requestedBy: organiser.id,
-        requestedAt: addDays(now, -1),
-        kind: "change",
-        reason: "More clients have confirmed and we are adding lunch.",
-        changes: [
-          { field: "title", current: f.title, proposed: `${f.title} and Lunch` },
-          { field: "description", current: f.description, proposed: "Quarterly briefing with lunch." },
-          { field: "expectedAttendance", current: 30, proposed: 45 },
-        ],
-        isSignificant: true,
-        status: "pending",
-      };
-      await prisma.eventChangeRequest.create({ data: request });
     }
 
     for (const a of f.registration?.attendees ?? []) {

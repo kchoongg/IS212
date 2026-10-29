@@ -2425,8 +2425,8 @@ async function main() {
   // scripts/seed-spm53.ts (`npm run fixtures:spm53`) - keep the two in step.
   //
   // The events only. Their test rooms (SPM53 Hall, SPM53 Studio), equipment
-  // (SPM53 Projector, SPM53 Lectern Mic, SPM53 Speaker), bookings, equipment
-  // lines, change request and registrations are created by that script alone,
+  // (SPM53 Projector, SPM53 Lectern Mic, SPM53 Speaker, SPM53 Screen), bookings,
+  // equipment lines and registrations are created by that script alone,
   // so run it once after a full reseed. Pushed LAST, after SPM-66, so no
   // earlier event's EVT- reference number shifts. Add new events AFTER this
   // block.
@@ -2441,23 +2441,13 @@ async function main() {
     spm53("spm53_draft", "SPM53 Harbour Draft Summit", "draft", "2028-03-02", { coordinator: undefined }),
     spm53("spm53_clarify", "SPM53 Harbour Clarity Forum", "under_review", "2028-03-07",
       { description: "A morning forum for wealth clients." }),
-    spm53("spm53_approve", "SPM53 Harbour Approval Day", "under_review", "2028-03-09"),
     spm53("spm53_reject", "SPM53 Harbour Rejected Brief", "under_review", "2028-03-14"),
-    spm53("spm53_assign", "SPM53 Harbour Assign Expo", "submitted", "2028-03-16", { coordinator: undefined }),
-    spm53("spm53_venue", "SPM53 Harbour Venue Day", "planning", "2028-03-21"),
     spm53("spm53_booking_review", "SPM53 Harbour Booking Review", "planning", "2028-03-23"),
     spm53("spm53_equipment", "SPM53 Harbour Equipment Fair", "planning", "2028-03-28"),
-    spm53("spm53_fulfilment", "SPM53 Harbour Fulfilment Gala", "planning", "2028-03-30"),
-    spm53("spm53_change_talk", "SPM53 Harbour Change Talk", "approved", "2028-04-04",
-      { description: "A talk on regional markets." }),
     spm53("spm53_change_review", "SPM53 Harbour Change Review", "planning", "2028-04-06",
       { description: "Quarterly briefing." }),
-    spm53("spm53_edit", "SPM53 Harbour Edit Forum", "approved", "2028-04-11"),
-    spm53("spm53_ordinary_edit", "SPM53 Harbour Ordinary Edit", "approved", "2028-04-13",
-      { description: "Morning session." }),
     spm53("spm53_confirmed_gala", "SPM53 Harbour Confirmed Gala", "confirmed", "2028-04-18",
-      { regEnabled: true, regCapacity: 40 }),
-    spm53("spm53_open_day", "SPM53 Harbour Open Day", "confirmed", "2028-04-20", { regEnabled: true, regCapacity: 40 }),
+      { description: "Gala dinner for key clients.", regEnabled: true, regCapacity: 40 }),
     spm53("spm53_ready", "SPM53 Harbour Ready Launch", "planning", "2028-04-27"),
     // Ended yesterday, whenever the seed runs, so it can be marked completed.
     spm53("spm53_finished", "SPM53 Harbour Finished Dinner", "confirmed", "2028-01-01",
