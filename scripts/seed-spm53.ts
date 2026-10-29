@@ -101,6 +101,8 @@ type Fixture = {
   equipment?: Line[];
   /** Registration enabled, with these attendees. */
   registration?: { closes: string; attendees: Attendee[] };
+  /** An approved Operational Safety Check, which confirming needs (SPM-88). */
+  safetyApproved?: boolean;
   testCases: string;
 };
 
@@ -138,7 +140,7 @@ const FIXTURES: Fixture[] = [
   { key: "spm53_ready", title: "SPM53 Harbour Ready Launch", status: "planning", date: "2028-04-27",
     bookings: [{ venueCode: "SPM53-STU", status: "approved" }],
     equipment: [{ item: "SPM53 Projector", quantity: 1, status: "reserved" }],
-    testCases: "TC18" },
+    safetyApproved: true, testCases: "TC18" },
   { key: "spm53_finished", title: "SPM53 Harbour Finished Dinner", status: "confirmed", date: yesterdayInSingapore(),
     start: "19:00", end: "22:00", testCases: "TC18" },
   { key: "spm53_postpone", title: "SPM53 Harbour Postponed Fair", status: "confirmed", date: "2028-05-04",
@@ -301,6 +303,13 @@ async function main() {
           reviewedBy: reserved ? techSupport : undefined,
           reviewedAt: reserved ? addDays(now, -3) : undefined,
         },
+      });
+    }
+
+    if (f.safetyApproved) {
+      await prisma.safetyCheck.create({
+        data: { eventId: created.id, status: "approved", submittedBy: coordinator!, submittedAt: addDays(now, -3),
+          decidedAt: addDays(now, -2) },
       });
     }
 
