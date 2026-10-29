@@ -131,6 +131,13 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
           eventId: event.id,
         });
       }
+      // SPM-53 (AC5, AC7): the organiser is told who now coordinates it.
+      await notifyUser(tx, event.organiserId, {
+        type: "event_coordinator_assigned",
+        title: "Coordinator assigned",
+        body: `${coordinator.fullName} is now the coordinator for "${title}".`,
+        eventId: event.id,
+      });
 
       return e;
     });

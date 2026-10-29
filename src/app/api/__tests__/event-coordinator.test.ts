@@ -152,15 +152,22 @@ describe("PUT /api/events/[id]/coordinator", () => {
       });
     });
 
-    it("[SPM-53][AC6] notifies the new coordinator, and nobody else", async () => {
+    it("[SPM-53][AC5][AC6] notifies the new coordinator and the organiser, and nobody else", async () => {
       const token = signIn(opsManager(), daniel());
       db.event.findUnique.mockResolvedValue(unassigned());
       givenUpdateSucceeds({});
 
       await assign(token, { coordinatorId: ID.otherUser });
 
-      expect(db.notification.create).toHaveBeenCalledOnce();
-      expect(callArg(db.notification.create).data).toEqual({
+      expect(db.notification.create).toHaveBeenCalledTimes(2);
+      expect(callArg(db.notification.create, 1).data).toEqual({
+        recipientId: "organiser-id",
+        type: "event_coordinator_assigned",
+        title: "Coordinator assigned",
+        body: 'Daniel Tan is now the coordinator for "Gala Dinner".',
+        eventId: ID.event,
+      });
+      expect(callArg(db.notification.create, 0).data).toEqual({
         recipientId: ID.otherUser,
         type: "coordinator_assigned",
         title: "You have been assigned an event",
@@ -216,14 +223,21 @@ describe("PUT /api/events/[id]/coordinator", () => {
       expect(db.eventStatusHistory.create).not.toHaveBeenCalled();
     });
 
-    it("[SPM-53][AC7] notifies the new coordinator and the one who was replaced", async () => {
+    it("[SPM-53][AC7] notifies the new coordinator, the organiser and the one who was replaced", async () => {
       const token = signIn(opsManager(), daniel(), priya());
       db.event.findUnique.mockResolvedValue(assignedToDaniel());
       givenUpdateSucceeds({});
 
       await assign(token, { coordinatorId: ID.thirdUser });
 
-      expect(db.notification.create).toHaveBeenCalledTimes(2);
+      expect(db.notification.create).toHaveBeenCalledTimes(3);
+      expect(callArg(db.notification.create, 2).data).toEqual({
+        recipientId: "organiser-id",
+        type: "event_coordinator_assigned",
+        title: "Coordinator assigned",
+        body: 'Priya Raj is now the coordinator for "Gala Dinner".',
+        eventId: ID.event,
+      });
       expect(callArg(db.notification.create, 0).data).toMatchObject({
         recipientId: ID.thirdUser,
         type: "coordinator_assigned",
