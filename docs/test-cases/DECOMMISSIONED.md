@@ -14,7 +14,7 @@ with the stories' current acceptance criteria in Jira, starting from the
 ([docs/regression/Sprint-3_Regression.xlsx](../regression/Sprint-3_Regression.xlsx)),
 where the team listed the cases a later story had changed.
 
-Totals: 17 manual test cases Retired, 115 Updated; 2 automated test files archived.
+Totals: 17 manual test cases Retired, 116 Updated; 2 automated test files archived.
 
 ## Manual test cases
 
@@ -152,6 +152,7 @@ Totals: 17 manual test cases Retired, 115 Updated; 2 automated test files archiv
 | SPM-90 | SPM-90-TC09 (manual, Updated) | SPM-90 AC6 "…every required venue booking must be confirmed; otherwise confirmation is refused…" (unchanged) → SPM-88 AC8 and AC9 (confirmation also needs an approved safety check) | Values and a precondition only: the AC it checks still holds, but confirmation now also needs an approved safety check. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #6 | 2026-10-19 |
 | SPM-90 | SPM-90-TC10 (manual, Updated) | SPM-90 AC6 "…every required venue booking must be confirmed; otherwise confirmation is refused…" (unchanged) → SPM-88 AC8 and AC9 (confirmation also needs an approved safety check) | Values and a precondition only: the AC it checks still holds, but confirmation now also needs an approved safety check. | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #6 | 2026-10-19 |
 | SPM-93 | SPM-93-TC07 (manual, Updated) | SPM-93 AC5 (unchanged) → SPM-80 AC1 "…every pending and confirmed future booking at that venue is re-checked using the new times" (built 2026-10-20) | Wording only: the AC it checks still holds, but after a save that flags nothing the venue page now reads 'No bookings were affected, so nobody needed to be notified.' (was 'No approved bookings were affected, …'), because a setup or turnaround change also re-checks pending requests; and the hint under 'Setup time (minutes)' on the edit page now adds 'Changing it re-checks this venue's upcoming bookings.' | Same case, kept: "v2" note at the top of its sheet says what to read differently | Week 7 #1 | 2026-10-20 |
+| SPM-37 | SPM-37-TC12 (manual, Updated) | SPM-37 AC5 (unchanged) → SPM-32 (Process Event Change Request, merged in PR #88) | Unblocked, as its pre-conditions said: step 5 named a change request screen that did not exist yet. It now uses SPM-32's real screens (the event's 'Change requests' card and the coordinator's Change Requests page, new step 6), and "no Approve or Reject button" reads "no Review link". The AC it checks still holds. | Same case, kept: "v2" note at the top of its sheet says what to read differently | — (not a requirement change) | 2026-10-28 |
 
 ## Automated tests
 
