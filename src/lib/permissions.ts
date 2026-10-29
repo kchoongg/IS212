@@ -488,6 +488,20 @@ export function canUpdateEquipmentFulfilment(actor: Actor): boolean {
   return can(actor.role, "equipment_request:review");
 }
 
+/// SPM-77 (AC9): "Only Technical Support Staff can record a suggestion" - the
+/// same `equipment_request:review` action as reserving and updating, the rest
+/// of their review of a request.
+export function canSuggestAlternativeEquipment(actor: Actor): boolean {
+  return can(actor.role, "equipment_request:review");
+}
+
+/// SPM-77 (AC9): "only the assigned Event Coordinator can accept or decline
+/// it" - the person who manages the event's equipment requirements, since
+/// accepting changes one.
+export function canDecideEquipmentSuggestion(actor: Actor, event: EventAccessFields): boolean {
+  return canManageEquipmentRequests(actor, event);
+}
+
 /// SPM-42: a venue booking is requested by the coordinator assigned to the
 /// event, the same relationship rule as equipment (canManageEquipmentRequests).
 export function canRequestVenueBooking(actor: Actor, event: EventAccessFields): boolean {

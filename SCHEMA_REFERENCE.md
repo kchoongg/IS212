@@ -37,6 +37,7 @@ Copy from here rather than typing from memory.
 | `VenueBooking.status` | `pending` `approved` `rejected` `withdrawn` `released` `expired` (SPM-82: a pending request - a tentative hold - not approved by `holdExpiresAt`) |
 | `VenueBooking.reviewReason` | `venue_retired` `layout_removed` `layout_capacity_below_attendance` `max_capacity_below_attendance` `mandatory_facility_removed` `venue_unavailable` — comma-separated, one or more |
 | `EquipmentRequest.status` | `requested` `under_review` `reserved` `partially_fulfilled` `unavailable` `cancelled` |
+| `EquipmentSuggestion.status` | `pending` `accepted` `declined` (SPM-77) |
 | `Registration.status` | `registered` `waitlisted` `withdrawn` `attended` |
 | `ClarificationRequest.status` | `open` `answered` `closed` |
 | `EventChangeRequest.status` | `pending` `approved` `rejected` `withdrawn` |
@@ -78,6 +79,8 @@ erDiagram
   facilities ||--o{ venue_facilities : "offered at"
   facilities ||--o{ event_facility_requirements : "required by"
   equipment ||--o{ equipment_requests : "reserved via"
+  equipment_requests ||--o{ equipment_suggestions : "alternatives for"
+  equipment ||--o{ equipment_suggestions : "suggested as"
 ```
 
 ---
@@ -510,7 +513,7 @@ Request and reservation in one table: a reservation only ever comes from a reque
 | `notRequiredBy` | String |  | The user who made the latest decision - marking it or reversing it (briefing 8f). Relation `notRequiredByUser`. NULL when never decided. |
 | `notRequiredAt` | DateTime |  | When that decision was made. |
 
-**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User
+**Relations:** `event` &rarr; Event, `session` &rarr; EventSession, `equipment` &rarr; Equipment, `requester` &rarr; User, `reviewer` &rarr; User, `suggestions` &rarr; EquipmentSuggestion[]
 
 **Unique:** two Postgres *partial* indexes, not a single `@@unique` (Prisma's schema DSL has no `WHERE` clause for indexes, so these exist only in migration `20260919100000_add_partial_unique_equipment_request_session` - not in `schema.prisma`):
 - `(eventId, equipmentId)` **WHERE** `sessionId IS NULL` - the original rule, for whole-event requests.
@@ -520,6 +523,34 @@ Request and reservation in one table: a reservation only ever comes from a reque
 
 - `quantityReserved` is NULL before review - use `COALESCE(SUM(...), 0)` or your total comes back null.
 - Because the uniqueness rule isn't a plain `@@unique` in `schema.prisma`, `prisma migrate dev` won't know about it - don't add `@@unique([eventId, equipmentId])` back, it would fight the partial indexes on the next migration.
+
+### `EquipmentSuggestion`
+
+Postgres table `equipment_suggestions` &middot; `prisma.equipmentSuggestion`
+
+Suggest Alternative Equipment (SPM-77): Technical Support's suggestion of another item for a requirement they cannot provide (`unavailable`) or can provide only in part (`partially_fulfilled`). **A suggestion reserves nothing and changes nothing by itself** (AC7): the requirement changes only when the assigned Coordinator accepts it. Kept after the decision as the record of what was offered. Rules in `src/lib/equipmentSuggestion.ts`; routes `api/events/[id]/equipment/[requestId]/suggestion` (POST records, PATCH accepts or declines) and `.../suggestion/availability` (GET, the alternative's availability before recording). Migration `20261027120000_add_equipment_suggestions`.
+
+| Field | Type | | Notes |
+|---|---|---|---|
+| `id` | String |  | Defaults to `uuid()`. |
+| `requestId` | String | req | The requirement it is about. Deleted with it (cascade). |
+| `equipmentId` | String | req | The alternative item. Active, not the requirement's own item, and not already requested by the event for the same session. |
+| `quantity` | Int | req | Never more than is free for the event's dates when recorded. |
+| `note` | String | req | Why this alternative, for the Coordinator. Up to 500 characters, trimmed. |
+| `status` | String |  | `pending` until the Coordinator decides, then `accepted` or `declined`. Defaults to `"pending"`. |
+| `suggestedBy` | String | req | Technical Support. Relation `suggester`. |
+| `suggestedAt` | DateTime |  | Defaults to `now()`. |
+| `decidedBy` | String |  | The Coordinator who accepted or declined it. Relation `decider`. |
+| `decidedAt` | DateTime |  |  |
+
+**Relations:** `request` &rarr; EquipmentRequest, `equipment` &rarr; Equipment, `suggester` &rarr; User, `decider` &rarr; User
+
+**Unique:** one *partial* index, created only in the migration: `(requestId)` **WHERE** `status = 'pending'` - at most one suggestion waiting per requirement. A second insert at the same moment fails, and the route answers 409.
+
+**Watch out:**
+
+- Accepting writes to `EquipmentRequest`, not just here: an `unavailable` line becomes the alternative (item and quantity, back to `requested`, its reservation fields and notes cleared); a `partially_fulfilled` line keeps what it has reserved (`quantityRequested` = `quantityReserved`, status `reserved`) and a **new** `EquipmentRequest` is created for the alternative. `acceptChanges()` decides which.
+- Declining writes only `status`, `decidedBy` and `decidedAt`.
 
 ### `EventSession`
 

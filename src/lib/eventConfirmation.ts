@@ -40,6 +40,11 @@
 // cannot be provided is outstanding until the Coordinator marks it as not
 // required (#90, #106). An arrangement flagged for review (SPM-39, SPM-62) is
 // outstanding too, whatever its status, until it is resolved (SPM-68).
+// So is a line with a suggested alternative waiting for the Coordinator's
+// decision (SPM-77), even one marked as not required: it is decided on the
+// Equipment tab, only in Planning, so it must not be left behind when the
+// event moves on. It cannot be waived; once decided, the line is shown as it
+// was.
 //
 // The Coordinator can mark any booking, equipment line or the registration
 // setup as NOT REQUIRED for this event, and reverse it. It then prevents
@@ -126,6 +131,9 @@ export interface Arrangement {
   blocksConfirmation: boolean;
   /// A line of context, e.g. who submitted the safety check and when. "" for none.
   note: string;
+  /// SPM-77: an equipment line with a suggested alternative waiting for the
+  /// Coordinator's decision, made on the Equipment tab.
+  awaitingDecision: boolean;
 }
 
 /// The Coordinator's decision that an arrangement is not required.
@@ -159,6 +167,8 @@ export interface EquipmentInput extends Waiver, ReviewFlag {
   sessionId: string | null;
   status: string;
   equipmentName: string;
+  /// SPM-77: the name of the alternative waiting for the Coordinator's decision, if any.
+  pendingSuggestion?: string | null;
 }
 
 /// The event's registration settings (SPM-64), as saved.
@@ -264,6 +274,7 @@ function arrangement(
     blocksConfirmation = true,
     note = "",
     notNeeded = false,
+    awaitingDecision = false,
   }: {
     waiver?: Waiver;
     flagReason?: string;
@@ -272,6 +283,7 @@ function arrangement(
     note?: string;
     /// Not required, but not by the Coordinator's decision (registration off).
     notNeeded?: boolean;
+    awaitingDecision?: boolean;
   } = {}
 ): Arrangement {
   const waived = waiver.notRequired === true;
@@ -291,6 +303,7 @@ function arrangement(
     notRequiredAt: waived ? (waiver.notRequiredAt ?? null) : null,
     blocksConfirmation,
     note,
+    awaitingDecision,
   };
 }
 
@@ -421,18 +434,24 @@ export function arrangementsFor(input: ConfirmationInput): Arrangement[] {
     const session = sessions.length > 0 ? sessionOf(item.sessionId) : null;
     const flagReason = flagReasonFor(item);
     const subject = `${item.equipmentName} for ${whose(session)}`;
+    const row = { kind: "equipment" as const, id: item.id ?? null, name: item.equipmentName, session, status: item.status };
+    // SPM-77: the decision comes first, and a waiver does not hide it.
+    if (item.pendingSuggestion) {
+      out.push(
+        arrangement(row, `${subject} has a suggested alternative (${item.pendingSuggestion}) waiting for the Coordinator's decision`, {
+          flagReason,
+          waivable: false,
+          awaitingDecision: true,
+        })
+      );
+      continue;
+    }
     const problem = !EQUIPMENT_HELD.includes(item.status)
       ? `${subject} is not reserved yet`
       : flagReason
         ? `${subject} is flagged for review: ${flagReason}`
         : "";
-    out.push(
-      arrangement(
-        { kind: "equipment", id: item.id ?? null, name: item.equipmentName, session, status: item.status },
-        problem,
-        { waiver: item, flagReason }
-      )
-    );
+    out.push(arrangement(row, problem, { waiver: item, flagReason }));
   }
 
   // --- Registration (SPM-64 AC8) ---------------------------------------------

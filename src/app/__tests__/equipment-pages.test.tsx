@@ -1091,6 +1091,159 @@ describe("Event equipment tab", () => {
       expect(api.sent(ADD)).toHaveLength(1);
     });
   });
+
+  // SPM-77: an alternative Technical Support suggested for a requirement they
+  // cannot fully provide. The assigned Coordinator accepts or declines it here.
+  describe("a suggested alternative (SPM-77)", () => {
+    const DECIDE = `PATCH ${row("r1")}/suggestion`;
+    const NOTE = "Two LED screens give the same coverage.";
+    const suggestion = {
+      id: "s1",
+      quantity: 2,
+      note: NOTE,
+      suggestedAt: "2027-02-02T02:00:00.000Z",
+      equipment: { id: "eq-screen", name: "LED Screen" },
+      suggester: { fullName: "Tessa Lim" },
+    };
+    const suggested = (overrides: Record<string, unknown> = {}) =>
+      projectorRow({ status: "unavailable", staffNotes: "Both projectors are out for repair.", suggestions: [suggestion], ...overrides });
+    const openSuggested = (role = "coordinator", routes: Record<string, unknown> = {}, rows = [suggested(), lecternRow()]) =>
+      open(role, { [LIST]: rows, ...routes });
+    const acceptDialog = () => dialog("Accept this alternative?");
+    const accept = async () => {
+      await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Accept" }));
+      await userEvent.click(within(acceptDialog()).getByRole("button", { name: "Accept", hidden: true }));
+    };
+
+    it("[SPM-77][AC3] shows the assigned coordinator the alternative on the requirement it is about", async () => {
+      openSuggested();
+      const projector = await itemRow("Projector");
+
+      expect(projector).toHaveTextContent("Suggested alternative: 2 × LED Screen");
+      expect(projector).toHaveTextContent(`Note: ${NOTE}`);
+      expect(projector).toHaveTextContent(/Suggested by Tessa Lim, 2 Feb 2027/);
+      expect(await itemRow("Lectern")).not.toHaveTextContent("Suggested alternative");
+    });
+
+    it("[SPM-77][AC5][AC6] offers the assigned coordinator Accept and Decline", async () => {
+      openSuggested();
+      const projector = await itemRow("Projector");
+
+      expect(within(projector).getByRole("button", { name: "Accept" })).toBeInTheDocument();
+      expect(within(projector).getByRole("button", { name: "Decline" })).toBeInTheDocument();
+    });
+
+    it.each(["organiser", "tech_support", "safety_officer"])(
+      "[SPM-77][AC9] shows %s the suggestion without Accept or Decline",
+      async (role) => {
+        openSuggested(role);
+        const projector = await itemRow("Projector");
+
+        expect(projector).toHaveTextContent("Suggested alternative: 2 × LED Screen");
+        expect(within(projector).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
+        expect(within(projector).queryByRole("button", { name: "Decline" })).not.toBeInTheDocument();
+      }
+    );
+
+    it("[SPM-77][AC9] offers no decision to a coordinator who is not assigned", async () => {
+      openSuggested("coordinator", { [LIST]: reply(403, {}) });
+
+      expect(await screen.findByText(/Only the coordinator assigned to this event/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-77][AC5][AC6] offers no decision outside Planning, and says when it can be made", async () => {
+      openSuggested("coordinator", { [EVENT]: event({ status: "confirmed" }) });
+      const projector = await itemRow("Projector");
+
+      expect(within(projector).queryByRole("button", { name: "Accept" })).not.toBeInTheDocument();
+      expect(projector).toHaveTextContent("A suggestion can be accepted or declined while the event is in planning.");
+    });
+
+    describe("accepting", () => {
+      it("[SPM-77][AC5] asks first, saying the requirement becomes the alternative for Technical Support to reserve", async () => {
+        const api = openSuggested();
+
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Accept" }));
+
+        expect(acceptDialog().open).toBe(true);
+        expect(acceptDialog()).toHaveTextContent(
+          "This requirement changes from 2 Projector to 2 LED Screen, for Technical Support to reserve."
+        );
+        expect(api.sent(DECIDE)).toHaveLength(0);
+      });
+
+      it("[SPM-77][AC5][AC8] says what a partly fulfilled requirement keeps", async () => {
+        openSuggested("coordinator", {}, [suggested({ status: "partially_fulfilled", quantityRequested: 4, quantityReserved: 3 }), lecternRow()]);
+
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Accept" }));
+
+        expect(acceptDialog()).toHaveTextContent(
+          "The 3 Projector already reserved stay reserved, and 2 LED Screen is added as its own item for Technical Support to reserve."
+        );
+      });
+
+      it("[SPM-77][AC5] accepts once confirmed, says so, and shows the requirement as it now is", async () => {
+        const api = openSuggested("coordinator", { [DECIDE]: { decision: "accepted" } });
+        const screenRow = request("r1", { id: "eq-screen", name: "LED Screen", category: "av" }, { status: "requested" });
+        await itemRow("Projector");
+
+        api.on(LIST, [screenRow, lecternRow()]);
+        await accept();
+
+        expect(api.sent(DECIDE)[0].body).toEqual({ decision: "accept" });
+        expect(await screen.findByText("Alternative accepted. Technical Support will reserve it.")).toBeInTheDocument();
+        expect(await itemRow("LED Screen")).toBeInTheDocument();
+        expect(screen.queryByText(/Suggested alternative/)).not.toBeInTheDocument();
+      });
+
+      it("[SPM-77][AC5] sends nothing when the question is cancelled", async () => {
+        const api = openSuggested();
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Accept" }));
+
+        await userEvent.click(within(acceptDialog()).getByRole("button", { name: "Cancel", hidden: true }));
+
+        expect(api.sent(DECIDE)).toHaveLength(0);
+        expect(acceptDialog().open).toBe(false);
+      });
+    });
+
+    describe("declining", () => {
+      it("[SPM-77][AC6] declines, says the requirement is unchanged, and reloads", async () => {
+        const api = openSuggested("coordinator", { [DECIDE]: { decision: "declined" } });
+        await itemRow("Projector");
+
+        api.on(LIST, [suggested({ suggestions: [] }), lecternRow()]);
+        await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Decline" }));
+
+        expect(api.sent(DECIDE)[0].body).toEqual({ decision: "decline" });
+        expect(await screen.findByText("Suggestion declined. The original requirement is unchanged.")).toBeInTheDocument();
+        await waitFor(() => expect(screen.queryByText(/Suggested alternative/)).not.toBeInTheDocument());
+        expect(await itemRow("Projector")).toBeInTheDocument();
+      });
+    });
+
+    it.each([
+      ["the server's reason", reply(400, { error: "There is no suggestion waiting for a decision on this item." }), "There is no suggestion waiting for a decision on this item."],
+      ["a general message when there is none", reply(500, {}), "Could not record your decision."],
+      ["a general message when the answer has no body", reply(500), "Could not record your decision."],
+      ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server."],
+    ])("[SPM-77][AC5][AC6] shows %s on the requirement when the decision fails", async (_case, answer, message) => {
+      openSuggested("coordinator", { [DECIDE]: answer });
+
+      await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Decline" }));
+
+      expect(within(await itemRow("Projector")).getByText(message)).toBeInTheDocument();
+    });
+
+    it("[SPM-22][AC4] sends the coordinator to log in when their session expired", async () => {
+      openSuggested("coordinator", { [DECIDE]: reply(401, {}) });
+
+      await userEvent.click(within(await itemRow("Projector")).getByRole("button", { name: "Decline" }));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fevents%2FEVT-000007%2Fequipment"));
+    });
+  });
 });
 
 describe("Equipment request (availability and reserve)", () => {
@@ -1119,6 +1272,7 @@ describe("Equipment request (availability and reserve)", () => {
       quantityRequested: 4,
       quantityReserved: null,
       equipmentName: "Projector",
+      sessionId: null,
       sessionLabel: null,
       venueChosen: true,
       transferMinutes: 120,
@@ -1961,6 +2115,297 @@ describe("Equipment request (availability and reserve)", () => {
       open([], { [EVENT]: reply(401, {}) });
 
       await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
+    });
+  });
+
+  // SPM-77: Technical Support suggests an alternative for a line they cannot
+  // fully provide. The catalogue is only read once the form is opened.
+  describe("suggesting an alternative (SPM-77)", () => {
+    const CATALOGUE = "GET /api/equipment";
+    const CHECK = `GET /api/events/${REF}/equipment/r1/suggestion/availability`;
+    const SUGGEST = `POST /api/events/${REF}/equipment/r1/suggestion`;
+    const NOTE = "Two LED screens give the same coverage.";
+    const catalogue = [
+      { id: "eq-projector", name: "Projector", category: "AV", isActive: true },
+      { id: "eq-screen", name: "LED Screen", category: "AV", isActive: true },
+      { id: "eq-mic", name: "Microphone", category: "AV", isActive: true },
+      { id: "eq-lectern", name: "Lectern", category: null, isActive: true },
+    ];
+    const unavailableLine = (overrides: Record<string, unknown> = {}) =>
+      line("r1", {
+        equipmentId: "eq-projector",
+        requestStatus: "unavailable",
+        result: result({ status: "unavailable", available: 0, shortfall: 4 }),
+        pendingSuggestion: null,
+        ...overrides,
+      });
+    const micLine = line("r2", { equipmentId: "eq-mic", equipmentName: "Microphone", requestStatus: "reserved", quantityReserved: 4 });
+    const alternative = (available: number, overrides: Record<string, unknown> = {}) => ({
+      equipmentId: "eq-screen",
+      equipmentName: "LED Screen",
+      result: result({ status: available >= 2 ? "available" : available === 0 ? "unavailable" : "partial", available, requested: 2 }),
+      ...overrides,
+    });
+    const form = () => screen.getByRole("form", { name: "Suggest alternative" });
+    /// Each field is required, so its label ends "(required)" for screen readers.
+    const field = (label: string) => within(form()).getByLabelText(label, { exact: false });
+
+    async function openForm(routes: Record<string, unknown> = {}, lines: object[] = [unavailableLine(), micLine]) {
+      const api = open(lines, { [CATALOGUE]: catalogue, [CHECK]: alternative(5), ...routes });
+      await userEvent.click(within(await lineRow()).getByRole("button", { name: "Suggest alternative" }));
+      await waitFor(() => expect(within(field("Alternative item")).getByRole("option", { name: "LED Screen — AV" })).toBeInTheDocument());
+      return api;
+    }
+
+    async function fillIn(note = NOTE, quantity = "2") {
+      set(field("Alternative item"), "eq-screen");
+      set(field("Quantity"), quantity);
+      set(field("Note for the Coordinator"), note);
+    }
+
+    it.each([
+      ["cannot be provided", { requestStatus: "unavailable" }],
+      ["only partly fulfilled", { requestStatus: "partially_fulfilled", quantityReserved: 2, result: result({ status: "partial", available: 2 }) }],
+    ])("[SPM-77][AC1] offers Suggest alternative on a line that %s", async (_case, overrides) => {
+      open([unavailableLine(overrides)]);
+
+      expect(within(await lineRow()).getByRole("button", { name: "Suggest alternative" })).toBeInTheDocument();
+    });
+
+    it.each(["requested", "under_review", "reserved", "released", "cancelled"])(
+      "[SPM-77][AC1] does not offer it on a line that is %s",
+      async (requestStatus) => {
+        open([unavailableLine({ requestStatus })]);
+
+        expect(within(await lineRow()).queryByRole("button", { name: "Suggest alternative" })).not.toBeInTheDocument();
+      }
+    );
+
+    it("[SPM-77][AC9] offers it to nobody but Technical Support", async () => {
+      open([unavailableLine()], {}, "coordinator");
+
+      expect(within(await lineRow()).queryByRole("button", { name: "Suggest alternative" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-77] does not offer it outside Planning", async () => {
+      open([unavailableLine()], { [EVENT]: event({ status: "confirmed" }) });
+
+      expect(within(await lineRow()).queryByRole("button", { name: "Suggest alternative" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-77][AC3] shows the alternative a line is waiting on, and offers no second one", async () => {
+      open([
+        unavailableLine({
+          pendingSuggestion: {
+            id: "s1",
+            equipmentName: "LED Screen",
+            quantity: 2,
+            note: NOTE,
+            suggestedByName: "Tessa Lim",
+            suggestedAt: "2027-02-02T02:00:00.000Z",
+          },
+        }),
+      ]);
+      const row = await lineRow();
+
+      expect(row).toHaveTextContent("Suggested alternative: 2 × LED Screen — waiting for the Coordinator's decision.");
+      expect(row).toHaveTextContent(`Note: ${NOTE}`);
+      expect(within(row).queryByRole("button", { name: "Suggest alternative" })).not.toBeInTheDocument();
+    });
+
+    it("[SPM-77][AC1] offers every other catalogue item the event has not already requested", async () => {
+      await openForm();
+
+      const options = within(field("Alternative item")).getAllByRole("option").map((o) => o.textContent);
+      expect(options).toEqual(["Choose an item", "LED Screen — AV", "Lectern"]);
+    });
+
+    it("[SPM-77][AC1] offers an item another session requests, but not one this line's session already does", async () => {
+      await openForm({}, [
+        unavailableLine({ sessionId: "day-1", sessionLabel: "Day 1" }),
+        line("r2", { equipmentId: "eq-mic", equipmentName: "Microphone", sessionId: "day-2", sessionLabel: "Day 2", requestStatus: "reserved" }),
+        line("r3", { equipmentId: "eq-lectern", equipmentName: "Lectern", sessionId: "day-1", sessionLabel: "Day 1", requestStatus: "reserved" }),
+      ]);
+
+      const options = within(field("Alternative item")).getAllByRole("option").map((o) => o.textContent);
+      expect(options).toEqual(["Choose an item", "LED Screen — AV", "Microphone — AV"]);
+    });
+
+    it("[SPM-77][AC1] starts the quantity from what is still missing", async () => {
+      await openForm({}, [unavailableLine({ requestStatus: "partially_fulfilled", quantityRequested: 4, quantityReserved: 3, result: result({ status: "partial", available: 3 }) })]);
+
+      expect(field("Quantity")).toHaveValue(1);
+    });
+
+    it("[SPM-77][AC2] shows whether the alternative is available for the event's dates before it is recorded", async () => {
+      const api = await openForm();
+
+      await fillIn();
+
+      expect(await within(form()).findByText("5 available for these dates — enough for this suggestion.")).toBeInTheDocument();
+      expect(api.sent(CHECK).at(-1)!.url).toBe(`${CHECK.slice(4)}?equipmentId=eq-screen&quantity=2`);
+      expect(api.sent(SUGGEST)).toHaveLength(0);
+    });
+
+    it("[SPM-77][AC2] says when the alternative falls short, and does not record it", async () => {
+      const api = await openForm({ [CHECK]: alternative(1) });
+      await fillIn();
+      expect(await within(form()).findByText("Only 1 available for this event's dates.")).toBeInTheDocument();
+
+      await userEvent.click(within(form()).getByRole("button", { name: "Record suggestion" }));
+
+      expect(api.sent(SUGGEST)).toHaveLength(0);
+    });
+
+    it("[SPM-77][AC2] says when the alternative cannot be checked because the event has no dates", async () => {
+      await openForm({ [CHECK]: alternative(0, { result: null }) });
+
+      await fillIn();
+
+      expect(await within(form()).findByText("Cannot be checked yet — the event has no dates.")).toBeInTheDocument();
+    });
+
+    it("[SPM-77][AC2] says when availability could not be checked", async () => {
+      await openForm({ [CHECK]: reply(500, {}) });
+
+      await fillIn();
+
+      expect(await within(form()).findByText("Could not check availability.")).toBeInTheDocument();
+    });
+
+    it("[SPM-77][AC2] checks once typing in the quantity pauses, not on every keystroke", async () => {
+      const api = await openForm();
+      set(field("Alternative item"), "eq-screen");
+      set(field("Quantity"), "1");
+      set(field("Quantity"), "12");
+      set(field("Quantity"), "2");
+
+      expect(await within(form()).findByText(/enough for this suggestion/)).toBeInTheDocument();
+      expect(api.sent(CHECK).map((r) => r.url)).toEqual([`${CHECK.slice(4)}?equipmentId=eq-screen&quantity=2`]);
+    });
+
+    it("[SPM-77][AC2] ignores a failed check for an earlier choice", async () => {
+      const answers: ((value: unknown) => void)[] = [];
+      await openForm({ [CHECK]: () => new Promise((resolve) => answers.push(resolve)) });
+      set(field("Alternative item"), "eq-screen");
+      await waitFor(() => expect(answers).toHaveLength(1));
+      set(field("Quantity"), "2");
+      await waitFor(() => expect(answers).toHaveLength(2));
+
+      answers[0](reply(500, {}));
+      answers[1](alternative(5));
+
+      expect(await within(form()).findByText(/enough for this suggestion/)).toBeInTheDocument();
+      expect(within(form()).queryByText("Could not check availability.")).not.toBeInTheDocument();
+    });
+
+    it("[SPM-77][AC2] shows only the answer for the item and quantity chosen now", async () => {
+      const answers: ((value: unknown) => void)[] = [];
+      await openForm({ [CHECK]: () => new Promise((resolve) => answers.push(resolve)) });
+      set(field("Alternative item"), "eq-screen");
+      await waitFor(() => expect(answers).toHaveLength(1));
+      set(field("Quantity"), "2");
+      await waitFor(() => expect(answers).toHaveLength(2));
+
+      answers[1](alternative(5));
+      answers[0](alternative(0));
+
+      expect(await within(form()).findByText(/enough for this suggestion/)).toBeInTheDocument();
+      expect(within(form()).queryByText(/^Only/)).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["arrives", catalogue],
+      ["fails", reply(500, {})],
+    ])("[SPM-77] ignores a catalogue that %s after the form was closed", async (_case, answer) => {
+      let settle: (value: unknown) => void = () => {};
+      const api = open([unavailableLine()], { [CATALOGUE]: () => new Promise((resolve) => (settle = resolve)) });
+      await userEvent.click(within(await lineRow()).getByRole("button", { name: "Suggest alternative" }));
+      await userEvent.click(within(form()).getByRole("button", { name: "Cancel" }));
+
+      settle(answer);
+
+      await waitFor(() => expect(api.sent(CATALOGUE)).toHaveLength(1));
+      expect(screen.queryByRole("form", { name: "Suggest alternative" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Could not load the equipment catalogue.")).not.toBeInTheDocument();
+    });
+
+    it("[SPM-77][AC1][AC4] records the suggestion, says the Coordinator was told, and reloads", async () => {
+      const api = await openForm({ [SUGGEST]: reply(201, { id: "s1" }) });
+      await fillIn(`  ${NOTE}  `);
+      await within(form()).findByText(/enough for this suggestion/);
+
+      await userEvent.click(within(form()).getByRole("button", { name: "Record suggestion" }));
+
+      expect(await screen.findByText("Suggestion sent to the Coordinator.")).toBeInTheDocument();
+      expect(api.sent(SUGGEST)[0].body).toEqual({ equipmentId: "eq-screen", quantity: 2, note: NOTE });
+      await waitFor(() => expect(api.sent(AVAILABILITY)).toHaveLength(2));
+      expect(screen.queryByRole("form", { name: "Suggest alternative" })).not.toBeInTheDocument();
+    });
+
+    it.each([
+      ["no item is chosen", () => set(field("Note for the Coordinator"), NOTE), "Choose an alternative item."],
+      ["the quantity is not a whole number", async () => fillIn(NOTE, "1.5"), "Enter a whole number of at least 1."],
+      ["there is no note", async () => fillIn(""), "Add a note for the Coordinator."],
+    ])("[SPM-77][AC1] says what to fix, and sends nothing, when %s", async (_case, act, message) => {
+      const api = await openForm();
+      await act();
+
+      await userEvent.click(within(form()).getByRole("button", { name: "Record suggestion" }));
+
+      expect(within(form()).getByText(message)).toBeInTheDocument();
+      expect(api.sent(SUGGEST)).toHaveLength(0);
+    });
+
+    it("[SPM-77] closes the form without sending anything on Cancel", async () => {
+      const api = await openForm();
+
+      await userEvent.click(within(form()).getByRole("button", { name: "Cancel" }));
+
+      expect(screen.queryByRole("form", { name: "Suggest alternative" })).not.toBeInTheDocument();
+      expect(api.sent(SUGGEST)).toHaveLength(0);
+    });
+
+    it.each([
+      ["the server's reason", reply(400, { error: "This item is already requested for this event." }), "This item is already requested for this event."],
+      ["a general message when there is none", reply(500, {}), "Could not record this suggestion."],
+      ["a general message when the answer has no body", reply(500), "Could not record this suggestion."],
+      ["a network failure", () => Promise.reject(new Error("offline")), "Could not reach the server."],
+    ])("[SPM-77] shows %s when recording fails, keeping the form open", async (_case, answer, message) => {
+      await openForm({ [SUGGEST]: answer });
+      await fillIn();
+      await within(form()).findByText(/enough for this suggestion/);
+
+      await userEvent.click(within(form()).getByRole("button", { name: "Record suggestion" }));
+
+      expect(await within(form()).findByText(message)).toBeInTheDocument();
+    });
+
+    it("[SPM-77] says so when the catalogue cannot be loaded", async () => {
+      open([unavailableLine()], { [CATALOGUE]: reply(500, {}) });
+
+      await userEvent.click(within(await lineRow()).getByRole("button", { name: "Suggest alternative" }));
+
+      expect(await within(form()).findByText("Could not load the equipment catalogue.")).toBeInTheDocument();
+    });
+
+    it("[SPM-22][AC4] sends the user to log in when their session expired", async () => {
+      await openForm({ [SUGGEST]: reply(401, {}) });
+      await fillIn();
+      await within(form()).findByText(/enough for this suggestion/);
+
+      await userEvent.click(within(form()).getByRole("button", { name: "Record suggestion" }));
+
+      await waitFor(() => expect(router.push).toHaveBeenCalledWith("/login?next=%2Fequipment%2Frequests%2FEVT-000007"));
+    });
+
+    it("[SPM-77][AC8] still offers Reserve on the other lines while one waits for a decision", async () => {
+      open([
+        unavailableLine({ pendingSuggestion: { id: "s1", equipmentName: "LED Screen", quantity: 2, note: NOTE, suggestedByName: "Tessa Lim", suggestedAt: "2027-02-02T02:00:00.000Z" } }),
+        line("r2", { equipmentId: "eq-mic", equipmentName: "Microphone" }),
+      ]);
+
+      expect(within(await lineRow("Microphone")).getByRole("button", { name: "Reserve" })).toBeInTheDocument();
     });
   });
 });
