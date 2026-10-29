@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
+import { placeCounts, positionOnWaitingList, sweepWaitingList } from "@/lib/waitingListService";
+import { seatsHeld } from "@/lib/waitingList";
 import { completeDueEvents } from "@/lib/eventCompletionService";
 import { NOT_ENDED_MESSAGE, hasEnded } from "@/lib/eventCompletion";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
@@ -32,6 +34,11 @@ import {
   SAFETY_CHECK_CLOSED_NOTE,
   arrangementCancellationNote,
 } from "@/lib/eventCancellation";
+import {
+  POSTPONEMENT_REQUEST_APPROVED_NOTE,
+  SAFETY_CHECK_POSTPONED_NOTE,
+  arrangementPostponementNote,
+} from "@/lib/eventPostponement";
 import { releaseNotification } from "@/lib/venueBookingChange";
 import { closeSafetyCheck } from "@/lib/safetyCheckClose";
 import { isExternalRole } from "@/lib/roles";
@@ -61,6 +68,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const sequenceNumber = parseEventReference(id);
   // SPM-36 (AC6): an event 7 days past its end is never read as Confirmed.
   if (sequenceNumber !== null) await completeDueEvents();
+  // SPM-66 (AC7, AC10): offers whose time is up end before anything is read.
+  if (sequenceNumber !== null) await sweepWaitingList();
   const event =
     sequenceNumber === null
       ? null
@@ -217,6 +226,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
         safetyCheck: safetyHistory[0] ?? null,
         safetyHistory,
       };
+  // SPM-38 (AC5): why it was postponed, from the status history row the
+  // postponement wrote - null when no reason was given. Only while Postponed,
+  // so a resumed event shows none.
+  if (event.status === "postponed") {
+    const postponed = await prisma.eventStatusHistory.findFirst({
+      where: { eventId: event.id, toStatus: "postponed" },
+      orderBy: { changedAt: "desc" },
+      select: { reason: true },
+    });
+    Object.assign(shaped, { postponementReason: postponed?.reason ?? null });
+  }
   // SPM-35: how many change requests the event has, for the people who may
   // see them, so the page loads its Change requests card only when there is one.
   if (canViewChangeRequests(actor, event)) {
@@ -228,19 +248,25 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // rule POST /api/registrations applies.
     // AC6, AC7: and their own registration, so the page shows it instead of
     // offering a second one.
-    const [seatsTaken, myRegistration] = await Promise.all([
-      prisma.registration.count({ where: { eventId: event.id, status: { in: SEAT_TAKING } } }),
+    // CHANGED (SPM-66): "full" counts places under offer, and anyone still
+    // waiting (AC1, AC8) - the same rule registering applies.
+    const now = new Date();
+    const [counts, myRegistration] = await Promise.all([
+      placeCounts(prisma, event.id, now),
       prisma.registration.findUnique({
         where: { eventId_attendeeId: { eventId: event.id, attendeeId: actor.id } },
-        // SPM-52: and its id, for Withdraw.
-        select: { id: true, status: true, registeredAt: true },
+        // SPM-52: and its id, for Withdraw. SPM-66: and the offer standing.
+        select: { id: true, status: true, registeredAt: true, offerExpiresAt: true },
       }),
     ]);
+    // SPM-66 (AC3): where they are in the queue.
+    const waitingListPosition =
+      myRegistration?.status === "waitlisted" ? await positionOnWaitingList(prisma, event.id, myRegistration.id) : null;
     return NextResponse.json(
       visibleEventFor(actor, {
         ...shaped,
-        registrationState: registrationState(event, seatsTaken, new Date()),
-        myRegistration: myRegistration ?? null,
+        registrationState: registrationState(event, seatsHeld(event.registrationCapacity, counts), now),
+        myRegistration: myRegistration ? { ...myRegistration, waitingListPosition } : null,
       })
     );
   }
@@ -465,6 +491,15 @@ async function handleStatusChange(
 
   // SPM-37 (AC8): the reason is optional; one of only spaces is none.
   const cancellationReason = data.status === "cancelled" ? data.reason?.trim() || null : null;
+  // SPM-38 (AC5): likewise. Kept in the status history row only - the event
+  // route reads it back from there while the event is Postponed.
+  const postponementReason = data.status === "postponed" ? data.reason?.trim() || null : null;
+  const historyReason =
+    data.status === "cancelled"
+      ? (cancellationReason ?? undefined)
+      : data.status === "postponed"
+        ? (postponementReason ?? undefined)
+        : data.reason;
 
   const updated = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const e = await tx.event.update({
@@ -485,13 +520,30 @@ async function handleStatusChange(
         fromStatus: event.status,
         toStatus: data.status,
         changedBy: actor.id,
-        reason: data.status === "cancelled" ? (cancellationReason ?? undefined) : data.reason,
+        reason: historyReason,
       },
     });
 
     // SPM-37: everything the event holds is let go with it (AC3-AC6).
     if (data.status === "cancelled") {
-      await releaseForCancellation(tx, e, actor, cancellationReason);
+      await releaseHeldArrangements(tx, e, actor, {
+        note: arrangementCancellationNote(cancellationReason),
+        safetyNote: SAFETY_CHECK_CLOSED_NOTE,
+        carriedOut: { kind: "cancel", note: CANCELLATION_REQUEST_APPROVED_NOTE },
+        closeOthers: CHANGE_REQUEST_CLOSED_NOTE,
+      });
+    }
+
+    // SPM-38: the same arrangements are let go (AC3, AC4). A pending
+    // postponement request is approved - the Coordinator has just carried it
+    // out (AC2); any other waits to be decided once there is a new date.
+    if (data.status === "postponed") {
+      await releaseHeldArrangements(tx, e, actor, {
+        note: arrangementPostponementNote(postponementReason),
+        safetyNote: SAFETY_CHECK_POSTPONED_NOTE,
+        carriedOut: { kind: "postpone", note: POSTPONEMENT_REQUEST_APPROVED_NOTE },
+        closeOthers: null,
+      });
     }
 
     // SPM-26: once the review is over, nobody will answer an open
@@ -532,15 +584,26 @@ class ResubmitRefused extends Error {}
  * SPM-37: what a cancellation lets go, in the status change's transaction
  * (src/lib/eventCancellation.ts says what each becomes). Registrations are
  * left as they are (AC7, SPM-52).
+ * SPM-38: and a postponement, which lets go of the same arrangements
+ * (src/lib/eventPostponement.ts) but leaves its other change requests pending.
  */
-async function releaseForCancellation(
+async function releaseHeldArrangements(
   tx: Prisma.TransactionClient,
   event: { id: string; sequenceNumber: number; title: string | null },
   actor: Actor,
-  reason: string | null
+  how: {
+    /// The reason stored on each released or withdrawn booking.
+    note: string;
+    safetyNote: string;
+    /// The organiser's pending request this carries out, approved with this note.
+    carriedOut: { kind: "cancel" | "postpone"; note: string };
+    /// The note on every other pending change request, closed unapplied; null
+    /// leaves them pending.
+    closeOthers: string | null;
+  }
 ) {
   const now = new Date();
-  const note = arrangementCancellationNote(reason);
+  const { note } = how;
 
   // Read before they change: Venue Staff are told of each released booking.
   const released = await tx.venueBooking.findMany({
@@ -572,22 +635,25 @@ async function releaseForCancellation(
     data: { status: "cancelled" },
   });
 
-  // SPM-32: the organiser asked for this cancellation - cancelling carries out
-  // their request, so it is approved rather than closed.
+  // SPM-32: the organiser asked for this - cancelling or postponing carries
+  // out their request, so it is approved rather than closed (SPM-38 AC2).
   await tx.eventChangeRequest.updateMany({
-    where: { eventId: event.id, status: "pending", kind: "cancel" },
-    data: { status: "approved", reviewedBy: actor.id, reviewedAt: now, reviewNotes: CANCELLATION_REQUEST_APPROVED_NOTE },
+    where: { eventId: event.id, status: "pending", kind: how.carriedOut.kind },
+    data: { status: "approved", reviewedBy: actor.id, reviewedAt: now, reviewNotes: how.carriedOut.note },
   });
 
-  // AC5: closed, not decided - nothing they propose reaches the event.
-  await tx.eventChangeRequest.updateMany({
-    where: { eventId: event.id, status: "pending" },
-    data: { status: "withdrawn", reviewedBy: actor.id, reviewedAt: now, reviewNotes: CHANGE_REQUEST_CLOSED_NOTE },
-  });
+  // SPM-37 AC5: closed, not decided - nothing they propose reaches the event.
+  // A postponement leaves them pending, to be decided once there is a new date.
+  if (how.closeOthers) {
+    await tx.eventChangeRequest.updateMany({
+      where: { eventId: event.id, status: "pending" },
+      data: { status: "withdrawn", reviewedBy: actor.id, reviewedAt: now, reviewNotes: how.closeOthers },
+    });
+  }
 
   // AC6: a pending check leaves the Safety Officer's list with the status
   // change; an approved one must not stay live either.
-  await closeSafetyCheck(tx, event.id, actor.id, SAFETY_CHECK_CLOSED_NOTE, now);
+  await closeSafetyCheck(tx, event.id, actor.id, how.safetyNote, now);
 
   // As SPM-67 AC7 (decided 2026-10-21): Venue Staff had set these rooms aside.
   if (released.length > 0) {

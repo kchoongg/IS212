@@ -238,6 +238,21 @@ async function main() {
     users[email] = u.id;
   }
 
+  // SPM-66 (Join and Respond to Waiting List) attendee accounts - the same
+  // five as scripts/seed-spm66.ts, the story's own so a waiting list position
+  // never moves with other testers' work.
+  const spm66Accounts: [string, string][] = [
+    ["Hana Quek", "hana.quek@example.com"],
+    ["Ravi Nathan", "ravi.nathan@example.com"],
+    ["Siew Ling Goh", "siew.ling.goh@example.com"],
+    ["Tomas Reyes", "tomas.reyes@example.com"],
+    ["Uma Pillay", "uma.pillay@example.com"],
+  ];
+  for (const [fullName, email] of spm66Accounts) {
+    const u = await prisma.user.create({ data: { email, passwordHash, fullName, role: "attendee" } });
+    users[email] = u.id;
+  }
+
   // -------------------------------------------------------------------
   // FACILITIES
   // -------------------------------------------------------------------
@@ -2319,8 +2334,8 @@ async function main() {
   //
   // The events only. Their change requests (and SPM32 Confirmed Client Gala's
   // approved booking) are created by that script alone, so run it once after a
-  // full reseed. Pushed LAST, after SPM-69, so no earlier event's EVT- reference
-  // number shifts. Add new events AFTER this block.
+  // full reseed. Pushed after SPM-69, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER the SPM-38 block below.
   // -----------------------------------------------------------------
   const spm32 = (
     key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
@@ -2352,12 +2367,78 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-38 QA fixtures (Postpone Event). The SAME events as
+  // scripts/seed-spm38.ts (`npm run fixtures:spm38`) - keep the two in step.
+  //
+  // The events only. Their test rooms (SPM38 Hall, SPM38 Studio), equipment
+  // (SPM38 Projector, SPM38 Lectern Mic), bookings, equipment lines, safety
+  // checks, change requests and registration are created by that script alone,
+  // so run it once after a full reseed. A postponed event's reason is its
+  // status history's (historyReasons). Pushed LAST, after SPM-32, so no
+  // earlier event's EVT- reference number shifts. Add new events AFTER this
+  // block.
+  // -----------------------------------------------------------------
+  const spm38 = (key: string, title: string, status: string, date: string, options: Partial<EventSeed> = {}): EventSeed => ({
+    key, title, status, organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-38 postpone event test event", category: "meeting",
+    days: daysUntil(date), startHour: 9, durationHours: 3, attendance: 30, layout: "theatre",
+    ...options,
+  });
+  eventData.push(
+    spm38("spm38_lantern_gala", "SPM38 Lantern Gala", "planning", "2028-01-12"),
+    spm38("spm38_riverside_expo", "SPM38 Riverside Expo", "planning", "2028-01-19"),
+    spm38("spm38_rival_seminar", "SPM38 Rival Seminar", "planning", "2028-01-19"),
+    spm38("spm38_safety_pending", "SPM38 Safety Pending", "safety_review", "2028-01-21"),
+    spm38("spm38_safety_cleared", "SPM38 Safety Cleared", "safety_cleared", "2028-01-26",
+      { chain: ["submitted", "under_review", "approved", "planning", "safety_review", "safety_cleared"] }),
+    spm38("spm38_client_asks", "SPM38 Client Asks", "confirmed", "2028-01-28"),
+    spm38("spm38_open_workshop", "SPM38 Open Workshop", "confirmed", "2028-02-02", { regEnabled: true, regCapacity: 40 }),
+    spm38("spm38_quiet_approval", "SPM38 Quiet Approval", "approved", "2028-02-04"),
+    spm38("spm38_guarded_forum", "SPM38 Guarded Forum", "planning", "2028-02-09"),
+    spm38("spm38_early_review", "SPM38 Early Review", "under_review", "2028-02-11"),
+    spm38("spm38_called_off", "SPM38 Called Off", "cancelled", "2028-02-14",
+      { cancellationReason: "The client has called off the event.",
+        historyReasons: { cancelled: "The client has called off the event." } }),
+    spm38("spm38_on_hold", "SPM38 On Hold", "postponed", "2028-02-16",
+      { historyReasons: { postponed: "Waiting on the client's revised budget." } }),
+    spm38("spm38_new_date_wanted", "SPM38 New Date Wanted", "postponed", "2028-02-23",
+      { historyReasons: { postponed: "Venue renovation at the client's office." } }),
+    spm38("spm38_wrapped_up", "SPM38 Wrapped Up", "completed", "2026-10-06"),
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-66 QA fixtures (Join and Respond to Waiting List). The SAME events as
+  // scripts/seed-spm66.ts (`npm run fixtures:spm66`) - keep the two in step.
+  //
+  // The events only. Their registrations, waiting lists and offers (made
+  // relative to when the script runs), and their registration periods, are
+  // created by that script alone, so run it once after a full reseed. Pushed
+  // LAST, after SPM-38, so no earlier event's EVT- reference number shifts. Add
+  // new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm66 = (key: string, title: string, date: string, startHour: number, durationHours: number): EventSeed => ({
+    key, title, status: "confirmed", organiser: "Rachel Ng", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-66 waiting list test event", category: "conference",
+    days: daysUntil(date), startHour, durationHours, attendance: 2, layout: "theatre",
+    regEnabled: true, regCapacity: 2,
+  });
+  eventData.push(
+    spm66("spm66_summit", "SPM66 Harbour Summit", "2027-11-08", 9, 8),
+    spm66("spm66_gala", "SPM66 Offer Gala", "2027-11-10", 19, 3),
+    spm66("spm66_forum", "SPM66 Withdrawal Forum", "2027-11-12", 9, 3),
+    spm66("spm66_workshop", "SPM66 Decline Workshop", "2027-11-15", 14, 3),
+    spm66("spm66_talk", "SPM66 Lapsed Offer Talk", "2027-11-17", 9, 2),
+    spm66("spm66_showcase", "SPM66 Override Showcase", "2027-11-19", 10, 6),
+    spm66("spm66_expo", "SPM66 Started Expo", "2026-10-20", 9, 24 * 100 + 8),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-57 QA fixtures (Manually Add Attendee). The SAME events as
   // scripts/seed-spm57.ts (`npm run fixtures:spm57`) - keep the two in step.
   //
   // The events only. Their bookings at the SPM57 rooms, registrations and
   // exact registration settings are created by that script alone, so run it
-  // once after a full reseed. Pushed LAST, after SPM-32, so no earlier event's
+  // once after a full reseed. Pushed LAST, after SPM-66, so no earlier event's
   // EVT- reference number shifts. Add new events AFTER this block.
   // -----------------------------------------------------------------
   const spm57 = (

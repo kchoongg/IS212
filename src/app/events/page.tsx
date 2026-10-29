@@ -45,6 +45,8 @@ const COORDINATOR_FILTER_OPTIONS = [
 const ALL_STATUSES = [
   "draft", "submitted", "under_review", "approved", "planning", "safety_review", "safety_cleared", "confirmed", "completed", "rejected",
   "cancelled",
+  // SPM-38: a postponed event can be filtered on too.
+  "postponed",
   // SPM-59 (AC3): a withdrawn request is a status of its own, so it can be
   // filtered on like the others.
   "withdrawn",

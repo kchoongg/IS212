@@ -58,3 +58,21 @@ export type ConfigureRegistrationInput = z.infer<typeof configureRegistrationSch
 // route makes, so the only value it takes. Strict, as above.
 export const withdrawRegistrationSchema = z.object({ status: z.literal("withdrawn") }).strict();
 export type WithdrawRegistrationInput = z.infer<typeof withdrawRegistrationSchema>;
+
+// SPM-66: joining a full event's waiting list - the same optional needs as
+// registering, kept for when a place is accepted.
+export const joinWaitingListSchema = z
+  .object({
+    dietaryRequirements: z.string().optional(),
+    accessibilityRequirements: z.string().optional(),
+  })
+  .strict();
+export type JoinWaitingListInput = z.infer<typeof joinWaitingListSchema>;
+
+// SPM-66 (AC6, AC7): the attendee's answer to a place offered to them.
+export const respondToOfferSchema = z.object({ response: z.enum(["accept", "decline"]) }).strict();
+export type RespondToOfferInput = z.infer<typeof respondToOfferSchema>;
+
+// SPM-66 (AC9): the coordinator offering a place to a chosen waitlisted attendee.
+export const offerPlaceSchema = z.object({ registrationId: z.string().uuid() }).strict();
+export type OfferPlaceInput = z.infer<typeof offerPlaceSchema>;

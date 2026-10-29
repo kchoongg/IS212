@@ -17,6 +17,7 @@ import {
   HOLDING_A_PLACE,
 } from "@/lib/registrationSettings";
 import { addReviewReasons } from "@/lib/reviewFlags";
+import { offerFreePlaces } from "@/lib/waitingListService";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // Configure Event Registration (SPM-64): the assigned coordinator sets up
@@ -155,6 +156,11 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           : {}),
       },
     });
+    // SPM-66 (AC5): a raised capacity, or registration turned back on, frees
+    // places for the waiting list.
+    if (after.capacity !== before.capacity || (!before.enabled && after.enabled)) {
+      await prisma.$transaction((tx) => offerFreePlaces(tx, event.id));
+    }
     // What THIS save flagged, worded for the person who made it (as SPM-62).
     const flagged = reasons.length > 0 ? [registrationFlagLine(holdingAPlace, reasons)] : [];
     return NextResponse.json({ event: updated, flagged });

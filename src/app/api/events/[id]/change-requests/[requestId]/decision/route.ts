@@ -15,7 +15,7 @@ import {
   APPROVE_CANCELLATION,
   EQUIPMENT_ITEM,
   NOT_ASSIGNED,
-  POSTPONEMENT_NOT_YET,
+  APPROVE_POSTPONEMENT,
   REQUEST_REASON_REQUIRED,
   RESCHEDULED_HISTORY,
   approvedPayload,
@@ -90,7 +90,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     // be rejected, with a reason.
     if (request.kind !== "change") {
       if (body.outcome !== "rejected") {
-        const error = request.kind === "cancel" ? APPROVE_CANCELLATION : POSTPONEMENT_NOT_YET;
+        const error = request.kind === "cancel" ? APPROVE_CANCELLATION : APPROVE_POSTPONEMENT;
         return NextResponse.json({ error }, { status: 400 });
       }
       const reason = body.reason?.trim();
