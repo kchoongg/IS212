@@ -588,6 +588,7 @@ async function notifyStatusChange(
   event: { id: string; title: string | null; organiserId: string; status: string; rejectionReason: string | null },
   reason: string | null
 ) {
+  // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
   const title = event.title ?? "Untitled event";
   const because = reason ? ` Reason: ${reason}` : "";
   const content = {
@@ -869,11 +870,13 @@ async function handleDraftEdit(
       if (answered.count === 0) throw new ResubmitRefused(CLARIFICATION_NONE_OPEN);
 
       // SPM-53 (AC3): the coordinator who asked hears that it was answered.
+      // v8 ignore next -- an event Under review always has the coordinator who asked
       if (event.coordinatorId) {
         await notifyUser(tx, event.coordinatorId, {
           type: "clarification_answered",
           title: "Clarification answered",
-          body: `The organiser has responded to your clarification request on "${data.title ?? event.title ?? "Untitled event"}".`,
+          // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
+          body: `The organiser has responded to your clarification request on "${event.title ?? "Untitled event"}".`,
           eventId: id,
         });
       }

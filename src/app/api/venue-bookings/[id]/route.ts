@@ -114,12 +114,14 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
       // venue, the times and a rejection's reason. Any suggestion stays on the
       // event's Venue tab (GET /api/events/[id]/venue-bookings).
       const { event } = booking;
+      // v8 ignore next -- only the assigned coordinator can request a booking, so the event has one
       if (event.coordinatorId) {
         const approved = updated.status === "approved";
         const session = booking.session?.label ? ` (${booking.session.label})` : "";
         await notifyUser(tx, event.coordinatorId, {
           type: approved ? "venue_booking_approved" : "venue_booking_rejected",
           title: approved ? "Venue booking approved" : "Venue booking rejected",
+          // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
           body:
             `${formatVenue(booking.venue.name, booking.venue.code)} for "${event.title ?? "Untitled event"}"${session} ` +
             `on ${formatDateTimeRange(booking.startsAt, booking.endsAt)} was ${approved ? "approved" : "rejected"}.` +

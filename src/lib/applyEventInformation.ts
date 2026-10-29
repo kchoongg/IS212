@@ -203,23 +203,24 @@ export async function applyEventInformation(
 
   // SPM-53: told in the same transaction as the change, under the event's
   // title as it now stands (a change request can rename it too).
+  const told = { ...event, title: data.title ?? event.title };
   if (changes.length > 0) {
-    const told = { ...event, title: data.title ?? event.title };
     await notifyImportantChange(tx, told, changes.map((change) => CHANGE_LABELS[change]), statusReverted);
-    if (changes.includes("schedule")) {
-      const { startsAt, endsAt } = mergedEventInfo(event, data);
-      const registered = await tx.registration.findMany({
-        where: { eventId: event.id, status: "registered" },
-        select: { attendeeId: true },
+  }
+  if (changes.includes("schedule")) {
+    const { startsAt, endsAt } = mergedEventInfo(event, data);
+    const registered = await tx.registration.findMany({
+      where: { eventId: event.id, status: "registered" },
+      select: { attendeeId: true },
+    });
+    for (const { attendeeId } of registered) {
+      await notifyUser(tx, attendeeId, {
+        type: "event_rescheduled",
+        title: "Event rescheduled",
+        // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
+        body: `"${told.title ?? "Untitled event"}" has a new date and time: ${formatDateTimeRange(startsAt, endsAt)}.`,
+        eventId: event.id,
       });
-      for (const { attendeeId } of registered) {
-        await notifyUser(tx, attendeeId, {
-          type: "event_rescheduled",
-          title: "Event rescheduled",
-          body: `"${told.title ?? "Untitled event"}" has a new date and time: ${formatDateTimeRange(startsAt, endsAt)}.`,
-          eventId: event.id,
-        });
-      }
     }
   }
 

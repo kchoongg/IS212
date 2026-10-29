@@ -71,6 +71,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       await notifyUser(tx, event.organiserId, {
         type: "clarification_requested",
         title: "Clarification requested",
+        // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
         body: `Your coordinator asked for clarification on "${event.title ?? "Untitled event"}": ${created.message}`,
         eventId: event.id,
       });

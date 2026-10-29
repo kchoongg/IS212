@@ -43,10 +43,12 @@ const WITH_REVIEWER = { ...REQUESTER, reviewer: { select: { fullName: true } } }
 function record(event: { id: string; title: string | null; coordinatorId: string | null }, data: Prisma.EventChangeRequestUncheckedCreateInput) {
   return prisma.$transaction(async (tx: Prisma.TransactionClient) => {
     const created = await tx.eventChangeRequest.create({ data, include: REQUESTER });
+    // v8 ignore next -- a change can be asked for only once approved, so a coordinator is always assigned
     if (event.coordinatorId) {
       await notifyUser(tx, event.coordinatorId, {
         type: "change_request_submitted",
         title: "Change request received",
+        // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
         body: `${created.requester.fullName} has sent a change request for "${event.title ?? "Untitled event"}".`,
         eventId: event.id,
       });

@@ -108,6 +108,7 @@ export async function POST(
         },
       });
       // SPM-53 (AC11): Reserved or Partially fulfilled, to the assigned Coordinator.
+      // v8 ignore next -- only a Planning event can be reserved for, and it always has a coordinator
       if (existing.event.coordinatorId) {
         await notifyUser(
           tx,

@@ -173,6 +173,7 @@ export function changeRequestOutcomeNotification(input: {
     const { outcome, reason } = decisions[item];
     if (outcome === "approved") return `${itemLabel(item)}: approved.`;
     // The coordinator's reason, closed with a full stop unless it has its own.
+    // v8 ignore next -- checkDecisions() refuses a rejection without a reason, so it is never null
     return `${itemLabel(item)}: rejected – ${reason}${/[.!?]$/.test(reason ?? "") ? "" : "."}`;
   });
   const status = outcomeStatus(decisions);

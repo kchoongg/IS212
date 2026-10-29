@@ -4,6 +4,7 @@ import { describe, it, expect } from "vitest";
 import {
   EQUIPMENT_ITEM,
   approvedPayload,
+  changeRequestOutcomeNotification,
   checkApprovedTimes,
   checkDecisions,
   decisionItems,
@@ -186,5 +187,19 @@ describe("[SPM-32][AC4] the approved times together", () => {
   it("accepts times on an event that has none saved yet", () => {
     const undated = { ...event, startsAt: null, endsAt: null };
     expect(checkApprovedTimes(undated, { startsAt: START.proposed as string })).toBeNull();
+  });
+});
+
+describe("changeRequestOutcomeNotification (SPM-53)", () => {
+  it("[SPM-53][AC13] names an event with no title as 'Untitled event'", () => {
+    const told = changeRequestOutcomeNotification({
+      eventId: "e1",
+      eventTitle: null,
+      kind: "change",
+      decisions: { title: { outcome: "approved", reason: null } },
+      items: ["title"],
+    });
+
+    expect(told.body).toBe('Your change request for "Untitled event" was approved. Event name: approved.');
   });
 });

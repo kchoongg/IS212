@@ -555,6 +555,15 @@ describe("POST …/change-requests/[requestId]/decision - telling the organiser 
     ]);
   });
 
+  it("[SPM-53][AC14] names the event by its new title when the same request renames it", async () => {
+    await decide(approveBoth);
+
+    const changed = db.notification.create.mock.calls
+      .map((c: unknown[]) => (c[0] as { data: { type: string; body: string } }).data)
+      .find((n: { type: string }) => n.type === "event_information_changed");
+    expect(changed?.body).toBe('"SPM32 Harbour Briefing and Lunch" has changed: Expected attendance.');
+  });
+
   it("[SPM-53][AC13] tells no one when another save decided it first", async () => {
     const token = signIn(coordinator());
     db.event.findUnique.mockResolvedValue(event());
