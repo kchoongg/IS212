@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
+import { sweepWaitingList } from "@/lib/waitingListService";
 import { completeDueEvents } from "@/lib/eventCompletionService";
 import { getActor, unauthenticated } from "@/lib/apiAuth";
 
@@ -17,6 +18,8 @@ export async function GET(req: NextRequest) {
     await expireDueHolds();
     // SPM-36 (AC6): likewise, events 7 days past their end are completed.
     await completeDueEvents();
+    // SPM-66 (AC7, AC10): likewise, waiting list offers whose time is up end.
+    await sweepWaitingList();
     const unread = await prisma.notification.count({ where: { recipientId: actor.id, isRead: false } });
     return NextResponse.json({ unread });
   } catch (err) {

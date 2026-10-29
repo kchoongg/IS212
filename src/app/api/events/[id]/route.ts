@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { expireDueHolds } from "@/lib/holdExpiryService";
+import { placeCounts, positionOnWaitingList, sweepWaitingList } from "@/lib/waitingListService";
+import { seatsHeld } from "@/lib/waitingList";
 import { completeDueEvents } from "@/lib/eventCompletionService";
 import { NOT_ENDED_MESSAGE, hasEnded } from "@/lib/eventCompletion";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
@@ -66,6 +68,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const sequenceNumber = parseEventReference(id);
   // SPM-36 (AC6): an event 7 days past its end is never read as Confirmed.
   if (sequenceNumber !== null) await completeDueEvents();
+  // SPM-66 (AC7, AC10): offers whose time is up end before anything is read.
+  if (sequenceNumber !== null) await sweepWaitingList();
   const event =
     sequenceNumber === null
       ? null
@@ -244,19 +248,25 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     // rule POST /api/registrations applies.
     // AC6, AC7: and their own registration, so the page shows it instead of
     // offering a second one.
-    const [seatsTaken, myRegistration] = await Promise.all([
-      prisma.registration.count({ where: { eventId: event.id, status: { in: SEAT_TAKING } } }),
+    // CHANGED (SPM-66): "full" counts places under offer, and anyone still
+    // waiting (AC1, AC8) - the same rule registering applies.
+    const now = new Date();
+    const [counts, myRegistration] = await Promise.all([
+      placeCounts(prisma, event.id, now),
       prisma.registration.findUnique({
         where: { eventId_attendeeId: { eventId: event.id, attendeeId: actor.id } },
-        // SPM-52: and its id, for Withdraw.
-        select: { id: true, status: true, registeredAt: true },
+        // SPM-52: and its id, for Withdraw. SPM-66: and the offer standing.
+        select: { id: true, status: true, registeredAt: true, offerExpiresAt: true },
       }),
     ]);
+    // SPM-66 (AC3): where they are in the queue.
+    const waitingListPosition =
+      myRegistration?.status === "waitlisted" ? await positionOnWaitingList(prisma, event.id, myRegistration.id) : null;
     return NextResponse.json(
       visibleEventFor(actor, {
         ...shaped,
-        registrationState: registrationState(event, seatsTaken, new Date()),
-        myRegistration: myRegistration ?? null,
+        registrationState: registrationState(event, seatsHeld(event.registrationCapacity, counts), now),
+        myRegistration: myRegistration ? { ...myRegistration, waitingListPosition } : null,
       })
     );
   }
