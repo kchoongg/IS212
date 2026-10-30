@@ -68,7 +68,9 @@ export function PageHeader({ title, subtitle, breadcrumbs, meta, actions }: Page
           </div>
           {subtitle && <p className="mt-1.5 max-w-2xl text-sm text-ink-2">{subtitle}</p>}
         </div>
-        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+        {/* Wraps rather than running off the page when a screen has several
+            actions (the event Overview has up to four) and little width. */}
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </div>
     </header>
   );

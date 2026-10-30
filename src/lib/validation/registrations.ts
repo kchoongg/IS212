@@ -11,6 +11,28 @@ export const createRegistrationSchema = z.object({
 });
 export type CreateRegistrationInput = z.infer<typeof createRegistrationSchema>;
 
+// SPM-57: the assigned coordinator adding an Attendee account by its email
+// address (AC1). Emails are stored lower-case (see auth.ts), so it is matched
+// that way. The requirements are the registration's own, as in
+// createRegistrationSchema; a blank one is not recorded.
+const requirement = z
+  .string()
+  .trim()
+  .optional()
+  .transform((value) => value || undefined);
+
+export const addAttendeeSchema = z.object({
+  email: z
+    .string({ required_error: "Enter the attendee's email address" })
+    .trim()
+    .toLowerCase()
+    .min(1, "Enter the attendee's email address")
+    .email("Enter a valid email address"),
+  dietaryRequirements: requirement,
+  accessibilityRequirements: requirement,
+});
+export type AddAttendeeInput = z.infer<typeof addAttendeeSchema>;
+
 // SPM-64: the assigned coordinator configuring an event's registration. Every
 // field optional - only what changed is sent. Strict, as SPM-62's schema is:
 // a body carrying anything else is refused rather than half-applied.

@@ -61,6 +61,7 @@ async function main() {
   // Reverse dependency order so foreign keys never block a delete.
   await prisma.notification.deleteMany();
   await prisma.registration.deleteMany();
+  await prisma.equipmentSuggestion.deleteMany();
   await prisma.equipmentRequest.deleteMany();
   await prisma.venueUnavailability.deleteMany();
   await prisma.venueBooking.deleteMany();
@@ -583,6 +584,18 @@ async function main() {
       layouts: [["classroom", 40], ["theatre", 40]],
       facilities: [],
     })),
+    // SPM-57 fixtures (scripts/seed-spm57.ts, VENUES there - keep in step): a
+    // hall, and a salon small enough to fill by hand (SPM-57-TC07).
+    { code: "SPM57-HAL", name: "SPM57 Hall", description: "SPM-57 test venue: seats 60 in theatre layout",
+      building: "Orchard Hub", floor: "L7", maxCapacity: 60, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 60], ["classroom", 40]],
+      facilities: [] },
+    { code: "SPM57-SAL", name: "SPM57 Salon", description: "SPM-57 test venue: seats 4 in theatre layout",
+      building: "Orchard Hub", floor: "L7", maxCapacity: 4, opensAt: "07:00", closesAt: "23:00",
+      setupMinutes: 0, teardownMinutes: 0,
+      layouts: [["theatre", 4], ["classroom", 3]],
+      facilities: [] },
   ];
 
   const venues: Record<string, string> = {};
@@ -2421,13 +2434,75 @@ async function main() {
   );
 
   // -----------------------------------------------------------------
+  // SPM-77 QA fixtures (Suggest Alternative Equipment). The SAME events as
+  // scripts/seed-spm77.ts (`npm run fixtures:spm77`) - keep the two in step.
+  // Their equipment lines and suggestions are created further down
+  // (spm77Requests). Pushed after SPM-66, so no earlier event's EVT- reference
+  // number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm77 = (key: string, title: string, date: string, organiser: string, status = "planning"): EventSeed => ({
+    ...fixture(key, title, date, 9, 4, organiser, { status }),
+    purpose: "SPM-77 suggest alternative equipment test event",
+    category: "meeting",
+  });
+  eventData.push(
+    spm77("spm77_record", "SPM77 Ring Light Showcase", "2028-08-01", "James Koh"),
+    spm77("spm77_short", "SPM77 Stage Shortfall Talk", "2028-08-08", "Melissa Yap"),
+    spm77("spm77_rival", "SPM77 Stage Rival Fair", "2028-08-08", "Kelvin Loh"),
+    spm77("spm77_accept", "SPM77 Accept Gala", "2028-08-15", "Rachel Ng"),
+    spm77("spm77_partial", "SPM77 Partial Forum", "2028-08-22", "Evelyn Chen"),
+    spm77("spm77_decline", "SPM77 Decline Seminar", "2028-08-29", "Samuel Ong"),
+    spm77("spm77_keep", "SPM77 Keep Reserved Expo", "2028-09-05", "Faridah Aziz"),
+    spm77("spm77_confirmed", "SPM77 Confirmed Dinner", "2028-09-12", "Budi Santoso", "confirmed"),
+    spm77("spm77_waived", "SPM77 Waived Banquet", "2028-09-19", "Samuel Ong"),
+    // Two sessions, 09:00-13:00 on 26 and 27 September (created further down).
+    { ...spm77("spm77_sessions", "SPM77 Two-Day Summit", "2028-09-26", "Kelvin Loh"), durationHours: 28 },
+  );
+
+  // -----------------------------------------------------------------
+  // SPM-57 QA fixtures (Manually Add Attendee). The SAME events as
+  // scripts/seed-spm57.ts (`npm run fixtures:spm57`) - keep the two in step.
+  //
+  // The events only. Their bookings at the SPM57 rooms, registrations and
+  // exact registration settings are created by that script alone, so run it
+  // once after a full reseed. Pushed after SPM-77, so no earlier event's
+  // EVT- reference number shifts. Add new events AFTER this block.
+  // -----------------------------------------------------------------
+  const spm57 = (
+    key: string, title: string, status: string, date: string, startHour: number, durationHours: number,
+    category: string, options: Partial<EventSeed> = {}
+  ): EventSeed => ({
+    key, title, status, organiser: "Evelyn Chen", coordinator: "daniel.tan@connectsphere.com",
+    purpose: "SPM-57 manually add attendee test event", category,
+    days: daysUntil(date), startHour, durationHours, attendance: 20, layout: "theatre", ...options,
+  });
+  eventData.push(
+    spm57("spm57_gala", "SPM57 VIP Gala Dinner", "confirmed", "2028-03-07", 18, 4, "networking",
+      { regEnabled: true, regCapacity: 3 }),
+    spm57("spm57_salon", "SPM57 Salon Briefing", "confirmed", "2028-03-14", 9, 3, "seminar",
+      { regEnabled: true, regCapacity: 2 }),
+    spm57("spm57_planning", "SPM57 Planning Workshop", "planning", "2028-03-21", 9, 8, "workshop",
+      { regEnabled: true, regCapacity: 40 }),
+    spm57("spm57_lunch", "SPM57 Invitation Only Lunch", "confirmed", "2028-03-28", 12, 2, "meeting"),
+    spm57("spm57_offer", "SPM57 Held Place Recital", "confirmed", "2028-04-04", 18, 3, "networking",
+      { regEnabled: true, regCapacity: 4 }),
+    // Started 26 Oct 2026, runs to 31 Dec 2027, 18:00.
+    spm57("spm57_started", "SPM57 Opening Exhibition", "confirmed", "2026-10-26", 10, 431 * 24 + 8, "exhibition",
+      { regEnabled: true, regCapacity: 40 }),
+    spm57("spm57_two_rooms", "SPM57 Two Room Forum", "confirmed", "2028-04-11", 9, 8, "conference",
+      { regEnabled: true, regCapacity: 20 }),
+    spm57("spm57_brunch", "SPM57 Returning Guest Brunch", "confirmed", "2028-04-18", 10, 3, "networking",
+      { regEnabled: true, regCapacity: 10 }),
+  );
+
+  // -----------------------------------------------------------------
   // SPM-53 QA fixtures (Receive Event Notifications). The SAME events as
   // scripts/seed-spm53.ts (`npm run fixtures:spm53`) - keep the two in step.
   //
   // The events only. Their test rooms (SPM53 Hall, SPM53 Studio), equipment
   // (SPM53 Projector, SPM53 Lectern Mic, SPM53 Speaker, SPM53 Screen), bookings,
   // equipment lines and registrations are created by that script alone,
-  // so run it once after a full reseed. Pushed LAST, after SPM-66, so no
+  // so run it once after a full reseed. Pushed LAST, after SPM-57, so no
   // earlier event's EVT- reference number shifts. Add new events AFTER this
   // block.
   // -----------------------------------------------------------------
@@ -3346,6 +3421,97 @@ async function main() {
         reviewedAt: reserved ? day(ev.days - 25) : undefined,
       },
     });
+  }
+
+  // SPM-77 fixtures, the same as scripts/seed-spm77.ts.
+  // [eventKey, equipment, requested, reserved|null, status, Technical Support notes,
+  //  pending suggestion: [equipment, quantity, note] | null]
+  const ringLightShort = "Only 2 ring lights are in stock.";
+  const spm77Requests: [string, string, number, number | null, string, string | null, [string, number, string] | null][] = [
+    ["spm77_record", "Ring Light", 4, null, "unavailable", ringLightShort, null],
+    ["spm77_short", "Ring Light", 3, null, "unavailable", ringLightShort, null],
+    ["spm77_rival", "Portable Stage", 4, 4, "reserved", null, null],
+    ["spm77_accept", "Ring Light", 4, null, "unavailable", ringLightShort,
+      ["Podium Light", 3, "Three podium lights light the stage as evenly."]],
+    ["spm77_partial", "Ring Light", 3, 2, "partially_fulfilled", null,
+      ["Podium Light", 1, "One podium light makes up the third ring light."]],
+    ["spm77_decline", "Ring Light", 4, null, "unavailable", ringLightShort,
+      ["Portable Stage", 2, "Raise the speakers instead of lighting them."]],
+    ["spm77_keep", "Ring Light", 3, 2, "partially_fulfilled", null, null],
+    ["spm77_keep", "Podium Light", 2, null, "requested", null, null],
+    ["spm77_confirmed", "Ring Light", 4, null, "unavailable", ringLightShort, null],
+    ["spm77_confirmed", "Podium Light", 6, null, "unavailable", "Only 4 podium lights are in stock.",
+      ["Portable Stage", 2, "Two stages for the head table instead."]],
+    ["spm77_waived", "Ring Light", 4, null, "unavailable", ringLightShort,
+      ["Podium Light", 2, "Two podium lights cover the head table."]],
+  ];
+  for (const [eventKey, eqName, requested, reserved, status, notes, suggestion] of spm77Requests) {
+    const ev = events[eventKey];
+    const reviewed = status !== "requested";
+    await prisma.equipmentRequest.create({
+      data: {
+        eventId: ev.id,
+        equipmentId: equip[eqName],
+        quantityRequested: requested,
+        quantityReserved: reserved ?? undefined,
+        staffNotes: notes ?? undefined,
+        startsAt: new Date(ev.startsAt!.getTime() - 3 * 3_600_000),
+        endsAt: new Date(ev.endsAt!.getTime() + 2 * 3_600_000),
+        status,
+        requestedBy: users["daniel.tan@connectsphere.com"],
+        requestedAt: day(ev.days - 27),
+        reviewedBy: reviewed ? users["vikram.nair@connectsphere.com"] : undefined,
+        reviewedAt: reviewed ? day(ev.days - 25) : undefined,
+        suggestions: suggestion
+          ? {
+              create: {
+                equipmentId: equip[suggestion[0]],
+                quantity: suggestion[1],
+                note: suggestion[2],
+                status: "pending",
+                suggestedBy: users["vikram.nair@connectsphere.com"],
+                suggestedAt: day(ev.days - 24),
+              },
+            }
+          : undefined,
+      },
+    });
+  }
+  // SPM77 Waived Banquet's line was marked not required before the suggestion.
+  await prisma.equipmentRequest.updateMany({
+    where: { eventId: events["spm77_waived"].id },
+    data: { notRequired: true, notRequiredBy: users["daniel.tan@connectsphere.com"], notRequiredAt: day(events["spm77_waived"].days - 24) },
+  });
+  // SPM77 Two-Day Summit: Day 1 asks for Ring Lights (none free) and a
+  // Portable Stage, Day 2 for Podium Lights.
+  const spm77Summit = events["spm77_sessions"];
+  const spm77Sessions: [string, string, [string, number, string, string | null][]][] = [
+    ["Day 1", "2028-09-26", [["Ring Light", 4, "unavailable", ringLightShort], ["Portable Stage", 1, "requested", null]]],
+    ["Day 2", "2028-09-27", [["Podium Light", 2, "requested", null]]],
+  ];
+  for (const [label, date, lines] of spm77Sessions) {
+    const startsAt = day(daysUntil(date), 9);
+    const endsAt = day(daysUntil(date), 13);
+    const session = await prisma.eventSession.create({ data: { eventId: spm77Summit.id, label, startsAt, endsAt } });
+    for (const [eqName, requested, status, notes] of lines) {
+      const reviewed = status !== "requested";
+      await prisma.equipmentRequest.create({
+        data: {
+          eventId: spm77Summit.id,
+          sessionId: session.id,
+          equipmentId: equip[eqName],
+          quantityRequested: requested,
+          staffNotes: notes ?? undefined,
+          startsAt: new Date(startsAt.getTime() - 3 * 3_600_000),
+          endsAt: new Date(endsAt.getTime() + 2 * 3_600_000),
+          status,
+          requestedBy: users["daniel.tan@connectsphere.com"],
+          requestedAt: day(spm77Summit.days - 27),
+          reviewedBy: reviewed ? users["vikram.nair@connectsphere.com"] : undefined,
+          reviewedAt: reviewed ? day(spm77Summit.days - 25) : undefined,
+        },
+      });
+    }
   }
 
   // -------------------------------------------------------------------

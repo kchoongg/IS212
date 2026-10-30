@@ -130,6 +130,8 @@ function line(overrides: Record<string, unknown> = {}): Row {
     reviewReason: null,
     notRequired: false,
     equipment: { name: "Projector" },
+    // SPM-77: the alternative waiting for the Coordinator's decision, if any.
+    suggestions: [],
     ...overrides,
   };
 }
@@ -235,6 +237,29 @@ describe("GET /api/events/[id]/arrangements", () => {
 
   it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await get()).status).toBe(401);
+  });
+
+  it("[SPM-77][AC5][AC6] lists a line with a suggested alternative waiting for a decision as outstanding", async () => {
+    given({
+      bookings: [booking()],
+      equipment: [
+        line({ status: "partially_fulfilled", equipment: { name: "Ring Light" }, suggestions: [{ equipment: { name: "Podium Light" } }] }),
+      ],
+    });
+
+    const body = await (await get(signIn(assignedCoordinator()))).json();
+
+    expect(named(body, "Ring Light")).toMatchObject({
+      state: "outstanding",
+      waivable: false,
+      awaitingDecision: true,
+      missing: "Ring Light for this event has a suggested alternative (Podium Light) waiting for the Coordinator's decision",
+    });
+    expect(callArg(db.equipmentRequest.findMany).select.suggestions).toEqual({
+      where: { status: "pending" },
+      take: 1,
+      select: { equipment: { select: { name: true } } },
+    });
   });
 
   // Readiness is the coordinator's planning checklist (UI_DESIGN.md 4.3). The

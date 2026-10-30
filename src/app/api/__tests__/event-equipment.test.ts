@@ -89,6 +89,28 @@ describe("GET /api/events/[id]/equipment", () => {
     expect(callArg(db.equipmentRequest.findMany).where).toEqual({ eventId: ID.event });
   });
 
+  it("[SPM-77][AC3] gives each requirement the alternative waiting for a decision, if any", async () => {
+    const token = signIn(assignedCoordinator());
+    db.event.findUnique.mockResolvedValue(event());
+    db.equipmentRequest.findMany.mockResolvedValue([]);
+
+    await list(token);
+
+    expect(callArg(db.equipmentRequest.findMany).include.suggestions).toEqual({
+      where: { status: "pending" },
+      orderBy: { suggestedAt: "desc" },
+      take: 1,
+      select: {
+        id: true,
+        quantity: true,
+        note: true,
+        suggestedAt: true,
+        equipment: { select: { id: true, name: true } },
+        suggester: { select: { fullName: true } },
+      },
+    });
+  });
+
   // SPM-36 (AC3, AC4): completing an event leaves its equipment on it as the
   // record of what took place, and the organiser can still read it.
   it("[SPM-36][AC3][AC4] SPM-36-TC02: lists a completed event's equipment for the organiser who owns it", async () => {

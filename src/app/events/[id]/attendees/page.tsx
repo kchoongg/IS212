@@ -11,6 +11,8 @@ import { eventCrumbs } from "@/lib/breadcrumbs";
 import { eventTabsFor } from "@/lib/roles";
 import { eventReference, formatDateTime } from "@/lib/format";
 import type { RegistrationCounts } from "@/lib/registrationEligibility";
+import { venueCapacityLine, type VenueCapacity } from "@/lib/manualRegistration";
+import { AddAttendeeForm } from "./AddAttendeeForm";
 import { offerStands } from "@/lib/waitingList";
 
 // S-11, the Attendees tab (SPM-65, View Registration List): who has registered
@@ -24,6 +26,9 @@ import { offerStands } from "@/lib/waitingList";
 // view, and as soon as it comes back into view, so registrations, withdrawals
 // and waiting-list changes appear without a reload.
 //
+// SPM-57 (Manually Add Attendee): the coordinator assigned to the event adds
+// attendees here (AddAttendeeForm), and both they and the organiser see who
+// was added on the organiser's behalf (AC5) with the requirements recorded.
 // SPM-66: each waiting attendee's position, and any place under offer to
 // them. The assigned coordinator can give a place under offer to a chosen
 // waiting attendee instead (AC9, "Offer place").
@@ -39,6 +44,9 @@ interface Registration {
   attendee: { name: string; email: string; phone: string | null };
   /// AC4: who added it on the Organiser's behalf; null if self-registered.
   addedBy: { name: string } | null;
+  /// SPM-57 AC1: the attendee's own needs, however they were registered.
+  dietaryRequirements?: string | null;
+  accessibilityRequirements?: string | null;
   /// SPM-66 (AC3): position on the waiting list, counting from 1.
   waitingListPosition?: number | null;
   /// SPM-66: when the place under offer to them was offered, and until when.
@@ -52,6 +60,12 @@ interface RegistrationList {
   registrationCapacity: number | null;
   counts: RegistrationCounts;
   registrations: Registration[];
+  /// SPM-57 AC3: the room a manual addition is measured against.
+  venueCapacity?: VenueCapacity | null;
+  /// SPM-57: the assigned coordinator may add attendees - now, unless
+  /// addAttendeesRefusal says why not.
+  canAddAttendees?: boolean;
+  addAttendeesRefusal?: string | null;
   /// SPM-66 (AC9): the assigned coordinator, while places can be offered.
   canOfferPlaces?: boolean;
 }
@@ -78,6 +92,10 @@ const COLUMNS: Column<Registration>[] = [
       <div>
         <p className="font-medium text-ink">{r.attendee.name}</p>
         {r.addedBy && <p className="mt-0.5 text-xs text-ink-3">Added by {r.addedBy.name}</p>}
+        {r.dietaryRequirements && <p className="mt-0.5 text-xs text-ink-2">Dietary: {r.dietaryRequirements}</p>}
+        {r.accessibilityRequirements && (
+          <p className="mt-0.5 text-xs text-ink-2">Accessibility: {r.accessibilityRequirements}</p>
+        )}
       </div>
     ),
   },
@@ -123,6 +141,9 @@ export default function EventAttendeesPage() {
   const [error, setError] = useState<string | null>(null);
   /// The server refused (AC8, AC9): no point asking again every 15 seconds.
   const [refused, setRefused] = useState(false);
+  /// SPM-57: the Add an attendee form is open, and what the last addition said.
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
   /// Whether a list is on screen, so a failed background refresh leaves it
   /// there instead of replacing it with an error.
   const shown = useRef(false);
@@ -302,10 +323,48 @@ export default function EventAttendeesPage() {
             </Alert>
           )}
 
+          {/* SPM-57: why the assigned coordinator can't add anyone now. A
+              turned-off registration already says so above. */}
+          {data.canAddAttendees && data.addAttendeesRefusal && data.registrationEnabled && (
+            <Alert variant="info">{data.addAttendeesRefusal}</Alert>
+          )}
+
+          {added && <Alert variant="success">{added}</Alert>}
+
           {(data.registrationEnabled || data.registrations.length > 0) && (
-            <p className="text-sm font-medium text-ink" aria-label="Places">
-              {placesLine(data.counts, data.registrationCapacity)}
-            </p>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-ink" aria-label="Places">
+                  {placesLine(data.counts, data.registrationCapacity)}
+                </p>
+                {data.venueCapacity && (
+                  <p className="mt-0.5 text-sm text-ink-3">{venueCapacityLine(data.venueCapacity)}</p>
+                )}
+              </div>
+              {data.canAddAttendees && !data.addAttendeesRefusal && !adding && (
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    setAdded(null);
+                    setAdding(true);
+                  }}
+                >
+                  Add attendee
+                </Button>
+              )}
+            </div>
+          )}
+
+          {adding && (
+            <AddAttendeeForm
+              eventId={eventId}
+              onCancel={() => setAdding(false)}
+              onAdded={(message) => {
+                setAdding(false);
+                setAdded(message);
+                void load();
+              }}
+            />
           )}
 
           {data.registrations.length > 0 ? (

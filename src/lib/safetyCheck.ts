@@ -17,6 +17,11 @@
 // An arrangement the Coordinator marked as not required (SPM-33) is left out
 // of both: AC1 asks for equipment "reserved or marked as not required".
 //
+// SPM-77: nor while an item has a suggested alternative waiting for the
+// Coordinator's decision - not required or not. The decision can only be made
+// in Planning, so submitting would leave it stranded. arrangementsFor() names
+// it, as the Readiness tab does.
+//
 // Pure functions over plain data, like the rest of src/lib.
 
 import { arrangementsFor, blockingArrangements, type SessionRef } from "@/lib/eventConfirmation";
@@ -42,7 +47,13 @@ export interface SafetySubmissionInput {
   /// Empty for a single-session event.
   sessions: readonly SessionRef[];
   bookings: readonly ({ sessionId: string | null; status: string; venueName: string } & Flag)[];
-  equipment: readonly ({ sessionId: string | null; status: string; equipmentName: string } & Flag)[];
+  equipment: readonly ({
+    sessionId: string | null;
+    status: string;
+    equipmentName: string;
+    /// SPM-77: the name of the alternative waiting for a decision, if any.
+    pendingSuggestion?: string | null;
+  } & Flag)[];
 }
 
 export type SafetySubmissionCheck =
@@ -87,11 +98,12 @@ export function checkSafetySubmission(input: SafetySubmissionInput): SafetySubmi
     arrangementsFor({
       sessions,
       bookings: bookings.map(({ sessionId, status, notRequired }) => ({ sessionId, status, notRequired })),
-      equipment: equipment.map(({ sessionId, status, equipmentName, notRequired }) => ({
+      equipment: equipment.map(({ sessionId, status, equipmentName, notRequired, pendingSuggestion }) => ({
         sessionId,
         status,
         equipmentName,
         notRequired,
+        pendingSuggestion,
       })),
     })
   ).map((a) => a.missing);
@@ -103,7 +115,7 @@ export function checkSafetySubmission(input: SafetySubmissionInput): SafetySubmi
         `the venue booking at ${b.venueName} for ${whose(sessions, b.sessionId)} is flagged for review${why(b.reviewReason)}`
     );
   const flaggedEquipment = equipment
-    .filter((e) => e.needsReview && !e.notRequired && EQUIPMENT_HELD.includes(e.status))
+    .filter((e) => e.needsReview && !e.notRequired && !e.pendingSuggestion && EQUIPMENT_HELD.includes(e.status))
     .map((e) => `${e.equipmentName} for ${whose(sessions, e.sessionId)} is flagged for review${why(e.reviewReason)}`);
 
   const outstanding = [...unheld, ...flaggedBookings, ...flaggedEquipment];

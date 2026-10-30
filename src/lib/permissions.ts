@@ -55,6 +55,9 @@ export const ACTIONS = [
   "equipment_request:review",
   "registration:create",
   "registration:view_list",
+  // SPM-57: add an Attendee account to an event's registration list on the
+  // organiser's behalf (customer clarification #33).
+  "registration:add_attendee",
   "facility:view",
 ] as const;
 
@@ -95,6 +98,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Action[]> = {
     // §8 only anticipated equipment_request:review, Technical Support's side).
     "equipment_request:manage",
     "registration:view_list",
+    "registration:add_attendee",
     "facility:view",
   ],
   ops_manager: [
@@ -403,6 +407,16 @@ export function canViewRegistrationList(actor: Actor, event: EventAccessFields):
   return isAssignedCoordinator(actor, event);
 }
 
+/// SPM-57: attendees are added to an event's registration list by the
+/// coordinator assigned to it - "the attendee list will have to be provided to
+/// the Event Coordinator for processing" (customer clarification #33). The
+/// organiser sees who was added on their behalf (AC5) but adds no one. When it
+/// may happen is addAttendeeRefusal() (src/lib/manualRegistration.ts).
+export function canAddAttendees(actor: Actor, event: EventAccessFields): boolean {
+  if (!can(actor.role, "registration:add_attendee")) return false;
+  return isAssignedCoordinator(actor, event);
+}
+
 /// SPM-47: equipment requirements are recorded and revised by the coordinator
 /// assigned to the event (SPM-30 removed the "any coordinator while it has
 /// none yet" allowance - see isAssignedCoordinator). Unlike canEditEventContent this is not restricted to draft: equipment
@@ -472,6 +486,20 @@ export function canReserveEquipment(actor: Actor): boolean {
 /// Technical Support's review of a request.
 export function canUpdateEquipmentFulfilment(actor: Actor): boolean {
   return can(actor.role, "equipment_request:review");
+}
+
+/// SPM-77 (AC9): "Only Technical Support Staff can record a suggestion" - the
+/// same `equipment_request:review` action as reserving and updating, the rest
+/// of their review of a request.
+export function canSuggestAlternativeEquipment(actor: Actor): boolean {
+  return can(actor.role, "equipment_request:review");
+}
+
+/// SPM-77 (AC9): "only the assigned Event Coordinator can accept or decline
+/// it" - the person who manages the event's equipment requirements, since
+/// accepting changes one.
+export function canDecideEquipmentSuggestion(actor: Actor, event: EventAccessFields): boolean {
+  return canManageEquipmentRequests(actor, event);
 }
 
 /// SPM-42: a venue booking is requested by the coordinator assigned to the

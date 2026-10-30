@@ -99,6 +99,7 @@ the model, deliberately blind to which event is involved.
 | `equipment_request:review` | — | — | — | — | ✅ | — | — |
 | `registration:create` | — | — | — | — | — | ✅ | — |
 | `registration:view_list` | ✅ | ✅ | — | — | — | — | — |
+| `registration:add_attendee` | — | ✅ | — | — | — | — | — |
 | `facility:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Each row traces to the briefing's §5 process: the organiser drafts and submits
@@ -433,6 +434,9 @@ Every route resolves an `Actor`, checks the role, then checks the relationship.
 | `POST /api/events/[id]/equipment/[requestId]/reserve` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403, then 404 unless Planning or Confirmed; reserving only in Planning — Technical Support (SPM-49) |
 | `PATCH`, `DELETE /api/events/[id]/equipment/[requestId]/reservation` | `canViewEvent()` → 404, then `canReserveEquipment()` (`equipment_request:review`) → 403 "Only Technical Support Staff can change equipment reservations", then 404 unless Planning or Confirmed; adjusting (PATCH) and releasing (DELETE, with a required `reason`) only in Planning — Technical Support (SPM-69) |
 | `PATCH /api/events/[id]/equipment/[requestId]/fulfilment` | `canViewEvent()` → 404, then `canUpdateEquipmentFulfilment()` (`equipment_request:review`) → 403 — Technical Support; 404 unless Planning or Confirmed, updating only in Planning (SPM-50) |
+| `GET /api/events/[id]/equipment/[requestId]/suggestion/availability` | `canViewEvent()` → 404, then `canSuggestAlternativeEquipment()` (`equipment_request:review`) → 403 "Only Technical Support Staff can suggest alternative equipment", then 404 unless Planning, Safety review or Confirmed — Technical Support (SPM-77, AC2) |
+| `POST /api/events/[id]/equipment/[requestId]/suggestion` | Same as the `GET` above, then only in Planning (400); the line must be Cannot be provided or Partially fulfilled, with no suggestion waiting, and the alternative fully available (400) — Technical Support (SPM-77, AC1, AC9) |
+| `PATCH /api/events/[id]/equipment/[requestId]/suggestion` | `canViewEvent()` → 404, then `canDecideEquipmentSuggestion()` (= `canManageEquipmentRequests()`) → 403 "Only the assigned Coordinator can accept or decline a suggestion", then only in Planning (400) — the assigned Coordinator (SPM-77, AC5, AC6, AC9) |
 | `GET /api/facilities` | `facility:view` — any signed-in user |
 | `POST /api/registrations` | `registration:create` — attendee, plus `canViewEvent()` on the target event, then `registrationState()` → 400 unless the event is eligible (SPM-51) |
 | `GET /api/registrations` | `registration:create` → 403 "Registrations belong to an Attendee account."; the signed-in attendee's own registrations only (SPM-51) |
@@ -523,6 +527,14 @@ allowed to see.
   coordinator assigned to it - not another organiser of the same client.
   The event screens' APIs return its answer as `canViewRegistrationList`, so
   the Attendees tab is left out for everyone else rather than refused.
+- **`registration:add_attendee`** (SPM-57) lets a coordinator add an Attendee
+  account to an event's registration list on the organiser's behalf
+  (`POST /api/events/[id]/registrations`, customer clarification #33), through
+  `canAddAttendees()`: only the coordinator assigned to the event. The
+  organiser sees who was added ("Added by <name>") but adds no one; anyone
+  else is refused 403. When it may happen - a Confirmed event with
+  registration on, not yet started, with a known venue capacity - is
+  `addAttendeeRefusal()` in `src/lib/manualRegistration.ts`.
 - **`users.role` has no database constraint.** `registerSchema` guards the
   register route; a direct database write is not guarded.
   - Corrected 2026-09-18: this entry previously read "Zod guards the register
