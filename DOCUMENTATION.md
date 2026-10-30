@@ -170,6 +170,7 @@ IS212/
 │   ├── seed-spm26.ts            # `npm run fixtures:spm26` — SPM-26 events with an open and an answered clarification, no reseed
 │   ├── seed-spm94.ts            # `npm run fixtures:spm94` — SPM-94 requests in each status, for who sees the review outcome, no reseed
 │   ├── seed-spm32.ts            # `npm run fixtures:spm32` — SPM-32 events with a change request to process, no reseed
+│   ├── seed-spm57.ts            # `npm run fixtures:spm57` — SPM-57 events and rooms for adding attendees by hand, no reseed
 │   ├── seed-spm66.ts            # `npm run fixtures:spm66` — SPM-66 attendee accounts, events, waiting lists and offers, no reseed
 │   └── spm93-round-turnaround.ts # one-off: rounds venues' setup/turnaround up to 15-min
 │                                   steps and lists bookings that then clash (dry run by default)
@@ -676,6 +677,7 @@ defend under questioning.
 | **An attendee can register only for an eligible event** — Confirmed, registration enabled, both registration dates set and now between them (opening and closing moments included), and a seat left (registered and attended take one; no capacity means no limit). No duplicate registration; a withdrawn attendee may register again. A full event offers its waiting list (SPM-66): a place under offer is held, and while anyone waits a newcomer joins the list rather than registering past them | `registrationState()` in `src/lib/registrationEligibility.ts`, `seatsHeld()` in `src/lib/waitingList.ts`, `POST /api/registrations` | ✅ done (SPM-51; was "confirmed, in window, no duplicate, seats left") |
 | **A full event's waiting list is first in, first out, with a 3-day offer** (#26, #44) - a free place (registered + under offer < capacity) goes to the earliest to join whenever one comes free (a withdrawal, a declined or lapsed offer, someone leaving with an offer, a raised capacity); the attendee has 3 days, or until the event starts, to accept. Declining or letting it lapse leaves the list; the event starting ends the offer but keeps the position, and no offer is made after the start (#116). The assigned coordinator can move a place under offer to a chosen waiting attendee (never beyond capacity). Offers end with no scheduled job, on reading events and registrations and on the unread count | `src/lib/waitingList.ts` (pure), `offerFreePlaces()`, `sweepWaitingList()` (`src/lib/waitingListService.ts`), `POST /api/events/[id]/waiting-list`, `POST /api/registrations/[id]/offer`, `POST /api/events/[id]/waiting-list/offers` | ✅ done (SPM-66) |
 | **Registration capacity is capped by the booked room's capacity in its layout** (#112), never the room's maximum. Measured against the event's only pending or approved booking, or the one the coordinator chooses when there are several (Week 7 change #3); no booking, or one with no layout, means no capacity can be set | `measuredBooking()`, `capacityError()` in `src/lib/registrationSettings.ts`; `PATCH /api/events/[id]/registration` | ✅ done (SPM-64) |
+| **The assigned coordinator can add an Attendee account to a Confirmed event's registration list by its email** (#33), with the attendee's dietary and accessibility requirements, past the self-service capacity and period but never past the room: refused once the seats taken (Registered and Attended, self-registered and added together) reach the layout capacity of the booking registration is measured against (#99). Recorded as a self-registration is, plus who added it | `canAddAttendees()`, `addAttendeeRefusal()`, `venueCapacity()`, `venueFullError()` (`src/lib/manualRegistration.ts`); `POST /api/events/[id]/registrations` | ✅ done (SPM-57) |
 | **The registration period is separate from the event date** (#30): it closes after it opens, and no later than the event starts (exactly at the start is allowed). It can be extended or reopened (#42, #127) until the event starts, and not after | `periodErrors()`, `startedError()` | ✅ done (SPM-64) |
 | **Lowering registration capacity below the attendees holding a place, or turning registration off while anyone holds one, flags the registrations and never changes them** (codes `registration_capacity_lowered`, `registration_disabled`) | `registrationReviewReasons()`, `addReviewReasons()`, `HOLDING_A_PLACE` | ✅ done (SPM-64) |
 | **Registration that is enabled but incomplete is an outstanding arrangement and blocks confirmation** — no capacity, no opening or closing date, or a measured booking that is no longer active (#80). Saving an incomplete setup is never refused | `registrationGaps()` / `arrangementsFor()` in `src/lib/eventConfirmation.ts` | ✅ done (SPM-64) |
@@ -851,6 +853,7 @@ traceability the module asks for.
 | `npm run fixtures:spm59` | Adds or resets SPM-59's 6 test events ("SPM59 …", Jun–Jul 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm59_`. One request in each status before planning: Draft, Submitted (no coordinator), Under review, Approved, Rejected and Withdrawn (the last four assigned to Daniel Tan). Run it before SPM-59-TC01 and after SPM-59-TC02. The same events are at the end of `prisma/seed.ts` |
 | `npm run fixtures:spm94` | Adds or resets SPM-94's 9 test events ("SPM94 Meridian …", Nov 2027), all organised by Rachel Ng, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm94_`. One request per status the story turns on: Submitted (no coordinator), Under review, Rejected (with a reason), Withdrawn, Approved and Confirmed with registration open, plus a second Under review request that SPM-94-TC10 approves, and two Cancelled ones for TC11 - one cancelled straight from Under review, one after approval (the rest assigned to Daniel Tan). Run it before the cases and after TC10. The same events are at the end of `prisma/seed.ts` |
 | `npm run fixtures:spm32` | Adds or resets SPM-32's 9 test events ("SPM32 …", Jul–Aug 2027), all organised by Rachel Ng and assigned to Daniel Tan except SPM32 Other Coordinator Forum (Priya Raj), without reseeding — deletes and recreates only events whose `seedKey` starts with `spm32_`, each with one change request: details on a Planning, a Confirmed (with an approved booking), a Postponed and an Approved event, a processed one, two cancellation requests and a postponement request. No pinned reference numbers. Needs the migration `add_change_request_decisions`. Run it before and after any case that processes a request (TC03 to TC11). The events (without bookings or change requests) are at the end of `prisma/seed.ts`, so run it once after a full reseed |
+| `npm run fixtures:spm57` | Adds or resets SPM-57's 2 test rooms, SPM57 Hall (SPM57-HAL, 60 as a theatre) and SPM57 Salon (SPM57-SAL, 4 as a theatre), and its 8 events ("SPM57 …", most in Mar-Apr 2028), organised by Evelyn Chen and assigned to Daniel Tan, without reseeding — deletes and recreates only events whose `seedKey` starts with `spm57_`, each with an approved booking at one of the rooms and fixed registrations: SPM57 VIP Gala Dinner (self-service full, one withdrawn, one waiting), SPM57 Salon Briefing (3 of the salon's 4 seats taken, one added by Daniel Tan with requirements), a Planning event, one with registration off, SPM57 Held Place Recital (3 in the salon and its 4th place on offer to Kavitha Menon, made when the script runs and standing 3 days - SPM-66), SPM57 Opening Exhibition (Confirmed, started 26 Oct 2026, runs to 31 Dec 2027), SPM57 Two Room Forum (booked in both rooms, neither chosen to measure against) and SPM57 Returning Guest Brunch (Bryan Chua withdrawn, with requirements). No pinned reference numbers. Run it before and after any case that adds an attendee or changes a setting (TC01-TC03, TC07, TC10, TC12, TC13). The rooms and events (without bookings or registrations) are in `prisma/seed.ts`, so run it once after a full reseed |
 | `npm run fixtures:spm66` | Creates or refreshes SPM-66's five attendee accounts (Hana Quek, Ravi Nathan, Siew Ling Goh, Tomas Reyes, Uma Pillay; all `password123`; their notifications cleared) and resets its 7 events ("SPM66 …"), organised by Rachel Ng and assigned to Daniel Tan, each with 2 places, its registrations, waiting list and offers - only those accounts and events whose `seedKey` starts with `spm66_` are touched. Offers are made relative to when it runs: a standing one ends 3 days later, and SPM66 Lapsed Offer Talk's ended an hour before, so the app offers that place on at the next page load. Run it before and after any case that joins, leaves, accepts, declines or offers. Needs migration `20261023120000_add_waiting_list_offers`. The accounts and events (without registrations) are in `prisma/seed.ts` |
 | `npm run verify:login` | SPM-21 acceptance check over HTTP (login + role-based access) — same, needs `npm run dev` |
 | `npx tsc --noEmit` | Type-check everything — run before you push |
@@ -1024,7 +1027,7 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
 | **An attendee can withdraw up to the event's end** | SPM-52's acceptance criteria set no cut-off. Withdrawing is refused once the event is cancelled, completed or past its end, so its history doesn't change; before that a Registered attendee can withdraw, even after registration has closed or while the event is running. If the team wants an earlier cut-off (when registration closes, or when the event starts), it goes in `withdrawRefusal()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
 | **Every coordinator sees the registration counts, not only the assigned one** | `registration:view_list` is per role, so any coordinator who can open the event sees "Places taken" and "Withdrawn". SPM-52's AC5 says "relevant" coordinators; whether that means the assigned one only is not decided. | SPM-52 (Sammi) |
-| **Nothing marks an attendee as added by the organiser yet** | SPM-65 added `registrations.added_by_id` and the Attendees tab shows "Added by <name>" when it is set (AC4), but no screen adds an attendee on someone's behalf, so only `npm run fixtures:spm65` sets it. *Manually Add Attendee* must set it to the organiser or coordinator who adds the attendee. | Manually Add Attendee |
+| **Nobody is told they were added to an event** | Since SPM-57 the assigned coordinator adds attendees on the organiser's behalf, but no `Notification` is written: the attendee finds the event in My Registrations. Telling them is Notify people (SPM-53)'s follow-up, which waits for SPM-57. | SPM-53 |
 | **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
@@ -1052,6 +1055,67 @@ what changed, why, and the migration name if there is one.
 ```
 
 ---
+
+### 2026-10-29 — Jordan (SPM-57, review fixes after merging SPM-66)
+- **A place on offer to the waiting list counts against the room** (AC3): with
+  SPM-66 merged, a place under offer is held, so the venue capacity check now
+  counts it with the Registered and Attended seats (`placeCounts()`, under
+  the event's row lock). A 4-seat room with 3 registered and 1 place on
+  offer is full: "This event has reached its venue capacity: 4 attendees in
+  …, Theatre layout, counting 1 place on offer to the waiting list. No more
+  attendees can be added." Without this, adding a VIP and the offer then
+  being accepted put 5 in the room.
+- **Nobody is added once the event has started** (decided 2026-10-29; the ACs
+  set no cut-off): "This event has started, so attendees can no longer be
+  added." Self-registration closes by the start at the latest and SPM-66
+  stops offering places then. Known Gap "Attendees can be added to a
+  Confirmed event after it has started" closed.
+- **An unknown venue capacity is a reason, not a form error**:
+  `addAttendeeRefusal()` takes the venue capacity, so the Attendees tab shows
+  "This event's venue capacity isn't known, …" in place of **Add attendee**,
+  and the route refuses it before reading the form.
+- **Re-adding a withdrawn attendee clears requirements left blank** (AC4):
+  blank fields are written as NULL, so their old "Dietary: …" no longer
+  shows under "Added by …". Self-registration (SPM-51) still keeps them.
+- **Test data:** `npm run fixtures:spm57` adds 4 events for the new cases
+  SPM-57-TC10 to TC13; `docs/test-cases/SPM-57_Test_Cases.xlsx` (13 cases,
+  each clicked through in a browser on 2026-10-29).
+
+### 2026-10-28 — Jordan (SPM-57, Manually Add Attendee)
+- **The assigned coordinator adds attendees on the organiser's behalf** (#33):
+  **Add attendee** on the Attendees tab opens "Add an attendee" - the
+  Attendee account's email, and the attendee's dietary and accessibility
+  requirements (AC1). Only for a Confirmed event with registration on;
+  otherwise "Attendees can only be added to a Confirmed event." or the tab's
+  "Registration is not enabled" alert. The organiser sees who was added
+  ("Added by <name>", SPM-65) but has no button (AC5).
+  - **Refused on the email field:** no account, or one that isn't an active
+    Attendee ("No Attendee account uses this email address. …"), an attendee
+    already registered or on the waiting list.
+  - **Past self-service full, never past the room** (AC2, AC3, #99): the
+    registration period and capacity don't apply; the seats taken
+    (Registered and Attended, however they registered) are counted under the
+    event's row lock against the layout capacity of the booking registration
+    is measured against (SPM-64), now shown as "Venue capacity: <n> · <room>,
+    <layout> layout". At capacity: "This event has reached its venue
+    capacity: …".
+  - **Recorded as self-registration is** (AC4): a Registered row with the
+    requirements and `added_by_id`; a withdrawn attendee's own row is
+    registered again. The attendee sees it in My Registrations and can
+    withdraw it.
+  - **The Attendees tab now shows each attendee's requirements** ("Dietary: …",
+    "Accessibility: …"), self-registered ones too.
+  - New: `src/lib/manualRegistration.ts`, `addAttendeeSchema`,
+    `registration:add_attendee` (coordinator) and `canAddAttendees()`,
+    `POST /api/events/[id]/registrations`; its `GET` adds `venueCapacity`,
+    `canAddAttendees`, `addAttendeesRefusal` and the requirements.
+  - No migration: `registrations.added_by_id` came with SPM-65.
+  - Known Gaps: closed "Nothing marks an attendee as added by the organiser
+    yet"; added "Nobody is told they were added to an event" (SPM-53) and
+    "Attendees can be added to a Confirmed event after it has started".
+  - **Test data:** `npm run fixtures:spm57`;
+    `docs/test-cases/SPM-57_Test_Cases.xlsx` (9 cases, written first, each
+    clicked through in a browser on 2026-10-28).
 
 ### 2026-10-28 — Kristen (SPM-77, review fixes)
 - A waiting suggestion reads "… waiting for the Coordinator's decision" on

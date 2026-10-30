@@ -8,6 +8,7 @@ import {
   REVIEW_OUTCOMES,
   STATUS_TRANSITION_ROLES,
   can,
+  canAddAttendees,
   canAssignCoordinator,
   canBeginPlanning,
   canConfigureRegistration,
@@ -113,6 +114,7 @@ describe("the role matrix", () => {
         "equipment:view_status",
         "equipment_request:manage",
         "registration:view_list",
+        "registration:add_attendee",
         "facility:view",
       ],
       venue_staff: ["event:view", "venue:view", "venue:manage", "venue_booking:decide", "facility:view"],
@@ -1145,6 +1147,27 @@ describe("canViewRegistrationList (SPM-65)", () => {
       expect(canViewRegistrationList(actor(role, "organiser-1", CLIENT_A), theirs)).toBe(false);
     }
   );
+});
+
+describe("canAddAttendees (SPM-57)", () => {
+  const theirs = event({ coordinatorId: "coordinator-1", status: "confirmed", registrationEnabled: true });
+
+  it("[SPM-57][AC1] lets the coordinator assigned to the event add attendees", () => {
+    expect(canAddAttendees(coordinator, theirs)).toBe(true);
+  });
+
+  it("[SPM-57][AC1] stops a coordinator who is not assigned to the event, and every coordinator while it has none", () => {
+    expect(canAddAttendees(otherCoordinator, theirs)).toBe(false);
+    expect(canAddAttendees(coordinator, event({ coordinatorId: null }))).toBe(false);
+  });
+
+  it("[SPM-57][AC5] stops the organiser responsible for the event, who only sees who was added", () => {
+    expect(canAddAttendees(organiserA, theirs)).toBe(false);
+  });
+
+  it.each(ROLES.filter((role) => role !== "coordinator"))("[SPM-57][AC1] stops the %s role", (role) => {
+    expect(canAddAttendees(actor(role, "coordinator-1", null), theirs)).toBe(false);
+  });
 });
 
 describe("[SPM-35] Request Event Change", () => {

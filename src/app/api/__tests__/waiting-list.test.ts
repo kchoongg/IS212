@@ -556,6 +556,8 @@ describe("GET /api/events/[id]/registrations - the waiting list", () => {
   const list = (actor = coordinator(), row = event()) => {
     db.event.findUnique.mockResolvedValue(row);
     db.registration.groupBy.mockResolvedValue([]);
+    // The list also reads the venue bookings, for SPM-57's venue capacity.
+    db.venueBooking.findMany.mockResolvedValue([]);
     return registrationList(req("GET", `/api/events/${REF}/registrations`, { token: signIn(actor) }), params({ id: REF }));
   };
   const reg = (id: string, status: string, joined: string | null, offerExpiresAt: Date | null = null) => ({

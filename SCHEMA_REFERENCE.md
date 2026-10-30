@@ -587,7 +587,7 @@ Postgres table `registrations` &middot; `prisma.registration`
 | `withdrawnAt` | DateTime |  | When the attendee withdrew (SPM-52, `PATCH /api/registrations/[id]`). NULL unless `withdrawn`. |
 | `dietaryRequirements` | String |  | The attendee's own needs, not the event's. |
 | `accessibilityRequirements` | String |  |  |
-| `addedById` | String |  | Who added this registration on the attendee's behalf (SPM-65, AC4), shown as "Added by <name>" on the Attendees tab. Set by Manually Add Attendee - nothing writes it yet. NULL = the attendee registered themselves. `ON DELETE SET NULL`. |
+| `addedById` | String |  | Who added this registration on the attendee's behalf (SPM-65, AC4), shown as "Added by <name>" on the Attendees tab. Set by Manually Add Attendee (SPM-57) to the coordinator who added the attendee. NULL = the attendee registered themselves. `ON DELETE SET NULL`. |
 | `waitlistedAt` | DateTime |  | When the attendee joined the waiting list (SPM-66) - its first-in, first-out order. NULL for a registration that never waited. |
 | `offeredAt` | DateTime |  | When a place was last offered to this waiting attendee (SPM-66). |
 | `offerExpiresAt` | DateTime |  | Set while a place is under offer to this `waitlisted` attendee: 3 days after the offer (#44), or the event's start if sooner (SPM-66 AC6, AC10). NULL once accepted or ended. A place under offer is held - nobody can register into it (AC8). |

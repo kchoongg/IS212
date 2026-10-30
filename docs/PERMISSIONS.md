@@ -99,6 +99,7 @@ the model, deliberately blind to which event is involved.
 | `equipment_request:review` | — | — | — | — | ✅ | — | — |
 | `registration:create` | — | — | — | — | — | ✅ | — |
 | `registration:view_list` | ✅ | ✅ | — | — | — | — | — |
+| `registration:add_attendee` | — | ✅ | — | — | — | — | — |
 | `facility:view` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 Each row traces to the briefing's §5 process: the organiser drafts and submits
@@ -526,6 +527,14 @@ allowed to see.
   coordinator assigned to it - not another organiser of the same client.
   The event screens' APIs return its answer as `canViewRegistrationList`, so
   the Attendees tab is left out for everyone else rather than refused.
+- **`registration:add_attendee`** (SPM-57) lets a coordinator add an Attendee
+  account to an event's registration list on the organiser's behalf
+  (`POST /api/events/[id]/registrations`, customer clarification #33), through
+  `canAddAttendees()`: only the coordinator assigned to the event. The
+  organiser sees who was added ("Added by <name>") but adds no one; anyone
+  else is refused 403. When it may happen - a Confirmed event with
+  registration on, not yet started, with a known venue capacity - is
+  `addAttendeeRefusal()` in `src/lib/manualRegistration.ts`.
 - **`users.role` has no database constraint.** `registerSchema` guards the
   register route; a direct database write is not guarded.
   - Corrected 2026-09-18: this entry previously read "Zod guards the register
