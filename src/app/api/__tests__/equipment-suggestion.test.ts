@@ -649,6 +649,20 @@ describe("PATCH .../suggestion (accept or decline)", () => {
       });
     });
 
+    it("[SPM-53][AC14] tells only the organiser that the event's equipment changed", async () => {
+      await decideOn(asCoordinator());
+
+      expect(db.notification.create).toHaveBeenCalledTimes(1);
+      expect(callArg(db.notification.create).data).toEqual({
+        recipientId: "organiser-id",
+        type: "event_information_changed",
+        title: "Event information changed",
+        body: '"Gala Dinner" has changed: Equipment requirements.',
+        eventId: ID.event,
+      });
+      expect(db.notification.createMany).not.toHaveBeenCalled();
+    });
+
     it("[SPM-77][AC5] refuses once the requirement no longer needs an alternative", async () => {
       const res = await decideOn(asCoordinator({ row: requestRow({ status: "reserved", quantityReserved: 4 }) }));
 
@@ -683,6 +697,7 @@ describe("PATCH .../suggestion (accept or decline)", () => {
       });
       expect(db.equipmentRequest.update).not.toHaveBeenCalled();
       expect(db.equipmentRequest.create).not.toHaveBeenCalled();
+      expect(db.notification.create).not.toHaveBeenCalled();
     });
 
     it("[SPM-77][AC6] is allowed even when the requirement no longer needs an alternative", async () => {

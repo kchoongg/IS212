@@ -18,7 +18,8 @@ import {
   eventAllowsDecision,
   suggestedNotification,
 } from "@/lib/equipmentSuggestion";
-import { notifyUser } from "@/lib/notifications";
+import { CHANGE_LABELS } from "@/lib/eventChangeImpact";
+import { notifyImportantChange, notifyUser } from "@/lib/notifications";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 import { decideSuggestionSchema, suggestAlternativeSchema } from "@/lib/validation";
 
@@ -237,6 +238,9 @@ export async function PATCH(req: NextRequest, context: Context) {
           },
         });
       }
+      // SPM-53 (AC14): accepting changes the event's equipment, so the organiser
+      // is told. Only a Planning event gets here, so no confirmation was reverted.
+      await notifyImportantChange(tx, existing.event, [CHANGE_LABELS.equipment], false);
     });
     return NextResponse.json({ decision: outcome });
   } catch (err) {

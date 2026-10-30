@@ -1052,6 +1052,9 @@ what changed, why, and the migration name if there is one.
 ---
 
 ### 2026-10-30 — Sammi Chua (SPM-53, gaps closed before merge)
+- **Accepting an equipment suggestion tells the organiser** (AC14): "Event
+  information changed", as for any other equipment change the Coordinator
+  saves. Technical Support are still not told (SPM-77's decision of 2026-10-27).
 - **The 7-day completion sweep is one transaction** (AC18): if a write fails,
   the events stay Confirmed and the next read sweeps them again, so an organiser
   is never left untold.
