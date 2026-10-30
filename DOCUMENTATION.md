@@ -1051,6 +1051,16 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-30 — Sammi Chua (SPM-53, gaps closed before merge)
+- **The 7-day completion sweep is one transaction** (AC18): if a write fails,
+  the events stay Confirmed and the next read sweeps them again, so an organiser
+  is never left untold.
+- **Reserving again only notifies when the line's status changes** (AC11), as
+  the fulfilment route already did.
+- No migration.
+
+---
+
 ### 2026-10-29 — Sammi Chua (SPM-53, Receive Event Notifications)
 - **In-app notifications for every trigger in the story**, each written in the
   same transaction as the change that raises it (`notifyUser()` /

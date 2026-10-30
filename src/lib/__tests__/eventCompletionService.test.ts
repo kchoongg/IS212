@@ -66,6 +66,15 @@ describe("completeDueEvents", () => {
     });
   });
 
+  it("[SPM-53][AC18] writes the status, the history and the notifications in one transaction", async () => {
+    db.$queryRaw.mockResolvedValueOnce([{ id: "e1", title: "Gala Dinner", organiser_id: "o1" }]);
+    db.notification.createMany.mockRejectedValue(new Error("connection lost"));
+
+    await expect(completeDueEvents(db as never, NOW)).rejects.toThrow("connection lost");
+
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it("[SPM-36][AC3] changes nothing but the event's status", async () => {
     db.$queryRaw.mockResolvedValueOnce([{ id: "e1" }]);
 

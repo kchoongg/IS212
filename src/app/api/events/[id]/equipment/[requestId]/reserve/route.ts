@@ -107,9 +107,10 @@ export async function POST(
           session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
         },
       });
-      // SPM-53 (AC11): Reserved or Partially fulfilled, to the assigned Coordinator.
+      // SPM-53 (AC11): newly Reserved or Partially fulfilled, to the assigned
+      // Coordinator. Reserving again in the same status is not news to them.
       // v8 ignore next -- only a Planning event can be reserved for, and it always has a coordinator
-      if (existing.event.coordinatorId) {
+      if (existing.event.coordinatorId && updated.status !== line.requestStatus) {
         await notifyUser(
           tx,
           existing.event.coordinatorId,

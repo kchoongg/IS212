@@ -584,6 +584,23 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     });
   });
 
+  it("[SPM-53][AC11] tells nobody when the line stays in the status it already had", async () => {
+    const token = given(requestRow({ status: "reserved", quantityReserved: 4 }));
+
+    const res = await post(token);
+
+    expect(res.status).toBe(200);
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-53][AC11] tells the coordinator when reserving again completes a partly fulfilled line", async () => {
+    const token = given(requestRow({ status: "partially_fulfilled", quantityReserved: 3 }, { title: "Gala Dinner" }));
+
+    await post(token);
+
+    expect(callArg(db.notification.create).data).toMatchObject({ title: "Equipment reserved" });
+  });
+
   it("[SPM-55][AC3] does not count units that are out of service", async () => {
     const token = given(requestRow({ equipment: projector({ quantityInMaintenance: 9 }) }));
 
