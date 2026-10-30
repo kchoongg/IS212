@@ -4,7 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { parseEventReference } from "@/lib/format";
 import { canAddAttendees, canViewRegistrationList, isAssignedCoordinator } from "@/lib/permissions";
-import { registrationCounts } from "@/lib/registrationEligibility";
+import { registeredNotice, registrationCounts } from "@/lib/registrationEligibility";
+import { notifyUser } from "@/lib/notifications";
 import { hasStarted, waitingOrder } from "@/lib/waitingList";
 import { placeCounts, sweepWaitingList } from "@/lib/waitingListService";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
@@ -205,8 +206,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         accessibilityRequirements: data.accessibilityRequirements ?? null,
         addedById: actor.id,
       };
-      if (existing) return tx.registration.update({ where: { id: existing.id }, data: fields });
-      return tx.registration.create({ data: { eventId: event.id, attendeeId: attendee.id, ...fields } });
+      const saved = existing
+        ? await tx.registration.update({ where: { id: existing.id }, data: fields })
+        : await tx.registration.create({ data: { eventId: event.id, attendeeId: attendee.id, ...fields } });
+      // SPM-53 (AC16): the attendee is told they are registered, as when they register themselves.
+      await notifyUser(tx, attendee.id, registeredNotice(event));
+      return saved;
     });
 
     return NextResponse.json(

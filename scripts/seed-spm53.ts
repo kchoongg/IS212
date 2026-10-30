@@ -136,7 +136,7 @@ const FIXTURES: Fixture[] = [
     bookings: [{ venueCode: "SPM53-HAL", status: "approved" }],
     equipment: [{ item: "SPM53 Projector", quantity: 1, status: "reserved" }],
     registration: { closes: "2028-04-10", attendees: [{ email: LEE, status: "registered" }, { email: ANITA, status: "withdrawn" }] },
-    testCases: "TC15 TC16" },
+    testCases: "TC15 TC16 TC22" },
   { key: "spm53_ready", title: "SPM53 Harbour Ready Launch", status: "planning", date: "2028-04-27",
     bookings: [{ venueCode: "SPM53-STU", status: "approved" }],
     equipment: [{ item: "SPM53 Projector", quantity: 1, status: "reserved" }],

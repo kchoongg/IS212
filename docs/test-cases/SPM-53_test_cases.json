@@ -546,6 +546,27 @@
       ],
       "test_data": "Event: SPM53 Harbour Live Update",
       "expected_result": "Step 1: The event page for 'SPM53 Harbour Live Update' opens on its Overview, with the status badge 'Approved'.\nStep 2: The 'Event request approved' notification is no longer marked 'Unread'."
+    },
+    {
+      "id": "SPM-53-TC22",
+      "title": "An attendee the coordinator adds is notified that they are registered",
+      "linked_ac": [
+        "AC16"
+      ],
+      "type": "Positive",
+      "source": "Acceptance Criteria",
+      "preconditions": "Run npm run fixtures:spm53 before and after this case. 'SPM53 Harbour Confirmed Gala' is Confirmed with registration on and an Approved booking at SPM53 Hall (theatre, 60 seats), assigned to Daniel Tan. Anita Devi has withdrawn from it.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
+      "steps": [
+        "Click 'All Events' in the sidebar and open 'SPM53 Harbour Confirmed Gala'",
+        "Click the 'Attendees' tab",
+        "Click 'Add attendee'",
+        "Type the email in 'Attendee email'",
+        "Click 'Add attendee' in the 'Add an attendee' form",
+        "Log out and log in as Attendee Anita Devi (anita.devi@example.com / password123)",
+        "Click 'Notifications' in the sidebar"
+      ],
+      "test_data": "Event: SPM53 Harbour Confirmed Gala\nAttendee email: anita.devi@example.com",
+      "expected_result": "Step 5: A green alert 'Anita Devi has been added to the registration list.' is shown, and Anita Devi is listed as Registered with 'Added by Daniel Tan'.\nStep 7: An unread notification 'Registration confirmed' is listed with the message 'You're registered for \"SPM53 Harbour Confirmed Gala\".' and the event 'SPM53 Harbour Confirmed Gala' with its reference."
     }
   ],
   "open_questions": [
