@@ -96,8 +96,7 @@
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm53 before this case. Do not run it again afterwards: go straight on to the next case(s), and reset after SPM-53-TC04. 'SPM53 Harbour Draft Summit' is a complete Draft of Rachel Ng's (Meridian Financial Group).\nLogged in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123).",
       "steps": [
-        "Click 'My Events' in the sidebar and open 'SPM53 Harbour Draft Summit'",
-        "Open the draft's 'Edit draft' page",
+        "Click 'My Events' in the sidebar and open 'SPM53 Harbour Draft Summit' (a draft opens on its 'Edit draft' page)",
         "Click 'Submit request'",
         "Log out and log in as Event Coordinator Lead Nadia Rahman (nadia.rahman@connectsphere.com / password123)",
         "Click 'Notifications' in the sidebar",
@@ -105,7 +104,7 @@
         "Click 'Notifications' in the sidebar"
       ],
       "test_data": "Event: SPM53 Harbour Draft Summit\nEvent Coordinator Leads: Nadia Rahman, Grace Lim",
-      "expected_result": "Step 3: The event's page opens with the status badge 'Submitted'.\nStep 5: An unread notification 'New event request submitted' is listed with the message '\"SPM53 Harbour Draft Summit\" has been submitted and needs a coordinator assigned.' and the event 'SPM53 Harbour Draft Summit' with its reference.\nStep 7: Grace Lim's list has the same unread notification."
+      "expected_result": "Step 2: The event's page opens with the status badge 'Submitted'.\nStep 4: An unread notification 'New event request submitted' is listed with the message '\"SPM53 Harbour Draft Summit\" has been submitted and needs a coordinator assigned.' and the event 'SPM53 Harbour Draft Summit' with its reference.\nStep 6: Grace Lim's list has the same unread notification."
     },
     {
       "id": "SPM-53-TC02",
@@ -178,8 +177,7 @@
       "source": "Acceptance Criteria",
       "preconditions": "Run npm run fixtures:spm53 before this case. Do not run it again afterwards: go straight on to the next case(s), and reset after SPM-53-TC07. 'SPM53 Harbour Clarity Forum' and 'SPM53 Harbour Rejected Brief' are Under review, raised by Rachel Ng and assigned to Daniel Tan.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
       "steps": [
-        "Click 'Review Queue' in the sidebar and open 'SPM53 Harbour Clarity Forum'",
-        "Click 'Review request'",
+        "Click 'Review Queue' in the sidebar and click 'SPM53 Harbour Clarity Forum' (it opens its 'Review request' page)",
         "Choose 'Ask the organiser for clarification'",
         "Tick 'When' under 'What needs clarification'",
         "Type the message in 'Message to the organiser'",
@@ -188,7 +186,7 @@
         "Click 'Notifications' in the sidebar"
       ],
       "test_data": "Event: SPM53 Harbour Clarity Forum\nMessage to the organiser: Can the forum start at 10:00 instead of 09:00?",
-      "expected_result": "Step 6: The clarification request is sent and the event stays Under review.\nStep 8: An unread notification 'Clarification requested' is listed with the message 'Your coordinator asked for clarification on \"SPM53 Harbour Clarity Forum\": Can the forum start at 10:00 instead of 09:00?' and the event 'SPM53 Harbour Clarity Forum' with its reference."
+      "expected_result": "Step 5: The clarification request is sent and the event stays Under review.\nStep 7: An unread notification 'Clarification requested' is listed with the message 'Your coordinator asked for clarification on \"SPM53 Harbour Clarity Forum\": Can the forum start at 10:00 instead of 09:00?' and the event 'SPM53 Harbour Clarity Forum' with its reference."
     },
     {
       "id": "SPM-53-TC06",
@@ -220,13 +218,11 @@
       "source": "Acceptance Criteria",
       "preconditions": "SPM-53-TC06 has just been run. Run npm run fixtures:spm53 after this case.\nLogged in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123).",
       "steps": [
-        "Click 'Review Queue' in the sidebar and open 'SPM53 Harbour Clarity Forum'",
-        "Click 'Review request'",
-        "Select 'Approve – planning can start'",
+        "Click 'Review Queue' in the sidebar and click 'SPM53 Harbour Clarity Forum' (it opens its 'Review request' page)",
+        "Select 'Approve — planning can start'",
         "Click 'Approve request'",
         "Click 'Approve' in the dialog",
-        "Click 'Review Queue' in the sidebar and open 'SPM53 Harbour Rejected Brief'",
-        "Click 'Review request'",
+        "Click 'Review Queue' in the sidebar and click 'SPM53 Harbour Rejected Brief'",
         "Select 'Reject this request'",
         "Type the reason into 'Reason for rejection'",
         "Click 'Reject request'",
@@ -236,7 +232,7 @@
         "Click 'Notifications' in the sidebar"
       ],
       "test_data": "Approve: SPM53 Harbour Clarity Forum\nReject: SPM53 Harbour Rejected Brief, reason 'The brief duplicates the March town hall; please merge the two.'",
-      "expected_result": "Step 5: A green 'Request approved' alert is shown and the status badge changes to 'Approved'.\nStep 10: A green 'Request rejected' alert is shown and the status badge changes to 'Rejected'.\nStep 12: Two new unread notifications are listed, newest first: 'Event request rejected' ('\"SPM53 Harbour Rejected Brief\" has been rejected. Reason: The brief duplicates the March town hall; please merge the two.') and 'Event request approved' ('\"SPM53 Harbour Clarity Forum\" has been approved.').\nStep 14: Grace Lim's list has no 'Event request approved' or 'Event request rejected' notification for either event."
+      "expected_result": "Step 4: A green 'Request approved' alert is shown and the status badge changes to 'Approved'.\nStep 8: A green 'Request rejected' alert is shown and the status badge changes to 'Rejected'.\nStep 10: Two new unread notifications are listed, newest first: 'Event request rejected' ('\"SPM53 Harbour Rejected Brief\" has been rejected. Reason: The brief duplicates the March town hall; please merge the two.') and 'Event request approved' ('\"SPM53 Harbour Clarity Forum\" has been approved.').\nStep 12: Grace Lim's list has no 'Event request approved' or 'Event request rejected' notification for either event."
     },
     {
       "id": "SPM-53-TC08",
@@ -251,15 +247,16 @@
         "Click 'All Events' in the sidebar and open 'SPM53 Harbour Booking Review'",
         "Click the 'Venue' tab",
         "Click 'Request booking' on SPM53 Hall",
-        "Leave only 'AM (07:00–12:00)' ticked",
+        "Type the purpose in 'What is this space for?' (required: it starts empty because the event already has a booking request)",
+        "Leave 'Date', 'Start time' and 'End time' as they are (23 Mar 2028, 09:00 and 12:00)",
         "Click 'Submit request'",
         "Log out and log in as Venue Staff Siti Hassan (siti.hassan@connectsphere.com / password123)",
         "Click 'Notifications' in the sidebar",
         "Log out and log in as Venue Staff Marcus Wong (marcus.wong@connectsphere.com / password123)",
         "Click 'Notifications' in the sidebar"
       ],
-      "test_data": "Event: SPM53 Harbour Booking Review\nVenue: SPM53 Hall (SPM53-HAL), 23 Mar 2028, AM",
-      "expected_result": "Step 5: 'Booking request sent to Venue Staff.' is shown.\nStep 7: An unread notification 'Venue booking request to review' is listed with the message '\"SPM53 Harbour Booking Review\" requests SPM53 Hall (SPM53-HAL) on 23 Mar 2028, 07:00–12:00.' and the event 'SPM53 Harbour Booking Review' with its reference.\nStep 9: Marcus Wong's list has the same unread notification."
+      "test_data": "Event: SPM53 Harbour Booking Review\nVenue: SPM53 Hall (SPM53-HAL), 23 Mar 2028, 09:00–12:00\nWhat is this space for?: Breakout room",
+      "expected_result": "Step 6: 'Booking request sent to Venue Staff.' is shown.\nStep 8: An unread notification 'Venue booking request to review' is listed with the message '\"SPM53 Harbour Booking Review\" requests SPM53 Hall (SPM53-HAL) on 23 Mar 2028, 09:00–12:00.' and the event 'SPM53 Harbour Booking Review' with its reference.\nStep 10: Marcus Wong's list has the same unread notification."
     },
     {
       "id": "SPM-53-TC09",
@@ -281,7 +278,7 @@
         "Click 'Notifications' in the sidebar"
       ],
       "test_data": "Approve: SPM53 Hall (SPM53-HAL)\nReject: SPM53 Studio (SPM53-STU), reason 'The studio is being repainted that week.'",
-      "expected_result": "Step 3: A green 'Booking approved' message appears.\nStep 6: A green 'Booking request rejected' message appears.\nStep 8: Two unread notifications for 'SPM53 Harbour Booking Review' are listed, newest first: 'Venue booking rejected' ('SPM53 Studio (SPM53-STU) for \"SPM53 Harbour Booking Review\" on 23 Mar 2028, 09:00–12:00 was rejected. Reason: The studio is being repainted that week.') and 'Venue booking approved' ('SPM53 Hall (SPM53-HAL) for \"SPM53 Harbour Booking Review\" on 23 Mar 2028, 07:00–12:00 was approved.')."
+      "expected_result": "Step 3: A green 'Booking approved' message appears.\nStep 6: A green 'Booking request rejected' message appears.\nStep 8: Two unread notifications for 'SPM53 Harbour Booking Review' are listed, newest first: 'Venue booking rejected' ('SPM53 Studio (SPM53-STU) for \"SPM53 Harbour Booking Review\" on 23 Mar 2028, 09:00–12:00 was rejected. Reason: The studio is being repainted that week.') and 'Venue booking approved' ('SPM53 Hall (SPM53-HAL) for \"SPM53 Harbour Booking Review\" on 23 Mar 2028, 09:00–12:00 was approved.')."
     },
     {
       "id": "SPM-53-TC10",
@@ -352,7 +349,7 @@
         "Click 'Notifications' in the sidebar"
       ],
       "test_data": "Reason for the change: More clients have confirmed and we are adding lunch.",
-      "expected_result": "Step 7: The change request is sent and listed on the event as Pending.\nStep 9: An unread notification 'Change request received' is listed with the message 'Rachel Ng has sent a change request for \"SPM53 Harbour Change Review\".' and the event 'SPM53 Harbour Change Review' with its reference."
+      "expected_result": "Step 7: A green alert 'Change request sent to your coordinator.' is shown.\nStep 9: An unread notification 'Change request received' is listed with the message 'Rachel Ng has sent a change request for \"SPM53 Harbour Change Review\".' and the event 'SPM53 Harbour Change Review' with its reference."
     },
     {
       "id": "SPM-53-TC13",
@@ -373,7 +370,7 @@
         "Click 'Notifications' in the sidebar"
       ],
       "test_data": "Event name: reject, reason 'The invitations have already gone out.'\nDescription and Expected attendance: approve",
-      "expected_result": "Step 5: 'Change request processed.' is shown and the request is Partially approved.\nStep 7: An unread notification 'Change request partially approved' is listed with the message 'Your change request for \"SPM53 Harbour Change Review\" was partially approved. Event name: rejected – The invitations have already gone out. Description: approved. Expected attendance: approved.' Beside it, 'Event information changed' reads '\"SPM53 Harbour Change Review\" has changed: Expected attendance.' (the approved change applied, AC14)."
+      "expected_result": "Step 5: A green alert 'Change request processed.' is shown.\nStep 7: An unread notification 'Change request partially approved' is listed with the message 'Your change request for \"SPM53 Harbour Change Review\" was partially approved. Event name: rejected – The invitations have already gone out. Description: approved. Expected attendance: approved.' Beside it, 'Event information changed' reads '\"SPM53 Harbour Change Review\" has changed: Expected attendance.' (the approved change applied, AC14)."
     },
     {
       "id": "SPM-53-TC14",
@@ -422,7 +419,7 @@
         "Click 'Notifications' in the sidebar"
       ],
       "test_data": "Date: 18 Apr 2028, 09:00–12:00 -> 25 Apr 2028, 09:00–12:00",
-      "expected_result": "Step 5: The 'Move this event back to Planning?' dialog appears.\nStep 6: A green alert 'Event information updated. The event is back in Planning and needs to be confirmed again.' is shown.\nStep 8: Two unread notifications for 'SPM53 Harbour Confirmed Gala' are listed: 'Event information changed' ('\"SPM53 Harbour Confirmed Gala\" has changed: Date and time.') and 'Event no longer confirmed' ('\"SPM53 Harbour Confirmed Gala\" has moved back to Planning after a change and is no longer confirmed.')."
+      "expected_result": "Step 5: The 'Move this event back to Planning?' dialog appears.\nStep 6: A green alert 'Event information updated. The event is back in Planning and needs to be submitted for a safety check again.' is shown.\nStep 8: Two unread notifications for 'SPM53 Harbour Confirmed Gala' are listed: 'Event information changed' ('\"SPM53 Harbour Confirmed Gala\" has changed: Date and time.') and 'Event no longer confirmed' ('\"SPM53 Harbour Confirmed Gala\" has moved back to Planning after a change and is no longer confirmed.')."
     },
     {
       "id": "SPM-53-TC16",
@@ -525,15 +522,14 @@
       "steps": [
         "In the normal window, log in as Event Organiser Rachel Ng (rachel.ng@meridianfina.com / password123) and click 'Notifications' in the sidebar",
         "In the private window, log in as Event Coordinator Daniel Tan (daniel.tan@connectsphere.com / password123)",
-        "In the private window, click 'Review Queue' in the sidebar and open 'SPM53 Harbour Live Update'",
-        "Click 'Review request'",
-        "Select 'Approve – planning can start'",
+        "In the private window, click 'Review Queue' in the sidebar and click 'SPM53 Harbour Live Update' (it opens its 'Review request' page)",
+        "Select 'Approve — planning can start'",
         "Click 'Approve request'",
         "Click 'Approve' in the dialog",
-        "In the normal window, click 'Notifications' in the sidebar again"
+        "In the normal window, refresh the page (F5). Clicking 'Notifications' again while already on the page does not reload it"
       ],
       "test_data": "Event: SPM53 Harbour Live Update",
-      "expected_result": "Step 1: Rachel Ng's Notifications page opens. Note the number on the bell at the top of the page (no number when nothing is unread).\nStep 7: A green 'Request approved' alert is shown.\nStep 8: 'Event request approved' ('\"SPM53 Harbour Live Update\" has been approved.') is at the top of the list, marked 'Unread', dated just now. The bell shows one more than in Step 1."
+      "expected_result": "Step 1: Rachel Ng's Notifications page opens. Note the number on the bell at the top of the page (no number when nothing is unread).\nStep 6: A green 'Request approved' alert is shown.\nStep 7: 'Event request approved' ('\"SPM53 Harbour Live Update\" has been approved.') is at the top of the list, marked 'Unread', dated just now. The bell shows one more than in Step 1."
     },
     {
       "id": "SPM-53-TC21",
