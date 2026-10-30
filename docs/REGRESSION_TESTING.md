@@ -45,7 +45,7 @@ Find the files that changed this sprint. The baseline is the tag left at the
 end of the previous sprint (step 8):
 
 ```
-git diff --name-only sprint-<N-1>-end..main -- src prisma
+git diff --name-only sprint-<N-1>..main -- src prisma
 ```
 
 If the previous sprint was not tagged, use the last commit on `main` before
@@ -121,39 +121,62 @@ own sheets.
 
 **Smoke run.** Take one new event through the whole flow, logging in as each
 role in turn. Create a new event for this, titled `REG S<N> Smoke`, so no
-story's fixtures are touched. Run it as a relay on a call: each person stays
+story's fixtures are touched. A flow that ends an event may need a second event. Run it as a relay on a call: each person stays
 logged in as one or two roles on their own laptop and does their steps when the
 event reaches them. The tracker's **Smoke run** sheet says who does each step,
-which account to use and what to check. As of sprint 3 the flow is:
+which account to use and what to check. As of sprint 4 the flow is:
 
 1. Event Organiser logs in, creates an event request, saves it as a draft,
    reopens it and submits it.
-2. Event Operations Manager assigns an Event Coordinator.
-3. Event Coordinator reviews and approves the request, then begins planning.
-4. Event Coordinator makes an ordinary edit to the event information.
-5. Event Coordinator searches for venues and requests two venues for the same
+2. Event Coordinator Lead sees the notification and assigns an Event
+   Coordinator.
+3. Safety Officer cannot see the event yet.
+4. Event Coordinator asks the organiser for clarification.
+5. Event Organiser reads the notification, updates the request and resubmits.
+6. Event Coordinator approves the request, then begins planning.
+7. Event Coordinator makes an ordinary edit to the event information.
+8. Event Coordinator searches for venues and requests two venues for the same
    times, each for its own purpose, attendance and layout.
-6. Event Coordinator records the equipment required.
-7. Technical Support Staff checks equipment availability and reserves it, then
-   marks an unrelated item under maintenance and returns it.
-8. Venue Staff approves both booking requests.
-9. Venue Staff marks one of the two venues unavailable over the event's times.
-10. Event Coordinator sees the notification and the flagged booking.
-11. Event Coordinator requests a replacement venue and releases the flagged
+9. Event Coordinator records three equipment requirements.
+10. Technical Support Staff checks availability, reserves two lines, marks the
+    third as not available and suggests an alternative, then marks an unrelated
+    item under maintenance and returns it.
+11. Event Coordinator accepts the alternative.
+12. Technical Support Staff reserves the alternative.
+13. Venue Staff approves both booking requests.
+14. Venue Staff marks one of the two venues unavailable over the event's times.
+15. Event Coordinator sees the notification and the flagged booking.
+16. Event Coordinator requests a replacement venue and releases the flagged
     booking.
-12. Venue Staff approves the replacement.
-13. Event Coordinator sets up registration and tries to confirm the event,
+17. Venue Staff approves the replacement.
+18. Event Coordinator sets up registration and tries to confirm the event,
     which is refused for the missing safety check.
-14. Event Coordinator submits the event for a safety check.
-15. Safety Officer requests changes.
-16. Event Coordinator reads the decision and resubmits; the organiser cannot
+19. Event Coordinator submits the event for a safety check.
+20. Safety Officer requests changes.
+21. Event Coordinator reads the decision and resubmits; the organiser cannot
     see the reason.
-17. Safety Officer approves, and the Event Coordinator confirms the event.
-18. An Attendee registers for the event, then withdraws.
-19. The organiser and the coordinator see the withdrawal on the registration
-    list.
-20. Each role sees only its own sidebar links, and the organiser sees only
+22. Safety Officer approves, and the Event Coordinator confirms the event.
+23. An Attendee registers for the event.
+24. Event Coordinator adds a second Attendee, which fills the event.
+25. A third Attendee joins the waiting list.
+26. The first Attendee withdraws, and the third is offered the place and
+    accepts it.
+27. The organiser and the coordinator see all of this on the registration list.
+28. Event Organiser requests a change to the event.
+29. Event Coordinator approves the change request.
+30. Technical Support Staff releases one equipment reservation.
+31. Event Coordinator sees the notification and postpones the event.
+32. An Attendee who holds a place can still open the postponed event.
+33. Event Organiser requests a new date.
+34. Event Coordinator approves it, and the event returns to Approved.
+35. Event Coordinator cancels the event.
+36. On a second event, the Event Coordinator records the organiser's
+    withdrawal while it is under review.
+37. Each role sees only its own sidebar links, and the organiser sees only
     their own events.
+
+Marking an event completed needs an event that has already ended, so it stays
+out of the smoke run and is covered by SPM-36's selected cases.
 
 When a sprint adds a step to the flow, add it to this list in the same pull
 request as the story.
@@ -211,6 +234,6 @@ execution blocks.
 2. Tag the commit that was tested, so the next sprint has a baseline:
 
 ```
-git tag sprint-<N>-end <commit tested>
-git push origin sprint-<N>-end
+git tag sprint-<N> <commit tested>
+git push origin sprint-<N>
 ```

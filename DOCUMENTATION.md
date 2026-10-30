@@ -1051,6 +1051,23 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-30 — Kristen Choong (Sprint 4 regression log)
+- **`docs/regression/Sprint-4_Regression.xlsx`**, ready for the run before the
+  sprint review: 207 cases across five tester sheets, a 37-step smoke run and a
+  scope of every story with test cases since the `sprint-3` tag. SPM-53 and
+  SPM-80 are out of scope, as nothing they use changed after their own runs.
+- 26 cases reuse their Sprint 3 `-R` rewrites. Cases changed since then carry a
+  READ FIRST note. No new case was rewritten, and the log has not been dry-run.
+- **`docs/REGRESSION_TESTING.md`**: the smoke flow now covers the Sprint 4
+  stories, and the baseline tag is named `sprint-<N>`, matching the tags we
+  actually have.
+- **Test cases found out of date while preparing it**: SPM-37-TC01 and TC11, SPM-32-TC02
+  and SPM-59-TC06 are now Updated, with a `v2` note. They and SPM-77-TC11 to TC13,
+  which were missing, are recorded in `docs/test-cases/DECOMMISSIONED.md`.
+- Why: Sprint 4's goal includes a regression-tested release. Migration: none.
+
+---
+
 ### 2026-10-30 — Sammi Chua (SPM-53, gaps closed before merge)
 - **Accepting an equipment suggestion tells the organiser** (AC14): "Event
   information changed", as for any other equipment change the Coordinator
