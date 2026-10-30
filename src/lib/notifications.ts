@@ -70,3 +70,31 @@ export async function notifyRole(
     })),
   });
 }
+
+/// SPM-53 (AC14, AC15): what the organiser who owns the event is told when the
+/// assigned Coordinator saves an important change - which of them changed, and
+/// whether it took a Confirmed event back to Planning. Shared by the event
+/// information change (SPM-62, SPM-32) and the equipment routes, where an
+/// equipment change is the important change.
+export async function notifyImportantChange(
+  tx: Prisma.TransactionClient,
+  event: { id: string; title: string | null; organiserId: string },
+  changed: readonly string[],
+  confirmationReverted: boolean
+) {
+  const title = event.title ?? "Untitled event";
+  await notifyUser(tx, event.organiserId, {
+    type: "event_information_changed",
+    title: "Event information changed",
+    body: `"${title}" has changed: ${changed.join(", ")}.`,
+    eventId: event.id,
+  });
+  if (confirmationReverted) {
+    await notifyUser(tx, event.organiserId, {
+      type: "event_unconfirmed",
+      title: "Event no longer confirmed",
+      body: `"${title}" has moved back to Planning after a change and is no longer confirmed.`,
+      eventId: event.id,
+    });
+  }
+}

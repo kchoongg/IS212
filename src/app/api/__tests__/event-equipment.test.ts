@@ -9,8 +9,10 @@ import { callArg, db, ID, params, req, signIn, user } from "@/test/kit";
 const REF = "EVT-000007";
 
 // SPM-88: an equipment change closes an open safety check; most events here have none.
+// SPM-53 (AC10): and tells Technical Support; there are none unless a test adds them.
 beforeEach(() => {
   db.safetyCheck.updateMany.mockResolvedValue({ count: 0 });
+  db.user.findMany.mockResolvedValue([]);
 });
 const HOUR = 60 * 60 * 1000;
 
@@ -191,7 +193,11 @@ describe("POST /api/events/[id]/equipment", () => {
     const token = signIn(assignedCoordinator());
     db.event.findUnique.mockResolvedValue(event(eventOverrides));
     db.equipment.findUnique.mockResolvedValue({ isActive: true });
-    db.equipmentRequest.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.request, ...data }));
+    db.equipmentRequest.create.mockImplementation(async ({ data }: { data: object }) => ({
+      id: ID.request,
+      equipment: { name: "Projector" },
+      ...data,
+    }));
     return token;
   }
 
@@ -476,7 +482,14 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
 
   /// The request row as loadRequest() reads it: with its event's access fields.
   function requestRow(eventOverrides = {}, overrides = {}) {
-    return { id: ID.request, eventId: ID.event, event: event(eventOverrides), ...overrides };
+    return {
+      id: ID.request,
+      eventId: ID.event,
+      quantityRequested: 4,
+      equipment: { name: "Projector" },
+      event: event(eventOverrides),
+      ...overrides,
+    };
   }
 
   function givenRequest(actor = assignedCoordinator(), row: object | null = requestRow()) {
@@ -779,5 +792,133 @@ describe("one equipment request: PATCH and DELETE /api/events/[id]/equipment/[re
     // CHANGED (SPM-62): also says whether a Confirmed event was unconfirmed.
     expect(await res.json()).toEqual({ planningStarted: false, confirmationReverted: false, safetyCheckClosed: false });
     expect(callArg(db.equipmentRequest.delete)).toEqual({ where: { id: ID.request } });
+  });
+});
+
+// SPM-53 (AC10): Technical Support Staff hear of each add, removal or quantity
+// change on an event in their Equipment Requests queue (SPM-48).
+describe("telling Technical Support (SPM-53)", () => {
+  const path = `/api/events/${REF}/equipment/${ID.request}`;
+  const context = params({ id: REF, requestId: ID.request });
+  const gala = (overrides = {}) => event({ title: "Gala Dinner", ...overrides });
+
+  function given(eventRow = gala()) {
+    const token = signIn(assignedCoordinator());
+    db.user.findMany.mockResolvedValue([{ id: "tech-1" }]);
+    db.event.findUnique.mockResolvedValue(eventRow);
+    db.equipment.findUnique.mockResolvedValue({ isActive: true });
+    db.equipmentRequest.create.mockImplementation(async ({ data }: { data: object }) => ({
+      id: ID.request,
+      equipment: { name: "Projector" },
+      ...data,
+    }));
+    db.equipmentRequest.findUnique.mockResolvedValue({
+      id: ID.request,
+      eventId: ID.event,
+      quantityRequested: 4,
+      equipment: { name: "Projector" },
+      event: eventRow,
+    });
+    db.equipmentRequest.update.mockResolvedValue({ id: ID.request });
+    return token;
+  }
+
+  const add = (token: string) =>
+    POST(req("POST", `/api/events/${REF}/equipment`, { token, body: { equipmentId: ID.equipment, quantityRequested: 4 } }), params({ id: REF }));
+  const told = () => callArg(db.notification.createMany).data;
+  const tech = (body: string) => [
+    { recipientId: "tech-1", type: "equipment_requirement_changed", title: "Equipment requirement changed", body, eventId: ID.event },
+  ];
+
+  it("[SPM-53][AC10] tells every active Technical Support user of an added requirement", async () => {
+    await add(given());
+
+    expect(callArg(db.user.findMany).where).toEqual({ role: "tech_support", isActive: true });
+    expect(told()).toEqual(tech('Projector × 4 was added to "Gala Dinner".'));
+  });
+
+  it("[SPM-53][AC10] tells them of a changed quantity", async () => {
+    const token = given();
+
+    await PATCH(req("PATCH", path, { token, body: { quantityRequested: 6 } }), context);
+
+    expect(told()).toEqual(tech('Projector on "Gala Dinner" changed from 4 to 6.'));
+  });
+
+  it("[SPM-53][AC10] tells them of a removed requirement on a Confirmed event", async () => {
+    const token = given(gala({ status: "confirmed" }));
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+
+    await DELETE(req("DELETE", path, { token }), context);
+
+    expect(told()).toEqual(tech('Projector was removed from "Gala Dinner".'));
+  });
+
+  it("[SPM-53][AC10] tells them of an Approved event's first requirement, which begins Planning", async () => {
+    const token = given(gala({ status: "approved" }));
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+
+    await add(token);
+
+    expect(db.notification.createMany).toHaveBeenCalledOnce();
+  });
+
+  it("[SPM-53][AC10] says nothing when only the technical requirements change, or the quantity stays the same", async () => {
+    const token = given();
+
+    await PATCH(req("PATCH", path, { token, body: { technicalRequirements: "HDMI" } }), context);
+    await PATCH(req("PATCH", path, { token, body: { quantityRequested: 4 } }), context);
+
+    expect(db.notification.createMany).not.toHaveBeenCalled();
+  });
+
+  const organiserTold = () => db.notification.create.mock.calls.map((c: unknown[]) => (c[0] as { data: unknown }).data);
+  const equipmentChanged = {
+    recipientId: ORGANISER_ID,
+    type: "event_information_changed",
+    title: "Event information changed",
+    body: '"Gala Dinner" has changed: Equipment requirements.',
+    eventId: ID.event,
+  };
+
+  it("[SPM-53][AC14] tells the organiser that the equipment requirements changed", async () => {
+    await add(given());
+
+    expect(organiserTold()).toEqual([equipmentChanged]);
+  });
+
+  it("[SPM-53][AC14] tells the organiser of changed technical requirements too", async () => {
+    const token = given();
+
+    await PATCH(req("PATCH", path, { token, body: { technicalRequirements: "HDMI" } }), context);
+
+    expect(organiserTold()).toEqual([equipmentChanged]);
+  });
+
+  it("[SPM-53][AC15] tells the organiser that a Confirmed event is no longer confirmed", async () => {
+    const token = given(gala({ status: "confirmed" }));
+    db.event.updateMany.mockResolvedValue({ count: 1 });
+
+    await DELETE(req("DELETE", path, { token }), context);
+
+    expect(organiserTold()).toEqual([
+      equipmentChanged,
+      {
+        recipientId: ORGANISER_ID,
+        type: "event_unconfirmed",
+        title: "Event no longer confirmed",
+        body: '"Gala Dinner" has moved back to Planning after a change and is no longer confirmed.',
+        eventId: ID.event,
+      },
+    ]);
+  });
+
+  it("[SPM-53][AC15] does not say a Confirmed event moved back when another change moved it first", async () => {
+    const token = given(gala({ status: "confirmed" }));
+    db.event.updateMany.mockResolvedValue({ count: 0 });
+
+    await DELETE(req("DELETE", path, { token }), context);
+
+    expect(organiserTold()).toEqual([equipmentChanged]);
   });
 });

@@ -10,6 +10,7 @@ vi.mock("@/lib/prisma");
 import { GET } from "@/app/api/venue-bookings/route";
 import { PATCH } from "@/app/api/venue-bookings/[id]/route";
 import { ROLES } from "@/lib/roles";
+import { formatDateTimeRange } from "@/lib/format";
 import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const NOW = new Date("2026-10-04T04:00:00Z");
@@ -230,7 +231,16 @@ describe("GET /api/venue-bookings", () => {
 
 describe("PATCH /api/venue-bookings/[id]", () => {
   function booking(overrides: Record<string, unknown> = {}) {
-    return { id: ID.booking, status: "pending", venueId: ID.venue, ...PM, event: { status: "planning" }, ...overrides };
+    return {
+      id: ID.booking,
+      status: "pending",
+      venueId: ID.venue,
+      ...PM,
+      event: { id: ID.event, status: "planning", title: "Town Hall", coordinatorId: "coordinator-id" },
+      venue: { name: "Hall A", code: "HALL-A" },
+      session: null,
+      ...overrides,
+    };
   }
 
   function given(row: object | null = booking(), venue: object = venueRow(), actor = venueStaff()) {
@@ -335,14 +345,13 @@ describe("PATCH /api/venue-bookings/[id]", () => {
       expect(db.$queryRaw.mock.invocationCallOrder[0]).toBeLessThan(db.venue.findMany.mock.invocationCallOrder[0]);
     });
 
-    it("[SPM-43][AC3] never changes the event, and writes no notification", async () => {
+    it("[SPM-43][AC3] never changes the event", async () => {
       const token = given();
 
       await decide(token, approve);
 
       expect(db.event.update).not.toHaveBeenCalled();
       expect(db.event.updateMany).not.toHaveBeenCalled();
-      expect(db.notification.create).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -388,6 +397,47 @@ describe("PATCH /api/venue-bookings/[id]", () => {
       const token = given(booking(), venueRow({ bookings: [approvedElsewhere({ id: ID.booking })] }));
 
       expect((await decide(token, approve)).status).toBe(200);
+    });
+  });
+
+  // SPM-53 (AC9): the assigned coordinator hears the outcome.
+  describe("telling the coordinator (SPM-53)", () => {
+    const range = formatDateTimeRange(PM.startsAt, PM.endsAt);
+
+    it("[SPM-53][AC9] tells the assigned coordinator the booking was approved, with the venue and times", async () => {
+      await decide(given(), approve);
+
+      expect(db.notification.create).toHaveBeenCalledOnce();
+      expect(callArg(db.notification.create).data).toEqual({
+        recipientId: "coordinator-id",
+        type: "venue_booking_approved",
+        title: "Venue booking approved",
+        body: `Hall A (HALL-A) for "Town Hall" on ${range} was approved.`,
+        eventId: ID.event,
+      });
+    });
+
+    it("[SPM-53][AC9] tells the assigned coordinator the booking was rejected, with the reason", async () => {
+      await decide(given(), reject);
+
+      expect(callArg(db.notification.create).data).toMatchObject({
+        recipientId: "coordinator-id",
+        type: "venue_booking_rejected",
+        title: "Venue booking rejected",
+        body: `Hall A (HALL-A) for "Town Hall" on ${range} was rejected. Reason: The hall is being refitted that week.`,
+      });
+    });
+
+    it("[SPM-53][AC9] names the session of a multi-session event's booking", async () => {
+      await decide(given(booking({ session: { label: "Day 2" } })), approve);
+
+      expect(callArg(db.notification.create).data.body).toBe(`Hall A (HALL-A) for "Town Hall" (Day 2) on ${range} was approved.`);
+    });
+
+    it("[SPM-53][AC9] tells no one of a decision that is refused", async () => {
+      await decide(given(booking(), venueRow({ isActive: false })), approve);
+
+      expect(db.notification.create).not.toHaveBeenCalled();
     });
   });
 

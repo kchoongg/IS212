@@ -4,7 +4,8 @@ import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/
 import { canReserveEquipment, techSupportSeesEquipment } from "@/lib/permissions";
 import { eventAllowsReserving, reserveQuantity, reservingClosedMessage } from "@/lib/equipmentAvailability";
 import { loadSingleLineAvailability } from "@/lib/equipmentAvailabilityService";
-import { reserveClearsStaffNotes } from "@/lib/equipmentFulfilment";
+import { equipmentStatusNotification, reserveClearsStaffNotes } from "@/lib/equipmentFulfilment";
+import { notifyUser } from "@/lib/notifications";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 
 // SPM-49 — Reserve Equipment. "As Technical Support Staff, I want to reserve
@@ -47,7 +48,7 @@ export async function POST(
           eventId: true,
           equipmentId: true,
           event: {
-            select: { organiserId: true, organisationId: true, coordinatorId: true, status: true },
+            select: { title: true, organiserId: true, organisationId: true, coordinatorId: true, status: true },
           },
         },
       })
@@ -90,7 +91,7 @@ export async function POST(
         throw new RouteError(400, "Nothing is available for these dates any more.");
       }
 
-      return tx.equipmentRequest.update({
+      const updated = await tx.equipmentRequest.update({
         where: { id: requestId },
         data: {
           quantityReserved: toReserve,
@@ -106,6 +107,22 @@ export async function POST(
           session: { select: { id: true, label: true, startsAt: true, endsAt: true } },
         },
       });
+      // SPM-53 (AC11): newly Reserved or Partially fulfilled, to the assigned
+      // Coordinator. Reserving again in the same status is not news to them.
+      // v8 ignore next -- only a Planning event can be reserved for, and it always has a coordinator
+      if (existing.event.coordinatorId && updated.status !== line.requestStatus) {
+        await notifyUser(
+          tx,
+          existing.event.coordinatorId,
+          equipmentStatusNotification({
+            eventId: existing.eventId,
+            eventTitle: existing.event.title,
+            equipmentName: updated.equipment.name,
+            status: updated.status,
+          })
+        );
+      }
+      return updated;
     });
     return NextResponse.json(updated);
   } catch (err) {

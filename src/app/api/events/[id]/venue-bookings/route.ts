@@ -8,7 +8,8 @@ import {
   canRequestVenueBooking,
   canViewRegistrationList,
 } from "@/lib/permissions";
-import { eventReference, parseEventReference } from "@/lib/format";
+import { eventReference, formatDateTimeRange, formatVenue, parseEventReference } from "@/lib/format";
+import { notifyRole } from "@/lib/notifications";
 import { createVenueBookingSchema } from "@/lib/validation";
 import { isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { CLOSED_EVENT_MESSAGE, NOT_APPROVED_MESSAGE, checkVenueBookingRequest } from "@/lib/venueBookingRequest";
@@ -250,6 +251,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           requirementsNote: data.requirementsNote,
         },
         select: BOOKING_FIELDS,
+      });
+      // SPM-53 (AC8): every active Venue Staff user, who reviews it.
+      const sessionNote = session?.label ? ` (${session.label})` : "";
+      await notifyRole(tx, "venue_staff", {
+        type: "venue_booking_submitted",
+        title: "Venue booking request to review",
+        body:
+          `"${event.title ?? "Untitled event"}"${sessionNote} requests ${formatVenue(venue.name, venue.code)} ` +
+          `on ${formatDateTimeRange(check.window.startsAt, check.window.endsAt)}.`,
+        eventId: event.id,
       });
       // SPM-54: the first booking request for an Approved event begins
       // planning, in the same transaction as the request itself.

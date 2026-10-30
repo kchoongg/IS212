@@ -27,8 +27,9 @@ import { canViewEventWithHistory } from "@/lib/eventVisibility";
  * approval happens outside the system (#94), and the coordinator does not
  * accept or decline (#95), so the change takes effect immediately.
  *
- * Notifies the new coordinator, and on reassignment the previous one too; the
- * organiser is not notified (confirmed 2026-09-28).
+ * Notifies the new coordinator, and on reassignment the previous one too.
+ * CHANGED (SPM-53, AC5): the organiser is told who now coordinates it - it was
+ * not notified before (confirmed 2026-09-28, overtaken by AC5 on 2026-10-18).
  */
 export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
@@ -131,6 +132,13 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ id: str
           eventId: event.id,
         });
       }
+      // SPM-53 (AC5, AC7): the organiser is told who now coordinates it.
+      await notifyUser(tx, event.organiserId, {
+        type: "event_coordinator_assigned",
+        title: "Coordinator assigned",
+        body: `${coordinator.fullName} is now the coordinator for "${title}".`,
+        eventId: event.id,
+      });
 
       return e;
     });

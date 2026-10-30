@@ -3,7 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { can } from "@/lib/permissions";
 import { createRegistrationSchema } from "@/lib/validation";
-import { REGISTRATION_REFUSALS, registrationState } from "@/lib/registrationEligibility";
+import { REGISTRATION_REFUSALS, registeredNotice, registrationState } from "@/lib/registrationEligibility";
+import { notifyUser } from "@/lib/notifications";
 import { seatsHeld } from "@/lib/waitingList";
 import { placeCounts, positionOnWaitingList, sweepWaitingList } from "@/lib/waitingListService";
 import { ZodError } from "zod";
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (existing) {
-        return tx.registration.update({
+        const updated = await tx.registration.update({
           where: { id: existing.id },
           data: {
             status: "registered",
@@ -140,9 +141,11 @@ export async function POST(req: NextRequest) {
             accessibilityRequirements: data.accessibilityRequirements,
           },
         });
+        await notifyUser(tx, actor.id, registeredNotice(event));
+        return updated;
       }
 
-      return tx.registration.create({
+      const created = await tx.registration.create({
         data: {
           eventId: data.eventId,
           attendeeId: actor.id,
@@ -151,6 +154,9 @@ export async function POST(req: NextRequest) {
           status: "registered",
         },
       });
+      // SPM-53 (AC16): the attendee is told they are registered.
+      await notifyUser(tx, actor.id, registeredNotice(event));
+      return created;
     });
 
     return NextResponse.json(registration, { status: 201 });

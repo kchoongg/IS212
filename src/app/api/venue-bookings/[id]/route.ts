@@ -8,6 +8,8 @@ import { can } from "@/lib/permissions";
 import { decideVenueBookingSchema } from "@/lib/validation";
 import { checkBookingDecision } from "@/lib/venueBookingReview";
 import { loadReviewVenues } from "@/lib/venueBookingReviewService";
+import { formatDateTimeRange, formatVenue } from "@/lib/format";
+import { notifyUser } from "@/lib/notifications";
 
 // SPM-43, Review Venue Booking Request: Venue Staff approve a pending request
 // (AC3) or reject it with a reason (AC4, AC5) and, optionally, a suggested
@@ -60,7 +62,9 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
           venueId: true,
           startsAt: true,
           endsAt: true,
-          event: { select: { status: true } },
+          event: { select: { id: true, status: true, title: true, coordinatorId: true } },
+          venue: { select: { name: true, code: true } },
+          session: { select: { label: true } },
         },
       });
       const venue = (await loadReviewVenues(tx, [booking.venueId])).get(booking.venueId)!;
@@ -106,10 +110,25 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ id: s
         },
       });
 
-      // No notification is written: telling the coordinator the outcome
-      // belongs to SPM-53 (Jira comment on SPM-43, 2026-09-18). Until then the
-      // coordinator reads the decision, reason and suggestion on the event's
-      // Venue tab (GET /api/events/[id]/venue-bookings).
+      // SPM-53 (AC9): the assigned coordinator hears the outcome, with the
+      // venue, the times and a rejection's reason. Any suggestion stays on the
+      // event's Venue tab (GET /api/events/[id]/venue-bookings).
+      const { event } = booking;
+      // v8 ignore next -- only the assigned coordinator can request a booking, so the event has one
+      if (event.coordinatorId) {
+        const approved = updated.status === "approved";
+        const session = booking.session?.label ? ` (${booking.session.label})` : "";
+        await notifyUser(tx, event.coordinatorId, {
+          type: approved ? "venue_booking_approved" : "venue_booking_rejected",
+          title: approved ? "Venue booking approved" : "Venue booking rejected",
+          // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
+          body:
+            `${formatVenue(booking.venue.name, booking.venue.code)} for "${event.title ?? "Untitled event"}"${session} ` +
+            `on ${formatDateTimeRange(booking.startsAt, booking.endsAt)} was ${approved ? "approved" : "rejected"}.` +
+            (approved ? "" : ` Reason: ${updated.decisionReason}`),
+          eventId: event.id,
+        });
+      }
       return { booking: updated } as const;
     });
 

@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, resolveEventId, unauthenticated } from "@/lib/apiAuth";
 import { canManageEquipmentRequests } from "@/lib/permissions";
 import { updateEquipmentRequestSchema } from "@/lib/validation";
+import { equipmentChangeNotification } from "@/lib/equipment";
+import { CHANGE_LABELS } from "@/lib/eventChangeImpact";
+import { notifyImportantChange, notifyRole } from "@/lib/notifications";
 import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { POSTPONED_EQUIPMENT_MESSAGE } from "@/lib/eventPostponement";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
@@ -24,9 +27,11 @@ async function loadRequest(eventId: string, requestId: string) {
   const request = await prisma.equipmentRequest.findUnique({
     where: { id: requestId },
     include: {
+      equipment: { select: { name: true } },
       event: {
         select: {
           id: true,
+          title: true,
           organiserId: true,
           organisationId: true,
           coordinatorId: true,
@@ -123,6 +128,22 @@ export async function PATCH(
         CLOSE_REASONS.equipment,
         confirmationReverted
       );
+      // SPM-53 (AC10): a new quantity, for Technical Support, whose queue the
+      // event is on. Technical requirements alone are not a quantity change.
+      if (data.quantityRequested !== undefined && data.quantityRequested !== existing.quantityRequested) {
+        await notifyRole(
+          tx,
+          "tech_support",
+          equipmentChangeNotification({
+            eventId: existing.event.id,
+            eventTitle: existing.event.title,
+            equipmentName: existing.equipment.name,
+            change: { kind: "quantity", from: existing.quantityRequested, to: data.quantityRequested },
+          })
+        );
+      }
+      // SPM-53 (AC14, AC15): any equipment change is important to the organiser.
+      await notifyImportantChange(tx, existing.event, [CHANGE_LABELS.equipment], confirmationReverted);
       return { updated, planningStarted, confirmationReverted, safetyCheckClosed };
     });
     return NextResponse.json({ ...updated, planningStarted, confirmationReverted, safetyCheckClosed });
@@ -189,6 +210,18 @@ export async function DELETE(
       CLOSE_REASONS.equipment,
       confirmationReverted
     );
+    // SPM-53: Technical Support (AC10) and the organiser (AC14, AC15).
+    await notifyRole(
+      tx,
+      "tech_support",
+      equipmentChangeNotification({
+        eventId: existing.event.id,
+        eventTitle: existing.event.title,
+        equipmentName: existing.equipment.name,
+        change: { kind: "removed" },
+      })
+    );
+    await notifyImportantChange(tx, existing.event, [CHANGE_LABELS.equipment], confirmationReverted);
     return { planningStarted, confirmationReverted, safetyCheckClosed };
   });
   return NextResponse.json({ planningStarted, confirmationReverted, safetyCheckClosed });

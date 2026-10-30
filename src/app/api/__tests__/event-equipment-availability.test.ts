@@ -464,7 +464,11 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
     db.event.findUnique.mockResolvedValue({ id: ID.event });
     db.equipmentRequest.findUnique.mockResolvedValue(row);
     db.equipmentRequest.findMany.mockResolvedValue(holds);
-    db.equipmentRequest.update.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.request, ...data }));
+    db.equipmentRequest.update.mockImplementation(async ({ data }: { data: object }) => ({
+      id: ID.request,
+      equipment: { name: "Projector" },
+      ...data,
+    }));
     return token;
   }
 
@@ -553,6 +557,48 @@ describe("POST /api/events/[id]/equipment/[requestId]/reserve", () => {
       quantityReserved: 3,
       status: "partially_fulfilled",
     });
+  });
+
+  it("[SPM-53][AC11] tells the assigned coordinator the line is Reserved", async () => {
+    const token = given(requestRow({}, { title: "Gala Dinner" }));
+
+    await post(token);
+
+    expect(callArg(db.notification.create).data).toEqual({
+      recipientId: ID.otherUser,
+      type: "equipment_request_updated",
+      title: "Equipment reserved",
+      body: 'Projector for "Gala Dinner" is now Reserved.',
+      eventId: ID.event,
+    });
+  });
+
+  it("[SPM-53][AC11] tells the assigned coordinator the line is Partially fulfilled", async () => {
+    const token = given(requestRow({}, { title: "Gala Dinner" }), [otherHold({ quantityReserved: 7 })]);
+
+    await post(token);
+
+    expect(callArg(db.notification.create).data).toMatchObject({
+      title: "Equipment partially fulfilled",
+      body: 'Projector for "Gala Dinner" is now Partially fulfilled.',
+    });
+  });
+
+  it("[SPM-53][AC11] tells nobody when the line stays in the status it already had", async () => {
+    const token = given(requestRow({ status: "reserved", quantityReserved: 4 }));
+
+    const res = await post(token);
+
+    expect(res.status).toBe(200);
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-53][AC11] tells the coordinator when reserving again completes a partly fulfilled line", async () => {
+    const token = given(requestRow({ status: "partially_fulfilled", quantityReserved: 3 }, { title: "Gala Dinner" }));
+
+    await post(token);
+
+    expect(callArg(db.notification.create).data).toMatchObject({ title: "Equipment reserved" });
   });
 
   it("[SPM-55][AC3] does not count units that are out of service", async () => {

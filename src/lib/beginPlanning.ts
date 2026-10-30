@@ -66,7 +66,7 @@ export async function beginPlanningIfApproved(
 /// beginPlanningIfApproved() it only acts from one status: false (and nothing
 /// written) for an event that is not Confirmed. Called in the same
 /// transaction as the equipment change, with the same history reasons.
-/// Telling the organiser is Receive Event Notifications (SPM-53).
+/// The equipment routes then tell the organiser (SPM-53, AC15).
 export async function revertConfirmationIfConfirmed(
   tx: Prisma.TransactionClient,
   event: { id: string; status: string },

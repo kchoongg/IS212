@@ -3,7 +3,9 @@ import { prisma } from "@/lib/prisma";
 import { getActor, forbidden, hidden, unauthenticated } from "@/lib/apiAuth";
 import { canManageEquipmentRequests, canViewEquipmentRequests } from "@/lib/permissions";
 import { addEquipmentRequestSchema } from "@/lib/validation";
-import { equipmentWindowFor } from "@/lib/equipment";
+import { equipmentChangeNotification, equipmentWindowFor } from "@/lib/equipment";
+import { CHANGE_LABELS } from "@/lib/eventChangeImpact";
+import { notifyImportantChange, notifyRole } from "@/lib/notifications";
 import { CLOSED_EVENT_STATUSES_PHRASE, isBeforeApproval, isTerminalEventStatus } from "@/lib/statuses";
 import { POSTPONED_EQUIPMENT_MESSAGE } from "@/lib/eventPostponement";
 import { PLANNING_REASONS, beginPlanningIfApproved, revertConfirmationIfConfirmed } from "@/lib/beginPlanning";
@@ -182,6 +184,19 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
         CLOSE_REASONS.equipment,
         confirmationReverted
       );
+      // SPM-53: Technical Support, whose queue it is now on (AC10), and the
+      // organiser, for whom equipment is an important change (AC14, AC15).
+      await notifyRole(
+        tx,
+        "tech_support",
+        equipmentChangeNotification({
+          eventId: event.id,
+          eventTitle: event.title,
+          equipmentName: created.equipment.name,
+          change: { kind: "added", quantity: created.quantityRequested },
+        })
+      );
+      await notifyImportantChange(tx, event, [CHANGE_LABELS.equipment], confirmationReverted);
       return { created, planningStarted, confirmationReverted, safetyCheckClosed };
     });
     return NextResponse.json({ ...created, planningStarted, confirmationReverted, safetyCheckClosed }, { status: 201 });

@@ -8,6 +8,7 @@ import { canProcessChangeRequests } from "@/lib/permissions";
 import { canViewEventWithHistory } from "@/lib/eventVisibility";
 import { changeRequestDecisionSchema } from "@/lib/validation";
 import { statusLabel } from "@/lib/statuses";
+import { notifyUser } from "@/lib/notifications";
 import { applyEventInformation, type EventForChange } from "@/lib/applyEventInformation";
 import { canRequestChangeIn, describeChangeRequest, requestChanges, snapshotOf } from "@/lib/eventChangeRequest";
 import {
@@ -19,6 +20,7 @@ import {
   REQUEST_REASON_REQUIRED,
   RESCHEDULED_HISTORY,
   approvedPayload,
+  changeRequestOutcomeNotification,
   checkApprovedTimes,
   checkDecisions,
   closedEventMessage,
@@ -39,8 +41,8 @@ import {
 // (SPM-38) or cancelling (SPM-37) the event.
 //
 // The request is claimed first, conditionally on still being Pending, so two
-// saves at once decide it once (AC7). Telling the organiser the outcome is
-// Receive Event Notifications (SPM-53).
+// saves at once decide it once (AC7). The organiser is told the outcome in
+// the same transaction (SPM-53, AC13).
 
 const WITH_PEOPLE = {
   requester: { select: { fullName: true } },
@@ -83,8 +85,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     const snapshot = snapshotOf(event);
     const now = new Date();
     const reviewed = { reviewedBy: actor.id, reviewedAt: now };
-    const claim = (data: Prisma.EventChangeRequestUpdateManyMutationInput) =>
-      prisma.eventChangeRequest.updateMany({ where: { id: request.id, status: "pending" }, data });
 
     // A postponement or cancellation is carried out elsewhere; here it can only
     // be rejected, with a reason.
@@ -97,7 +97,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       if (!reason) {
         return NextResponse.json({ error: REQUEST_REASON_REQUIRED }, { status: 400 });
       }
-      const claimed = await claim({ status: "rejected", reviewNotes: reason, ...reviewed });
+      const claimed = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+        const claimed = await tx.eventChangeRequest.updateMany({
+          where: { id: request.id, status: "pending" },
+          data: { status: "rejected", reviewNotes: reason, ...reviewed },
+        });
+        if (claimed.count > 0) {
+          await notifyUser(
+            tx,
+            event.organiserId,
+            changeRequestOutcomeNotification({
+              eventId: event.id,
+              eventTitle: event.title,
+              kind: request.kind,
+              decisions: null,
+              items: [],
+              reason,
+            })
+          );
+        }
+        return claimed;
+      });
       if (claimed.count === 0) {
         return NextResponse.json({ error: ALREADY_PROCESSED }, { status: 409 });
       }
@@ -107,7 +127,8 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     }
 
     const changes = requestChanges(request, snapshot);
-    const checked = checkDecisions(decisionItems(changes, request.equipmentChanges), body.decisions ?? {});
+    const items = decisionItems(changes, request.equipmentChanges);
+    const checked = checkDecisions(items, body.decisions ?? {});
     if (!checked.ok) {
       const details = checked.fieldErrors
         ? { fieldErrors: Object.fromEntries(Object.entries(checked.fieldErrors).map(([item, message]) => [item, [message]])) }
@@ -151,6 +172,13 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
           rescheduled = true;
         }
       }
+
+      // SPM-53 (AC13): the organiser hears the outcome of each item.
+      await notifyUser(
+        tx,
+        event.organiserId,
+        changeRequestOutcomeNotification({ eventId: event.id, eventTitle: event.title, kind: request.kind, decisions, items })
+      );
 
       const saved = await tx.eventChangeRequest.findUnique({ where: { id: request.id }, include: WITH_PEOPLE });
       return { applied, rescheduled, saved };

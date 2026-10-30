@@ -329,6 +329,39 @@ const stored = (overrides: Record<string, unknown> = {}) => ({
   ...overrides,
 });
 
+// SPM-53 (AC12): the assigned coordinator hears of each request, in the same
+// transaction as it is recorded.
+describe("POST /api/events/[id]/change-requests - telling the coordinator (SPM-53)", () => {
+  const received = {
+    recipientId: ID.otherUser,
+    type: "change_request_submitted",
+    title: "Change request received",
+    body: 'Rachel Ng has sent a change request for "SPM35 Harbour Townhall".',
+    eventId: ID.event,
+  };
+
+  it("[SPM-53][AC12] tells the assigned coordinator of a change of details", async () => {
+    const res = await post({ reason: "We are presenting the staff awards.", changes: { description: "Q&A and awards." } });
+
+    expect(res.status).toBe(201);
+    expect(db.notification.create).toHaveBeenCalledOnce();
+    expect(callArg(db.notification.create).data).toEqual(received);
+  });
+
+  it.each(["postpone", "cancel"])("[SPM-53][AC12] tells the assigned coordinator of a request to %s", async (kind) => {
+    await post({ kind, reason: "The client withdrew" }, { ev: event({ status: "confirmed" }) });
+
+    expect(callArg(db.notification.create).data).toEqual(received);
+  });
+
+  it("[SPM-53][AC12] tells no one of a request that is refused", async () => {
+    const res = await post({ reason: "No change at all", changes: { title: "SPM35 Harbour Townhall" } });
+
+    expect(res.status).toBe(400);
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+});
+
 describe("[SPM-35][AC2] GET /api/events/[id]/change-requests", () => {
   async function list(as: ReturnType<typeof user>, ev: unknown = event()) {
     const token = signIn(as);

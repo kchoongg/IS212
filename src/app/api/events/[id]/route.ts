@@ -27,7 +27,7 @@ import {
   decodeFields,
 } from "@/lib/clarification";
 import { updateEventStatusSchema, updateEventDraftSchema } from "@/lib/validation";
-import { notifyRole } from "@/lib/notifications";
+import { notifyRole, notifyUser } from "@/lib/notifications";
 import {
   CANCELLATION_REQUEST_APPROVED_NOTE,
   CHANGE_REQUEST_CLOSED_NOTE,
@@ -570,10 +570,48 @@ async function handleStatusChange(
       });
     }
 
+    await notifyStatusChange(tx, e, cancellationReason ?? postponementReason);
+
     return e;
   });
 
   return NextResponse.json(updated);
+}
+
+/// SPM-53 (AC4, AC18): the organiser who owns the event hears each outcome -
+/// approved, rejected with the reason, Confirmed, Completed, Postponed and
+/// Cancelled. A postponement or cancellation also reaches every attendee whose
+/// registration is Registered (AC16), with the reason when one was recorded.
+/// No one else is told.
+async function notifyStatusChange(
+  tx: Prisma.TransactionClient,
+  event: { id: string; title: string | null; organiserId: string; status: string; rejectionReason: string | null },
+  reason: string | null
+) {
+  // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
+  const title = event.title ?? "Untitled event";
+  const because = reason ? ` Reason: ${reason}` : "";
+  const content = {
+    approved: { title: "Event request approved", body: `"${title}" has been approved.` },
+    rejected: { title: "Event request rejected", body: `"${title}" has been rejected. Reason: ${event.rejectionReason}` },
+    confirmed: { title: "Event confirmed", body: `"${title}" is confirmed.` },
+    completed: { title: "Event completed", body: `"${title}" has been marked completed.` },
+    postponed: { title: "Event postponed", body: `"${title}" has been postponed.${because}` },
+    cancelled: { title: "Event cancelled", body: `"${title}" has been cancelled.${because}` },
+  }[event.status];
+  if (!content) return;
+
+  const notification = { type: `event_${event.status}`, ...content, eventId: event.id };
+  await notifyUser(tx, event.organiserId, notification);
+  if (event.status === "postponed" || event.status === "cancelled") {
+    const registered = await tx.registration.findMany({
+      where: { eventId: event.id, status: "registered" },
+      select: { attendeeId: true },
+    });
+    for (const { attendeeId } of registered) {
+      await notifyUser(tx, attendeeId, notification);
+    }
+  }
 }
 
 /// A refusal decided inside the resubmit's transaction (SPM-26), turned into
@@ -830,6 +868,18 @@ async function handleDraftEdit(
         data: { status: "answered", respondedAt: new Date() },
       });
       if (answered.count === 0) throw new ResubmitRefused(CLARIFICATION_NONE_OPEN);
+
+      // SPM-53 (AC3): the coordinator who asked hears that it was answered.
+      // v8 ignore next -- an event Under review always has the coordinator who asked
+      if (event.coordinatorId) {
+        await notifyUser(tx, event.coordinatorId, {
+          type: "clarification_answered",
+          title: "Clarification answered",
+          // v8 ignore next -- an event past draft always has a title (it cannot be submitted without one)
+          body: `The organiser has responded to your clarification request on "${event.title ?? "Untitled event"}".`,
+          eventId: id,
+        });
+      }
     }
 
     // A field that's being replaced is cleared first and rebuilt from the

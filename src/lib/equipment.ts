@@ -10,6 +10,8 @@
 // and Technical Support's review/update workflow (SPM-50) are separate
 // tickets — not built here.
 
+import type { NotificationContent } from "@/lib/notifications";
+
 export const EQUIPMENT_LOAD_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 export function equipmentWindowFor(
@@ -39,4 +41,24 @@ export function checkOutOfService(totalQuantity: number, quantityOutOfService: n
 export function outOfServiceReasonFor(quantityOutOfService: number, reason: string | undefined): string | null {
   if (quantityOutOfService === 0) return null;
   return reason && reason.length > 0 ? reason : null;
+}
+
+/// SPM-53 (AC10): what Technical Support Staff are told when the assigned
+/// Coordinator adds, removes or changes the quantity of an equipment
+/// requirement. One wording for the routes that make those changes.
+export function equipmentChangeNotification(input: {
+  eventId: string;
+  eventTitle: string | null;
+  equipmentName: string;
+  change: { kind: "added"; quantity: number } | { kind: "removed" } | { kind: "quantity"; from: number; to: number };
+}): NotificationContent {
+  const { change, equipmentName: item } = input;
+  const event = `"${input.eventTitle ?? "Untitled event"}"`;
+  const body =
+    change.kind === "added"
+      ? `${item} × ${change.quantity} was added to ${event}.`
+      : change.kind === "removed"
+        ? `${item} was removed from ${event}.`
+        : `${item} on ${event} changed from ${change.from} to ${change.to}.`;
+  return { type: "equipment_requirement_changed", title: "Equipment requirement changed", body, eventId: input.eventId };
 }

@@ -199,7 +199,7 @@ planning permissions.
 | `completed`, `cancelled`, `rejected`, `draft` | Neither | 400 |
 
 The new coordinator is notified; on reassignment the previous one is too. The
-organiser is not.
+organiser is told who now coordinates the event (SPM-53, AC5).
 
 ### Who can see which event
 

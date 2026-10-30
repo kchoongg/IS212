@@ -127,7 +127,8 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
     return {
       eventId: ID.event,
       status,
-      event: { organiserId: "organiser-id", organisationId: ID.org, coordinatorId: ID.user, status: eventStatus },
+      equipment: { name: "Projector" },
+      event: { title: "Gala Dinner", organiserId: "organiser-id", organisationId: ID.org, coordinatorId: ID.user, status: eventStatus },
     };
   }
 
@@ -152,6 +153,34 @@ describe("PATCH /api/events/[id]/equipment/[requestId]/fulfilment", () => {
 
   it("[SPM-21][AC4] is 401 without a session", async () => {
     expect((await update(undefined, underReview)).status).toBe(401);
+  });
+
+  it("[SPM-53][AC11] tells the assigned coordinator a line Cannot be provided", async () => {
+    await update(given(line("reserved")), { status: "unavailable", staffNotes: "Both units out for repair" });
+
+    expect(db.notification.create).toHaveBeenCalledOnce();
+    expect(callArg(db.notification.create).data).toEqual({
+      recipientId: ID.user,
+      type: "equipment_request_updated",
+      title: "Equipment cannot be provided",
+      body: 'Projector for "Gala Dinner" is now Cannot be provided.',
+      eventId: ID.event,
+    });
+  });
+
+  it("[SPM-53][AC11] says nothing for Under review, or for new notes on a line already Cannot be provided", async () => {
+    await update(given(), underReview);
+    await update(given(line("unavailable")), { status: "unavailable", staffNotes: "Still out for repair" });
+
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+
+  it("[SPM-53][AC11] says nothing when someone else changed the line first", async () => {
+    const token = given(line("reserved"));
+    db.equipmentRequest.updateMany.mockResolvedValue({ count: 0 });
+
+    expect((await update(token, { status: "unavailable", staffNotes: "Broken" })).status).toBe(409);
+    expect(db.notification.create).not.toHaveBeenCalled();
   });
 
   it("[SPM-50] is 404 for a malformed event reference", async () => {

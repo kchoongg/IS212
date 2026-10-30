@@ -49,6 +49,32 @@ describe("completeDueEvents", () => {
     });
   });
 
+  it("[SPM-53][AC18] tells each completed event's organiser", async () => {
+    db.$queryRaw.mockResolvedValueOnce([
+      { id: "e1", title: "Gala Dinner", organiser_id: "o1" },
+      { id: "e2", title: null, organiser_id: "o2" },
+    ]);
+
+    await completeDueEvents(db as never, NOW);
+
+    expect(sqlOf(0).text).toContain("RETURNING id, title, organiser_id");
+    expect(db.notification.createMany).toHaveBeenCalledWith({
+      data: [
+        { recipientId: "o1", type: "event_completed", title: "Event completed", body: '"Gala Dinner" has been marked completed.', eventId: "e1" },
+        { recipientId: "o2", type: "event_completed", title: "Event completed", body: '"Untitled event" has been marked completed.', eventId: "e2" },
+      ],
+    });
+  });
+
+  it("[SPM-53][AC18] writes the status, the history and the notifications in one transaction", async () => {
+    db.$queryRaw.mockResolvedValueOnce([{ id: "e1", title: "Gala Dinner", organiser_id: "o1" }]);
+    db.notification.createMany.mockRejectedValue(new Error("connection lost"));
+
+    await expect(completeDueEvents(db as never, NOW)).rejects.toThrow("connection lost");
+
+    expect(db.$transaction).toHaveBeenCalledTimes(1);
+  });
+
   it("[SPM-36][AC3] changes nothing but the event's status", async () => {
     db.$queryRaw.mockResolvedValueOnce([{ id: "e1" }]);
 

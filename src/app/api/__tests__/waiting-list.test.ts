@@ -303,6 +303,20 @@ describe("POST /api/registrations/[id]/offer - answering an offer", () => {
     });
   });
 
+  it("[SPM-53][AC16] tells an attendee who accepts an offer that they are registered", async () => {
+    given({ event: { startsAt: sgt("2026-12-01T09:00:00"), title: "Harbour Open Day" } });
+
+    await post(signIn(attendee()));
+
+    expect(callArg(db.notification.create).data).toEqual({
+      recipientId: ID.user,
+      type: "registration_confirmed",
+      title: "Registration confirmed",
+      body: 'You\'re registered for "Harbour Open Day".',
+      eventId: ID.event,
+    });
+  });
+
   it("[SPM-66][AC7] SPM-66-TC06: takes an attendee who declines off the list, and offers the place to the next", async () => {
     given();
     db.event.findUnique.mockResolvedValue(null);

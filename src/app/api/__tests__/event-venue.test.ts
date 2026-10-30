@@ -8,6 +8,7 @@ vi.mock("@/lib/prisma");
 
 import { GET as listBookings, POST as requestBooking } from "@/app/api/events/[id]/venue-bookings/route";
 import { GET as suitability } from "@/app/api/events/[id]/venue-suitability/route";
+import { formatDateTimeRange } from "@/lib/format";
 import { callArg, db, holdExpirySweepOrder, ID, params, req, signIn, user } from "@/test/kit";
 
 const REF = "EVT-000007";
@@ -262,8 +263,35 @@ describe("POST /api/events/[id]/venue-bookings", () => {
     db.event.findUnique.mockResolvedValue(eventRow);
     db.venue.findUnique.mockResolvedValue(venueRow);
     db.venueBooking.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.booking, ...data }));
+    // SPM-53 (AC8): no Venue Staff to tell, unless a test says otherwise.
+    db.user.findMany.mockResolvedValue([]);
     return token;
   }
+
+  it("[SPM-53][AC8] notifies every active Venue Staff user of the request to review", async () => {
+    const token = given();
+    db.user.findMany.mockResolvedValue([{ id: "staff-1" }, { id: "staff-2" }]);
+
+    expect((await post(token, valid)).status).toBe(201);
+
+    expect(callArg(db.user.findMany).where).toEqual({ role: "venue_staff", isActive: true });
+    expect(callArg(db.notification.createMany).data).toEqual(
+      ["staff-1", "staff-2"].map((recipientId) => ({
+        recipientId,
+        type: "venue_booking_submitted",
+        title: "Venue booking request to review",
+        body: `"Town Hall" requests Hall A (HALL-A) on ${formatDateTimeRange(STARTS, ENDS)}.`,
+        eventId: ID.event,
+      }))
+    );
+  });
+
+  it("[SPM-53][AC8] tells no one of a request that is refused", async () => {
+    const token = given(event(), venue({ isActive: false }));
+
+    expect((await post(token, valid)).status).toBe(400);
+    expect(db.notification.createMany).not.toHaveBeenCalled();
+  });
 
   /// A booking by another event at the event's own times. SPM-44 (AC9) loads the
   /// event with each booking so a refusal can say whose booking is in the way.
@@ -875,6 +903,8 @@ describe("SPM-90: each venue is checked against its own space", () => {
     db.event.findUnique.mockResolvedValue(eventRow);
     db.venue.findUnique.mockResolvedValue(venueRow);
     db.venueBooking.create.mockImplementation(async ({ data }: { data: object }) => ({ id: ID.booking, ...data }));
+    // SPM-53 (AC8): no Venue Staff to tell, unless a test says otherwise.
+    db.user.findMany.mockResolvedValue([]);
     return token;
   }
 

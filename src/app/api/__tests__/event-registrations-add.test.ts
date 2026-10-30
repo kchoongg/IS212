@@ -293,6 +293,31 @@ describe("[SPM-57][AC4] how the registration is recorded", () => {
     });
   });
 
+  it("[SPM-53][AC16] tells the attendee the coordinator added that they are registered", async () => {
+    expect((await add(given())).status).toBe(201);
+
+    expect(db.notification.create).toHaveBeenCalledOnce();
+    expect(callArg(db.notification.create).data).toEqual({
+      recipientId: ATTENDEE_ID,
+      type: "registration_confirmed",
+      title: "Registration confirmed",
+      body: 'You\'re registered for "SPM57 Salon Briefing".',
+      eventId: ID.event,
+    });
+  });
+
+  it("[SPM-53][AC16] tells a withdrawn attendee who is added again that they are registered", async () => {
+    expect((await add(given({ existing: { id: "old-registration", status: "withdrawn" } }))).status).toBe(201);
+
+    expect(callArg(db.notification.create).data).toMatchObject({ recipientId: ATTENDEE_ID, type: "registration_confirmed" });
+  });
+
+  it("[SPM-53][AC16] tells no one when the attendee cannot be added", async () => {
+    expect((await add(given({ taken: 4 }))).status).toBe(400);
+
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+
   it("[SPM-57][AC4] answers on the email field when the attendee registered themselves a moment before", async () => {
     const token = given();
     db.registration.create.mockRejectedValue(new Error("Unique constraint failed on the fields: (`event_id`,`attendee_id`)"));

@@ -1001,7 +1001,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No `.env.example`** | A fresh clone has no template for `DATABASE_URL` / `JWT_SECRET`. Without them `src/lib/auth.ts` throws at import and **every API route returns 500**. Flagged 2026-09-13, still open. | unclaimed |
 | **Status lifecycle is only partly validated** | Who may set a status is enforced. Which `from → to` moves are legal is enforced for two of them only: approve/reject from Under review (SPM-28) and Planning from Approved (SPM-54, and never through the status PATCH). Confirmed → Planning happens only as a consequence of an important change (SPM-62), never through the status PATCH. Safety review / Safety approved → Planning likewise happens only when a significant change closes the safety check (SPM-88). Every other move is still unchecked, so `approved → confirmed` in one step is possible for a coordinator. **Resuming a postponed event goes Postponed → Approved, not straight to Planning** (decided 2026-10-02; the lifecycle diagram's "resume" arrow was redrawn to match). The coordinator's next venue or equipment action then begins planning again, through the same single route as any Approved event. This fits customer answer #69: postponing without a date releases the bookings, so a resumed event has nothing arranged. Since SPM-38 the assigned coordinator postpones an event (Approved to Confirmed), which releases everything it holds; it is resumed only by approving a new date through a change request (SPM-32). A postponed event has no equipment lines left, so the "Begin planning?" dialog's "the first venue or equipment action for this event" is true for it. Such an event has two "moved to Planning" rows in its status history, which is accurate. Related: `STATUS_TRANSITION_ROLES` still lets the Ops Manager set `under_review` through the status PATCH, which would leave an event under review with no coordinator — no screen does this (assignment goes through `PUT /api/events/[id]/coordinator`), but the route allows it. | events |
 | **Two booking requests submitted at the same moment can both pass the clash check** | `POST /api/events/[id]/venue-bookings` (SPM-42) checks and writes without a lock, so two holds on one room for overlapping times can exist. Approval is not affected: `PATCH /api/venue-bookings/[id]` (SPM-43) locks the venue row and re-checks, so only one of them can be approved and the other then shows as a Conflict on `/bookings`. | venues |
-| **The Coordinator is not notified of a booking decision** | Approving or rejecting a venue booking request (SPM-43) writes no `Notification` — ruled out of the story on 2026-09-18 (Jira comment: notifications belong to SPM-53). The coordinator finds the outcome, the reason and any suggested alternative on the event's Venue tab. | SPM-53 |
 | **`EventSession` has no routes** | Table exists (multi-session events, briefing #74) but nothing creates, lists or edits sessions yet, so `VenueBooking.sessionId` / `EquipmentRequest.sessionId` are always NULL in practice. | events |
 | **A flag stays after what raised it is undone** | Changing or ending an unavailable period (SPM-45), or lowering a venue's setup or turnaround time again (SPM-80, SPM-80-TC04), does not clear the flags it raised. The coordinator keeps the booking on the Flagged Arrangements page (`/flagged`), which offers Keep once it fits again. Decided 2026-10-20 for SPM-80: clearing a flag stays the coordinator's decision (SPM-68). | Kristen (SPM-68) |
 | **SPM-34-TC07 is out of date after SPM-33** | Its message now names the venue ("Orchard Seminar Room for this event is still awaiting a decision from Venue Staff"). | SPM-34's owner |
@@ -1015,10 +1014,6 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **No admin screen for staff accounts** | Since 2026-09-18 the internal roles cannot be self-registered, which is correct — but there is now no in-app way to create a coordinator, Ops Manager, venue staff, tech support or Safety Officer account (SPM-85) either. `npx prisma db seed` is the only route today (and, for the Safety Officer, `npm run fixtures:spm85`). Fine for the Week 12 demo; name it in the Q&A rather than being surprised by it. | auth |
 | **Two test cases quote the coordinator's sidebar from before SPM-68 and SPM-35** | SPM-22-TC02 ("The sidebar reads exactly: Dashboard, Review Queue, All Events, Venues, Equipment, Notifications") and SPM-43-TC11 ("The sidebar has Dashboard, Review Queue, All Events, Venues, Equipment and Notifications"). Since SPM-68 the coordinator's sidebar also has Flagged Arrangements, and since SPM-35 Change Requests, after it: Dashboard, Review Queue, Flagged Arrangements, Change Requests, All Events, Venues, Equipment, Notifications. Changed by design; the two cases need the new list. | SPM-22's and SPM-43's owners |
 | **The clarification loop is not built** | The coordinator can't ask the organiser a question about a request, and nothing shows existing `ClarificationRequest` rows (they are seed data only). SPM-28 left both out on purpose (decided 2026-09-30), so the review page (S-13) has no "Ask the organiser for clarification" option, although `design/mockups/EventReview.dc.html` still shows one. Whoever builds it: keep the event Under review while a clarification is open (2026-09-22 entry). | events |
-| **The coordinator is not told a clarification was answered** | Since SPM-26 the organiser answers by updating and resubmitting the request, and the clarification is marked answered. The review page then simply stops showing it and offers "Ask the organiser for clarification" again; nothing says it was answered, when, or what changed (no AC asks for it). Notifying the coordinator is **SPM-53**'s. The organiser stores no reply message (`responseMessage` stays empty, decided 2026-10-21). | SPM-53 |
-| **Nobody is notified of a clarification request** | SPM-29 writes no `Notification`; the organiser sees the request only by opening the event. Telling them is **SPM-53**'s (the "notification" AC was moved there on 2026-09-18). | SPM-53 |
-| **The organiser is not notified of a review decision** | Approving or rejecting changes the status and, for a rejection, shows the reason on the event page, but writes no `Notification` — ruled out of SPM-28 on 2026-09-30. The organiser only finds out by opening the event. | events |
-| **Nobody is notified when an event's information changes** | SPM-62 moves a Confirmed event back to Planning but writes no `Notification` — the organiser ("no longer confirmed") and registered attendees ("new date and time") are told by **SPM-53**, per the BPMN and SPM-62's reworded AC6 (decided 2026-10-05). | SPM-53 |
 | **A multi-session event's sessions cannot be edited after approval** | Edit event information shows a multi-session event's sessions read-only ("Session times and attendance can't be changed here yet."). The draft editor replaces sessions wholesale, which after approval would delete each session's bookings and equipment, so session edits need their own story that updates them in place. | events |
 | **The organiser is not notified when planning begins** | SPM-54 shows the Planning status on the organiser's Dashboard (its own "Planning" section), on My Events and on the event page, but writes no `Notification` — decided 2026-10-01. | events |
 | **Beginning planning cannot be undone, and its history is not shown** | Nothing moves an event back from Planning to Approved; the "Begin planning?" dialog is the only safeguard. The move is written to `EventStatusHistory` with the action that caused it ("Venue search started", "Venue booking requested", "Equipment requirement recorded / updated / removed"), but the History tab is not built, so who began planning and how is only visible in the database. | events |
@@ -1027,12 +1022,12 @@ waiting. Delete a row when you close it, and say so in your changelog entry.
 | **Other stories' test cases still describe AM / PM / Night slots (Week 7 requirement change)** | **Why:** those cases were written to the slot rules of #50, #107, #108 and #123. Week 7 Customer Changes, Change #1, and the customer's answers #126 and #128 then replaced the slots with times on a 15-minute grid and made setup and turnaround real minutes. SPM-93 built that change, so the slot checkboxes, slot columns and slot wording these cases quote are no longer on screen. **Which cases, and what now covers them:** SPM-42-TC01, TC03 to TC09, TC11, TC14 to TC16 (requesting a venue) → SPM-93-TC01 to TC12; SPM-43-TC01 to TC06, TC08 to TC10, TC12 to TC16 (Booking Requests and approval) → SPM-93-TC13, TC14; SPM-46-TC01, TC05 to TC09, TC12 to TC14 (availability calendar) → SPM-93-TC15, TC16; SPM-40-TC08 to TC14 (Find a venue's date and time filters) → SPM-93-TC17, plus the search unit tests (setup and turnaround now count towards opening hours, so SPM-40-TC11's boundary moves); SPM-54-TC04, TC14 (only their request step uses slots; beginning planning is unchanged) → SPM-93-TC01; SPM-44-TC01 to TC11 (conflict messages, now in times; a pending hold now holds its setup and turnaround) → **SPM-44 itself**, which is In Review and was written before Week 7. SPM-40, 42, 43, 46 and 54 are Done and are not reopened: per the Week 7 guide (scenario 2) the new requirement is a new story, SPM-93, and its cases replace theirs. Stories not yet built (SPM-45, 67, 68, 80, 81, 82) were reworded to times in Jira, so no case of theirs depends on slots. | SPM-44 owner; others covered by SPM-93 |
 | **An attendee can withdraw up to the event's end** | SPM-52's acceptance criteria set no cut-off. Withdrawing is refused once the event is cancelled, completed or past its end, so its history doesn't change; before that a Registered attendee can withdraw, even after registration has closed or while the event is running. If the team wants an earlier cut-off (when registration closes, or when the event starts), it goes in `withdrawRefusal()` in `src/lib/registrationEligibility.ts`. | SPM-52 (Sammi) |
 | **Every coordinator sees the registration counts, not only the assigned one** | `registration:view_list` is per role, so any coordinator who can open the event sees "Places taken" and "Withdrawn". SPM-52's AC5 says "relevant" coordinators; whether that means the assigned one only is not decided. | SPM-52 (Sammi) |
-| **Nobody is told they were added to an event** | Since SPM-57 the assigned coordinator adds attendees on the organiser's behalf, but no `Notification` is written: the attendee finds the event in My Registrations. Telling them is Notify people (SPM-53)'s follow-up, which waits for SPM-57. | SPM-53 |
 | **SPM-42-TC02 quotes wording SPM-90 changed** | The capacity reason on a venue card now ends "- this space expects N." (was "- your event expects N."), and a refused request says "is not suitable for this space: …", because a venue is judged against the space it is wanted for, which is not always the whole event (SPM-90). SPM-42-TC02 still quotes the old sentence; the check itself is unchanged and is covered by SPM-90-TC02 to TC04. Found 2026-10-13. | SPM-42's owner |
 | **Equipment transfer time assumes one venue per event** | The equipment availability check takes "the event's venue" from its bookings and picks one (`venueFor()` in `src/lib/equipmentAvailabilityService.ts`: an approved booking first). Since SPM-81 an event may hold several rooms, and which one the equipment goes to is not defined. SPM-90 now records what each space is for (`VenueBooking.purpose`), but did not pick a rule: which space the equipment goes to is still a team decision. Found 2026-10-10. | equipment |
 | **Arrangements can still change while an event is in Safety review** | The coordinator can still request a venue booking and add, change or remove equipment on an event in Safety review (those routes only refuse before approval and once final), and the pending check stays as it is. Updating the event's information (SPM-62) is refused in Safety review. What a significant change should do to a pending or approved check - close it and return the event to Planning - is **SPM-88 (Resolve Safety Check Outcome)**, which also extends SPM-62's editable statuses to Safety review (team decision to confirm, 2026-10-06). Technical Support cannot reserve or update equipment in Safety review. | SPM-88 |
 | **Equipment availability still filters out cancelled and postponed events** | Only reserved and partially fulfilled requests count against stock (plus, since SPM-69, a requirement sent back to Technical Support that still has units reserved - `holdsStock()`), and requests of cancelled/postponed/rejected/draft events are filtered out in `src/lib/equipmentAvailability.ts` (`RELEASED_EVENT_STATUSES`). SPM-37 and SPM-38 now cancel the lines themselves, but events cancelled or postponed before them (the seeded ones too) still have Reserved lines, and the shared database is never reseeded. Remove "cancelled" and "postponed" once no such line is left. | equipment |
 | **SPM-31's test cases describe the old Registration card** | SPM-31's attendee case says the Registration card "shows Capacity '150' and the registration window". Since SPM-64 the card shows "Registration: Enabled", then Capacity, Opens and Closes (no "Window" row). | SPM-31's owner |
+| **SPM-71-TC10 needs its fixture run just before it, since SPM-53** | SPM-71-TC10 expects Owen Teo (Venue Staff) to see 'No notifications', but SPM-53 (AC8) now notifies every active Venue Staff user of a venue booking request, Owen included. Any request sent after `npm run fixtures:spm71` puts a notification in Owen's list and the case fails. Its precondition should say to run the fixture immediately before the case. | SPM-71 |
 | **Submitting for a safety check doesn't check registration setup** | SPM-86's `submitForSafetyCheck` rule (`src/lib/safetyCheck.ts`) calls `arrangementsFor()` without the optional `registration` input that SPM-64 added, so an event whose registration is enabled but incomplete can be submitted for its safety check, while Confirm Event refuses it. Found when merging main (SPM-86) into SPM-64, 2026-10-10; SPM-86's rule was not changed. Its owner decides whether to pass the event's registration setup there too. | SPM-86's owner |
 | **Which booking registration capacity is measured against may change with SPM-81** | SPM-64 lets the coordinator pick one of an event's active bookings when it has several (Week 7 change #3), and stores it in `Event.registrationVenueBookingId`. If **SPM-81 (Request More Than One Venue for an Event)** decides capacity should come from several rooms together (e.g. a main hall plus breakout rooms), that rule and `measuredBooking()` need revisiting. | SPM-81 |
 | **Registration capacity is per event, not per session** | A multi-session event's sessions may have their own attendance limits (#74), but SPM-64 sets one `registrationCapacity` for the whole event, measured against one chosen booking. Per-session capacity would need a column on `EventSession` and per-session sign-up. | events / registrations |
@@ -1056,6 +1051,61 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-10-30 — Sammi Chua (SPM-53, gaps closed before merge)
+- **Accepting an equipment suggestion tells the organiser** (AC14): "Event
+  information changed", as for any other equipment change the Coordinator
+  saves. Technical Support are still not told (SPM-77's decision of 2026-10-27).
+- **The 7-day completion sweep is one transaction** (AC18): if a write fails,
+  the events stay Confirmed and the next read sweeps them again, so an organiser
+  is never left untold.
+- **Reserving again only notifies when the line's status changes** (AC11), as
+  the fulfilment route already did.
+- No migration.
+
+---
+
+### 2026-10-29 — Sammi Chua (SPM-53, Receive Event Notifications)
+- **In-app notifications for every trigger in the story**, each written in the
+  same transaction as the change that raises it (`notifyUser()` /
+  `notifyRole()`, `src/lib/notifications.ts`):
+  - Clarification requested → the organiser, with the message (AC2);
+    answered → the assigned coordinator (AC3).
+  - Approved / rejected (with the reason) → only the organiser (AC4).
+  - Coordinator assigned or reassigned → the organiser too, naming the
+    coordinator (AC5, AC7); the coordinators were already told (AC6, AC7).
+  - Venue booking request → every active Venue Staff user (AC8); approved /
+    rejected → the assigned coordinator, with venue, times and reason (AC9).
+  - Equipment requirement added, removed or quantity changed → every active
+    Technical Support user (AC10, `equipmentChangeNotification()` in
+    `src/lib/equipment.ts`); Reserved, Partially fulfilled or Cannot be
+    provided → the assigned coordinator (AC11, `equipmentStatusNotification()`
+    in `src/lib/equipmentFulfilment.ts`).
+  - Change, postponement or cancellation request → the assigned coordinator
+    (AC12); its outcome, item by item → the organiser (AC13,
+    `changeRequestOutcomeNotification()` in `src/lib/changeRequestDecision.ts`).
+  - An important change saved by the coordinator or applied from a change
+    request → the organiser, naming what changed, and "no longer confirmed"
+    when it moved a Confirmed event back to Planning (AC14, AC15,
+    `notifyImportantChange()`). Equipment is one of the four: every saved
+    equipment change counts, as SPM-62 already treats it. A new date and time →
+    every attendee whose registration is Registered (AC17).
+  - Registered, by registering or accepting a waiting-list offer → the
+    attendee (AC16, `registeredNotice()` in `src/lib/registrationEligibility.ts`).
+  - Confirmed, Completed (by hand or SPM-36's 7-day sweep), Postponed and
+    Cancelled → the organiser; Postponed and Cancelled also → every Registered
+    attendee, with the reason when one was recorded (AC16, AC18).
+- Every new notification is about its event and opens its Overview (SPM-71).
+- Known Gaps rows closed: booking decision, clarification answered,
+  clarification request, review decision, event information changes.
+- **Added by the coordinator (SPM-57, merged 2026-10-30):** `POST
+  /api/events/[id]/registrations` now sends the same `registeredNotice()` to
+  the attendee it adds or re-adds (AC16), in the same transaction. Known Gap
+  "Nobody is told they were added to an event" closed; manual case
+  SPM-53-TC22.
+- Test cases: `docs/test-cases/SPM-53_Test_Cases.xlsx`, fixtures
+  `npm run fixtures:spm53` (also in `prisma/seed.ts`). No migration.
+
+---
 ### 2026-10-29 — Jordan (SPM-57, review fixes after merging SPM-66)
 - **A place on offer to the waiting list counts against the room** (AC3): with
   SPM-66 merged, a place under offer is held, so the venue capacity check now

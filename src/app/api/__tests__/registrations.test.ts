@@ -275,6 +275,40 @@ describe("POST /api/registrations", () => {
 });
 
 // SPM-51 AC6 (TC11): an attendee's own registrations, for My Registrations.
+describe("POST /api/registrations - telling the attendee (SPM-53)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ now: NOW, toFake: ["Date"] });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("[SPM-53][AC16] tells the attendee they are registered", async () => {
+    const attendee = user("attendee");
+    db.event.findUnique.mockResolvedValue(openEvent({ title: "Harbour Open Day" }));
+    db.registration.findUnique.mockResolvedValue(null);
+    db.registration.create.mockResolvedValue({ id: "r1" });
+
+    expect((await register(signIn(attendee))).status).toBe(201);
+
+    expect(db.notification.create).toHaveBeenCalledOnce();
+    expect(callArg(db.notification.create).data).toEqual({
+      recipientId: attendee.id,
+      type: "registration_confirmed",
+      title: "Registration confirmed",
+      body: 'You\'re registered for "Harbour Open Day".',
+      eventId: ID.event,
+    });
+  });
+
+  it("[SPM-53][AC16] tells no one of a registration that is refused", async () => {
+    db.event.findUnique.mockResolvedValue(openEvent({ registrationClosesAt: new Date("2026-10-01T00:00:00Z") }));
+
+    expect((await register(signIn(user("attendee")))).status).toBe(400);
+    expect(db.notification.create).not.toHaveBeenCalled();
+  });
+});
+
 describe("GET /api/registrations", () => {
   const list = (token: string | undefined) => GET(req("GET", "/api/registrations", { token }));
 
