@@ -224,7 +224,11 @@ async function main() {
       await asB(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "completed" }),
       }));
-    await expectStatus("AC4", "venue staff cannot drive the event lifecycle", 403,
+    // CHANGED (SPM-94): 404, not 403, for the same reason as the attendee
+    // above - Venue Staff see an event only from Approved onwards, so a
+    // submitted one is hidden from them and the visibility gate refuses
+    // first. Their role gate is exercised below, once this event is approved.
+    await expectStatus("AC4", "venue staff cannot see a submitted event to drive it", 404,
       await asVenueStaff(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
       }));
@@ -250,6 +254,13 @@ async function main() {
     await expectStatus("AC4", "a coordinator CAN approve it (Step 5)", 200,
       await asCoordinator(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
+      }));
+    // The role gate on its own for Venue Staff: the event is Approved now, so
+    // they CAN see it, and Approved -> Planning is a legal next step - the
+    // only thing refusing them is their role (SPM-94).
+    await expectStatus("AC4", "venue staff cannot drive the lifecycle of an event they CAN see", 403,
+      await asVenueStaff(`/api/events/${createdEventRef}`, {
+        method: "PATCH", body: JSON.stringify({ status: "planning" }),
       }));
 
     // -----------------------------------------------------------------------
@@ -304,8 +315,10 @@ async function main() {
     const mustBeHidden = [
       "coordinatorId", "organiserId", "organisationId", "expectedAttendance",
       "specialRequirements", "accessibilityNotes", "rejectionReason",
-      "cancellationReason", "equipmentRequests", "facilityRequirements",
+      "equipmentRequests", "facilityRequirements",
     ];
+    // Not cancellationReason: SPM-37 (decided 2026-10-21) shows an attendee
+    // who holds a place why the event was cancelled - see ATTENDEE_EVENT_FIELDS.
     const leaked = mustBeHidden.filter((f) => f in seen);
     record("AC3", "…but none of the internal fields come with it", leaked.length === 0,
       leaked.length ? `LEAKED: ${leaked.join(", ")}` : `withheld all ${mustBeHidden.length} internal fields`);
