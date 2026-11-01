@@ -1051,6 +1051,22 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-11-01 — Kayalvizhi (bug fix: `verify:permissions` out of date)
+- **`npm run verify:permissions` passes again (48/48)**. Only the script's
+  expectations changed, not the app:
+  - Venue Staff approving a Submitted event now expects 404, not 403: since
+    SPM-94 they see events only from Approved onwards. A new check asserts their
+    403 on an event they can see (Approved -> Planning), so the role check is
+    still covered.
+  - `cancellationReason` is no longer in `mustBeHidden` (SPM-37, decided
+    2026-10-21).
+  - An attendee's list may include a cancelled or postponed event they hold a
+    place in (SPM-37, SPM-38). Any other non-confirmed status still fails.
+- Check count 47 -> 48 in the Known Gaps row and `docs/PERMISSIONS.md`.
+- No migration.
+
+---
+
 ### 2026-10-30 — Sammi Chua (SPM-53, gaps closed before merge)
 - **Accepting an equipment suggestion tells the organiser** (AC14): "Event
   information changed", as for any other equipment change the Coordinator
