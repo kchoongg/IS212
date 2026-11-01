@@ -334,11 +334,22 @@ async function main() {
       : ["(list unavailable)"];
     record("AC3", "the events LIST is narrowed for an attendee too", listLeaks.length === 0,
       listLeaks.length ? `LEAKED: ${listLeaks.join(", ")}` : `${list.length} events, no internal fields`);
+    // CHANGED (SPM-37, SPM-38): a cancelled or postponed event is listed too,
+    // but only if the attendee holds a place in it (HOLDING_A_PLACE in
+    // src/lib/registrationSettings.ts). Any other status is still a leak.
+    const placesHeld = new Set(
+      (await prisma.registration.findMany({
+        where: { attendeeId: attendee.id, status: { in: ["registered", "waitlisted"] } },
+        select: { eventId: true },
+      })).map((r) => r.eventId)
+    );
     const nonRegisterable = Array.isArray(list)
-      ? list.filter((e: { status: string; registrationEnabled?: boolean }) => e.status !== "confirmed")
+      ? list.filter((e: { id: string; status: string }) =>
+          e.status !== "confirmed" &&
+          !((e.status === "cancelled" || e.status === "postponed") && placesHeld.has(e.id)))
       : [];
-    record("AC3", "an attendee's list contains only confirmed events", nonRegisterable.length === 0,
-      nonRegisterable.length ? `saw statuses: ${nonRegisterable.map((e) => e.status).join(", ")}` : "confirmed only");
+    record("AC3", "an attendee's list contains only confirmed events, or ones they hold a place in", nonRegisterable.length === 0,
+      nonRegisterable.length ? `saw statuses: ${nonRegisterable.map((e) => e.status).join(", ")}` : "as expected");
 
     // -----------------------------------------------------------------------
     console.log("\nAC3 — an Organiser must not see another client's events (§8b)");
