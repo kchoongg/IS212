@@ -224,7 +224,11 @@ async function main() {
       await asB(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "completed" }),
       }));
-    await expectStatus("AC4", "venue staff cannot drive the event lifecycle", 403,
+    // CHANGED (SPM-94): 404, not 403, for the same reason as the attendee
+    // above - Venue Staff see an event only from Approved onwards, so a
+    // submitted one is hidden from them and the visibility gate refuses
+    // first. Their role gate is exercised below, once this event is approved.
+    await expectStatus("AC4", "venue staff cannot see a submitted event to drive it", 404,
       await asVenueStaff(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
       }));
@@ -250,6 +254,13 @@ async function main() {
     await expectStatus("AC4", "a coordinator CAN approve it (Step 5)", 200,
       await asCoordinator(`/api/events/${createdEventRef}`, {
         method: "PATCH", body: JSON.stringify({ status: "approved" }),
+      }));
+    // The role gate on its own for Venue Staff: the event is Approved now, so
+    // they CAN see it, and Approved -> Planning is a legal next step - the
+    // only thing refusing them is their role (SPM-94).
+    await expectStatus("AC4", "venue staff cannot drive the lifecycle of an event they CAN see", 403,
+      await asVenueStaff(`/api/events/${createdEventRef}`, {
+        method: "PATCH", body: JSON.stringify({ status: "planning" }),
       }));
 
     // -----------------------------------------------------------------------
@@ -304,8 +315,10 @@ async function main() {
     const mustBeHidden = [
       "coordinatorId", "organiserId", "organisationId", "expectedAttendance",
       "specialRequirements", "accessibilityNotes", "rejectionReason",
-      "cancellationReason", "equipmentRequests", "facilityRequirements",
+      "equipmentRequests", "facilityRequirements",
     ];
+    // Not cancellationReason: SPM-37 (decided 2026-10-21) shows an attendee
+    // who holds a place why the event was cancelled - see ATTENDEE_EVENT_FIELDS.
     const leaked = mustBeHidden.filter((f) => f in seen);
     record("AC3", "…but none of the internal fields come with it", leaked.length === 0,
       leaked.length ? `LEAKED: ${leaked.join(", ")}` : `withheld all ${mustBeHidden.length} internal fields`);
@@ -321,11 +334,22 @@ async function main() {
       : ["(list unavailable)"];
     record("AC3", "the events LIST is narrowed for an attendee too", listLeaks.length === 0,
       listLeaks.length ? `LEAKED: ${listLeaks.join(", ")}` : `${list.length} events, no internal fields`);
+    // CHANGED (SPM-37, SPM-38): a cancelled or postponed event is listed too,
+    // but only if the attendee holds a place in it (HOLDING_A_PLACE in
+    // src/lib/registrationSettings.ts). Any other status is still a leak.
+    const placesHeld = new Set(
+      (await prisma.registration.findMany({
+        where: { attendeeId: attendee.id, status: { in: ["registered", "waitlisted"] } },
+        select: { eventId: true },
+      })).map((r) => r.eventId)
+    );
     const nonRegisterable = Array.isArray(list)
-      ? list.filter((e: { status: string; registrationEnabled?: boolean }) => e.status !== "confirmed")
+      ? list.filter((e: { id: string; status: string }) =>
+          e.status !== "confirmed" &&
+          !((e.status === "cancelled" || e.status === "postponed") && placesHeld.has(e.id)))
       : [];
-    record("AC3", "an attendee's list contains only confirmed events", nonRegisterable.length === 0,
-      nonRegisterable.length ? `saw statuses: ${nonRegisterable.map((e) => e.status).join(", ")}` : "confirmed only");
+    record("AC3", "an attendee's list contains only confirmed events, or ones they hold a place in", nonRegisterable.length === 0,
+      nonRegisterable.length ? `saw statuses: ${nonRegisterable.map((e) => e.status).join(", ")}` : "as expected");
 
     // -----------------------------------------------------------------------
     console.log("\nAC3 — an Organiser must not see another client's events (§8b)");
