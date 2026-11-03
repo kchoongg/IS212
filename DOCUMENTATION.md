@@ -1051,6 +1051,18 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-11-03 — Kristen Choong (regression logs match what was run)
+- **Sprint 4 regression log added**, `docs/regression/Sprint-4_Regression.xlsx`.
+- **Sprint 2 log removed**: there was no Sprint 2 regression run.
+- **No smoke run.** Neither sprint had time for the manual end-to-end smoke
+  run, so the Smoke run sheet is gone from Sprint 3's log, and
+  `docs/REGRESSION_TESTING.md` (and its Word copy) no longer describes it.
+  The two out-of-scope stories (SPM-65 in Sprint 3, SPM-53 in Sprint 4) no
+  longer claim the smoke run covered them.
+- No migration.
+
+---
+
 ### 2026-11-01 — Kayalvizhi (bug fix: `verify:permissions` out of date)
 - **`npm run verify:permissions` passes again (48/48)**. Only the script's
   expectations changed, not the app:
