@@ -7,10 +7,15 @@ request of the sprint has merged and before the sprint review.
 Split the cases between the team by feature area, so each person's share takes
 an afternoon. If it is taking longer, the scope in step 2 is too wide.
 
+Runs so far: Sprint 3 and Sprint 4, logged in [regression/](regression/).
+There was no Sprint 2 run. Neither run had a manual end-to-end smoke run (there
+was not time), so the selected cases below are the whole manual run; the
+Playwright end-to-end tests in CI (step 1) are the only end-to-end check.
+
 ## Rules
 
 1. **Do not rerun every test case.** Retest only the stories that this sprint's
-   code could have affected, plus one end-to-end smoke run for the rest.
+   code could have affected.
 2. **Do not record regression results in the story workbooks.** The files in
    [test-cases/](test-cases/) hold each story's original test run and stay as
    they are. The sprint's regression log (step 6) copies in the steps of every
@@ -109,54 +114,12 @@ giving anyone their own stories from this sprint.
   no longer matches what is in the database, record the case as `Blocked` and
   move on. Do not reseed to fix it.
 
-## Step 5: Run the selected cases and the smoke run
+## Step 5: Run the selected cases
 
-**Selected cases.** Work down your own sheet in the log from top to bottom. A
-blue row starts each story and names its fixture script. Each case row has the
-preconditions, test data, steps and expected results, so there is no need to
-open the story workbooks.
-
-Do the smoke run first, together, before splitting up to work through your
-own sheets.
-
-**Smoke run.** Take one new event through the whole flow, logging in as each
-role in turn. Create a new event for this, titled `REG S<N> Smoke`, so no
-story's fixtures are touched. Run it as a relay on a call: each person stays
-logged in as one or two roles on their own laptop and does their steps when the
-event reaches them. The tracker's **Smoke run** sheet says who does each step,
-which account to use and what to check. As of sprint 3 the flow is:
-
-1. Event Organiser logs in, creates an event request, saves it as a draft,
-   reopens it and submits it.
-2. Event Operations Manager assigns an Event Coordinator.
-3. Event Coordinator reviews and approves the request, then begins planning.
-4. Event Coordinator makes an ordinary edit to the event information.
-5. Event Coordinator searches for venues and requests two venues for the same
-   times, each for its own purpose, attendance and layout.
-6. Event Coordinator records the equipment required.
-7. Technical Support Staff checks equipment availability and reserves it, then
-   marks an unrelated item under maintenance and returns it.
-8. Venue Staff approves both booking requests.
-9. Venue Staff marks one of the two venues unavailable over the event's times.
-10. Event Coordinator sees the notification and the flagged booking.
-11. Event Coordinator requests a replacement venue and releases the flagged
-    booking.
-12. Venue Staff approves the replacement.
-13. Event Coordinator sets up registration and tries to confirm the event,
-    which is refused for the missing safety check.
-14. Event Coordinator submits the event for a safety check.
-15. Safety Officer requests changes.
-16. Event Coordinator reads the decision and resubmits; the organiser cannot
-    see the reason.
-17. Safety Officer approves, and the Event Coordinator confirms the event.
-18. An Attendee registers for the event, then withdraws.
-19. The organiser and the coordinator see the withdrawal on the registration
-    list.
-20. Each role sees only its own sidebar links, and the organiser sees only
-    their own events.
-
-When a sprint adds a step to the flow, add it to this list in the same pull
-request as the story.
+Work down your own sheet in the log from top to bottom. A blue row starts each
+story and names its fixture script. Each case row has the preconditions, test
+data, steps and expected results, so there is no need to open the story
+workbooks.
 
 ## Step 6: Record the results
 
@@ -169,7 +132,6 @@ the rows on the **Scope** sheet and the testers' sheets with this sprint's
 | Sheet | What goes in it |
 | --- | --- |
 | Summary | Date, testers and the commit tested, the three automated checks (step 1), and the result counts per tester, which fill in by themselves. |
-| Smoke run | Who does each step of the smoke run, and its result. |
 | One sheet per tester | That tester's cases in run order, each with its preconditions, test data, steps and expected results, then the result, date and notes. IDs ending in `-R` were rewritten for this run. |
 | Out-of-date cases | Every story test case that a later story has made out of date, which story changed it, and whether its owner has updated it. |
 | Scope | Every earlier story, whether it is in scope, and why. |
