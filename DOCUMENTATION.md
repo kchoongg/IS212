@@ -1055,10 +1055,15 @@ what changed, why, and the migration name if there is one.
 - **Sprint 4 regression log added**, `docs/regression/Sprint-4_Regression.xlsx`.
 - **Sprint 2 log removed**: there was no Sprint 2 regression run.
 - **No smoke run.** Neither sprint had time for the manual end-to-end smoke
-  run, so the Smoke run sheet is gone from Sprint 3's log, and
-  `docs/REGRESSION_TESTING.md` (and its Word copy) no longer describes it.
-  The two out-of-scope stories (SPM-65 in Sprint 3, SPM-53 in Sprint 4) no
-  longer claim the smoke run covered them.
+  run, so the Smoke run sheet is gone from Sprint 3's log. The two
+  out-of-scope stories (SPM-65 in Sprint 3, SPM-53 in Sprint 4) no longer
+  claim the smoke run covered them.
+- **`docs/REGRESSION_TESTING.md` rewritten to the process we followed** (Word
+  copy regenerated to match): one person prepares the log with Claude, the
+  automated checks, each tester runs their sheet on Drive, every Fail gets a
+  Jira bug, and the log is committed. Dropped the steps we never did: the
+  smoke run, trying `-R` cases on a database copy first, retesting fixes,
+  owners updating out-of-date cases, and tagging the tested commit.
 - No migration.
 
 ---
