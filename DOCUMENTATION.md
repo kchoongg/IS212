@@ -1051,6 +1051,32 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-11-05 — Kayalvizhi (BPMN: Sprint 4 flows)
+- **BPMN: added SPM-77, SPM-69, SPM-57 flows, which were built in Sprint 4 but
+  not yet drawn** (`docs/ConnectSphere_BPMN.drawio`):
+  - **SPM-77 Suggest Alternative Equipment**: on a flagged shortfall,
+    Technical Support suggest an alternative that is free for the event's
+    dates; the Coordinator is notified and accepts (requirement replaced, back
+    to Technical Support to reserve) or declines (original requirement
+    unchanged, on to the essential/not-essential decision). A note on "Submit
+    event for Operational Safety Check" says submission is refused while a
+    suggestion awaits a decision.
+  - **SPM-69 Release or Adjust Equipment Reservation**: in the exceptions
+    section, Technical Support adjust the reserved quantity or release the
+    reservation (reason required), each notifying the Coordinator; freed
+    units become available to overlapping events. Planning only.
+  - **SPM-57 Manually Add Attendee**: the Coordinator adds an existing
+    Attendee account (even when self-registration is full); refused once
+    venue capacity is reached, otherwise registered the same way as a
+    self-registration.
+- Layout: Planning and Confirmed columns widened and both Technical Support
+  lanes made taller to fit them; the venue branch's "no – every venue
+  approved" line now runs along the bottom of the Coordinator lane. Nothing
+  else in the process changed. The `_pre-Week7` diagrams are untouched.
+- No migration.
+
+---
+
 ### 2026-11-05 — Janelle (C4 before and after Week 7; Sprint 4 regression update)
 - **C4 model replaced** in `docs/architecture/`: `before-week-7/` (the system at
   the end of Sprint 2, commit a5730c5) and `after-week-7/` (current, Week 7
