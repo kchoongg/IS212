@@ -149,6 +149,10 @@ This follows playbook 5.6.
 A bug that can't be fixed in the current PR goes in DOCUMENTATION.md's
 Known Gaps, with an owner, until its Bug is done.
 
+Known flaky test: `[SPM-90][AC1]` in `event-venue-pages.test.tsx` failed
+once in a full `npm run test:coverage` run on 2026-11-04, then passed 3/3 in
+isolation plus a clean full rerun (suspected timing under load).
+
 ## Coverage
 
 Unit and mocked-route tests cover 100% of lines under `src/`, 99.82% of

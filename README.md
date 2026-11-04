@@ -2,7 +2,9 @@
 
 **Repository:** https://github.com/kchoongg/IS212 (instructors have been given access: **TODO: Kristen to confirm names and date**)
 
-**Live demo:** **TODO: Vercel URL from Kristen**
+**Live demo:** https://connectsphere-orcin.vercel.app/login
+
+Hosted on Vercel; the code is the same as main.
 
 **Demo accounts:** every seeded account's password is `password123`. One per role (from `prisma/seed.ts`):
 
@@ -76,16 +78,16 @@
 
 `npm run test:coverage` covers **100% of lines** and **100% of functions**
 under `src/`, 99.88% of statements and 99.54% of branches (2026-11-04). Every
-piece that is not covered is listed here with the reason. None is a business
-rule left untested. How the tests are organised is in `docs/TESTING.md`.
+piece that is not covered is listed here with the reason, at its line in
+`coverage/coverage-final.json` from that run. None is a business rule left
+untested. How the tests are organised is in `docs/TESTING.md`.
 
 **1. Not reachable: an earlier check guarantees the value**
 
 | File | Line | Why it cannot run |
 |---|---|---|
 | `src/app/api/equipment/[id]/out-of-service/route.ts` | 73 | `data.type ?? null`: when units are out of service, the schema (`recordOutOfServiceSchema`'s refine) already requires a `type` |
-| `src/app/api/venues/[id]/route.ts` | 219 | `if (!booking) continue`: every impact is computed from the same `candidates` list, so its booking is always found |
-| `src/lib/validation/events.ts` | 81 | `d.sessions ?? []`: both callers check `!d.sessions?.length` first, so `sessions` is always present here |
+| `src/lib/validation/events.ts` | 82 | `d.sessions ?? []`: both callers check `!d.sessions?.length` first, so `sessions` is always present here |
 | `src/lib/venueBookingReview.ts` | 77 | `conflict.block?.reason … ?? "unavailable"`: an "unavailable" conflict from `findVenueConflict()` always carries its period |
 | `src/lib/venueTime.ts` | 78 | `part ? … : 0`: `Intl.DateTimeFormat` always returns every date part asked for |
 | `src/lib/venueTime.ts` | 140, 286 | `dayNumberOf(dayKey) ?? 0`: callers pass only day keys validated at the boundary (`isDayKey()`), as the function's comment requires |
@@ -100,25 +102,19 @@ reached from the screen.
 | File | Lines |
 |---|---|
 | `src/app/equipment/page.tsx` | 128 (dialog ref), 191 (`if (!editing) return`) |
-| `src/app/equipment/requests/[id]/page.tsx` | 222 (`if (!editing) return`) |
-| `src/app/events/[id]/equipment/page.tsx` | 161, 168, 341, 364, 406, 479, 692 (state updates before the page has loaded) |
-| `src/app/events/[id]/page.tsx` | 717 (`coordinators ?? []` once the coordinators have loaded) |
-| `src/app/events/[id]/readiness/page.tsx` | 390 (`OWN_STATUS[kind] ?? "Status"`: every arrangement kind has a label) |
-| `src/app/events/[id]/review/page.tsx` | 188 |
-| `src/app/events/[id]/update/page.tsx` | 152, 164, 176, 199, 400 |
-| `src/app/events/[id]/venue/page.tsx` | 287 (`if (!changing) return`), 373 |
-| `src/app/venues/[id]/availability/page.tsx` | 238 (`if (!data) return`), 293 |
-| `src/app/venues/[id]/edit/page.tsx` | 229 (`user?.role ?? ""` when signed in) |
+| `src/app/equipment/requests/[id]/page.tsx` | 387 (`if (!editing) return`) |
+| `src/app/events/[id]/equipment/page.tsx` | 185, 192, 370, 393, 435, 798 (state updates before the page has loaded), 545 (`event ? … : "finished"`: `locked` is true only once the event has loaded) |
+| `src/app/events/[id]/page.tsx` | 1038 (`coordinators ?? []` once the coordinators have loaded) |
+| `src/app/events/[id]/readiness/page.tsx` | 394 (`OWN_STATUS[kind] ?? "Status"`: every arrangement kind has a label) |
+| `src/app/events/[id]/review/page.tsx` | 216 |
+| `src/app/events/[id]/update/page.tsx` | 153, 172, 177, 200, 397 |
+| `src/app/events/[id]/venue/page.tsx` | 287 (`if (!changing) return`), 368 (`sessionId ?? ""`: the Session select shows only once the load has set `sessionId` to the first session) |
+| `src/app/venues/[id]/availability/page.tsx` | 239 (`if (!data) return`), 289 |
+| `src/app/venues/[id]/edit/page.tsx` | 234 (`user?.role ?? ""` when signed in) |
 | `src/app/venues/new/page.tsx` | 105 (same) |
-| `src/app/venues/search/page.tsx` | 224, 267 (`if (event)` when choosing a session, which needs an event) |
+| `src/app/venues/search/page.tsx` | 226 (`startPlanning` runs only from the begin-planning dialog, which opens only with a user, a loaded event and `shouldStartPlanning()` true), 269 (`if (event)` when choosing a session, which needs an event) |
 | `src/components/AssignCoordinator.tsx` | 63 (`if (!chosen) return`: Assign is disabled until a coordinator is chosen) |
 | `src/components/ui/ConfirmDialog.tsx` | 42 (dialog ref) |
-
-**3. Counted as missed by the coverage tool, but tested**
-
-| File | Line | Why |
-|---|---|---|
-| `src/app/api/venues/search/route.ts` | 67 | V8 reports the path past `if (!event \|\| !canViewEvent(...)) return hidden();` as never taken, but the next statement (`eventId = event.id`) runs and is covered: "still offers a venue to the event that already holds it" in `venue-availability-search.test.ts` |
 
 ## Submission evidence
 
@@ -129,7 +125,14 @@ reached from the screen.
 - [docs/CHANGES.md](docs/CHANGES.md) — requirement changes and how they were handled
 - [docs/architecture/](docs/architecture/) — C4 architecture diagrams
 - [.github/workflows/ci.yml](.github/workflows/ci.yml) — the CI pipeline run on every pull request
-- Sprint 4 recordings: **TODO: unlisted YouTube links**
+- Sprint 4 (the final sprint) recordings:
+
+  | Meeting | Date | Recording |
+  | --- | --- | --- |
+  | Sprint planning | 18 Oct | [Watch](https://drive.google.com/file/d/1GSrJ3w9OPvY5AV_IYTYhD-O0h21zkcYl/view) |
+  | Daily standup (live) | 26 Oct | [Watch](https://drive.google.com/file/d/12LJlRiy0CNZpqFfTkr5l5UjDdo0np5Vg/view) |
+  | Sprint review | 1 Nov | [Watch](https://drive.google.com/file/d/1PTGWKrtNJEbYlIyLJY8aHcna2SfsLO6y/view) |
+  | Sprint retrospective | 1 Nov | [Watch](https://drive.google.com/file/d/1jZo7Yiot2sgfNLXKI2elwIKr64QbW3r4/view) |
 
 ## Documentation
 
