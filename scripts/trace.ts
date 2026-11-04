@@ -490,7 +490,8 @@ const UNTRACED_FEATURES: { id: string; name: string; why: string; files: string[
 // ---------------------------------------------------------------- design element
 
 /**
- * The C4 element in docs/architecture/connectsphere.dsl that each story's work
+ * The C4 element in the first C4 model (docs/architecture/connectsphere.dsl,
+ * now in git history; the current sets are in docs/architecture/) that each story's work
  * lives in, by epic. Blank where the model has no element for it: the
  * Notification System, and the Week 7 roles (Safety Officer, Event Coordinator
  * Lead) the diagram predates.

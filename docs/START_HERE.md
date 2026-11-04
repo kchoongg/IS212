@@ -7,8 +7,8 @@ story from its estimate to Done, and how to undo things.
 ## What the project is
 
 ConnectSphere is a web app for ConnectSphere Event Services. It "lets
-ConnectSphere staff and clients plan events, book venues, reserve equipment,
-and manage attendee registration" (`docs/architecture/connectsphere.dsl`).
+ConnectSphere staff and their clients plan events end to end"
+(`docs/architecture/after-week-7/connectsphere-after-week7.dsl`).
 An Event Organiser submits an event request. The Event Coordinator Lead
 (called the Event Operations Manager until SPM-84) assigns it to an Event
 Coordinator, who reviews it and plans it: venue bookings with Venue Staff,
@@ -32,8 +32,8 @@ five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
 | Manual test cases, one workbook per story | [test-cases/](test-cases/README.md) |
 | End-of-sprint regression runs | [regression/](regression/), process in [REGRESSION_TESTING.md](REGRESSION_TESTING.md) |
 | How we test: levels, CI, naming, coverage | [TESTING.md](TESTING.md) |
-| Architecture before Week 7: C4 System Context and Containers | [architecture/](architecture/README.md) (`connectsphere.dsl`, last changed 2026-09-19) |
-| Architecture after Week 7 | _[not produced yet – the C4 model has no Safety Officer or Event Coordinator Lead; the status lifecycle and permissions were updated: [ConnectSphere_Status_Lifecycle.drawio](ConnectSphere_Status_Lifecycle.drawio), [PERMISSIONS.md](PERMISSIONS.md)]_ |
+| Architecture before Week 7 (end of Sprint 2, 4 Oct, commit a5730c5): C4 C1, C2 and C3 | [architecture/before-week-7/](architecture/before-week-7/), guide in [architecture/README.md](architecture/README.md) |
+| Architecture after Week 7 (current): C4 C1, C2 and C3, Week 7 changes outlined in orange | [architecture/after-week-7/](architecture/after-week-7/); every box mapped to its code in [C4-code-map.md](architecture/C4-code-map.md) |
 | Business process (BPMN) and status lifecycle, before Week 7 (1 Oct, commit 2bb4799) | [ConnectSphere_BPMN_pre-Week7.drawio](ConnectSphere_BPMN_pre-Week7.drawio), [ConnectSphere_Status_Lifecycle_pre-Week7.drawio](ConnectSphere_Status_Lifecycle_pre-Week7.drawio) |
 | Business process (BPMN), status lifecycle and permissions, after Week 7 (current) | [ConnectSphere_BPMN.drawio](ConnectSphere_BPMN.drawio), [ConnectSphere_Status_Lifecycle.drawio](ConnectSphere_Status_Lifecycle.drawio), [PERMISSIONS.md](PERMISSIONS.md). What changed between the two versions, and in which PR, is the "Design documents" line under each change in [CHANGES.md](CHANGES.md). |
 | Requirement changes (Week 7, forum answers) | [CHANGES.md](CHANGES.md) |
@@ -101,9 +101,11 @@ https://kkchoong.atlassian.net/browse/SPM-43.
 - The end-of-sprint regression results are in [regression/Sprint-3_Regression.xlsx](regression/Sprint-3_Regression.xlsx), on Sammi's sheet (SPM-43-TC01-R and others, 2026-10-18).
 
 **4. The design: the architecture model.** The matrix names "Web Application ›
-Venues API". In [architecture/connectsphere.dsl](architecture/connectsphere.dsl)
-that is the `venuesApi` component, "Venue catalogue and booking endpoints",
-used by Venue Staff ("Manages venues and booking decisions using"). The
+Venues API", the label from the first C4 model. In the current model,
+[architecture/after-week-7/](architecture/after-week-7/), SPM-43's work is the
+Venue Booking API component (`/api/venue-bookings/*`, "Venue Staff decide
+requests") and its Venue Booking Rules (`src/lib/venueBookingReview.ts`); see
+the "C3 Components - API Server" diagram and [C4-code-map.md](architecture/C4-code-map.md). The
 business rules for the review are in [PERMISSIONS.md](PERMISSIONS.md) and
 [CUSTOMER_CLARIFICATIONS.md](CUSTOMER_CLARIFICATIONS.md).
 

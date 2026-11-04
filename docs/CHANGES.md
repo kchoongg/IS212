@@ -150,7 +150,7 @@ SPM-93 after forum #128 (see below).
 
 **Automated tests:** the two tests that asserted the old role name now assert the new one, and SPM-30's Assignments tests use the 'Active events' tab and the API's `active` list (values only, listed in DECOMMISSIONED.md). New: `src/lib/__tests__/coordinatorAssignments.test.ts` and SPM-84 tests in `list-pages.test.tsx` and `lists.test.ts`.
 
-**Design documents:** PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") renamed the BPMN's Event Operations Manager lane (#129) and shows the unassigned queue, with the Lead assigning and reassigning; the lifecycle's Submitted → Under review arrow reads "Lead assigns". Not recorded for the C4 model: `docs/architecture/connectsphere.dsl` still names the person "Ops Manager".
+**Design documents:** PR #45 (merged 2026-10-10, kayalvizhi24, "Update BPMN and status lifecycle diagrams for the Week 7 changes") renamed the BPMN's Event Operations Manager lane (#129) and shows the unassigned queue, with the Lead assigning and reassigning; the lifecycle's Submitted → Under review arrow reads "Lead assigns". C4 model: updated on 2026-11-05; `docs/architecture/after-week-7` shows the Event Coordinator Lead as the same role renamed, and `before-week-7` the Event Operations Manager.
 
 ---
 
@@ -179,7 +179,7 @@ SPM-93 after forum #128 (see below).
 - `docs/PERMISSIONS.md` and `UI_DESIGN.md`: changed in PRs #42, #49, #54 and #63.
 - `SCHEMA_REFERENCE.md`: changed in PRs #42, #54 and #63.
 - Migration `20261009120000_add_safety_check` (PR #42).
-- C4 model (`docs/architecture`): not recorded. It is unchanged since 2026-09-19 and has no Safety Officer.
+- C4 model: updated on 2026-11-05. `docs/architecture/after-week-7` adds the Safety Officer, the Safety Check API and Safety Check Rules; `before-week-7` is the model at the end of Sprint 2.
 
 ---
 
