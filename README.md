@@ -1,4 +1,8 @@
-# IS212
+# ConnectSphere (IS212 G7)
+
+ConnectSphere is a web app that lets ConnectSphere Event Services staff and clients plan events, book venues, reserve equipment, and manage attendee registration.
+
+**Team:** Kristen Choong, Jordan Tan, Kayalvizhi Kandasamy, Janelle Ip, Sammi Chua
 
 **Repository:** https://github.com/kchoongg/IS212 (instructors have been given access: **TODO: Kristen to confirm names and date**)
 
@@ -32,6 +36,8 @@ Hosted on Vercel; the code is the same as main.
 
 ## Getting started
 
+Requires Node.js 20.12 or later (CI uses 24).
+
 1. Install dependencies:
    ```
    npm install
@@ -41,10 +47,16 @@ Hosted on Vercel; the code is the same as main.
    ```
    npm run prisma:migrate
    ```
-4. Run the dev server:
+4. Generate the Prisma client and load the demo data (the demo accounts above). Never run the seed on the shared team database:
+   ```
+   npx prisma generate
+   npx prisma db seed
+   ```
+5. Run the dev server:
    ```
    npm run dev
    ```
+   then open http://localhost:3000/login
 
 ## Scripts
 
@@ -125,7 +137,7 @@ reached from the screen.
 - [docs/CHANGES.md](docs/CHANGES.md) — requirement changes and how they were handled
 - [docs/architecture/](docs/architecture/) — C4 architecture diagrams
 - [.github/workflows/ci.yml](.github/workflows/ci.yml) — the CI pipeline run on every pull request
-- Sprint 4 (the final sprint) recordings:
+- Sprint 4 (the final sprint) recordings. These links open only for SMU accounts. Sign in to Google with your @smu.edu.sg email first; a personal Gmail account will show 'Request access'.
 
   | Meeting | Date | Recording |
   | --- | --- | --- |
@@ -134,8 +146,16 @@ reached from the screen.
   | Sprint review | 1 Nov | [Watch](https://drive.google.com/file/d/1PTGWKrtNJEbYlIyLJY8aHcna2SfsLO6y/view) |
   | Sprint retrospective | 1 Nov | [Watch](https://drive.google.com/file/d/1jZo7Yiot2sgfNLXKI2elwIKr64QbW3r4/view) |
 
+## Known limitations
+
+- Notifications are in-app only; sending them by email is backlog story SPM-91.
+- The Vercel demo uses one shared database, so its data may change between visits.
+- Everything else still open is in [DOCUMENTATION.md › Known Gaps](DOCUMENTATION.md#-known-gaps).
+
 ## Documentation
 
+- Requirement changes (`docs/CHANGES.md`), the C4 architecture (`docs/architecture/`) and the traceability matrix are linked under [Submission evidence](#submission-evidence)
+- `docs/ConnectSphere_BPMN.drawio` and `docs/ConnectSphere_Status_Lifecycle.drawio` — the BPMN process and event status lifecycle after the Week 7 changes; the `_pre-Week7` versions beside them show them before, for comparison
 - `DOCUMENTATION.md` — how the app is built, conventions, changelog
 - `docs/TESTING.md` — test levels, CI jobs, traceability, what happens when a test fails
 - `UI_DESIGN.md` — every screen, navigation, forms, error states
