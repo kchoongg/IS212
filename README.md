@@ -4,7 +4,7 @@ ConnectSphere is a web app that lets ConnectSphere Event Services staff and clie
 
 **Team:** Kristen Choong, Jordan Tan, Kayalvizhi Kandasamy, Janelle Ip, Sammi Chua
 
-**Repository:** https://github.com/kchoongg/IS212 (instructors have been given access: **TODO: Kristen to confirm names and date**)
+**Repository:** https://github.com/kchoongg/IS212 (the instructors have been added as collaborators)
 
 **Live demo:** https://connectsphere-orcin.vercel.app/login
 
