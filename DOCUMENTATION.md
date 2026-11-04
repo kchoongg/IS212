@@ -1051,6 +1051,24 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-11-05 — Janelle (C4 before and after Week 7; Sprint 4 regression update)
+- **C4 model replaced** in `docs/architecture/`: `before-week-7/` (the system at
+  the end of Sprint 2, commit a5730c5) and `after-week-7/` (current, Week 7
+  changes outlined in orange). Each has C1, C2, C3 API Server and C3 Request
+  Pipeline, drawn from its own Structurizr DSL file. The 19 Sep
+  `connectsphere.dsl` and its `.puml` exports are removed (still in git history).
+- `docs/architecture/C4-code-map.md`: each box mapped to its file and line;
+  `docs/architecture/README.md` rewritten (what is in each set, how to
+  regenerate the images).
+- `docs/START_HERE.md` and `docs/CHANGES.md`: point to the new C4 sets.
+- **Sprint 4 regression log** (`docs/regression/Sprint-4_Regression.xlsx`):
+  the Date tested column had not been filled in for Janelle's 41 cases; it now
+  is (2026-10-31). SPM-40-TC13's recorded result was also corrected, and the
+  Summary counts updated to match.
+- No migration.
+
+---
+
 ### 2026-11-04 — Kayalvizhi (pre-Week 7 design diagrams for comparison)
 - **Pre-Week 7 BPMN and status lifecycle added**,
   `docs/ConnectSphere_BPMN_pre-Week7.drawio` and
