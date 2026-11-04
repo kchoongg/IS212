@@ -1,15 +1,32 @@
 # IS212
 
+**Repository:** https://github.com/kchoongg/IS212 (instructors have been given access: **TODO: Kristen to confirm names and date**)
+
+**Live demo:** **TODO: Vercel URL from Kristen**
+
+**Demo accounts:** every seeded account's password is `password123`. One per role (from `prisma/seed.ts`):
+
+| Role | Email |
+| --- | --- |
+| Event Coordinator Lead (`ops_manager`) | `grace.lim@connectsphere.com` |
+| Event Coordinator (`coordinator`) | `daniel.tan@connectsphere.com` |
+| Venue Staff (`venue_staff`) | `marcus.wong@connectsphere.com` |
+| Technical Support (`tech_support`) | `kenji.sato@connectsphere.com` |
+| Safety Officer (`safety_officer`) | `hana.yusof@connectsphere.com` |
+| Event Organiser (`organiser`) | `rachel.ng@meridianfina.com` |
+| Attendee (`attendee`) | `lee.wei.ming@example.com` |
+
 **New here? Start with [docs/START_HERE.md](docs/START_HERE.md):** where everything lives, how to run it, and how to trace any story end to end.
 
 ## Stack
 
-- Next.js 14 (App Router, TypeScript)
-- Tailwind CSS
-- PostgreSQL via Prisma
+- Next.js 16 (App Router, TypeScript) with React 19
+- Tailwind CSS 3
+- PostgreSQL via Prisma 6
 - Hand-rolled auth: bcryptjs (password hashing) + jsonwebtoken (sessions)
-- Zod (validation)
-- Vitest (testing)
+- Zod 3 (validation)
+- Vitest 5 (unit and integration tests), Playwright (end-to-end tests)
+- Node.js 24 in CI
 
 ## Getting started
 
@@ -58,7 +75,7 @@
 ## Coverage exclusions
 
 `npm run test:coverage` covers **100% of lines** and **100% of functions**
-under `src/`, 99.83% of statements and 99.37% of branches (2026-10-20). Every
+under `src/`, 99.88% of statements and 99.54% of branches (2026-11-04). Every
 piece that is not covered is listed here with the reason. None is a business
 rule left untested. How the tests are organised is in `docs/TESTING.md`.
 
@@ -102,6 +119,17 @@ reached from the screen.
 | File | Line | Why |
 |---|---|---|
 | `src/app/api/venues/search/route.ts` | 67 | V8 reports the path past `if (!event \|\| !canViewEvent(...)) return hidden();` as never taken, but the next statement (`eventId = event.id`) runs and is covered: "still offers a venue to the event that already holds it" in `venue-availability-search.test.ts` |
+
+## Submission evidence
+
+- [docs/START_HERE.md](docs/START_HERE.md) — where everything lives and how to trace a story end to end
+- [docs/traceability/TRACEABILITY.md](docs/traceability/TRACEABILITY.md) — story → acceptance criteria → test cases → automated tests
+- [docs/test-cases/](docs/test-cases/) — test case workbooks, one per story, with execution blocks
+- [docs/regression/](docs/regression/) — regression logs for Sprints 3 and 4
+- [docs/CHANGES.md](docs/CHANGES.md) — requirement changes and how they were handled
+- [docs/architecture/](docs/architecture/) — C4 architecture diagrams
+- [.github/workflows/ci.yml](.github/workflows/ci.yml) — the CI pipeline run on every pull request
+- Sprint 4 recordings: **TODO: unlisted YouTube links**
 
 ## Documentation
 
