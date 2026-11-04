@@ -34,7 +34,8 @@ five people in two-week sprints. Sprint 4 runs from 19 Oct to 1 Nov 2026.
 | How we test: levels, CI, naming, coverage | [TESTING.md](TESTING.md) |
 | Architecture before Week 7: C4 System Context and Containers | [architecture/](architecture/README.md) (`connectsphere.dsl`, last changed 2026-09-19) |
 | Architecture after Week 7 | _[not produced yet – the C4 model has no Safety Officer or Event Coordinator Lead; the status lifecycle and permissions were updated: [ConnectSphere_Status_Lifecycle.drawio](ConnectSphere_Status_Lifecycle.drawio), [PERMISSIONS.md](PERMISSIONS.md)]_ |
-| Business process (BPMN), status lifecycle, permissions | [ConnectSphere_BPMN.drawio](ConnectSphere_BPMN.drawio), [ConnectSphere_Status_Lifecycle.drawio](ConnectSphere_Status_Lifecycle.drawio), [PERMISSIONS.md](PERMISSIONS.md) |
+| Business process (BPMN) and status lifecycle, before Week 7 (1 Oct, commit 2bb4799) | [ConnectSphere_BPMN_pre-Week7.drawio](ConnectSphere_BPMN_pre-Week7.drawio), [ConnectSphere_Status_Lifecycle_pre-Week7.drawio](ConnectSphere_Status_Lifecycle_pre-Week7.drawio) |
+| Business process (BPMN), status lifecycle and permissions, after Week 7 (current) | [ConnectSphere_BPMN.drawio](ConnectSphere_BPMN.drawio), [ConnectSphere_Status_Lifecycle.drawio](ConnectSphere_Status_Lifecycle.drawio), [PERMISSIONS.md](PERMISSIONS.md). What changed between the two versions, and in which PR, is the "Design documents" line under each change in [CHANGES.md](CHANGES.md). |
 | Requirement changes (Week 7, forum answers) | [CHANGES.md](CHANGES.md) |
 | Test cases and tests retired by those changes | [test-cases/DECOMMISSIONED.md](test-cases/DECOMMISSIONED.md) |
 | Customer clarifications (forum Q&A, by topic) | [CUSTOMER_CLARIFICATIONS.md](CUSTOMER_CLARIFICATIONS.md), raw threads in [discussions/](discussions/) |
