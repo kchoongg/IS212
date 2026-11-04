@@ -1051,6 +1051,22 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-11-04 — Kayalvizhi (pre-Week 7 design diagrams for comparison)
+- **Pre-Week 7 BPMN and status lifecycle added**,
+  `docs/ConnectSphere_BPMN_pre-Week7.drawio` and
+  `docs/ConnectSphere_Status_Lifecycle_pre-Week7.drawio`, extracted unchanged
+  from commit 2bb4799 (2026-10-01), the last diagram change before the Week 7
+  changes arrived on 2026-10-02. The current diagrams are unchanged and are the
+  post-Week 7 versions.
+- **Why:** so the design before and after the Week 7 customer changes can be
+  compared side by side.
+- `docs/START_HERE.md`: the design-documents row is now two rows, before and
+  after Week 7; what changed is the "Design documents" line under each change
+  in `docs/CHANGES.md`.
+- No migration.
+
+---
+
 ### 2026-11-03 — Kristen Choong (regression logs match what was run)
 - **Sprint 4 regression log added**, `docs/regression/Sprint-4_Regression.xlsx`.
 - **Sprint 2 log removed**: there was no Sprint 2 regression run.
