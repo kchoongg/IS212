@@ -53,7 +53,7 @@ these two sets were added), and the 29 Sep update is on branch `SPM-2-update-c4-
 |---|---|---|
 | Venue Time & Conflict Rules (after, Week 7 #1) | `src/lib/venueTime.ts` | `occupiedWindow()` at `:238` = start − setup to end + turnaround |
 | Search excludes a venue whose setup is before opening (after) | `src/lib/venueSearch.ts:184` | `withinOpeningHours(venue, occupiedWindow(...))` – why Marina Grand Hall drops out of SPM-40-TC13 |
-| Venue Availability Rules (before) | `src/lib/venueSlots.ts` (AM / PM / Night slots) | replaced by 15-minute times in SPM-93 |
+| Venue Availability Rules (before) | `src/lib/venueSlots.ts` (AM / PM / Night slots; deleted in SPM-93, commit 95a3939, so read it with `git show 95a3939^:src/lib/venueSlots.ts`) | replaced by 15-minute times in SPM-93 |
 | Venue Change Impact Rules | `src/lib/venueImpact.ts`; after also `venueUnavailability*.ts`, `turnaroundRecheck.ts` | bookings are flagged (`needsReview`), never changed |
 | Hold Expiry Rules (after, Week 7 #4) | `src/lib/holdExpiry.ts` (`HOLD_DAYS = 7` at `:14`), `src/lib/holdExpiryService.ts` | `expireDueHolds()` |
 | Safety Check Rules (after, Week 7 #6) | `src/lib/safetyCheck.ts`, `safetyDecision.ts`, `safetyResolution.ts`, `safetyCheckClose.ts` | confirm waits for approval: `src/lib/eventConfirmation.ts` |
