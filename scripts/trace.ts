@@ -7,8 +7,9 @@
  *   npm run trace -- --check         writes nothing; exits 1 if a column the repo controls is
  *                                    out of date (see "the check" below). Offline: no Jira, no gh.
  *   npm run trace -- --repo-only     offline: rewrites only the columns and sections the repo
- *                                    controls in the committed matrix - what --check compares -
- *                                    so a red check can be fixed without a Jira token or gh
+ *                                    controls in the committed matrix - what --check compares,
+ *                                    and the design element - so a red check can be fixed
+ *                                    without a Jira token or gh
  *   npm run trace -- --pr-source=git ignore gh even when it is installed
  *
  * The check. The matrix mixes two kinds of data. Jira (statuses, ACs, sprints)
@@ -490,35 +491,68 @@ const UNTRACED_FEATURES: { id: string; name: string; why: string; files: string[
 // ---------------------------------------------------------------- design element
 
 /**
- * The C4 element in the first C4 model (docs/architecture/connectsphere.dsl,
- * now in git history; the current sets are in docs/architecture/) that each story's work
- * lives in, by epic. Blank where the model has no element for it: the
- * Notification System, and the Week 7 roles (Safety Officer, Event Coordinator
- * Lead) the diagram predates.
+ * The C4 element each story's work lives in, named as in the current model,
+ * docs/architecture/after-week-7/connectsphere-after-week7.dsl:
+ * "<container> › <component>, <component>" - usually the route group and the
+ * business rules behind it. By epic, with the story overriding where its work
+ * is in a narrower component than the epic's. Blank where the model has no
+ * element for it. Change these when the model changes: npm run trace and
+ * npm run trace -- --repo-only both rewrite the column from here.
  */
 const DESIGN_BY_EPIC: Record<string, string> = {
-  "SPM-11": "Web Application › Auth API",
-  "SPM-12": "Web Application › Events API",
-  "SPM-14": "Web Application › Events API",
-  "SPM-15": "Web Application › Events API",
-  "SPM-16": "Web Application › Events API",
-  "SPM-13": "Web Application › Venues API",
-  "SPM-17": "Web Application › Venues API",
-  "SPM-18": "Web Application › Equipment API",
-  "SPM-19": "Web Application › Registrations API",
+  "SPM-11": "API Server › Auth API",
+  "SPM-12": "API Server › Events API",
+  "SPM-14": "API Server › Events API, Event Lifecycle Rules",
+  "SPM-15": "API Server › Events API",
+  "SPM-16": "API Server › Events API, Event Lifecycle Rules",
+  "SPM-13": "API Server › Venues API",
+  "SPM-17": "API Server › Venue Booking API, Venue Booking Rules",
+  "SPM-18": "API Server › Equipment API, Equipment Availability Engine",
+  "SPM-19": "API Server › Registrations API, Registration & Waiting List Rules",
+  "SPM-20": "API Server › Notifications API, Notifications",
 };
 const DESIGN_BY_STORY: Record<string, string> = {
-  "SPM-2": "System Context and Containers views",
-  "SPM-3": "Container › Database",
-  "SPM-4": "Web Application › Auth API",
-  "SPM-10": "Containers view (Web Application ↔ Database)",
-  "SPM-84": "",
-  "SPM-85": "",
-  "SPM-86": "",
-  "SPM-87": "",
-  "SPM-88": "",
+  // Sprint 1 research and design
+  "SPM-2": "C1 Context and C2 Containers views",
+  "SPM-3": "Database (container)",
+  "SPM-4": "API Server › Permission Model",
+  "SPM-5": "API Server › Event Lifecycle Rules",
+  "SPM-7": "Web UI › Pages, UI Kit",
+  "SPM-8": "C2 Containers view (technologies)",
+  "SPM-10": "C2 Containers view (Web UI → API Server → Database)",
+  // Roles and access
+  "SPM-22": "Web UI › Access Gate, App Shell & Navigation",
+  "SPM-85": "API Server › Permission Model; Web UI › App Shell & Navigation",
+  "SPM-94": "API Server › Permission Model",
+  // Coordinator assignment (SPM-83 was folded into SPM-84)
+  "SPM-30": "API Server › Assignment API, Coordinator Assignments",
+  "SPM-83": "API Server › Assignment API, Coordinator Assignments",
+  "SPM-84": "API Server › Assignment API, Coordinator Assignments",
+  // Change requests
+  "SPM-32": "API Server › Change Request API, Change Request Rules",
+  "SPM-35": "API Server › Change Request API, Change Request Rules",
+  // Arrangements and the Operational Safety Check
+  "SPM-33": "API Server › Arrangements API, Arrangement Tracking Rules",
+  "SPM-68": "API Server › Arrangements API, Arrangement Tracking Rules",
+  "SPM-86": "API Server › Safety Check API, Safety Check Rules",
+  "SPM-87": "API Server › Safety Check API, Safety Check Rules",
+  "SPM-88": "API Server › Safety Check API, Safety Check Rules",
+  // Venues
+  "SPM-40": "API Server › Venues API, Venue Suitability Rules",
+  "SPM-41": "API Server › Venues API, Venue Suitability Rules",
+  "SPM-45": "API Server › Venues API, Venue Change Impact Rules",
+  "SPM-46": "API Server › Venues API, Venue Time & Conflict Rules",
+  "SPM-80": "API Server › Venues API, Venue Change Impact Rules",
+  // Venue bookings
+  "SPM-44": "API Server › Venue Booking API, Venue Time & Conflict Rules",
+  "SPM-82": "API Server › Venue Booking API, Hold Expiry Rules",
+  "SPM-90": "API Server › Venue Booking API, Venue Suitability Rules",
+  "SPM-93": "API Server › Venue Time & Conflict Rules",
+  // Notifications are in-app only: the model has no email system.
+  "SPM-91": "",
 };
-const designElement = (s: Story) => (s.key in DESIGN_BY_STORY ? DESIGN_BY_STORY[s.key] : (DESIGN_BY_EPIC[s.epic.split(" ")[0]] ?? ""));
+const designFor = (key: string, epic: string) => (key in DESIGN_BY_STORY ? DESIGN_BY_STORY[key] : (DESIGN_BY_EPIC[epic.split(" ")[0]] ?? ""));
+const designElement = (s: Story) => designFor(s.key, s.epic);
 
 // ---------------------------------------------------------------- the columns a PR controls
 
@@ -634,8 +668,9 @@ function repoSections(tests: FoundTest[], storyKeys: string[]): string[] {
 
 /**
  * --repo-only: rewrite the committed matrix's repo-controlled columns and its
- * test-derived sections from the tests and workbooks on this branch, leaving
- * every Jira and GitHub value as it was. Offline.
+ * test-derived sections from the tests and workbooks on this branch, and its
+ * Design element column from the maps above (using the epic already in the
+ * matrix), leaving every Jira and GitHub value as it was. Offline.
  */
 function repoOnly(): void {
   if (!existsSync(CSV) || !existsSync(MD)) {
@@ -652,16 +687,23 @@ function repoOnly(): void {
     process.exit(1);
   }
   const values = new Map<string, string[]>();
+  const designs = new Map<string, string>();
+  const designCol = col("Design element");
   for (const r of body) {
     const now = repoColumns(r[col("Story")], r[col("Title")], tests);
     values.set(r[col("Story")], now);
     idx.forEach((i, j) => (r[i] = now[j]));
+    if (designCol >= 0) {
+      r[designCol] = designFor(r[col("Story")], r[col("Epic")] ?? "");
+      designs.set(r[col("Story")], r[designCol]);
+    }
   }
   writeFileSync(CSV, [head, ...body].map((r) => r.map(csvCell).join(",")).join("\n") + "\n");
 
   const lines = readFileSync(MD, "utf8").replace(/\r\n/g, "\n").split("\n");
   const mdHead = lines.find((l) => l.startsWith("| Story |"))!.slice(2, -2).split(" | ");
   const mdIdx = REPO_COLUMNS.map((name) => mdHead.indexOf(name));
+  const mdDesign = mdHead.indexOf("Design element");
   const out: string[] = [];
   for (const line of lines) {
     const key = /^\| \[(SPM-\d+)\]/.exec(line)?.[1];
@@ -669,6 +711,7 @@ function repoOnly(): void {
       // Cell text never holds " | ": a pipe inside a cell is written "\|".
       const cells = line.slice(2, -2).split(" | ");
       mdRepoCells(values.get(key)!).forEach((v, j) => (cells[mdIdx[j]] = v));
+      if (mdDesign >= 0 && designs.has(key)) cells[mdDesign] = esc(designs.get(key)!);
       out.push("| " + cells.join(" | ") + " |");
     } else out.push(line);
   }
@@ -678,7 +721,7 @@ function repoOnly(): void {
   const genAt = kept.findIndex((l) => l.startsWith("Generated by npm run trace on"));
   kept.splice(genAt + 1, 0, "", `Repo-controlled columns refreshed offline (npm run trace -- --repo-only) on ${today}; Jira and GitHub values are from the date above.`);
   writeFileSync(MD, [...kept, ...repoSections(tests, body.map((r) => r[col("Story")]))].join("\n").replace(/\n{3,}/g, "\n\n"));
-  console.log(`Updated the repo-controlled columns of ${body.length} stories, and the test sections, in docs/traceability/. Jira and GitHub values are unchanged.`);
+  console.log(`Updated the repo-controlled columns and design elements of ${body.length} stories, and the test sections, in docs/traceability/. Jira and GitHub values are unchanged.`);
 }
 
 /** --check: rebuild the repo-controlled columns and compare them with the committed CSV. */

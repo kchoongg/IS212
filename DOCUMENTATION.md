@@ -1051,6 +1051,23 @@ what changed, why, and the migration name if there is one.
 
 ---
 
+### 2026-11-05 — Jordan (traceability: design elements follow the current C4 model)
+- **The matrix's Design element column now names elements of the current C4
+  model** (`docs/architecture/after-week-7/`): "API Server › <route group>,
+  <business rules>" instead of the first model's "Web Application › … API".
+  Stories whose work sits in a narrower component than their epic's are mapped
+  one by one, e.g. SPM-82 → Venue Booking API, Hold Expiry Rules.
+- **No Done story is blank any more.** The Week 7 stories (SPM-84 to SPM-88),
+  the notification stories (SPM-53, SPM-71) and the Sprint 1 research stories
+  had no element because the first model predated them. SPM-91 (email) stays
+  blank: notifications are in-app only, so the model has no email system.
+- `npm run trace -- --repo-only` now also rewrites the Design element column,
+  so it can be refreshed without a Jira token. `docs/START_HERE.md`'s SPM-43
+  walkthrough quotes the new name.
+- No migration.
+
+---
+
 ### 2026-11-05 — Kayalvizhi (BPMN: Sprint 4 flows)
 - **BPMN: added SPM-77, SPM-69, SPM-57 flows, which were built in Sprint 4 but
   not yet drawn** (`docs/ConnectSphere_BPMN.drawio`):
