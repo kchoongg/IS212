@@ -161,8 +161,8 @@ migration, the revert does not undo it in any database already migrated. Tell
 the team before reverting it.
 
 **Look at the code as it was at the end of a sprint.** Each sprint's end is
-tagged: `sprint-1` (586bd68), `sprint-2` (a5730c5) and `sprint-3` (a635cd6),
-the last merge to main before each sprint ended:
+tagged: `sprint-1` (586bd68), `sprint-2` (a5730c5), `sprint-3` (a635cd6) and
+`sprint-4` (c92b918), the last merge to main before each sprint ended:
 
 ```bash
 git fetch --tags

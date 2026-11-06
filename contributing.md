@@ -137,11 +137,13 @@ On the PR form:
 
 - **Title** — must contain the issue key. Usually pre-filled from the branch name; check it. Example: `SPM-123 add user model and migrations`
 - **Description** — a few sentences: what changed, why, anything the reviewer should look at closely.
-- **Reviewers** — assign a teammate via the gear icon in the right sidebar. **Skip this and nobody gets notified.**
+- **Review** — move the Jira card to **In Review** and post the PR in the Telegram PR topic (the Telegram PR bot also posts when a PR is opened, marked ready or merged). Reviews happen there, not as GitHub reviews. In Sprints 1–3 whoever was free took the review; from Sprint 4 a buddy system means every PR has someone lined up to review it.
 
 Not finished yet but want early feedback? Use the dropdown next to the create button and choose **Create draft pull request**. Drafts can't be merged until you mark them ready.
 
 ### 6. Respond to review
+
+The reviewer pulls your branch and runs it (reading the diff is not reviewing), walks the acceptance criteria, and replies in the Telegram PR topic, either approving or listing what's wrong.
 
 Push fixes to the same branch — the PR updates itself. **Never open a second PR for review comments.**
 
@@ -153,9 +155,9 @@ git push
 
 ### 7. Merge and close out
 
-Once approved, click **Merge pull request** on GitHub, then **Delete branch** (the button appears right after merging).
+The **reviewer** merges the PR, after running the code and seeing it work, so the person who merged is the recorded reviewer. Don't merge your own PR.
 
-Then move the Jira ticket to **Done**.
+Once it's merged, check the new code is on `main`, then move the Jira ticket to **Done**. Once the story, task or bug is closed, the branch is deleted, usually by the reviewer, though anyone can do it.
 
 Clean up locally:
 
@@ -171,7 +173,7 @@ git branch -d SPM-123-user-model
 
 - **Never push directly to `main`.** All changes go through a PR. No exceptions, including tiny fixes.
 - **Review PRs within one working day.** If PRs sit, people start stacking branches on unmerged branches and everything tangles. Reviewing is as much a part of your job as writing code.
-- **Merge as soon as it's approved.** Don't batch merges until the end of the sprint — that concentrates all the integration pain into the worst possible day.
+- **The reviewer merges as soon as they approve.** Don't batch merges until the end of the sprint — that concentrates all the integration pain into the worst possible day.
 - **One story, one branch, one PR.** If a branch is open more than about a week, the story was too big. Say so, and we'll split it.
 - **Always branch from an updated `main`.** `git checkout main && git pull` first, every time.
 

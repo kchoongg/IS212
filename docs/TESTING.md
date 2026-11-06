@@ -2,18 +2,18 @@
 
 How ConnectSphere is tested: the levels we use, what CI runs, how a test
 traces back to a story, what happens when one fails, and the trade-offs we
-chose. Counts are as of 2026-10-19.
+chose. Counts are as of 2026-11-06.
 
 ## Test levels
 
 | Level | What it checks | Database | Where | Files | Tests | How to run |
 |---|---|---|---|---|---|---|
-| **Unit: rules** | Pure functions in `src/lib`: business rules such as conflicts, availability, eligibility, permissions, statuses, form checks | None | `src/lib/__tests__/` | 42 | 1,388 | `npm test` |
-| **Unit: screens** | Pages and components rendered in jsdom and driven by label and role, with the network faked (`mockApi`) | None | `src/app/__tests__/`, `src/components/__tests__/` | 23 | 1,658 | `npm test` |
-| **Route, Prisma mocked** | API route handlers with real authentication, permissions and validation; only Prisma is faked (`vi.mock("@/lib/prisma")`) | Mocked | `src/app/api/__tests__/`, plus 3 service files in `src/lib/__tests__/` | 31 | 1,469 | `npm test` |
-| **Integration, real database** | Route handlers with the real Prisma client against a real Postgres: transactions, row locks, and rules that span several tables | Real, local only | `integration/` | 4 | 10 | `npm run test:integration` |
-| **End-to-end** | The production build in real Chromium against a real, seeded Postgres: whole journeys across roles | Real, local only | `e2e/` | 3 | 11 | `npm run build`, then `npm run test:e2e` |
-| **Manual system test cases** | A person runs each case through the app, step by step, and records the result. These are traced to the story's ACs | Shared | `docs/test-cases/SPM-<n>_Test_Cases.xlsx` (the Drive copies are a read-only archive since 2026-10-19) | 41 stories | 642 cases (297 positive, 221 negative, 124 boundary) | By hand; the end-of-sprint regression run is in `docs/regression/` |
+| **Unit: rules** | Pure functions in `src/lib`: business rules such as conflicts, availability, eligibility, permissions, statuses, form checks | None | `src/lib/__tests__/` | 54 | 1,900 | `npm test` |
+| **Unit: screens** | Pages and components rendered in jsdom and driven by label and role, with the network faked (`mockApi`) | None | `src/app/__tests__/`, `src/components/__tests__/` | 26 | 2,098 | `npm test` |
+| **Route, Prisma mocked** | API route handlers with real authentication, permissions and validation; only Prisma is faked (`vi.mock("@/lib/prisma")`) | Mocked | `src/app/api/__tests__/`, plus 5 service files in `src/lib/__tests__/` | 42 | 2,214 | `npm test` |
+| **Integration, real database** | Route handlers with the real Prisma client against a real Postgres: transactions, row locks, and rules that span several tables | Real, local only | `integration/` | 5 | 19 | `npm run test:integration` |
+| **End-to-end** | The production build in real Chromium against a real, seeded Postgres: whole journeys across roles | Real, local only | `e2e/` | 4 | 12 | `npm run build`, then `npm run test:e2e` |
+| **Manual system test cases** | A person runs each case through the app, step by step, and records the result. These are traced to the story's ACs | Shared | `docs/test-cases/SPM-<n>_Test_Cases.xlsx` (the Drive copies are a read-only archive since 2026-10-19) | 57 stories | 807 cases (398 positive, 267 negative, 142 boundary), 17 of them Retired | By hand; the end-of-sprint regression run is in `docs/regression/` |
 
 Unit and mocked-route tests run together in one Vitest run, with coverage
 (`npm run test:coverage`). Integration and end-to-end tests refuse any
@@ -23,7 +23,7 @@ team's shared Neon database is never used for them.
 ### What each automated level is for
 
 - **Unit tests** hold almost all of the business rules. They are fast (the
-  whole suite runs in about 3 minutes), and a failure points straight at one
+  whole suite runs in about 4 minutes), and a failure points straight at one
   function.
 - **Mocked-route tests** check what a route does with a request: who may call
   it, what it refuses, and what it writes. They don't check what the database
@@ -50,6 +50,11 @@ team's shared Neon database is never used for them.
 | Registration refused once the capacity is reached | SPM-51 AC9 / SPM-51-TC05 | Failure |
 | Two attendees register for the last place at the same moment: exactly one gets it | SPM-51 AC9 / SPM-111 (bug) | Conflict |
 | A withdrawn attendee does not hold a place; the last place can still be taken, then no more | SPM-51 AC9 / SPM-51-TC04 | Boundary |
+| Raising a venue's turnaround time flags both bookings that now overlap, each naming the other, notifies the coordinator, and changes neither booking | SPM-80 AC1, AC2, AC4, AC5 / SPM-80-TC02, TC03 | Normal |
+| A booking whose new setup time now overlaps a recorded unavailable period is flagged | SPM-80 AC3 / SPM-80-TC07 | Normal |
+| Bookings that do not clash under the new times, and bookings in the past, are left alone | SPM-80 AC6, AC7 / SPM-80-TC02 | Normal |
+| The booking after one that has just ended is flagged, but the ended one is not | SPM-80 AC2, AC7 / PR #74 review | Boundary |
+| A booking request made after the change is checked with the new turnaround time: refused, then accepted once the turnaround is back to 0 | SPM-80 AC8 / SPM-80-TC08 | Failure, normal |
 
 The "same moment" tests were each checked against the bug they exist for.
 With the row lock removed from the route, both requests were accepted 3 runs
@@ -64,6 +69,7 @@ the route was fixed to lock the event row before counting.
 |---|---|---|
 | `e2e/event-request-journey.spec.ts` | Organiser submits, then each step in order: Ops Manager assigns, coordinator approves, books Marina Auditorium, Venue Staff approve, coordinator requests equipment, Technical Support reserve, coordinator sets up registration and submits for the safety check, Safety Officer approves, coordinator confirms, attendee registers. SPM-25, 30, 28, 42, 43, 47, 49, 64, 86, 87, 34, 51 | Normal, across all 7 roles |
 | `e2e/venue-booking-conflict.spec.ts` | A second event's request for a room already held at that time is refused, naming the event that holds it. SPM-44-TC04 | Conflict |
+| `e2e/venue-turnaround-recheck.spec.ts` | Venue Staff raise a venue's turnaround time and are told which bookings now clash; the coordinator finds both bookings flagged on Flagged Arrangements, each naming the other. SPM-80 AC1, AC2, AC4, AC5 / SPM-80-TC02, TC03 | Conflict |
 | `e2e/login.spec.ts` | Every role logs in to its own sidebar; a logged-out visitor is sent to log in and brought back; a wrong password is refused. SPM-21, SPM-22 | Normal, failure |
 
 ## What CI runs, and when
@@ -81,6 +87,7 @@ and again on `main` after a merge, so `main`'s own status is always visible.
 | Build | `npm run build` | PR and main |
 | Migrations | Replays every migration on an empty database, checks the schema matches them, then loads the seed and every `fixtures:*` script twice | PR and main |
 | Test cases | Warns if the story in the branch name has no `docs/test-cases/` document (a warning, never a failure) | PR only |
+| Traceability | `npm run trace:tags`: fails on a test with no `[SPM-xx]` tag, or a PR whose title and branch name no story (titles starting "Docs:" or "Chore:" are exempt). Then `npm run trace -- --check`: fails if the matrix in `docs/traceability/` is out of date for the tests and test case workbooks | PR and main |
 | Dependency audit | Warns on high or critical advisories (a warning, never a failure) | PR and main |
 
 **Why the levels are separate jobs:**
@@ -155,8 +162,9 @@ isolation plus a clean full rerun (suspected timing under load).
 
 ## Coverage
 
-Unit and mocked-route tests cover 100% of lines under `src/`, 99.82% of
-statements, 99.94% of functions and 99.37% of branches (2026-10-19). CI enforces the minimums in `vitest.config.mts`, and fails any
+Unit and mocked-route tests cover 100% of lines under `src/`, 100% of
+functions, 99.88% of statements and 99.54% of branches (2026-11-06, the same
+as the 2026-11-04 run README.md's exclusions are listed from). CI enforces the minimums in `vitest.config.mts`, and fails any
 PR that adds or changes a line under `src/` that no test runs. Every line
 that is still not covered is listed in README.md under "Coverage
 exclusions", with the reason.
@@ -164,8 +172,9 @@ exclusions", with the reason.
 ## Our trade-offs
 
 - **Few E2E tests, on purpose.** Browser tests are slow (a production build
-  plus Chromium) and break when on-screen text changes. We keep two
-  journeys: the whole core workflow and one conflict. The rules behind each
+  plus Chromium) and break when on-screen text changes. Besides logging in,
+  we keep three journeys: the whole core workflow, one booking conflict, and
+  the re-check when a venue's turnaround time changes. The rules behind each
   step are tested at the unit level, where a failure is cheap to find and
   fix.
 - **Real database only where it changes the answer.** Most rules are pure
