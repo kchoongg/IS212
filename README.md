@@ -49,9 +49,10 @@ You need:
 
 Then, in the project folder:
 
-1. Install the dependencies (about 2 minutes; this also generates the Prisma client):
+1. Install the dependencies (about 2 minutes), then generate the database client:
    ```
    npm ci
+   npx prisma generate
    ```
 2. Copy `.env.example` to `.env`, and in `.env` set:
    - `DATABASE_URL` to your database's connection string
