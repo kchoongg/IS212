@@ -6,7 +6,7 @@ efficiently.*
 
 This document is the reference the team builds screens against. It names every
 screen in the first release, defines how users move between them, fixes the
-rules that keep the interface consistent across the five roles, and specifies
+rules that keep the interface consistent across the seven roles, and specifies
 form fields, validation, and error states.
 
 Companion documents:
@@ -41,24 +41,21 @@ meeting.
 
 ## 2. Roles
 
-The customer briefing names five roles. The database (`users.role`) carries a
-sixth, `ops_manager`, because someone has to assign a coordinator to a
-submitted event — a coordinator cannot assign themselves before they are
-responsible for the event. Treated as an internal admin variant of Coordinator:
-identical chrome, one extra screen. A seventh, `safety_officer`, came with the
-Week 7 changes (change #6, SPM-85): it reviews the operational safety of an
-event once its arrangements are made, reading what a review needs and
-changing nothing.
+Seven roles. The Event Coordinator Lead (`ops_manager`) assigns a coordinator
+to each submitted event, since a coordinator cannot assign themselves before
+they are responsible for it (SPM-30, SPM-84). The Safety Officer reviews the
+operational safety of an event once its arrangements are made, reading what a
+review needs and changing nothing (SPM-85).
 
-| Key | Label in UI | Internal/External | Home screen after login |
+| Key | Label in UI | Internal/External | Home screen after login (`/dashboard`) |
 | --- | --- | --- | --- |
-| `organiser` | Event Organiser | External | `/dashboard` — my events by status: Drafts, Under review, Approved, Planning |
-| `coordinator` | Event Coordinator | Internal | `/dashboard` — my assigned events by status: Awaiting your review, Approved, Planning |
-| `venue_staff` | Venue Staff | Internal | `/dashboard` — pending booking requests |
-| `tech_support` | Technical Support | Internal | `/dashboard` — pending equipment requests |
-| `attendee` | Attendee | External | `/dashboard` — my registrations + open events |
-| `ops_manager` | Event Coordinator Lead (the Operations Manager until SPM-84) | Internal | `/dashboard` — unassigned submitted events |
-| `safety_officer` | Safety Officer | Internal | `/dashboard` — events awaiting their safety check |
+| `organiser` | Event Organiser | External | My events by status: Drafts, Under review, Approved, Planning, Safety review, Safety approved |
+| `coordinator` | Event Coordinator | Internal | My assigned events by status: Awaiting your review, Approved, Planning, Safety review, Safety approved |
+| `venue_staff` | Venue Staff | Internal | Upcoming events: those with venue arrangements in progress or confirmed |
+| `tech_support` | Technical Support | Internal | Upcoming events: those that may need equipment or on-site support |
+| `attendee` | Attendee | External | Open for registration: Confirmed events they can register for |
+| `ops_manager` | Event Coordinator Lead | Internal | Awaiting assignment: submitted events with no coordinator |
+| `safety_officer` | Safety Officer | Internal | Awaiting your safety check, linking to Safety Checks |
 
 **Never show a raw role key to a user.** `venue_staff` is a database value;
 "Venue Staff" is what a person reads. Labels live in `src/lib/roles.ts`.
@@ -67,8 +64,9 @@ changing nothing.
 
 ## 3. Screen inventory
 
-28 screens. IDs are stable and are what test cases and the product backlog
-cite.
+31 screen IDs, S-01 to S-31 (S-29 to S-31 are listed under the role that uses
+them). IDs are stable and are what test cases and the product backlog cite.
+Which are built is in §10.
 
 ### 3.1 Shared — every role
 
@@ -152,7 +150,8 @@ attendee variant — see §4.3.)*
 
 ```
 +---------------------------------------------------------+
-|  Top bar:  ConnectSphere    [search]   (3)   Jordan v    |
+|  Top bar:  ConnectSphere         (3)  Jordan Tan  Log out |
+|                                     Event Coordinator    |
 +--------------+------------------------------------------+
 |              |  Breadcrumb: Events / Annual Conference   |
 |  Sidebar     |                                           |
@@ -165,10 +164,11 @@ attendee variant — see §4.3.)*
 +--------------+------------------------------------------+
 ```
 
-- **Top bar** — identical for every role: product name (links to
-  `/dashboard`), notification bell with unread count (→ S-04), user menu
-  (Profile, Log out). The user menu shows the role label so a user testing two
-  accounts always knows who they are signed in as.
+- **Top bar** — identical for every role, and stays at the top while the page
+  scrolls: product name (links to `/dashboard`), notification bell with unread
+  count (→ S-04), the signed-in user's name with their role label beneath, and
+  **Log out**. The role label is there so a user testing two accounts always
+  knows who they are signed in as. Below `md` a hamburger opens the sidebar.
 - **Sidebar** — the only role-varying chrome. Items come from `NAV_BY_ROLE` in
   `src/lib/roles.ts`, so a role's navigation is one data structure, not
   scattered conditionals.
@@ -198,7 +198,7 @@ attendee variant — see §4.3.)*
 | Role | Sidebar items |
 | --- | --- |
 | Organiser | Dashboard · My Events · Notifications |
-| Coordinator | Dashboard · Review Queue · Flagged Arrangements · All Events · Venues · Equipment · Notifications |
+| Coordinator | Dashboard · Review Queue · Flagged Arrangements · Change Requests · All Events · Venues · Equipment · Notifications |
 | Venue Staff | Dashboard · Venues · Booking Requests · Notifications |
 | Tech Support | Dashboard · Equipment · Equipment Requests · Notifications |
 | Attendee | Dashboard · Browse Events · My Registrations · Notifications |
@@ -210,15 +210,20 @@ attendee variant — see §4.3.)*
 S-06 is where the roles converge. Rather than building a separate event screen
 per role, one screen renders the tabs the user is entitled to:
 
-| Tab | Organiser | Coordinator | Venue Staff | Tech Support | Attendee | Safety Officer |
-| --- | --- | --- | --- | --- | --- | --- |
-| Overview | yes | yes | yes | yes | public subset | yes |
-| Discussion | yes | yes | — | — | — | — |
-| Venue | read-only | yes | yes | — | name only, once confirmed | — |
-| Equipment | read-only | yes | — | yes | — | read-only |
-| Attendees | yes | yes | — | — | — | — |
-| Readiness | — | yes | — | — | — | — |
-| History | — | yes | — | — | — | — |
+| Tab | Organiser | Coordinator | Venue Staff | Tech Support | Attendee | Event Coordinator Lead | Safety Officer |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Overview | yes | yes | yes | yes | public subset | yes | yes |
+| Venue | — | yes | yes | — | — | — | — |
+| Equipment | read-only, own event | yes | — | yes | — | — | read-only |
+| Attendees | own event | assigned coordinator | — | — | — | — | — |
+| Readiness | — | yes | — | — | — | — | — |
+
+The tabs are `eventTabItemsFor()` in `src/lib/eventTabs.ts`, from the role's
+list in `src/lib/roles.ts`. Roles without a Venue tab learn the room from the
+Overview's **Venue** row. There are no Discussion or History tabs: a
+clarification is a banner on the Overview (S-09), and staff see the **Safety
+check history** card there. The event's status changes are recorded
+(`EventStatusHistory`) but are not shown on a screen of their own.
 
 **What a safety review reads** (SPM-85). The Overview gives ConnectSphere staff
 two cards beside Details: **Sessions** (each session's label, then "27 Sept
@@ -306,7 +311,7 @@ only because managing it requires seeing it, not as a separate viewing right.
                                                 |
                      +--------------------------+---------------+
                      v                                          v
-      /venues/search?eventId=  ->  /events/[id]/booking/new     /events/[id]/equipment
+      /venues/search?event=    ->  /events/[id]/booking/new     /events/[id]/equipment
                      |                                          |
            venue staff decides                        tech support reserves
                      +---------------------+--------------------+
@@ -322,7 +327,7 @@ only because managing it requires seeing it, not as a separate viewing right.
 ```
 /dashboard -> /bookings -> decide (approve | reject + reason)
                    |
-                   +-- conflict? -> /venues/[id]/calendar to see why
+                   +-- conflict? -> /venues/[id]/availability to see why
 ```
 
 **Attendee — registration**
@@ -330,7 +335,7 @@ only because managing it requires seeing it, not as a separate viewing right.
 ```
 /browse -> /events/[id] -> Register -> /registrations
                                |
-                           event full -> join waiting list
+                           event full -> join waiting list -> place offered -> accept within 3 days
 ```
 
 ### 4.5 Responsive behaviour
@@ -339,9 +344,11 @@ The briefing requires desktop and mobile (§7). One breakpoint, `md` (768px):
 
 - **≥ md** — sidebar fixed at 240px, content beside it, tables as tables.
 - **< md** — sidebar becomes a slide-over behind a hamburger; tables become
-  stacked cards (label above value); the primary action moves to a sticky
-  bottom bar so it stays reachable. Venue Staff use this on their feet in a
-  room, so booking decisions must work one-handed.
+  stacked cards (label above value, `Table` in `src/components/ui/`). Venue
+  Staff use this on their feet in a room, so booking decisions are cards with
+  their buttons on the card, workable one-handed.
+- **Long forms** (S-08) keep their submit buttons in a sticky footer at every
+  width, so they stay reachable.
 
 ---
 
@@ -377,10 +384,19 @@ maps the database string to a human label and a fixed tone:
 | `cancelled` | Cancelled | danger (red) |
 | `withdrawn` | Withdrawn | neutral (grey) |
 
-Booking (`pending` / `approved` / `rejected` / `cancelled`), equipment
-(`requested` / `under_review` / `reserved` / `partially_fulfilled` /
-`unavailable`) and registration (`registered` / `waitlisted` / `withdrawn` /
-`attended`) statuses use the same component and the same tone vocabulary.
+The other records use the same component and the same tone vocabulary, all
+from `STATUS_META` in `src/lib/statuses.ts`:
+
+| Record | Statuses (label) |
+| --- | --- |
+| Venue booking | `pending` (Pending), `approved` (Approved), `rejected` (Rejected), `withdrawn` (Withdrawn), `released` (Released), `expired` (Expired) |
+| Equipment request | `requested` (Requested), `reserved` (Reserved), `partially_fulfilled` (Partially fulfilled), `unavailable` (Cannot be provided), `cancelled` (Cancelled) |
+| Registration | `registered` (Registered), `waitlisted` (Waiting list), `withdrawn` (Withdrawn), `attended` (Attended) |
+| Change request | `pending` (Pending), `approved` (Approved), `partially_approved` (Partly approved), `rejected` (Rejected), `withdrawn` (Withdrawn) |
+| Safety check | Not submitted, Awaiting review, Approved, Changes requested, Rejected |
+| Readiness item | Complete, Outstanding, Not required |
+| Registration period (S-26) | Open, Not open yet, Closed, Full, Dates not set |
+| Equipment stock (S-24) | Available, Partly out of service, Out of service |
 Colour is never the only signal — the label carries the meaning for colour-blind
 users.
 
@@ -388,7 +404,7 @@ users.
 
 | Data | Format | Example |
 | --- | --- | --- |
-| Date | `D MMM YYYY` | 3 Oct 2026 |
+| Date | `D MMM YYYY` (Singapore English, so September is "Sept") | 3 Oct 2026, 27 Sept 2027 |
 | Date + time | `D MMM YYYY, HH:mm` | 3 Oct 2026, 14:00 |
 | Time range | `HH:mm–HH:mm` | 09:00–17:00 |
 | Duration | rounded, human | 3h 30m |
@@ -403,12 +419,17 @@ Times are shown in Singapore time throughout; no timezone picker in release 1.
 
 Screens are assembled from these, in `src/components/ui/`:
 
-`Button` (primary / secondary / danger / ghost) · `Field` (label + control +
-hint + error) · `Input` · `Textarea` · `Select` · `Checkbox` ·
-`CheckboxGroup` · `Card` ·
-`StatusBadge` · `Alert` (info / success / warning / error) · `EmptyState` ·
-`PageHeader` · `Breadcrumb` · `Table` (responsive) · `Tabs` · `Spinner` ·
-`ConfirmDialog`.
+`Button` and `ButtonLink` (primary / secondary / danger / ghost) · `Field`
+(label + control + hint + error) · `Input` · `Textarea` · `Select` ·
+`Checkbox` · `CheckboxGroup` · `Fieldset` · `Card` (`CardHeader`, `CardBody`,
+`CardFooter`) · `DetailList` · `StatusBadge` · `Alert` (info / success /
+warning / error) · `PageHeader` · `Breadcrumb` · `Table` (responsive) ·
+`Tabs` · `ConfirmDialog` · `DataState` (loading, empty and error, §7.3) with
+`Spinner`, `Skeleton`, `SkeletonRows` and `EmptyState`.
+
+All are exported from `src/components/ui/index.ts`. Pieces used on more than one
+screen but specific to a feature (`AssignCoordinator`, `BeginPlanningDialog`,
+`SessionFields`, `VenueForm`, …) are in `src/components/`.
 
 Nothing new gets a bespoke style. If a screen needs something not on this list,
 it is added to the list first.
@@ -511,10 +532,10 @@ every session has one.
 | Screen | Fields | Notes |
 | --- | --- | --- |
 | S-01 Login | Email, Password | |
-| S-02 Register | Name, Email, Password, Role, Organisation (external roles only) | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
+| S-02 Register | Full name, Email, Password, Role | Password min 8. Role select shows labels, submits keys. **Role offers Event Organiser and Attendee only** — staff accounts are not self-service (see `docs/PERMISSIONS.md` §1). |
 | S-13 Event review | Decision (approve / reject / request clarification), Message or Reason | Reason **required** when rejecting — enforced server-side in `events/[id]/route.ts`. |
 | S-15 Venue booking request | Venue (from the Venue tab), Session (multi-session events), What is this space for?, Expected attendance for this space, Room layout, Date, Start time, End time, Venue requirements | Built (SPM-42), in times since SPM-93. Date and times default to the event's or session's own, widened to the 15-minute grid. Times must be on the grid, the end after the start, and cover that time. The setup and turnaround times and the whole room-in-use period are shown under the fields, not chosen. SPM-90: the three space fields start on the event's (or session's) own attendance and layout, or on what the Venue tab's "The space you need" card was last checked for; the purpose starts as "Main programme" for the first booking and empty for a further one. |
-| S-16 Equipment request | Equipment item, Quantity, Technical requirements, Start, End | Start/End default wider than the event — kit leaves early, returns late. |
+| S-16 Equipment request | Equipment, Quantity, Session (multi-session events), Technical requirements | No dates to choose: each line is needed for its session's (or the event's) times plus two hours either side, for load-in and load-out. |
 | S-10 Change request | What do you need? (change / postpone / cancel); for a change, Edit event information's fields and Equipment changes; Reason for the change * | Built (SPM-35). A change of details must change a field or describe an equipment change ("Change at least one detail, or describe the equipment change."); the details follow Edit event information's own rules. A request touching the date and time, attendance, venue requirements or equipment is shown as Important to the coordinator, not warned about on the form. |
 | S-20 Venue edit | Code, Name, Building, Floor, Address, Max capacity, Opens/Closes, Setup time (minutes), Turnaround time (minutes), Facilities, Per-layout capacities | Per-layout capacity is a repeatable row. Setup and turnaround in 15-minute steps, zero included (SPM-93). SPM-80: the page's subtitle reads "Changes here can affect this venue's bookings. Nothing is changed for them automatically." Under Setup time, "In 15-minute steps: 0, 15, 30, 45 and so on. Changing it re-checks this venue's upcoming bookings."; under Turnaround time, "Changing the setup or turnaround time re-checks this venue's upcoming bookings. Any that now clash are flagged for their coordinator, never changed." A save that does so lists each flagged booking with "(clashes with <reference> <title>)"; one that flags nothing says "No bookings were affected, so nobody needed to be notified." |
 | S-23 Mark unavailable (dialog on S-20, SPM-45) | Unavailable from + From time, Available again on + Available again at, Reason (select), Other reason (only when the reason is Other) | All four dates and times required, times on the 15-minute grid (SPM-93). The return must be later than the start, and still to come. A period is never refused for the bookings it lands on: they are flagged for review and listed after saving. |
@@ -545,8 +566,8 @@ the authority. The server validates every request regardless.
 - **Form error** — an `Alert` (error) at the top of the form for anything not
   attributable to a single field.
 - **Page error** — replaces the content area, with a retry action.
-- **Toast** — only for successful actions. Never for errors: they disappear
-  before they are read.
+- **Success** — a success `Alert` on the page, which stays until the user
+  moves on. There are no toasts: a toast disappears before it is read.
 
 ### 7.3 The four states of every data screen
 
@@ -584,13 +605,15 @@ getting right.
 | Event cancelled with live bookings | S-06 cancel | Built (SPM-37): **Cancel event** in the header, for the assigned coordinator at any stage that is not final. `ConfirmDialog` "Cancel this event?" — "<event> will be marked Cancelled. This can't be undone." and, under "Cancelling will:", one line per booking released or request withdrawn, equipment released or request cancelled, pending change request and safety check closed, and "Close registration: <n> registered, <n> on the waiting list" (or "This event has no venue bookings, equipment or registration to release."), then "Reason (optional)" and **Cancel event** / **Keep event**. Afterwards "The event has been cancelled. Its venue bookings and equipment have been released.", and the event shows a red "This event was cancelled" alert with the reason, or "No reason was recorded." |
 | Event postponed with live bookings | S-06 postpone | Built (SPM-38): **Postpone event** in the header, before Cancel event, for the assigned coordinator from Approved to Confirmed. `ConfirmDialog` "Postpone this event?" — "<event> will be marked Postponed. Its new date is set later, through a change request." and, under "Postponing will:", the same booking and equipment lines as cancelling, "Approve 1 postponement request", "Close the pending safety check" or "Close the safety approval", and "Pause registration until the event is confirmed again: <n> registered, <n> on the waiting list" (or "This event has no venue bookings, equipment or registration to release."), then "Reason (optional)" and **Postpone event** / **Keep event**. Afterwards "The event has been postponed. Its venue bookings and equipment have been released.", and the event shows an amber "This event is postponed" alert with the reason, or "No reason was recorded." While Postponed the Venue tab says "A venue cannot be requested while the event is postponed. Its new date comes through a change request first." and the Equipment tab "This event is postponed — equipment requirements can't be changed until it has a new date." |
 | Rejecting without a reason | S-13, S-22 | Submit blocked; reason field errors. The server enforces this too. |
-| Session expired | any | Redirect to `/login?next=<path>` with an info alert: "Your session expired. Log in to continue." The intended destination is preserved. |
-| Not authorised for a record | any | 403 page: "You don't have access to this event." No detail about the record — that would leak it. |
+| Session expired | any | Redirect to `/login?next=<path>` with an info alert: "Your session expired. Log in to continue where you left off." The intended destination is preserved. |
+| Not authorised for a page | any role-restricted page | An error `Alert`, "You do not have access to this" (`RequirePermission`), in place of the content. |
+| Not authorised for a record | S-06 and its tabs | An event the user may not know about is answered as not found (404, "Event not found"), so its existence does not leak. A tab the user may not open shows "Not authorised". |
 
 ### 7.5 Destructive and irreversible actions
 
-Cancel event, record an event request's withdrawal, withdraw registration, reject
-booking, and delete venue all go
+Cancel event, postpone event, record an event request's withdrawal, withdraw
+registration, withdraw or release a venue booking, reject booking, and retire
+venue all go
 through `ConfirmDialog`, which names the specific consequence ("This releases
 Marina Grand Hall on 3 Oct and cancels 42 registrations"). A generic "Are you
 sure?" is not acceptable.
@@ -630,7 +653,7 @@ Non-negotiable, and cheap when done from the start:
 | Draft Event Requests | S-07, S-08 |
 | Event Review and Approval | S-12, S-13, S-08 Update request mode (answering a clarification) |
 | Coordinator Assignment | S-28 |
-| Event Status Management | S-06 (badge and History tab), §5.2 |
+| Event Status Management | S-06 (status badge, cancel, postpone, mark as completed), §5.2 |
 | Event Information Management | S-08 edit mode, S-06 |
 | Venue Catalogue | S-19, S-20 |
 | Venue Availability Calendar | S-21 |
@@ -650,7 +673,8 @@ Non-negotiable, and cheap when done from the start:
 
 ## 10. Implementation status
 
-This document specifies the whole first release. What is built so far:
+This document specifies the whole first release. Every screen is built except
+the three listed under "Specified but not built" below.
 
 | Built | Where |
 | --- | --- |
@@ -682,13 +706,32 @@ This document specifies the whole first release. What is built so far:
 | Mark as completed - the assigned coordinator, on a Confirmed event that has ended (SPM-36): button and "Mark this event as completed?" dialog on the Overview ("<title> will be marked Completed. Its venue and equipment stay on record, and its status can't be changed after this.", **Mark as completed** / **Not yet**), then "<title> has been marked as completed.". Not offered before the event ends, on any other status, or to anyone else. An event still Confirmed 7 days after it ends is completed automatically | `src/app/events/[id]/page.tsx`, `src/lib/eventCompletion.ts`, `src/lib/eventCompletionService.ts` |
 | Submit for safety check - the assigned coordinator, from Planning (SPM-86): button and "Submit for safety check?" dialog on the Overview, the refusal naming what is outstanding or flagged, a staff-only "Safety check" row under Status, and a "Safety review" list on the organiser's and coordinator's Dashboard | `src/app/events/[id]/page.tsx`, `src/lib/safetyCheck.ts`, `src/app/dashboard/page.tsx` |
 | S-24 Equipment catalogue: operational status for staff, and Technical Support recording and returning units out of service (SPM-55) | `src/app/equipment/page.tsx`, `src/lib/equipmentOutOfService.ts` |
-| S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts` |
+| S-25 Equipment request queue + detail: availability (SPM-48), Reserve (SPM-49), fulfilment status + technical notes (SPM-50), release or adjust a reservation (SPM-69), suggest an alternative (SPM-77) | `src/app/equipment/requests/`, `src/lib/equipmentAvailability.ts`, `src/lib/equipmentFulfilment.ts`, `src/lib/equipmentReservation.ts`, `src/lib/equipmentSuggestion.ts` |
+| S-06 Event detail, the hub: role-aware tabs, status, clarification banner (SPM-26, SPM-27), cancel (SPM-37) and postpone (SPM-38) | `src/app/events/[id]/page.tsx`, `src/lib/eventTabs.ts` |
+| S-06 Venue tab: the event's venue bookings per session, withdraw or release one (SPM-67), hold expiry (SPM-82) | `src/app/events/[id]/venue/page.tsx` |
+| S-10 Change request form (SPM-35) | `src/app/events/[id]/change-request/page.tsx` |
+| S-11 Registration list and Attendees tab (SPM-65), add an attendee (SPM-57), waiting list (SPM-66) | `src/app/events/[id]/attendees/page.tsx` |
+| S-12 Review queue (SPM-28) | `src/app/queue/page.tsx` |
+| S-13 Event review: approve, reject or request clarification (SPM-28, SPM-29) | `src/app/events/[id]/review/page.tsx` |
+| S-15 Venue booking request (SPM-42), one per session (SPM-81), on the 15-minute grid (SPM-93) | `src/app/events/[id]/booking/new/page.tsx` |
+| S-17 Change request review, item by item (SPM-32) | `src/app/events/[id]/change-requests/[requestId]/page.tsx` |
+| S-31 Change Requests, the coordinator's list (SPM-32) | `src/app/change-requests/page.tsx` |
+| S-19 Venue catalogue (SPM-39) | `src/app/venues/page.tsx` |
+| S-20 Venue add and edit, including setup and turnaround times (SPM-39, SPM-80) | `src/app/venues/new/page.tsx`, `src/app/venues/[id]/edit/page.tsx`, `src/components/VenueForm.tsx` |
+| S-21 Availability calendar (SPM-46) | `src/app/venues/[id]/availability/page.tsx` |
+| S-22 Booking approval queue (SPM-43), hold expiry (SPM-82) | `src/app/bookings/page.tsx` |
+| S-23 Block venue: the "Unavailable periods" section and "Mark unavailable" dialog on S-20 (SPM-45) | `src/app/venues/[id]/edit/page.tsx`, `src/lib/venueUnavailability.ts` |
+| S-26 Browse events and register (SPM-51) | `src/app/browse/page.tsx`, `src/app/events/[id]/RegisterPanel.tsx` |
+| S-27 My registrations, withdraw (SPM-52), waiting-list offers (SPM-66) | `src/app/registrations/page.tsx` |
+| S-28 Assignments: assign and reassign a coordinator (SPM-30), the Event Coordinator Lead's view (SPM-84) | `src/app/assignments/page.tsx`, `src/components/AssignCoordinator.tsx` |
 
-Specified but not yet built, and why:
+Specified but not built, and why:
 
-| Not built | Blocked on |
+| Not built | Why |
 | --- | --- |
-| S-06 event detail, S-12–S-15, S-19–S-24, S-28. | Their endpoints do not exist yet. (S-26 and S-27 were built in SPM-51.) |
+| S-05 Profile (`/profile`) | No story asks for it: no story in Jira covers editing a user's own details. The signed-in user's name and role are in the top bar |
+| S-20 read-only venue detail (`/venues/[id]`) | The venue catalogue opens each venue's editor (Venue Staff) or availability calendar (S-21), which together show everything the detail page would |
+| S-09 Discussion tab | Built differently (SPM-26): the clarification is a banner on S-06, answered through S-08's Update request mode (see S-09 above) |
 
 **Requirements are now rows, not prose.** An organiser ticks facilities and
 accessibility needs from `GET /api/facilities`, and they are written to
@@ -698,15 +741,17 @@ suitability has to match an event's needs against what each venue has, and
 free text cannot be matched. Two consequences worth knowing:
 
 - **Equipment needs dates.** `EquipmentRequest.starts_at` / `ends_at` are NOT
-  NULL and are derived from the event's own times, so the Equipment section of
-  S-08 stays hidden until the event has a start and an end — the same pattern
-  as registration capacity. The reservation window is the event's times plus
-  two hours either side for load-in and load-out; Technical Support adjusts it
-  on review.
-- **One row per item.** `equipment_requests` is unique on
-  `(event_id, equipment_id)`, so the same item cannot be requested twice in one
-  event. Both the form and `createEventSchema` reject it with a message naming
-  the problem rather than letting the database raise a constraint error.
+  NULL and are derived from the event's (or session's) own times, so the
+  Equipment section of S-08 stays hidden until the event or session has a
+  start and an end — the same pattern as registration capacity. The
+  reservation window is those times plus two hours either side for load-in and
+  load-out (`EQUIPMENT_LOAD_WINDOW_MS`, `src/lib/eventSessions.ts`).
+- **One row per item.** The same item cannot be requested twice for the same
+  event, or for the same session of a multi-session event: two partial unique
+  indexes on `equipment_requests` enforce it (see the comment on
+  `EquipmentRequest` in `prisma/schema.prisma`). Both the form and
+  `createEventSchema` reject it with a message naming the problem rather than
+  letting the database raise a constraint error.
 
 Everything an organiser ticks is stored as mandatory. The nice-to-have case
 (`is_mandatory: false`) is a coordinator refinement and is not exposed on the
@@ -714,17 +759,12 @@ organiser's form.
 
 ---
 
-## 11. Open questions for the customer
+## 11. Customer decisions this design follows
 
-To raise at the next Q&A session:
-
-1. Who assigns coordinators — a dedicated Operations Manager, or do
-   coordinators pick up work from a shared queue? (Determines whether S-28 and
-   the `ops_manager` role survive.)
-2. Are tentative venue holds in scope for release 1, or only pending and
-   approved bookings?
-3. Can an Organiser edit a submitted request directly, or must every change go
-   through a change request (S-10)?
-4. Should attendees see the venue before an event is confirmed?
-5. Does a waiting list auto-promote when someone withdraws, or does a
-   coordinator approve the promotion?
+| Question | Decision | Screens |
+| --- | --- | --- |
+| Who assigns coordinators? | The Event Coordinator Lead (`ops_manager`), from Assignments (SPM-30, SPM-84) | S-28 |
+| Are tentative venue holds in scope? | Yes: a pending booking request is a tentative hold, with an expiry Venue Staff can change; it expires if not approved in time (SPM-82) | S-15, S-22 |
+| Can an Organiser edit a submitted request directly? | Only to answer a clarification, through Update request mode (SPM-26). After approval every change goes through a change request (SPM-35) | S-08, S-10 |
+| Do attendees see the venue before an event is confirmed? | No: attendees see only Confirmed events (S-26), and learn the room from the Overview's Venue row | S-06, S-26 |
+| Does a waiting list promote automatically? | A freed place is offered to the next person automatically, who has 3 days to accept; the assigned coordinator can move an offer to someone else (SPM-66) | S-11, S-27 |

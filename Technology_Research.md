@@ -5,10 +5,9 @@ technology options so that we can select an appropriate technology stack for
 ConnectSphere.
 
 **Purpose:** Records the technology options the team considered (SPM-8) and
-the stack the project now runs on. Requirements are drawn from the **IS212
+the stack the project runs on. Requirements are drawn from the **IS212
 Scrum Project Instructions**, the **customer briefing**, and **customer
-clarifications**. Items marked **(planned)** are decisions the team has made
-but not yet set up in the repo — currently a Neon branch per CI run.
+clarifications**.
 
 ---
 
@@ -19,7 +18,7 @@ but not yet set up in the repo — currently a Neon branch per CI run.
 | **R1** | Small team with a fixed, short time budget (four ~2-week sprints, final release Week 12) — little room for setup or tooling that doesn't directly serve a demo. *(Project Instructions, "Project Goal")* |
 | **R2** | Core features are explicitly **not isolated** — an event flows through review, coordinator assignment, venue booking, and equipment reservation as one coherent workflow, and a change in one domain ripples into others. *(feature-table note "not isolated functionality"; `#7` — architecture should match the team's own coupling and size, not anticipated future scale; `#120`, `#4` — a change in one domain must flag/re-validate others)* |
 | **R3** | Relational data with real integrity constraints — no overlapping venue bookings, capacity checks, equipment quantity limits, timed waitlist offers. *("Booking Conflict Detection," "Venue Suitability Checking," "Equipment Availability Checking"; `#41`, `#112`, `#13`, `#44`)* |
-| **R4** | Access control across **six** roles (Organiser, Coordinator, Ops Manager, Venue Staff, Tech Support, Attendee), with Organiser access additionally scoped by client organisation. *("User Authorisation and Authentication"; `#101` — Ops Manager is a separate role; `#81` — org-scoped access)* |
+| **R4** | Access control across **seven** roles (Organiser, Coordinator, Event Coordinator Lead, Venue Staff, Tech Support, Safety Officer, Attendee), with Organiser access additionally scoped by client organisation. *("User Authorisation and Authentication"; `#101` — Ops Manager is a separate role; `#81` — org-scoped access)* |
 | **R5** | Traceable, high-coverage tests (rubric expects ~100% coverage) running in an automated CI pipeline — itself a graded deliverable. *(Deliverables 3 & 6; "Testing and traceability" / "Code quality and CI" rubric rows)* |
 | **R6** | Every decision — including AI-assisted code — must be explainable in a 20-minute Q&A. *("Interactive Q&A Session"; "Accountability and Explainability" rubric row)* |
 
@@ -73,23 +72,43 @@ them unit-testable with Vitest (R5) and easier to explain (R6).
 |---|---|---|
 | Supabase | Free tier, Postgres | Pauses fully after inactivity — risks a dead DB at demo or CI time (R1, R5) |
 | Self-hosted Postgres | No third-party dependency | Needs an always-on server the team doesn't have time to run (R1) |
-| **Neon** ✅ | Scales to zero instead of pausing (R1); free; database branching — today the team works against a shared `is212-dev` branch, and new branches auto-expire after 7 days (`neon.ts`). **(Planned)** once CI exists, a branch per CI run would give each run a clean, reproducible database — an R5 *isolation/reliability* benefit, not a speed claim | Cold-start latency after idle adds a few seconds to the first query of an idle branch (and, once CI exists, to a CI run's first request) |
+| **Neon** ✅ | Scales to zero instead of pausing (R1); free; database branching — the team works against a shared `is212-dev` branch, and new branches auto-expire after 7 days (`neon.ts`) | Cold-start latency after idle adds a few seconds to the first query of an idle branch |
+
+CI does not use Neon: it starts a throwaway Postgres 18 container for each
+job that needs a database (§2.5b). Every run gets a clean, reproducible
+database, and CI needs no Neon credential. Integration and end-to-end tests refuse any database not on
+`localhost`, so they can never touch the shared branch.
 
 ### 2.5a App hosting
 
-Not in scope. The team does not plan to host the app; it runs locally
-(`npm run dev`) against the shared Neon database, including for demos.
+| Option | Advantages | Disadvantages |
+|---|---|---|
+| Local only (`npm run dev`) | Nothing to set up | No shared demo; every reviewer needs a local database (R1) |
+| Self-hosted server | Full control | An always-on server the team has no time to run (R1) |
+| **Vercel** ✅ | Built for Next.js; builds `main` with no servers to run (R1); free | Serverless functions add cold starts, like Neon's |
+
+The app is hosted at https://connectsphere-orcin.vercel.app, built from
+`main`. The hosted demo uses one shared database, so its data can
+change between visits. Vercel needs no servers for the team to run (R1).
 
 ### 2.5b CI/CD
 
-GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on
-each push to `main`. Five checks run in parallel: `npm run lint`,
-`npx tsc --noEmit`, `npm test`, `npm run build`, and a migrations check that
-replays `prisma/migrations` against a throwaway Postgres container. It
-checks and builds the code only; there is no deploy step, since the app is
-not hosted (§2.5a). The pipeline needs no secrets and never touches the
-shared Neon database. The unit-test check also measures coverage (§2.9).
-Still planned: a Neon branch per run (§2.5).
+GitHub Actions (`.github/workflows/ci.yml`, Node.js 24) runs on every pull
+request and on each push to `main`. The jobs are:
+
+- **Checks:** lint, type-check, and unit tests with coverage (§2.9), plus a
+  check that the lines the pull request changed are tested
+- **Test cases and Traceability:** the story has a test case workbook, every
+  test is tagged with its story, and the traceability matrix is up to date
+- **Dependency audit:** no high or critical advisories
+- **Build:** `next build`
+- **Migrations:** the schema matches `prisma/migrations`, and the seed and
+  every story fixture load (and re-run) against a throwaway Postgres
+- **Integration tests and End-to-end:** each against its own throwaway
+  Postgres; the end-to-end job drives the built app in Chromium with Playwright
+
+CI only checks and builds; deploying is Vercel's job (§2.5a). The pipeline
+needs no secrets and never touches the shared Neon database.
 
 ### 2.6 Authentication
 
@@ -120,17 +139,26 @@ Still planned: a Neon branch per run (§2.5).
 |---|---|---|
 | Jest | Large ecosystem | Slower, more TS/ESM config — costs R1's time and R5's CI feedback speed |
 | **Vitest** ✅ | Minimal config (R1); fast runs locally and in the CI pipeline (R5); Jest-compatible API; runs the UI tests too, with React Testing Library and jsdom | Smaller ecosystem — not a practical issue here |
+| Cypress (end to end) | Popular, interactive runner | Runs inside the browser, so starting the app and a database for CI needs extra setup (R1) |
+| **Playwright** ✅ (end to end) | Starts the built app itself (`webServer` in `playwright.config.ts`) and runs headless in CI (R5); TypeScript-first | Browser download adds to CI time |
 
 Coverage is measured with `@vitest/coverage-v8` (`npm run test:coverage`),
 counting every file under `src/` whether or not a test imports it. CI prints
 the table and attaches the HTML report to each run, and fails below a
-minimum (95% statements, 92% branches, `vitest.config.mts`). As measured on 2026-10-02: 99.5% of statements overall —
-the API routes 99.6% (each handler called with the database mocked,
-`src/app/api/__tests__`), `src/lib` 99.3%, the pages 99.7% and the
-components 99.3% (rendered with React Testing Library in jsdom with the network mocked,
-`src/app/__tests__` and `src/components/__tests__`). The 18 statements left
-are defensive guards no test can reach. These are unit and component tests:
-nothing yet drives the real app against a real database end to end.
+minimum (99% statements, lines and functions, 98.5% branches,
+`vitest.config.mts`). As measured on 2026-11-04: 100% of lines and
+functions, 99.88% of statements and 99.54% of branches. Every piece not
+covered is listed with its reason in the README's "Coverage exclusions". API
+routes are tested with the database mocked (`src/app/api/__tests__`), and
+pages and components are rendered with React Testing Library in jsdom with
+the network mocked (`src/app/__tests__`, `src/components/__tests__`).
+
+Two more levels sit above the unit tests (`docs/TESTING.md`):
+
+- **Integration tests** (`integration/`, `npm run test:integration`) are
+  also Vitest, run against a real local Postgres.
+- **End-to-end tests** (`e2e/`, `npm run test:e2e`) use Playwright, which
+  drives the built app in Chromium.
 
 ### 2.10 UI library
 
@@ -150,11 +178,11 @@ by Next.js. **Selected: React.**
 
 | Requirement | Addressed by |
 |---|---|
-| R1 — small team, fixed time budget | Low-config Vitest/ESLint, Tailwind, Neon's zero-ops model, no app hosting to run |
+| R1 — small team, fixed time budget | Low-config Vitest/ESLint, Tailwind, Neon's zero-ops model, Vercel hosting with no servers to run |
 | R2 — cross-domain workflow coupling | Monolith + shared DB, Prisma's single schema, TypeScript's cross-domain type checks |
 | R3 — relational integrity | PostgreSQL for structure; business rules in tested application code |
-| R4 — 6-role, org-scoped access | Hand-rolled auth: role in the session token, organisation looked up per request |
-| R5 — traceable testing in CI | Now: TypeScript, Zod, Vitest, ESLint, Prisma migrations, GitHub Actions CI pipeline, coverage reporting. Planned: Neon branch-per-run |
+| R4 — 7-role, org-scoped access | Hand-rolled auth: role in the session token, organisation looked up per request |
+| R5 — traceable testing in CI | TypeScript, Zod, Vitest (unit and integration), Playwright (end to end), ESLint, Prisma migrations, the GitHub Actions pipeline with coverage, test-tag and traceability checks, a throwaway Postgres per job |
 | R6 — explainable decisions | Hand-rolled auth, framework-aligned lint/UI, Zod's single pattern |
 
 ---
@@ -171,11 +199,11 @@ by Next.js. **Selected: React.**
 | ORM | Prisma |
 | Authentication | Hand-rolled — bcryptjs + jsonwebtoken |
 | Validation | Zod |
-| Testing | Vitest |
+| Testing | Vitest (unit, component, integration), Playwright (end to end) |
 | Linting | ESLint (`eslint-config-next`) |
 | Workflow | GitHub + Jira, one branch per ticket (e.g. `SPM-40-search-filter-venues`) |
-| App hosting | None — runs locally; hosting not in scope |
-| CI/CD | GitHub Actions (lint, type-check, test, build, migrations; no deploy) |
+| App hosting | Vercel, built from `main` |
+| CI/CD | GitHub Actions (§2.5b): lint, type-check, unit tests with coverage, test case and traceability checks, dependency audit, build, migrations, integration, end to end. Deploying is done by Vercel |
 
 ---
 
@@ -183,7 +211,7 @@ by Next.js. **Selected: React.**
 
 A small team with a fixed time budget (R1) building features that aren't
 isolated from each other (R2), over relational data with real integrity
-rules (R3) and a six-role, org-scoped access model (R4) — while the rubric
+rules (R3) and a seven-role, org-scoped access model (R4) — while the rubric
 demands tested/traceable/CI'd code (R5) that the team can personally
 explain (R6). That ruled out heavy configuration (managed auth) and
 infrastructure the team has no time to run (microservices, self-hosted
@@ -194,13 +222,17 @@ Neon's cold start adds latency to the first query on an idle branch, and
 hand-rolled auth explicitly leaves password recovery unbuilt (deferred per
 `#64`, not overlooked).
 
-**Not yet in place:** the coverage target in R5 is met (99.5%, §2.9), but
-by unit and component tests only — there is no end-to-end test against a
-running app and database, and no Neon branch per CI run. Hosting the app is not planned; it runs locally.
+The coverage target in R5 is met (§2.9), and integration and Playwright
+end-to-end tests run against a real database in CI.
 
-**Known gap:** clarifications `#71`, `#44`, `#55` describe schedule-driven
-behaviour (auto-completing events, expiring waitlist offers, batched
-notifications) that needs something to run on a timer, which nothing above
-provides. Left open deliberately until those stories are picked up.
-Equipment turnaround (`#5`) did not need a scheduler: availability is
+**Timed behaviour without a scheduler:** clarifications `#71`, `#44` and `#55`
+describe behaviour driven by time: auto-completing events, expiring venue
+holds and waiting-list offers, and notifications. Rather than add a
+scheduled job to the stack, each rule is applied by a sweep. The sweep runs
+before any route reads the affected rows, and in the unread-notifications
+count that every page requests (SPM-36, SPM-82, SPM-66;
+`src/lib/eventCompletionService.ts`, `holdExpiryService.ts`,
+`waitingListService.ts`). A record is never read in a state it has already
+timed out of. `#55` set no hard real-time requirement for notifications.
+Equipment turnaround (`#5`) did not need a scheduler either: availability is
 computed at query time from the event dates (`src/lib/equipmentAvailability.ts`).

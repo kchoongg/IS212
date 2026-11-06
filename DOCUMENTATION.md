@@ -18,8 +18,9 @@
 > - [`SCHEMA_REFERENCE.md`](./SCHEMA_REFERENCE.md) — every table, every field,
 >   every allowed status value, and the gotchas. **Read this before writing a
 >   query.** It's the answer to "what's that field called again?"
-> - [`ENDPOINT_ADAPTATION_GUIDE.md`](./ENDPOINT_ADAPTATION_GUIDE.md) — the route
->   code as it was before the schema rebuild. Historical now; kept for reference.
+> - [`Integration.md`](./Integration.md) — how the domains depend on each
+>   other, every API route, and the steps every route follows. **Read this
+>   before writing a route** that touches another domain's tables.
 > - [`UI_DESIGN.md`](./UI_DESIGN.md) — every screen, how users move between
 >   them, what each form asks for, and how errors are shown. **Read this before
 >   building a screen.** It's the answer to "what goes on this page?"

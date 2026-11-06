@@ -38,7 +38,7 @@ In this order, and the earlier wins where two disagree:
 1. **The acceptance criteria** — fetch the Jira issue (Atlassian MCP tools), or read `docs/test-cases/<KEY>_test_cases.json` if the manual test cases were already written; its cases and `open_questions` are the agreed reading of the story.
 2. **Customer answers** — `docs/CUSTOMER_CLARIFICATIONS.md`.
 3. **The design** — `UI_DESIGN.md` (the screen's section, plus §6 forms and §7 validation and error states), `docs/PERMISSIONS.md` (who may do it), `SCHEMA_REFERENCE.md` (the fields), `design/mockups/`.
-4. **How the app already does the same kind of thing** — the nearest existing route or page and its tests. A new list page behaves like the existing list pages: same login redirect, same refusal for the wrong role, same loading, empty, error and Retry states. A new route follows `ENDPOINT_ADAPTATION_GUIDE.md` §1: 401, then 404 for an event the user may not see, then 403, then validation.
+4. **How the app already does the same kind of thing** — the nearest existing route or page and its tests. A new list page behaves like the existing list pages: same login redirect, same refusal for the wrong role, same loading, empty, error and Retry states. A new route follows `Integration.md` §2: 401, then 404 for an event the user may not see, then 403, then validation.
 
 The tests need details the story does not give: the file path, the exported handler names, the request and response shape, status codes, and the exact wording of messages. Decide them, following the conventions in item 4, and write them down as **the contract** — a comment block at the top of the test file:
 
