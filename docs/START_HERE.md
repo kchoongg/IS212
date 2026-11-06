@@ -80,7 +80,7 @@ Coordinator's venue booking request. Each step below says where to click.
 SPM-43 row (Ctrl+F "SPM-43"). It reads: epic SPM-17 Venue Booking, Sprint 2,
 3 points, 7 ACs, all 7 with automated tests (its AC coverage type reads "AC1 A … AC7 A"; M, S and N would mean Manual only, Superseded and None), 14 Active and 2 Retired test
 cases, latest manual result "14 Pass (2026-10-03)", 52 unit + 18 route + 1
-integration + 1 E2E test, design element "Web Application › Venues API",
+integration + 1 E2E test, design element "API Server › Venue Booking API, Venue Booking Rules",
 PR #34 merged 2026-10-03 (Reviewer: "none recorded (merged by kchoongg)": no GitHub review was submitted, and someone other than the author merged it), status Done. Its gap is "no estimate comment": SPM-43
 was estimated in Sprint 2 planning, and Jira has no "Estimate: …" comment for
 it. The steps below show where each of those comes from.
@@ -100,12 +100,14 @@ https://kkchoong.atlassian.net/browse/SPM-43.
 - Each case's own sheet has the steps, then one **execution block** per run: who ran it, on which date, and the result. TC01 was run by Kayal and by Kristen on 2026-10-03, and passed both times.
 - The end-of-sprint regression results are in [regression/Sprint-3_Regression.xlsx](regression/Sprint-3_Regression.xlsx), on Sammi's sheet (SPM-43-TC01-R and others, 2026-10-18).
 
-**4. The design: the architecture model.** The matrix names "Web Application ›
-Venues API", the label from the first C4 model. In the current model,
-[architecture/after-week-7/](architecture/after-week-7/), SPM-43's work is the
-Venue Booking API component (`/api/venue-bookings/*`, "Venue Staff decide
-requests") and its Venue Booking Rules (`src/lib/venueBookingReview.ts`); see
-the "C3 Components - API Server" diagram and [C4-code-map.md](architecture/C4-code-map.md). The
+**4. The design: the architecture model.** The matrix names "API Server ›
+Venue Booking API, Venue Booking Rules": two components of the API Server in the
+current C4 model, [architecture/after-week-7/](architecture/after-week-7/). The
+Venue Booking API is `/api/venue-bookings/*` ("Venue Staff decide requests"),
+and its Venue Booking Rules include `src/lib/venueBookingReview.ts`; see the
+"C3 Components - API Server" diagram and [C4-code-map.md](architecture/C4-code-map.md).
+The matrix takes these names from `scripts/trace.ts` (`DESIGN_BY_EPIC` and
+`DESIGN_BY_STORY`). The
 business rules for the review are in [PERMISSIONS.md](PERMISSIONS.md) and
 [CUSTOMER_CLARIFICATIONS.md](CUSTOMER_CLARIFICATIONS.md).
 
@@ -113,7 +115,7 @@ business rules for the review are in [PERMISSIONS.md](PERMISSIONS.md) and
 https://github.com/kchoongg/IS212/pull/34 (the matrix's PR link).
 - **Files changed** shows the code: `src/app/bookings/page.tsx` (the Booking Requests screen), `src/app/api/venue-bookings/[id]/route.ts` (approve and reject) and `src/lib/venueBookingReview.ts` (the rules).
 - **Conversation** shows any review and its comments. The matrix's Reviewer column lists who submitted a GitHub review; where nobody did, it says who merged the PR. Reading it needs the GitHub CLI (`gh`); without it the column reads "n/a (no gh)". The **Review evidence** column says what shows the PR was reviewed: a GitHub review, who merged it, or a link added to [traceability/review-evidence.csv](traceability/review-evidence.csv) (columns `PR,evidence link,note`) for a review held elsewhere, such as a call recording.
-- **Checks**, the matrix's "run" link, shows the CI run: lint, type-check, unit tests with coverage, build, migrations, integration and end-to-end.
+- **Checks**, the matrix's "run" link, shows the CI run: lint, type-check, unit tests with coverage (and, on a PR, that every changed line is tested), build, migrations, integration, end-to-end, dependency audit, traceability and test cases.
 - To find every commit for the story: on GitHub, search the repository's commits for "SPM-43", or run `git log --oneline --grep SPM-43`.
 
 **6. The automated tests, by level.** Every test name starts with its story
