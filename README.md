@@ -36,27 +36,40 @@ Hosted on Vercel; the code is the same as main.
 
 ## Getting started
 
-Requires Node.js 20.12 or later (CI uses 24).
+To try the app without installing anything, use the [live demo](https://connectsphere-orcin.vercel.app/login).
 
-1. Install dependencies:
+To run it on your own machine, starting from the submitted zip or a clone. The zip leaves out `node_modules` (the dependencies) and `.env` (our database credentials), so steps 2 and 3 recreate them.
+
+You need:
+
+- **Node.js 20.12 or later** (CI uses 24): https://nodejs.org
+- **An empty PostgreSQL database.** Either one:
+  - Docker: `docker run --name connectsphere-db -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres:16`, then use `postgresql://postgres:postgres@localhost:5432/postgres` as `DATABASE_URL`.
+  - A free [Neon](https://neon.tech) project: copy its direct connection string (not the `-pooler` one; it ends in `?sslmode=require`).
+
+Then, in the project folder:
+
+1. Install the dependencies (about 2 minutes; this also generates the Prisma client):
    ```
-   npm install
+   npm ci
    ```
-2. Copy `.env.example` to `.env` and fill in `DATABASE_URL` (local Postgres, Neon, or Supabase) and `JWT_SECRET`.
-3. Apply the schema to your database:
+2. Copy `.env.example` to `.env`, and in `.env` set:
+   - `DATABASE_URL` to your database's connection string
+   - `JWT_SECRET` to any long random string, e.g. the output of `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+   The `JIRA_*` lines are only for `npm run trace`; leave them blank.
+3. Create the tables, then load the demo data (the demo accounts above). Never run the seed on a database that holds real data: it replaces it.
    ```
-   npm run prisma:migrate
-   ```
-4. Generate the Prisma client and load the demo data (the demo accounts above). Never run the seed on the shared team database:
-   ```
-   npx prisma generate
+   npx prisma migrate deploy
    npx prisma db seed
    ```
-5. Run the dev server:
+4. Start the app:
    ```
    npm run dev
    ```
-   then open http://localhost:3000/login
+   then open http://localhost:3000/login and sign in with any demo account (password `password123`).
+
+To run the tests: `npm test` needs no database. The integration and end-to-end tests need the database on localhost (the Docker option); see [Scripts](#scripts).
 
 ## Scripts
 
